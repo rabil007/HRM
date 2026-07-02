@@ -26,4 +26,5 @@ export const DEPLOYMENT_SORT_OPTIONS = [
     { value: 'created_at', label: 'Date added' },
 ] as const;
 
-export type DeploymentSortField = (typeof DEPLOYMENT_SORT_OPTIONS)[number]['value'];
+export type DeploymentSortField =
+    (typeof DEPLOYMENT_SORT_OPTIONS)[number]['value'];

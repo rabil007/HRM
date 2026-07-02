@@ -119,7 +119,11 @@ export type Employee = {
     religion_id?: number | null;
     religion_ref?: { id: number; name: string | null } | null;
     nationality_id?: number | null;
-    nationality_ref?: { id: number; name: string | null; code?: string | null } | null;
+    nationality_ref?: {
+        id: number;
+        name: string | null;
+        code?: string | null;
+    } | null;
     marital_status?: 'single' | 'married' | 'divorced' | 'widowed' | null;
     spouse_name?: string | null;
     labor_contract_id?: string | null;
@@ -188,4 +192,3 @@ export type EmployeeFormData = {
     labor_contract_id: string;
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
 };
-

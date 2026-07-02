@@ -28,12 +28,17 @@ export type UploadDraft = UploadDraftMetadata & {
     file: File;
 };
 
-export type UploadDraftFieldErrors = Partial<Record<keyof UploadDraftMetadata | 'file', string>>;
+export type UploadDraftFieldErrors = Partial<
+    Record<keyof UploadDraftMetadata | 'file', string>
+>;
 
 let uploadDraftIdCounter = 0;
 
 export function createUploadDraftId(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    if (
+        typeof crypto !== 'undefined' &&
+        typeof crypto.randomUUID === 'function'
+    ) {
         return crypto.randomUUID();
     }
 
@@ -66,7 +71,10 @@ export function createUploadDraftFromFile(file: File): UploadDraft {
     };
 }
 
-export function fileMatchesExistingDraft(drafts: UploadDraft[], file: File): boolean {
+export function fileMatchesExistingDraft(
+    drafts: UploadDraft[],
+    file: File,
+): boolean {
     return drafts.some(
         (draft) =>
             draft.file.name === file.name &&
@@ -75,7 +83,9 @@ export function fileMatchesExistingDraft(drafts: UploadDraft[], file: File): boo
     );
 }
 
-export function copyMetadataFromSource(source: UploadDraftMetadata): UploadDraftMetadata {
+export function copyMetadataFromSource(
+    source: UploadDraftMetadata,
+): UploadDraftMetadata {
     return {
         document_type_id: source.document_type_id,
         title: source.title,
@@ -114,7 +124,9 @@ export function parseBulkDocumentErrors(
 
         const index = Number(match[1]);
         const field = match[2] as keyof UploadDraftFieldErrors;
-        const message = Array.isArray(rawValue) ? (rawValue[0] ?? '') : rawValue;
+        const message = Array.isArray(rawValue)
+            ? (rawValue[0] ?? '')
+            : rawValue;
 
         if (!message) {
             continue;

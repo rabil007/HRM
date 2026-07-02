@@ -35,7 +35,10 @@ export function EmployeeProfileShell({
                 >
                     <div className="hide-scrollbar overflow-x-auto">
                         <TabsList
-                            className={cn(dsTabs.list, 'min-w-full flex-nowrap')}
+                            className={cn(
+                                dsTabs.list,
+                                'min-w-full flex-nowrap',
+                            )}
                         >
                             {tabs.map((tab) => (
                                 <TabsTrigger
@@ -45,7 +48,7 @@ export function EmployeeProfileShell({
                                 >
                                     {tab.label}
                                     {tab.count !== null && (
-                                        <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-bold tabular-nums text-muted-foreground group-data-[state=active]:bg-primary/20 group-data-[state=active]:text-primary">
+                                        <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-bold text-muted-foreground tabular-nums group-data-[state=active]:bg-primary/20 group-data-[state=active]:text-primary">
                                             {tab.count}
                                         </span>
                                     )}

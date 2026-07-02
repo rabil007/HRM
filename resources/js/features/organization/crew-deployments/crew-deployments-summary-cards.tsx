@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils';
 const TOTAL_ITEM = {
     key: 'total',
     label: 'Total',
-    cardClass: 'border-border bg-muted/20 hover:border-border dark:border-white/10 dark:hover:border-white/20',
+    cardClass:
+        'border-border bg-muted/20 hover:border-border dark:border-white/10 dark:hover:border-white/20',
     activeClass: 'border-primary/30 ring-1 ring-primary/10',
     valueClass: 'text-foreground',
 } as const;
@@ -15,56 +16,64 @@ const SUMMARY_ITEMS = [
     {
         key: 'unknown',
         label: 'Needs update',
-        cardClass: 'border-red-500/15 bg-red-500/[0.04] hover:border-red-500/30',
+        cardClass:
+            'border-red-500/15 bg-red-500/[0.04] hover:border-red-500/30',
         activeClass: 'border-red-500/40 ring-1 ring-red-500/25',
         valueClass: 'text-red-400',
     },
     {
         key: 'arrived',
         label: 'Arrived',
-        cardClass: 'border-sky-500/15 bg-sky-500/[0.04] hover:border-sky-500/30',
+        cardClass:
+            'border-sky-500/15 bg-sky-500/[0.04] hover:border-sky-500/30',
         activeClass: 'border-sky-500/40 ring-1 ring-sky-500/25',
         valueClass: 'text-sky-400',
     },
     {
         key: 'join_standby',
         label: 'Join standby',
-        cardClass: 'border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30',
+        cardClass:
+            'border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30',
         activeClass: 'border-amber-500/40 ring-1 ring-amber-500/25',
         valueClass: 'text-amber-400',
     },
     {
         key: 'on_vessel',
         label: 'On vessel',
-        cardClass: 'border-emerald-500/15 bg-emerald-500/[0.04] hover:border-emerald-500/30',
+        cardClass:
+            'border-emerald-500/15 bg-emerald-500/[0.04] hover:border-emerald-500/30',
         activeClass: 'border-emerald-500/40 ring-1 ring-emerald-500/25',
         valueClass: 'text-emerald-400',
     },
     {
         key: 'disembarked',
         label: 'Disembarked',
-        cardClass: 'border-border bg-muted/20 hover:border-border dark:border-white/10 dark:hover:border-white/20',
+        cardClass:
+            'border-border bg-muted/20 hover:border-border dark:border-white/10 dark:hover:border-white/20',
         activeClass: 'border-foreground/20 ring-1 ring-foreground/10',
         valueClass: 'text-foreground',
     },
     {
         key: 'leave_standby',
         label: 'Leave standby',
-        cardClass: 'border-orange-500/15 bg-orange-500/[0.04] hover:border-orange-500/30',
+        cardClass:
+            'border-orange-500/15 bg-orange-500/[0.04] hover:border-orange-500/30',
         activeClass: 'border-orange-500/40 ring-1 ring-orange-500/25',
         valueClass: 'text-orange-400',
     },
     {
         key: 'travel',
         label: 'Travel',
-        cardClass: 'border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30',
+        cardClass:
+            'border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30',
         activeClass: 'border-violet-500/40 ring-1 ring-violet-500/25',
         valueClass: 'text-violet-400',
     },
     {
         key: 'in_home',
         label: 'In home',
-        cardClass: 'border-teal-500/15 bg-teal-500/[0.04] hover:border-teal-500/30',
+        cardClass:
+            'border-teal-500/15 bg-teal-500/[0.04] hover:border-teal-500/30',
         activeClass: 'border-teal-500/40 ring-1 ring-teal-500/25',
         valueClass: 'text-teal-400',
     },
@@ -85,7 +94,8 @@ export function CrewDeploymentsSummaryCards({
 }): ReactElement {
     const isTotalActive = !hasActiveFilters;
 
-    const cardButtonClass = 'min-w-0 flex-1 text-left sm:min-w-[calc(33.333%-0.5rem)] md:min-w-[calc(20%-0.6rem)] lg:min-w-0';
+    const cardButtonClass =
+        'min-w-0 flex-1 text-left sm:min-w-[calc(33.333%-0.5rem)] md:min-w-[calc(20%-0.6rem)] lg:min-w-0';
 
     return (
         <div className="mb-6 flex flex-wrap gap-3">
@@ -103,7 +113,7 @@ export function CrewDeploymentsSummaryCards({
                     )}
                 >
                     <CardContent className="p-4">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                        <p className="text-[10px] font-bold tracking-widest text-muted-foreground/60 uppercase">
                             {TOTAL_ITEM.label}
                         </p>
                         <p
@@ -136,7 +146,7 @@ export function CrewDeploymentsSummaryCards({
                             )}
                         >
                             <CardContent className="p-4">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                                <p className="text-[10px] font-bold tracking-widest text-muted-foreground/60 uppercase">
                                     {item.label}
                                 </p>
                                 <p

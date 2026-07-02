@@ -16,9 +16,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { formatIsoDateLocal } from '../lib/planning-gantt-math';
-import { useZoom  } from '../lib/zoom-context';
-import type {ZoomLevel} from '../lib/zoom-context';
-import type { PlanningFilters, PlanningOption, PlanningPagePermissions } from '../types';
+import { useZoom } from '../lib/zoom-context';
+import type { ZoomLevel } from '../lib/zoom-context';
+import type {
+    PlanningFilters,
+    PlanningOption,
+    PlanningPagePermissions,
+} from '../types';
 
 type Props = {
     filters: PlanningFilters;
@@ -53,7 +57,9 @@ function endOfMonth(dateStr: string): string {
     return formatIsoDateLocal(end);
 }
 
-function visit(params: Partial<PlanningFilters & { from: string; to: string }>): void {
+function visit(
+    params: Partial<PlanningFilters & { from: string; to: string }>,
+): void {
     const clean: Record<string, string> = {};
     Object.entries(params).forEach(([k, v]) => {
         if (v !== null && v !== undefined && v !== '') {
@@ -108,16 +114,23 @@ export function PlanningToolbar({
         }
 
         // Today is visible — just scroll to it
-        const el = ganttRef.current?.querySelector('[data-today-col]') as HTMLElement | null;
+        const el = ganttRef.current?.querySelector(
+            '[data-today-col]',
+        ) as HTMLElement | null;
 
         if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            el.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest',
+                inline: 'center',
+            });
         }
     };
 
     const fromLabel = formatMonthLabel(from);
     const toLabel = formatMonthLabel(to);
-    const rangeLabel = fromLabel === toLabel ? fromLabel : `${fromLabel} – ${toLabel}`;
+    const rangeLabel =
+        fromLabel === toLabel ? fromLabel : `${fromLabel} – ${toLabel}`;
 
     const handlePrev = (): void => {
         const newFrom = addMonths(from, -1);
@@ -132,11 +145,17 @@ export function PlanningToolbar({
     };
 
     const handleVesselChange = (value: string): void => {
-        visit({ ...filters, vessel_id: value === '' ? null : (Number(value) as number | null) });
+        visit({
+            ...filters,
+            vessel_id: value === '' ? null : (Number(value) as number | null),
+        });
     };
 
     const handleRankChange = (value: string): void => {
-        visit({ ...filters, rank_id: value === '' ? null : (Number(value) as number | null) });
+        visit({
+            ...filters,
+            rank_id: value === '' ? null : (Number(value) as number | null),
+        });
     };
 
     return (
@@ -144,7 +163,11 @@ export function PlanningToolbar({
             {/* Filters group */}
             <div className="flex items-center gap-2">
                 <AppSelect
-                    value={filters.vessel_id !== null ? String(filters.vessel_id) : ''}
+                    value={
+                        filters.vessel_id !== null
+                            ? String(filters.vessel_id)
+                            : ''
+                    }
                     onValueChange={handleVesselChange}
                     placeholder="All vessels"
                     searchPlaceholder="Search vessels..."
@@ -160,7 +183,9 @@ export function PlanningToolbar({
                 </AppSelect>
 
                 <AppSelect
-                    value={filters.rank_id !== null ? String(filters.rank_id) : ''}
+                    value={
+                        filters.rank_id !== null ? String(filters.rank_id) : ''
+                    }
                     onValueChange={handleRankChange}
                     placeholder="All ranks"
                     searchPlaceholder="Search ranks..."
@@ -208,7 +233,7 @@ export function PlanningToolbar({
             <div className="relative flex items-center">
                 <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground/60" />
                 <Input
-                    className="h-8 w-48 rounded-md pl-8 pr-7 text-sm"
+                    className="h-8 w-48 rounded-md pr-7 pl-8 text-sm"
                     placeholder="Find crew by name…"
                     value={searchInput}
                     onChange={(e) => onSearchChange(e.target.value)}
@@ -263,7 +288,9 @@ export function PlanningToolbar({
                 )}
                 onClick={handleJumpToToday}
                 aria-label="Jump to today"
-                title={todayIsInRange ? 'Scroll to today' : 'Go to current month'}
+                title={
+                    todayIsInRange ? 'Scroll to today' : 'Go to current month'
+                }
             >
                 <CalendarCheck className="h-3.5 w-3.5" />
                 {todayIsInRange ? 'Today' : 'Go to Today'}
@@ -272,7 +299,11 @@ export function PlanningToolbar({
             {/* Actions — pushed right */}
             <div className="ml-auto flex items-center gap-2">
                 {can.create ? (
-                    <Button size="sm" className="h-8 gap-1.5 px-3" onClick={onAssign}>
+                    <Button
+                        size="sm"
+                        className="h-8 gap-1.5 px-3"
+                        onClick={onAssign}
+                    >
                         <Plus className="h-3.5 w-3.5" />
                         Assign
                     </Button>

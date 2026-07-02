@@ -42,13 +42,27 @@ export function DocumentsIndexDocumentsTable({
                 <TableHeader>
                     <DataTableHeaderRow>
                         <DataTableHead>Employee</DataTableHead>
-                        <DataTableHead className="min-w-[220px]">Document</DataTableHead>
-                        <DataTableHead className="hidden sm:table-cell">Type</DataTableHead>
-                        <DataTableHead className="hidden md:table-cell">Document no.</DataTableHead>
-                        <DataTableHead className="hidden md:table-cell">Expiry</DataTableHead>
-                        <DataTableHead className="hidden lg:table-cell">Remaining</DataTableHead>
-                        <DataTableHead className="hidden sm:table-cell">Status</DataTableHead>
-                        <DataTableHead className="text-right">Actions</DataTableHead>
+                        <DataTableHead className="min-w-[220px]">
+                            Document
+                        </DataTableHead>
+                        <DataTableHead className="hidden sm:table-cell">
+                            Type
+                        </DataTableHead>
+                        <DataTableHead className="hidden md:table-cell">
+                            Document no.
+                        </DataTableHead>
+                        <DataTableHead className="hidden md:table-cell">
+                            Expiry
+                        </DataTableHead>
+                        <DataTableHead className="hidden lg:table-cell">
+                            Remaining
+                        </DataTableHead>
+                        <DataTableHead className="hidden sm:table-cell">
+                            Status
+                        </DataTableHead>
+                        <DataTableHead className="text-right">
+                            Actions
+                        </DataTableHead>
                     </DataTableHeaderRow>
                 </TableHeader>
                 <TableBody>

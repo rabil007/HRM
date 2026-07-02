@@ -14,7 +14,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 
@@ -120,41 +126,80 @@ export default function Genders({ genders }: { genders: Gender[] }) {
             <Head title="Genders" />
 
             <div className="space-y-6">
-                <Heading variant="small" title="Genders" description="Manage genders used across the system." />
+                <Heading
+                    variant="small"
+                    title="Genders"
+                    description="Manage genders used across the system."
+                />
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
-                        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search genders..." />
+                        <Input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Search genders..."
+                        />
                     </div>
-                    {can.create ? <Button onClick={openCreate}>Add gender</Button> : null}
+                    {can.create ? (
+                        <Button onClick={openCreate}>Add gender</Button>
+                    ) : null}
                 </div>
 
-                <div className="rounded-xl border border-border/60 overflow-hidden">
+                <div className="overflow-hidden rounded-xl border border-border/60">
                     <div className="overflow-x-auto">
                         <div className="min-w-[640px]">
-                            <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30 whitespace-nowrap">
+                            <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
                                 <div className="col-span-7">Name</div>
                                 <div className="col-span-2">Active</div>
-                                <div className="col-span-3 text-right">Actions</div>
+                                <div className="col-span-3 text-right">
+                                    Actions
+                                </div>
                             </div>
 
                             {rows.map((g) => (
-                                <div key={g.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-t border-border/60 whitespace-nowrap">
-                                    <div className="col-span-7 text-sm truncate">{g.name}</div>
-                                    <div className="col-span-2 flex items-center">
-                                        <Switch disabled={!can.update} checked={g.is_active} onCheckedChange={() => toggleActive(g)} />
+                                <div
+                                    key={g.id}
+                                    className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
+                                >
+                                    <div className="col-span-7 truncate text-sm">
+                                        {g.name}
                                     </div>
-                                    <div className="col-span-3 flex justify-end gap-2 flex-nowrap">
-                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
-                                        {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(g)}>
-                                            Delete
-                                        </Button> : null}
+                                    <div className="col-span-2 flex items-center">
+                                        <Switch
+                                            disabled={!can.update}
+                                            checked={g.is_active}
+                                            onCheckedChange={() =>
+                                                toggleActive(g)
+                                            }
+                                        />
+                                    </div>
+                                    <div className="col-span-3 flex flex-nowrap justify-end gap-2">
+                                        {can.update ? (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => openEdit(g)}
+                                            >
+                                                Edit
+                                            </Button>
+                                        ) : null}
+                                        {can.delete ? (
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => requestDelete(g)}
+                                            >
+                                                Delete
+                                            </Button>
+                                        ) : null}
                                     </div>
                                 </div>
                             ))}
 
                             {rows.length === 0 ? (
-                                <div className="px-4 py-10 text-sm text-muted-foreground">No genders found.</div>
+                                <div className="px-4 py-10 text-sm text-muted-foreground">
+                                    No genders found.
+                                </div>
                             ) : null}
                         </div>
                     </div>
@@ -162,33 +207,59 @@ export default function Genders({ genders }: { genders: Gender[] }) {
             </div>
 
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-                <SheetContent side="right" className="flex w-full flex-col rounded-none p-0 glass-card sm:max-w-md">
-                    <SheetHeader className="p-8 pb-6 border-b border-border/60">
-                        <SheetTitle className="text-xl font-bold tracking-tight">{current ? 'Edit gender' : 'New gender'}</SheetTitle>
-                        <SheetDescription className="text-sm text-muted-foreground/80 mt-1">Keep names short and consistent.</SheetDescription>
+                <SheetContent
+                    side="right"
+                    className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-md"
+                >
+                    <SheetHeader className="border-b border-border/60 p-8 pb-6">
+                        <SheetTitle className="text-xl font-bold tracking-tight">
+                            {current ? 'Edit gender' : 'New gender'}
+                        </SheetTitle>
+                        <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
+                            Keep names short and consistent.
+                        </SheetDescription>
                     </SheetHeader>
 
-                    <div className="flex-1 overflow-y-auto p-8 space-y-5">
+                    <div className="flex-1 space-y-5 overflow-y-auto p-8">
                         <div className="space-y-2">
-                            <Label htmlFor="name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                            <Label
+                                htmlFor="name"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
                                 Name
                             </Label>
                             <Input
                                 id="name"
                                 value={form.data.name}
-                                onChange={(e) => form.setData('name', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('name', e.target.value)
+                                }
                                 placeholder="Male"
-                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                             />
-                            {form.errors.name ? <div className="text-xs font-medium text-destructive">{form.errors.name}</div> : null}
+                            {form.errors.name ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.name}
+                                </div>
+                            ) : null}
                         </div>
 
                         <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
                             <div>
-                                <div className="text-sm font-semibold text-foreground">Active</div>
-                                <div className="text-xs text-muted-foreground/80">Disable to hide from selections.</div>
+                                <div className="text-sm font-semibold text-foreground">
+                                    Active
+                                </div>
+                                <div className="text-xs text-muted-foreground/80">
+                                    Disable to hide from selections.
+                                </div>
                             </div>
-                            <Switch disabled={!can.update} checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
+                            <Switch
+                                disabled={!can.update}
+                                checked={form.data.is_active}
+                                onCheckedChange={(v) =>
+                                    form.setData('is_active', v)
+                                }
+                            />
                         </div>
                     </div>
 
@@ -218,12 +289,19 @@ export default function Genders({ genders }: { genders: Gender[] }) {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete gender</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {current ? `This will permanently delete “${current.name}”.` : 'This will permanently delete this gender.'}
+                            {current
+                                ? `This will permanently delete “${current.name}”.`
+                                : 'This will permanently delete this gender.'}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel className="glass-card rounded-xl hover:bg-accent">Cancel</AlertDialogCancel>
-                        <AlertDialogAction className="rounded-xl" onClick={confirmDelete}>
+                        <AlertDialogCancel className="rounded-xl glass-card hover:bg-accent">
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className="rounded-xl"
+                            onClick={confirmDelete}
+                        >
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>
@@ -232,4 +310,3 @@ export default function Genders({ genders }: { genders: Gender[] }) {
         </>
     );
 }
-

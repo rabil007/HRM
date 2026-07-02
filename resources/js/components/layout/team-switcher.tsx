@@ -27,7 +27,10 @@ type TeamSwitcherProps = {
     teams: Team[];
 };
 
-function resolveActiveTeam(teams: Team[], currentCompanyId: number | null): Team {
+function resolveActiveTeam(
+    teams: Team[],
+    currentCompanyId: number | null,
+): Team {
     if (currentCompanyId) {
         const match = teams.find((t) => t.id === currentCompanyId);
 
@@ -39,13 +42,7 @@ function resolveActiveTeam(teams: Team[], currentCompanyId: number | null): Team
     return teams[0] ?? { id: undefined, name: 'No company' };
 }
 
-function TeamAvatar({
-    team,
-    size = 'md',
-}: {
-    team: Team;
-    size?: 'md' | 'sm';
-}) {
+function TeamAvatar({ team, size = 'md' }: { team: Team; size?: 'md' | 'sm' }) {
     const [failed, setFailed] = React.useState(false);
     const initial = (team.name ?? 'C').slice(0, 1);
     const showLogo = Boolean(team.logo_url) && !failed;
@@ -69,7 +66,12 @@ function TeamAvatar({
                     onError={() => setFailed(true)}
                 />
             ) : (
-                <span className={cn('font-bold', size === 'sm' ? 'text-xs' : 'text-sm')}>
+                <span
+                    className={cn(
+                        'font-bold',
+                        size === 'sm' ? 'text-xs' : 'text-sm',
+                    )}
+                >
                     {initial}
                 </span>
             )}
@@ -80,7 +82,8 @@ function TeamAvatar({
 export function TeamSwitcher({ teams }: TeamSwitcherProps) {
     const { isMobile } = useSidebar();
     const { props } = usePage();
-    const currentCompanyId = (props as { current_company_id?: number })?.current_company_id
+    const currentCompanyId = (props as { current_company_id?: number })
+        ?.current_company_id
         ? Number((props as { current_company_id?: number }).current_company_id)
         : null;
 

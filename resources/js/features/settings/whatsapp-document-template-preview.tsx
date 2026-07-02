@@ -53,18 +53,22 @@ export function WhatsAppDocumentTemplatePreview({
     return (
         <div className={cn('space-y-3', className)}>
             <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                <p className="text-xs font-bold tracking-widest text-muted-foreground uppercase">
                     Template preview
                 </p>
-                <p className="text-[10px] font-mono text-muted-foreground">
+                <p className="font-mono text-[10px] text-muted-foreground">
                     {templateName} · {templateLanguage}
                 </p>
             </div>
 
             <div className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-[#0b141a] shadow-xl">
                 <div className="border-b border-white/5 bg-[#202c33] px-4 py-3">
-                    <p className="text-sm font-semibold text-[#e9edef]">Overseas Marine</p>
-                    <p className="text-[11px] text-[#8696a0]">Business account</p>
+                    <p className="text-sm font-semibold text-[#e9edef]">
+                        Overseas Marine
+                    </p>
+                    <p className="text-[11px] text-[#8696a0]">
+                        Business account
+                    </p>
                 </div>
 
                 <div className="space-y-3 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMxMTIxMjkiIGZpbGwtb3BhY2l0eT0iMC40Ij48cGF0aCBkPSJNMCAwaDQwdjQwSDB6Ii8+PC9nPjwvZz48L3N2Zz4=')] p-4">
@@ -76,8 +80,12 @@ export function WhatsAppDocumentTemplatePreview({
                                         <FileText className="h-4 w-4" />
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <p className="truncate text-xs font-medium">{sampleFileName}</p>
-                                        <p className="text-[10px] text-[#99bfb5]">PDF · Document</p>
+                                        <p className="truncate text-xs font-medium">
+                                            {sampleFileName}
+                                        </p>
+                                        <p className="text-[10px] text-[#99bfb5]">
+                                            PDF · Document
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -93,18 +101,23 @@ export function WhatsAppDocumentTemplatePreview({
                             {bodyText}
                         </div>
                         <div className="flex justify-end px-2 pb-1.5">
-                            <span className="text-[10px] text-[#99bfb5]">12:00 PM</span>
+                            <span className="text-[10px] text-[#99bfb5]">
+                                12:00 PM
+                            </span>
                         </div>
                     </div>
                 </div>
             </div>
 
             <p className="text-xs text-muted-foreground">
-                Approximate preview only. WhatsApp delivers the approved Meta template (
-                <span className="font-mono text-foreground/80">{templateName}</span>
-                ). Meta fills {'{{1}}'}, {'{{2}}'}, {'{{3}}'} in order when sending — map sample
-                values below to see how the message will look. Edit wording in Meta WhatsApp Manager,
-                not here.
+                Approximate preview only. WhatsApp delivers the approved Meta
+                template (
+                <span className="font-mono text-foreground/80">
+                    {templateName}
+                </span>
+                ). Meta fills {'{{1}}'}, {'{{2}}'}, {'{{3}}'} in order when
+                sending — map sample values below to see how the message will
+                look. Edit wording in Meta WhatsApp Manager, not here.
             </p>
         </div>
     );
@@ -122,7 +135,9 @@ export function labelForWhatsAppVariable(key: string): string {
     return VARIABLE_LABELS[normalized] ?? `Preview for {{${key}}}`;
 }
 
-export function extractWhatsAppTemplateVariables(bodyTemplate: string): string[] {
+export function extractWhatsAppTemplateVariables(
+    bodyTemplate: string,
+): string[] {
     const matches = bodyTemplate.matchAll(/\{\{(\d+|[a-z_]+)\}\}/gi);
     const keys: string[] = [];
 
@@ -153,15 +168,27 @@ export function renderWhatsAppTemplatePreviewBody(
     const resolved =
         typeof variables === 'string'
             ? buildWhatsAppTemplatePreviewVariables({
-                  name: variables.trim() !== '' ? variables.trim() : 'Employee Name',
-                  '2': variables.trim() !== '' ? variables.trim() : 'Employee Name',
-                  employee_name: variables.trim() !== '' ? variables.trim() : 'Employee Name',
+                  name:
+                      variables.trim() !== ''
+                          ? variables.trim()
+                          : 'Employee Name',
+                  '2':
+                      variables.trim() !== ''
+                          ? variables.trim()
+                          : 'Employee Name',
+                  employee_name:
+                      variables.trim() !== ''
+                          ? variables.trim()
+                          : 'Employee Name',
               })
             : buildWhatsAppTemplatePreviewVariables(variables);
 
-    return bodyTemplate.replace(/\{\{(\d+|[a-z_]+)\}\}/gi, (match, key: string) => {
-        const normalized = key.toLowerCase();
+    return bodyTemplate.replace(
+        /\{\{(\d+|[a-z_]+)\}\}/gi,
+        (match, key: string) => {
+            const normalized = key.toLowerCase();
 
-        return resolved[normalized] ?? match;
-    });
+            return resolved[normalized] ?? match;
+        },
+    );
 }

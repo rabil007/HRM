@@ -44,7 +44,9 @@ export function AddTrainingCertificateListItem({
                 </div>
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate text-sm font-medium">{draft.file.name}</span>
+                        <span className="truncate text-sm font-medium">
+                            {draft.file.name}
+                        </span>
                         {courseLabel ? (
                             <Badge variant="secondary" className="text-[10px]">
                                 {courseLabel}
@@ -58,14 +60,17 @@ export function AddTrainingCertificateListItem({
                             </Badge>
                         ) : null}
                         {hasErrors ? (
-                            <Badge variant="destructive" className="text-[10px]">
+                            <Badge
+                                variant="destructive"
+                                className="text-[10px]"
+                            >
                                 Fix errors
                             </Badge>
                         ) : null}
                     </div>
                     <div className="mt-0.5 text-xs text-muted-foreground">
-                        Certificate {index + 1} · {draft.file.type || 'Unknown'} ·{' '}
-                        {formatUploadFileSize(draft.file.size)}
+                        Certificate {index + 1} · {draft.file.type || 'Unknown'}{' '}
+                        · {formatUploadFileSize(draft.file.size)}
                     </div>
                 </div>
             </button>

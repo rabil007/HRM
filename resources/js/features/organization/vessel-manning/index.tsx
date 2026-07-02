@@ -1,7 +1,10 @@
 import { Link, router, useForm } from '@inertiajs/react';
 import { Anchor, Filter, Ship, Users, CheckCircle2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { show as vesselManningShow, update as updateVesselManning } from '@/actions/App/Http/Controllers/Organization/VesselManningController';
+import {
+    show as vesselManningShow,
+    update as updateVesselManning,
+} from '@/actions/App/Http/Controllers/Organization/VesselManningController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
     OrganizationDataTable,
@@ -21,7 +24,12 @@ import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
@@ -34,7 +42,10 @@ import type {
     VesselManningPagePermissions,
     VesselTypeOption,
 } from './types';
-import { toVesselManningFormData, toVesselManningPayload } from './vessel-manning-form-utils';
+import {
+    toVesselManningFormData,
+    toVesselManningPayload,
+} from './vessel-manning-form-utils';
 
 function StatCard({
     label,
@@ -50,18 +61,24 @@ function StatCard({
     accent: string;
 }) {
     return (
-        <div className="glass-card group relative overflow-hidden rounded-2xl border border-border/60 bg-card/80 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-md dark:hover:border-white/10">
+        <div className="group relative overflow-hidden rounded-2xl border glass-card border-border/60 bg-card/80 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-md dark:hover:border-white/10">
             <div
                 className={cn(
-                    'pointer-events-none absolute -right-4 -top-4 size-24 rounded-full opacity-20 blur-2xl transition-opacity group-hover:opacity-30',
+                    'pointer-events-none absolute -top-4 -right-4 size-24 rounded-full opacity-20 blur-2xl transition-opacity group-hover:opacity-30',
                     accent,
                 )}
             />
             <div className="relative flex items-start justify-between gap-4">
                 <div className="space-y-2">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70">{label}</p>
-                    <p className="text-3xl font-extrabold tracking-tight tabular-nums">{value}</p>
-                    <p className="text-xs font-medium text-muted-foreground/75">{hint}</p>
+                    <p className="text-[10px] font-bold tracking-[0.18em] text-muted-foreground/70 uppercase">
+                        {label}
+                    </p>
+                    <p className="text-3xl font-extrabold tracking-tight tabular-nums">
+                        {value}
+                    </p>
+                    <p className="text-xs font-medium text-muted-foreground/75">
+                        {hint}
+                    </p>
                 </div>
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/40 dark:border-white/8 dark:bg-white/6">
                     <Icon className="size-5 text-muted-foreground" />
@@ -99,7 +116,8 @@ export function VesselManningContent({
         pagination,
     });
 
-    const [editingVessel, setEditingVessel] = useState<VesselManningItem | null>(null);
+    const [editingVessel, setEditingVessel] =
+        useState<VesselManningItem | null>(null);
     const [sheetOpen, setSheetOpen] = useState(false);
 
     const form = useForm<VesselManningFormData>({
@@ -126,13 +144,20 @@ export function VesselManningContent({
         }
 
         return query;
-    }, [initialFilters.vessel_type_id, initialSearch, pagination.current_page, pagination.per_page]);
+    }, [
+        initialFilters.vessel_type_id,
+        initialSearch,
+        pagination.current_page,
+        pagination.per_page,
+    ]);
 
     const openShow = (vesselId: number): void => {
         router.visit(
             vesselManningShow.url(
                 { vessel: vesselId },
-                Object.keys(listBackQuery).length > 0 ? { query: listBackQuery } : undefined,
+                Object.keys(listBackQuery).length > 0
+                    ? { query: listBackQuery }
+                    : undefined,
             ),
         );
     };
@@ -173,7 +198,7 @@ export function VesselManningContent({
             />
 
             {/* Metrics Overview Grid */}
-            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
                 <StatCard
                     label="Active Fleet"
                     value={pagination.total}
@@ -190,7 +215,10 @@ export function VesselManningContent({
                 />
                 <StatCard
                     label="Required Headcount"
-                    value={vessels.reduce((acc, v) => acc + (v.total_required || 0), 0)}
+                    value={vessels.reduce(
+                        (acc, v) => acc + (v.total_required || 0),
+                        0,
+                    )}
                     hint="Total headcount required (this page)"
                     icon={Users}
                     accent="bg-blue-500"
@@ -201,7 +229,7 @@ export function VesselManningContent({
                 <CardContent className="p-5">
                     <div className="mb-4 flex flex-wrap items-center gap-3">
                         <Filter className="h-4 w-4 text-muted-foreground/50" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
+                        <span className="text-xs font-bold tracking-widest text-muted-foreground/50 uppercase">
                             Filters
                         </span>
                         {hasActiveFilters ? (
@@ -226,15 +254,22 @@ export function VesselManningContent({
                                     : ''
                             }
                             onValueChange={(vesselTypeId) =>
-                                list.applyFilters({ vessel_type_id: vesselTypeId })
+                                list.applyFilters({
+                                    vessel_type_id: vesselTypeId,
+                                })
                             }
                             placeholder="All vessel types"
                             variant="dark"
                             className="h-10 lg:w-64"
                         >
-                            <AppSelectItem value="">All vessel types</AppSelectItem>
+                            <AppSelectItem value="">
+                                All vessel types
+                            </AppSelectItem>
                             {vessel_types.map((vesselType) => (
-                                <AppSelectItem key={vesselType.id} value={String(vesselType.id)}>
+                                <AppSelectItem
+                                    key={vesselType.id}
+                                    value={String(vesselType.id)}
+                                >
                                     {vesselType.name}
                                 </AppSelectItem>
                             ))}
@@ -250,7 +285,11 @@ export function VesselManningContent({
                             <Anchor className="h-6 w-6 text-muted-foreground" />
                         </div>
                     }
-                    title={hasActiveFilters ? 'No vessels match your filters.' : 'No vessels yet.'}
+                    title={
+                        hasActiveFilters
+                            ? 'No vessels match your filters.'
+                            : 'No vessels yet.'
+                    }
                     description={
                         hasActiveFilters
                             ? 'Try adjusting your search or vessel type filter.'
@@ -259,7 +298,9 @@ export function VesselManningContent({
                     action={
                         hasActiveFilters ? undefined : (
                             <Button variant="outline" asChild>
-                                <Link href="/settings/master-data/vessels">Go to vessels</Link>
+                                <Link href="/settings/master-data/vessels">
+                                    Go to vessels
+                                </Link>
                             </Button>
                         )
                     }
@@ -272,26 +313,37 @@ export function VesselManningContent({
                             <DataTableHead>Vessel type</DataTableHead>
                             <DataTableHead>Ranks configured</DataTableHead>
                             <DataTableHead>Total required</DataTableHead>
-                            <DataTableHead className="text-right">Actions</DataTableHead>
+                            <DataTableHead className="text-right">
+                                Actions
+                            </DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
                     <TableBody>
                         {vessels.map((vessel) => (
                             <TableRow
                                 key={vessel.id}
-                                className={cn(dataTableBodyRowClass(), 'cursor-pointer')}
+                                className={cn(
+                                    dataTableBodyRowClass(),
+                                    'cursor-pointer',
+                                )}
                                 onClick={() => openShow(vessel.id)}
                             >
-                                <TableCell className={dataTableCellPrimaryClass()}>
-                                    <div className="font-medium">{vessel.name}</div>
+                                <TableCell
+                                    className={dataTableCellPrimaryClass()}
+                                >
+                                    <div className="font-medium">
+                                        {vessel.name}
+                                    </div>
                                     {!vessel.is_active ? (
-                                        <div className="text-xs text-muted-foreground">Inactive</div>
+                                        <div className="text-xs text-muted-foreground">
+                                            Inactive
+                                        </div>
                                     ) : null}
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {vessel.vessel_type_name ?? '—'}
                                 </TableCell>
-                                 <TableCell className={dataTableCellClass()}>
+                                <TableCell className={dataTableCellClass()}>
                                     {vessel.manning.length === 0 ? (
                                         <span className="text-muted-foreground">
                                             No ranks configured
@@ -302,7 +354,7 @@ export function VesselManningContent({
                                                 <Badge
                                                     key={line.id}
                                                     variant="outline"
-                                                    className="border-primary/20 bg-primary/5 text-foreground font-medium px-2 py-0.5"
+                                                    className="border-primary/20 bg-primary/5 px-2 py-0.5 font-medium text-foreground"
                                                 >
                                                     {line.rank_name}
                                                     <span className="ml-1 text-xs font-bold text-primary">
@@ -320,14 +372,19 @@ export function VesselManningContent({
                                             {vessel.total_required}
                                         </span>
                                     ) : (
-                                        <span className="text-muted-foreground">—</span>
+                                        <span className="text-muted-foreground">
+                                            —
+                                        </span>
                                     )}
                                 </TableCell>
-                                <TableCell className={dataTableActionsCellClass()}>
+                                <TableCell
+                                    className={dataTableActionsCellClass()}
+                                >
                                     <ListTableCrudActions
                                         viewHref={vesselManningShow.url(
                                             { vessel: vessel.id },
-                                            Object.keys(listBackQuery).length > 0
+                                            Object.keys(listBackQuery).length >
+                                                0
                                                 ? { query: listBackQuery }
                                                 : undefined,
                                         )}

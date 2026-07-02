@@ -24,7 +24,7 @@ export function EmployeeProfileLink({
         <Link
             href={buildEmployeeShowUrl(employeeId)}
             className={cn(
-                'font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                'font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none',
                 className,
             )}
             onClick={handleClick}

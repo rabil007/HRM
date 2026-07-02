@@ -30,7 +30,10 @@ export function EmployeeProfileNavigation({
         }
 
         router.visit(
-            show.url({ employee: employeeId }, { query: navigation.list_query }),
+            show.url(
+                { employee: employeeId },
+                { query: navigation.list_query },
+            ),
             { preserveScroll: true },
         );
     };
@@ -81,8 +84,10 @@ export function EmployeeProfileNavigation({
             >
                 <span
                     className={cn(
-                        'text-xs font-semibold leading-none tabular-nums',
-                        embedded ? 'text-foreground' : 'text-muted-foreground dark:text-zinc-400',
+                        'text-xs leading-none font-semibold tabular-nums',
+                        embedded
+                            ? 'text-foreground'
+                            : 'text-muted-foreground dark:text-zinc-400',
                     )}
                 >
                     {navigation.position} / {navigation.total}

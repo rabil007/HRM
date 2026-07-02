@@ -15,7 +15,9 @@ type UseEnsureEmployeeOptions = {
 };
 
 function csrfToken(): string {
-    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const token = document
+        .querySelector('meta[name="csrf-token"]')
+        ?.getAttribute('content');
 
     return token ?? '';
 }
@@ -60,7 +62,9 @@ export function useEnsureEmployee({
             throw new Error('ensure_failed');
         }
 
-        const payload = (await response.json()) as { employee?: EnsuredEmployee };
+        const payload = (await response.json()) as {
+            employee?: EnsuredEmployee;
+        };
         const ensured = payload.employee;
 
         if (!ensured?.id) {

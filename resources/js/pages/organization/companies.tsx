@@ -1,6 +1,10 @@
 import { Head } from '@inertiajs/react';
 import { CompaniesContent } from '@/features/organization/companies';
-import type { Company, Country, Currency } from '@/features/organization/companies/types';
+import type {
+    Company,
+    Country,
+    Currency,
+} from '@/features/organization/companies/types';
 import type { PaginationMeta } from '@/types/pagination';
 
 export default function Companies({

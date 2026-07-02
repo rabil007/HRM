@@ -19,7 +19,10 @@ function findAncestorIds(
         }
 
         if (node.id !== null) {
-            const found = findAncestorIds(node.children, targetId, [...ancestors, node.id]);
+            const found = findAncestorIds(node.children, targetId, [
+                ...ancestors,
+                node.id,
+            ]);
 
             if (found !== null) {
                 return found;
@@ -40,7 +43,10 @@ function findDepartmentIdForPosition(
                 return node.id;
             }
 
-            const found = findDepartmentIdForPosition(node.children, positionId);
+            const found = findDepartmentIdForPosition(
+                node.children,
+                positionId,
+            );
 
             if (found !== null) {
                 return found;
@@ -65,7 +71,10 @@ function PositionTreeNodeRow({
     const isSelected = selectedPositionId === position.id;
 
     return (
-        <div style={{ paddingLeft: depth * 12 }} className="flex items-center gap-0.5">
+        <div
+            style={{ paddingLeft: depth * 12 }}
+            className="flex items-center gap-0.5"
+        >
             <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center">
                 <Briefcase className="h-3 w-3 text-muted-foreground" />
             </span>
@@ -80,7 +89,9 @@ function PositionTreeNodeRow({
                 )}
             >
                 <span className="min-w-0 flex-1 truncate">{position.name}</span>
-                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{position.count}</span>
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {position.count}
+                </span>
             </button>
         </div>
     );
@@ -109,8 +120,9 @@ function DepartmentTreeNodeRow({
     const hasPositions = node.positions.length > 0;
     const hasExpandableContent = hasChildDepartments || hasPositions;
     const isAllNode = node.id === null;
-    const isSelected =
-        isAllNode ? selectedDepartmentId === null && selectedPositionId === null : selectedDepartmentId === node.id && selectedPositionId === null;
+    const isSelected = isAllNode
+        ? selectedDepartmentId === null && selectedPositionId === null
+        : selectedDepartmentId === node.id && selectedPositionId === null;
     const isExpanded = node.id !== null && expandedIds.has(node.id);
 
     const rowButton = (
@@ -125,13 +137,18 @@ function DepartmentTreeNodeRow({
             )}
         >
             <span className="min-w-0 flex-1 truncate">{node.name}</span>
-            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{node.count}</span>
+            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                {node.count}
+            </span>
         </button>
     );
 
     if (!hasExpandableContent || node.id === null) {
         return (
-            <div style={{ paddingLeft: depth * 12 }} className="flex items-center gap-0.5">
+            <div
+                style={{ paddingLeft: depth * 12 }}
+                className="flex items-center gap-0.5"
+            >
                 <span className="inline-flex h-6 w-6 shrink-0" />
                 {rowButton}
             </div>
@@ -143,7 +160,10 @@ function DepartmentTreeNodeRow({
             open={isExpanded}
             onOpenChange={(open) => onToggleExpand(node.id as number, open)}
         >
-            <div style={{ paddingLeft: depth * 12 }} className="flex items-center gap-0.5">
+            <div
+                style={{ paddingLeft: depth * 12 }}
+                className="flex items-center gap-0.5"
+            >
                 <CollapsibleTrigger asChild>
                     <button
                         type="button"
@@ -210,23 +230,31 @@ export function DepartmentEmployeeTree({
         [nodes],
     );
 
-    const allNode = useMemo(() => nodes.find((node) => node.id === null) ?? null, [nodes]);
+    const allNode = useMemo(
+        () => nodes.find((node) => node.id === null) ?? null,
+        [nodes],
+    );
 
     const initialExpandedIds = useMemo(() => {
         const expanded = new Set<number>();
 
         if (selectedDepartmentId !== null) {
-            const ancestors = findAncestorIds(departmentRoots, selectedDepartmentId) ?? [];
+            const ancestors =
+                findAncestorIds(departmentRoots, selectedDepartmentId) ?? [];
 
             ancestors.forEach((id) => expanded.add(id));
             expanded.add(selectedDepartmentId);
         }
 
         if (selectedPositionId !== null) {
-            const departmentId = findDepartmentIdForPosition(departmentRoots, selectedPositionId);
+            const departmentId = findDepartmentIdForPosition(
+                departmentRoots,
+                selectedPositionId,
+            );
 
             if (departmentId !== null) {
-                const ancestors = findAncestorIds(departmentRoots, departmentId) ?? [];
+                const ancestors =
+                    findAncestorIds(departmentRoots, departmentId) ?? [];
 
                 ancestors.forEach((id) => expanded.add(id));
                 expanded.add(departmentId);
@@ -236,7 +264,9 @@ export function DepartmentEmployeeTree({
         return expanded;
     }, [departmentRoots, selectedDepartmentId, selectedPositionId]);
 
-    const [expandedIds, setExpandedIds] = useState<Set<number>>(() => initialExpandedIds);
+    const [expandedIds, setExpandedIds] = useState<Set<number>>(
+        () => initialExpandedIds,
+    );
 
     useEffect(() => {
         setExpandedIds(initialExpandedIds);
@@ -258,7 +288,7 @@ export function DepartmentEmployeeTree({
 
     return (
         <div className={cn('flex flex-col', className)}>
-            <div className="mb-3 flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <div className="mb-3 flex items-center gap-2 px-1 text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                 <Users className="h-3.5 w-3.5" />
                 Department
             </div>

@@ -1,19 +1,28 @@
 import type { ReactElement } from 'react';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { deployedBarSurfaceClass, plannedReliefBarSurfaceClass } from '../lib/assignment-bar-styles';
+import {
+    deployedBarSurfaceClass,
+    plannedReliefBarSurfaceClass,
+} from '../lib/assignment-bar-styles';
 
 const LEGEND_ITEMS = [
     {
         label: 'Deployed',
-        description: 'Crew currently on the vessel — synced automatically from Crew Deployments.',
+        description:
+            'Crew currently on the vessel — synced automatically from Crew Deployments.',
         surfaceClass: deployedBarSurfaceClass,
         labelClass: 'text-emerald-700 dark:text-emerald-300',
         swatchRingClass: 'ring-emerald-500/45 dark:ring-emerald-400/55',
     },
     {
         label: 'Planned relief',
-        description: 'Successor crew you plan here to replace deployed crew after they leave.',
+        description:
+            'Successor crew you plan here to replace deployed crew after they leave.',
         surfaceClass: plannedReliefBarSurfaceClass,
         labelClass: 'text-sky-700 dark:text-sky-300',
         swatchRingClass: 'ring-sky-500/45 dark:ring-sky-400/55',
@@ -28,17 +37,24 @@ export function PlanningLegend(): ReactElement {
         >
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <span className="cursor-help text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <span className="cursor-help text-[10px] font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Legend
                     </span>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" align="start" className="max-w-xs">
-                    Timeline bar colors show whether crew is currently deployed on a vessel or planned
-                    as relief for a future handover.
+                <TooltipContent
+                    side="bottom"
+                    align="start"
+                    className="max-w-xs"
+                >
+                    Timeline bar colors show whether crew is currently deployed
+                    on a vessel or planned as relief for a future handover.
                 </TooltipContent>
             </Tooltip>
 
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1" role="list">
+            <div
+                className="flex flex-wrap items-center gap-x-3 gap-y-1"
+                role="list"
+            >
                 {LEGEND_ITEMS.map((item) => (
                     <Tooltip key={item.label}>
                         <TooltipTrigger asChild>
@@ -54,14 +70,25 @@ export function PlanningLegend(): ReactElement {
                                     )}
                                     aria-hidden
                                 />
-                                <span className={cn('text-xs font-medium', item.labelClass)}>
+                                <span
+                                    className={cn(
+                                        'text-xs font-medium',
+                                        item.labelClass,
+                                    )}
+                                >
                                     {item.label}
                                 </span>
                             </div>
                         </TooltipTrigger>
-                        <TooltipContent side="bottom" align="start" className="max-w-xs">
+                        <TooltipContent
+                            side="bottom"
+                            align="start"
+                            className="max-w-xs"
+                        >
                             <p className="font-semibold">{item.label}</p>
-                            <p className="mt-0.5 text-primary-foreground/90">{item.description}</p>
+                            <p className="mt-0.5 text-primary-foreground/90">
+                                {item.description}
+                            </p>
                         </TooltipContent>
                     </Tooltip>
                 ))}

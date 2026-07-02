@@ -16,7 +16,11 @@ export function DocumentExpiryBadge({
     return (
         <Badge
             variant={expiryStatusVariant(status)}
-            className={cn('font-normal whitespace-nowrap', expiryStatusClass(status), className)}
+            className={cn(
+                'font-normal whitespace-nowrap',
+                expiryStatusClass(status),
+                className,
+            )}
         >
             {expiryStatusLabel(status)}
         </Badge>

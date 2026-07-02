@@ -16,9 +16,11 @@ export function canShowPayslipDeliveryPanel(
     canViewPayslips: boolean,
 ): boolean {
     return (
-        canViewPayslips
-        && PAYSLIP_DELIVERY_STATUSES.includes(period.status as PayrollPeriodStatus)
-        && payslipSummary.total > 0
+        canViewPayslips &&
+        PAYSLIP_DELIVERY_STATUSES.includes(
+            period.status as PayrollPeriodStatus,
+        ) &&
+        payslipSummary.total > 0
     );
 }
 

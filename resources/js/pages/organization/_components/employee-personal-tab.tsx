@@ -84,7 +84,9 @@ export function EmployeePersonalTab({
         countries.find(
             (country) =>
                 String(country.id) ===
-                String(form.data.nationality_id || employee.nationality_id || ''),
+                String(
+                    form.data.nationality_id || employee.nationality_id || '',
+                ),
         )?.name ??
         employee.nationality_ref?.name ??
         '—';
@@ -107,247 +109,309 @@ export function EmployeePersonalTab({
         <TabsContent value="personal" className="mt-6 space-y-6">
             <div className="grid items-stretch gap-4 lg:grid-cols-3">
                 {showPrivateContact ? (
-                <EmployeeSectionCard
-                    title="Private contact"
-                    description="Personal email and home-country mobile"
-                    icon={Mail}
-                >
-                    <div className="space-y-1">
-                        {showField('personal_email') ? (
-                        <PersonalEditableTextRow
-                            label="Email"
-                            field="personal_email"
-                            value={form.data.personal_email ?? ''}
-                            displayValue={
-                                form.data.personal_email ||
-                                employee.personal_email ||
-                                '—'
-                            }
-                            activeField={activeField}
-                            setActiveField={setActiveField}
-                            beginEdit={beginEdit}
-                            onChange={(value) => form.setData('personal_email', value)}
-                            error={form.errors.personal_email}
-                            highlightMissing={isMissingRequired('personal_email')}
-                        />
-                        ) : null}
+                    <EmployeeSectionCard
+                        title="Private contact"
+                        description="Personal email and home-country mobile"
+                        icon={Mail}
+                    >
+                        <div className="space-y-1">
+                            {showField('personal_email') ? (
+                                <PersonalEditableTextRow
+                                    label="Email"
+                                    field="personal_email"
+                                    value={form.data.personal_email ?? ''}
+                                    displayValue={
+                                        form.data.personal_email ||
+                                        employee.personal_email ||
+                                        '—'
+                                    }
+                                    activeField={activeField}
+                                    setActiveField={setActiveField}
+                                    beginEdit={beginEdit}
+                                    onChange={(value) =>
+                                        form.setData('personal_email', value)
+                                    }
+                                    error={form.errors.personal_email}
+                                    highlightMissing={isMissingRequired(
+                                        'personal_email',
+                                    )}
+                                />
+                            ) : null}
 
-                        {showField('phone_home_country') ? (
-                        <PersonalEditablePhoneRow
-                            label="Mobile (Home Country)"
-                            field="phone_home_country"
-                            value={form.data.phone_home_country ?? ''}
-                            fallbackValue={employee.phone_home_country}
-                                        countries={countries}
-                            activeField={activeField}
-                            setActiveField={setActiveField}
-                            beginEdit={beginEdit}
-                            onChange={(value) => form.setData('phone_home_country', value)}
-                            error={form.errors.phone_home_country}
-                            highlightMissing={isMissingRequired('phone_home_country')}
-                        />
-                        ) : null}
-                    </div>
-                </EmployeeSectionCard>
+                            {showField('phone_home_country') ? (
+                                <PersonalEditablePhoneRow
+                                    label="Mobile (Home Country)"
+                                    field="phone_home_country"
+                                    value={form.data.phone_home_country ?? ''}
+                                    fallbackValue={employee.phone_home_country}
+                                    countries={countries}
+                                    activeField={activeField}
+                                    setActiveField={setActiveField}
+                                    beginEdit={beginEdit}
+                                    onChange={(value) =>
+                                        form.setData(
+                                            'phone_home_country',
+                                            value,
+                                        )
+                                    }
+                                    error={form.errors.phone_home_country}
+                                    highlightMissing={isMissingRequired(
+                                        'phone_home_country',
+                                    )}
+                                />
+                            ) : null}
+                        </div>
+                    </EmployeeSectionCard>
                 ) : null}
 
                 {showEmergencyContact ? (
-                <EmployeeSectionCard
-                    title="Emergency contact"
-                    description="Primary emergency contact"
-                    icon={Phone}
-                >
-                    <div className="space-y-1">
-                        {showField('emergency_contact') ? (
-                        <PersonalEditableTextRow
-                            label="Contacted Name"
-                            field="emergency_contact"
-                            value={form.data.emergency_contact ?? ''}
-                            displayValue={
-                                form.data.emergency_contact ||
-                                employee.emergency_contact ||
-                                '—'
-                            }
-                            activeField={activeField}
-                            setActiveField={setActiveField}
-                            beginEdit={beginEdit}
-                            onChange={(value) => form.setData('emergency_contact', value)}
-                            highlightMissing={isMissingRequired('emergency_contact')}
-                        />
-                        ) : null}
-                        {showField('emergency_phone') ? (
-                        <PersonalEditablePhoneRow
-                            label="Contacted Mobile"
-                            field="emergency_phone"
-                            value={form.data.emergency_phone ?? ''}
-                            fallbackValue={employee.emergency_phone}
-                                            countries={countries}
-                            activeField={activeField}
-                            setActiveField={setActiveField}
-                            beginEdit={beginEdit}
-                            onChange={(value) => form.setData('emergency_phone', value)}
-                                            defaultDialCode="+971"
-                            highlightMissing={isMissingRequired('emergency_phone')}
-                        />
-                        ) : null}
-                    </div>
-                </EmployeeSectionCard>
+                    <EmployeeSectionCard
+                        title="Emergency contact"
+                        description="Primary emergency contact"
+                        icon={Phone}
+                    >
+                        <div className="space-y-1">
+                            {showField('emergency_contact') ? (
+                                <PersonalEditableTextRow
+                                    label="Contacted Name"
+                                    field="emergency_contact"
+                                    value={form.data.emergency_contact ?? ''}
+                                    displayValue={
+                                        form.data.emergency_contact ||
+                                        employee.emergency_contact ||
+                                        '—'
+                                    }
+                                    activeField={activeField}
+                                    setActiveField={setActiveField}
+                                    beginEdit={beginEdit}
+                                    onChange={(value) =>
+                                        form.setData('emergency_contact', value)
+                                    }
+                                    highlightMissing={isMissingRequired(
+                                        'emergency_contact',
+                                    )}
+                                />
+                            ) : null}
+                            {showField('emergency_phone') ? (
+                                <PersonalEditablePhoneRow
+                                    label="Contacted Mobile"
+                                    field="emergency_phone"
+                                    value={form.data.emergency_phone ?? ''}
+                                    fallbackValue={employee.emergency_phone}
+                                    countries={countries}
+                                    activeField={activeField}
+                                    setActiveField={setActiveField}
+                                    beginEdit={beginEdit}
+                                    onChange={(value) =>
+                                        form.setData('emergency_phone', value)
+                                    }
+                                    defaultDialCode="+971"
+                                    highlightMissing={isMissingRequired(
+                                        'emergency_phone',
+                                    )}
+                                />
+                            ) : null}
+                        </div>
+                    </EmployeeSectionCard>
                 ) : null}
 
                 {showFamily ? (
-                <EmployeeSectionCard
-                    title="Family"
-                    description="Marital status and spouse"
-                    icon={Users}
-                >
-                    <div className="space-y-1">
-                        {showField('marital_status') ? (
-                        <PersonalEditableSelectRow
-                            label="Marital status"
-                            field="marital_status"
-                            value={String(form.data.marital_status ?? '')}
-                            displayValue={maritalStatusLabel(
-                                form.data.marital_status || employee.marital_status,
-                            )}
-                            options={[...MARITAL_STATUS_OPTIONS]}
-                            activeField={activeField}
-                            setActiveField={setActiveField}
-                            beginEdit={beginEdit}
-                            onChange={(value) => form.setData('marital_status', value)}
-                            highlightMissing={isMissingRequired('marital_status')}
-                        />
-                        ) : null}
-                        {showField('spouse_name') ? (
-                        <PersonalEditableTextRow
-                            label="Spouse name"
-                            field="spouse_name"
-                            value={form.data.spouse_name ?? ''}
-                            displayValue={
-                                form.data.spouse_name || employee.spouse_name || '—'
-                            }
-                            activeField={activeField}
-                            setActiveField={setActiveField}
-                            beginEdit={beginEdit}
-                            onChange={(value) => form.setData('spouse_name', value)}
-                            highlightMissing={isMissingRequired('spouse_name')}
-                        />
-                        ) : null}
-                    </div>
-                </EmployeeSectionCard>
+                    <EmployeeSectionCard
+                        title="Family"
+                        description="Marital status and spouse"
+                        icon={Users}
+                    >
+                        <div className="space-y-1">
+                            {showField('marital_status') ? (
+                                <PersonalEditableSelectRow
+                                    label="Marital status"
+                                    field="marital_status"
+                                    value={String(
+                                        form.data.marital_status ?? '',
+                                    )}
+                                    displayValue={maritalStatusLabel(
+                                        form.data.marital_status ||
+                                            employee.marital_status,
+                                    )}
+                                    options={[...MARITAL_STATUS_OPTIONS]}
+                                    activeField={activeField}
+                                    setActiveField={setActiveField}
+                                    beginEdit={beginEdit}
+                                    onChange={(value) =>
+                                        form.setData('marital_status', value)
+                                    }
+                                    highlightMissing={isMissingRequired(
+                                        'marital_status',
+                                    )}
+                                />
+                            ) : null}
+                            {showField('spouse_name') ? (
+                                <PersonalEditableTextRow
+                                    label="Spouse name"
+                                    field="spouse_name"
+                                    value={form.data.spouse_name ?? ''}
+                                    displayValue={
+                                        form.data.spouse_name ||
+                                        employee.spouse_name ||
+                                        '—'
+                                    }
+                                    activeField={activeField}
+                                    setActiveField={setActiveField}
+                                    beginEdit={beginEdit}
+                                    onChange={(value) =>
+                                        form.setData('spouse_name', value)
+                                    }
+                                    highlightMissing={isMissingRequired(
+                                        'spouse_name',
+                                    )}
+                                />
+                            ) : null}
+                        </div>
+                    </EmployeeSectionCard>
                 ) : null}
             </div>
 
             {showLocation || showCitizenship ? (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
-            {showLocation ? (
-            <EmployeeSectionCard
-                title="Location"
-                description="Travel and residence"
-                icon={MapPin}
-            >
-                <div className="space-y-1">
-                        {[
-                            {
-                                key: 'nearest_airport',
-                                label: 'Nearest Airport (Home Country)',
-                                value:
-                                    form.data.nearest_airport ||
-                                    employee.nearest_airport ||
-                                    '—',
-                            },
-                            {
-                                key: 'address',
-                                label: 'Address',
-                                value:
-                                    form.data.address || employee.address || '—',
-                            },
-                        ]
-                            .filter((row) => showField(row.key))
-                            .map((row) => (
-                            <PersonalEditableTextRow
-                                key={row.key}
-                                label={row.label}
-                                field={row.key}
-                                value={String((form.data as Record<string, unknown>)[row.key] ?? '')}
-                                displayValue={row.value}
-                                activeField={activeField}
-                                setActiveField={setActiveField}
-                                beginEdit={beginEdit}
-                                onChange={(value) => form.setData(row.key, value)}
-                                highlightMissing={isMissingRequired(row.key)}
-                            />
-                        ))}
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
+                    {showLocation ? (
+                        <EmployeeSectionCard
+                            title="Location"
+                            description="Travel and residence"
+                            icon={MapPin}
+                        >
+                            <div className="space-y-1">
+                                {[
+                                    {
+                                        key: 'nearest_airport',
+                                        label: 'Nearest Airport (Home Country)',
+                                        value:
+                                            form.data.nearest_airport ||
+                                            employee.nearest_airport ||
+                                            '—',
+                                    },
+                                    {
+                                        key: 'address',
+                                        label: 'Address',
+                                        value:
+                                            form.data.address ||
+                                            employee.address ||
+                                            '—',
+                                    },
+                                ]
+                                    .filter((row) => showField(row.key))
+                                    .map((row) => (
+                                        <PersonalEditableTextRow
+                                            key={row.key}
+                                            label={row.label}
+                                            field={row.key}
+                                            value={String(
+                                                (
+                                                    form.data as Record<
+                                                        string,
+                                                        unknown
+                                                    >
+                                                )[row.key] ?? '',
+                                            )}
+                                            displayValue={row.value}
+                                            activeField={activeField}
+                                            setActiveField={setActiveField}
+                                            beginEdit={beginEdit}
+                                            onChange={(value) =>
+                                                form.setData(row.key, value)
+                                            }
+                                            highlightMissing={isMissingRequired(
+                                                row.key,
+                                            )}
+                                        />
+                                    ))}
+                            </div>
+                        </EmployeeSectionCard>
+                    ) : null}
+
+                    {showCitizenship ? (
+                        <EmployeeSectionCard
+                            title="Citizenship"
+                            description="Identity documents and work permits"
+                            icon={Globe}
+                            bodyClassName="grid gap-1 lg:grid-cols-2 lg:gap-x-10"
+                        >
+                            {showField('nationality_id') ? (
+                                <PersonalEditableSelectRow
+                                    label="Nationality (Country)"
+                                    field="nationality_id"
+                                    value={String(
+                                        form.data.nationality_id ?? '',
+                                    )}
+                                    displayValue={nationalityDisplay}
+                                    options={nationalityOptions}
+                                    activeField={activeField}
+                                    setActiveField={setActiveField}
+                                    beginEdit={beginEdit}
+                                    onChange={(value) =>
+                                        form.setData('nationality_id', value)
+                                    }
+                                    error={form.errors.nationality_id}
+                                    highlightMissing={isMissingRequired(
+                                        'nationality_id',
+                                    )}
+                                />
+                            ) : null}
+
+                            {[
+                                {
+                                    key: 'passport_number',
+                                    label: 'Passport No',
+                                    value:
+                                        form.data.passport_number ||
+                                        employee.passport_number ||
+                                        '—',
+                                },
+                                {
+                                    key: 'emirates_id',
+                                    label: 'Emirates ID',
+                                    value:
+                                        form.data.emirates_id ||
+                                        employee.emirates_id ||
+                                        '—',
+                                },
+                                {
+                                    key: 'labor_card_number',
+                                    label: 'Labor card number',
+                                    value:
+                                        form.data.labor_card_number ||
+                                        employee.labor_card_number ||
+                                        '—',
+                                },
+                            ]
+                                .filter((item) => showField(item.key))
+                                .map((item) => (
+                                    <PersonalEditableTextRow
+                                        key={item.key}
+                                        label={item.label}
+                                        field={item.key}
+                                        value={String(
+                                            (
+                                                form.data as Record<
+                                                    string,
+                                                    unknown
+                                                >
+                                            )[item.key] ?? '',
+                                        )}
+                                        displayValue={item.value}
+                                        activeField={activeField}
+                                        setActiveField={setActiveField}
+                                        beginEdit={beginEdit}
+                                        onChange={(value) =>
+                                            form.setData(item.key, value)
+                                        }
+                                        highlightMissing={isMissingRequired(
+                                            item.key,
+                                        )}
+                                    />
+                                ))}
+                        </EmployeeSectionCard>
+                    ) : null}
                 </div>
-            </EmployeeSectionCard>
-            ) : null}
-
-            {showCitizenship ? (
-            <EmployeeSectionCard
-                title="Citizenship"
-                description="Identity documents and work permits"
-                icon={Globe}
-                bodyClassName="grid gap-1 lg:grid-cols-2 lg:gap-x-10"
-            >
-                {showField('nationality_id') ? (
-                <PersonalEditableSelectRow
-                            label="Nationality (Country)"
-                            field="nationality_id"
-                            value={String(form.data.nationality_id ?? '')}
-                            displayValue={nationalityDisplay}
-                            options={nationalityOptions}
-                            activeField={activeField}
-                            setActiveField={setActiveField}
-                            beginEdit={beginEdit}
-                            onChange={(value) => form.setData('nationality_id', value)}
-                            error={form.errors.nationality_id}
-                            highlightMissing={isMissingRequired('nationality_id')}
-                        />
-                ) : null}
-
-                        {[
-                            {
-                                key: 'passport_number',
-                                label: 'Passport No',
-                                value:
-                                    form.data.passport_number ||
-                                    employee.passport_number ||
-                                    '—',
-                            },
-                            {
-                                key: 'emirates_id',
-                                label: 'Emirates ID',
-                                value:
-                                    form.data.emirates_id ||
-                                    employee.emirates_id ||
-                                    '—',
-                            },
-                            {
-                                key: 'labor_card_number',
-                                label: 'Labor card number',
-                                value:
-                                    form.data.labor_card_number ||
-                                    employee.labor_card_number ||
-                                    '—',
-                            },
-                        ]
-                            .filter((item) => showField(item.key))
-                            .map((item) => (
-                            <PersonalEditableTextRow
-                                key={item.key}
-                                label={item.label}
-                                field={item.key}
-                                value={String((form.data as Record<string, unknown>)[item.key] ?? '')}
-                                displayValue={item.value}
-                                activeField={activeField}
-                                setActiveField={setActiveField}
-                                beginEdit={beginEdit}
-                                onChange={(value) => form.setData(item.key, value)}
-                                highlightMissing={isMissingRequired(item.key)}
-                            />
-                        ))}
-            </EmployeeSectionCard>
-            ) : null}
-            </div>
             ) : null}
 
             {showWorkAssignments ? (
@@ -362,11 +426,15 @@ export function EmployeePersonalTab({
                     highlightMissingApprovalLocations={isMissingRequired(
                         'approval_location_ids',
                     )}
-                    highlightMissingSssaOptions={isMissingRequired('sssa_option_ids')}
+                    highlightMissingSssaOptions={isMissingRequired(
+                        'sssa_option_ids',
+                    )}
                     onApprovalLocationIdsChange={(ids) =>
                         form.setData('approval_location_ids', ids)
                     }
-                    onSssaOptionIdsChange={(ids) => form.setData('sssa_option_ids', ids)}
+                    onSssaOptionIdsChange={(ids) =>
+                        form.setData('sssa_option_ids', ids)
+                    }
                 />
             ) : null}
         </TabsContent>

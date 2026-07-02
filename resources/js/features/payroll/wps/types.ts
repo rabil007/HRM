@@ -1,4 +1,8 @@
-import type { PayrollCategory, PayrollPeriodStatus, WpsPreview } from '../types';
+import type {
+    PayrollCategory,
+    PayrollPeriodStatus,
+    WpsPreview,
+} from '../types';
 
 export type WpsPeriodOption = {
     id: number;

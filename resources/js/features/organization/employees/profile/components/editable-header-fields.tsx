@@ -32,20 +32,21 @@ export function EditableHeaderNameField({
     if (isEditing) {
         return (
             <div data-employee-field={field} className="space-y-1">
-            <Input
-                className={cn(
-                    'h-10 rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 dark:text-white',
-                    highlightMissing && 'border-rose-500/50 ring-1 ring-rose-500/40',
-                )}
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-                onBlur={() => setActiveField(null)}
-                autoFocus
-                placeholder={placeholder}
-            />
-            {highlightMissing ? (
-                <span className="text-xs text-rose-400">Required</span>
-            ) : null}
+                <Input
+                    className={cn(
+                        'h-10 rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 dark:text-white',
+                        highlightMissing &&
+                            'border-rose-500/50 ring-1 ring-rose-500/40',
+                    )}
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                    onBlur={() => setActiveField(null)}
+                    autoFocus
+                    placeholder={placeholder}
+                />
+                {highlightMissing ? (
+                    <span className="text-xs text-rose-400">Required</span>
+                ) : null}
             </div>
         );
     }
@@ -55,7 +56,7 @@ export function EditableHeaderNameField({
             type="button"
             data-employee-field={field}
             className={cn(
-                'rounded-lg px-1 text-left hover:text-primary dark:hover:text-white disabled:cursor-default disabled:opacity-100',
+                'rounded-lg px-1 text-left hover:text-primary disabled:cursor-default disabled:opacity-100 dark:hover:text-white',
                 highlightMissing && employeeFieldMissingHighlightClass,
             )}
             onClick={() => beginEdit(field)}
@@ -94,16 +95,17 @@ export function EditableHeaderPillTextField({
     if (isEditing) {
         return (
             <div data-employee-field={field}>
-            <Input
-                className={cn(
-                    'h-8 w-[120px] rounded-full border-input bg-background/50 px-3 text-[10px] font-semibold tracking-wide text-foreground dark:border-white/10 dark:bg-white/5 dark:text-zinc-200',
-                    highlightMissing && 'border-rose-500/50 ring-1 ring-rose-500/40',
-                )}
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-                onBlur={() => setActiveField(null)}
-                autoFocus
-            />
+                <Input
+                    className={cn(
+                        'h-8 w-[120px] rounded-full border-input bg-background/50 px-3 text-[10px] font-semibold tracking-wide text-foreground dark:border-white/10 dark:bg-white/5 dark:text-zinc-200',
+                        highlightMissing &&
+                            'border-rose-500/50 ring-1 ring-rose-500/40',
+                    )}
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                    onBlur={() => setActiveField(null)}
+                    autoFocus
+                />
             </div>
         );
     }
@@ -113,7 +115,7 @@ export function EditableHeaderPillTextField({
             type="button"
             data-employee-field={field}
             className={cn(
-                'flex items-center gap-2 rounded-full border border-border/80 bg-muted/40 px-3 py-1.5 text-[10px] font-bold tracking-widest text-muted-foreground transition-colors hover:border-border hover:text-foreground dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-zinc-400 dark:hover:border-white/[0.14] dark:hover:text-zinc-200 disabled:cursor-default disabled:hover:text-muted-foreground dark:disabled:hover:text-zinc-400',
+                'flex items-center gap-2 rounded-full border border-border/80 bg-muted/40 px-3 py-1.5 text-[10px] font-bold tracking-widest text-muted-foreground transition-colors hover:border-border hover:text-foreground disabled:cursor-default disabled:hover:text-muted-foreground dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-zinc-400 dark:hover:border-white/[0.14] dark:hover:text-zinc-200 dark:disabled:hover:text-zinc-400',
                 highlightMissing && employeeFieldMissingHighlightClass,
             )}
             onClick={() => beginEdit(field)}

@@ -8,7 +8,10 @@ function toIsoDate(date: Date): string {
     return `${year}-${month}-${day}`;
 }
 
-export function buildLeaveDayMap(leaves: CalendarLeave[], year: number): Map<string, CalendarLeave[]> {
+export function buildLeaveDayMap(
+    leaves: CalendarLeave[],
+    year: number,
+): Map<string, CalendarLeave[]> {
     const map = new Map<string, CalendarLeave[]>();
     const yearStart = `${year}-01-01`;
     const yearEnd = `${year}-12-31`;
@@ -18,7 +21,8 @@ export function buildLeaveDayMap(leaves: CalendarLeave[], year: number): Map<str
             continue;
         }
 
-        const rangeStart = leave.start_date < yearStart ? yearStart : leave.start_date;
+        const rangeStart =
+            leave.start_date < yearStart ? yearStart : leave.start_date;
         const rangeEnd = leave.end_date > yearEnd ? yearEnd : leave.end_date;
 
         if (rangeStart > rangeEnd) {

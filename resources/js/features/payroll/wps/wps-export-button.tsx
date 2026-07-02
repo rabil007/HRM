@@ -6,8 +6,8 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { submitWpsExport  } from './submit-wps-export';
-import type {WpsExportFormat} from './submit-wps-export';
+import { submitWpsExport } from './submit-wps-export';
+import type { WpsExportFormat } from './submit-wps-export';
 
 export function WpsExportButton({
     periodId,

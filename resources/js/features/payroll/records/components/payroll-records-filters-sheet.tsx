@@ -3,7 +3,13 @@ import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import type { PayrollCategoryOption } from '../../types';
 import type { PayrollRecordsFilters } from '../types';
 
@@ -37,17 +43,23 @@ export function PayrollRecordsFiltersSheet({
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="glass-card w-full sm:max-w-md p-0 flex flex-col rounded-none">
+            <SheetContent
+                side="right"
+                className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-md"
+            >
                 <SheetHeader className="border-b border-border/60 p-8 pb-6">
-                    <SheetTitle className="text-xl font-bold tracking-tight">Filter records</SheetTitle>
+                    <SheetTitle className="text-xl font-bold tracking-tight">
+                        Filter records
+                    </SheetTitle>
                     <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
-                        Narrow payroll records by category, status, or period dates.
+                        Narrow payroll records by category, status, or period
+                        dates.
                     </SheetDescription>
                 </SheetHeader>
 
                 <div className="flex-1 space-y-6 overflow-y-auto p-8">
                     <div className="space-y-2">
-                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                        <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                             Category
                         </Label>
                         <AppSelect
@@ -60,9 +72,14 @@ export function PayrollRecordsFiltersSheet({
                             }
                             variant="card"
                         >
-                            <AppSelectItem value="all">All categories</AppSelectItem>
+                            <AppSelectItem value="all">
+                                All categories
+                            </AppSelectItem>
                             {payrollCategories.map((category) => (
-                                <AppSelectItem key={category.value} value={category.value}>
+                                <AppSelectItem
+                                    key={category.value}
+                                    value={category.value}
+                                >
                                     {category.label}
                                 </AppSelectItem>
                             ))}
@@ -70,7 +87,7 @@ export function PayrollRecordsFiltersSheet({
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                        <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                             Record status
                         </Label>
                         <AppSelect
@@ -83,9 +100,14 @@ export function PayrollRecordsFiltersSheet({
                             }
                             variant="card"
                         >
-                            <AppSelectItem value="all">All statuses</AppSelectItem>
+                            <AppSelectItem value="all">
+                                All statuses
+                            </AppSelectItem>
                             {statusOptions.map((option) => (
-                                <AppSelectItem key={option.value} value={option.value}>
+                                <AppSelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                >
                                     {option.label}
                                 </AppSelectItem>
                             ))}
@@ -94,27 +116,33 @@ export function PayrollRecordsFiltersSheet({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                            <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                 Period from
                             </Label>
                             <Input
                                 type="date"
                                 value={draft.date_from}
                                 onChange={(event) =>
-                                    setDraft((current) => ({ ...current, date_from: event.target.value }))
+                                    setDraft((current) => ({
+                                        ...current,
+                                        date_from: event.target.value,
+                                    }))
                                 }
                                 className="h-11 rounded-xl"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                            <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                 Period to
                             </Label>
                             <Input
                                 type="date"
                                 value={draft.date_to}
                                 onChange={(event) =>
-                                    setDraft((current) => ({ ...current, date_to: event.target.value }))
+                                    setDraft((current) => ({
+                                        ...current,
+                                        date_to: event.target.value,
+                                    }))
                                 }
                                 className="h-11 rounded-xl"
                             />
@@ -123,10 +151,17 @@ export function PayrollRecordsFiltersSheet({
                 </div>
 
                 <div className="flex gap-3 border-t border-border/60 p-6">
-                    <Button variant="outline" className="flex-1 rounded-xl" onClick={onClear}>
+                    <Button
+                        variant="outline"
+                        className="flex-1 rounded-xl"
+                        onClick={onClear}
+                    >
                         Clear
                     </Button>
-                    <Button className="flex-1 rounded-xl" onClick={() => onApply(draft)}>
+                    <Button
+                        className="flex-1 rounded-xl"
+                        onClick={() => onApply(draft)}
+                    >
                         Apply filters
                     </Button>
                 </div>

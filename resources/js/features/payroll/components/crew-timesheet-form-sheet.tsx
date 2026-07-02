@@ -24,7 +24,10 @@ function updateStandbyRange(
 
         return {
             ...next,
-            standby_days: calculateInclusiveDays(next.standby_from, next.standby_to),
+            standby_days: calculateInclusiveDays(
+                next.standby_from,
+                next.standby_to,
+            ),
         };
     });
 }
@@ -39,7 +42,10 @@ function updateOnsiteRange(
 
         return {
             ...next,
-            onsite_days: calculateInclusiveDays(next.onsite_from, next.onsite_to),
+            onsite_days: calculateInclusiveDays(
+                next.onsite_from,
+                next.onsite_to,
+            ),
         };
     });
 }
@@ -67,7 +73,7 @@ export function CrewTimesheetFormSheet({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="right"
-                className="flex w-full flex-col rounded-none p-0 glass-card sm:max-w-lg"
+                className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-lg"
             >
                 <SheetHeader className="border-b border-border/60 p-8 pb-6">
                     <SheetTitle className="text-xl font-bold tracking-tight">
@@ -88,39 +94,59 @@ export function CrewTimesheetFormSheet({
                     ) : null}
 
                     <div className="space-y-5">
-                        <h3 className="text-sm font-semibold tracking-tight">Worked days</h3>
+                        <h3 className="text-sm font-semibold tracking-tight">
+                            Worked days
+                        </h3>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                     Standby from
                                 </Label>
                                 <Input
                                     type="date"
                                     className="h-11 rounded-xl border-border bg-card"
                                     value={form.data.standby_from}
-                                    onChange={(e) => updateStandbyRange(form, 'standby_from', e.target.value)}
+                                    onChange={(e) =>
+                                        updateStandbyRange(
+                                            form,
+                                            'standby_from',
+                                            e.target.value,
+                                        )
+                                    }
                                     disabled={!canSave}
                                 />
-                                <InputError message={errors.standby_from} className="text-xs" />
+                                <InputError
+                                    message={errors.standby_from}
+                                    className="text-xs"
+                                />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                     Standby to
                                 </Label>
                                 <Input
                                     type="date"
                                     className="h-11 rounded-xl border-border bg-card"
                                     value={form.data.standby_to}
-                                    onChange={(e) => updateStandbyRange(form, 'standby_to', e.target.value)}
+                                    onChange={(e) =>
+                                        updateStandbyRange(
+                                            form,
+                                            'standby_to',
+                                            e.target.value,
+                                        )
+                                    }
                                     disabled={!canSave}
                                 />
-                                <InputError message={errors.standby_to} className="text-xs" />
+                                <InputError
+                                    message={errors.standby_to}
+                                    className="text-xs"
+                                />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                            <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                 Standby days
                             </Label>
                             <Input
@@ -129,46 +155,70 @@ export function CrewTimesheetFormSheet({
                                 step="0.01"
                                 className="h-11 rounded-xl border-border bg-card"
                                 value={form.data.standby_days}
-                                onChange={(e) => form.setData('standby_days', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('standby_days', e.target.value)
+                                }
                                 disabled={!canSave}
                             />
                             <p className="text-xs text-muted-foreground">
-                                Auto-calculated from standby dates (inclusive). You can adjust manually.
+                                Auto-calculated from standby dates (inclusive).
+                                You can adjust manually.
                             </p>
-                            <InputError message={errors.standby_days} className="text-xs" />
+                            <InputError
+                                message={errors.standby_days}
+                                className="text-xs"
+                            />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                     Onsite from
                                 </Label>
                                 <Input
                                     type="date"
                                     className="h-11 rounded-xl border-border bg-card"
                                     value={form.data.onsite_from}
-                                    onChange={(e) => updateOnsiteRange(form, 'onsite_from', e.target.value)}
+                                    onChange={(e) =>
+                                        updateOnsiteRange(
+                                            form,
+                                            'onsite_from',
+                                            e.target.value,
+                                        )
+                                    }
                                     disabled={!canSave}
                                 />
-                                <InputError message={errors.onsite_from} className="text-xs" />
+                                <InputError
+                                    message={errors.onsite_from}
+                                    className="text-xs"
+                                />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                     Onsite to
                                 </Label>
                                 <Input
                                     type="date"
                                     className="h-11 rounded-xl border-border bg-card"
                                     value={form.data.onsite_to}
-                                    onChange={(e) => updateOnsiteRange(form, 'onsite_to', e.target.value)}
+                                    onChange={(e) =>
+                                        updateOnsiteRange(
+                                            form,
+                                            'onsite_to',
+                                            e.target.value,
+                                        )
+                                    }
                                     disabled={!canSave}
                                 />
-                                <InputError message={errors.onsite_to} className="text-xs" />
+                                <InputError
+                                    message={errors.onsite_to}
+                                    className="text-xs"
+                                />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                            <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                 Onsite days
                             </Label>
                             <Input
@@ -177,22 +227,30 @@ export function CrewTimesheetFormSheet({
                                 step="0.01"
                                 className="h-11 rounded-xl border-border bg-card"
                                 value={form.data.onsite_days}
-                                onChange={(e) => form.setData('onsite_days', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('onsite_days', e.target.value)
+                                }
                                 disabled={!canSave}
                             />
                             <p className="text-xs text-muted-foreground">
-                                Auto-calculated from onsite dates (inclusive). You can adjust manually.
+                                Auto-calculated from onsite dates (inclusive).
+                                You can adjust manually.
                             </p>
-                            <InputError message={errors.onsite_days} className="text-xs" />
+                            <InputError
+                                message={errors.onsite_days}
+                                className="text-xs"
+                            />
                         </div>
                     </div>
 
                     <div className="space-y-5 border-t border-border/60 pt-4">
-                        <h3 className="text-sm font-semibold tracking-tight">Salary inputs</h3>
+                        <h3 className="text-sm font-semibold tracking-tight">
+                            Salary inputs
+                        </h3>
 
                         <div className="grid grid-cols-3 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                     Overtime
                                 </Label>
                                 <Input
@@ -201,13 +259,21 @@ export function CrewTimesheetFormSheet({
                                     step="0.01"
                                     className="h-11 rounded-xl border-border bg-card"
                                     value={form.data.overtime_amount}
-                                    onChange={(e) => form.setData('overtime_amount', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'overtime_amount',
+                                            e.target.value,
+                                        )
+                                    }
                                     disabled={!canSave}
                                 />
-                                <InputError message={errors.overtime_amount} className="text-xs" />
+                                <InputError
+                                    message={errors.overtime_amount}
+                                    className="text-xs"
+                                />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                     Additions
                                 </Label>
                                 <Input
@@ -216,13 +282,21 @@ export function CrewTimesheetFormSheet({
                                     step="0.01"
                                     className="h-11 rounded-xl border-border bg-card"
                                     value={form.data.additional_amount}
-                                    onChange={(e) => form.setData('additional_amount', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'additional_amount',
+                                            e.target.value,
+                                        )
+                                    }
                                     disabled={!canSave}
                                 />
-                                <InputError message={errors.additional_amount} className="text-xs" />
+                                <InputError
+                                    message={errors.additional_amount}
+                                    className="text-xs"
+                                />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                     Deductions
                                 </Label>
                                 <Input
@@ -231,30 +305,47 @@ export function CrewTimesheetFormSheet({
                                     step="0.01"
                                     className="h-11 rounded-xl border-border bg-card"
                                     value={form.data.deduction_amount}
-                                    onChange={(e) => form.setData('deduction_amount', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'deduction_amount',
+                                            e.target.value,
+                                        )
+                                    }
                                     disabled={!canSave}
                                 />
-                                <InputError message={errors.deduction_amount} className="text-xs" />
+                                <InputError
+                                    message={errors.deduction_amount}
+                                    className="text-xs"
+                                />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                            <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                 Remarks
                             </Label>
                             <Textarea
                                 className="min-h-24 rounded-xl border-border bg-card"
                                 value={form.data.remarks}
-                                onChange={(e) => form.setData('remarks', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('remarks', e.target.value)
+                                }
                                 disabled={!canSave}
                             />
-                            <InputError message={errors.remarks} className="text-xs" />
+                            <InputError
+                                message={errors.remarks}
+                                className="text-xs"
+                            />
                         </div>
                     </div>
                 </div>
 
                 <div className="border-t border-border/60 p-8">
-                    <Button className="w-full rounded-xl" disabled={form.processing || !canSave} onClick={onSubmit}>
+                    <Button
+                        className="w-full rounded-xl"
+                        disabled={form.processing || !canSave}
+                        onClick={onSubmit}
+                    >
                         Save timesheet
                     </Button>
                     {!canSave ? (

@@ -17,10 +17,13 @@ export function EmployeeDeleteDialog({
             open={open}
             onOpenChange={onOpenChange}
             title="Delete employee"
-            description={employee ? `This will permanently delete ${employee.name}.` : 'This will permanently delete this employee.'}
+            description={
+                employee
+                    ? `This will permanently delete ${employee.name}.`
+                    : 'This will permanently delete this employee.'
+            }
             confirmText="Delete"
             onConfirm={onConfirm}
         />
     );
 }
-

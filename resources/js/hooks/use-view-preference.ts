@@ -33,7 +33,10 @@ export function setOrganizationDefaultView(next: ViewPreference): void {
     notify();
 }
 
-export function useViewPreference(storageKey: string, defaultValue: ViewPreference = 'grid') {
+export function useViewPreference(
+    storageKey: string,
+    defaultValue: ViewPreference = 'grid',
+) {
     const isValid = (v: string | null): v is ViewPreference =>
         v === 'grid' || v === 'list' || v === 'employee' || v === 'tree';
 
@@ -70,4 +73,3 @@ export function useViewPreference(storageKey: string, defaultValue: ViewPreferen
 
     return [view, setView] as const;
 }
-

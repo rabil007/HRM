@@ -62,12 +62,36 @@ const baseSidebarData: SidebarData = {
         {
             title: 'Organization',
             items: [
-                { title: 'Companies', url: '/organization/companies', icon: Building2 },
-                { title: 'Branches', url: '/organization/branches', icon: MapPin },
-                { title: 'Departments', url: '/organization/departments', icon: Layers },
-                { title: 'Positions', url: '/organization/positions', icon: Landmark },
-                { title: 'Activity logs', url: '/organization/activity-logs', icon: Activity },
-                { title: 'Roles & permissions', url: '/organization/roles', icon: BadgeCheck },
+                {
+                    title: 'Companies',
+                    url: '/organization/companies',
+                    icon: Building2,
+                },
+                {
+                    title: 'Branches',
+                    url: '/organization/branches',
+                    icon: MapPin,
+                },
+                {
+                    title: 'Departments',
+                    url: '/organization/departments',
+                    icon: Layers,
+                },
+                {
+                    title: 'Positions',
+                    url: '/organization/positions',
+                    icon: Landmark,
+                },
+                {
+                    title: 'Activity logs',
+                    url: '/organization/activity-logs',
+                    icon: Activity,
+                },
+                {
+                    title: 'Roles & permissions',
+                    url: '/organization/roles',
+                    icon: BadgeCheck,
+                },
                 { title: 'Users', url: '/organization/users', icon: Users },
                 {
                     title: 'Employee templates',
@@ -79,52 +103,120 @@ const baseSidebarData: SidebarData = {
         {
             title: 'Employees',
             items: [
-                { title: 'Employee', url: '/organization/employees', icon: Users },
+                {
+                    title: 'Employee',
+                    url: '/organization/employees',
+                    icon: Users,
+                },
                 { title: 'Documents', url: documents.url(), icon: FileText },
             ],
         },
         {
             title: 'Crew Operations',
             items: [
-                { title: 'Overview', url: '/organization/crew-operations', icon: LayoutDashboard },
-                { title: 'Deployments', url: '/organization/crew-deployments', icon: Ship },
-                { title: 'Planning', url: '/organization/crew-planning', icon: CalendarRange },
-                { title: 'Vessel Manning', url: '/organization/vessel-manning', icon: Anchor },
-                { title: 'Settings', url: '/organization/crew-operations/settings', icon: Settings },
+                {
+                    title: 'Overview',
+                    url: '/organization/crew-operations',
+                    icon: LayoutDashboard,
+                },
+                {
+                    title: 'Deployments',
+                    url: '/organization/crew-deployments',
+                    icon: Ship,
+                },
+                {
+                    title: 'Planning',
+                    url: '/organization/crew-planning',
+                    icon: CalendarRange,
+                },
+                {
+                    title: 'Vessel Manning',
+                    url: '/organization/vessel-manning',
+                    icon: Anchor,
+                },
+                {
+                    title: 'Settings',
+                    url: '/organization/crew-operations/settings',
+                    icon: Settings,
+                },
             ],
         },
         {
             title: 'Hikvision',
             items: [
                 { title: 'Persons', url: '/hikvision/persons', icon: Contact },
-                { title: 'Access Events', url: '/hikvision/access-events', icon: Radio },
+                {
+                    title: 'Access Events',
+                    url: '/hikvision/access-events',
+                    icon: Radio,
+                },
             ],
         },
         {
             title: 'Attendance',
             items: [
-                { title: 'Calendar', url: '/attendance/calendar', icon: CalendarDays },
-                { title: 'Leave requests', url: '/attendance/leave-requests', icon: CalendarCheck2 },
-                { title: 'Attendance records', url: '/attendance/records', icon: CalendarCheck2 },
+                {
+                    title: 'Calendar',
+                    url: '/attendance/calendar',
+                    icon: CalendarDays,
+                },
+                {
+                    title: 'Leave requests',
+                    url: '/attendance/leave-requests',
+                    icon: CalendarCheck2,
+                },
+                {
+                    title: 'Attendance records',
+                    url: '/attendance/records',
+                    icon: CalendarCheck2,
+                },
                 { title: 'Types', url: '/attendance/types', icon: IdCard },
             ],
         },
         {
             title: 'Recruitment',
             items: [
-                { title: 'Job postings', url: placeholder('recruitment.job-postings'), icon: BriefcaseBusiness },
-                { title: 'Candidates', url: placeholder('recruitment.candidates'), icon: Users },
-                { title: 'Interviews', url: placeholder('recruitment.interviews'), icon: NotebookTabs },
-                { title: 'Offers', url: placeholder('recruitment.offers'), icon: ClipboardList },
+                {
+                    title: 'Job postings',
+                    url: placeholder('recruitment.job-postings'),
+                    icon: BriefcaseBusiness,
+                },
+                {
+                    title: 'Candidates',
+                    url: placeholder('recruitment.candidates'),
+                    icon: Users,
+                },
+                {
+                    title: 'Interviews',
+                    url: placeholder('recruitment.interviews'),
+                    icon: NotebookTabs,
+                },
+                {
+                    title: 'Offers',
+                    url: placeholder('recruitment.offers'),
+                    icon: ClipboardList,
+                },
             ],
         },
         {
             title: 'Payroll',
             items: [
-                { title: 'Overview', url: '/payroll/overview', icon: LayoutDashboard },
+                {
+                    title: 'Overview',
+                    url: '/payroll/overview',
+                    icon: LayoutDashboard,
+                },
                 { title: 'Payroll', url: '/payroll', icon: Wallet },
-                { title: 'Payroll records', url: '/payroll/records', icon: PiggyBank },
-                { title: 'Salary inputs', url: '/payroll/salary-inputs', icon: Coins },
+                {
+                    title: 'Payroll records',
+                    url: '/payroll/records',
+                    icon: PiggyBank,
+                },
+                {
+                    title: 'Salary inputs',
+                    url: '/payroll/salary-inputs',
+                    icon: Coins,
+                },
                 { title: 'Payslips', url: '/payroll/payslips', icon: Receipt },
                 { title: 'WPS export', url: '/payroll/wps', icon: FileDown },
             ],
@@ -150,7 +242,8 @@ export function getSidebarData(permissions: string[]): SidebarData {
                 .map((item) => {
                     if ('items' in item && item.items) {
                         if (item.title === 'Settings') {
-                            const filteredSub = getSettingsSidebarSubItems(permissions);
+                            const filteredSub =
+                                getSettingsSidebarSubItems(permissions);
 
                             if (!filteredSub.length) {
                                 return null;
@@ -163,8 +256,14 @@ export function getSidebarData(permissions: string[]): SidebarData {
                         }
 
                         const filteredSub = item.items.filter((sub) => {
-                            if (sub.url === '/organization/templates/employee-profile') {
-                                return has(permissions, 'employee_profile_templates.view');
+                            if (
+                                sub.url ===
+                                '/organization/templates/employee-profile'
+                            ) {
+                                return has(
+                                    permissions,
+                                    'employee_profile_templates.view',
+                                );
                             }
 
                             return true;
@@ -186,29 +285,61 @@ export function getSidebarData(permissions: string[]): SidebarData {
 
                     switch (item.url) {
                         case '/organization/companies':
-                            return has(permissions, 'companies.view') ? item : null;
+                            return has(permissions, 'companies.view')
+                                ? item
+                                : null;
                         case '/organization/branches':
-                            return has(permissions, 'branches.view') ? item : null;
+                            return has(permissions, 'branches.view')
+                                ? item
+                                : null;
                         case '/organization/departments':
-                            return has(permissions, 'departments.view') ? item : null;
+                            return has(permissions, 'departments.view')
+                                ? item
+                                : null;
                         case '/organization/positions':
-                            return has(permissions, 'positions.view') ? item : null;
+                            return has(permissions, 'positions.view')
+                                ? item
+                                : null;
                         case '/organization/employees':
-                            return has(permissions, 'employees.view') ? item : null;
+                            return has(permissions, 'employees.view')
+                                ? item
+                                : null;
                         case '/organization/crew-operations':
-                            return canViewCrewOperationsOverview(permissions) ? item : null;
+                            return canViewCrewOperationsOverview(permissions)
+                                ? item
+                                : null;
                         case '/organization/crew-deployments':
-                            return has(permissions, 'crew_operations.deployments.view') ? item : null;
+                            return has(
+                                permissions,
+                                'crew_operations.deployments.view',
+                            )
+                                ? item
+                                : null;
                         case '/organization/vessel-manning':
-                            return has(permissions, 'crew_operations.vessel_manning.view')
+                            return has(
+                                permissions,
+                                'crew_operations.vessel_manning.view',
+                            )
                                 ? item
                                 : null;
                         case '/organization/crew-planning':
-                            return has(permissions, 'crew_operations.planning.view') ? item : null;
+                            return has(
+                                permissions,
+                                'crew_operations.planning.view',
+                            )
+                                ? item
+                                : null;
                         case '/organization/crew-operations/settings':
-                            return has(permissions, 'crew_operations.planning.view') ? item : null;
+                            return has(
+                                permissions,
+                                'crew_operations.planning.view',
+                            )
+                                ? item
+                                : null;
                         case documents.url():
-                            return has(permissions, 'documents.view') ? item : null;
+                            return has(permissions, 'documents.view')
+                                ? item
+                                : null;
                         case '/organization/roles':
                             return has(permissions, 'roles.view') ? item : null;
                         case '/organization/users':
@@ -216,43 +347,73 @@ export function getSidebarData(permissions: string[]): SidebarData {
                         case '/organization/activity-logs':
                             return has(permissions, 'audit.view') ? item : null;
                         case '/organization/templates/employee-profile':
-                            return has(permissions, 'employee_profile_templates.view')
+                            return has(
+                                permissions,
+                                'employee_profile_templates.view',
+                            )
                                 ? item
                                 : null;
                         case '/hikvision/persons':
-                            return has(permissions, 'hikvision.persons.view') ? item : null;
+                            return has(permissions, 'hikvision.persons.view')
+                                ? item
+                                : null;
                         case '/hikvision/access-events':
-                            return has(permissions, 'hikvision.events.view') ? item : null;
+                            return has(permissions, 'hikvision.events.view')
+                                ? item
+                                : null;
                         case '/attendance/calendar':
-                            return has(permissions, 'attendance.leave-requests.view') ? item : null;
+                            return has(
+                                permissions,
+                                'attendance.leave-requests.view',
+                            )
+                                ? item
+                                : null;
                         case '/attendance/types':
-                            return has(permissions, 'attendance.types.view') ? item : null;
+                            return has(permissions, 'attendance.types.view')
+                                ? item
+                                : null;
                         case '/attendance/leave-requests':
-                            return has(permissions, 'attendance.leave-requests.view') ? item : null;
+                            return has(
+                                permissions,
+                                'attendance.leave-requests.view',
+                            )
+                                ? item
+                                : null;
                         case '/attendance/records':
-                            return has(permissions, 'attendance.records.view') ? item : null;
+                            return has(permissions, 'attendance.records.view')
+                                ? item
+                                : null;
                         case '/payroll/overview':
-                            return has(permissions, 'payroll.periods.view')
-                                || has(permissions, 'payroll.crew_timesheets.view')
+                            return has(permissions, 'payroll.periods.view') ||
+                                has(permissions, 'payroll.crew_timesheets.view')
                                 ? item
                                 : null;
                         case '/payroll':
-                            return has(permissions, 'payroll.periods.view')
-                                || has(permissions, 'payroll.crew_timesheets.view')
+                            return has(permissions, 'payroll.periods.view') ||
+                                has(permissions, 'payroll.crew_timesheets.view')
                                 ? item
                                 : null;
                         case '/payroll/records':
-                            return has(permissions, 'payroll.records.view') ? item : null;
+                            return has(permissions, 'payroll.records.view')
+                                ? item
+                                : null;
                         case '/payroll/salary-inputs':
-                            return has(permissions, 'payroll.salary_inputs.view')
-                                || has(permissions, 'payroll.periods.update')
-                                || has(permissions, 'payroll.salary_inputs.create')
+                            return has(
+                                permissions,
+                                'payroll.salary_inputs.view',
+                            ) ||
+                                has(permissions, 'payroll.periods.update') ||
+                                has(permissions, 'payroll.salary_inputs.create')
                                 ? item
                                 : null;
                         case '/payroll/payslips':
-                            return has(permissions, 'payroll.payslips.view') ? item : null;
+                            return has(permissions, 'payroll.payslips.view')
+                                ? item
+                                : null;
                         case '/payroll/wps':
-                            return has(permissions, 'payroll.wps.view') ? item : null;
+                            return has(permissions, 'payroll.wps.view')
+                                ? item
+                                : null;
                         default:
                             return item;
                     }

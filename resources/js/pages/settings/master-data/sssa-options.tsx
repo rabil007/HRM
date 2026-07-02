@@ -29,7 +29,11 @@ type SssaOption = {
     is_active: boolean;
 };
 
-export default function SssaOptions({ sssa_options }: { sssa_options: SssaOption[] }) {
+export default function SssaOptions({
+    sssa_options,
+}: {
+    sssa_options: SssaOption[];
+}) {
     const can = useSettingsMasterDataCan('sssa-options');
 
     const [query, setQuery] = useState('');
@@ -140,38 +144,66 @@ export default function SssaOptions({ sssa_options }: { sssa_options: SssaOption
                             className={masterDataInputClass}
                         />
                     </div>
-                    {can.create ? <Button onClick={openCreate}>Add SSSA option</Button> : null}
+                    {can.create ? (
+                        <Button onClick={openCreate}>Add SSSA option</Button>
+                    ) : null}
                 </div>
 
                 <div className="overflow-hidden rounded-xl border border-border/60">
                     <div className="overflow-x-auto">
                         <div className="min-w-[640px]">
-                            <div className="grid grid-cols-12 gap-2 whitespace-nowrap bg-muted/30 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
                                 <div className="col-span-7">Title</div>
                                 <div className="col-span-2">Active</div>
-                                <div className="col-span-3 text-right">Actions</div>
+                                <div className="col-span-3 text-right">
+                                    Actions
+                                </div>
                             </div>
 
                             {rows.map((v) => (
                                 <div
                                     key={v.id}
-                                    className="grid grid-cols-12 gap-2 whitespace-nowrap border-t border-border/60 px-4 py-3"
+                                    className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
                                 >
-                                    <div className="col-span-7 truncate text-sm">{v.name}</div>
+                                    <div className="col-span-7 truncate text-sm">
+                                        {v.name}
+                                    </div>
                                     <div className="col-span-2 flex items-center">
-                                        <Switch disabled={!can.update} checked={v.is_active} onCheckedChange={() => toggleActive(v)} />
+                                        <Switch
+                                            disabled={!can.update}
+                                            checked={v.is_active}
+                                            onCheckedChange={() =>
+                                                toggleActive(v)
+                                            }
+                                        />
                                     </div>
                                     <div className="col-span-3 flex flex-nowrap justify-end gap-2">
-                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
-                                        {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(v)}>
-                                            Delete
-                                        </Button> : null}
+                                        {can.update ? (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => openEdit(v)}
+                                            >
+                                                Edit
+                                            </Button>
+                                        ) : null}
+                                        {can.delete ? (
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => requestDelete(v)}
+                                            >
+                                                Delete
+                                            </Button>
+                                        ) : null}
                                     </div>
                                 </div>
                             ))}
 
                             {rows.length === 0 ? (
-                                <div className="px-4 py-10 text-sm text-muted-foreground">No SSSA options found.</div>
+                                <div className="px-4 py-10 text-sm text-muted-foreground">
+                                    No SSSA options found.
+                                </div>
                             ) : null}
                         </div>
                     </div>
@@ -188,11 +220,17 @@ export default function SssaOptions({ sssa_options }: { sssa_options: SssaOption
                         onCancel={() => setSheetOpen(false)}
                         onSubmit={submit}
                         processing={form.processing}
-                        submitLabel={current ? 'Save changes' : 'Create SSSA option'}
+                        submitLabel={
+                            current ? 'Save changes' : 'Create SSSA option'
+                        }
                     />
                 }
             >
-                <MasterDataField id="title" label="Title" error={form.errors.name}>
+                <MasterDataField
+                    id="title"
+                    label="Title"
+                    error={form.errors.name}
+                >
                     <Input
                         id="title"
                         value={form.data.name}
@@ -204,7 +242,9 @@ export default function SssaOptions({ sssa_options }: { sssa_options: SssaOption
 
                 <MasterDataActiveToggle
                     checked={form.data.is_active}
-                    onCheckedChange={(value) => form.setData('is_active', value)}
+                    onCheckedChange={(value) =>
+                        form.setData('is_active', value)
+                    }
                 />
             </MasterDataFormSheet>
 
@@ -219,8 +259,13 @@ export default function SssaOptions({ sssa_options }: { sssa_options: SssaOption
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel className="glass-card rounded-xl hover:bg-accent">Cancel</AlertDialogCancel>
-                        <AlertDialogAction className="rounded-xl" onClick={confirmDelete}>
+                        <AlertDialogCancel className="rounded-xl glass-card hover:bg-accent">
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className="rounded-xl"
+                            onClick={confirmDelete}
+                        >
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>

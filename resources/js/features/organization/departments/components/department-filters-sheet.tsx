@@ -33,26 +33,31 @@ export function DepartmentFiltersSheet({
     onReset: () => void;
 }) {
     const availableBranches = branches;
-    
+
     // Parent dropdown shows departments with no parent
-    const availableParents = parents.filter(p => !p.parent_id);
-    
+    const availableParents = parents.filter((p) => !p.parent_id);
+
     // Child dropdown logic:
     // If a parent is selected, show only children of that parent.
     // If no parent is selected, show all departments that have a parent.
-    const availableChildren = value.parent_id 
-        ? parents.filter(p => String(p.parent_id) === value.parent_id)
-        : parents.filter(p => p.parent_id !== null);
+    const availableChildren = value.parent_id
+        ? parents.filter((p) => String(p.parent_id) === value.parent_id)
+        : parents.filter((p) => p.parent_id !== null);
 
     return (
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
             <div className="space-y-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                     Status
                 </Label>
                 <AppSelect
                     value={value.status}
-                    onValueChange={(v) => onChange({ ...value, status: v as DepartmentFilters['status'] })}
+                    onValueChange={(v) =>
+                        onChange({
+                            ...value,
+                            status: v as DepartmentFilters['status'],
+                        })
+                    }
                     variant="dark"
                     placeholder="All"
                 >
@@ -63,7 +68,7 @@ export function DepartmentFiltersSheet({
             </div>
 
             <div className="space-y-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                     Branch
                 </Label>
                 <AppSelect
@@ -74,7 +79,10 @@ export function DepartmentFiltersSheet({
                 >
                     <AppSelectItem value="">All</AppSelectItem>
                     {availableBranches.map((branch) => (
-                        <AppSelectItem key={branch.id} value={String(branch.id)}>
+                        <AppSelectItem
+                            key={branch.id}
+                            value={String(branch.id)}
+                        >
                             {branch.name}
                         </AppSelectItem>
                     ))}
@@ -82,7 +90,7 @@ export function DepartmentFiltersSheet({
             </div>
 
             <div className="space-y-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                     Parent Department
                 </Label>
                 <AppSelect
@@ -104,7 +112,7 @@ export function DepartmentFiltersSheet({
             </div>
 
             <div className="space-y-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                     Child Department
                 </Label>
                 <AppSelect
@@ -123,7 +131,7 @@ export function DepartmentFiltersSheet({
             </div>
 
             <div className="space-y-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                     Manager
                 </Label>
                 <AppSelect
@@ -135,22 +143,29 @@ export function DepartmentFiltersSheet({
                     <AppSelectItem value="">All</AppSelectItem>
                     {managers.map((m) => (
                         <AppSelectItem key={m.id} value={String(m.id)}>
-                            {m.employee_no ? `${m.employee_no} — ${m.name}` : m.name}
+                            {m.employee_no
+                                ? `${m.employee_no} — ${m.name}`
+                                : m.name}
                         </AppSelectItem>
                     ))}
                 </AppSelect>
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="filter-code" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label
+                    htmlFor="filter-code"
+                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                >
                     Code
                 </Label>
                 <Input
                     id="filter-code"
                     placeholder="e.g. HR"
-                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                    className="h-11 rounded-xl border-white/10 bg-white/5 transition-all focus-visible:ring-primary/40"
                     value={value.code}
-                    onChange={(e) => onChange({ ...value, code: e.target.value })}
+                    onChange={(e) =>
+                        onChange({ ...value, code: e.target.value })
+                    }
                 />
             </div>
         </FiltersSheet>

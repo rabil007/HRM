@@ -40,8 +40,12 @@ export function DocumentComplianceTableRow({
         >
             <TableCell className={cn(dataTableCellClass(), 'min-w-[140px]')}>
                 <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">{doc.employee_name}</p>
-                    <p className="truncate font-mono text-[11px] text-muted-foreground/75">{doc.employee_no}</p>
+                    <p className="truncate text-sm font-semibold text-foreground">
+                        {doc.employee_name}
+                    </p>
+                    <p className="truncate font-mono text-[11px] text-muted-foreground/75">
+                        {doc.employee_no}
+                    </p>
                 </div>
             </TableCell>
             <TableCell className="min-w-[220px] px-4 py-4 align-middle">
@@ -68,8 +72,13 @@ export function DocumentComplianceTableRow({
                     </div>
                 </div>
             </TableCell>
-            <TableCell className={cn(dataTableCellClass(), 'hidden sm:table-cell')}>
-                <Badge variant="outline" className="max-w-44 truncate border-border font-normal dark:border-white/10">
+            <TableCell
+                className={cn(dataTableCellClass(), 'hidden sm:table-cell')}
+            >
+                <Badge
+                    variant="outline"
+                    className="max-w-44 truncate border-border font-normal dark:border-white/10"
+                >
                     {doc.document_type}
                 </Badge>
             </TableCell>
@@ -81,18 +90,34 @@ export function DocumentComplianceTableRow({
             >
                 {doc.document_number?.trim() || '—'}
             </TableCell>
-            <TableCell className={cn(dataTableCellClass(), 'hidden whitespace-nowrap md:table-cell')}>
+            <TableCell
+                className={cn(
+                    dataTableCellClass(),
+                    'hidden whitespace-nowrap md:table-cell',
+                )}
+            >
                 {formatDisplayDate(doc.expiry_date)}
             </TableCell>
-            <TableCell className={cn(dataTableCellClass(), 'hidden lg:table-cell')}>
-                <span className={cn('text-sm', expiryRemainingClass(doc.expiry_status))}>
+            <TableCell
+                className={cn(dataTableCellClass(), 'hidden lg:table-cell')}
+            >
+                <span
+                    className={cn(
+                        'text-sm',
+                        expiryRemainingClass(doc.expiry_status),
+                    )}
+                >
                     {doc.expiry_label}
                 </span>
             </TableCell>
-            <TableCell className={cn(dataTableCellClass(), 'hidden sm:table-cell')}>
+            <TableCell
+                className={cn(dataTableCellClass(), 'hidden sm:table-cell')}
+            >
                 <DocumentExpiryBadge status={doc.expiry_status} />
             </TableCell>
-            <TableCell className={cn(dataTableActionsCellClass(), 'min-w-[13.5rem]')}>
+            <TableCell
+                className={cn(dataTableActionsCellClass(), 'min-w-[13.5rem]')}
+            >
                 <DocumentModuleRowActions
                     doc={doc}
                     viewHref={viewHref}

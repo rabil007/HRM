@@ -1,4 +1,7 @@
-import type { EmployeeProfileTabVisibility, EmployeeTab } from '@/pages/organization/employee-page.types';
+import type {
+    EmployeeProfileTabVisibility,
+    EmployeeTab,
+} from '@/pages/organization/employee-page.types';
 
 export type EmployeeProfileTabItem = {
     id: EmployeeTab;
@@ -44,14 +47,22 @@ export function buildEmployeeProfileTabs({
             label: 'Vaccination',
             count: counts.vaccinations ?? null,
         },
-        { id: 'languages', label: 'Languages', count: counts.languages ?? null },
+        {
+            id: 'languages',
+            label: 'Languages',
+            count: counts.languages ?? null,
+        },
         { id: 'training', label: 'Training', count: counts.trainings ?? null },
         {
             id: 'sea_service',
             label: 'Sea Service',
             count: counts.sea_services ?? null,
         },
-        { id: 'documents', label: 'Documents', count: counts.documents ?? null },
+        {
+            id: 'documents',
+            label: 'Documents',
+            count: counts.documents ?? null,
+        },
     ];
 
     return list.filter((tab) => {

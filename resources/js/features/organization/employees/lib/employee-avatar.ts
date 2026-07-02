@@ -14,7 +14,9 @@ export function resolveEmployeeImageUrl(image?: string | null): string | null {
         return null;
     }
 
-    return image.startsWith('http') ? image : `/storage/${image.replace(/^\/+/, '')}`;
+    return image.startsWith('http')
+        ? image
+        : `/storage/${image.replace(/^\/+/, '')}`;
 }
 
 export function getEmployeeInitials(name: string): string {
@@ -30,7 +32,9 @@ export function getEmployeeInitials(name: string): string {
 }
 
 export function getEmployeeAvatarGradient(name: string): string {
-    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const hash = name
+        .split('')
+        .reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
     return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
 }

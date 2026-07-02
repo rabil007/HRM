@@ -14,7 +14,7 @@ export function DeploymentDetailField({
 }): ReactElement {
     return (
         <div className="flex items-center justify-between gap-3 px-6 py-3.5">
-            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
+            <div className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/80 uppercase">
                 {label}
             </div>
             <div
@@ -25,7 +25,10 @@ export function DeploymentDetailField({
                 }
             >
                 {employeeId && value !== '—' ? (
-                    <EmployeeProfileLink employeeId={employeeId} className="text-sm">
+                    <EmployeeProfileLink
+                        employeeId={employeeId}
+                        className="text-sm"
+                    >
                         {value}
                     </EmployeeProfileLink>
                 ) : (

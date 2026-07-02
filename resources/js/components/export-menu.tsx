@@ -1,6 +1,11 @@
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export type ExportFormat = 'csv' | 'xlsx' | 'pdf';
 
@@ -30,11 +35,16 @@ export function ExportMenu({
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align={align} className="w-44">
-                <DropdownMenuItem onClick={() => go('csv')}>CSV</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => go('xlsx')}>Excel</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => go('pdf')}>PDF</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => go('csv')}>
+                    CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => go('xlsx')}>
+                    Excel
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => go('pdf')}>
+                    PDF
+                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     );
 }
-

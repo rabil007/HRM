@@ -25,8 +25,17 @@ import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -49,7 +58,9 @@ export function PayslipsContent({
     permissions: { generate: boolean; email: boolean };
 }) {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
-    const [processing, setProcessing] = useState<'generate' | 'email' | null>(null);
+    const [processing, setProcessing] = useState<'generate' | 'email' | null>(
+        null,
+    );
 
     const list = useServerPaginationFilters({
         url: payslipsIndex.url(),
@@ -60,11 +71,14 @@ export function PayslipsContent({
 
     const toggleSelected = (id: number) => {
         setSelectedIds((current) =>
-            current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+            current.includes(id)
+                ? current.filter((item) => item !== id)
+                : [...current, id],
         );
     };
 
-    const allSelected = records.length > 0 && selectedIds.length === records.length;
+    const allSelected =
+        records.length > 0 && selectedIds.length === records.length;
     const someSelected = selectedIds.length > 0 && !allSelected;
 
     const toggleAll = () => {
@@ -110,7 +124,7 @@ export function PayslipsContent({
                 className="mb-6"
                 right={
                     hasActions && selectedIds.length > 0 ? (
-                        <div className="glass-card flex items-center gap-1 rounded-xl p-1">
+                        <div className="flex items-center gap-1 rounded-xl glass-card p-1">
                             <span className="px-3 text-sm text-muted-foreground">
                                 {selectedIds.length} selected
                             </span>
@@ -155,7 +169,13 @@ export function PayslipsContent({
                             <DataTableHeaderRow>
                                 <DataTableHead className="w-12 pl-5">
                                     <Checkbox
-                                        checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                                        checked={
+                                            allSelected
+                                                ? true
+                                                : someSelected
+                                                  ? 'indeterminate'
+                                                  : false
+                                        }
                                         onCheckedChange={toggleAll}
                                         aria-label="Select all"
                                     />
@@ -163,9 +183,15 @@ export function PayslipsContent({
                                 <DataTableHead>Employee</DataTableHead>
                                 <DataTableHead>Period</DataTableHead>
                                 <DataTableHead>Category</DataTableHead>
-                                <DataTableHead className="text-right">Net salary</DataTableHead>
+                                <DataTableHead className="text-right">
+                                    Net salary
+                                </DataTableHead>
                                 <DataTableHead>Payslip</DataTableHead>
-                                <DataTableHead className={dataTableActionsCellClass()}>Actions</DataTableHead>
+                                <DataTableHead
+                                    className={dataTableActionsCellClass()}
+                                >
+                                    Actions
+                                </DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>
@@ -174,49 +200,79 @@ export function PayslipsContent({
                                     key={record.id}
                                     className={cn(
                                         dataTableBodyRowClass(false),
-                                        'group hover:bg-muted/40 transition-colors duration-200',
-                                        selectedIds.includes(record.id) && 'bg-primary/5',
+                                        'group transition-colors duration-200 hover:bg-muted/40',
+                                        selectedIds.includes(record.id) &&
+                                            'bg-primary/5',
                                     )}
                                 >
                                     <TableCell className="w-12 pl-5">
                                         <Checkbox
-                                            checked={selectedIds.includes(record.id)}
-                                            onCheckedChange={() => toggleSelected(record.id)}
+                                            checked={selectedIds.includes(
+                                                record.id,
+                                            )}
+                                            onCheckedChange={() =>
+                                                toggleSelected(record.id)
+                                            }
                                             aria-label={`Select ${record.employee.name}`}
                                         />
                                     </TableCell>
-                                    <TableCell className={dataTableCellPrimaryClass()}>
-                                        <div className="font-semibold">{record.employee.name}</div>
+                                    <TableCell
+                                        className={dataTableCellPrimaryClass()}
+                                    >
+                                        <div className="font-semibold">
+                                            {record.employee.name}
+                                        </div>
                                         <div className="text-xs text-muted-foreground">
                                             {record.employee.employee_no ?? '—'}
                                         </div>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        <div className="font-medium">{record.period.name}</div>
+                                        <div className="font-medium">
+                                            {record.period.name}
+                                        </div>
                                         <div className="text-xs text-muted-foreground">
-                                            {formatDisplayDate(record.period.start_date)} —{' '}
-                                            {formatDisplayDate(record.period.end_date)}
+                                            {formatDisplayDate(
+                                                record.period.start_date,
+                                            )}{' '}
+                                            —{' '}
+                                            {formatDisplayDate(
+                                                record.period.end_date,
+                                            )}
                                         </div>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        <PayrollCategoryBadge category={record.payroll_category} />
+                                        <PayrollCategoryBadge
+                                            category={record.payroll_category}
+                                        />
                                     </TableCell>
-                                    <TableCell className={`${dataTableCellClass()} text-right font-semibold`}>
-                                        {formatTimesheetAmount(record.net_salary)}
+                                    <TableCell
+                                        className={`${dataTableCellClass()} text-right font-semibold`}
+                                    >
+                                        {formatTimesheetAmount(
+                                            record.net_salary,
+                                        )}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
                                         <Badge
-                                            variant={record.has_payslip ? 'default' : 'outline'}
+                                            variant={
+                                                record.has_payslip
+                                                    ? 'default'
+                                                    : 'outline'
+                                            }
                                             className={cn(
                                                 record.has_payslip
-                                                    ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20'
+                                                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'
                                                     : 'text-muted-foreground',
                                             )}
                                         >
-                                            {record.has_payslip ? 'Generated' : 'Pending'}
+                                            {record.has_payslip
+                                                ? 'Generated'
+                                                : 'Pending'}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className={dataTableActionsCellClass()}>
+                                    <TableCell
+                                        className={dataTableActionsCellClass()}
+                                    >
                                         <div className="flex items-center justify-end gap-1">
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
@@ -227,7 +283,9 @@ export function PayslipsContent({
                                                         className="h-8 w-8 rounded-lg"
                                                     >
                                                         <a
-                                                            href={showPayslip.url(record.id)}
+                                                            href={showPayslip.url(
+                                                                record.id,
+                                                            )}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             aria-label="View payslip"
@@ -237,7 +295,9 @@ export function PayslipsContent({
                                                         </a>
                                                     </Button>
                                                 </TooltipTrigger>
-                                                <TooltipContent>View payslip</TooltipContent>
+                                                <TooltipContent>
+                                                    View payslip
+                                                </TooltipContent>
                                             </Tooltip>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
@@ -247,12 +307,18 @@ export function PayslipsContent({
                                                         size="icon"
                                                         className="h-8 w-8 rounded-lg"
                                                     >
-                                                        <a href={downloadPayslip.url(record.id)}>
+                                                        <a
+                                                            href={downloadPayslip.url(
+                                                                record.id,
+                                                            )}
+                                                        >
                                                             <Download className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
                                                         </a>
                                                     </Button>
                                                 </TooltipTrigger>
-                                                <TooltipContent>Download payslip</TooltipContent>
+                                                <TooltipContent>
+                                                    Download payslip
+                                                </TooltipContent>
                                             </Tooltip>
                                         </div>
                                     </TableCell>

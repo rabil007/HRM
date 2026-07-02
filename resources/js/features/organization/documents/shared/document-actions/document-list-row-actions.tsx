@@ -1,4 +1,10 @@
-import { Download, ExternalLink, Pencil, RefreshCw, Trash2 } from 'lucide-react';
+import {
+    Download,
+    ExternalLink,
+    Pencil,
+    RefreshCw,
+    Trash2,
+} from 'lucide-react';
 import type { ReactElement } from 'react';
 import { ListTableCrudActions } from '@/components/list-table-actions';
 import { Button } from '@/components/ui/button';
@@ -61,7 +67,11 @@ export function DocumentListRowActions({
                     title="Download"
                     aria-label="Download"
                 >
-                    <a href={documents.files.download.url({ document: documentId })}>
+                    <a
+                        href={documents.files.download.url({
+                            document: documentId,
+                        })}
+                    >
                         <Download className="size-4" />
                     </a>
                 </Button>
@@ -109,20 +119,41 @@ export function DocumentShowHeaderActions({
     return (
         <div className="flex flex-wrap items-center gap-2">
             {showEdit && onEdit ? (
-                <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={onEdit}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl"
+                    onClick={onEdit}
+                >
                     <Pencil className="mr-2 h-4 w-4" />
                     Edit
                 </Button>
             ) : null}
             {showReplace && onReplace ? (
-                <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={onReplace}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl"
+                    onClick={onReplace}
+                >
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Replace
                 </Button>
             ) : null}
             {showDownload ? (
-                <Button asChild variant="outline" size="sm" className="rounded-xl">
-                    <a href={documents.files.download.url({ document: documentId })}>
+                <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl"
+                >
+                    <a
+                        href={documents.files.download.url({
+                            document: documentId,
+                        })}
+                    >
                         <Download className="mr-2 h-4 w-4" />
                         Download
                     </a>

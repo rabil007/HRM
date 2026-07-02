@@ -29,7 +29,11 @@ type CompanyVisaType = {
     is_active: boolean;
 };
 
-export default function CompanyVisaTypes({ company_visa_types }: { company_visa_types: CompanyVisaType[] }) {
+export default function CompanyVisaTypes({
+    company_visa_types,
+}: {
+    company_visa_types: CompanyVisaType[];
+}) {
     const can = useSettingsMasterDataCan('company-visa-types');
 
     const [query, setQuery] = useState('');
@@ -49,7 +53,9 @@ export default function CompanyVisaTypes({ company_visa_types }: { company_visa_
             return company_visa_types;
         }
 
-        return company_visa_types.filter((v) => v.name.toLowerCase().includes(q));
+        return company_visa_types.filter((v) =>
+            v.name.toLowerCase().includes(q),
+        );
     }, [query, company_visa_types]);
 
     const openCreate = () => {
@@ -100,13 +106,16 @@ export default function CompanyVisaTypes({ company_visa_types }: { company_visa_
             return;
         }
 
-        router.delete(`/settings/master-data/company-visa-types/${current.id}`, {
-            preserveScroll: true,
-            onFinish: () => {
-                setDeleteOpen(false);
-                setCurrent(null);
+        router.delete(
+            `/settings/master-data/company-visa-types/${current.id}`,
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setDeleteOpen(false);
+                    setCurrent(null);
+                },
             },
-        });
+        );
     };
 
     const toggleActive = (companyVisaType: CompanyVisaType) => {
@@ -140,38 +149,66 @@ export default function CompanyVisaTypes({ company_visa_types }: { company_visa_
                             className={masterDataInputClass}
                         />
                     </div>
-                    {can.create ? <Button onClick={openCreate}>Add sponsor</Button> : null}
+                    {can.create ? (
+                        <Button onClick={openCreate}>Add sponsor</Button>
+                    ) : null}
                 </div>
 
                 <div className="overflow-hidden rounded-xl border border-border/60">
                     <div className="overflow-x-auto">
                         <div className="min-w-[640px]">
-                            <div className="grid grid-cols-12 gap-2 whitespace-nowrap bg-muted/30 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
                                 <div className="col-span-7">Title</div>
                                 <div className="col-span-2">Active</div>
-                                <div className="col-span-3 text-right">Actions</div>
+                                <div className="col-span-3 text-right">
+                                    Actions
+                                </div>
                             </div>
 
                             {rows.map((v) => (
                                 <div
                                     key={v.id}
-                                    className="grid grid-cols-12 gap-2 whitespace-nowrap border-t border-border/60 px-4 py-3"
+                                    className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
                                 >
-                                    <div className="col-span-7 truncate text-sm">{v.name}</div>
+                                    <div className="col-span-7 truncate text-sm">
+                                        {v.name}
+                                    </div>
                                     <div className="col-span-2 flex items-center">
-                                        <Switch disabled={!can.update} checked={v.is_active} onCheckedChange={() => toggleActive(v)} />
+                                        <Switch
+                                            disabled={!can.update}
+                                            checked={v.is_active}
+                                            onCheckedChange={() =>
+                                                toggleActive(v)
+                                            }
+                                        />
                                     </div>
                                     <div className="col-span-3 flex flex-nowrap justify-end gap-2">
-                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
-                                        {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(v)}>
-                                            Delete
-                                        </Button> : null}
+                                        {can.update ? (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => openEdit(v)}
+                                            >
+                                                Edit
+                                            </Button>
+                                        ) : null}
+                                        {can.delete ? (
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => requestDelete(v)}
+                                            >
+                                                Delete
+                                            </Button>
+                                        ) : null}
                                     </div>
                                 </div>
                             ))}
 
                             {rows.length === 0 ? (
-                                <div className="px-4 py-10 text-sm text-muted-foreground">No sponsors found.</div>
+                                <div className="px-4 py-10 text-sm text-muted-foreground">
+                                    No sponsors found.
+                                </div>
                             ) : null}
                         </div>
                     </div>
@@ -188,11 +225,17 @@ export default function CompanyVisaTypes({ company_visa_types }: { company_visa_
                         onCancel={() => setSheetOpen(false)}
                         onSubmit={submit}
                         processing={form.processing}
-                        submitLabel={current ? 'Save changes' : 'Create sponsor'}
+                        submitLabel={
+                            current ? 'Save changes' : 'Create sponsor'
+                        }
                     />
                 }
             >
-                <MasterDataField id="title" label="Title" error={form.errors.name}>
+                <MasterDataField
+                    id="title"
+                    label="Title"
+                    error={form.errors.name}
+                >
                     <Input
                         id="title"
                         value={form.data.name}
@@ -204,7 +247,9 @@ export default function CompanyVisaTypes({ company_visa_types }: { company_visa_
 
                 <MasterDataActiveToggle
                     checked={form.data.is_active}
-                    onCheckedChange={(value) => form.setData('is_active', value)}
+                    onCheckedChange={(value) =>
+                        form.setData('is_active', value)
+                    }
                 />
             </MasterDataFormSheet>
 
@@ -219,8 +264,13 @@ export default function CompanyVisaTypes({ company_visa_types }: { company_visa_
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel className="glass-card rounded-xl hover:bg-accent">Cancel</AlertDialogCancel>
-                        <AlertDialogAction className="rounded-xl" onClick={confirmDelete}>
+                        <AlertDialogCancel className="rounded-xl glass-card hover:bg-accent">
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className="rounded-xl"
+                            onClick={confirmDelete}
+                        >
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>

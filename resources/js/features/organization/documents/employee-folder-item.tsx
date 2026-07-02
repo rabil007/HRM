@@ -26,7 +26,9 @@ export function EmployeeFolderItem({
             ? '1 file'
             : `${employee.document_count} files`;
 
-    const downloadUrl = documents.employee.download.url({ employee: employee.employee_id });
+    const downloadUrl = documents.employee.download.url({
+        employee: employee.employee_id,
+    });
 
     return (
         <div
@@ -34,14 +36,17 @@ export function EmployeeFolderItem({
                 'group relative flex min-h-[11.5rem] w-full flex-col items-center rounded-xl border border-transparent',
                 'transition-[border-color,box-shadow,background-color] duration-150',
                 'hover:border-border hover:bg-muted/25 hover:shadow-sm dark:hover:border-white/10',
-                selected && 'border-primary/25 bg-primary/5 ring-1 ring-primary/30',
+                selected &&
+                    'border-primary/25 bg-primary/5 ring-1 ring-primary/30',
             )}
         >
             {selectionMode ? (
                 <div className="absolute top-2 left-2 z-10">
                     <Checkbox
                         checked={selected}
-                        onCheckedChange={(value) => onSelectedChange?.(value === true)}
+                        onCheckedChange={(value) =>
+                            onSelectedChange?.(value === true)
+                        }
                         aria-label={`Select ${employee.employee_name}`}
                         onClick={(event) => event.stopPropagation()}
                     />
@@ -49,12 +54,14 @@ export function EmployeeFolderItem({
             ) : null}
 
             <Link
-                href={documents.employee.url({ employee: employee.employee_id })}
+                href={documents.employee.url({
+                    employee: employee.employee_id,
+                })}
                 title={`${employee.employee_name} (${employee.employee_no})`}
                 className={cn(
                     'flex h-full min-h-[11.5rem] w-full flex-col items-center justify-center gap-2 rounded-xl px-2 py-3 text-center sm:px-3 sm:py-4',
                     'cursor-pointer',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                    'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
                 )}
             >
                 <Folder
@@ -81,7 +88,7 @@ export function EmployeeFolderItem({
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute top-1 right-1 size-7 rounded-lg text-muted-foreground/70 opacity-0 transition-opacity hover:bg-white/10 hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+                    className="absolute top-1 right-1 size-7 rounded-lg text-muted-foreground/70 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-white/10 hover:text-foreground focus-visible:opacity-100"
                     asChild
                 >
                     <a

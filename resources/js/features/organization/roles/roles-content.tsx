@@ -18,7 +18,12 @@ import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
@@ -63,7 +68,9 @@ export function RolesContent({
         has_permissions: initialFilters.has_permissions,
     };
 
-    const activeFiltersCount = [initialFilters.has_permissions].filter(Boolean).length;
+    const activeFiltersCount = [initialFilters.has_permissions].filter(
+        Boolean,
+    ).length;
 
     const form = useForm<RoleFormData>({
         name: '',
@@ -92,8 +99,8 @@ export function RolesContent({
 
     const confirmDelete = () => {
         if (!currentRole) {
-return;
-}
+            return;
+        }
 
         router.delete(`/organization/roles/${currentRole.id}`, {
             onFinish: () => {
@@ -127,12 +134,12 @@ return;
         const params = new URLSearchParams();
 
         if (initialSearch) {
-params.set('search', initialSearch);
-}
+            params.set('search', initialSearch);
+        }
 
         if (initialFilters.has_permissions) {
-params.set('has_permissions', initialFilters.has_permissions);
-}
+            params.set('has_permissions', initialFilters.has_permissions);
+        }
 
         params.set('format', format);
 
@@ -143,7 +150,11 @@ params.set('has_permissions', initialFilters.has_permissions);
         <Main>
             <PageHeader
                 title="Roles & Permissions"
-                description={company?.name ? `Manage roles for ${company.name}.` : 'Manage roles and permissions.'}
+                description={
+                    company?.name
+                        ? `Manage roles for ${company.name}.`
+                        : 'Manage roles and permissions.'
+                }
                 right={
                     <>
                         <ExportMenu
@@ -151,7 +162,10 @@ params.set('has_permissions', initialFilters.has_permissions);
                             buttonVariant="secondary"
                             buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
                         />
-                        <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
+                        <Button
+                            onClick={handleAdd}
+                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                        >
                             <Plus className="mr-2 h-4 w-4" />
                             Add Role
                         </Button>
@@ -169,7 +183,7 @@ params.set('has_permissions', initialFilters.has_permissions);
                         <Button
                             type="button"
                             variant="secondary"
-                            className="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
                             onClick={() => setIsFiltersOpen(true)}
                         >
                             <Filter className="mr-2 h-4 w-4" />
@@ -187,7 +201,12 @@ params.set('has_permissions', initialFilters.has_permissions);
             {view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     {roles.map((role) => (
-                        <RoleCard key={role.id} role={role} onEdit={handleEdit} onDelete={handleDelete} />
+                        <RoleCard
+                            key={role.id}
+                            role={role}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                        />
                     ))}
                 </div>
             ) : (
@@ -196,50 +215,73 @@ params.set('has_permissions', initialFilters.has_permissions);
                         <DataTableHeaderRow>
                             <DataTableHead className="pl-5">Role</DataTableHead>
                             <DataTableHead>Permissions</DataTableHead>
-                            <DataTableHead className="text-right">Actions</DataTableHead>
+                            <DataTableHead className="text-right">
+                                Actions
+                            </DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
-                            <TableBody>
-                                {roles.map((role) => (
-                                    <TableRow
-                                        key={role.id}
-                                        className={dataTableBodyRowClass()}
-                                        onClick={() => router.visit(`/organization/roles/${role.id}`)}
-                                    >
-                                        <TableCell className={dataTableCellPrimaryClass()}>{role.name}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>
-                                            {role.permissions.length ? role.permissions.slice(0, 4).join(', ') : '—'}
-                                            {role.permissions.length > 4 ? ` (+${role.permissions.length - 4} more)` : ''}
-                                        </TableCell>
-                                        <TableCell className={dataTableActionsCellClass()}>
-                                            <div className="flex items-center justify-end gap-1">
-                                                <Button
-                                                    asChild
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100"
-                                                    title="View Assigned Users"
-                                                >
-                                                    <a href={`/organization/users?role_id=${role.id}`} onClick={(e) => e.stopPropagation()}>
-                                                        <Users className="h-4 w-4" />
-                                                    </a>
-                                                </Button>
-                                                <ListTableCrudActions
-                                                    viewHref={`/organization/roles/${role.id}`}
-                                                    onEdit={(e) => {
-                                                        e.stopPropagation();
-                                                        handleEdit(role);
-                                                    }}
-                                                    onDelete={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDelete(role);
-                                                    }}
-                                                />
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
+                    <TableBody>
+                        {roles.map((role) => (
+                            <TableRow
+                                key={role.id}
+                                className={dataTableBodyRowClass()}
+                                onClick={() =>
+                                    router.visit(
+                                        `/organization/roles/${role.id}`,
+                                    )
+                                }
+                            >
+                                <TableCell
+                                    className={dataTableCellPrimaryClass()}
+                                >
+                                    {role.name}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {role.permissions.length
+                                        ? role.permissions
+                                              .slice(0, 4)
+                                              .join(', ')
+                                        : '—'}
+                                    {role.permissions.length > 4
+                                        ? ` (+${role.permissions.length - 4} more)`
+                                        : ''}
+                                </TableCell>
+                                <TableCell
+                                    className={dataTableActionsCellClass()}
+                                >
+                                    <div className="flex items-center justify-end gap-1">
+                                        <Button
+                                            asChild
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100"
+                                            title="View Assigned Users"
+                                        >
+                                            <a
+                                                href={`/organization/users?role_id=${role.id}`}
+                                                onClick={(e) =>
+                                                    e.stopPropagation()
+                                                }
+                                            >
+                                                <Users className="h-4 w-4" />
+                                            </a>
+                                        </Button>
+                                        <ListTableCrudActions
+                                            viewHref={`/organization/roles/${role.id}`}
+                                            onEdit={(e) => {
+                                                e.stopPropagation();
+                                                handleEdit(role);
+                                            }}
+                                            onDelete={(e) => {
+                                                e.stopPropagation();
+                                                handleDelete(role);
+                                            }}
+                                        />
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
                 </OrganizationDataTable>
             )}
 
@@ -263,7 +305,12 @@ params.set('has_permissions', initialFilters.has_permissions);
                 onReset={() => handleFiltersChange({ has_permissions: '' })}
             />
 
-            <RoleDeleteDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen} role={currentRole} onConfirm={confirmDelete} />
+            <RoleDeleteDialog
+                open={isDeleteOpen}
+                onOpenChange={setIsDeleteOpen}
+                role={currentRole}
+                onConfirm={confirmDelete}
+            />
         </Main>
     );
 }

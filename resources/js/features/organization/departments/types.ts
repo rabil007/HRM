@@ -42,4 +42,3 @@ export type DepartmentFormData = {
     code: string;
     status: 'active' | 'inactive';
 };
-

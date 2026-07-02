@@ -5,7 +5,11 @@ import { cn } from '@/lib/utils';
 import type { SalaryInput } from '../types';
 import { formatTimesheetAmount } from '../types';
 
-export function PayrollRecordSalaryInputsCell({ inputs }: { inputs: SalaryInput[] }) {
+export function PayrollRecordSalaryInputsCell({
+    inputs,
+}: {
+    inputs: SalaryInput[];
+}) {
     return (
         <TableCell className={dataTableCellClass()}>
             {inputs.length === 0 ? null : (
@@ -15,7 +19,9 @@ export function PayrollRecordSalaryInputsCell({ inputs }: { inputs: SalaryInput[
                             key={input.id}
                             className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs"
                         >
-                            <span className="font-medium">{input.type_label ?? 'Salary input'}</span>
+                            <span className="font-medium">
+                                {input.type_label ?? 'Salary input'}
+                            </span>
                             <Badge
                                 variant="outline"
                                 className={cn(

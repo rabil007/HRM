@@ -19,7 +19,9 @@ import { useAppearance } from '@/hooks/use-appearance';
 export function CommandMenu() {
     const { updateAppearance } = useAppearance();
     const { open, setOpen } = useSearch();
-    const { auth } = usePage().props as unknown as { auth?: { permissions?: string[] } };
+    const { auth } = usePage().props as unknown as {
+        auth?: { permissions?: string[] };
+    };
     const sidebarData = React.useMemo(
         () => getSidebarData(auth?.permissions ?? []),
         [auth?.permissions],

@@ -5,11 +5,18 @@ export type CalendarDateRange = {
     end: string;
 };
 
-export function normalizeCalendarDateRange(start: string, end: string): CalendarDateRange {
+export function normalizeCalendarDateRange(
+    start: string,
+    end: string,
+): CalendarDateRange {
     return start <= end ? { start, end } : { start: end, end: start };
 }
 
-export function isDateInRange(date: string, start: string | null, end: string | null): boolean {
+export function isDateInRange(
+    date: string,
+    start: string | null,
+    end: string | null,
+): boolean {
     if (start === null || end === null) {
         return false;
     }
@@ -61,7 +68,12 @@ export function useCalendarRangeSelection({
     );
 
     const completeSelection = useCallback(() => {
-        if (!enabled || !isSelecting || anchorDate === null || focusDate === null) {
+        if (
+            !enabled ||
+            !isSelecting ||
+            anchorDate === null ||
+            focusDate === null
+        ) {
             resetSelection();
 
             return;
@@ -70,7 +82,14 @@ export function useCalendarRangeSelection({
         const range = normalizeCalendarDateRange(anchorDate, focusDate);
         resetSelection();
         onRangeComplete(range);
-    }, [anchorDate, enabled, focusDate, isSelecting, onRangeComplete, resetSelection]);
+    }, [
+        anchorDate,
+        enabled,
+        focusDate,
+        isSelecting,
+        onRangeComplete,
+        resetSelection,
+    ]);
 
     useEffect(() => {
         if (!isSelecting) {
@@ -94,6 +113,7 @@ export function useCalendarRangeSelection({
         isSelecting,
         beginSelection,
         extendSelection,
-        isDateInRange: (date: string) => isDateInRange(date, anchorDate, focusDate),
+        isDateInRange: (date: string) =>
+            isDateInRange(date, anchorDate, focusDate),
     };
 }

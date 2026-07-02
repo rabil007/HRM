@@ -1,17 +1,24 @@
-
 import type { EmailDocumentItem } from '@/features/organization/documents/email-send/types';
 import { EMAIL_MAX_ATTACHMENT_BYTES } from '@/features/organization/documents/email-send/types';
 import { formatBytes } from '@/lib/utils';
 
-export function buildDefaultEmailSubject(employeeName: string, organizationName: string): string {
+export function buildDefaultEmailSubject(
+    employeeName: string,
+    organizationName: string,
+): string {
     return `${employeeName} - Documents from ${organizationName}`;
 }
 
 export function totalAttachmentBytes(documents: EmailDocumentItem[]): number {
-    return documents.reduce((total, document) => total + (document.size_bytes ?? 0), 0);
+    return documents.reduce(
+        (total, document) => total + (document.size_bytes ?? 0),
+        0,
+    );
 }
 
-export function isAttachmentSizeExceeded(documents: EmailDocumentItem[]): boolean {
+export function isAttachmentSizeExceeded(
+    documents: EmailDocumentItem[],
+): boolean {
     return totalAttachmentBytes(documents) > EMAIL_MAX_ATTACHMENT_BYTES;
 }
 

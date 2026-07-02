@@ -43,26 +43,34 @@ export function UploadDocumentDraftForm({
     isFieldRequired = () => false,
     isMissingRequired = () => false,
 }: UploadDocumentDraftFormProps): ReactElement {
-    const { selectOptions: documentTypeOptions, appendOption: appendDocumentType } =
-        useMutableSelectOptions(
-            documentTypes.map((type) => ({
-                id: type.id,
-                title: type.title,
-            })),
-            'title',
-        );
-    const { canCreate: canCreateDocumentType, createConfig: documentTypeCreateConfig } =
-        useCreatableMasterData('documentType');
+    const {
+        selectOptions: documentTypeOptions,
+        appendOption: appendDocumentType,
+    } = useMutableSelectOptions(
+        documentTypes.map((type) => ({
+            id: type.id,
+            title: type.title,
+        })),
+        'title',
+    );
+    const {
+        canCreate: canCreateDocumentType,
+        createConfig: documentTypeCreateConfig,
+    } = useCreatableMasterData('documentType');
 
     return (
         <div className="space-y-4">
             <div className="flex items-start justify-between gap-2">
                 <div>
-                    <div className="text-sm font-semibold">Document information</div>
+                    <div className="text-sm font-semibold">
+                        Document information
+                    </div>
                     <p className="mt-1 text-xs text-muted-foreground">
                         Details for{' '}
-                        <span className="font-medium text-foreground">{draft.file.name}</span>.
-                        Each file has its own metadata.
+                        <span className="font-medium text-foreground">
+                            {draft.file.name}
+                        </span>
+                        . Each file has its own metadata.
                     </p>
                 </div>
                 {showApplyToAll && onApplyToAll ? (
@@ -86,13 +94,21 @@ export function UploadDocumentDraftForm({
                         highlightMissing={isMissingRequired('document_type_id')}
                     >
                         <div className="space-y-1.5">
-                            <Label className={recordFieldLabelClass(isMissingRequired('document_type_id'))}>
+                            <Label
+                                className={recordFieldLabelClass(
+                                    isMissingRequired('document_type_id'),
+                                )}
+                            >
                                 Document Type
-                                <RequiredIndicator show={isFieldRequired('document_type_id')} />
+                                <RequiredIndicator
+                                    show={isFieldRequired('document_type_id')}
+                                />
                             </Label>
                             <CreatableSelect
                                 value={draft.document_type_id}
-                                onValueChange={(value) => onChange({ document_type_id: value })}
+                                onValueChange={(value) =>
+                                    onChange({ document_type_id: value })
+                                }
                                 variant="card"
                                 placeholder="Select type…"
                                 options={documentTypeOptions}
@@ -100,7 +116,9 @@ export function UploadDocumentDraftForm({
                                     const added = next.find(
                                         (option) =>
                                             !documentTypeOptions.some(
-                                                (existing) => existing.value === option.value,
+                                                (existing) =>
+                                                    existing.value ===
+                                                    option.value,
                                             ),
                                     );
 
@@ -125,20 +143,38 @@ export function UploadDocumentDraftForm({
                 ) : null}
 
                 {showField('title') ? (
-                    <RecordFormField field="title" highlightMissing={isMissingRequired('title')}>
+                    <RecordFormField
+                        field="title"
+                        highlightMissing={isMissingRequired('title')}
+                    >
                         <div className="space-y-1.5">
-                            <Label className={recordFieldLabelClass(isMissingRequired('title'))}>
+                            <Label
+                                className={recordFieldLabelClass(
+                                    isMissingRequired('title'),
+                                )}
+                            >
                                 Title
-                                <RequiredIndicator show={isFieldRequired('title')} />
+                                <RequiredIndicator
+                                    show={isFieldRequired('title')}
+                                />
                             </Label>
                             <Input
-                                className={cn(recordFieldInputClass(isMissingRequired('title')), 'h-10 text-sm')}
+                                className={cn(
+                                    recordFieldInputClass(
+                                        isMissingRequired('title'),
+                                    ),
+                                    'h-10 text-sm',
+                                )}
                                 placeholder="e.g. Passport Copy"
                                 value={draft.title}
-                                onChange={(event) => onChange({ title: event.target.value })}
+                                onChange={(event) =>
+                                    onChange({ title: event.target.value })
+                                }
                             />
                             {fieldErrors.title ? (
-                                <p className="text-xs text-destructive">{fieldErrors.title}</p>
+                                <p className="text-xs text-destructive">
+                                    {fieldErrors.title}
+                                </p>
                             ) : null}
                         </div>
                     </RecordFormField>
@@ -156,17 +192,23 @@ export function UploadDocumentDraftForm({
                                 )}
                             >
                                 Document Number
-                                <RequiredIndicator show={isFieldRequired('document_number')} />
+                                <RequiredIndicator
+                                    show={isFieldRequired('document_number')}
+                                />
                             </Label>
                             <Input
                                 className={cn(
-                                    recordFieldInputClass(isMissingRequired('document_number')),
+                                    recordFieldInputClass(
+                                        isMissingRequired('document_number'),
+                                    ),
                                     'h-10 text-sm',
                                 )}
                                 placeholder="e.g. A123456"
                                 value={draft.document_number}
                                 onChange={(event) =>
-                                    onChange({ document_number: event.target.value })
+                                    onChange({
+                                        document_number: event.target.value,
+                                    })
                                 }
                             />
                             {fieldErrors.document_number ? (
@@ -183,7 +225,9 @@ export function UploadDocumentDraftForm({
                         {showField('issue_date') ? (
                             <RecordFormField
                                 field="issue_date"
-                                highlightMissing={isMissingRequired('issue_date')}
+                                highlightMissing={isMissingRequired(
+                                    'issue_date',
+                                )}
                             >
                                 <div className="space-y-1.5">
                                     <Label
@@ -192,17 +236,23 @@ export function UploadDocumentDraftForm({
                                         )}
                                     >
                                         Issue Date
-                                        <RequiredIndicator show={isFieldRequired('issue_date')} />
+                                        <RequiredIndicator
+                                            show={isFieldRequired('issue_date')}
+                                        />
                                     </Label>
                                     <Input
                                         type="date"
                                         className={cn(
-                                            recordFieldInputClass(isMissingRequired('issue_date')),
+                                            recordFieldInputClass(
+                                                isMissingRequired('issue_date'),
+                                            ),
                                             'h-10 text-sm',
                                         )}
                                         value={draft.issue_date}
                                         onChange={(event) =>
-                                            onChange({ issue_date: event.target.value })
+                                            onChange({
+                                                issue_date: event.target.value,
+                                            })
                                         }
                                     />
                                     {fieldErrors.issue_date ? (
@@ -216,7 +266,9 @@ export function UploadDocumentDraftForm({
                         {showField('expiry_date') ? (
                             <RecordFormField
                                 field="expiry_date"
-                                highlightMissing={isMissingRequired('expiry_date')}
+                                highlightMissing={isMissingRequired(
+                                    'expiry_date',
+                                )}
                             >
                                 <div className="space-y-1.5">
                                     <Label
@@ -225,17 +277,27 @@ export function UploadDocumentDraftForm({
                                         )}
                                     >
                                         Expiry Date
-                                        <RequiredIndicator show={isFieldRequired('expiry_date')} />
+                                        <RequiredIndicator
+                                            show={isFieldRequired(
+                                                'expiry_date',
+                                            )}
+                                        />
                                     </Label>
                                     <Input
                                         type="date"
                                         className={cn(
-                                            recordFieldInputClass(isMissingRequired('expiry_date')),
+                                            recordFieldInputClass(
+                                                isMissingRequired(
+                                                    'expiry_date',
+                                                ),
+                                            ),
                                             'h-10 text-sm',
                                         )}
                                         value={draft.expiry_date}
                                         onChange={(event) =>
-                                            onChange({ expiry_date: event.target.value })
+                                            onChange({
+                                                expiry_date: event.target.value,
+                                            })
                                         }
                                     />
                                     {fieldErrors.expiry_date ? (
@@ -250,31 +312,48 @@ export function UploadDocumentDraftForm({
                 ) : null}
 
                 {showField('notes') ? (
-                    <RecordFormField field="notes" highlightMissing={isMissingRequired('notes')}>
+                    <RecordFormField
+                        field="notes"
+                        highlightMissing={isMissingRequired('notes')}
+                    >
                         <div className="space-y-1.5">
-                            <Label className={recordFieldLabelClass(isMissingRequired('notes'))}>
+                            <Label
+                                className={recordFieldLabelClass(
+                                    isMissingRequired('notes'),
+                                )}
+                            >
                                 Notes
-                                <RequiredIndicator show={isFieldRequired('notes')} />
+                                <RequiredIndicator
+                                    show={isFieldRequired('notes')}
+                                />
                             </Label>
                             <textarea
                                 rows={4}
                                 className={cn(
-                                    recordFieldInputClass(isMissingRequired('notes')),
+                                    recordFieldInputClass(
+                                        isMissingRequired('notes'),
+                                    ),
                                     'w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary',
                                 )}
                                 placeholder="Optional notes, renewal reminders, or source details…"
                                 value={draft.notes}
-                                onChange={(event) => onChange({ notes: event.target.value })}
+                                onChange={(event) =>
+                                    onChange({ notes: event.target.value })
+                                }
                             />
                             {fieldErrors.notes ? (
-                                <p className="text-xs text-destructive">{fieldErrors.notes}</p>
+                                <p className="text-xs text-destructive">
+                                    {fieldErrors.notes}
+                                </p>
                             ) : null}
                         </div>
                     </RecordFormField>
                 ) : null}
 
                 {fieldErrors.file ? (
-                    <p className="text-xs text-destructive">{fieldErrors.file}</p>
+                    <p className="text-xs text-destructive">
+                        {fieldErrors.file}
+                    </p>
                 ) : null}
             </div>
         </div>

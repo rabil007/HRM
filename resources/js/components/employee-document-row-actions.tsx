@@ -1,4 +1,11 @@
-import { Eye, ExternalLink, History, Pencil, RefreshCw, Trash2 } from 'lucide-react';
+import {
+    Eye,
+    ExternalLink,
+    History,
+    Pencil,
+    RefreshCw,
+    Trash2,
+} from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

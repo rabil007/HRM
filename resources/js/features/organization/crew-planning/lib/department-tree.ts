@@ -10,7 +10,9 @@ export function collectSubtreeIds(node: PlanningDepartmentNode): number[] {
     return ids;
 }
 
-export function flattenDepartmentTreeIds(nodes: PlanningDepartmentNode[]): number[] {
+export function flattenDepartmentTreeIds(
+    nodes: PlanningDepartmentNode[],
+): number[] {
     const ids: number[] = [];
 
     for (const node of nodes) {

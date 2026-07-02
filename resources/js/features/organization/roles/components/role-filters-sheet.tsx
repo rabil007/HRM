@@ -23,18 +23,28 @@ export function RoleFiltersSheet({
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Permissions
                     </Label>
                     <AppSelect
                         value={value.has_permissions}
-                        onValueChange={(v) => onChange({ ...value, has_permissions: v as RoleFilters['has_permissions'] })}
+                        onValueChange={(v) =>
+                            onChange({
+                                ...value,
+                                has_permissions:
+                                    v as RoleFilters['has_permissions'],
+                            })
+                        }
                         variant="dark"
                         placeholder="All"
                     >
                         <AppSelectItem value="">All</AppSelectItem>
-                        <AppSelectItem value="true">Has permissions</AppSelectItem>
-                        <AppSelectItem value="false">No permissions</AppSelectItem>
+                        <AppSelectItem value="true">
+                            Has permissions
+                        </AppSelectItem>
+                        <AppSelectItem value="false">
+                            No permissions
+                        </AppSelectItem>
                     </AppSelect>
                 </div>
             </div>

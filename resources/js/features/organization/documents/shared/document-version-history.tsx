@@ -43,7 +43,9 @@ export function DocumentVersionHistory({
 }): ReactElement {
     if (versions.length === 0) {
         return (
-            <p className="py-8 text-center text-sm text-muted-foreground">{emptyMessage}</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">
+                {emptyMessage}
+            </p>
         );
     }
 
@@ -51,7 +53,7 @@ export function DocumentVersionHistory({
         <ol className="relative ml-3 space-y-0 border-l border-border/50">
             {versions.map((version, index) => (
                 <li key={version.id} className="relative mb-6 pl-6">
-                    <span className="absolute -left-[9px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full border-2 border-background bg-border">
+                    <span className="absolute top-1.5 -left-[9px] flex h-4 w-4 items-center justify-center rounded-full border-2 border-background bg-border">
                         <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
                     </span>
 
@@ -59,7 +61,9 @@ export function DocumentVersionHistory({
                         <div className="mb-2 flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                                 <Badge
-                                    variant={index === 0 ? 'default' : 'secondary'}
+                                    variant={
+                                        index === 0 ? 'default' : 'secondary'
+                                    }
                                     className="text-[10px] uppercase"
                                 >
                                     v{version.version}
@@ -70,7 +74,7 @@ export function DocumentVersionHistory({
                                     </span>
                                 ) : null}
                             </div>
-                            <span className="text-[10px] tabular-nums text-muted-foreground/60">
+                            <span className="text-[10px] text-muted-foreground/60 tabular-nums">
                                 {formatBytes(version.size_bytes)}
                             </span>
                         </div>
@@ -97,7 +101,11 @@ export function DocumentVersionHistory({
                                 size="sm"
                                 className="h-7 gap-1.5 rounded-lg px-2 text-[11px]"
                             >
-                                <a href={version.file_url} target="_blank" rel="noreferrer">
+                                <a
+                                    href={version.file_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
                                     <ExternalLink className="h-3 w-3" />
                                     View
                                 </a>
@@ -111,7 +119,10 @@ export function DocumentVersionHistory({
                                 >
                                     <a
                                         href={version.file_url}
-                                        download={version.original_filename ?? undefined}
+                                        download={
+                                            version.original_filename ??
+                                            undefined
+                                        }
                                     >
                                         <Download className="h-3 w-3" />
                                         Download

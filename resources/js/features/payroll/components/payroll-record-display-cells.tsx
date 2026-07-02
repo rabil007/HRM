@@ -4,10 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { TableCell } from '@/components/ui/table';
 import {
     cashPaymentBadgeLabel,
-    isCashPaymentMethod
-    
+    isCashPaymentMethod,
 } from '@/features/organization/employees/salary-payment-method';
-import type {SalaryPaymentMethodValue} from '@/features/organization/employees/salary-payment-method';
+import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import type { OfficePrimaryAccount } from '../types';
 
 export function PayrollRecordPaymentMethodCell({
@@ -43,7 +42,8 @@ export function PayrollRecordBankAccountCell({
     salary_payment_method: SalaryPaymentMethodValue;
 }) {
     const paysByCash = isCashPaymentMethod(salary_payment_method);
-    const hasBankAccount = primary_account !== null && primary_account !== undefined;
+    const hasBankAccount =
+        primary_account !== null && primary_account !== undefined;
     const hasIban = !!primary_account?.iban;
 
     return (
@@ -57,7 +57,9 @@ export function PayrollRecordBankAccountCell({
                         {primary_account.bank_name ?? '—'}
                     </div>
                     {hasIban ? (
-                        <div className="font-mono text-xs text-muted-foreground">{primary_account.iban}</div>
+                        <div className="font-mono text-xs text-muted-foreground">
+                            {primary_account.iban}
+                        </div>
                     ) : (
                         <div className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
                             <AlertCircle className="h-3.5 w-3.5 shrink-0" />

@@ -20,8 +20,9 @@ export default function AppLayout({
     children: React.ReactNode;
 }) {
     const { url } = usePage();
-    const placeholder = (key: string) => `${dashboard.url()}?module=${encodeURIComponent(key)}`;
-    
+    const placeholder = (key: string) =>
+        `${dashboard.url()}?module=${encodeURIComponent(key)}`;
+
     const navLinks = [
         {
             title: 'Overview',
@@ -48,7 +49,9 @@ export default function AppLayout({
         {
             title: 'Recruitment',
             href: placeholder('recruitment.job-postings'),
-            isActive: url.includes('module=recruitment') || url.includes('recruitment'),
+            isActive:
+                url.includes('module=recruitment') ||
+                url.includes('recruitment'),
             disabled: false,
         },
         {

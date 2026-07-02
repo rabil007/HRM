@@ -32,11 +32,18 @@ export function EmptyState({
             ) : null}
             <h3 className="text-sm font-semibold text-foreground">{title}</h3>
             {description ? (
-                <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                    {description}
+                </p>
             ) : null}
             {children}
             {action ? (
-                <Button type="button" className="mt-4" size="sm" onClick={action.onClick}>
+                <Button
+                    type="button"
+                    className="mt-4"
+                    size="sm"
+                    onClick={action.onClick}
+                >
                     {action.label}
                 </Button>
             ) : null}

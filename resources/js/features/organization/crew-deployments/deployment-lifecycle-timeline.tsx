@@ -49,9 +49,11 @@ function phaseState(
 }
 
 const STATE_STYLES: Record<PhaseState, string> = {
-    complete: 'border-border/80 bg-muted/20 dark:border-white/10 dark:bg-white/[0.03]',
+    complete:
+        'border-border/80 bg-muted/20 dark:border-white/10 dark:bg-white/[0.03]',
     current: 'border-primary/40 bg-primary/10 shadow-sm shadow-primary/10',
-    pending: 'border-dashed border-border/50 bg-transparent opacity-55 dark:border-white/10',
+    pending:
+        'border-dashed border-border/50 bg-transparent opacity-55 dark:border-white/10',
     warning: 'border-red-500/30 bg-red-500/10',
 };
 
@@ -118,7 +120,11 @@ function buildPhases(deployment: DeploymentItem): Phase[] {
             state: phaseState(
                 hasVesselTour,
                 onVesselCurrent || disembarkedCurrent,
-                needsUpdate && hasVesselTour && Boolean(deployment.disembarked_date) && !hasLeaveStandby && !hasTravel,
+                needsUpdate &&
+                    hasVesselTour &&
+                    Boolean(deployment.disembarked_date) &&
+                    !hasLeaveStandby &&
+                    !hasTravel,
             ),
             primary: hasVesselTour
                 ? `${displayDate(deployment.joined_date)} → ${displayDate(deployment.disembarked_date)}`
@@ -162,15 +168,20 @@ function PhaseCard({ phase }: { phase: Phase }): ReactElement {
             )}
         >
             <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs font-bold tracking-wider text-muted-foreground uppercase">
                     <span className="text-primary">{phase.icon}</span>
                     {phase.label}
                 </div>
-                <span className={cn('h-2 w-2 shrink-0 rounded-full', STATE_DOT[phase.state])} />
+                <span
+                    className={cn(
+                        'h-2 w-2 shrink-0 rounded-full',
+                        STATE_DOT[phase.state],
+                    )}
+                />
             </div>
             <div
                 className={cn(
-                    'text-sm font-semibold leading-snug',
+                    'text-sm leading-snug font-semibold',
                     phase.state === 'warning'
                         ? 'text-red-500 dark:text-red-400'
                         : 'text-foreground',
@@ -179,10 +190,14 @@ function PhaseCard({ phase }: { phase: Phase }): ReactElement {
                 {phase.primary}
             </div>
             {phase.secondary ? (
-                <div className="truncate text-xs text-muted-foreground">{phase.secondary}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                    {phase.secondary}
+                </div>
             ) : null}
             {phase.meta ? (
-                <div className="text-[11px] font-medium text-muted-foreground/80">{phase.meta}</div>
+                <div className="text-[11px] font-medium text-muted-foreground/80">
+                    {phase.meta}
+                </div>
             ) : null}
         </div>
     );
@@ -199,7 +214,10 @@ export function DeploymentLifecycleTimeline({
         <div className="overflow-x-auto pb-1">
             <div className="flex min-w-max items-stretch gap-2 lg:min-w-0 lg:gap-3">
                 {phases.map((phase, index) => (
-                    <div key={phase.id} className="flex items-stretch gap-2 lg:gap-3">
+                    <div
+                        key={phase.id}
+                        className="flex items-stretch gap-2 lg:gap-3"
+                    >
                         <PhaseCard phase={phase} />
                         {index < phases.length - 1 ? (
                             <div className="flex items-center text-muted-foreground/30">

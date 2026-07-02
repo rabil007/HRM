@@ -10,7 +10,11 @@ import {
 } from 'recharts';
 import type { CrewOperationsDeploymentTrendPoint } from '@/features/organization/crew-operations/types';
 
-export function DeploymentTrendChart({ data }: { data: CrewOperationsDeploymentTrendPoint[] }) {
+export function DeploymentTrendChart({
+    data,
+}: {
+    data: CrewOperationsDeploymentTrendPoint[];
+}) {
     if (data.length === 0) {
         return (
             <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">
@@ -21,18 +25,53 @@ export function DeploymentTrendChart({ data }: { data: CrewOperationsDeploymentT
 
     return (
         <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+            <AreaChart
+                data={data}
+                margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
+            >
                 <defs>
-                    <linearGradient id="joinsGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                    <linearGradient
+                        id="joinsGradient"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                    >
+                        <stop
+                            offset="5%"
+                            stopColor="var(--primary)"
+                            stopOpacity={0.3}
+                        />
+                        <stop
+                            offset="95%"
+                            stopColor="var(--primary)"
+                            stopOpacity={0}
+                        />
                     </linearGradient>
-                    <linearGradient id="disembarksGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f97316" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                    <linearGradient
+                        id="disembarksGradient"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                    >
+                        <stop
+                            offset="5%"
+                            stopColor="#f97316"
+                            stopOpacity={0.2}
+                        />
+                        <stop
+                            offset="95%"
+                            stopColor="#f97316"
+                            stopOpacity={0}
+                        />
                     </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" vertical={false} />
+                <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border/30"
+                    vertical={false}
+                />
                 <XAxis
                     dataKey="month"
                     tickLine={false}

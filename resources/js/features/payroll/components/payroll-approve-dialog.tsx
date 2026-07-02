@@ -26,12 +26,15 @@ export function PayrollApproveDialog({
                 <AlertDialogHeader>
                     <AlertDialogTitle>Approve pay run?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This locks the payroll for payment processing. Timesheets will remain locked.
-                        You can still revert to draft or cancel if changes are needed.
+                        This locks the payroll for payment processing.
+                        Timesheets will remain locked. You can still revert to
+                        draft or cancel if changes are needed.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                    <AlertDialogCancel className="rounded-xl">
+                        Cancel
+                    </AlertDialogCancel>
                     <AlertDialogAction
                         className="rounded-xl"
                         disabled={processing}

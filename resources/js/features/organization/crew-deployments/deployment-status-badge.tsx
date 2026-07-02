@@ -14,8 +14,7 @@ const STATUS_STYLES: Record<string, string> = {
         'border-orange-500/20 bg-orange-500/10 text-orange-700 dark:border-orange-500/30 dark:bg-orange-500/15 dark:text-orange-300',
     arrived:
         'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300',
-    travel:
-        'border-violet-500/20 bg-violet-500/10 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/15 dark:text-violet-300',
+    travel: 'border-violet-500/20 bg-violet-500/10 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/15 dark:text-violet-300',
     in_home:
         'border-teal-500/20 bg-teal-500/10 text-teal-700 dark:border-teal-500/30 dark:bg-teal-500/15 dark:text-teal-300',
     disembarked:
@@ -41,7 +40,8 @@ export function DeploymentStatusBadge({
             className={cn(
                 'font-medium',
                 STATUS_STYLES[status] ?? STATUS_STYLES.unknown,
-                hint && 'underline decoration-dotted decoration-current/40 underline-offset-[3px]',
+                hint &&
+                    'underline decoration-current/40 decoration-dotted underline-offset-[3px]',
             )}
         >
             {label}

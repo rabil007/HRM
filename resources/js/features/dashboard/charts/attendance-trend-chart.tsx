@@ -15,7 +15,11 @@ export type AttendanceTrendPoint = {
     check_outs: number;
 };
 
-export function AttendanceTrendChart({ data }: { data: AttendanceTrendPoint[] }) {
+export function AttendanceTrendChart({
+    data,
+}: {
+    data: AttendanceTrendPoint[];
+}) {
     if (data.length === 0) {
         return (
             <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground">
@@ -26,8 +30,15 @@ export function AttendanceTrendChart({ data }: { data: AttendanceTrendPoint[] })
 
     return (
         <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" vertical={false} />
+            <BarChart
+                data={data}
+                margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
+            >
+                <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border/30"
+                    vertical={false}
+                />
                 <XAxis
                     dataKey="day"
                     tickLine={false}

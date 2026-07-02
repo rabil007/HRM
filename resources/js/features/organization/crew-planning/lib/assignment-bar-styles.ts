@@ -35,7 +35,9 @@ export function barSurfaceClass(bar: AssignmentStyleInput): string {
         return vacantBarSurfaceClass;
     }
 
-    return bar.is_deployed ? deployedBarSurfaceClass : plannedReliefBarSurfaceClass;
+    return bar.is_deployed
+        ? deployedBarSurfaceClass
+        : plannedReliefBarSurfaceClass;
 }
 
 export function barAvatarClass(bar: AssignmentStyleInput): string {
@@ -43,7 +45,9 @@ export function barAvatarClass(bar: AssignmentStyleInput): string {
         return vacantBarAvatarClass;
     }
 
-    return bar.is_deployed ? deployedBarAvatarClass : plannedReliefBarAvatarClass;
+    return bar.is_deployed
+        ? deployedBarAvatarClass
+        : plannedReliefBarAvatarClass;
 }
 
 export function barResizeHandleClass(bar: AssignmentStyleInput): string {
@@ -51,5 +55,7 @@ export function barResizeHandleClass(bar: AssignmentStyleInput): string {
         return plannedReliefBarResizeHandleClass;
     }
 
-    return bar.is_deployed ? deployedBarResizeHandleClass : plannedReliefBarResizeHandleClass;
+    return bar.is_deployed
+        ? deployedBarResizeHandleClass
+        : plannedReliefBarResizeHandleClass;
 }

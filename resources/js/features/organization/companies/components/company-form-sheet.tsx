@@ -39,30 +39,34 @@ export function CompanyFormSheet({
     form: InertiaFormProps<CompanyFormData>;
     onSubmit: () => void;
 }) {
-    const selectedCountry = countries.find((c) => c.id === form.data.country_id);
+    const selectedCountry = countries.find(
+        (c) => c.id === form.data.country_id,
+    );
     const dialCode = selectedCountry?.dial_code ?? '';
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="right"
-                className="w-full sm:max-w-md p-0 flex flex-col glass-card rounded-none"
+                className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-md"
             >
-                <SheetHeader className="p-8 pb-6 border-b border-border/60">
+                <SheetHeader className="border-b border-border/60 p-8 pb-6">
                     <SheetTitle className="text-xl font-bold tracking-tight">
                         {company ? 'Edit Company' : 'New Company'}
                     </SheetTitle>
-                    <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
-                        {company ? 'Update organization profile details.' : 'Register a new entity in the system.'}
+                    <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
+                        {company
+                            ? 'Update organization profile details.'
+                            : 'Register a new entity in the system.'}
                     </SheetDescription>
                 </SheetHeader>
 
-                <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                <div className="flex-1 space-y-8 overflow-y-auto p-8">
                     <div className="space-y-5">
                         <div className="space-y-2">
                             <Label
                                 htmlFor="logo"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Logo
                             </Label>
@@ -70,30 +74,41 @@ export function CompanyFormSheet({
                                 id="logo"
                                 type="file"
                                 accept="image/*"
-                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all file:mr-4 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-2 file:text-xs file:font-semibold file:text-foreground"
-                                onChange={(e) => form.setData('logo', e.target.files?.[0] ?? null)}
+                                className="h-11 rounded-xl border-border bg-card transition-all file:mr-4 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-2 file:text-xs file:font-semibold file:text-foreground focus-visible:ring-primary/40"
+                                onChange={(e) =>
+                                    form.setData(
+                                        'logo',
+                                        e.target.files?.[0] ?? null,
+                                    )
+                                }
                             />
                             {form.errors.logo ? (
-                                <div className="text-xs font-medium text-destructive">{form.errors.logo}</div>
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.logo}
+                                </div>
                             ) : null}
                         </div>
 
                         <div className="space-y-2">
                             <Label
                                 htmlFor="name"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Company Name
                             </Label>
                             <Input
                                 id="name"
                                 placeholder="Acme Solutions"
-                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                 value={form.data.name}
-                                onChange={(e) => form.setData('name', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('name', e.target.value)
+                                }
                             />
                             {form.errors.name ? (
-                                <div className="text-xs font-medium text-destructive">{form.errors.name}</div>
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.name}
+                                </div>
                             ) : null}
                         </div>
 
@@ -101,31 +116,35 @@ export function CompanyFormSheet({
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="industry"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Industry
                                 </Label>
                                 <Input
                                     id="industry"
                                     placeholder="Technology"
-                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                     value={form.data.industry}
-                                    onChange={(e) => form.setData('industry', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData('industry', e.target.value)
+                                    }
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="city"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     City
                                 </Label>
                                 <Input
                                     id="city"
                                     placeholder="Dubai"
-                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                     value={form.data.city}
-                                    onChange={(e) => form.setData('city', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData('city', e.target.value)
+                                    }
                                 />
                             </div>
                         </div>
@@ -134,19 +153,29 @@ export function CompanyFormSheet({
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="country_id"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Country
                                 </Label>
                                 <AppSelect
                                     value={String(form.data.country_id ?? '')}
-                                    onValueChange={(v) => form.setData('country_id', v ? Number(v) : '')}
+                                    onValueChange={(v) =>
+                                        form.setData(
+                                            'country_id',
+                                            v ? Number(v) : '',
+                                        )
+                                    }
                                     variant="card"
                                     placeholder="Select country"
                                 >
-                                    <AppSelectItem value="">Select country</AppSelectItem>
+                                    <AppSelectItem value="">
+                                        Select country
+                                    </AppSelectItem>
                                     {countries.map((country) => (
-                                        <AppSelectItem key={country.id} value={String(country.id)}>
+                                        <AppSelectItem
+                                            key={country.id}
+                                            value={String(country.id)}
+                                        >
                                             {country.code} {country.name}
                                         </AppSelectItem>
                                     ))}
@@ -155,22 +184,29 @@ export function CompanyFormSheet({
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="phone"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Phone
                                 </Label>
                                 <div className="relative">
                                     {dialCode ? (
                                         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                            <span className="text-sm text-muted-foreground/80">{dialCode}</span>
+                                            <span className="text-sm text-muted-foreground/80">
+                                                {dialCode}
+                                            </span>
                                         </div>
                                     ) : null}
                                     <Input
                                         id="phone"
                                         placeholder="Phone number"
-                                        className={`rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all ${dialCode ? 'pl-14' : ''}`}
+                                        className={`h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40 ${dialCode ? 'pl-14' : ''}`}
                                         value={form.data.phone}
-                                        onChange={(e) => form.setData('phone', e.target.value)}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'phone',
+                                                e.target.value,
+                                            )
+                                        }
                                     />
                                 </div>
                             </div>
@@ -180,31 +216,38 @@ export function CompanyFormSheet({
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="registration_number"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Registration #
                                 </Label>
                                 <Input
                                     id="registration_number"
                                     placeholder="Reg-123"
-                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                     value={form.data.registration_number}
-                                    onChange={(e) => form.setData('registration_number', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'registration_number',
+                                            e.target.value,
+                                        )
+                                    }
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="tax_id"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Tax ID
                                 </Label>
                                 <Input
                                     id="tax_id"
                                     placeholder="TRN..."
-                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                     value={form.data.tax_id}
-                                    onChange={(e) => form.setData('tax_id', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData('tax_id', e.target.value)
+                                    }
                                 />
                             </div>
                         </div>
@@ -213,34 +256,49 @@ export function CompanyFormSheet({
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="company_size"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Company size
                                 </Label>
                                 <Input
                                     id="company_size"
                                     placeholder="1-50"
-                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                     value={form.data.company_size}
-                                    onChange={(e) => form.setData('company_size', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'company_size',
+                                            e.target.value,
+                                        )
+                                    }
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="currency_id"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Currency
                                 </Label>
                                 <AppSelect
                                     value={String(form.data.currency_id ?? '')}
-                                    onValueChange={(v) => form.setData('currency_id', v ? Number(v) : '')}
+                                    onValueChange={(v) =>
+                                        form.setData(
+                                            'currency_id',
+                                            v ? Number(v) : '',
+                                        )
+                                    }
                                     variant="card"
                                     placeholder="Select currency"
                                 >
-                                    <AppSelectItem value="">Select currency</AppSelectItem>
+                                    <AppSelectItem value="">
+                                        Select currency
+                                    </AppSelectItem>
                                     {currencies.map((currency) => (
-                                        <AppSelectItem key={currency.id} value={String(currency.id)}>
+                                        <AppSelectItem
+                                            key={currency.id}
+                                            value={String(currency.id)}
+                                        >
                                             {currency.code} {currency.name}
                                         </AppSelectItem>
                                     ))}
@@ -249,43 +307,47 @@ export function CompanyFormSheet({
                         </div>
                     </div>
 
-                    <div className="pt-4 space-y-5 border-t border-border/60">
+                    <div className="space-y-5 border-t border-border/60 pt-4">
                         <div className="space-y-2">
                             <Label
                                 htmlFor="address"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Address
                             </Label>
                             <Input
                                 id="address"
                                 placeholder="Building, street..."
-                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                 value={form.data.address}
-                                onChange={(e) => form.setData('address', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('address', e.target.value)
+                                }
                             />
                         </div>
 
                         <div className="space-y-2">
                             <Label
                                 htmlFor="website"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Website
                             </Label>
                             <Input
                                 id="website"
                                 placeholder="company.com"
-                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                 value={form.data.website}
-                                onChange={(e) => form.setData('website', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('website', e.target.value)
+                                }
                             />
                         </div>
 
                         <div className="space-y-2">
                             <Label
                                 htmlFor="email"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Contact Email
                             </Label>
@@ -293,25 +355,29 @@ export function CompanyFormSheet({
                                 id="email"
                                 type="email"
                                 placeholder="hr@company.com"
-                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                 value={form.data.email}
-                                onChange={(e) => form.setData('email', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('email', e.target.value)
+                                }
                             />
                         </div>
 
                         <div className="space-y-2">
                             <Label
                                 htmlFor="timezone"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Timezone
                             </Label>
                             <Input
                                 id="timezone"
                                 placeholder="Asia/Dubai"
-                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                 value={form.data.timezone}
-                                onChange={(e) => form.setData('timezone', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('timezone', e.target.value)
+                                }
                             />
                         </div>
 
@@ -319,51 +385,82 @@ export function CompanyFormSheet({
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="payroll_cycle"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Payroll cycle
                                 </Label>
                                 <AppSelect
                                     value={form.data.payroll_cycle}
-                                    onValueChange={(v) => form.setData('payroll_cycle', v as 'monthly' | 'biweekly' | 'weekly')}
+                                    onValueChange={(v) =>
+                                        form.setData(
+                                            'payroll_cycle',
+                                            v as
+                                                | 'monthly'
+                                                | 'biweekly'
+                                                | 'weekly',
+                                        )
+                                    }
                                     variant="card"
                                 >
-                                    <AppSelectItem value="monthly">Monthly</AppSelectItem>
-                                    <AppSelectItem value="biweekly">Biweekly</AppSelectItem>
-                                    <AppSelectItem value="weekly">Weekly</AppSelectItem>
+                                    <AppSelectItem value="monthly">
+                                        Monthly
+                                    </AppSelectItem>
+                                    <AppSelectItem value="biweekly">
+                                        Biweekly
+                                    </AppSelectItem>
+                                    <AppSelectItem value="weekly">
+                                        Weekly
+                                    </AppSelectItem>
                                 </AppSelect>
                             </div>
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="status"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Status
                                 </Label>
                                 <AppSelect
                                     value={form.data.status}
-                                    onValueChange={(v) => form.setData('status', v as 'active' | 'suspended' | 'inactive')}
+                                    onValueChange={(v) =>
+                                        form.setData(
+                                            'status',
+                                            v as
+                                                | 'active'
+                                                | 'suspended'
+                                                | 'inactive',
+                                        )
+                                    }
                                     variant="card"
                                 >
-                                    <AppSelectItem value="active">Active</AppSelectItem>
-                                    <AppSelectItem value="suspended">Suspended</AppSelectItem>
-                                    <AppSelectItem value="inactive">Inactive</AppSelectItem>
+                                    <AppSelectItem value="active">
+                                        Active
+                                    </AppSelectItem>
+                                    <AppSelectItem value="suspended">
+                                        Suspended
+                                    </AppSelectItem>
+                                    <AppSelectItem value="inactive">
+                                        Inactive
+                                    </AppSelectItem>
                                 </AppSelect>
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                            <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                 Working days
                             </Label>
                             <div className="flex flex-wrap gap-2">
                                 {weekDays.map((day) => {
-                                    const checked = form.data.working_days.includes(day.value);
+                                    const checked =
+                                        form.data.working_days.includes(
+                                            day.value,
+                                        );
 
                                     return (
                                         <label
                                             key={day.value}
-                                            className={`flex items-center gap-2 rounded-xl border px-3 h-11 text-sm transition-all cursor-pointer ${
+                                            className={`flex h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm transition-all ${
                                                 checked
                                                     ? 'border-primary/30 bg-primary/10 text-foreground'
                                                     : 'border-border bg-card text-muted-foreground'
@@ -374,10 +471,22 @@ export function CompanyFormSheet({
                                                 className="accent-primary"
                                                 checked={checked}
                                                 onChange={(e) => {
-                                                    const next = e.target.checked
-                                                        ? [...form.data.working_days, day.value]
-                                                        : form.data.working_days.filter((v) => v !== day.value);
-                                                    form.setData('working_days', next);
+                                                    const next = e.target
+                                                        .checked
+                                                        ? [
+                                                              ...form.data
+                                                                  .working_days,
+                                                              day.value,
+                                                          ]
+                                                        : form.data.working_days.filter(
+                                                              (v) =>
+                                                                  v !==
+                                                                  day.value,
+                                                          );
+                                                    form.setData(
+                                                        'working_days',
+                                                        next,
+                                                    );
                                                 }}
                                             />
                                             {day.label}
@@ -391,31 +500,41 @@ export function CompanyFormSheet({
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="wps_agent_code"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     WPS agent code
                                 </Label>
                                 <Input
                                     id="wps_agent_code"
                                     placeholder="Agent..."
-                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                     value={form.data.wps_agent_code}
-                                    onChange={(e) => form.setData('wps_agent_code', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'wps_agent_code',
+                                            e.target.value,
+                                        )
+                                    }
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="wps_mol_uid"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     WPS MOL UID
                                 </Label>
                                 <Input
                                     id="wps_mol_uid"
                                     placeholder="UID..."
-                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                     value={form.data.wps_mol_uid}
-                                    onChange={(e) => form.setData('wps_mol_uid', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'wps_mol_uid',
+                                            e.target.value,
+                                        )
+                                    }
                                 />
                             </div>
                         </div>
@@ -423,31 +542,36 @@ export function CompanyFormSheet({
                         <div className="space-y-2">
                             <Label
                                 htmlFor="wps_employer_iban"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 WPS employer IBAN
                             </Label>
                             <Input
                                 id="wps_employer_iban"
                                 placeholder="AE..."
-                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all font-mono"
+                                className="h-11 rounded-xl border-border bg-card font-mono transition-all focus-visible:ring-primary/40"
                                 value={form.data.wps_employer_iban}
-                                onChange={(e) => form.setData('wps_employer_iban', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData(
+                                        'wps_employer_iban',
+                                        e.target.value,
+                                    )
+                                }
                             />
                         </div>
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-border/60 bg-background/40 flex gap-3">
+                <div className="flex gap-3 border-t border-border/60 bg-background/40 p-6">
                     <Button
                         variant="ghost"
                         onClick={() => onOpenChange(false)}
-                        className="rounded-xl h-11 px-6 text-muted-foreground flex-1"
+                        className="h-11 flex-1 rounded-xl px-6 text-muted-foreground"
                     >
                         Cancel
                     </Button>
                     <Button
-                        className="rounded-xl h-11 px-8 flex-1 font-semibold"
+                        className="h-11 flex-1 rounded-xl px-8 font-semibold"
                         disabled={form.processing}
                         onClick={onSubmit}
                     >
@@ -458,4 +582,3 @@ export function CompanyFormSheet({
         </Sheet>
     );
 }
-

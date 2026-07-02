@@ -41,18 +41,22 @@ export function MasterDataFormSheet({
             <SheetContent
                 side="right"
                 className={cn(
-                    'flex w-full flex-col rounded-none p-0 glass-card sm:max-w-md',
+                    'flex w-full flex-col rounded-none glass-card p-0 sm:max-w-md',
                     contentClassName,
                 )}
             >
                 <SheetHeader className="border-b border-border/60 p-8 pb-6">
-                    <SheetTitle className="text-xl font-bold tracking-tight">{title}</SheetTitle>
+                    <SheetTitle className="text-xl font-bold tracking-tight">
+                        {title}
+                    </SheetTitle>
                     <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
                         {description}
                     </SheetDescription>
                 </SheetHeader>
 
-                <div className="flex-1 space-y-5 overflow-y-auto p-8">{children}</div>
+                <div className="flex-1 space-y-5 overflow-y-auto p-8">
+                    {children}
+                </div>
 
                 {footer}
             </SheetContent>
@@ -80,13 +84,20 @@ export function MasterDataFormSheetFooter({
     showSubmit = true,
 }: MasterDataFormSheetFooterProps) {
     const actions = (
-        <div className={cn('flex gap-3', leading ? 'w-full sm:w-auto' : 'w-full')}>
+        <div
+            className={cn(
+                'flex gap-3',
+                leading ? 'w-full sm:w-auto' : 'w-full',
+            )}
+        >
             <Button
                 type="button"
                 variant="ghost"
                 className={cn(
                     'h-11 rounded-xl px-6 text-muted-foreground',
-                    leading ? 'flex-1 sm:flex-none sm:min-w-[7.5rem]' : 'flex-1',
+                    leading
+                        ? 'flex-1 sm:min-w-[7.5rem] sm:flex-none'
+                        : 'flex-1',
                 )}
                 onClick={onCancel}
             >
@@ -97,7 +108,9 @@ export function MasterDataFormSheetFooter({
                     type="button"
                     className={cn(
                         'h-11 rounded-xl px-6 font-semibold',
-                        leading ? 'flex-1 sm:flex-none sm:min-w-[7.5rem]' : 'flex-1',
+                        leading
+                            ? 'flex-1 sm:min-w-[7.5rem] sm:flex-none'
+                            : 'flex-1',
                     )}
                     disabled={processing}
                     onClick={onSubmit}
@@ -110,7 +123,9 @@ export function MasterDataFormSheetFooter({
 
     if (!leading) {
         return (
-            <div className="border-t border-border/60 bg-background/40 p-6">{actions}</div>
+            <div className="border-t border-border/60 bg-background/40 p-6">
+                {actions}
+            </div>
         );
     }
 
@@ -130,14 +145,24 @@ type MasterDataFieldProps = {
     className?: string;
 };
 
-export function MasterDataField({ id, label, error, children, className }: MasterDataFieldProps) {
+export function MasterDataField({
+    id,
+    label,
+    error,
+    children,
+    className,
+}: MasterDataFieldProps) {
     return (
         <div className={cn('space-y-2', className)}>
             <Label htmlFor={id} className={masterDataFieldLabelClass}>
                 {label}
             </Label>
             {children}
-            {error ? <div className="text-xs font-medium text-destructive">{error}</div> : null}
+            {error ? (
+                <div className="text-xs font-medium text-destructive">
+                    {error}
+                </div>
+            ) : null}
         </div>
     );
 }
@@ -158,8 +183,12 @@ export function MasterDataActiveToggle({
     return (
         <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
             <div className="min-w-0">
-                <div className="text-sm font-semibold text-foreground">{title}</div>
-                <div className="text-xs text-muted-foreground/80">{description}</div>
+                <div className="text-sm font-semibold text-foreground">
+                    {title}
+                </div>
+                <div className="text-xs text-muted-foreground/80">
+                    {description}
+                </div>
             </div>
             <Switch checked={checked} onCheckedChange={onCheckedChange} />
         </div>

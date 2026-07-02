@@ -21,7 +21,9 @@ export const defaultSalaryInputTypeFormData = (): SalaryInputTypeFormData => ({
     status: 'active',
 });
 
-export function salaryInputTypeToFormData(type: SalaryInputTypeRecord): SalaryInputTypeFormData {
+export function salaryInputTypeToFormData(
+    type: SalaryInputTypeRecord,
+): SalaryInputTypeFormData {
     return {
         name: type.name,
         code: type.code,

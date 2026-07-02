@@ -1,4 +1,10 @@
-import { MinusCircle, PlusCircle, TrendingUp, Users, Wallet } from 'lucide-react';
+import {
+    MinusCircle,
+    PlusCircle,
+    TrendingUp,
+    Users,
+    Wallet,
+} from 'lucide-react';
 import type { ElementType } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -23,7 +29,7 @@ function SummaryCard({
     return (
         <Card
             className={cn(
-                'glass-card relative overflow-hidden border-border/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-white/10',
+                'relative overflow-hidden glass-card border-border/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-white/10',
                 accentClassName,
             )}
         >
@@ -38,18 +44,26 @@ function SummaryCard({
                     <Icon className="h-6 w-6 drop-shadow-sm" />
                 </div>
                 <div className="min-w-0">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground/70">
+                    <p className="text-[11px] font-bold tracking-[0.16em] text-muted-foreground/70 uppercase">
                         {title}
                     </p>
-                    <p className="mt-1 text-2xl font-extrabold tabular-nums tracking-tight">{value}</p>
-                    <p className="mt-1 text-xs text-muted-foreground/80">{hint}</p>
+                    <p className="mt-1 text-2xl font-extrabold tracking-tight tabular-nums">
+                        {value}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground/80">
+                        {hint}
+                    </p>
                 </div>
             </CardContent>
         </Card>
     );
 }
 
-export function PayrollRecordsSummaryCards({ summary }: { summary: PayrollRecordsSummary }) {
+export function PayrollRecordsSummaryCards({
+    summary,
+}: {
+    summary: PayrollRecordsSummary;
+}) {
     return (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <SummaryCard

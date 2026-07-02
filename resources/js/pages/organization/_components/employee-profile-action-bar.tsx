@@ -1,5 +1,15 @@
 import { Link, router } from '@inertiajs/react';
-import { Anchor, CalendarDays, ChevronLeft, ChevronRight, FileText, Printer, ScrollText, User, UserPlus } from 'lucide-react';
+import {
+    Anchor,
+    CalendarDays,
+    ChevronLeft,
+    ChevronRight,
+    FileText,
+    Printer,
+    ScrollText,
+    User,
+    UserPlus,
+} from 'lucide-react';
 import type { ComponentType, ReactElement } from 'react';
 import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { cn } from '@/lib/utils';
@@ -32,7 +42,7 @@ function SmartButton({
 
     const className = cn(
         'group flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium transition-all duration-150',
-        'hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
         active && 'bg-primary/10 text-primary',
     );
 
@@ -48,10 +58,10 @@ function SmartButton({
             </span>
             {hasStat ? (
                 <span className="flex min-w-0 flex-col items-start leading-none">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                    <span className="text-[10px] font-semibold tracking-wider text-muted-foreground/80 uppercase">
                         {label}
                     </span>
-                    <span className="text-base font-bold tabular-nums tracking-tight text-foreground">
+                    <span className="text-base font-bold tracking-tight text-foreground tabular-nums">
                         {stat}
                     </span>
                 </span>
@@ -110,7 +120,10 @@ function InlineNavigation({
         }
 
         router.visit(
-            show.url({ employee: employeeId }, { query: navigation.list_query }),
+            show.url(
+                { employee: employeeId },
+                { query: navigation.list_query },
+            ),
             { preserveScroll: true },
         );
     };
@@ -136,9 +149,11 @@ function InlineNavigation({
             </button>
 
             <div className="flex min-w-[3.5rem] items-center justify-center border-x border-border/60 bg-muted/30 px-2.5 dark:border-white/8">
-                <span className="text-xs font-bold tabular-nums text-foreground/80">
+                <span className="text-xs font-bold text-foreground/80 tabular-nums">
                     {navigation.position}
-                    <span className="mx-0.5 font-medium text-muted-foreground">/</span>
+                    <span className="mx-0.5 font-medium text-muted-foreground">
+                        /
+                    </span>
                     {navigation.total}
                 </span>
             </div>
@@ -247,7 +262,8 @@ export function EmployeeProfileActionBar({
                             icon={FileText}
                             label="Documents"
                             stat={
-                                documentCount === null || documentCount === undefined
+                                documentCount === null ||
+                                documentCount === undefined
                                     ? null
                                     : documentCount
                             }

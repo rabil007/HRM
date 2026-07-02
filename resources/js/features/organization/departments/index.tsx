@@ -19,7 +19,12 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
@@ -31,7 +36,13 @@ import { DepartmentFiltersSheet } from './components/department-filters-sheet';
 import type { DepartmentFilters } from './components/department-filters-sheet';
 import { DepartmentFormSheet } from './components/department-form-sheet';
 import { DepartmentTreeView } from './components/department-tree-view';
-import type { Branch, Department, DepartmentFormData, DepartmentParentOption, Manager } from './types';
+import type {
+    Branch,
+    Department,
+    DepartmentFormData,
+    DepartmentParentOption,
+    Manager,
+} from './types';
 
 export function DepartmentsContent({
     departments,
@@ -47,7 +58,14 @@ export function DepartmentsContent({
     all_departments: any[];
     pagination: PaginationMeta;
     search: string;
-    filters: { id: string; branch_id: string; parent_id: string; manager_id: string; status: string; code: string };
+    filters: {
+        id: string;
+        branch_id: string;
+        parent_id: string;
+        manager_id: string;
+        status: string;
+        code: string;
+    };
     branches: Branch[];
     parents: DepartmentParentOption[];
     managers: Manager[];
@@ -62,7 +80,8 @@ export function DepartmentsContent({
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-    const [currentDepartment, setCurrentDepartment] = useState<Department | null>(null);
+    const [currentDepartment, setCurrentDepartment] =
+        useState<Department | null>(null);
 
     const filters: DepartmentFilters = {
         id: initialFilters.id ?? '',
@@ -82,8 +101,6 @@ export function DepartmentsContent({
         initialFilters.code.trim(),
     ].filter(Boolean).length;
 
-
-
     const form = useForm<DepartmentFormData>({
         branch_id: '',
         parent_id: '',
@@ -97,7 +114,14 @@ export function DepartmentsContent({
         setCurrentDepartment(null);
         form.reset();
         form.clearErrors();
-        form.setData({ branch_id: '', parent_id: '', manager_id: '', name: '', code: '', status: 'active' });
+        form.setData({
+            branch_id: '',
+            parent_id: '',
+            manager_id: '',
+            name: '',
+            code: '',
+            status: 'active',
+        });
         setIsSheetOpen(true);
     };
 
@@ -123,8 +147,8 @@ export function DepartmentsContent({
 
     const confirmDelete = () => {
         if (!currentDepartment) {
-return;
-}
+            return;
+        }
 
         router.delete(`/organization/departments/${currentDepartment.id}`, {
             onFinish: () => {
@@ -140,7 +164,8 @@ return;
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onError: () => toast.error('Failed to update status. Please try again.'),
+                onError: () =>
+                    toast.error('Failed to update status. Please try again.'),
             },
         );
     };
@@ -169,8 +194,8 @@ return;
         const params = new URLSearchParams();
 
         if (initialSearch) {
-params.set('search', initialSearch);
-}
+            params.set('search', initialSearch);
+        }
 
         if (initialFilters.id) {
             params.set('id', initialFilters.id);
@@ -181,20 +206,20 @@ params.set('search', initialSearch);
         }
 
         if (initialFilters.parent_id) {
-params.set('parent_id', initialFilters.parent_id);
-}
+            params.set('parent_id', initialFilters.parent_id);
+        }
 
         if (initialFilters.manager_id) {
-params.set('manager_id', initialFilters.manager_id);
-}
+            params.set('manager_id', initialFilters.manager_id);
+        }
 
         if (initialFilters.status) {
-params.set('status', initialFilters.status);
-}
+            params.set('status', initialFilters.status);
+        }
 
         if (initialFilters.code) {
-params.set('code', initialFilters.code);
-}
+            params.set('code', initialFilters.code);
+        }
 
         params.set('format', format);
 
@@ -213,7 +238,10 @@ params.set('code', initialFilters.code);
                             buttonVariant="secondary"
                             buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
                         />
-                        <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
+                        <Button
+                            onClick={handleAdd}
+                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                        >
                             <Plus className="mr-2 h-4 w-4" />
                             Add Department
                         </Button>
@@ -227,11 +255,15 @@ params.set('code', initialFilters.code);
                 onChange={list.onSearchChange}
                 right={
                     <>
-                        <ViewToggle value={view} onChange={setView} showTreeView={true} />
+                        <ViewToggle
+                            value={view}
+                            onChange={setView}
+                            showTreeView={true}
+                        />
                         <Button
                             type="button"
                             variant="secondary"
-                            className="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
                             onClick={() => setIsFiltersOpen(true)}
                         >
                             <Filter className="mr-2 h-4 w-4" />
@@ -247,9 +279,7 @@ params.set('code', initialFilters.code);
             />
 
             {view === 'tree' ? (
-                <DepartmentTreeView
-                    departments={all_departments}
-                />
+                <DepartmentTreeView departments={all_departments} />
             ) : view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     {departments.map((department) => (
@@ -266,60 +296,96 @@ params.set('code', initialFilters.code);
                 <OrganizationDataTable minWidth="min-w-[980px]">
                     <TableHeader>
                         <DataTableHeaderRow>
-                            <DataTableHead className="pl-5">Department</DataTableHead>
+                            <DataTableHead className="pl-5">
+                                Department
+                            </DataTableHead>
                             <DataTableHead>Code</DataTableHead>
                             <DataTableHead>Branch</DataTableHead>
                             <DataTableHead>Parent</DataTableHead>
                             <DataTableHead>Manager</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
-                            <DataTableHead className="text-right">Actions</DataTableHead>
+                            <DataTableHead className="text-right">
+                                Actions
+                            </DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
-                            <TableBody>
-                                {departments.map((department) => (
-                                    <TableRow
-                                        key={department.id}
-                                        className={dataTableBodyRowClass()}
-                                        onClick={() => router.visit(`/organization/departments/${department.id}`)}
+                    <TableBody>
+                        {departments.map((department) => (
+                            <TableRow
+                                key={department.id}
+                                className={dataTableBodyRowClass()}
+                                onClick={() =>
+                                    router.visit(
+                                        `/organization/departments/${department.id}`,
+                                    )
+                                }
+                            >
+                                <TableCell
+                                    className={dataTableCellPrimaryClass()}
+                                >
+                                    {department.name}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {department.code ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {department.branch?.name ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {department.parent?.name ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {department.manager?.name ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    <div
+                                        className="flex items-center gap-3"
+                                        onClick={(e) => e.stopPropagation()}
                                     >
-                                        <TableCell className={dataTableCellPrimaryClass()}>{department.name}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>{department.code ?? '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>{department.branch?.name ?? '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>{department.parent?.name ?? '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>{department.manager?.name ?? '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>
-                                            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                                                <Switch
-                                                    checked={department.status === 'active'}
-                                                    onCheckedChange={(checked) => toggleStatus(department, checked)}
-                                                />
-                                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                                    {department.status ?? '—'}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className={dataTableActionsCellClass()}>
-                                                <ListTableCrudActions
-                                                    viewHref={`/organization/departments/${department.id}`}
-                                                    onEdit={(e) => {
-                                                        e.stopPropagation();
-                                                        handleEdit(department);
-                                                    }}
-                                                    onDelete={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDelete(department);
-                                                    }}
-                                                />
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                    </OrganizationDataTable>
+                                        <Switch
+                                            checked={
+                                                department.status === 'active'
+                                            }
+                                            onCheckedChange={(checked) =>
+                                                toggleStatus(
+                                                    department,
+                                                    checked,
+                                                )
+                                            }
+                                        />
+                                        <span className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                            {department.status ?? '—'}
+                                        </span>
+                                    </div>
+                                </TableCell>
+                                <TableCell
+                                    className={dataTableActionsCellClass()}
+                                >
+                                    <ListTableCrudActions
+                                        viewHref={`/organization/departments/${department.id}`}
+                                        onEdit={(e) => {
+                                            e.stopPropagation();
+                                            handleEdit(department);
+                                        }}
+                                        onDelete={(e) => {
+                                            e.stopPropagation();
+                                            handleDelete(department);
+                                        }}
+                                    />
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </OrganizationDataTable>
             )}
 
-            {view !== 'tree' && departments.length === 0 ? <EmptyState title="No departments found." /> : null}
+            {view !== 'tree' && departments.length === 0 ? (
+                <EmptyState title="No departments found." />
+            ) : null}
 
-            {view !== 'tree' ? <Pagination {...list.paginationProps} label="departments" /> : null}
+            {view !== 'tree' ? (
+                <Pagination {...list.paginationProps} label="departments" />
+            ) : null}
 
             <DepartmentFormSheet
                 open={isSheetOpen}
@@ -340,7 +406,15 @@ params.set('code', initialFilters.code);
                 managers={managers}
                 value={filters}
                 onChange={handleFiltersChange}
-                onReset={() => handleFiltersChange({ branch_id: '', parent_id: '', manager_id: '', status: '', code: '' })}
+                onReset={() =>
+                    handleFiltersChange({
+                        branch_id: '',
+                        parent_id: '',
+                        manager_id: '',
+                        status: '',
+                        code: '',
+                    })
+                }
             />
 
             <DepartmentDeleteDialog

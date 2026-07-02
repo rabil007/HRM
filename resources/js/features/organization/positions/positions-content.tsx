@@ -19,7 +19,12 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
@@ -60,7 +65,9 @@ export function PositionsContent({
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-    const [currentPosition, setCurrentPosition] = useState<Position | null>(null);
+    const [currentPosition, setCurrentPosition] = useState<Position | null>(
+        null,
+    );
 
     const filters: PositionFilters = {
         department_id: initialFilters.department_id,
@@ -87,7 +94,14 @@ export function PositionsContent({
         setCurrentPosition(null);
         form.reset();
         form.clearErrors();
-        form.setData({ department_id: '', title: '', grade: '', min_salary: '', max_salary: '', status: 'active' });
+        form.setData({
+            department_id: '',
+            title: '',
+            grade: '',
+            min_salary: '',
+            max_salary: '',
+            status: 'active',
+        });
         setIsSheetOpen(true);
     };
 
@@ -130,7 +144,8 @@ export function PositionsContent({
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onError: () => toast.error('Failed to update status. Please try again.'),
+                onError: () =>
+                    toast.error('Failed to update status. Please try again.'),
             },
         );
     };
@@ -191,7 +206,10 @@ export function PositionsContent({
                             buttonVariant="secondary"
                             buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
                         />
-                        <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
+                        <Button
+                            onClick={handleAdd}
+                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                        >
                             <Plus className="mr-2 h-4 w-4" />
                             Add Position
                         </Button>
@@ -205,11 +223,15 @@ export function PositionsContent({
                 onChange={list.onSearchChange}
                 right={
                     <>
-                        <ViewToggle value={view} onChange={setView} showTreeView={true} />
+                        <ViewToggle
+                            value={view}
+                            onChange={setView}
+                            showTreeView={true}
+                        />
                         <Button
                             type="button"
                             variant="secondary"
-                            className="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
                             onClick={() => setIsFiltersOpen(true)}
                         >
                             <Filter className="mr-2 h-4 w-4" />
@@ -245,58 +267,89 @@ export function PositionsContent({
                 <OrganizationDataTable minWidth="min-w-[980px]">
                     <TableHeader>
                         <DataTableHeaderRow>
-                            <DataTableHead className="pl-5">Position</DataTableHead>
+                            <DataTableHead className="pl-5">
+                                Position
+                            </DataTableHead>
                             <DataTableHead>Department</DataTableHead>
                             <DataTableHead>Grade</DataTableHead>
                             <DataTableHead>Min</DataTableHead>
                             <DataTableHead>Max</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
-                            <DataTableHead className="text-right">Actions</DataTableHead>
+                            <DataTableHead className="text-right">
+                                Actions
+                            </DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
-                            <TableBody>
-                                {positions.map((position) => (
-                                    <TableRow
-                                        key={position.id}
-                                        className={dataTableBodyRowClass()}
-                                        onClick={() => router.visit(`/organization/positions/${position.id}`)}
+                    <TableBody>
+                        {positions.map((position) => (
+                            <TableRow
+                                key={position.id}
+                                className={dataTableBodyRowClass()}
+                                onClick={() =>
+                                    router.visit(
+                                        `/organization/positions/${position.id}`,
+                                    )
+                                }
+                            >
+                                <TableCell
+                                    className={dataTableCellPrimaryClass()}
+                                >
+                                    {position.title}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {position.department?.name ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {position.grade ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {position.min_salary ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {position.max_salary ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    <div
+                                        className="flex items-center gap-3"
+                                        onClick={(e) => e.stopPropagation()}
                                     >
-                                        <TableCell className={dataTableCellPrimaryClass()}>{position.title}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>{position.department?.name ?? '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>{position.grade ?? '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>{position.min_salary ?? '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>{position.max_salary ?? '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>
-                                            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                                                <Switch
-                                                    checked={position.status === 'active'}
-                                                    onCheckedChange={(checked) => toggleStatus(position, checked)}
-                                                />
-                                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                                    {position.status ?? '—'}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className={dataTableActionsCellClass()}>
-                                            <ListTableCrudActions
-                                                viewHref={`/organization/positions/${position.id}`}
-                                                onEdit={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEdit(position);
-                                                }}
-                                                onDelete={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDelete(position);
-                                                }}
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
+                                        <Switch
+                                            checked={
+                                                position.status === 'active'
+                                            }
+                                            onCheckedChange={(checked) =>
+                                                toggleStatus(position, checked)
+                                            }
+                                        />
+                                        <span className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                            {position.status ?? '—'}
+                                        </span>
+                                    </div>
+                                </TableCell>
+                                <TableCell
+                                    className={dataTableActionsCellClass()}
+                                >
+                                    <ListTableCrudActions
+                                        viewHref={`/organization/positions/${position.id}`}
+                                        onEdit={(e) => {
+                                            e.stopPropagation();
+                                            handleEdit(position);
+                                        }}
+                                        onDelete={(e) => {
+                                            e.stopPropagation();
+                                            handleDelete(position);
+                                        }}
+                                    />
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
                 </OrganizationDataTable>
             )}
 
-            {positions.length === 0 ? <EmptyState title="No positions found." /> : null}
+            {positions.length === 0 ? (
+                <EmptyState title="No positions found." />
+            ) : null}
 
             <Pagination {...list.paginationProps} label="positions" />
 
@@ -315,7 +368,13 @@ export function PositionsContent({
                 departments={departments}
                 value={filters}
                 onChange={handleFiltersChange}
-                onReset={() => handleFiltersChange({ department_id: '', status: '', grade: '' })}
+                onReset={() =>
+                    handleFiltersChange({
+                        department_id: '',
+                        status: '',
+                        grade: '',
+                    })
+                }
             />
 
             <PositionDeleteDialog

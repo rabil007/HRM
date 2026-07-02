@@ -31,7 +31,9 @@ export async function sendDocumentsWhatsApp(
     payload: Record<string, unknown>,
     errorFallback = 'Failed to send documents via WhatsApp.',
 ): Promise<WhatsAppDocumentsSendResponse> {
-    const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+    const csrf = document.querySelector<HTMLMetaElement>(
+        'meta[name="csrf-token"]',
+    )?.content;
 
     const response = await fetch(url, {
         method: 'POST',

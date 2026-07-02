@@ -1,5 +1,13 @@
 import { useForm } from '@inertiajs/react';
-import { Download, Filter, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import {
+    Download,
+    Filter,
+    Pencil,
+    Plus,
+    Search,
+    Trash2,
+    X,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
@@ -20,7 +28,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate, formatDisplayDateTime12h } from '@/lib/format-date';
 import type { PaginationMeta } from '@/types/pagination';
@@ -29,12 +42,13 @@ import { RecordFormSheet } from './components/record-form-sheet';
 import { RecordStatusBadge } from './components/record-status-badge';
 import {
     attendanceRecordToFormData,
-    defaultAttendanceRecordFormData
-    
-    
-    
+    defaultAttendanceRecordFormData,
 } from './types';
-import type {AttendanceRecord, AttendanceRecordFilters, AttendanceRecordPermissions} from './types';
+import type {
+    AttendanceRecord,
+    AttendanceRecordFilters,
+    AttendanceRecordPermissions,
+} from './types';
 
 const filterInputClass =
     'h-10 rounded-xl border-input bg-background/50 dark:border-white/10 dark:bg-white/5 focus-visible:ring-primary/40';
@@ -75,7 +89,9 @@ export function AttendanceRecordsContent({
 
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [currentRecord, setCurrentRecord] = useState<AttendanceRecord | null>(null);
+    const [currentRecord, setCurrentRecord] = useState<AttendanceRecord | null>(
+        null,
+    );
 
     const form = useForm(defaultAttendanceRecordFormData());
 
@@ -160,7 +176,9 @@ export function AttendanceRecordsContent({
 
         const query = params.toString();
 
-        return query ? `/attendance/records/export?${query}` : '/attendance/records/export';
+        return query
+            ? `/attendance/records/export?${query}`
+            : '/attendance/records/export';
     }, [filters, initialSearch]);
 
     const handleAdd = () => {
@@ -213,7 +231,11 @@ export function AttendanceRecordsContent({
                 right={
                     <div className="flex flex-wrap items-center gap-2">
                         {can.manage ? (
-                            <Button variant="outline" className="rounded-xl h-12 px-5" asChild>
+                            <Button
+                                variant="outline"
+                                className="h-12 rounded-xl px-5"
+                                asChild
+                            >
                                 <a href={exportUrl}>
                                     <Download className="mr-2 h-4 w-4" />
                                     Export
@@ -221,7 +243,10 @@ export function AttendanceRecordsContent({
                             </Button>
                         ) : null}
                         {can.create ? (
-                            <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
+                            <Button
+                                onClick={handleAdd}
+                                className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                            >
                                 <Plus className="mr-2 h-4 w-4" />
                                 Add record
                             </Button>
@@ -234,7 +259,7 @@ export function AttendanceRecordsContent({
                 <CardContent className="p-5">
                     <div className="mb-4 flex items-center gap-3">
                         <Filter className="h-4 w-4 text-muted-foreground/50" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
+                        <span className="text-xs font-bold tracking-widest text-muted-foreground/50 uppercase">
                             Filters
                         </span>
                         {activeFilterCount > 0 ? (
@@ -269,11 +294,13 @@ export function AttendanceRecordsContent({
                                 Search
                             </label>
                             <div className="relative">
-                                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
+                                <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
                                 <Input
                                     id="attendance-records-search"
                                     value={list.searchInput}
-                                    onChange={(e) => list.onSearchChange(e.target.value)}
+                                    onChange={(e) =>
+                                        list.onSearchChange(e.target.value)
+                                    }
                                     placeholder="Search by employee…"
                                     className={`${filterInputClass} pl-10`}
                                 />
@@ -291,7 +318,9 @@ export function AttendanceRecordsContent({
                                 id="attendance-records-date-from"
                                 type="date"
                                 value={filters.date_from}
-                                onChange={(e) => applyFilters({ date_from: e.target.value })}
+                                onChange={(e) =>
+                                    applyFilters({ date_from: e.target.value })
+                                }
                                 className={`${filterInputClass} px-3 text-sm`}
                             />
                         </div>
@@ -307,24 +336,35 @@ export function AttendanceRecordsContent({
                                 id="attendance-records-date-to"
                                 type="date"
                                 value={filters.date_to}
-                                onChange={(e) => applyFilters({ date_to: e.target.value })}
+                                onChange={(e) =>
+                                    applyFilters({ date_to: e.target.value })
+                                }
                                 className={`${filterInputClass} px-3 text-sm`}
                             />
                         </div>
 
                         {can.manage ? (
                             <div className="flex min-w-0 flex-col gap-1.5">
-                                <span className="text-[11px] font-medium text-muted-foreground/60">Employee</span>
+                                <span className="text-[11px] font-medium text-muted-foreground/60">
+                                    Employee
+                                </span>
                                 <AppSelect
                                     value={filters.employee_id || ''}
-                                    onValueChange={(value) => applyFilters({ employee_id: value })}
+                                    onValueChange={(value) =>
+                                        applyFilters({ employee_id: value })
+                                    }
                                     variant="dark"
                                     placeholder="All employees"
                                     className="h-10"
                                 >
-                                    <AppSelectItem value="">All employees</AppSelectItem>
+                                    <AppSelectItem value="">
+                                        All employees
+                                    </AppSelectItem>
                                     {employees.map((employee) => (
-                                        <AppSelectItem key={employee.id} value={String(employee.id)}>
+                                        <AppSelectItem
+                                            key={employee.id}
+                                            value={String(employee.id)}
+                                        >
                                             {employee.employee_no
                                                 ? `${employee.employee_no} — ${employee.name}`
                                                 : employee.name}
@@ -335,17 +375,26 @@ export function AttendanceRecordsContent({
                         ) : null}
 
                         <div className="flex min-w-0 flex-col gap-1.5">
-                            <span className="text-[11px] font-medium text-muted-foreground/60">Status</span>
+                            <span className="text-[11px] font-medium text-muted-foreground/60">
+                                Status
+                            </span>
                             <AppSelect
                                 value={filters.status || ''}
-                                onValueChange={(value) => applyFilters({ status: value })}
+                                onValueChange={(value) =>
+                                    applyFilters({ status: value })
+                                }
                                 variant="dark"
                                 placeholder="All statuses"
                                 className="h-10"
                             >
-                                <AppSelectItem value="">All statuses</AppSelectItem>
+                                <AppSelectItem value="">
+                                    All statuses
+                                </AppSelectItem>
                                 {status_options.map((option) => (
-                                    <AppSelectItem key={option.value} value={option.value}>
+                                    <AppSelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                    >
                                         {option.label}
                                     </AppSelectItem>
                                 ))}
@@ -353,17 +402,26 @@ export function AttendanceRecordsContent({
                         </div>
 
                         <div className="flex min-w-0 flex-col gap-1.5">
-                            <span className="text-[11px] font-medium text-muted-foreground/60">Source</span>
+                            <span className="text-[11px] font-medium text-muted-foreground/60">
+                                Source
+                            </span>
                             <AppSelect
                                 value={filters.source || ''}
-                                onValueChange={(value) => applyFilters({ source: value })}
+                                onValueChange={(value) =>
+                                    applyFilters({ source: value })
+                                }
                                 variant="dark"
                                 placeholder="All sources"
                                 className="h-10"
                             >
-                                <AppSelectItem value="">All sources</AppSelectItem>
+                                <AppSelectItem value="">
+                                    All sources
+                                </AppSelectItem>
                                 {source_options.map((option) => (
-                                    <AppSelectItem key={option.value} value={option.value}>
+                                    <AppSelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                    >
                                         {option.label}
                                     </AppSelectItem>
                                 ))}
@@ -374,7 +432,10 @@ export function AttendanceRecordsContent({
             </Card>
 
             {records.length === 0 ? (
-                <EmptyState title="No attendance records" description="Adjust filters or add a manual record." />
+                <EmptyState
+                    title="No attendance records"
+                    description="Adjust filters or add a manual record."
+                />
             ) : (
                 <>
                     <OrganizationDataTable>
@@ -387,47 +448,66 @@ export function AttendanceRecordsContent({
                                 <DataTableHead>Hours</DataTableHead>
                                 <DataTableHead>Status</DataTableHead>
                                 <DataTableHead>Source</DataTableHead>
-                                <DataTableHead className="text-right">Actions</DataTableHead>
+                                <DataTableHead className="text-right">
+                                    Actions
+                                </DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>
                             {records.map((record) => (
-                                <TableRow key={record.id} className={dataTableBodyRowClass}>
-                                    <TableCell className={dataTableCellPrimaryClass}>
+                                <TableRow
+                                    key={record.id}
+                                    className={dataTableBodyRowClass}
+                                >
+                                    <TableCell
+                                        className={dataTableCellPrimaryClass}
+                                    >
                                         {record.employee?.name ?? '—'}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
                                         {formatDisplayDate(record.date)}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
-                                        {formatDisplayDateTime12h(record.clock_in)}
+                                        {formatDisplayDateTime12h(
+                                            record.clock_in,
+                                        )}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
-                                        {formatDisplayDateTime12h(record.clock_out)}
+                                        {formatDisplayDateTime12h(
+                                            record.clock_out,
+                                        )}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
                                         {record.hours_worked ?? '—'}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
-                                        <RecordStatusBadge status={record.status} />
+                                        <RecordStatusBadge
+                                            status={record.status}
+                                        />
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
-                                        {record.clock_in || record.clock_out ? (record.source ?? '—') : '—'}
+                                        {record.clock_in || record.clock_out
+                                            ? (record.source ?? '—')
+                                            : '—'}
                                     </TableCell>
-                                    <TableCell className={dataTableActionsCellClass}>
+                                    <TableCell
+                                        className={dataTableActionsCellClass}
+                                    >
                                         <TableRowActions
                                             actions={[
                                                 {
                                                     label: 'Edit',
                                                     icon: Pencil,
-                                                    onClick: () => handleEdit(record),
+                                                    onClick: () =>
+                                                        handleEdit(record),
                                                     hidden: !can.update,
                                                 },
                                                 {
                                                     label: 'Delete',
                                                     icon: Trash2,
                                                     variant: 'danger',
-                                                    onClick: () => handleDelete(record),
+                                                    onClick: () =>
+                                                        handleDelete(record),
                                                     hidden: !can.delete,
                                                 },
                                             ]}
@@ -454,7 +534,11 @@ export function AttendanceRecordsContent({
                 onSubmit={submit}
             />
 
-            <RecordDeleteDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen} record={currentRecord} />
+            <RecordDeleteDialog
+                open={isDeleteOpen}
+                onOpenChange={setIsDeleteOpen}
+                record={currentRecord}
+            />
         </Main>
     );
 }

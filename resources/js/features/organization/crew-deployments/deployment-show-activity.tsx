@@ -1,6 +1,6 @@
 import { Activity } from 'lucide-react';
-import { useState  } from 'react';
-import type {ReactElement} from 'react';
+import { useState } from 'react';
+import type { ReactElement } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { DeploymentActivityItem } from '@/features/organization/crew-deployments/types';
@@ -76,7 +76,9 @@ export function DeploymentShowActivity({
 }: {
     recentActivity: DeploymentActivityItem[];
 }): ReactElement {
-    const [expandedActivity, setExpandedActivity] = useState<Record<number, boolean>>({});
+    const [expandedActivity, setExpandedActivity] = useState<
+        Record<number, boolean>
+    >({});
 
     return (
         <Card className="glass-card dark:border-white/5 dark:bg-white/5">
@@ -111,11 +113,17 @@ export function DeploymentShowActivity({
                 ) : (
                     <div className="divide-y divide-border dark:divide-white/5">
                         {recentActivity.map((activity) => {
-                            const keys = changedKeys(activity.old_values, activity.new_values);
-                            const isExpanded = expandedActivity[activity.id] ?? false;
+                            const keys = changedKeys(
+                                activity.old_values,
+                                activity.new_values,
+                            );
+                            const isExpanded =
+                                expandedActivity[activity.id] ?? false;
                             const shown = isExpanded ? keys : keys.slice(0, 4);
                             const showDescription =
-                                (activity.description ?? '').trim().toLowerCase() !==
+                                (activity.description ?? '')
+                                    .trim()
+                                    .toLowerCase() !==
                                 (activity.event ?? '').trim().toLowerCase();
 
                             return (
@@ -128,23 +136,28 @@ export function DeploymentShowActivity({
                                             <div className="flex flex-wrap items-center gap-2">
                                                 <Badge
                                                     className={cn(
-                                                        'border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-                                                        eventColor(activity.event),
+                                                        'border px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase',
+                                                        eventColor(
+                                                            activity.event,
+                                                        ),
                                                     )}
                                                 >
                                                     {activity.event ?? 'event'}
                                                 </Badge>
                                                 <span className="text-sm font-semibold text-foreground/90">
-                                                    {activity.causer?.name ?? 'System'}
+                                                    {activity.causer?.name ??
+                                                        'System'}
                                                 </span>
                                                 {activity.causer?.email ? (
                                                     <span className="text-xs text-muted-foreground/50">
-                                                        ({activity.causer.email})
+                                                        ({activity.causer.email}
+                                                        )
                                                     </span>
                                                 ) : null}
                                             </div>
 
-                                            {showDescription && activity.description ? (
+                                            {showDescription &&
+                                            activity.description ? (
                                                 <p className="text-xs text-muted-foreground/70">
                                                     {activity.description}
                                                 </p>
@@ -160,13 +173,19 @@ export function DeploymentShowActivity({
                                                             {fieldLabel(key)}:{' '}
                                                             <span className="text-muted-foreground/70">
                                                                 {formatDisplayValue(
-                                                                    activity.old_values?.[key],
+                                                                    activity
+                                                                        .old_values?.[
+                                                                        key
+                                                                    ],
                                                                 )}
                                                             </span>{' '}
                                                             →{' '}
                                                             <span className="text-foreground/90">
                                                                 {formatDisplayValue(
-                                                                    activity.new_values?.[key],
+                                                                    activity
+                                                                        .new_values?.[
+                                                                        key
+                                                                    ],
                                                                 )}
                                                             </span>
                                                         </span>
@@ -176,12 +195,19 @@ export function DeploymentShowActivity({
                                                             type="button"
                                                             className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground transition hover:bg-accent dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                                                             onClick={() =>
-                                                                setExpandedActivity((prev) => ({
-                                                                    ...prev,
-                                                                    [activity.id]: !(
-                                                                        prev[activity.id] ?? false
-                                                                    ),
-                                                                }))
+                                                                setExpandedActivity(
+                                                                    (prev) => ({
+                                                                        ...prev,
+                                                                        [activity.id]:
+                                                                            !(
+                                                                                prev[
+                                                                                    activity
+                                                                                        .id
+                                                                                ] ??
+                                                                                false
+                                                                            ),
+                                                                    }),
+                                                                )
                                                             }
                                                         >
                                                             {isExpanded
@@ -194,7 +220,9 @@ export function DeploymentShowActivity({
                                         </div>
 
                                         <div className="shrink-0 text-xs text-muted-foreground/50">
-                                            {formatDisplayDateTime(activity.created_at)}
+                                            {formatDisplayDateTime(
+                                                activity.created_at,
+                                            )}
                                         </div>
                                     </div>
                                 </div>

@@ -49,7 +49,9 @@ export async function postQuickCreate(
         });
 
         if (response.status >= 200 && response.status < 300) {
-            return response.data ? (JSON.parse(response.data) as QuickCreateResponse) : { id: '' };
+            return response.data
+                ? (JSON.parse(response.data) as QuickCreateResponse)
+                : { id: '' };
         }
 
         throw new HttpResponseError(

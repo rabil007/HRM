@@ -1,5 +1,12 @@
 import { Link } from '@inertiajs/react';
-import { AlertCircle, ArrowUpRight, Building2, CheckCircle2, ChevronDown, FileDown } from 'lucide-react';
+import {
+    AlertCircle,
+    ArrowUpRight,
+    Building2,
+    CheckCircle2,
+    ChevronDown,
+    FileDown,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { show as showEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { index as wpsIndex } from '@/actions/App/Http/Controllers/Payroll/WpsExportController';
@@ -12,7 +19,10 @@ import {
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import { summarizeWpsPeriod, summarizeWpsSelection } from '../lib/wps-selection-summary';
+import {
+    summarizeWpsPeriod,
+    summarizeWpsSelection,
+} from '../lib/wps-selection-summary';
 import type { WpsPreview } from '../types';
 import { WpsExportButton } from '../wps/wps-export-button';
 import { PayrollPeriodProgress } from './payroll-period-progress';
@@ -27,15 +37,20 @@ function WpsStat({
     tone: 'emerald' | 'amber' | 'sky';
 }) {
     const toneClassName = {
-        emerald: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-700 dark:text-emerald-200',
+        emerald:
+            'border-emerald-500/20 bg-emerald-500/5 text-emerald-700 dark:text-emerald-200',
         amber: 'border-amber-500/20 bg-amber-500/5 text-amber-700 dark:text-amber-200',
         sky: 'border-sky-500/20 bg-sky-500/5 text-sky-700 dark:text-sky-200',
     }[tone];
 
     return (
         <div className={cn('rounded-xl border px-4 py-3', toneClassName)}>
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] opacity-70">{label}</p>
-            <p className="mt-1 text-2xl font-extrabold tabular-nums tracking-tight">{value}</p>
+            <p className="text-[11px] font-bold tracking-[0.14em] uppercase opacity-70">
+                {label}
+            </p>
+            <p className="mt-1 text-2xl font-extrabold tracking-tight tabular-nums">
+                {value}
+            </p>
         </div>
     );
 }
@@ -81,7 +96,9 @@ export function WpsDeliveryCard({
     const usesSelection = selectedRecordIds !== null;
     const usesPartialSelection = usesSelection && exportSelected < periodTotal;
     const progressPercent =
-        periodTotal === 0 ? 0 : Math.round((periodEligible / periodTotal) * 100);
+        periodTotal === 0
+            ? 0
+            : Math.round((periodEligible / periodTotal) * 100);
 
     const isReady =
         periodEligible > 0 && periodSkipped === 0 && !companyConfigMissing;
@@ -121,10 +138,12 @@ export function WpsDeliveryCard({
                     : 'No payroll records are eligible for WPS export in this period.'
                 : `${periodEligible} eligible and ${periodSkipped} skipped in this pay period.`;
 
-    const skippedRecords = usesSelection ? exportSkippedRecords : periodSkippedRecords;
+    const skippedRecords = usesSelection
+        ? exportSkippedRecords
+        : periodSkippedRecords;
 
     return (
-        <Card className="glass-card border-border/60 relative overflow-hidden dark:border-white/10">
+        <Card className="relative overflow-hidden glass-card border-border/60 dark:border-white/10">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-sky-500/8 via-transparent to-transparent opacity-80" />
             <CardContent className="relative z-10 space-y-5 p-5">
                 <div className="flex min-w-0 items-start gap-3">
@@ -133,9 +152,16 @@ export function WpsDeliveryCard({
                     </div>
                     <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-base font-semibold tracking-tight">WPS export</h3>
-                            <Badge variant="outline" className={cn('rounded-lg', statusClassName)}>
-                                {companyConfigMissing || exportSelected === 0 || !isReady ? (
+                            <h3 className="text-base font-semibold tracking-tight">
+                                WPS export
+                            </h3>
+                            <Badge
+                                variant="outline"
+                                className={cn('rounded-lg', statusClassName)}
+                            >
+                                {companyConfigMissing ||
+                                exportSelected === 0 ||
+                                !isReady ? (
                                     <AlertCircle className="mr-1 h-3 w-3" />
                                 ) : (
                                     <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -143,7 +169,9 @@ export function WpsDeliveryCard({
                                 {statusLabel}
                             </Badge>
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">{helperText}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {helperText}
+                        </p>
                     </div>
                 </div>
 
@@ -151,12 +179,16 @@ export function WpsDeliveryCard({
                     <div className="space-y-2">
                         <div className="flex items-end justify-between gap-3 text-sm">
                             <span className="font-medium text-muted-foreground">
-                                <span className="text-foreground">{periodEligible}</span>
+                                <span className="text-foreground">
+                                    {periodEligible}
+                                </span>
                                 {' of '}
-                                <span className="text-foreground">{periodTotal}</span>
+                                <span className="text-foreground">
+                                    {periodTotal}
+                                </span>
                                 {' eligible in period'}
                             </span>
-                            <span className="font-semibold tabular-nums text-foreground">
+                            <span className="font-semibold text-foreground tabular-nums">
                                 {progressPercent}%
                             </span>
                         </div>
@@ -174,20 +206,35 @@ export function WpsDeliveryCard({
                 ) : null}
 
                 <div className="grid grid-cols-2 gap-3">
-                    <WpsStat label="Eligible" value={periodEligible} tone="emerald" />
-                    <WpsStat label="Skipped" value={periodSkipped} tone="amber" />
+                    <WpsStat
+                        label="Eligible"
+                        value={periodEligible}
+                        tone="emerald"
+                    />
+                    <WpsStat
+                        label="Skipped"
+                        value={periodSkipped}
+                        tone="amber"
+                    />
                 </div>
 
-                {usesSelection && exportSelected > 0 && exportSelected !== periodTotal ? (
+                {usesSelection &&
+                exportSelected > 0 &&
+                exportSelected !== periodTotal ? (
                     <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3 text-sm text-sky-900 dark:text-sky-100">
-                        <span className="font-semibold">{exportEligible}</span> of{' '}
-                        <span className="font-semibold">{exportSelected}</span> selected records are
-                        eligible for export.
+                        <span className="font-semibold">{exportEligible}</span>{' '}
+                        of{' '}
+                        <span className="font-semibold">{exportSelected}</span>{' '}
+                        selected records are eligible for export.
                         {exportSkipped > 0 ? (
                             <>
                                 {' '}
-                                <span className="font-semibold">{exportSkipped}</span> selected record
-                                {exportSkipped === 1 ? '' : 's'} will be skipped.
+                                <span className="font-semibold">
+                                    {exportSkipped}
+                                </span>{' '}
+                                selected record
+                                {exportSkipped === 1 ? '' : 's'} will be
+                                skipped.
                             </>
                         ) : null}
                     </div>
@@ -195,7 +242,7 @@ export function WpsDeliveryCard({
 
                 {companyConfigMissing && companyIssues.length > 0 ? (
                     <div className="space-y-2 rounded-xl border border-rose-500/25 bg-rose-500/5 px-4 py-3">
-                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-rose-700 dark:text-rose-200">
+                        <p className="text-xs font-bold tracking-[0.14em] text-rose-700 uppercase dark:text-rose-200">
                             Company setup required
                         </p>
                         <ul className="space-y-1 text-sm text-rose-700/90 dark:text-rose-100/90">
@@ -207,7 +254,10 @@ export function WpsDeliveryCard({
                 ) : null}
 
                 {skippedRecords.length > 0 ? (
-                    <Collapsible open={skippedDetailsOpen} onOpenChange={setSkippedDetailsOpen}>
+                    <Collapsible
+                        open={skippedDetailsOpen}
+                        onOpenChange={setSkippedDetailsOpen}
+                    >
                         <div className="rounded-xl border border-amber-500/25 bg-amber-500/5">
                             <CollapsibleTrigger asChild>
                                 <Button
@@ -215,7 +265,7 @@ export function WpsDeliveryCard({
                                     size="sm"
                                     className="h-auto w-full justify-between rounded-xl px-4 py-3 text-left hover:bg-amber-500/10"
                                 >
-                                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-amber-800 dark:text-amber-200">
+                                    <span className="text-xs font-bold tracking-[0.14em] text-amber-800 uppercase dark:text-amber-200">
                                         {usesSelection && exportSkipped > 0
                                             ? `Why ${exportSkipped} selected record${exportSkipped === 1 ? '' : 's'} were skipped`
                                             : `${periodSkipped} skipped record${periodSkipped === 1 ? '' : 's'} in period`}
@@ -237,26 +287,36 @@ export function WpsDeliveryCard({
                                         >
                                             {row.employee_id ? (
                                                 <Link
-                                                    href={showEmployee.url(row.employee_id)}
+                                                    href={showEmployee.url(
+                                                        row.employee_id,
+                                                    )}
                                                     className="inline-flex items-center gap-1 font-medium hover:underline"
                                                 >
                                                     {row.employee_name}
-                                                    {row.employee_no ? ` (${row.employee_no})` : ''}
+                                                    {row.employee_no
+                                                        ? ` (${row.employee_no})`
+                                                        : ''}
                                                     <ArrowUpRight className="h-3.5 w-3.5 shrink-0 opacity-70" />
                                                 </Link>
                                             ) : (
                                                 <p className="font-medium">
                                                     {row.employee_name}
-                                                    {row.employee_no ? ` (${row.employee_no})` : ''}
+                                                    {row.employee_no
+                                                        ? ` (${row.employee_no})`
+                                                        : ''}
                                                 </p>
                                             )}
-                                            <p className="mt-0.5 text-muted-foreground">{row.reason}</p>
+                                            <p className="mt-0.5 text-muted-foreground">
+                                                {row.reason}
+                                            </p>
                                         </li>
                                     ))}
                                 </ul>
-                                {usesSelection && periodSkipped > skippedRecords.length ? (
+                                {usesSelection &&
+                                periodSkipped > skippedRecords.length ? (
                                     <p className="mt-3 text-xs text-muted-foreground">
-                                        View all skipped employees on the WPS export page.
+                                        View all skipped employees on the WPS
+                                        export page.
                                     </p>
                                 ) : null}
                             </CollapsibleContent>
@@ -265,7 +325,7 @@ export function WpsDeliveryCard({
                 ) : null}
 
                 <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 dark:border-white/10 dark:bg-white/5">
-                    <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground/70">
+                    <div className="mb-2 flex items-center gap-2 text-xs font-bold tracking-[0.14em] text-muted-foreground/70 uppercase">
                         <Building2 className="h-3.5 w-3.5" />
                         Company WPS details
                     </div>
@@ -275,10 +335,12 @@ export function WpsDeliveryCard({
                             <dd
                                 className={cn(
                                     'font-medium tabular-nums',
-                                    !preview.company.wps_mol_uid && 'text-rose-600 dark:text-rose-300',
+                                    !preview.company.wps_mol_uid &&
+                                        'text-rose-600 dark:text-rose-300',
                                 )}
                             >
-                                {preview.company.wps_mol_uid ?? 'Not configured'}
+                                {preview.company.wps_mol_uid ??
+                                    'Not configured'}
                             </dd>
                         </div>
                         <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-start">
@@ -290,28 +352,39 @@ export function WpsDeliveryCard({
                                         'text-rose-600 dark:text-rose-300',
                                 )}
                             >
-                                {preview.company.wps_agent_code ?? 'Not configured'}
+                                {preview.company.wps_agent_code ??
+                                    'Not configured'}
                             </dd>
                         </div>
-                        <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-start sm:col-span-2">
-                            <dt className="text-muted-foreground">Employer IBAN</dt>
+                        <div className="flex items-center justify-between gap-3 sm:col-span-2 sm:flex-col sm:items-start">
+                            <dt className="text-muted-foreground">
+                                Employer IBAN
+                            </dt>
                             <dd
                                 className={cn(
-                                    'font-medium font-mono text-xs break-all',
+                                    'font-mono text-xs font-medium break-all',
                                     !preview.company.wps_employer_iban &&
                                         'text-rose-600 dark:text-rose-300',
                                 )}
                             >
-                                {preview.company.wps_employer_iban ?? 'Not configured'}
+                                {preview.company.wps_employer_iban ??
+                                    'Not configured'}
                             </dd>
                         </div>
                     </dl>
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-1">
-                    <Button variant="outline" size="sm" className="rounded-xl" asChild>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl"
+                        asChild
+                    >
                         <Link
-                            href={wpsIndex.url({ query: { period_id: String(periodId) } })}
+                            href={wpsIndex.url({
+                                query: { period_id: String(periodId) },
+                            })}
                             preserveScroll
                         >
                             View all
@@ -321,11 +394,17 @@ export function WpsDeliveryCard({
                     {canExport ? (
                         <WpsExportButton
                             periodId={periodId}
-                            recordIds={usesSelection ? selectedRecordIds ?? [] : undefined}
+                            recordIds={
+                                usesSelection
+                                    ? (selectedRecordIds ?? [])
+                                    : undefined
+                            }
                             size="sm"
                             className="rounded-xl"
                             disabled={
-                                exportSelected === 0 || exportEligible === 0 || companyConfigMissing
+                                exportSelected === 0 ||
+                                exportEligible === 0 ||
+                                companyConfigMissing
                             }
                         />
                     ) : null}

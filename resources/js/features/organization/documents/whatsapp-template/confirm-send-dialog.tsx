@@ -77,10 +77,15 @@ export function ConfirmSendWhatsAppDocumentDialog({
         [templates],
     );
 
-    const defaultTemplate = useMemo(() => resolveDefaultWhatsAppTemplate(templates), [templates]);
+    const defaultTemplate = useMemo(
+        () => resolveDefaultWhatsAppTemplate(templates),
+        [templates],
+    );
 
     const selectedTemplate = useMemo(
-        () => templates.find((template) => template.slug === templateSlug) ?? defaultTemplate,
+        () =>
+            templates.find((template) => template.slug === templateSlug) ??
+            defaultTemplate,
         [defaultTemplate, templateSlug, templates],
     );
 
@@ -89,11 +94,14 @@ export function ConfirmSendWhatsAppDocumentDialog({
             return '';
         }
 
-        return renderWhatsAppTemplatePreviewBody(selectedTemplate.body_preview, {
-            name: employeeName,
-            '1': employeeName,
-            employee_name: employeeName,
-        });
+        return renderWhatsAppTemplatePreviewBody(
+            selectedTemplate.body_preview,
+            {
+                name: employeeName,
+                '1': employeeName,
+                employee_name: employeeName,
+            },
+        );
     }, [employeeName, selectedTemplate]);
 
     const profilePhoneDisplay = useMemo(() => {
@@ -145,7 +153,10 @@ export function ConfirmSendWhatsAppDocumentDialog({
 
         try {
             const result = await sendWhatsAppDocumentTemplate(
-                whatsappTemplate.url({ employee: employeeId, document: documentId }),
+                whatsappTemplate.url({
+                    employee: employeeId,
+                    document: documentId,
+                }),
                 { whatsapp_number: number, template_slug: slug },
             );
 
@@ -153,7 +164,11 @@ export function ConfirmSendWhatsAppDocumentDialog({
             onSendComplete?.();
             toast.success(`${result.message} Sent to ${number}.`);
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Failed to send via WhatsApp.');
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to send via WhatsApp.',
+            );
         } finally {
             setIsSending(false);
         }
@@ -161,7 +176,7 @@ export function ConfirmSendWhatsAppDocumentDialog({
 
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
-            <AlertDialogContent className="glass-card max-h-[90vh] overflow-y-auto sm:max-w-lg">
+            <AlertDialogContent className="max-h-[90vh] overflow-y-auto glass-card sm:max-w-lg">
                 <AlertDialogHeader>
                     <div className="mb-1 flex items-center gap-3">
                         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-green-500/10 text-green-500">
@@ -172,8 +187,8 @@ export function ConfirmSendWhatsAppDocumentDialog({
                     <AlertDialogDescription asChild>
                         <div className="space-y-4 text-left">
                             <p>
-                                Choose a Meta template and send this file to the employee&apos;s
-                                WhatsApp number.
+                                Choose a Meta template and send this file to the
+                                employee&apos;s WhatsApp number.
                             </p>
 
                             <div className="space-y-2 rounded-lg border border-white/10 bg-zinc-950/40 px-3 py-2.5">
@@ -195,7 +210,9 @@ export function ConfirmSendWhatsAppDocumentDialog({
                                     <div className="space-y-2">
                                         <Label htmlFor="whatsapp-template-select">
                                             WhatsApp template{' '}
-                                            <span className="text-red-400">*</span>
+                                            <span className="text-red-400">
+                                                *
+                                            </span>
                                         </Label>
                                         <Select
                                             value={templateSlug}
@@ -210,21 +227,33 @@ export function ConfirmSendWhatsAppDocumentDialog({
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {templateGroups.map((group) => (
-                                                    <SelectGroup key={group.category}>
+                                                    <SelectGroup
+                                                        key={group.category}
+                                                    >
                                                         <SelectLabel>
-                                                            {group.category_label}
+                                                            {
+                                                                group.category_label
+                                                            }
                                                         </SelectLabel>
-                                                        {group.templates.map((template) => (
-                                                            <SelectItem
-                                                                key={template.slug}
-                                                                value={template.slug}
-                                                            >
-                                                                {template.label}
-                                                                {template.is_default
-                                                                    ? ' (default)'
-                                                                    : ''}
-                                                            </SelectItem>
-                                                        ))}
+                                                        {group.templates.map(
+                                                            (template) => (
+                                                                <SelectItem
+                                                                    key={
+                                                                        template.slug
+                                                                    }
+                                                                    value={
+                                                                        template.slug
+                                                                    }
+                                                                >
+                                                                    {
+                                                                        template.label
+                                                                    }
+                                                                    {template.is_default
+                                                                        ? ' (default)'
+                                                                        : ''}
+                                                                </SelectItem>
+                                                            ),
+                                                        )}
                                                     </SelectGroup>
                                                 ))}
                                             </SelectContent>
@@ -243,8 +272,12 @@ export function ConfirmSendWhatsAppDocumentDialog({
 
                                     {selectedTemplate ? (
                                         <WhatsAppDocumentTemplatePreview
-                                            templateName={selectedTemplate.meta_name}
-                                            templateLanguage={selectedTemplate.meta_language}
+                                            templateName={
+                                                selectedTemplate.meta_name
+                                            }
+                                            templateLanguage={
+                                                selectedTemplate.meta_language
+                                            }
                                             bodyText={previewBody}
                                             headerType="document"
                                             sampleFileName={documentName}
@@ -254,14 +287,16 @@ export function ConfirmSendWhatsAppDocumentDialog({
                                 </div>
                             ) : (
                                 <p className="text-sm text-amber-200/90">
-                                    No document WhatsApp templates are enabled. Add templates
-                                    under Settings → Integrations → WhatsApp.
+                                    No document WhatsApp templates are enabled.
+                                    Add templates under Settings → Integrations
+                                    → WhatsApp.
                                 </p>
                             )}
 
                             <div className="space-y-2">
                                 <Label htmlFor="whatsapp-template-number">
-                                    WhatsApp number <span className="text-red-400">*</span>
+                                    WhatsApp number{' '}
+                                    <span className="text-red-400">*</span>
                                 </Label>
                                 <PhoneInputWithCountry
                                     id="whatsapp-template-number"
@@ -271,7 +306,9 @@ export function ConfirmSendWhatsAppDocumentDialog({
                                     fieldKey="phone"
                                     defaultDialCode="+971"
                                     disabled={isSending}
-                                    nationalPlaceholder={profileNationalPlaceholder}
+                                    nationalPlaceholder={
+                                        profileNationalPlaceholder
+                                    }
                                     inputClassName="rounded-lg border-white/10 bg-zinc-950/60"
                                     selectClassName="rounded-lg border-white/10 bg-zinc-950/60"
                                 />

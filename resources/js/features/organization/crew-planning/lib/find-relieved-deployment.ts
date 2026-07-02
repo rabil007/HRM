@@ -21,14 +21,21 @@ export function findRelievedDeployment(
                 bar.is_deployed &&
                 bar.employee_deployment_id !== null,
         )
-        .sort((a, b) => a.planned_leave_date.localeCompare(b.planned_leave_date));
+        .sort((a, b) =>
+            a.planned_leave_date.localeCompare(b.planned_leave_date),
+        );
 
     if (deployedBars.length === 0) {
         return null;
     }
 
-    const preceding = deployedBars.filter((bar) => bar.planned_leave_date <= nearDate);
-    const match = preceding.length > 0 ? preceding[preceding.length - 1] : deployedBars[0];
+    const preceding = deployedBars.filter(
+        (bar) => bar.planned_leave_date <= nearDate,
+    );
+    const match =
+        preceding.length > 0
+            ? preceding[preceding.length - 1]
+            : deployedBars[0];
 
     if (match.employee_deployment_id === null) {
         return null;

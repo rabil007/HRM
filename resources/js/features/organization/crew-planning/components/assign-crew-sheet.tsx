@@ -51,16 +51,22 @@ export function AssignCrewSheet({
             return employees;
         }
 
-        return employees.filter((employee) => employee.rank_id === Number(form.data.rank_id));
+        return employees.filter(
+            (employee) => employee.rank_id === Number(form.data.rank_id),
+        );
     }, [employees, form.data.rank_id]);
 
     const handleRankChange = (value: string): void => {
         const selectedEmployee =
             form.data.employee_id !== ''
-                ? employees.find((employee) => employee.id === Number(form.data.employee_id))
+                ? employees.find(
+                      (employee) =>
+                          employee.id === Number(form.data.employee_id),
+                  )
                 : undefined;
         const employeeStillMatches =
-            selectedEmployee === undefined || selectedEmployee.rank_id === Number(value);
+            selectedEmployee === undefined ||
+            selectedEmployee.rank_id === Number(value);
 
         form.setData({
             ...form.data,
@@ -104,11 +110,13 @@ export function AssignCrewSheet({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="right"
-                className="flex w-full flex-col rounded-none p-0 glass-card sm:max-w-md"
+                className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-md"
             >
                 <SheetHeader className="border-b border-border/60 p-8 pb-6">
                     <SheetTitle className="text-xl font-bold tracking-tight">
-                        {isEdit ? 'Edit planned assignment' : 'Plan crew assignment'}
+                        {isEdit
+                            ? 'Edit planned assignment'
+                            : 'Plan crew assignment'}
                     </SheetTitle>
                     <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
                         {isEdit
@@ -118,12 +126,17 @@ export function AssignCrewSheet({
                 </SheetHeader>
 
                 <div className="flex-1 space-y-8 overflow-y-auto p-8">
-                    {form.data.relieves_employee_deployment_id !== '' && relievesEmployeeName !== '' ? (
+                    {form.data.relieves_employee_deployment_id !== '' &&
+                    relievesEmployeeName !== '' ? (
                         <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-3 text-sm">
-                            <p className="font-semibold text-sky-800 dark:text-sky-300">Planned relief</p>
+                            <p className="font-semibold text-sky-800 dark:text-sky-300">
+                                Planned relief
+                            </p>
                             <p className="mt-1 text-muted-foreground">
                                 Replacing{' '}
-                                <span className="font-medium text-foreground">{relievesEmployeeName}</span>{' '}
+                                <span className="font-medium text-foreground">
+                                    {relievesEmployeeName}
+                                </span>{' '}
                                 after their deployment ends.
                             </p>
                         </div>
@@ -133,7 +146,7 @@ export function AssignCrewSheet({
                         <div className="space-y-2">
                             <Label
                                 htmlFor="vessel_id"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Vessel
                             </Label>
@@ -144,7 +157,10 @@ export function AssignCrewSheet({
                                 variant="card"
                             >
                                 {vessels.map((v) => (
-                                    <AppSelectItem key={v.id} value={String(v.id)}>
+                                    <AppSelectItem
+                                        key={v.id}
+                                        value={String(v.id)}
+                                    >
                                         {v.name}
                                     </AppSelectItem>
                                 ))}
@@ -159,7 +175,7 @@ export function AssignCrewSheet({
                         <div className="space-y-2">
                             <Label
                                 htmlFor="rank_id"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Rank
                             </Label>
@@ -175,7 +191,10 @@ export function AssignCrewSheet({
                                 variant="card"
                             >
                                 {ranks.map((r) => (
-                                    <AppSelectItem key={r.id} value={String(r.id)}>
+                                    <AppSelectItem
+                                        key={r.id}
+                                        value={String(r.id)}
+                                    >
                                         {r.name}
                                     </AppSelectItem>
                                 ))}
@@ -190,7 +209,7 @@ export function AssignCrewSheet({
                         <div className="space-y-2">
                             <Label
                                 htmlFor="employee_id"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Crew member (optional)
                             </Label>
@@ -204,20 +223,30 @@ export function AssignCrewSheet({
                                           ? 'No matching crew for this rank'
                                           : 'Search and select crew'
                                 }
-                                disabled={form.data.rank_id === '' || availableEmployees.length === 0}
+                                disabled={
+                                    form.data.rank_id === '' ||
+                                    availableEmployees.length === 0
+                                }
                                 variant="card"
                             >
-                                <AppSelectItem value="">Vacant slot</AppSelectItem>
+                                <AppSelectItem value="">
+                                    Vacant slot
+                                </AppSelectItem>
                                 {availableEmployees.map((employee) => (
-                                    <AppSelectItem key={employee.id} value={String(employee.id)}>
+                                    <AppSelectItem
+                                        key={employee.id}
+                                        value={String(employee.id)}
+                                    >
                                         {employee.name} · {employee.rank_name}
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
                             <p className="text-xs text-muted-foreground">
-                                Leave blank to plan an open slot on the timeline.
+                                Leave blank to plan an open slot on the
+                                timeline.
                             </p>
-                            {form.data.rank_id !== '' && availableEmployees.length === 0 ? (
+                            {form.data.rank_id !== '' &&
+                            availableEmployees.length === 0 ? (
                                 <p className="text-xs text-muted-foreground">
                                     No crew match the selected rank.
                                 </p>
@@ -229,7 +258,10 @@ export function AssignCrewSheet({
                             ) : null}
                             {form.errors.relieves_employee_deployment_id ? (
                                 <div className="text-xs font-medium text-destructive">
-                                    {form.errors.relieves_employee_deployment_id}
+                                    {
+                                        form.errors
+                                            .relieves_employee_deployment_id
+                                    }
                                 </div>
                             ) : null}
                         </div>
@@ -240,7 +272,7 @@ export function AssignCrewSheet({
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="planned_join_date"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Planned join
                                 </Label>
@@ -249,7 +281,10 @@ export function AssignCrewSheet({
                                     type="date"
                                     value={form.data.planned_join_date}
                                     onChange={(e) =>
-                                        form.setData('planned_join_date', e.target.value)
+                                        form.setData(
+                                            'planned_join_date',
+                                            e.target.value,
+                                        )
                                     }
                                     className={fieldInputClass}
                                 />
@@ -263,7 +298,7 @@ export function AssignCrewSheet({
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="planned_leave_date"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Planned leave
                                 </Label>
@@ -272,7 +307,10 @@ export function AssignCrewSheet({
                                     type="date"
                                     value={form.data.planned_leave_date}
                                     onChange={(e) =>
-                                        form.setData('planned_leave_date', e.target.value)
+                                        form.setData(
+                                            'planned_leave_date',
+                                            e.target.value,
+                                        )
                                     }
                                     className={fieldInputClass}
                                 />
@@ -289,7 +327,7 @@ export function AssignCrewSheet({
                         <div className="space-y-2">
                             <Label
                                 htmlFor="notes"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Notes
                             </Label>
@@ -297,9 +335,11 @@ export function AssignCrewSheet({
                                 id="notes"
                                 rows={3}
                                 value={form.data.notes}
-                                onChange={(e) => form.setData('notes', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('notes', e.target.value)
+                                }
                                 placeholder="Visa pending, travel booked, standby pool…"
-                                className="resize-y rounded-xl border-border bg-card px-4 py-3 text-sm focus-visible:ring-primary/40 transition-all"
+                                className="resize-y rounded-xl border-border bg-card px-4 py-3 text-sm transition-all focus-visible:ring-primary/40"
                             />
                             {form.errors.notes ? (
                                 <div className="text-xs font-medium text-destructive">

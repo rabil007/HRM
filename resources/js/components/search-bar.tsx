@@ -19,15 +19,15 @@ export function SearchBar({
     inputClassName?: string;
 }) {
     return (
-        <div className={cn('flex items-center gap-4 mb-8', className)}>
-            <div className="relative flex-1 group min-w-0">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-foreground" />
+        <div className={cn('mb-8 flex items-center gap-4', className)}>
+            <div className="group relative min-w-0 flex-1">
+                <Search className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-foreground" />
                 <Input
                     placeholder={placeholder}
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
                     className={cn(
-                        'pl-10 rounded-xl border-input bg-background/80 dark:border-white/5 dark:bg-white/5 focus-visible:ring-primary/20 focus-visible:bg-background dark:focus-visible:bg-white/10 transition-all py-6 text-base',
+                        'rounded-xl border-input bg-background/80 py-6 pl-10 text-base transition-all focus-visible:bg-background focus-visible:ring-primary/20 dark:border-white/5 dark:bg-white/5 dark:focus-visible:bg-white/10',
                         inputClassName,
                     )}
                 />
@@ -36,4 +36,3 @@ export function SearchBar({
         </div>
     );
 }
-

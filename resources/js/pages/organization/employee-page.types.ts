@@ -1,4 +1,7 @@
-import type { DocumentProfileItem, DocumentTypeOption } from '@/features/organization/documents/shared/types';
+import type {
+    DocumentProfileItem,
+    DocumentTypeOption,
+} from '@/features/organization/documents/shared/types';
 import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import type {
     ApprovalLocationOption,
@@ -42,7 +45,12 @@ export type EmployeeCrewStatus = {
 
 export type EmployeeDetails = {
     id: number | null;
-    user: { id: number; name: string | null; email: string | null; avatar: string | null } | null;
+    user: {
+        id: number;
+        name: string | null;
+        email: string | null;
+        avatar: string | null;
+    } | null;
     branch: { id: number; name: string | null } | null;
     department: { id: number; name: string | null } | null;
     position: { id: number; title: string | null } | null;

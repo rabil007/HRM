@@ -2,7 +2,11 @@ import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type {
     BranchOption,
     CompanyVisaTypeOption,
@@ -115,17 +119,21 @@ export function EmployeeFiltersSheet({
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 {/* Employment Group */}
-                <div className="sm:col-span-2 border-b border-border/40 pb-2 pt-2 first:pt-0">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Employment</span>
+                <div className="border-b border-border/40 pt-2 pb-2 first:pt-0 sm:col-span-2">
+                    <span className="text-[11px] font-bold tracking-wider text-primary uppercase">
+                        Employment
+                    </span>
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Branch
                     </Label>
                     <AppSelect
                         value={value.branch_id}
-                        onValueChange={(v) => onChange({ ...value, branch_id: v })}
+                        onValueChange={(v) =>
+                            onChange({ ...value, branch_id: v })
+                        }
                         variant="dark"
                         placeholder="All"
                     >
@@ -139,12 +147,14 @@ export function EmployeeFiltersSheet({
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Position
                     </Label>
                     <AppSelect
                         value={value.position_id}
-                        onValueChange={(v) => onChange({ ...value, position_id: v })}
+                        onValueChange={(v) =>
+                            onChange({ ...value, position_id: v })
+                        }
                         variant="dark"
                         placeholder="All"
                     >
@@ -158,12 +168,14 @@ export function EmployeeFiltersSheet({
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Role
                     </Label>
                     <AppSelect
                         value={value.role_id}
-                        onValueChange={(v) => onChange({ ...value, role_id: v })}
+                        onValueChange={(v) =>
+                            onChange({ ...value, role_id: v })
+                        }
                         variant="dark"
                         placeholder="All"
                     >
@@ -177,12 +189,14 @@ export function EmployeeFiltersSheet({
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Rank
                     </Label>
                     <AppSelect
                         value={value.rank_id}
-                        onValueChange={(v) => onChange({ ...value, rank_id: v })}
+                        onValueChange={(v) =>
+                            onChange({ ...value, rank_id: v })
+                        }
                         variant="dark"
                         placeholder="All"
                     >
@@ -196,12 +210,14 @@ export function EmployeeFiltersSheet({
                 </div>
 
                 <div className="space-y-2 sm:col-span-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Manager
                     </Label>
                     <AppSelect
                         value={value.manager_id}
-                        onValueChange={(v) => onChange({ ...value, manager_id: v })}
+                        onValueChange={(v) =>
+                            onChange({ ...value, manager_id: v })
+                        }
                         variant="dark"
                         placeholder="All"
                     >
@@ -215,17 +231,21 @@ export function EmployeeFiltersSheet({
                 </div>
 
                 {/* Identity & Visa Group */}
-                <div className="sm:col-span-2 border-b border-border/40 pb-2 pt-4">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Identity & Visa</span>
+                <div className="border-b border-border/40 pt-4 pb-2 sm:col-span-2">
+                    <span className="text-[11px] font-bold tracking-wider text-primary uppercase">
+                        Identity & Visa
+                    </span>
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Gender
                     </Label>
                     <AppSelect
                         value={value.gender_id}
-                        onValueChange={(v) => onChange({ ...value, gender_id: v })}
+                        onValueChange={(v) =>
+                            onChange({ ...value, gender_id: v })
+                        }
                         variant="dark"
                         placeholder="All"
                     >
@@ -239,12 +259,14 @@ export function EmployeeFiltersSheet({
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Nationality
                     </Label>
                     <AppSelect
                         value={value.nationality_id}
-                        onValueChange={(v) => onChange({ ...value, nationality_id: v })}
+                        onValueChange={(v) =>
+                            onChange({ ...value, nationality_id: v })
+                        }
                         variant="dark"
                         placeholder="All"
                     >
@@ -258,12 +280,14 @@ export function EmployeeFiltersSheet({
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Visa type
                     </Label>
                     <AppSelect
                         value={value.visa_type_id}
-                        onValueChange={(v) => onChange({ ...value, visa_type_id: v })}
+                        onValueChange={(v) =>
+                            onChange({ ...value, visa_type_id: v })
+                        }
                         variant="dark"
                         placeholder="All"
                     >
@@ -277,12 +301,14 @@ export function EmployeeFiltersSheet({
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Sponsor
                     </Label>
                     <AppSelect
                         value={value.company_visa_type_id}
-                        onValueChange={(v) => onChange({ ...value, company_visa_type_id: v })}
+                        onValueChange={(v) =>
+                            onChange({ ...value, company_visa_type_id: v })
+                        }
                         variant="dark"
                         placeholder="All"
                     >
@@ -296,12 +322,14 @@ export function EmployeeFiltersSheet({
                 </div>
 
                 {/* Status Group */}
-                <div className="sm:col-span-2 border-b border-border/40 pb-2 pt-4">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Status</span>
+                <div className="border-b border-border/40 pt-4 pb-2 sm:col-span-2">
+                    <span className="text-[11px] font-bold tracking-wider text-primary uppercase">
+                        Status
+                    </span>
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         HR status
                     </Label>
                     <AppSelect
@@ -314,39 +342,55 @@ export function EmployeeFiltersSheet({
                         <AppSelectItem value="active">Active</AppSelectItem>
                         <AppSelectItem value="inactive">Inactive</AppSelectItem>
                         <AppSelectItem value="on_leave">On leave</AppSelectItem>
-                        <AppSelectItem value="terminated">Terminated</AppSelectItem>
+                        <AppSelectItem value="terminated">
+                            Terminated
+                        </AppSelectItem>
                     </AppSelect>
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Crew status
                     </Label>
                     <AppSelect
                         value={value.crew_status}
-                        onValueChange={(v) => onChange({ ...value, crew_status: v })}
+                        onValueChange={(v) =>
+                            onChange({ ...value, crew_status: v })
+                        }
                         variant="dark"
                         placeholder="All"
                     >
                         <AppSelectItem value="">All</AppSelectItem>
-                        <AppSelectItem value="available">Available</AppSelectItem>
-                        <AppSelectItem value="on_vessel">On vessel</AppSelectItem>
-                        <AppSelectItem value="join_standby">Join standby</AppSelectItem>
-                        <AppSelectItem value="leave_standby">Leave standby</AppSelectItem>
+                        <AppSelectItem value="available">
+                            Available
+                        </AppSelectItem>
+                        <AppSelectItem value="on_vessel">
+                            On vessel
+                        </AppSelectItem>
+                        <AppSelectItem value="join_standby">
+                            Join standby
+                        </AppSelectItem>
+                        <AppSelectItem value="leave_standby">
+                            Leave standby
+                        </AppSelectItem>
                         <AppSelectItem value="arrived">Arrived</AppSelectItem>
                         <AppSelectItem value="travel">Travelled</AppSelectItem>
-                        <AppSelectItem value="disembarked">Disembarked</AppSelectItem>
+                        <AppSelectItem value="disembarked">
+                            Disembarked
+                        </AppSelectItem>
                         <AppSelectItem value="in_home">In home</AppSelectItem>
                     </AppSelect>
                 </div>
 
                 {/* Deployment & Association Group */}
-                <div className="sm:col-span-2 border-b border-border/40 pb-2 pt-4">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Deployment & Association</span>
+                <div className="border-b border-border/40 pt-4 pb-2 sm:col-span-2">
+                    <span className="text-[11px] font-bold tracking-wider text-primary uppercase">
+                        Deployment & Association
+                    </span>
                 </div>
 
                 <div className="space-y-2 sm:col-span-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Approval location
                     </Label>
                     <div className="grid grid-cols-2 gap-2">
@@ -364,11 +408,12 @@ export function EmployeeFiltersSheet({
                                         onCheckedChange={(v) =>
                                             onChange({
                                                 ...value,
-                                                approval_location_id: toggleCsvId(
-                                                    value.approval_location_id,
-                                                    id,
-                                                    v === true,
-                                                ),
+                                                approval_location_id:
+                                                    toggleCsvId(
+                                                        value.approval_location_id,
+                                                        id,
+                                                        v === true,
+                                                    ),
                                             })
                                         }
                                     />
@@ -379,7 +424,10 @@ export function EmployeeFiltersSheet({
                                                     {location.name}
                                                 </span>
                                             </TooltipTrigger>
-                                            <TooltipContent side="top" align="start">
+                                            <TooltipContent
+                                                side="top"
+                                                align="start"
+                                            >
                                                 {location.name}
                                             </TooltipContent>
                                         </Tooltip>
@@ -391,7 +439,7 @@ export function EmployeeFiltersSheet({
                 </div>
 
                 <div className="space-y-2 sm:col-span-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         SSSA
                     </Label>
                     <div className="grid grid-cols-2 gap-2">
@@ -424,7 +472,10 @@ export function EmployeeFiltersSheet({
                                                     {option.name}
                                                 </span>
                                             </TooltipTrigger>
-                                            <TooltipContent side="top" align="start">
+                                            <TooltipContent
+                                                side="top"
+                                                align="start"
+                                            >
                                                 {option.name}
                                             </TooltipContent>
                                         </Tooltip>

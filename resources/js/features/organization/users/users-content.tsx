@@ -19,7 +19,12 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
@@ -64,7 +69,10 @@ export function UsersContent({
         role_id: initialFilters.role_id ?? '',
     };
 
-    const activeFiltersCount = [initialFilters.status, initialFilters.role_id].filter(Boolean).length;
+    const activeFiltersCount = [
+        initialFilters.status,
+        initialFilters.role_id,
+    ].filter(Boolean).length;
 
     const form = useForm<UserFormData>({
         name: '',
@@ -121,8 +129,8 @@ export function UsersContent({
 
     const confirmDelete = () => {
         if (!currentUser) {
-return;
-}
+            return;
+        }
 
         router.delete(`/organization/users/${currentUser.id}`, {
             onFinish: () => {
@@ -138,7 +146,8 @@ return;
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onError: () => toast.error('Failed to update status. Please try again.'),
+                onError: () =>
+                    toast.error('Failed to update status. Please try again.'),
             },
         );
     };
@@ -169,12 +178,12 @@ return;
         const params = new URLSearchParams();
 
         if (initialSearch) {
-params.set('search', initialSearch);
-}
+            params.set('search', initialSearch);
+        }
 
         if (initialFilters.status) {
-params.set('status', initialFilters.status);
-}
+            params.set('status', initialFilters.status);
+        }
 
         params.set('format', format);
 
@@ -193,7 +202,10 @@ params.set('status', initialFilters.status);
                             buttonVariant="secondary"
                             buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
                         />
-                        <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
+                        <Button
+                            onClick={handleAdd}
+                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                        >
                             <Plus className="mr-2 h-4 w-4" />
                             Add User
                         </Button>
@@ -211,7 +223,7 @@ params.set('status', initialFilters.status);
                         <Button
                             type="button"
                             variant="secondary"
-                            className="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
                             onClick={() => setIsFiltersOpen(true)}
                         >
                             <Filter className="mr-2 h-4 w-4" />
@@ -229,7 +241,13 @@ params.set('status', initialFilters.status);
             {view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     {users.map((u) => (
-                        <UserCard key={u.id} user={u} onEdit={handleEdit} onDelete={handleDelete} onToggleStatus={toggleStatus} />
+                        <UserCard
+                            key={u.id}
+                            user={u}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                            onToggleStatus={toggleStatus}
+                        />
                     ))}
                 </div>
             ) : (
@@ -240,43 +258,65 @@ params.set('status', initialFilters.status);
                             <DataTableHead>Email</DataTableHead>
                             <DataTableHead>Role</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
-                            <DataTableHead className="text-right">Actions</DataTableHead>
+                            <DataTableHead className="text-right">
+                                Actions
+                            </DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
-                            <TableBody>
-                                {users.map((u) => (
-                                    <TableRow
-                                        key={u.id}
-                                        className={dataTableBodyRowClass()}
-                                        onClick={() => router.visit(`/organization/users/${u.id}`)}
+                    <TableBody>
+                        {users.map((u) => (
+                            <TableRow
+                                key={u.id}
+                                className={dataTableBodyRowClass()}
+                                onClick={() =>
+                                    router.visit(`/organization/users/${u.id}`)
+                                }
+                            >
+                                <TableCell
+                                    className={dataTableCellPrimaryClass()}
+                                >
+                                    {u.name}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {u.email}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {u.role?.name ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    <div
+                                        className="flex items-center gap-3"
+                                        onClick={(e) => e.stopPropagation()}
                                     >
-                                        <TableCell className={dataTableCellPrimaryClass()}>{u.name}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>{u.email}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>{u.role?.name ?? '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>
-                                            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                                                <Switch checked={u.status === 'active'} onCheckedChange={(checked) => toggleStatus(u, checked)} />
-                                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                                    {u.status ?? '—'}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className={dataTableActionsCellClass()}>
-                                            <ListTableCrudActions
-                                                viewHref={`/organization/users/${u.id}`}
-                                                onEdit={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEdit(u);
-                                                }}
-                                                onDelete={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDelete(u);
-                                                }}
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
+                                        <Switch
+                                            checked={u.status === 'active'}
+                                            onCheckedChange={(checked) =>
+                                                toggleStatus(u, checked)
+                                            }
+                                        />
+                                        <span className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                            {u.status ?? '—'}
+                                        </span>
+                                    </div>
+                                </TableCell>
+                                <TableCell
+                                    className={dataTableActionsCellClass()}
+                                >
+                                    <ListTableCrudActions
+                                        viewHref={`/organization/users/${u.id}`}
+                                        onEdit={(e) => {
+                                            e.stopPropagation();
+                                            handleEdit(u);
+                                        }}
+                                        onDelete={(e) => {
+                                            e.stopPropagation();
+                                            handleDelete(u);
+                                        }}
+                                    />
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
                 </OrganizationDataTable>
             )}
 
@@ -303,7 +343,12 @@ params.set('status', initialFilters.status);
                 roles={roles}
             />
 
-            <UserDeleteDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen} user={currentUser} onConfirm={confirmDelete} />
+            <UserDeleteDialog
+                open={isDeleteOpen}
+                onOpenChange={setIsDeleteOpen}
+                user={currentUser}
+                onConfirm={confirmDelete}
+            />
         </Main>
     );
 }

@@ -22,7 +22,7 @@ export default function ApplicationLogo({
 
     const url =
         variant === 'login'
-            ? branding?.login_logo_url ?? branding?.main_logo_url
+            ? (branding?.login_logo_url ?? branding?.main_logo_url)
             : branding?.main_logo_url;
 
     if (url) {
@@ -30,10 +30,18 @@ export default function ApplicationLogo({
             <img
                 src={url}
                 alt={settings?.app_name ?? 'Application logo'}
-                className={cn('object-contain', imageClassName ?? 'h-8 w-auto max-w-[160px]', className)}
+                className={cn(
+                    'object-contain',
+                    imageClassName ?? 'h-8 w-auto max-w-[160px]',
+                    className,
+                )}
             />
         );
     }
 
-    return <AppLogoIcon className={cn('size-8 fill-current', iconClassName, className)} />;
+    return (
+        <AppLogoIcon
+            className={cn('size-8 fill-current', iconClassName, className)}
+        />
+    );
 }

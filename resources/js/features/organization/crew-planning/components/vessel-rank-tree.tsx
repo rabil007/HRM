@@ -1,7 +1,11 @@
 import { Anchor, ChevronRight, Ship, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { barAvatarClass } from '../lib/assignment-bar-styles';
 import type { TreeCrewMember, TreeRank, TreeVessel } from '../types';
@@ -144,7 +148,11 @@ function RankNode({
                         <button
                             type="button"
                             className="inline-flex w-6 shrink-0 items-center justify-center text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none"
-                            aria-label={isExpanded ? `Collapse ${rank.rank_name}` : `Expand ${rank.rank_name}`}
+                            aria-label={
+                                isExpanded
+                                    ? `Collapse ${rank.rank_name}`
+                                    : `Expand ${rank.rank_name}`
+                            }
                         >
                             <ChevronRight
                                 className={cn(
@@ -165,7 +173,9 @@ function RankNode({
                         <span
                             className={cn(
                                 'truncate text-[11px] font-medium tracking-wide uppercase',
-                                isSelected ? 'text-primary' : 'text-muted-foreground',
+                                isSelected
+                                    ? 'text-primary'
+                                    : 'text-muted-foreground',
                             )}
                         >
                             {rank.rank_name}
@@ -174,7 +184,7 @@ function RankNode({
                 </div>
 
                 <CollapsibleContent>
-                    <div className="space-y-0.5 border-l border-border/30 py-1 pl-3 ml-2.5">
+                    <div className="ml-2.5 space-y-0.5 border-l border-border/30 py-1 pl-3">
                         {rank.crew.length === 0 ? (
                             <div className="flex items-center gap-2 py-1 text-[11px] text-muted-foreground/55">
                                 <UserRound className="h-3 w-3 shrink-0" />
@@ -231,7 +241,7 @@ function VesselNode({
             <CollapsibleTrigger asChild>
                 <button
                     type="button"
-                    className="flex w-full items-center gap-2.5 bg-muted/25 px-3 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                    className="flex w-full items-center gap-2.5 bg-muted/25 px-3 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
                 >
                     <ChevronRight
                         className={cn(
@@ -259,7 +269,10 @@ function VesselNode({
                             isSelected={selectedRowKey === rowKey}
                             search={search}
                             onRowSelect={onRowSelect}
-                            forceOpen={lowerSearch !== '' && rankMatchesSearch(rank, lowerSearch)}
+                            forceOpen={
+                                lowerSearch !== '' &&
+                                rankMatchesSearch(rank, lowerSearch)
+                            }
                         />
                     );
                 })}
@@ -280,7 +293,9 @@ export function VesselRankTree({
     onRowSelect: (rowKey: string) => void;
 }): ReactElement {
     const lowerSearch = search.trim().toLowerCase();
-    const visibleVessels = tree.filter((vessel) => vesselMatchesSearch(vessel, lowerSearch));
+    const visibleVessels = tree.filter((vessel) =>
+        vesselMatchesSearch(vessel, lowerSearch),
+    );
 
     if (tree.length === 0) {
         return (
@@ -288,9 +303,12 @@ export function VesselRankTree({
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/60 text-muted-foreground">
                     <Ship className="h-5 w-5" />
                 </span>
-                <p className="text-sm font-medium text-foreground/90">No planned vessels or ranks</p>
+                <p className="text-sm font-medium text-foreground/90">
+                    No planned vessels or ranks
+                </p>
                 <p className="max-w-[200px] text-xs leading-relaxed text-muted-foreground/70">
-                    No planned assignments in this date range. Assign crew or sync from deployments.
+                    No planned assignments in this date range. Assign crew or
+                    sync from deployments.
                 </p>
             </div>
         );
@@ -299,8 +317,12 @@ export function VesselRankTree({
     if (visibleVessels.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
-                <p className="text-sm font-medium text-foreground/90">No matches</p>
-                <p className="text-xs text-muted-foreground/70">Try a different vessel, rank, or crew name.</p>
+                <p className="text-sm font-medium text-foreground/90">
+                    No matches
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                    Try a different vessel, rank, or crew name.
+                </p>
             </div>
         );
     }
@@ -314,7 +336,10 @@ export function VesselRankTree({
                     search={search}
                     selectedRowKey={selectedRowKey}
                     onRowSelect={onRowSelect}
-                    forceOpen={lowerSearch !== '' && vesselMatchesSearch(vessel, lowerSearch)}
+                    forceOpen={
+                        lowerSearch !== '' &&
+                        vesselMatchesSearch(vessel, lowerSearch)
+                    }
                 />
             ))}
         </div>

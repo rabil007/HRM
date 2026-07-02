@@ -73,10 +73,14 @@ export function PersonalEditableTextRow({
                         autoFocus
                     />
                     {error ? (
-                        <div className="mt-1 text-xs text-destructive">{error}</div>
+                        <div className="mt-1 text-xs text-destructive">
+                            {error}
+                        </div>
                     ) : null}
                     {highlightMissing ? (
-                        <div className="mt-1 text-xs text-rose-400">Required</div>
+                        <div className="mt-1 text-xs text-rose-400">
+                            Required
+                        </div>
                     ) : null}
                 </div>
             ) : (
@@ -109,7 +113,9 @@ export function PersonalFieldRow({
     return (
         <div className={cn(personalFieldRowClass, className)}>
             <label className={personalFieldLabelClass}>{label}</label>
-            <div className="min-w-0 text-sm font-medium text-foreground dark:text-zinc-100">{children}</div>
+            <div className="min-w-0 text-sm font-medium text-foreground dark:text-zinc-100">
+                {children}
+            </div>
         </div>
     );
 }
@@ -177,10 +183,14 @@ export function PersonalEditablePhoneRow({
                         onBlur={() => setActiveField(null)}
                     />
                     {error ? (
-                        <div className="mt-1 text-xs text-destructive">{error}</div>
+                        <div className="mt-1 text-xs text-destructive">
+                            {error}
+                        </div>
                     ) : null}
                     {highlightMissing ? (
-                        <div className="mt-1 text-xs text-rose-400">Required</div>
+                        <div className="mt-1 text-xs text-rose-400">
+                            Required
+                        </div>
                     ) : null}
                 </div>
             ) : (
@@ -265,10 +275,14 @@ export function PersonalEditableSelectRow({
                         ))}
                     </AppSelect>
                     {error ? (
-                        <div className="mt-1 text-xs text-destructive">{error}</div>
+                        <div className="mt-1 text-xs text-destructive">
+                            {error}
+                        </div>
                     ) : null}
                     {highlightMissing ? (
-                        <div className="mt-1 text-xs text-rose-400">Required</div>
+                        <div className="mt-1 text-xs text-rose-400">
+                            Required
+                        </div>
                     ) : null}
                 </div>
             ) : (

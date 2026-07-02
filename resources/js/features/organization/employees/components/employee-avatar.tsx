@@ -70,10 +70,17 @@ export function EmployeeAvatar({
                     src={imageSrc}
                     alt=""
                     role="presentation"
-                    className={cn('absolute inset-0 h-full w-full object-cover object-center', imageClassName)}
+                    className={cn(
+                        'absolute inset-0 h-full w-full object-cover object-center',
+                        imageClassName,
+                    )}
                 />
             ) : (
-                <span className={cn('select-none leading-none', sizing.initials)}>{initials}</span>
+                <span
+                    className={cn('leading-none select-none', sizing.initials)}
+                >
+                    {initials}
+                </span>
             )}
         </div>
     );

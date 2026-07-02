@@ -1,5 +1,9 @@
 import type { ReactElement } from 'react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { barSurfaceClass } from '../lib/assignment-bar-styles';
 import type { GanttBar, PlanningPagePermissions } from '../types';
@@ -30,7 +34,7 @@ export function ReadOnlyAssignmentBar({
                     className={cn(
                         'absolute top-1.5 bottom-1.5 flex items-center gap-1.5 rounded-md px-2 text-xs font-medium text-foreground',
                         barSurfaceClass(bar),
-                        highlighted && 'ring-2 ring-offset-1 ring-amber-400',
+                        highlighted && 'ring-2 ring-amber-400 ring-offset-1',
                     )}
                     style={style}
                 >
@@ -41,7 +45,11 @@ export function ReadOnlyAssignmentBar({
                     />
                 </div>
             </PopoverTrigger>
-            <PopoverContent align="start" sideOffset={6} className="w-68 overflow-hidden p-0">
+            <PopoverContent
+                align="start"
+                sideOffset={6}
+                className="w-68 overflow-hidden p-0"
+            >
                 <AssignmentBarPopover
                     bar={bar}
                     can={can}
@@ -52,4 +60,3 @@ export function ReadOnlyAssignmentBar({
         </Popover>
     );
 }
-

@@ -5,7 +5,6 @@ import {
 import type { EmailDocumentItem } from '@/features/organization/documents/email-send/types';
 import { formatBytes } from '@/lib/utils';
 
-
 function fileTypeLabel(mimeType: string | null): string {
     if (!mimeType) {
         return 'File';
@@ -30,13 +29,19 @@ function fileTypeLabel(mimeType: string | null): string {
     return 'Document';
 }
 
-export function EmailAttachmentList({ documents }: { documents: EmailDocumentItem[] }) {
+export function EmailAttachmentList({
+    documents,
+}: {
+    documents: EmailDocumentItem[];
+}) {
     const totalBytes = totalAttachmentBytes(documents);
 
     return (
         <div className="space-y-2">
             <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-foreground dark:text-zinc-200">Attachments</p>
+                <p className="text-sm font-medium text-foreground dark:text-zinc-200">
+                    Attachments
+                </p>
                 <p className="text-xs text-muted-foreground">
                     {formatBytes(totalBytes)} / {emailMaxAttachmentLabel()} max
                 </p>

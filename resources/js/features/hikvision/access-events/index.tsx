@@ -20,7 +20,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
@@ -103,7 +108,11 @@ function isFetchProcessing(status: HikvisionEventsFetchStatus): boolean {
     return status === 'queued' || status === 'running';
 }
 
-function AccessEventPhoto({ personPhotoUrl }: { personPhotoUrl: string | null }) {
+function AccessEventPhoto({
+    personPhotoUrl,
+}: {
+    personPhotoUrl: string | null;
+}) {
     if (!personPhotoUrl) {
         return <>—</>;
     }
@@ -120,10 +129,10 @@ function AccessEventPhoto({ personPhotoUrl }: { personPhotoUrl: string | null })
 function hasActiveFilters(filters: HikvisionAccessEventFilters): boolean {
     return Boolean(
         filters.search ||
-            filters.date_from ||
-            filters.date_to ||
-            filters.attendance_status ||
-            filters.device,
+        filters.date_from ||
+        filters.date_to ||
+        filters.attendance_status ||
+        filters.device,
     );
 }
 
@@ -203,11 +212,19 @@ export function HikvisionAccessEventsContent({
     useEffect(() => {
         const previousStatus = previousFetchStatus.current;
 
-        if (isFetchProcessing(previousStatus) && fetchStatus === 'completed' && fetchMessage) {
+        if (
+            isFetchProcessing(previousStatus) &&
+            fetchStatus === 'completed' &&
+            fetchMessage
+        ) {
             toast.success(fetchMessage);
         }
 
-        if (isFetchProcessing(previousStatus) && fetchStatus === 'failed' && fetchMessage) {
+        if (
+            isFetchProcessing(previousStatus) &&
+            fetchStatus === 'failed' &&
+            fetchMessage
+        ) {
             toast.error(fetchMessage);
         }
 
@@ -219,7 +236,8 @@ export function HikvisionAccessEventsContent({
             search: next.search ?? filters.search,
             date_from: next.date_from ?? filters.date_from,
             date_to: next.date_to ?? filters.date_to,
-            attendance_status: next.attendance_status ?? filters.attendance_status,
+            attendance_status:
+                next.attendance_status ?? filters.attendance_status,
             device: next.device ?? filters.device,
         });
     };
@@ -278,15 +296,21 @@ export function HikvisionAccessEventsContent({
                                     type="date"
                                     value={fetchDate}
                                     max={fetchDefaultDate}
-                                    onChange={(event) => setFetchDate(event.target.value)}
+                                    onChange={(event) =>
+                                        setFetchDate(event.target.value)
+                                    }
                                     disabled={!isConfigured || isProcessing}
-                                    className="h-9 w-full rounded-xl border-input bg-background/50 dark:border-white/10 dark:bg-white/5 px-3 text-sm focus-visible:ring-primary/40 sm:w-[10.5rem]"
+                                    className="h-9 w-full rounded-xl border-input bg-background/50 px-3 text-sm focus-visible:ring-primary/40 sm:w-[10.5rem] dark:border-white/10 dark:bg-white/5"
                                 />
                             </div>
                             <Button
                                 type="button"
                                 className="rounded-xl"
-                                disabled={!isConfigured || isProcessing || fetchDate === ''}
+                                disabled={
+                                    !isConfigured ||
+                                    isProcessing ||
+                                    fetchDate === ''
+                                }
                                 onClick={handleFetch}
                             >
                                 {isProcessing ? (
@@ -307,14 +331,20 @@ export function HikvisionAccessEventsContent({
                     <AlertTitle>How records are fetched</AlertTitle>
                     <AlertDescription className="space-y-2">
                         <p>
-                            Choose a date, then click <span className="font-medium text-foreground">Fetch</span>{' '}
-                            to load that day&apos;s door device check-ins and mobile app check-in/out
-                            from Hik-Connect. Defaults to today.
+                            Choose a date, then click{' '}
+                            <span className="font-medium text-foreground">
+                                Fetch
+                            </span>{' '}
+                            to load that day&apos;s door device check-ins and
+                            mobile app check-in/out from Hik-Connect. Defaults
+                            to today.
                         </p>
                         <p>
-                            Mobile app attendance for a day is processed by Hik-Connect after the
-                            working day ends. If same-day mobile records are missing, fetch again
-                            later or fetch the following day once Hik-Connect has processed them.
+                            Mobile app attendance for a day is processed by
+                            Hik-Connect after the working day ends. If same-day
+                            mobile records are missing, fetch again later or
+                            fetch the following day once Hik-Connect has
+                            processed them.
                         </p>
                     </AlertDescription>
                 </Alert>
@@ -339,10 +369,14 @@ export function HikvisionAccessEventsContent({
                 <p className="mb-6 text-sm text-muted-foreground">
                     Last fetched:{' '}
                     <span className="font-medium text-foreground">
-                        {lastFetchedAt ? formatDisplayDateTime12h(lastFetchedAt) : 'Never fetched'}
+                        {lastFetchedAt
+                            ? formatDisplayDateTime12h(lastFetchedAt)
+                            : 'Never fetched'}
                     </span>
                     {isProcessing ? (
-                        <span className="ml-2 text-primary">Fetching in background…</span>
+                        <span className="ml-2 text-primary">
+                            Fetching in background…
+                        </span>
                     ) : null}
                 </p>
             )}
@@ -351,7 +385,7 @@ export function HikvisionAccessEventsContent({
                 <CardContent className="p-5">
                     <div className="mb-4 flex items-center gap-3">
                         <Filter className="h-4 w-4 text-muted-foreground/50" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
+                        <span className="text-xs font-bold tracking-widest text-muted-foreground/50 uppercase">
                             Filters
                         </span>
                         {activeFilterCount > 0 ? (
@@ -380,13 +414,15 @@ export function HikvisionAccessEventsContent({
                                 Name
                             </label>
                             <div className="relative">
-                                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
+                                <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
                                 <Input
                                     id="access-events-search"
                                     value={list.searchInput}
-                                    onChange={(e) => list.onSearchChange(e.target.value)}
+                                    onChange={(e) =>
+                                        list.onSearchChange(e.target.value)
+                                    }
                                     placeholder="Search by name…"
-                                    className="h-10 rounded-xl border-input bg-background/50 dark:border-white/10 dark:bg-white/5 pl-10 focus-visible:ring-primary/40"
+                                    className="h-10 rounded-xl border-input bg-background/50 pl-10 focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                                 />
                             </div>
                         </div>
@@ -402,8 +438,10 @@ export function HikvisionAccessEventsContent({
                                 id="access-events-date-from"
                                 type="date"
                                 value={filters.date_from}
-                                onChange={(e) => applyFilters({ date_from: e.target.value })}
-                                className="h-10 w-full rounded-xl border-input bg-background/50 dark:border-white/10 dark:bg-white/5 px-3 text-sm focus-visible:ring-primary/40"
+                                onChange={(e) =>
+                                    applyFilters({ date_from: e.target.value })
+                                }
+                                className="h-10 w-full rounded-xl border-input bg-background/50 px-3 text-sm focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                             />
                         </div>
 
@@ -418,23 +456,34 @@ export function HikvisionAccessEventsContent({
                                 id="access-events-date-to"
                                 type="date"
                                 value={filters.date_to}
-                                onChange={(e) => applyFilters({ date_to: e.target.value })}
-                                className="h-10 w-full rounded-xl border-input bg-background/50 dark:border-white/10 dark:bg-white/5 px-3 text-sm focus-visible:ring-primary/40"
+                                onChange={(e) =>
+                                    applyFilters({ date_to: e.target.value })
+                                }
+                                className="h-10 w-full rounded-xl border-input bg-background/50 px-3 text-sm focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                             />
                         </div>
 
                         <div className="flex min-w-0 flex-col gap-1.5">
-                            <span className="text-[11px] font-medium text-muted-foreground/60">Device</span>
+                            <span className="text-[11px] font-medium text-muted-foreground/60">
+                                Device
+                            </span>
                             <AppSelect
                                 value={filters.device || ''}
-                                onValueChange={(value) => applyFilters({ device: value })}
+                                onValueChange={(value) =>
+                                    applyFilters({ device: value })
+                                }
                                 variant="dark"
                                 placeholder="All devices"
                                 className="h-10"
                             >
-                                <AppSelectItem value="">All devices</AppSelectItem>
+                                <AppSelectItem value="">
+                                    All devices
+                                </AppSelectItem>
                                 {deviceOptions.map((option) => (
-                                    <AppSelectItem key={option.value} value={option.value}>
+                                    <AppSelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                    >
                                         {option.label}
                                     </AppSelectItem>
                                 ))}
@@ -442,7 +491,9 @@ export function HikvisionAccessEventsContent({
                         </div>
 
                         <div className="flex min-w-0 flex-col gap-1.5">
-                            <span className="text-[11px] font-medium text-muted-foreground/60">Status</span>
+                            <span className="text-[11px] font-medium text-muted-foreground/60">
+                                Status
+                            </span>
                             <AppSelect
                                 value={filters.attendance_status || ''}
                                 onValueChange={(value) =>
@@ -452,9 +503,14 @@ export function HikvisionAccessEventsContent({
                                 placeholder="All statuses"
                                 className="h-10"
                             >
-                                <AppSelectItem value="">All statuses</AppSelectItem>
+                                <AppSelectItem value="">
+                                    All statuses
+                                </AppSelectItem>
                                 {attendanceStatusOptions.map((option) => (
-                                    <AppSelectItem key={option.value} value={option.value}>
+                                    <AppSelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                    >
                                         {option.label}
                                     </AppSelectItem>
                                 ))}
@@ -466,7 +522,11 @@ export function HikvisionAccessEventsContent({
 
             {events.length === 0 ? (
                 <EmptyState
-                    title={filtersActive ? 'No matching access records' : 'No access records yet'}
+                    title={
+                        filtersActive
+                            ? 'No matching access records'
+                            : 'No access records yet'
+                    }
                     description={
                         filtersActive
                             ? 'Try adjusting your filters or fetch today’s records from your door devices.'
@@ -491,13 +551,22 @@ export function HikvisionAccessEventsContent({
                         </TableHeader>
                         <TableBody>
                             {events.map((event) => (
-                                <TableRow key={event.id} className={dataTableBodyRowClass}>
-                                    <TableCell className={dataTableCellPrimaryClass}>
-                                        {formatDisplayDateTime12h(event.occurrence_time)}
+                                <TableRow
+                                    key={event.id}
+                                    className={dataTableBodyRowClass}
+                                >
+                                    <TableCell
+                                        className={dataTableCellPrimaryClass}
+                                    >
+                                        {formatDisplayDateTime12h(
+                                            event.occurrence_time,
+                                        )}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
                                         <div className="flex flex-col gap-0.5">
-                                            <span>{event.person_name ?? '—'}</span>
+                                            <span>
+                                                {event.person_name ?? '—'}
+                                            </span>
                                             {event.employee_name ? (
                                                 <Link
                                                     href={`/organization/employees/${event.employee_id}`}
@@ -509,26 +578,39 @@ export function HikvisionAccessEventsContent({
                                         </div>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
-                                        <AccessEventPhoto personPhotoUrl={event.person_photo_url} />
+                                        <AccessEventPhoto
+                                            personPhotoUrl={
+                                                event.person_photo_url
+                                            }
+                                        />
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
                                         {event.device_name ?? '—'}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
-                                        {event.resource_name ?? (event.door_no ? `Door ${event.door_no}` : '—')}
+                                        {event.resource_name ??
+                                            (event.door_no
+                                                ? `Door ${event.door_no}`
+                                                : '—')}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
-                                        {event.card_reader_no ? `Reader ${event.card_reader_no}` : '—'}
+                                        {event.card_reader_no
+                                            ? `Reader ${event.card_reader_no}`
+                                            : '—'}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
                                         <span className="text-xs">
-                                            {formatVerifyMode(event.verify_mode)}
+                                            {formatVerifyMode(
+                                                event.verify_mode,
+                                            )}
                                         </span>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
                                         {event.attendance_status ? (
                                             <Badge variant="outline">
-                                                {formatAttendanceStatus(event.attendance_status)}
+                                                {formatAttendanceStatus(
+                                                    event.attendance_status,
+                                                )}
                                             </Badge>
                                         ) : (
                                             '—'
@@ -537,7 +619,9 @@ export function HikvisionAccessEventsContent({
                                     <TableCell className={dataTableCellClass}>
                                         {event.transaction_source ? (
                                             <Badge variant="secondary">
-                                                {formatTransactionSource(event.transaction_source)}
+                                                {formatTransactionSource(
+                                                    event.transaction_source,
+                                                )}
                                             </Badge>
                                         ) : (
                                             '—'
@@ -549,7 +633,10 @@ export function HikvisionAccessEventsContent({
                     </OrganizationDataTable>
 
                     <div className="mt-6">
-                        <Pagination {...list.paginationProps} label="access records" />
+                        <Pagination
+                            {...list.paginationProps}
+                            label="access records"
+                        />
                     </div>
                 </>
             )}

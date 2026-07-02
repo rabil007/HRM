@@ -24,7 +24,10 @@ export function Header({ className, fixed, children, ...props }: HeaderProps) {
         const update = () => {
             rafId = null;
 
-            const offset = document.documentElement.scrollTop || document.body.scrollTop || 0;
+            const offset =
+                document.documentElement.scrollTop ||
+                document.body.scrollTop ||
+                0;
             const scrolled = offset > 10;
 
             if (scrolled === lastScrolled) {
@@ -66,7 +69,7 @@ export function Header({ className, fixed, children, ...props }: HeaderProps) {
             className={cn(
                 'z-50 h-16',
                 fixed && 'header-fixed peer/header sticky top-0 w-[inherit]',
-                fixed ? 'data-[scrolled=true]:shadow shadow-none' : '',
+                fixed ? 'shadow-none data-[scrolled=true]:shadow' : '',
                 className,
             )}
             {...props}

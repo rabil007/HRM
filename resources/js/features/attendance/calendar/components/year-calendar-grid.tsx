@@ -22,8 +22,14 @@ export function YearCalendarGrid({
     onBeginSelection: (date: string) => void;
     onExtendSelection: (date: string) => void;
 }) {
-    const leaveDayMap = useMemo(() => buildLeaveDayMap(approvedLeaves, year), [approvedLeaves, year]);
-    const months = useMemo(() => Array.from({ length: 12 }, (_, index) => index), []);
+    const leaveDayMap = useMemo(
+        () => buildLeaveDayMap(approvedLeaves, year),
+        [approvedLeaves, year],
+    );
+    const months = useMemo(
+        () => Array.from({ length: 12 }, (_, index) => index),
+        [],
+    );
 
     return (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">

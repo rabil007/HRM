@@ -1,10 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Dispatch, ReactElement, SetStateAction } from 'react';
 import { update as updateEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { toast } from '@/lib/toast';
@@ -42,13 +37,15 @@ export function useEmployeeProfileForm(
     canUpdate: boolean,
     options?: {
         ensureEmployee?: () => Promise<number>;
-        templateRequiredFields?: Record<string, TemplateFieldConfig> | undefined;
+        templateRequiredFields?:
+            | Record<string, TemplateFieldConfig>
+            | undefined;
     },
 ): UseEmployeeProfileFormResult {
     const [activeField, setActiveField] = useState<string | null>(null);
-    const [missingRequiredFields, setMissingRequiredFields] = useState<Set<string>>(
-        () => new Set(),
-    );
+    const [missingRequiredFields, setMissingRequiredFields] = useState<
+        Set<string>
+    >(() => new Set());
     const ensureEmployee = options?.ensureEmployee;
 
     const initialPersonal = useMemo(
@@ -96,21 +93,28 @@ export function useEmployeeProfileForm(
         return keys;
     }, [options?.templateRequiredFields]);
 
-    const requiredDot = useCallback((field: string): ReactElement | null => {
-        if (!requiredFields.has(field)) {
-            return null;
-        }
+    const requiredDot = useCallback(
+        (field: string): ReactElement | null => {
+            if (!requiredFields.has(field)) {
+                return null;
+            }
 
-        return (
-            <span className="ml-1 inline-flex h-1.5 w-1.5 rounded-full bg-rose-500/90 align-middle" />
-        );
-    }, [requiredFields]);
+            return (
+                <span className="ml-1 inline-flex h-1.5 w-1.5 rounded-full bg-rose-500/90 align-middle" />
+            );
+        },
+        [requiredFields],
+    );
 
     const activeMissingRequiredFields = useMemo(() => {
         const active = new Set<string>();
 
         for (const field of missingRequiredFields) {
-            if (String(form.data[field as keyof typeof form.data] ?? '').trim() === '') {
+            if (
+                String(
+                    form.data[field as keyof typeof form.data] ?? '',
+                ).trim() === ''
+            ) {
                 active.add(field);
             }
         }
@@ -174,7 +178,8 @@ export function useEmployeeProfileForm(
                     if (field === 'image') {
                         if (
                             form.data.remove_image ||
-                            (!(form.data.image instanceof File) && !employee.image)
+                            (!(form.data.image instanceof File) &&
+                                !employee.image)
                         ) {
                             missing.push(field);
                         }
@@ -183,7 +188,9 @@ export function useEmployeeProfileForm(
                     }
 
                     if (field === 'approval_location_ids') {
-                        if ((form.data.approval_location_ids ?? []).length === 0) {
+                        if (
+                            (form.data.approval_location_ids ?? []).length === 0
+                        ) {
                             missing.push(field);
                         }
 
@@ -198,7 +205,11 @@ export function useEmployeeProfileForm(
                         continue;
                     }
 
-                    if (!String(form.data[field as keyof typeof form.data] ?? '').trim()) {
+                    if (
+                        !String(
+                            form.data[field as keyof typeof form.data] ?? '',
+                        ).trim()
+                    ) {
                         missing.push(field);
                     }
                 }
@@ -218,7 +229,10 @@ export function useEmployeeProfileForm(
 
             let targetEmployeeId = employee.id;
 
-            if ((targetEmployeeId === null || targetEmployeeId <= 0) && ensureEmployee) {
+            if (
+                (targetEmployeeId === null || targetEmployeeId <= 0) &&
+                ensureEmployee
+            ) {
                 try {
                     targetEmployeeId = await ensureEmployee();
                 } catch {

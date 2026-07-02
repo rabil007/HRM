@@ -46,7 +46,10 @@ import {
 } from '@/pages/organization/_hooks/use-template-record-fields';
 import { omitHiddenTemplateRecordFields } from '@/pages/organization/_lib/template-field-visibility';
 import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
-import type { LanguageItem, TemplateFieldConfig } from '@/pages/organization/employee-page.types';
+import type {
+    LanguageItem,
+    TemplateFieldConfig,
+} from '@/pages/organization/employee-page.types';
 
 const LANGUAGES_RELOAD = {
     preserveScroll: true,
@@ -85,7 +88,8 @@ export function EmployeeLanguagesTab({
         validateRequired,
         syncMissingFromFormData,
     } = useTemplateRecordFields(templateFields, {
-        defaultRequiredFields: TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_languages,
+        defaultRequiredFields:
+            TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_languages,
         booleanFields: [...LANGUAGE_BOOLEAN_FIELDS],
     });
 
@@ -225,35 +229,64 @@ export function EmployeeLanguagesTab({
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
                             {showField('language_name') ? (
-                                <th className={employeeRecordsTableThClass()}>Language</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Language
+                                </th>
                             ) : null}
                             {showField('is_spoken') ? (
-                                <th className={cn(employeeRecordsTableThClass(), 'text-center')}>
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'text-center',
+                                    )}
+                                >
                                     Spoken
                                 </th>
                             ) : null}
                             {showField('is_written') ? (
-                                <th className={cn(employeeRecordsTableThClass(), 'text-center')}>
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'text-center',
+                                    )}
+                                >
                                     Written
                                 </th>
                             ) : null}
                             {showField('is_understood') ? (
-                                <th className={cn(employeeRecordsTableThClass(), 'text-center')}>
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'text-center',
+                                    )}
+                                >
                                     Understood
                                 </th>
                             ) : null}
                             {showField('is_mother_tongue') ? (
-                                <th className={cn(employeeRecordsTableThClass(), 'text-center')}>
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'text-center',
+                                    )}
+                                >
                                     Mother tongue
                                 </th>
                             ) : null}
-                            <th className={employeeRecordsTableThClass()}>Added</th>
-                            {canManage ? <EmployeeRecordsActionsHeader /> : null}
+                            <th className={employeeRecordsTableThClass()}>
+                                Added
+                            </th>
+                            {canManage ? (
+                                <EmployeeRecordsActionsHeader />
+                            ) : null}
                         </tr>
                     </thead>
                     <tbody>
                         {languages.map((row) => (
-                            <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                            <tr
+                                key={row.id}
+                                className={employeeRecordsTableRowClass()}
+                            >
                                 {showField('language_name') ? (
                                     <td
                                         className={cn(
@@ -273,9 +306,13 @@ export function EmployeeLanguagesTab({
                                         )}
                                     >
                                         {row.is_spoken ? (
-                                            <span className="text-emerald-600 dark:text-emerald-400">✓</span>
+                                            <span className="text-emerald-600 dark:text-emerald-400">
+                                                ✓
+                                            </span>
                                         ) : (
-                                            <span className="text-muted-foreground/50">—</span>
+                                            <span className="text-muted-foreground/50">
+                                                —
+                                            </span>
                                         )}
                                     </td>
                                 ) : null}
@@ -287,9 +324,13 @@ export function EmployeeLanguagesTab({
                                         )}
                                     >
                                         {row.is_written ? (
-                                            <span className="text-emerald-600 dark:text-emerald-400">✓</span>
+                                            <span className="text-emerald-600 dark:text-emerald-400">
+                                                ✓
+                                            </span>
                                         ) : (
-                                            <span className="text-muted-foreground/50">—</span>
+                                            <span className="text-muted-foreground/50">
+                                                —
+                                            </span>
                                         )}
                                     </td>
                                 ) : null}
@@ -301,9 +342,13 @@ export function EmployeeLanguagesTab({
                                         )}
                                     >
                                         {row.is_understood ? (
-                                            <span className="text-emerald-600 dark:text-emerald-400">✓</span>
+                                            <span className="text-emerald-600 dark:text-emerald-400">
+                                                ✓
+                                            </span>
                                         ) : (
-                                            <span className="text-muted-foreground/50">—</span>
+                                            <span className="text-muted-foreground/50">
+                                                —
+                                            </span>
                                         )}
                                     </td>
                                 ) : null}
@@ -315,25 +360,36 @@ export function EmployeeLanguagesTab({
                                         )}
                                     >
                                         {row.is_mother_tongue ? (
-                                            <span className="text-emerald-600 dark:text-emerald-400">✓</span>
+                                            <span className="text-emerald-600 dark:text-emerald-400">
+                                                ✓
+                                            </span>
                                         ) : (
-                                            <span className="text-muted-foreground/50">—</span>
+                                            <span className="text-muted-foreground/50">
+                                                —
+                                            </span>
                                         )}
                                     </td>
                                 ) : null}
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'whitespace-nowrap text-xs text-muted-foreground',
+                                        'text-xs whitespace-nowrap text-muted-foreground',
                                     )}
                                 >
                                     {formatDisplayDate(row.created_at)}
                                 </td>
                                 {canManage ? (
-                                    <td className={cn(employeeRecordsTableTdClass(), 'text-right')}>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'text-right',
+                                        )}
+                                    >
                                         <EmployeeRecordRowActions
                                             onEdit={() => openEditDialog(row)}
-                                            onDelete={() => setDeleteLanguageId(row.id)}
+                                            onDelete={() =>
+                                                setDeleteLanguageId(row.id)
+                                            }
                                         />
                                     </td>
                                 ) : null}
@@ -374,14 +430,16 @@ export function EmployeeLanguagesTab({
                         {showField('language_name') ? (
                             <>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                    <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                         Language details
                                     </span>
                                     <div className="h-px flex-1 bg-muted/50" />
                                 </div>
                                 <RecordFormField
                                     field="language_name"
-                                    highlightMissing={isMissingRequired('language_name')}
+                                    highlightMissing={isMissingRequired(
+                                        'language_name',
+                                    )}
                                 >
                                     <Label
                                         className={recordFieldLabelClass(
@@ -390,7 +448,9 @@ export function EmployeeLanguagesTab({
                                     >
                                         Language
                                         <RequiredIndicator
-                                            show={isFieldRequired('language_name')}
+                                            show={isFieldRequired(
+                                                'language_name',
+                                            )}
                                         />
                                     </Label>
                                     <Input
@@ -399,7 +459,10 @@ export function EmployeeLanguagesTab({
                                         )}
                                         value={languageForm.data.language_name}
                                         onChange={(e) =>
-                                            languageForm.setData('language_name', e.target.value)
+                                            languageForm.setData(
+                                                'language_name',
+                                                e.target.value,
+                                            )
                                         }
                                         placeholder="e.g. English, Arabic, Spanish"
                                     />
@@ -410,7 +473,9 @@ export function EmployeeLanguagesTab({
                                     ) : (
                                         <p className="text-[11px] text-muted-foreground">
                                             The name of the language
-                                            {isFieldRequired('language_name') ? '' : ' (optional)'}
+                                            {isFieldRequired('language_name')
+                                                ? ''
+                                                : ' (optional)'}
                                         </p>
                                     )}
                                 </RecordFormField>
@@ -420,7 +485,7 @@ export function EmployeeLanguagesTab({
                         {showProficienciesSection ? (
                             <>
                                 <div className="flex items-center gap-2 pt-2">
-                                    <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                    <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                         Proficiencies
                                     </span>
                                     <div className="h-px flex-1 bg-muted/50" />
@@ -429,12 +494,17 @@ export function EmployeeLanguagesTab({
                                     {showField('is_spoken') ? (
                                         <RecordFormField
                                             field="is_spoken"
-                                            highlightMissing={isMissingRequired('is_spoken')}
+                                            highlightMissing={isMissingRequired(
+                                                'is_spoken',
+                                            )}
                                         >
                                             <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
                                                 <label className="flex items-center gap-3 text-sm text-foreground">
                                                     <Checkbox
-                                                        checked={languageForm.data.is_spoken}
+                                                        checked={
+                                                            languageForm.data
+                                                                .is_spoken
+                                                        }
                                                         onCheckedChange={(v) =>
                                                             languageForm.setData(
                                                                 'is_spoken',
@@ -446,11 +516,14 @@ export function EmployeeLanguagesTab({
                                                         <div className="font-medium">
                                                             Spoken
                                                             <RequiredIndicator
-                                                                show={isFieldRequired('is_spoken')}
+                                                                show={isFieldRequired(
+                                                                    'is_spoken',
+                                                                )}
                                                             />
                                                         </div>
                                                         <div className="mt-0.5 text-[11px] text-muted-foreground">
-                                                            Can converse in this language
+                                                            Can converse in this
+                                                            language
                                                         </div>
                                                     </div>
                                                 </label>
@@ -460,12 +533,17 @@ export function EmployeeLanguagesTab({
                                     {showField('is_written') ? (
                                         <RecordFormField
                                             field="is_written"
-                                            highlightMissing={isMissingRequired('is_written')}
+                                            highlightMissing={isMissingRequired(
+                                                'is_written',
+                                            )}
                                         >
                                             <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
                                                 <label className="flex items-center gap-3 text-sm text-foreground">
                                                     <Checkbox
-                                                        checked={languageForm.data.is_written}
+                                                        checked={
+                                                            languageForm.data
+                                                                .is_written
+                                                        }
                                                         onCheckedChange={(v) =>
                                                             languageForm.setData(
                                                                 'is_written',
@@ -477,11 +555,14 @@ export function EmployeeLanguagesTab({
                                                         <div className="font-medium">
                                                             Written
                                                             <RequiredIndicator
-                                                                show={isFieldRequired('is_written')}
+                                                                show={isFieldRequired(
+                                                                    'is_written',
+                                                                )}
                                                             />
                                                         </div>
                                                         <div className="mt-0.5 text-[11px] text-muted-foreground">
-                                                            Can write in this language
+                                                            Can write in this
+                                                            language
                                                         </div>
                                                     </div>
                                                 </label>
@@ -491,12 +572,17 @@ export function EmployeeLanguagesTab({
                                     {showField('is_understood') ? (
                                         <RecordFormField
                                             field="is_understood"
-                                            highlightMissing={isMissingRequired('is_understood')}
+                                            highlightMissing={isMissingRequired(
+                                                'is_understood',
+                                            )}
                                         >
                                             <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
                                                 <label className="flex items-center gap-3 text-sm text-foreground">
                                                     <Checkbox
-                                                        checked={languageForm.data.is_understood}
+                                                        checked={
+                                                            languageForm.data
+                                                                .is_understood
+                                                        }
                                                         onCheckedChange={(v) =>
                                                             languageForm.setData(
                                                                 'is_understood',
@@ -508,11 +594,14 @@ export function EmployeeLanguagesTab({
                                                         <div className="font-medium">
                                                             Understood
                                                             <RequiredIndicator
-                                                                show={isFieldRequired('is_understood')}
+                                                                show={isFieldRequired(
+                                                                    'is_understood',
+                                                                )}
                                                             />
                                                         </div>
                                                         <div className="mt-0.5 text-[11px] text-muted-foreground">
-                                                            Can understand this language
+                                                            Can understand this
+                                                            language
                                                         </div>
                                                     </div>
                                                 </label>
@@ -522,12 +611,17 @@ export function EmployeeLanguagesTab({
                                     {showField('is_mother_tongue') ? (
                                         <RecordFormField
                                             field="is_mother_tongue"
-                                            highlightMissing={isMissingRequired('is_mother_tongue')}
+                                            highlightMissing={isMissingRequired(
+                                                'is_mother_tongue',
+                                            )}
                                         >
                                             <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
                                                 <label className="flex items-center gap-3 text-sm text-foreground">
                                                     <Checkbox
-                                                        checked={languageForm.data.is_mother_tongue}
+                                                        checked={
+                                                            languageForm.data
+                                                                .is_mother_tongue
+                                                        }
                                                         onCheckedChange={(v) =>
                                                             languageForm.setData(
                                                                 'is_mother_tongue',

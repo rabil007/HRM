@@ -25,7 +25,7 @@ export function PayrollPeriodCard({
     return (
         <Card
             className={cn(
-                'glass-card group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-white/10',
+                'group relative overflow-hidden glass-card transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-white/10',
                 className,
             )}
         >
@@ -42,7 +42,9 @@ export function PayrollPeriodCard({
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                            <PayrollCategoryBadge category={period.payroll_category} />
+                            <PayrollCategoryBadge
+                                category={period.payroll_category}
+                            />
                             <PayrollPeriodStatusBadge
                                 status={period.status}
                                 label={period.status_label}
@@ -61,18 +63,21 @@ export function PayrollPeriodCard({
             <CardContent className="relative z-10 space-y-4">
                 <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                        <p className="text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
                             Period
                         </p>
                         <p className="mt-1 font-semibold">
-                            {formatDisplayDate(period.start_date)} — {formatDisplayDate(period.end_date)}
+                            {formatDisplayDate(period.start_date)} —{' '}
+                            {formatDisplayDate(period.end_date)}
                         </p>
                     </div>
                     <div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                        <p className="text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
                             Payment
                         </p>
-                        <p className="mt-1 font-semibold">{formatDisplayDate(period.payment_date)}</p>
+                        <p className="mt-1 font-semibold">
+                            {formatDisplayDate(period.payment_date)}
+                        </p>
                     </div>
                 </div>
 
@@ -88,7 +93,9 @@ export function PayrollPeriodCard({
                 {period.supports_timesheets ? (
                     <div className="space-y-2">
                         <div className="flex items-center justify-between text-xs font-semibold">
-                            <span className="text-muted-foreground">Timesheets</span>
+                            <span className="text-muted-foreground">
+                                Timesheets
+                            </span>
                             <span>
                                 {period.timesheets_progress_label} · {progress}%
                             </span>

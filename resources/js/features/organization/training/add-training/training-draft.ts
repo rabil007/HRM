@@ -50,7 +50,9 @@ export function parseBulkTrainingErrors(
 
         const index = Number(match[1]);
         const fieldKey = match[2];
-        const message = Array.isArray(rawValue) ? (rawValue[0] ?? '') : rawValue;
+        const message = Array.isArray(rawValue)
+            ? (rawValue[0] ?? '')
+            : rawValue;
 
         if (!message) {
             continue;
@@ -93,9 +95,11 @@ export function buildBulkTrainingSubmitPayload(
                 {
                     course_id: draft.course_id,
                     issue_date: draft.issue_date,
-                    expiry_date: draft.expiry_date === '' ? null : draft.expiry_date,
+                    expiry_date:
+                        draft.expiry_date === '' ? null : draft.expiry_date,
                     institute_center: draft.institute_center.trim(),
-                    country_id: draft.country_id === '' ? null : draft.country_id,
+                    country_id:
+                        draft.country_id === '' ? null : draft.country_id,
                     certificate: draft.file,
                 },
                 templateFields,

@@ -21,7 +21,12 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { formatDisplayDateTime } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 
@@ -65,9 +70,13 @@ function channelCount(detail: HikvisionDevice['detail'], key: string): number {
     return (detail[key as keyof typeof detail] as unknown[]).length;
 }
 
-export function HikvisionDevicesSection({ devices, isConfigured }: HikvisionDevicesSectionProps) {
+export function HikvisionDevicesSection({
+    devices,
+    isConfigured,
+}: HikvisionDevicesSectionProps) {
     const [syncing, setSyncing] = useState(false);
-    const [selectedDevice, setSelectedDevice] = useState<HikvisionDevice | null>(null);
+    const [selectedDevice, setSelectedDevice] =
+        useState<HikvisionDevice | null>(null);
 
     const handleSync = () => {
         if (!devices.can.sync || !isConfigured || syncing) {
@@ -108,9 +117,12 @@ export function HikvisionDevicesSection({ devices, isConfigured }: HikvisionDevi
                                 <DoorOpen className="h-5 w-5 text-primary" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold tracking-tight">Synced devices</h2>
+                                <h2 className="text-base font-bold tracking-tight">
+                                    Synced devices
+                                </h2>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
-                                    Access and encoding devices fetched from Hik-Connect.
+                                    Access and encoding devices fetched from
+                                    Hik-Connect.
                                 </p>
                             </div>
                         </div>
@@ -119,7 +131,7 @@ export function HikvisionDevicesSection({ devices, isConfigured }: HikvisionDevi
                             <Button
                                 type="button"
                                 variant="outline"
-                                className="rounded-xl shrink-0"
+                                className="shrink-0 rounded-xl"
                                 disabled={!isConfigured || syncing}
                                 onClick={handleSync}
                             >
@@ -161,41 +173,74 @@ export function HikvisionDevicesSection({ devices, isConfigured }: HikvisionDevi
                                     <DataTableHead>Type</DataTableHead>
                                     <DataTableHead>Status</DataTableHead>
                                     <DataTableHead>Last synced</DataTableHead>
-                                    <DataTableHead className="text-right">Detail</DataTableHead>
+                                    <DataTableHead className="text-right">
+                                        Detail
+                                    </DataTableHead>
                                 </DataTableHeaderRow>
                             </TableHeader>
                             <TableBody>
                                 {devices.items.map((device) => (
-                                    <TableRow key={device.id} className={dataTableBodyRowClass}>
-                                        <TableCell className={dataTableCellPrimaryClass}>
+                                    <TableRow
+                                        key={device.id}
+                                        className={dataTableBodyRowClass}
+                                    >
+                                        <TableCell
+                                            className={
+                                                dataTableCellPrimaryClass
+                                            }
+                                        >
                                             {device.name ?? '—'}
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass}>
-                                            <span className="font-mono text-xs">{device.serial_no}</span>
+                                        <TableCell
+                                            className={dataTableCellClass}
+                                        >
+                                            <span className="font-mono text-xs">
+                                                {device.serial_no}
+                                            </span>
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass}>
+                                        <TableCell
+                                            className={dataTableCellClass}
+                                        >
                                             {device.category ?? '—'}
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass}>
+                                        <TableCell
+                                            className={dataTableCellClass}
+                                        >
                                             {device.type ?? '—'}
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass}>
+                                        <TableCell
+                                            className={dataTableCellClass}
+                                        >
                                             {device.online_status === 1 ? (
-                                                <Badge variant="outline">Online</Badge>
+                                                <Badge variant="outline">
+                                                    Online
+                                                </Badge>
                                             ) : (
-                                                <Badge variant="secondary">Offline</Badge>
+                                                <Badge variant="secondary">
+                                                    Offline
+                                                </Badge>
                                             )}
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass}>
-                                            {formatDisplayDateTime(device.synced_at)}
+                                        <TableCell
+                                            className={dataTableCellClass}
+                                        >
+                                            {formatDisplayDateTime(
+                                                device.synced_at,
+                                            )}
                                         </TableCell>
-                                        <TableCell className={`${dataTableCellClass} text-right`}>
+                                        <TableCell
+                                            className={`${dataTableCellClass} text-right`}
+                                        >
                                             {device.detail ? (
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => setSelectedDevice(device)}
+                                                    onClick={() =>
+                                                        setSelectedDevice(
+                                                            device,
+                                                        )
+                                                    }
                                                 >
                                                     <Eye className="mr-1 h-4 w-4" />
                                                     View
@@ -218,26 +263,50 @@ export function HikvisionDevicesSection({ devices, isConfigured }: HikvisionDevi
             >
                 <DialogContent className="max-h-[80vh] max-w-lg overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>{selectedDevice?.name ?? 'Device detail'}</DialogTitle>
-                        <DialogDescription>Serial: {selectedDevice?.serial_no}</DialogDescription>
+                        <DialogTitle>
+                            {selectedDevice?.name ?? 'Device detail'}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Serial: {selectedDevice?.serial_no}
+                        </DialogDescription>
                     </DialogHeader>
                     {selectedDevice?.detail ? (
                         <div className="space-y-3 text-sm">
                             <p>
-                                <span className="font-medium">Camera channels:</span>{' '}
-                                {channelCount(selectedDevice.detail, 'cameraChannel')}
+                                <span className="font-medium">
+                                    Camera channels:
+                                </span>{' '}
+                                {channelCount(
+                                    selectedDevice.detail,
+                                    'cameraChannel',
+                                )}
                             </p>
                             <p>
-                                <span className="font-medium">Door channels:</span>{' '}
-                                {channelCount(selectedDevice.detail, 'doorChannel')}
+                                <span className="font-medium">
+                                    Door channels:
+                                </span>{' '}
+                                {channelCount(
+                                    selectedDevice.detail,
+                                    'doorChannel',
+                                )}
                             </p>
                             <p>
-                                <span className="font-medium">Alarm inputs:</span>{' '}
-                                {channelCount(selectedDevice.detail, 'alarmInputChannel')}
+                                <span className="font-medium">
+                                    Alarm inputs:
+                                </span>{' '}
+                                {channelCount(
+                                    selectedDevice.detail,
+                                    'alarmInputChannel',
+                                )}
                             </p>
                             <p>
-                                <span className="font-medium">Alarm outputs:</span>{' '}
-                                {channelCount(selectedDevice.detail, 'alarmOutputChannel')}
+                                <span className="font-medium">
+                                    Alarm outputs:
+                                </span>{' '}
+                                {channelCount(
+                                    selectedDevice.detail,
+                                    'alarmOutputChannel',
+                                )}
                             </p>
                         </div>
                     ) : null}

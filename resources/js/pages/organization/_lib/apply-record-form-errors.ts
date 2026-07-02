@@ -9,7 +9,9 @@ type FormWithErrors<T extends Record<string, FormDataConvertible>> = {
 /**
  * Surface Inertia validation errors on record dialogs (field errors + toast).
  */
-export function applyRecordFormErrors<T extends Record<string, FormDataConvertible>>(
+export function applyRecordFormErrors<
+    T extends Record<string, FormDataConvertible>,
+>(
     form: FormWithErrors<T>,
     errors: Record<string, string | string[]>,
     fallbackMessage = 'Could not save. Please check the highlighted fields.',

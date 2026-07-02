@@ -2,7 +2,11 @@ import { router } from '@inertiajs/react';
 import type { PointerEvent, ReactElement } from 'react';
 import { useRef, useState } from 'react';
 import { update as updateAssignment } from '@/actions/App/Http/Controllers/Organization/CrewPlanningAssignmentController';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import {
     barResizeHandleClass,
@@ -53,11 +57,19 @@ export function DraggableAssignmentBar({
     const containerRef = useRef<HTMLDivElement | null>(null);
     const optimisticStartRef = useRef<string | null>(null);
     const optimisticEndRef = useRef<string | null>(null);
-    const [liveStyle, setLiveStyle] = useState<React.CSSProperties | null>(null);
-    const [liveDates, setLiveDates] = useState<{ start: string; end: string } | null>(null);
+    const [liveStyle, setLiveStyle] = useState<React.CSSProperties | null>(
+        null,
+    );
+    const [liveDates, setLiveDates] = useState<{
+        start: string;
+        end: string;
+    } | null>(null);
     const [isDragging, setIsDragging] = useState(false);
 
-    const handlePointerDown = (e: PointerEvent<HTMLDivElement>, mode: DragMode): void => {
+    const handlePointerDown = (
+        e: PointerEvent<HTMLDivElement>,
+        mode: DragMode,
+    ): void => {
         if (!can.update) {
             return;
         }
@@ -65,7 +77,9 @@ export function DraggableAssignmentBar({
         e.preventDefault();
         e.stopPropagation();
 
-        const rowEl = containerRef.current?.closest('[data-row-key]') as HTMLDivElement | null;
+        const rowEl = containerRef.current?.closest(
+            '[data-row-key]',
+        ) as HTMLDivElement | null;
         const containerWidth = rowEl?.clientWidth ?? window.innerWidth;
 
         dragRef.current = {
@@ -88,31 +102,53 @@ export function DraggableAssignmentBar({
                 return;
             }
 
-            const rawDays = pxToDays(me.clientX - drag.startX, drag.containerWidth, rangeFrom, rangeTo);
+            const rawDays = pxToDays(
+                me.clientX - drag.startX,
+                drag.containerWidth,
+                rangeFrom,
+                rangeTo,
+            );
             const dayDelta = Math.round(rawDays);
             let newStart = drag.originalStart;
             let newEnd = drag.originalEnd;
 
             if (drag.mode === 'move') {
-                const shifted = shiftDateRange(drag.originalStart, drag.originalEnd, dayDelta);
+                const shifted = shiftDateRange(
+                    drag.originalStart,
+                    drag.originalEnd,
+                    dayDelta,
+                );
                 newStart = shifted.start;
                 newEnd = shifted.end;
             } else if (drag.mode === 'resize-left') {
-                const maxDelta = daysBetween(drag.originalStart, drag.originalEnd) - 1;
+                const maxDelta =
+                    daysBetween(drag.originalStart, drag.originalEnd) - 1;
                 const clamped = Math.min(dayDelta, maxDelta);
-                newStart = shiftDateRange(drag.originalStart, drag.originalStart, clamped).start;
+                newStart = shiftDateRange(
+                    drag.originalStart,
+                    drag.originalStart,
+                    clamped,
+                ).start;
                 newEnd = drag.originalEnd;
             } else {
-                const minDelta = -(daysBetween(drag.originalStart, drag.originalEnd) - 1);
+                const minDelta = -(
+                    daysBetween(drag.originalStart, drag.originalEnd) - 1
+                );
                 const clamped = Math.max(dayDelta, minDelta);
-                newEnd = shiftDateRange(drag.originalEnd, drag.originalEnd, clamped).end;
+                newEnd = shiftDateRange(
+                    drag.originalEnd,
+                    drag.originalEnd,
+                    clamped,
+                ).end;
                 newStart = drag.originalStart;
             }
 
             optimisticStartRef.current = newStart;
             optimisticEndRef.current = newEnd;
             setLiveDates({ start: newStart, end: newEnd });
-            setLiveStyle(barPositionStyle(newStart, newEnd, rangeFrom, rangeTo));
+            setLiveStyle(
+                barPositionStyle(newStart, newEnd, rangeFrom, rangeTo),
+            );
         };
 
         const onUp = (): void => {
@@ -133,7 +169,10 @@ export function DraggableAssignmentBar({
             const finalStart = optimisticStartRef.current ?? drag.originalStart;
             const finalEnd = optimisticEndRef.current ?? drag.originalEnd;
 
-            if (finalStart === drag.originalStart && finalEnd === drag.originalEnd) {
+            if (
+                finalStart === drag.originalStart &&
+                finalEnd === drag.originalEnd
+            ) {
                 setIsDragging(false);
                 setLiveStyle(null);
                 setLiveDates(null);
@@ -179,7 +218,7 @@ export function DraggableAssignmentBar({
                         surfaceClass,
                         'group/bar flex items-stretch overflow-hidden',
                         isDragging && 'scale-[1.01] opacity-80 shadow-lg',
-                        highlighted && 'ring-2 ring-offset-1 ring-amber-400',
+                        highlighted && 'ring-2 ring-amber-400 ring-offset-1',
                     )}
                     style={computedStyle}
                 >
@@ -188,24 +227,36 @@ export function DraggableAssignmentBar({
                             'absolute inset-y-0 left-0 z-20 w-1.5 cursor-ew-resize opacity-0 transition-opacity group-hover/bar:opacity-100',
                             resizeHandleClass,
                         )}
-                        onPointerDown={(e) => handlePointerDown(e, 'resize-left')}
+                        onPointerDown={(e) =>
+                            handlePointerDown(e, 'resize-left')
+                        }
                     />
                     <div
                         className="flex min-w-0 flex-1 cursor-grab items-center gap-1.5 px-2 text-xs font-medium text-foreground select-none active:cursor-grabbing"
                         onPointerDown={(e) => handlePointerDown(e, 'move')}
                     >
-                        <AssignmentBarLabel bar={bar} start={displayStart} end={displayEnd} />
+                        <AssignmentBarLabel
+                            bar={bar}
+                            start={displayStart}
+                            end={displayEnd}
+                        />
                     </div>
                     <div
                         className={cn(
                             'absolute inset-y-0 right-0 z-20 w-1.5 cursor-ew-resize opacity-0 transition-opacity group-hover/bar:opacity-100',
                             resizeHandleClass,
                         )}
-                        onPointerDown={(e) => handlePointerDown(e, 'resize-right')}
+                        onPointerDown={(e) =>
+                            handlePointerDown(e, 'resize-right')
+                        }
                     />
                 </div>
             </PopoverTrigger>
-            <PopoverContent align="start" sideOffset={6} className="w-68 overflow-hidden p-0">
+            <PopoverContent
+                align="start"
+                sideOffset={6}
+                className="w-68 overflow-hidden p-0"
+            >
                 <AssignmentBarPopover
                     bar={bar}
                     can={can}

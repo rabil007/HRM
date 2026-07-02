@@ -1,5 +1,12 @@
 import { router } from '@inertiajs/react';
-import { AlertCircle, Download, FileSpreadsheet, Info, Loader2, Upload } from 'lucide-react';
+import {
+    AlertCircle,
+    Download,
+    FileSpreadsheet,
+    Info,
+    Loader2,
+    Upload,
+} from 'lucide-react';
 import type { DragEvent, KeyboardEvent, ReactElement, ReactNode } from 'react';
 import { useRef, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -12,7 +19,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { firstValidationError, hasFlashSuccess } from '@/lib/first-validation-error';
+import {
+    firstValidationError,
+    hasFlashSuccess,
+} from '@/lib/first-validation-error';
 import { cn } from '@/lib/utils';
 
 export type EmployeeRecordImportDialogProps = {
@@ -164,7 +174,9 @@ export function EmployeeRecordImportDialog({
                             <Upload className="size-5" />
                         </div>
                         <div className="min-w-0 space-y-1.5 pt-0.5">
-                            <DialogTitle className="text-xl leading-tight">{title}</DialogTitle>
+                            <DialogTitle className="text-xl leading-tight">
+                                {title}
+                            </DialogTitle>
                             <DialogDescription>{description}</DialogDescription>
                         </div>
                     </div>
@@ -180,11 +192,13 @@ export function EmployeeRecordImportDialog({
                     </Alert>
 
                     <div className="space-y-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                             Step 1 — Template
                         </p>
                         <div className="rounded-xl border border-border/80 bg-muted/20 p-4">
-                            <p className="text-sm text-muted-foreground">{templateHint}</p>
+                            <p className="text-sm text-muted-foreground">
+                                {templateHint}
+                            </p>
                             <Button
                                 variant="secondary"
                                 type="button"
@@ -206,15 +220,15 @@ export function EmployeeRecordImportDialog({
                             </Button>
                             {!importReady ? (
                                 <p className="mt-2 text-xs text-muted-foreground">
-                                    Save the employee (enter a name and add at least one record)
-                                    before importing.
+                                    Save the employee (enter a name and add at
+                                    least one record) before importing.
                                 </p>
                             ) : null}
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                             Step 2 — Upload
                         </p>
                         <input
@@ -240,8 +254,13 @@ export function EmployeeRecordImportDialog({
                                     'border-solid border-emerald-500/40 bg-emerald-500/7 hover:bg-emerald-500/9',
                             )}
                             onClick={() => fileInputRef.current?.click()}
-                            onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
-                                if (event.key === 'Enter' || event.key === ' ') {
+                            onKeyDown={(
+                                event: KeyboardEvent<HTMLDivElement>,
+                            ) => {
+                                if (
+                                    event.key === 'Enter' ||
+                                    event.key === ' '
+                                ) {
                                     event.preventDefault();
                                     fileInputRef.current?.click();
                                 }
@@ -264,7 +283,9 @@ export function EmployeeRecordImportDialog({
                                             <p className="truncate text-sm font-medium text-foreground">
                                                 {importFile.name}
                                             </p>
-                                            <p className="text-xs text-muted-foreground">Ready to import</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                Ready to import
+                                            </p>
                                         </div>
                                     </div>
                                     <Button
@@ -286,10 +307,15 @@ export function EmployeeRecordImportDialog({
                                         <Upload className="size-6" />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium text-foreground">Drop your CSV here</p>
+                                        <p className="text-sm font-medium text-foreground">
+                                            Drop your CSV here
+                                        </p>
                                         <p className="mt-0.5 text-xs text-muted-foreground">
                                             or click to browse —{' '}
-                                            <span className="text-foreground/80">.csv</span> files only
+                                            <span className="text-foreground/80">
+                                                .csv
+                                            </span>{' '}
+                                            files only
                                         </p>
                                     </div>
                                 </div>
@@ -298,7 +324,10 @@ export function EmployeeRecordImportDialog({
                     </div>
 
                     {importMessage ? (
-                        <Alert variant="destructive" className="border-destructive/40">
+                        <Alert
+                            variant="destructive"
+                            className="border-destructive/40"
+                        >
                             <AlertCircle aria-hidden />
                             <AlertDescription>{importMessage}</AlertDescription>
                         </Alert>
@@ -323,7 +352,10 @@ export function EmployeeRecordImportDialog({
                     >
                         {importProcessing ? (
                             <>
-                                <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+                                <Loader2
+                                    className="mr-2 size-4 animate-spin"
+                                    aria-hidden
+                                />
                                 Importing…
                             </>
                         ) : (

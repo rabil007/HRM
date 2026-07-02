@@ -53,7 +53,8 @@ export function EditDocumentDialog({
         validateRequired,
         syncMissingFromFormData,
     } = useTemplateRecordFields(templateFields, {
-        defaultRequiredFields: TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_documents,
+        defaultRequiredFields:
+            TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_documents,
     });
 
     const editForm = useForm({
@@ -112,7 +113,7 @@ export function EditDocumentDialog({
 
                 <div className="space-y-4 py-1">
                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                             Document details
                         </span>
                         <div className="h-px flex-1 bg-muted/50" />
@@ -126,19 +127,30 @@ export function EditDocumentDialog({
                             >
                                 <div className="space-y-1.5">
                                     <Label
-                                        className={recordFieldLabelClass(isMissingRequired('title'))}
+                                        className={recordFieldLabelClass(
+                                            isMissingRequired('title'),
+                                        )}
                                     >
                                         Title
-                                        <RequiredIndicator show={isFieldRequired('title')} />
+                                        <RequiredIndicator
+                                            show={isFieldRequired('title')}
+                                        />
                                     </Label>
                                     <Input
                                         className={cn(
-                                            recordFieldInputClass(isMissingRequired('title')),
+                                            recordFieldInputClass(
+                                                isMissingRequired('title'),
+                                            ),
                                             'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
                                         )}
                                         placeholder="e.g. Passport Copy"
                                         value={editForm.data.title}
-                                        onChange={(e) => editForm.setData('title', e.target.value)}
+                                        onChange={(e) =>
+                                            editForm.setData(
+                                                'title',
+                                                e.target.value,
+                                            )
+                                        }
                                     />
                                     {editForm.errors.title ? (
                                         <p className="text-xs text-destructive">
@@ -155,31 +167,42 @@ export function EditDocumentDialog({
                         {showField('document_number') ? (
                             <RecordFormField
                                 field="document_number"
-                                highlightMissing={isMissingRequired('document_number')}
+                                highlightMissing={isMissingRequired(
+                                    'document_number',
+                                )}
                                 className="sm:col-span-2"
                             >
                                 <div className="space-y-1.5">
                                     <Label
                                         className={recordFieldLabelClass(
-                                            isMissingRequired('document_number'),
+                                            isMissingRequired(
+                                                'document_number',
+                                            ),
                                         )}
                                     >
                                         Document Number
                                         <RequiredIndicator
-                                            show={isFieldRequired('document_number')}
+                                            show={isFieldRequired(
+                                                'document_number',
+                                            )}
                                         />
                                     </Label>
                                     <Input
                                         className={cn(
                                             recordFieldInputClass(
-                                                isMissingRequired('document_number'),
+                                                isMissingRequired(
+                                                    'document_number',
+                                                ),
                                             ),
                                             'h-10 rounded-xl border-border/60 bg-muted/50 font-mono text-sm',
                                         )}
                                         placeholder="e.g. A12345678"
                                         value={editForm.data.document_number}
                                         onChange={(e) =>
-                                            editForm.setData('document_number', e.target.value)
+                                            editForm.setData(
+                                                'document_number',
+                                                e.target.value,
+                                            )
                                         }
                                     />
                                     {editForm.errors.document_number ? (
@@ -195,7 +218,7 @@ export function EditDocumentDialog({
                     {showField('issue_date') || showField('expiry_date') ? (
                         <>
                             <div className="flex items-center gap-2 pt-2">
-                                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Validity
                                 </span>
                                 <div className="h-px flex-1 bg-muted/50" />
@@ -204,30 +227,41 @@ export function EditDocumentDialog({
                                 {showField('issue_date') ? (
                                     <RecordFormField
                                         field="issue_date"
-                                        highlightMissing={isMissingRequired('issue_date')}
+                                        highlightMissing={isMissingRequired(
+                                            'issue_date',
+                                        )}
                                     >
                                         <div className="space-y-1.5">
                                             <Label
                                                 className={recordFieldLabelClass(
-                                                    isMissingRequired('issue_date'),
+                                                    isMissingRequired(
+                                                        'issue_date',
+                                                    ),
                                                 )}
                                             >
                                                 Issue Date
                                                 <RequiredIndicator
-                                                    show={isFieldRequired('issue_date')}
+                                                    show={isFieldRequired(
+                                                        'issue_date',
+                                                    )}
                                                 />
                                             </Label>
                                             <Input
                                                 type="date"
                                                 className={cn(
                                                     recordFieldInputClass(
-                                                        isMissingRequired('issue_date'),
+                                                        isMissingRequired(
+                                                            'issue_date',
+                                                        ),
                                                     ),
                                                     'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
                                                 )}
                                                 value={editForm.data.issue_date}
                                                 onChange={(e) =>
-                                                    editForm.setData('issue_date', e.target.value)
+                                                    editForm.setData(
+                                                        'issue_date',
+                                                        e.target.value,
+                                                    )
                                                 }
                                             />
                                             {editForm.errors.issue_date ? (
@@ -241,35 +275,51 @@ export function EditDocumentDialog({
                                 {showField('expiry_date') ? (
                                     <RecordFormField
                                         field="expiry_date"
-                                        highlightMissing={isMissingRequired('expiry_date')}
+                                        highlightMissing={isMissingRequired(
+                                            'expiry_date',
+                                        )}
                                     >
                                         <div className="space-y-1.5">
                                             <Label
                                                 className={recordFieldLabelClass(
-                                                    isMissingRequired('expiry_date'),
+                                                    isMissingRequired(
+                                                        'expiry_date',
+                                                    ),
                                                 )}
                                             >
                                                 Expiry Date
                                                 <RequiredIndicator
-                                                    show={isFieldRequired('expiry_date')}
+                                                    show={isFieldRequired(
+                                                        'expiry_date',
+                                                    )}
                                                 />
                                             </Label>
                                             <Input
                                                 type="date"
                                                 className={cn(
                                                     recordFieldInputClass(
-                                                        isMissingRequired('expiry_date'),
+                                                        isMissingRequired(
+                                                            'expiry_date',
+                                                        ),
                                                     ),
                                                     'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
                                                 )}
-                                                value={editForm.data.expiry_date}
+                                                value={
+                                                    editForm.data.expiry_date
+                                                }
                                                 onChange={(e) =>
-                                                    editForm.setData('expiry_date', e.target.value)
+                                                    editForm.setData(
+                                                        'expiry_date',
+                                                        e.target.value,
+                                                    )
                                                 }
                                             />
                                             {editForm.errors.expiry_date ? (
                                                 <p className="text-xs text-destructive">
-                                                    {editForm.errors.expiry_date}
+                                                    {
+                                                        editForm.errors
+                                                            .expiry_date
+                                                    }
                                                 </p>
                                             ) : null}
                                         </div>
@@ -287,23 +337,36 @@ export function EditDocumentDialog({
                         >
                             <div className="space-y-1.5">
                                 <Label
-                                    className={recordFieldLabelClass(isMissingRequired('notes'))}
+                                    className={recordFieldLabelClass(
+                                        isMissingRequired('notes'),
+                                    )}
                                 >
                                     Notes
-                                    <RequiredIndicator show={isFieldRequired('notes')} />
+                                    <RequiredIndicator
+                                        show={isFieldRequired('notes')}
+                                    />
                                 </Label>
                                 <textarea
                                     rows={3}
                                     className={cn(
-                                        recordFieldInputClass(isMissingRequired('notes')),
+                                        recordFieldInputClass(
+                                            isMissingRequired('notes'),
+                                        ),
                                         'w-full resize-none rounded-xl border border-border bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary',
                                     )}
                                     placeholder="Optional notes, renewal reminders, or source details..."
                                     value={editForm.data.notes}
-                                    onChange={(e) => editForm.setData('notes', e.target.value)}
+                                    onChange={(e) =>
+                                        editForm.setData(
+                                            'notes',
+                                            e.target.value,
+                                        )
+                                    }
                                 />
                                 {editForm.errors.notes ? (
-                                    <p className="text-xs text-destructive">{editForm.errors.notes}</p>
+                                    <p className="text-xs text-destructive">
+                                        {editForm.errors.notes}
+                                    </p>
                                 ) : null}
                             </div>
                         </RecordFormField>
@@ -328,7 +391,9 @@ export function EditDocumentDialog({
                             }
 
                             if (
-                                !validateRequired(editForm.data as Record<string, unknown>)
+                                !validateRequired(
+                                    editForm.data as Record<string, unknown>,
+                                )
                             ) {
                                 return;
                             }

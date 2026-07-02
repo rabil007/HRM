@@ -57,27 +57,39 @@ export function LeaveRequestRejectDialog({
                 </AlertDialogHeader>
 
                 <div className="space-y-2">
-                    <Label htmlFor="rejection_reason" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label
+                        htmlFor="rejection_reason"
+                        className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                    >
                         Rejection reason
                     </Label>
                     <Textarea
                         id="rejection_reason"
                         value={form.data.rejection_reason}
-                        onChange={(e) => form.setData('rejection_reason', e.target.value)}
+                        onChange={(e) =>
+                            form.setData('rejection_reason', e.target.value)
+                        }
                         className="min-h-24 rounded-xl border-border bg-card"
                         placeholder="Reason for rejection..."
                     />
                     {form.errors.rejection_reason ? (
-                        <div className="text-xs font-medium text-destructive">{form.errors.rejection_reason}</div>
+                        <div className="text-xs font-medium text-destructive">
+                            {form.errors.rejection_reason}
+                        </div>
                     ) : null}
                 </div>
 
                 <AlertDialogFooter>
-                    <AlertDialogCancel className="glass-card rounded-xl hover:bg-accent">Cancel</AlertDialogCancel>
+                    <AlertDialogCancel className="rounded-xl glass-card hover:bg-accent">
+                        Cancel
+                    </AlertDialogCancel>
                     <Button
                         className="rounded-xl"
                         onClick={submit}
-                        disabled={form.processing || !form.data.rejection_reason.trim()}
+                        disabled={
+                            form.processing ||
+                            !form.data.rejection_reason.trim()
+                        }
                     >
                         Reject request
                     </Button>

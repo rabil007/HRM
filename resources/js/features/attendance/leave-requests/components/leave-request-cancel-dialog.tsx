@@ -57,27 +57,39 @@ export function LeaveRequestCancelDialog({
                 </AlertDialogHeader>
 
                 <div className="space-y-2">
-                    <Label htmlFor="cancellation_reason" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label
+                        htmlFor="cancellation_reason"
+                        className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                    >
                         Cancellation reason
                     </Label>
                     <Textarea
                         id="cancellation_reason"
                         value={form.data.cancellation_reason}
-                        onChange={(e) => form.setData('cancellation_reason', e.target.value)}
+                        onChange={(e) =>
+                            form.setData('cancellation_reason', e.target.value)
+                        }
                         className="min-h-24 rounded-xl border-border bg-card"
                         placeholder="Reason for cancellation..."
                     />
                     {form.errors.cancellation_reason ? (
-                        <div className="text-xs font-medium text-destructive">{form.errors.cancellation_reason}</div>
+                        <div className="text-xs font-medium text-destructive">
+                            {form.errors.cancellation_reason}
+                        </div>
                     ) : null}
                 </div>
 
                 <AlertDialogFooter>
-                    <AlertDialogCancel className="glass-card rounded-xl hover:bg-accent">Cancel</AlertDialogCancel>
+                    <AlertDialogCancel className="rounded-xl glass-card hover:bg-accent">
+                        Cancel
+                    </AlertDialogCancel>
                     <Button
                         className="rounded-xl"
                         onClick={submit}
-                        disabled={form.processing || !form.data.cancellation_reason.trim()}
+                        disabled={
+                            form.processing ||
+                            !form.data.cancellation_reason.trim()
+                        }
                     >
                         Cancel request
                     </Button>

@@ -5,11 +5,10 @@ export const MARITAL_STATUS_OPTIONS = [
     { id: 4, label: 'Widowed', value: 'widowed' },
 ] as const;
 
-export function maritalStatusLabel(
-    value: string | null | undefined,
-): string {
+export function maritalStatusLabel(value: string | null | undefined): string {
     return (
-        MARITAL_STATUS_OPTIONS.find((option) => option.value === value)?.label ??
+        MARITAL_STATUS_OPTIONS.find((option) => option.value === value)
+            ?.label ??
         value ??
         '—'
     );

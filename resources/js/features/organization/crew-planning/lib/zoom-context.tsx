@@ -27,7 +27,11 @@ const ZoomContext = createContext<ZoomContextValue>({
     zoomOut: () => {},
 });
 
-export function ZoomProvider({ children }: { children: ReactNode }): ReactElement {
+export function ZoomProvider({
+    children,
+}: {
+    children: ReactNode;
+}): ReactElement {
     const [zoom, setZoomState] = useState<ZoomLevel>('normal');
 
     const setZoom = useCallback((next: ZoomLevel): void => {
@@ -51,7 +55,15 @@ export function ZoomProvider({ children }: { children: ReactNode }): ReactElemen
     }, []);
 
     return (
-        <ZoomContext.Provider value={{ zoom, dayWidth: DAY_WIDTH[zoom], setZoom, zoomIn, zoomOut }}>
+        <ZoomContext.Provider
+            value={{
+                zoom,
+                dayWidth: DAY_WIDTH[zoom],
+                setZoom,
+                zoomIn,
+                zoomOut,
+            }}
+        >
             {children}
         </ZoomContext.Provider>
     );

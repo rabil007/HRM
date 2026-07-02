@@ -30,14 +30,10 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import {
-    HikvisionSettingsPanel,
-} from '@/features/settings/hikvision-settings-panel';
+import { HikvisionSettingsPanel } from '@/features/settings/hikvision-settings-panel';
 import type { HikvisionSettingsPanelProps } from '@/features/settings/hikvision-settings-panel';
 import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
-import {
-    WhatsAppSettingsPanel,
-} from '@/features/settings/whatsapp-settings-panel';
+import { WhatsAppSettingsPanel } from '@/features/settings/whatsapp-settings-panel';
 import type { WhatsAppSettingsPanelProps } from '@/features/settings/whatsapp-settings-panel';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -165,19 +161,23 @@ function SectionHeading({
     color?: string;
 }) {
     return (
-        <div className="flex items-center gap-4 mb-6">
+        <div className="mb-6 flex items-center gap-4">
             <div
                 className={cn(
-                    'w-10 h-10 rounded-2xl border flex items-center justify-center shrink-0',
+                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border',
                     color,
                 )}
             >
-                <Icon className="w-5 h-5" />
+                <Icon className="h-5 w-5" />
             </div>
             <div>
-                <h2 className="text-base font-bold tracking-tight text-foreground">{title}</h2>
+                <h2 className="text-base font-bold tracking-tight text-foreground">
+                    {title}
+                </h2>
                 {description ? (
-                    <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                        {description}
+                    </p>
                 ) : null}
             </div>
         </div>
@@ -185,11 +185,17 @@ function SectionHeading({
 }
 
 /** Styled label for form fields */
-function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
+function FieldLabel({
+    htmlFor,
+    children,
+}: {
+    htmlFor?: string;
+    children: React.ReactNode;
+}) {
     return (
         <Label
             htmlFor={htmlFor}
-            className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold ml-0.5"
+            className="ml-0.5 text-[10px] font-bold tracking-widest text-muted-foreground/60 uppercase"
         >
             {children}
         </Label>
@@ -202,7 +208,7 @@ function FieldInput(props: React.ComponentProps<typeof Input>) {
         <Input
             {...props}
             className={cn(
-                'rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 focus-visible:ring-primary/40 h-11 px-4 transition-all',
+                'h-11 rounded-xl border-input bg-background/50 px-4 text-foreground transition-all focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5',
                 props.className,
             )}
         />
@@ -218,7 +224,12 @@ function SettingsCard({
     className?: string;
 }) {
     return (
-        <Card className={cn('border-border/80 bg-card dark:border-white/5 dark:bg-white/5', className)}>
+        <Card
+            className={cn(
+                'border-border/80 bg-card dark:border-white/5 dark:bg-white/5',
+                className,
+            )}
+        >
             <CardContent className="p-6">{children}</CardContent>
         </Card>
     );
@@ -238,14 +249,20 @@ export default function ApplicationSettings({
     const auth = usePage().props.auth;
     const authUser = auth?.user as { email?: string } | undefined;
     const permissions = useMemo(
-        () => (auth as { permissions?: string[] } | undefined)?.permissions ?? [],
+        () =>
+            (auth as { permissions?: string[] } | undefined)?.permissions ?? [],
         [auth],
     );
 
-    const canUpdateApplication = permissions.includes('settings.application.update');
+    const canUpdateApplication = permissions.includes(
+        'settings.application.update',
+    );
 
     const navItems = useMemo(
-        () => ALL_NAV_ITEMS.filter((item) => permissions.includes(item.permission)),
+        () =>
+            ALL_NAV_ITEMS.filter((item) =>
+                permissions.includes(item.permission),
+            ),
         [permissions],
     );
 
@@ -254,7 +271,9 @@ export default function ApplicationSettings({
             ? new URLSearchParams(window.location.search).get('tab')
             : null;
 
-    const [tab, setTab] = useState<NavId>(() => resolveInitialTab(navItems, requestedTab));
+    const [tab, setTab] = useState<NavId>(() =>
+        resolveInitialTab(navItems, requestedTab),
+    );
     const [testRecipient, setTestRecipient] = useState('');
     const [testSubject, setTestSubject] = useState(
         () => `${general.app_name || 'HRM'} — SMTP test`,
@@ -338,7 +357,9 @@ export default function ApplicationSettings({
             return;
         }
 
-        preferencesForm.post('/settings/application/branding', { preserveScroll: true });
+        preferencesForm.post('/settings/application/branding', {
+            preserveScroll: true,
+        });
     }
 
     function submitSmtp(e: React.FormEvent) {
@@ -389,10 +410,17 @@ export default function ApplicationSettings({
                 formData.append('attachment', testAttachment);
             }
 
-            const message = await sendSmtpTestEmail('/settings/application/smtp/test', formData);
+            const message = await sendSmtpTestEmail(
+                '/settings/application/smtp/test',
+                formData,
+            );
             toast.success(message);
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Failed to send test email.');
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to send test email.',
+            );
         } finally {
             setIsSendingTest(false);
         }
@@ -403,31 +431,32 @@ export default function ApplicationSettings({
             <Head title="Application settings" />
             <h1 className="sr-only">Application settings</h1>
 
-            <div className="flex flex-col gap-2 mb-8">
+            <div className="mb-8 flex flex-col gap-2">
                 <div className="flex items-center gap-2">
-                    <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
-                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
+                    <span className="flex h-2 w-2 animate-pulse rounded-full bg-primary" />
+                    <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/80 uppercase">
                         Settings
                     </span>
                 </div>
-                <h1 className="text-4xl font-extrabold tracking-tight bg-linear-to-br from-foreground to-foreground/50 bg-clip-text text-transparent">
+                <h1 className="bg-linear-to-br from-foreground to-foreground/50 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent">
                     Application
                 </h1>
-                <p className="text-sm text-muted-foreground/80 font-medium">
-                    Manage branding, email, WhatsApp, and system preferences for the entire platform.
+                <p className="text-sm font-medium text-muted-foreground/80">
+                    Manage branding, email, WhatsApp, and system preferences for
+                    the entire platform.
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
                 {/* ── Sidebar nav ── */}
-                <aside className="lg:col-span-3 lg:sticky lg:top-6 lg:self-start">
-                    <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5 overflow-hidden">
-                        <div className="p-4 border-b border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/[0.02]">
-                            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                <aside className="lg:sticky lg:top-6 lg:col-span-3 lg:self-start">
+                    <Card className="overflow-hidden border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
+                        <div className="border-b border-border/80 bg-muted/20 p-4 dark:border-white/5 dark:bg-white/[0.02]">
+                            <h3 className="text-xs font-bold tracking-widest text-muted-foreground uppercase">
                                 Settings
                             </h3>
                         </div>
-                        <div className="p-2 space-y-1">
+                        <div className="space-y-1 p-2">
                             {navItems.map((item) => {
                                 const isActive = tab === item.id;
 
@@ -437,7 +466,7 @@ export default function ApplicationSettings({
                                         type="button"
                                         onClick={() => setTab(item.id)}
                                         className={cn(
-                                            'w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left',
+                                            'flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-all',
                                             isActive
                                                 ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
                                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground dark:hover:bg-white/5',
@@ -445,17 +474,19 @@ export default function ApplicationSettings({
                                     >
                                         <item.icon
                                             className={cn(
-                                                'w-4 h-4 shrink-0',
-                                                isActive ? 'text-primary-foreground' : 'text-primary',
+                                                'h-4 w-4 shrink-0',
+                                                isActive
+                                                    ? 'text-primary-foreground'
+                                                    : 'text-primary',
                                             )}
                                         />
                                         <div className="min-w-0">
-                                            <p className="text-sm font-bold truncate tracking-tight">
+                                            <p className="truncate text-sm font-bold tracking-tight">
                                                 {item.label}
                                             </p>
                                             <p
                                                 className={cn(
-                                                    'text-[10px] truncate',
+                                                    'truncate text-[10px]',
                                                     isActive
                                                         ? 'text-primary-foreground/70'
                                                         : 'text-muted-foreground/50',
@@ -472,7 +503,7 @@ export default function ApplicationSettings({
                 </aside>
 
                 {/* ── Main content ── */}
-                <main className="lg:col-span-9 space-y-6">
+                <main className="space-y-6 lg:col-span-9">
                     {/* ══ GENERAL ══ */}
                     {tab === 'general' && (
                         <form onSubmit={submitGeneral} className="space-y-6">
@@ -485,12 +516,17 @@ export default function ApplicationSettings({
                                 />
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="space-y-1.5 sm:col-span-2">
-                                        <FieldLabel htmlFor="app_name">Application name</FieldLabel>
+                                        <FieldLabel htmlFor="app_name">
+                                            Application name
+                                        </FieldLabel>
                                         <FieldInput
                                             id="app_name"
                                             value={generalForm.data.app_name}
                                             onChange={(e) =>
-                                                generalForm.setData('app_name', e.target.value)
+                                                generalForm.setData(
+                                                    'app_name',
+                                                    e.target.value,
+                                                )
                                             }
                                             placeholder="e.g. Herd OMS"
                                         />
@@ -502,40 +538,64 @@ export default function ApplicationSettings({
                                     </div>
 
                                     <div className="space-y-1.5 sm:col-span-2">
-                                        <FieldLabel htmlFor="company_name">Company name</FieldLabel>
+                                        <FieldLabel htmlFor="company_name">
+                                            Company name
+                                        </FieldLabel>
                                         <FieldInput
                                             id="company_name"
-                                            value={generalForm.data.company_name}
+                                            value={
+                                                generalForm.data.company_name
+                                            }
                                             onChange={(e) =>
-                                                generalForm.setData('company_name', e.target.value)
+                                                generalForm.setData(
+                                                    'company_name',
+                                                    e.target.value,
+                                                )
                                             }
                                         />
                                         {generalForm.errors.company_name ? (
                                             <p className="text-xs text-destructive">
-                                                {generalForm.errors.company_name}
+                                                {
+                                                    generalForm.errors
+                                                        .company_name
+                                                }
                                             </p>
                                         ) : null}
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <FieldLabel htmlFor="support_email">Support email</FieldLabel>
+                                        <FieldLabel htmlFor="support_email">
+                                            Support email
+                                        </FieldLabel>
                                         <FieldInput
                                             id="support_email"
                                             type="email"
-                                            value={generalForm.data.support_email}
+                                            value={
+                                                generalForm.data.support_email
+                                            }
                                             onChange={(e) =>
-                                                generalForm.setData('support_email', e.target.value)
+                                                generalForm.setData(
+                                                    'support_email',
+                                                    e.target.value,
+                                                )
                                             }
                                         />
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <FieldLabel htmlFor="support_phone">Support phone</FieldLabel>
+                                        <FieldLabel htmlFor="support_phone">
+                                            Support phone
+                                        </FieldLabel>
                                         <FieldInput
                                             id="support_phone"
-                                            value={generalForm.data.support_phone}
+                                            value={
+                                                generalForm.data.support_phone
+                                            }
                                             onChange={(e) =>
-                                                generalForm.setData('support_phone', e.target.value)
+                                                generalForm.setData(
+                                                    'support_phone',
+                                                    e.target.value,
+                                                )
                                             }
                                         />
                                     </div>
@@ -547,14 +607,16 @@ export default function ApplicationSettings({
                                         <Textarea
                                             id="company_address"
                                             rows={3}
-                                            value={generalForm.data.company_address}
+                                            value={
+                                                generalForm.data.company_address
+                                            }
                                             onChange={(e) =>
                                                 generalForm.setData(
                                                     'company_address',
                                                     e.target.value,
                                                 )
                                             }
-                                            className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 focus-visible:ring-primary/40 resize-none px-4 py-3 transition-all"
+                                            className="resize-none rounded-xl border-input bg-background/50 px-4 py-3 text-foreground transition-all focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                                         />
                                     </div>
                                 </div>
@@ -574,15 +636,21 @@ export default function ApplicationSettings({
                                         <Select
                                             value={generalForm.data.timezone}
                                             onValueChange={(value) =>
-                                                generalForm.setData('timezone', value)
+                                                generalForm.setData(
+                                                    'timezone',
+                                                    value,
+                                                )
                                             }
                                         >
-                                            <SelectTrigger className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 h-11">
+                                            <SelectTrigger className="h-11 rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5">
                                                 <SelectValue placeholder="Select timezone" />
                                             </SelectTrigger>
                                             <SelectContent className="max-h-64">
                                                 {timezones.map((tz) => (
-                                                    <SelectItem key={tz} value={tz}>
+                                                    <SelectItem
+                                                        key={tz}
+                                                        value={tz}
+                                                    >
                                                         {tz}
                                                     </SelectItem>
                                                 ))}
@@ -595,15 +663,21 @@ export default function ApplicationSettings({
                                         <Select
                                             value={generalForm.data.currency}
                                             onValueChange={(value) =>
-                                                generalForm.setData('currency', value)
+                                                generalForm.setData(
+                                                    'currency',
+                                                    value,
+                                                )
                                             }
                                         >
-                                            <SelectTrigger className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 h-11">
+                                            <SelectTrigger className="h-11 rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5">
                                                 <SelectValue placeholder="Select currency" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {currencies.map((c) => (
-                                                    <SelectItem key={c.code} value={c.code}>
+                                                    <SelectItem
+                                                        key={c.code}
+                                                        value={c.code}
+                                                    >
                                                         {c.code} — {c.name}
                                                     </SelectItem>
                                                 ))}
@@ -616,15 +690,21 @@ export default function ApplicationSettings({
                                         <Select
                                             value={generalForm.data.date_format}
                                             onValueChange={(value) =>
-                                                generalForm.setData('date_format', value)
+                                                generalForm.setData(
+                                                    'date_format',
+                                                    value,
+                                                )
                                             }
                                         >
-                                            <SelectTrigger className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 h-11">
+                                            <SelectTrigger className="h-11 rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5">
                                                 <SelectValue placeholder="Select format" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {date_formats.map((f) => (
-                                                    <SelectItem key={f.value} value={f.value}>
+                                                    <SelectItem
+                                                        key={f.value}
+                                                        value={f.value}
+                                                    >
                                                         {f.label}
                                                     </SelectItem>
                                                 ))}
@@ -645,24 +725,40 @@ export default function ApplicationSettings({
                                     <BrandingUploadField
                                         label="Authorized signature"
                                         assetKey="salary_certificate_signature"
-                                        currentUrl={general.salary_certificate_signature_url}
+                                        currentUrl={
+                                            general.salary_certificate_signature_url
+                                        }
                                         accept="image/png,image/jpeg,image/jpg"
                                         hint="PNG or JPG — max 2 MB"
                                         onFileChange={(file) =>
-                                            generalForm.setData('salary_certificate_signature', file)
+                                            generalForm.setData(
+                                                'salary_certificate_signature',
+                                                file,
+                                            )
                                         }
-                                        error={generalForm.errors.salary_certificate_signature}
+                                        error={
+                                            generalForm.errors
+                                                .salary_certificate_signature
+                                        }
                                     />
                                     <BrandingUploadField
                                         label="Company stamp"
                                         assetKey="salary_certificate_stamp"
-                                        currentUrl={general.salary_certificate_stamp_url}
+                                        currentUrl={
+                                            general.salary_certificate_stamp_url
+                                        }
                                         accept="image/png,image/jpeg,image/jpg"
                                         hint="PNG or JPG — max 2 MB"
                                         onFileChange={(file) =>
-                                            generalForm.setData('salary_certificate_stamp', file)
+                                            generalForm.setData(
+                                                'salary_certificate_stamp',
+                                                file,
+                                            )
                                         }
-                                        error={generalForm.errors.salary_certificate_stamp}
+                                        error={
+                                            generalForm.errors
+                                                .salary_certificate_stamp
+                                        }
                                     />
                                 </div>
                             </SettingsCard>
@@ -670,10 +766,15 @@ export default function ApplicationSettings({
                             <div className="flex justify-end">
                                 <Button
                                     type="submit"
-                                    className="rounded-xl h-11 px-6"
-                                    disabled={!canUpdateApplication || generalForm.processing}
+                                    className="h-11 rounded-xl px-6"
+                                    disabled={
+                                        !canUpdateApplication ||
+                                        generalForm.processing
+                                    }
                                 >
-                                    {generalForm.processing ? <Spinner /> : null}
+                                    {generalForm.processing ? (
+                                        <Spinner />
+                                    ) : null}
                                     Save general settings
                                 </Button>
                             </div>
@@ -696,7 +797,10 @@ export default function ApplicationSettings({
                                         assetKey="main_logo"
                                         currentUrl={branding.main_logo_url}
                                         onFileChange={(file) =>
-                                            brandingForm.setData('main_logo', file)
+                                            brandingForm.setData(
+                                                'main_logo',
+                                                file,
+                                            )
                                         }
                                         error={brandingForm.errors.main_logo}
                                     />
@@ -705,7 +809,10 @@ export default function ApplicationSettings({
                                         assetKey="login_logo"
                                         currentUrl={branding.login_logo_url}
                                         onFileChange={(file) =>
-                                            brandingForm.setData('login_logo', file)
+                                            brandingForm.setData(
+                                                'login_logo',
+                                                file,
+                                            )
                                         }
                                         error={brandingForm.errors.login_logo}
                                     />
@@ -716,18 +823,28 @@ export default function ApplicationSettings({
                                         accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/x-icon,.ico"
                                         hint="PNG, JPG, SVG, or ICO — max 512 KB"
                                         onFileChange={(file) =>
-                                            brandingForm.setData('favicon', file)
+                                            brandingForm.setData(
+                                                'favicon',
+                                                file,
+                                            )
                                         }
                                         error={brandingForm.errors.favicon}
                                     />
                                     <BrandingUploadField
                                         label="Login background"
                                         assetKey="login_background"
-                                        currentUrl={branding.login_background_url}
-                                        onFileChange={(file) =>
-                                            brandingForm.setData('login_background', file)
+                                        currentUrl={
+                                            branding.login_background_url
                                         }
-                                        error={brandingForm.errors.login_background}
+                                        onFileChange={(file) =>
+                                            brandingForm.setData(
+                                                'login_background',
+                                                file,
+                                            )
+                                        }
+                                        error={
+                                            brandingForm.errors.login_background
+                                        }
                                     />
                                 </div>
                             </SettingsCard>
@@ -735,10 +852,15 @@ export default function ApplicationSettings({
                             <div className="flex justify-end">
                                 <Button
                                     type="submit"
-                                    className="rounded-xl h-11 px-6"
-                                    disabled={!canUpdateApplication || brandingForm.processing}
+                                    className="h-11 rounded-xl px-6"
+                                    disabled={
+                                        !canUpdateApplication ||
+                                        brandingForm.processing
+                                    }
                                 >
-                                    {brandingForm.processing ? <Spinner /> : null}
+                                    {brandingForm.processing ? (
+                                        <Spinner />
+                                    ) : null}
                                     Save branding
                                 </Button>
                             </div>
@@ -749,12 +871,14 @@ export default function ApplicationSettings({
                     {tab === 'smtp' && (
                         <div className="space-y-6">
                             {smtp.uses_env_fallback ? (
-                                <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-400 text-sm">
+                                <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-400">
                                     <span className="mt-0.5 shrink-0">⚠</span>
                                     <p>
                                         Currently using values from{' '}
-                                        <code className="font-mono text-xs">.env</code> until you
-                                        save SMTP settings here.
+                                        <code className="font-mono text-xs">
+                                            .env
+                                        </code>{' '}
+                                        until you save SMTP settings here.
                                     </p>
                                 </div>
                             ) : null}
@@ -770,12 +894,17 @@ export default function ApplicationSettings({
                                     />
                                     <div className="grid gap-5 sm:grid-cols-2">
                                         <div className="space-y-1.5 sm:col-span-2">
-                                            <FieldLabel htmlFor="mail_host">SMTP host</FieldLabel>
+                                            <FieldLabel htmlFor="mail_host">
+                                                SMTP host
+                                            </FieldLabel>
                                             <FieldInput
                                                 id="mail_host"
                                                 value={smtpForm.data.host}
                                                 onChange={(e) =>
-                                                    smtpForm.setData('host', e.target.value)
+                                                    smtpForm.setData(
+                                                        'host',
+                                                        e.target.value,
+                                                    )
                                                 }
                                                 placeholder="smtp.example.com"
                                             />
@@ -787,7 +916,9 @@ export default function ApplicationSettings({
                                         </div>
 
                                         <div className="space-y-1.5">
-                                            <FieldLabel htmlFor="mail_port">Port</FieldLabel>
+                                            <FieldLabel htmlFor="mail_port">
+                                                Port
+                                            </FieldLabel>
                                             <FieldInput
                                                 id="mail_port"
                                                 type="number"
@@ -797,7 +928,9 @@ export default function ApplicationSettings({
                                                 onChange={(e) =>
                                                     smtpForm.setData(
                                                         'port',
-                                                        Number(e.target.value) || 587,
+                                                        Number(
+                                                            e.target.value,
+                                                        ) || 587,
                                                     )
                                                 }
                                             />
@@ -813,39 +946,58 @@ export default function ApplicationSettings({
                                             <Select
                                                 value={smtpForm.data.encryption}
                                                 onValueChange={(value) =>
-                                                    smtpForm.setData('encryption', value)
+                                                    smtpForm.setData(
+                                                        'encryption',
+                                                        value,
+                                                    )
                                                 }
                                             >
-                                                <SelectTrigger className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 h-11">
+                                                <SelectTrigger className="h-11 rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="tls">TLS (587)</SelectItem>
-                                                    <SelectItem value="ssl">SSL (465)</SelectItem>
-                                                    <SelectItem value="none">None</SelectItem>
+                                                    <SelectItem value="tls">
+                                                        TLS (587)
+                                                    </SelectItem>
+                                                    <SelectItem value="ssl">
+                                                        SSL (465)
+                                                    </SelectItem>
+                                                    <SelectItem value="none">
+                                                        None
+                                                    </SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
 
                                         <div className="space-y-1.5 sm:col-span-2">
-                                            <FieldLabel htmlFor="mail_username">Username</FieldLabel>
+                                            <FieldLabel htmlFor="mail_username">
+                                                Username
+                                            </FieldLabel>
                                             <FieldInput
                                                 id="mail_username"
                                                 value={smtpForm.data.username}
                                                 onChange={(e) =>
-                                                    smtpForm.setData('username', e.target.value)
+                                                    smtpForm.setData(
+                                                        'username',
+                                                        e.target.value,
+                                                    )
                                                 }
                                                 autoComplete="off"
                                             />
                                         </div>
 
                                         <div className="space-y-1.5 sm:col-span-2">
-                                            <FieldLabel htmlFor="mail_password">Password</FieldLabel>
+                                            <FieldLabel htmlFor="mail_password">
+                                                Password
+                                            </FieldLabel>
                                             <SettingsSecretInput
                                                 id="mail_password"
                                                 value={smtpForm.data.password}
                                                 onChange={(e) =>
-                                                    smtpForm.setData('password', e.target.value)
+                                                    smtpForm.setData(
+                                                        'password',
+                                                        e.target.value,
+                                                    )
                                                 }
                                                 placeholder="SMTP password"
                                                 autoComplete="new-password"
@@ -864,25 +1016,38 @@ export default function ApplicationSettings({
                                             <FieldInput
                                                 id="mail_from_address"
                                                 type="email"
-                                                value={smtpForm.data.from_address}
+                                                value={
+                                                    smtpForm.data.from_address
+                                                }
                                                 onChange={(e) =>
-                                                    smtpForm.setData('from_address', e.target.value)
+                                                    smtpForm.setData(
+                                                        'from_address',
+                                                        e.target.value,
+                                                    )
                                                 }
                                             />
                                             {smtpForm.errors.from_address ? (
                                                 <p className="text-xs text-destructive">
-                                                    {smtpForm.errors.from_address}
+                                                    {
+                                                        smtpForm.errors
+                                                            .from_address
+                                                    }
                                                 </p>
                                             ) : null}
                                         </div>
 
                                         <div className="space-y-1.5">
-                                            <FieldLabel htmlFor="mail_from_name">From name</FieldLabel>
+                                            <FieldLabel htmlFor="mail_from_name">
+                                                From name
+                                            </FieldLabel>
                                             <FieldInput
                                                 id="mail_from_name"
                                                 value={smtpForm.data.from_name}
                                                 onChange={(e) =>
-                                                    smtpForm.setData('from_name', e.target.value)
+                                                    smtpForm.setData(
+                                                        'from_name',
+                                                        e.target.value,
+                                                    )
                                                 }
                                             />
                                             {smtpForm.errors.from_name ? (
@@ -906,12 +1071,20 @@ export default function ApplicationSettings({
                                         <BrandingUploadField
                                             label="Email branding logo"
                                             assetKey="email_branding_logo"
-                                            currentUrl={smtp.email_branding_logo_url}
+                                            currentUrl={
+                                                smtp.email_branding_logo_url
+                                            }
                                             hint="Used in the footer of all outgoing emails (recommended: transparent PNG)."
                                             onFileChange={(file) =>
-                                                smtpForm.setData('email_branding_logo', file)
+                                                smtpForm.setData(
+                                                    'email_branding_logo',
+                                                    file,
+                                                )
                                             }
-                                            error={smtpForm.errors.email_branding_logo}
+                                            error={
+                                                smtpForm.errors
+                                                    .email_branding_logo
+                                            }
                                         />
 
                                         <div className="h-px bg-border/80 dark:bg-white/5" />
@@ -922,7 +1095,10 @@ export default function ApplicationSettings({
                                             </FieldLabel>
                                             <FieldInput
                                                 id="mail_footer_tagline"
-                                                value={smtpForm.data.mail_footer_tagline}
+                                                value={
+                                                    smtpForm.data
+                                                        .mail_footer_tagline
+                                                }
                                                 onChange={(e) =>
                                                     smtpForm.setData(
                                                         'mail_footer_tagline',
@@ -938,7 +1114,10 @@ export default function ApplicationSettings({
                                             </FieldLabel>
                                             <FieldInput
                                                 id="mail_footer_website"
-                                                value={smtpForm.data.mail_footer_website}
+                                                value={
+                                                    smtpForm.data
+                                                        .mail_footer_website
+                                                }
                                                 onChange={(e) =>
                                                     smtpForm.setData(
                                                         'mail_footer_website',
@@ -954,7 +1133,10 @@ export default function ApplicationSettings({
                                             </FieldLabel>
                                             <FieldInput
                                                 id="mail_footer_certifications"
-                                                value={smtpForm.data.mail_footer_certifications}
+                                                value={
+                                                    smtpForm.data
+                                                        .mail_footer_certifications
+                                                }
                                                 onChange={(e) =>
                                                     smtpForm.setData(
                                                         'mail_footer_certifications',
@@ -970,10 +1152,15 @@ export default function ApplicationSettings({
                                 <div className="flex justify-end">
                                     <Button
                                         type="submit"
-                                        className="rounded-xl h-11 px-6"
-                                        disabled={!canUpdateApplication || smtpForm.processing}
+                                        className="h-11 rounded-xl px-6"
+                                        disabled={
+                                            !canUpdateApplication ||
+                                            smtpForm.processing
+                                        }
                                     >
-                                        {smtpForm.processing ? <Spinner /> : null}
+                                        {smtpForm.processing ? (
+                                            <Spinner />
+                                        ) : null}
                                         Save email settings
                                     </Button>
                                 </div>
@@ -989,33 +1176,48 @@ export default function ApplicationSettings({
                                 />
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="space-y-1.5">
-                                        <FieldLabel htmlFor="test_recipient">Recipient</FieldLabel>
+                                        <FieldLabel htmlFor="test_recipient">
+                                            Recipient
+                                        </FieldLabel>
                                         <FieldInput
                                             id="test_recipient"
                                             type="email"
                                             value={testRecipient}
-                                            onChange={(e) => setTestRecipient(e.target.value)}
-                                            placeholder={authUser?.email ?? 'you@company.com'}
+                                            onChange={(e) =>
+                                                setTestRecipient(e.target.value)
+                                            }
+                                            placeholder={
+                                                authUser?.email ??
+                                                'you@company.com'
+                                            }
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <FieldLabel htmlFor="test_subject">Subject</FieldLabel>
+                                        <FieldLabel htmlFor="test_subject">
+                                            Subject
+                                        </FieldLabel>
                                         <FieldInput
                                             id="test_subject"
                                             value={testSubject}
-                                            onChange={(e) => setTestSubject(e.target.value)}
+                                            onChange={(e) =>
+                                                setTestSubject(e.target.value)
+                                            }
                                             placeholder="SMTP test"
                                         />
                                     </div>
                                     <div className="space-y-1.5 sm:col-span-2">
-                                        <FieldLabel htmlFor="test_body">Body</FieldLabel>
+                                        <FieldLabel htmlFor="test_body">
+                                            Body
+                                        </FieldLabel>
                                         <Textarea
                                             id="test_body"
                                             rows={4}
                                             value={testBody}
-                                            onChange={(e) => setTestBody(e.target.value)}
+                                            onChange={(e) =>
+                                                setTestBody(e.target.value)
+                                            }
                                             placeholder="Message shown in the email body…"
-                                            className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 focus-visible:ring-primary/40 resize-none px-4 py-3 transition-all"
+                                            className="resize-none rounded-xl border-input bg-background/50 px-4 py-3 text-foreground transition-all focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                                         />
                                     </div>
                                     <div className="space-y-1.5 sm:col-span-2">
@@ -1027,11 +1229,13 @@ export default function ApplicationSettings({
                                             type="file"
                                             accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,application/pdf,image/*"
                                             onChange={(e) =>
-                                                setTestAttachment(e.target.files?.[0] ?? null)
+                                                setTestAttachment(
+                                                    e.target.files?.[0] ?? null,
+                                                )
                                             }
-                                            className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 h-11 px-4 file:mr-3 file:rounded-lg file:border-0 file:bg-muted dark:file:bg-white/10 file:px-3 file:py-1 file:text-xs file:font-medium transition-all"
+                                            className="h-11 rounded-xl border-input bg-background/50 px-4 text-foreground transition-all file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1 file:text-xs file:font-medium dark:border-white/10 dark:bg-white/5 dark:file:bg-white/10"
                                         />
-                                        <p className="text-[10px] text-muted-foreground/50 ml-0.5">
+                                        <p className="ml-0.5 text-[10px] text-muted-foreground/50">
                                             {testAttachment
                                                 ? `${testAttachment.name} (${(testAttachment.size / 1024).toFixed(1)} KB)`
                                                 : 'PDF, PNG, JPG, or Word — max 20 MB'}
@@ -1042,16 +1246,19 @@ export default function ApplicationSettings({
                                         <Button
                                             type="button"
                                             variant="secondary"
-                                            className="rounded-xl h-11 px-6"
+                                            className="h-11 rounded-xl px-6"
                                             disabled={
-                                                isSendingTest || smtpForm.data.host.trim() === ''
+                                                isSendingTest ||
+                                                smtpForm.data.host.trim() === ''
                                             }
-                                            onClick={() => void handleSendTestEmail()}
+                                            onClick={() =>
+                                                void handleSendTestEmail()
+                                            }
                                         >
                                             {isSendingTest ? (
                                                 <Spinner />
                                             ) : (
-                                                <Send className="w-4 h-4" />
+                                                <Send className="h-4 w-4" />
                                             )}
                                             Send test email
                                         </Button>
@@ -1073,7 +1280,10 @@ export default function ApplicationSettings({
 
                     {/* ══ PREFERENCES ══ */}
                     {tab === 'preferences' && (
-                        <form onSubmit={submitPreferences} className="space-y-6">
+                        <form
+                            onSubmit={submitPreferences}
+                            className="space-y-6"
+                        >
                             <SettingsCard>
                                 <SectionHeading
                                     icon={Palette}
@@ -1083,23 +1293,39 @@ export default function ApplicationSettings({
                                 />
                                 <div className="grid gap-6 sm:grid-cols-2">
                                     <div className="space-y-1.5">
-                                        <FieldLabel htmlFor="primary_color">Primary color</FieldLabel>
+                                        <FieldLabel htmlFor="primary_color">
+                                            Primary color
+                                        </FieldLabel>
                                         <ThemeColorPicker
                                             id="primary_color"
-                                            value={preferencesForm.data.primary_color}
+                                            value={
+                                                preferencesForm.data
+                                                    .primary_color
+                                            }
                                             onChange={(color) =>
-                                                preferencesForm.setData('primary_color', color)
+                                                preferencesForm.setData(
+                                                    'primary_color',
+                                                    color,
+                                                )
                                             }
                                         />
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <FieldLabel htmlFor="accent_color">Accent color</FieldLabel>
+                                        <FieldLabel htmlFor="accent_color">
+                                            Accent color
+                                        </FieldLabel>
                                         <ThemeColorPicker
                                             id="accent_color"
-                                            value={preferencesForm.data.accent_color}
+                                            value={
+                                                preferencesForm.data
+                                                    .accent_color
+                                            }
                                             onChange={(color) =>
-                                                preferencesForm.setData('accent_color', color)
+                                                preferencesForm.setData(
+                                                    'accent_color',
+                                                    color,
+                                                )
                                             }
                                         />
                                     </div>
@@ -1113,10 +1339,13 @@ export default function ApplicationSettings({
                                     description="Default layout and navigation preferences."
                                     color="bg-sky-500/10 border-sky-500/20 text-sky-500"
                                 />
-                                <label className="flex items-center gap-4 p-4 rounded-xl border border-border/80 bg-muted/20 cursor-pointer hover:bg-muted/50 dark:border-white/5 dark:bg-white/[0.02] dark:hover:bg-white/[0.04] transition-colors">
+                                <label className="flex cursor-pointer items-center gap-4 rounded-xl border border-border/80 bg-muted/20 p-4 transition-colors hover:bg-muted/50 dark:border-white/5 dark:bg-white/[0.02] dark:hover:bg-white/[0.04]">
                                     <Checkbox
                                         id="sidebar_compact_default"
-                                        checked={preferencesForm.data.sidebar_compact_default}
+                                        checked={
+                                            preferencesForm.data
+                                                .sidebar_compact_default
+                                        }
                                         onCheckedChange={(checked) =>
                                             preferencesForm.setData(
                                                 'sidebar_compact_default',
@@ -1129,11 +1358,13 @@ export default function ApplicationSettings({
                                             Collapse sidebar by default
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                            New sessions will open with the sidebar collapsed
+                                            New sessions will open with the
+                                            sidebar collapsed
                                         </p>
                                     </div>
-                                    {preferencesForm.data.sidebar_compact_default ? (
-                                        <CheckCircle2 className="w-4 h-4 text-primary ml-auto shrink-0" />
+                                    {preferencesForm.data
+                                        .sidebar_compact_default ? (
+                                        <CheckCircle2 className="ml-auto h-4 w-4 shrink-0 text-primary" />
                                     ) : null}
                                 </label>
                             </SettingsCard>
@@ -1141,10 +1372,15 @@ export default function ApplicationSettings({
                             <div className="flex justify-end">
                                 <Button
                                     type="submit"
-                                    className="rounded-xl h-11 px-6"
-                                    disabled={!canUpdateApplication || preferencesForm.processing}
+                                    className="h-11 rounded-xl px-6"
+                                    disabled={
+                                        !canUpdateApplication ||
+                                        preferencesForm.processing
+                                    }
                                 >
-                                    {preferencesForm.processing ? <Spinner /> : null}
+                                    {preferencesForm.processing ? (
+                                        <Spinner />
+                                    ) : null}
                                     Save preferences
                                 </Button>
                             </div>

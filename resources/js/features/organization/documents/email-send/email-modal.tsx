@@ -72,7 +72,9 @@ export function EmailDocumentsModal({
             if (slug === CUSTOM_EMAIL_TEMPLATE_VALUE) {
                 setRecipient(employeeEmail);
                 setCc('');
-                setSubject(buildDefaultEmailSubject(employee.name, organizationName));
+                setSubject(
+                    buildDefaultEmailSubject(employee.name, organizationName),
+                );
                 setMessage('');
 
                 return;
@@ -105,7 +107,10 @@ export function EmailDocumentsModal({
 
         if (defaultTemplate) {
             setTemplateSlug(defaultTemplate.slug);
-            const fields = applyEmailTemplateToFields(defaultTemplate, employeeEmail);
+            const fields = applyEmailTemplateToFields(
+                defaultTemplate,
+                employeeEmail,
+            );
             setRecipient(fields.recipient);
             setCc(fields.cc);
             setSubject(fields.subject);
@@ -114,7 +119,9 @@ export function EmailDocumentsModal({
             setTemplateSlug(CUSTOM_EMAIL_TEMPLATE_VALUE);
             setRecipient(employeeEmail);
             setCc('');
-            setSubject(buildDefaultEmailSubject(employee.name, organizationName));
+            setSubject(
+                buildDefaultEmailSubject(employee.name, organizationName),
+            );
             setMessage('');
         }
     }, [defaultTemplate, employeeEmail, employee.name, open, organizationName]);
@@ -149,7 +156,11 @@ export function EmailDocumentsModal({
             onSendComplete();
             toast.success(`${successMessage} Sent to ${sentTo}.`);
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Failed to send email.');
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to send email.',
+            );
         } finally {
             setIsSending(false);
         }
@@ -167,20 +178,23 @@ export function EmailDocumentsModal({
 
                     {attachmentSizeExceeded ? (
                         <p className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-                            Total attachment size exceeds the 20 MB limit. Remove some files before
-                            sending.
+                            Total attachment size exceeds the 20 MB limit.
+                            Remove some files before sending.
                         </p>
                     ) : null}
 
                     <div className="space-y-2">
                         <Label htmlFor="email-recipient">
-                            Recipient email <span className="text-red-400">*</span>
+                            Recipient email{' '}
+                            <span className="text-red-400">*</span>
                         </Label>
                         <Input
                             id="email-recipient"
                             type="email"
                             value={recipient}
-                            onChange={(event) => setRecipient(event.target.value)}
+                            onChange={(event) =>
+                                setRecipient(event.target.value)
+                            }
                             placeholder="your.email@company.com"
                             autoComplete="email"
                             required
@@ -209,7 +223,9 @@ export function EmailDocumentsModal({
 
                     {emailTemplates.length > 0 ? (
                         <div className="space-y-2">
-                            <Label htmlFor="email-template">Email template</Label>
+                            <Label htmlFor="email-template">
+                                Email template
+                            </Label>
                             <Select
                                 value={templateSlug}
                                 onValueChange={handleTemplateChange}
@@ -223,19 +239,26 @@ export function EmailDocumentsModal({
                                 </SelectTrigger>
                                 <SelectContent>
                                     {emailTemplates.map((template) => (
-                                        <SelectItem key={template.slug} value={template.slug}>
+                                        <SelectItem
+                                            key={template.slug}
+                                            value={template.slug}
+                                        >
                                             {template.label}
-                                            {template.is_default ? ' (default)' : ''}
+                                            {template.is_default
+                                                ? ' (default)'
+                                                : ''}
                                         </SelectItem>
                                     ))}
-                                    <SelectItem value={CUSTOM_EMAIL_TEMPLATE_VALUE}>
+                                    <SelectItem
+                                        value={CUSTOM_EMAIL_TEMPLATE_VALUE}
+                                    >
                                         Custom subject & message
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
                             <p className="text-xs text-muted-foreground">
-                                Loads the saved subject and message from Settings. Edit either field
-                                before sending.
+                                Loads the saved subject and message from
+                                Settings. Edit either field before sending.
                             </p>
                         </div>
                     ) : null}
@@ -253,7 +276,9 @@ export function EmailDocumentsModal({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="email-message">Message (optional)</Label>
+                        <Label htmlFor="email-message">
+                            Message (optional)
+                        </Label>
                         <textarea
                             id="email-message"
                             value={message}
@@ -261,7 +286,7 @@ export function EmailDocumentsModal({
                             disabled={isSending}
                             rows={10}
                             placeholder="Add a message for the recipient…"
-                            className="border-input placeholder:text-muted-foreground flex min-h-[220px] w-full resize-y rounded-lg border border-border bg-muted/50 px-3 py-3 text-sm leading-relaxed text-foreground outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-100"
+                            className="flex min-h-[220px] w-full resize-y rounded-lg border border-border border-input bg-muted/50 px-3 py-3 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-100"
                         />
                     </div>
                 </div>

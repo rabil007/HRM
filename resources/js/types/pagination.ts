@@ -7,4 +7,6 @@ export type PaginationMeta = {
     to: number | null;
 };
 
-export const PAGINATION_PER_PAGE_OPTIONS = [10, 15, 20, 25, 30, 50, 100] as const;
+export const PAGINATION_PER_PAGE_OPTIONS = [
+    10, 15, 20, 25, 30, 50, 100,
+] as const;

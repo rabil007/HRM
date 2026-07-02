@@ -37,7 +37,10 @@ import { formatTimesheetAmount } from '../types';
 
 const reloadProps = ['salary_inputs_by_employee'] as const;
 
-function emptyForm(employeeId: number, defaultTypeId: number): SalaryInputFormData {
+function emptyForm(
+    employeeId: number,
+    defaultTypeId: number,
+): SalaryInputFormData {
     return {
         employee_id: employeeId,
         salary_input_type_id: defaultTypeId,
@@ -82,7 +85,9 @@ export function OfficeSalaryInputsSheet({
     const [prevRecordId, setPrevRecordId] = useState<number | null>(null);
     const [prevOpen, setPrevOpen] = useState(false);
 
-    const form = useForm<SalaryInputFormData>(emptyForm(record?.employee.id ?? 0, defaultTypeId));
+    const form = useForm<SalaryInputFormData>(
+        emptyForm(record?.employee.id ?? 0, defaultTypeId),
+    );
 
     const currentRecordId = record?.employee.id ?? null;
 
@@ -123,7 +128,13 @@ export function OfficeSalaryInputsSheet({
         };
 
         if (editingInput) {
-            form.put(updateSalaryInput.url({ payrollPeriod: periodId, salaryInput: editingInput.id }), options);
+            form.put(
+                updateSalaryInput.url({
+                    payrollPeriod: periodId,
+                    salaryInput: editingInput.id,
+                }),
+                options,
+            );
 
             return;
         }
@@ -133,7 +144,10 @@ export function OfficeSalaryInputsSheet({
 
     const handleDelete = (input: SalaryInput) => {
         router.delete(
-            destroySalaryInput.url({ payrollPeriod: periodId, salaryInput: input.id }),
+            destroySalaryInput.url({
+                payrollPeriod: periodId,
+                salaryInput: input.id,
+            }),
             {
                 preserveScroll: true,
                 only: [...reloadProps],
@@ -168,7 +182,7 @@ export function OfficeSalaryInputsSheet({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="right"
-                className="flex w-full flex-col rounded-none p-0 glass-card sm:max-w-lg"
+                className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-lg"
             >
                 <SheetHeader className="border-b border-border/60 p-8 pb-6">
                     <SheetTitle className="text-xl font-bold tracking-tight">
@@ -184,7 +198,9 @@ export function OfficeSalaryInputsSheet({
                 <div className="flex-1 space-y-6 overflow-y-auto p-8">
                     <div className="space-y-3">
                         <div className="flex items-center justify-between gap-3">
-                            <h3 className="text-sm font-semibold tracking-tight">Salary input lines</h3>
+                            <h3 className="text-sm font-semibold tracking-tight">
+                                Salary input lines
+                            </h3>
                             {canCreate ? (
                                 <Button
                                     type="button"
@@ -201,8 +217,10 @@ export function OfficeSalaryInputsSheet({
 
                         {inputs.length === 0 ? (
                             <p className="rounded-xl border border-dashed border-border/60 px-4 py-6 text-sm text-muted-foreground">
-                                No salary inputs yet. Add bonus, commission, or deduction lines, then click{' '}
-                                <strong>Update payroll</strong> to refresh gross and net pay.
+                                No salary inputs yet. Add bonus, commission, or
+                                deduction lines, then click{' '}
+                                <strong>Update payroll</strong> to refresh gross
+                                and net pay.
                             </p>
                         ) : (
                             <div className="space-y-2">
@@ -213,7 +231,9 @@ export function OfficeSalaryInputsSheet({
                                     >
                                         <div className="min-w-0 space-y-1">
                                             <div className="flex flex-wrap items-center gap-2">
-                                                <span className="text-sm font-medium">{input.type_label}</span>
+                                                <span className="text-sm font-medium">
+                                                    {input.type_label}
+                                                </span>
                                                 <Badge
                                                     variant="outline"
                                                     className={cn(
@@ -222,14 +242,20 @@ export function OfficeSalaryInputsSheet({
                                                             : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200',
                                                     )}
                                                 >
-                                                    {input.is_addition ? 'Addition' : 'Deduction'}
+                                                    {input.is_addition
+                                                        ? 'Addition'
+                                                        : 'Deduction'}
                                                 </Badge>
                                             </div>
                                             <div className="text-sm font-semibold">
-                                                {formatTimesheetAmount(input.amount)}
+                                                {formatTimesheetAmount(
+                                                    input.amount,
+                                                )}
                                             </div>
                                             {input.notes ? (
-                                                <p className="text-xs text-muted-foreground">{input.notes}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {input.notes}
+                                                </p>
                                             ) : null}
                                         </div>
                                         <div className="flex shrink-0 items-center gap-1">
@@ -239,7 +265,9 @@ export function OfficeSalaryInputsSheet({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="size-8 rounded-lg"
-                                                    onClick={() => handleEdit(input)}
+                                                    onClick={() =>
+                                                        handleEdit(input)
+                                                    }
                                                 >
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
@@ -250,7 +278,9 @@ export function OfficeSalaryInputsSheet({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="size-8 rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                    onClick={() => handleDelete(input)}
+                                                    onClick={() =>
+                                                        handleDelete(input)
+                                                    }
                                                 >
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
@@ -271,17 +301,24 @@ export function OfficeSalaryInputsSheet({
                             }}
                         >
                             <h3 className="text-sm font-semibold tracking-tight">
-                                {editingInput ? 'Edit salary input' : 'Add salary input'}
+                                {editingInput
+                                    ? 'Edit salary input'
+                                    : 'Add salary input'}
                             </h3>
 
                             <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                     Type
                                 </Label>
                                 <Select
-                                    value={String(form.data.salary_input_type_id)}
+                                    value={String(
+                                        form.data.salary_input_type_id,
+                                    )}
                                     onValueChange={(value) =>
-                                        form.setData('salary_input_type_id', Number(value))
+                                        form.setData(
+                                            'salary_input_type_id',
+                                            Number(value),
+                                        )
                                     }
                                 >
                                     <SelectTrigger className="h-11 rounded-xl border-border bg-card">
@@ -289,17 +326,23 @@ export function OfficeSalaryInputsSheet({
                                     </SelectTrigger>
                                     <SelectContent>
                                         {typeOptions.map((option) => (
-                                            <SelectItem key={option.value} value={String(option.value)}>
+                                            <SelectItem
+                                                key={option.value}
+                                                value={String(option.value)}
+                                            >
                                                 {option.label}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <InputError message={form.errors.salary_input_type_id} className="text-xs" />
+                                <InputError
+                                    message={form.errors.salary_input_type_id}
+                                    className="text-xs"
+                                />
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                     Amount
                                 </Label>
                                 <Input
@@ -308,21 +351,37 @@ export function OfficeSalaryInputsSheet({
                                     step="0.01"
                                     className="h-11 rounded-xl border-border bg-card"
                                     value={form.data.amount}
-                                    onChange={(event) => form.setData('amount', event.target.value)}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'amount',
+                                            event.target.value,
+                                        )
+                                    }
                                 />
-                                <InputError message={form.errors.amount} className="text-xs" />
+                                <InputError
+                                    message={form.errors.amount}
+                                    className="text-xs"
+                                />
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                     Notes
                                 </Label>
                                 <Textarea
                                     className="min-h-20 rounded-xl border-border bg-card"
                                     value={form.data.notes}
-                                    onChange={(event) => form.setData('notes', event.target.value)}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'notes',
+                                            event.target.value,
+                                        )
+                                    }
                                 />
-                                <InputError message={form.errors.notes} className="text-xs" />
+                                <InputError
+                                    message={form.errors.notes}
+                                    className="text-xs"
+                                />
                             </div>
 
                             <div className="flex items-center justify-end gap-2">
@@ -334,7 +393,11 @@ export function OfficeSalaryInputsSheet({
                                 >
                                     Cancel
                                 </Button>
-                                <Button type="submit" className="rounded-lg" disabled={form.processing}>
+                                <Button
+                                    type="submit"
+                                    className="rounded-lg"
+                                    disabled={form.processing}
+                                >
                                     {editingInput ? 'Save changes' : 'Add line'}
                                 </Button>
                             </div>

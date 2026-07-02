@@ -241,6 +241,134 @@ test('authenticated users can delete all failed queue jobs', function () {
     expect(DB::table('failed_jobs')->count())->toBe(0);
 });
 
+test('authenticated users can delete a job run history record', function () {
+    $user = User::factory()->create();
+    $uuid = (string) Str::uuid();
+
+    $payload = json_encode([
+        'uuid' => $uuid,
+        'displayName' => TestQueueJobForJobRuns::class,
+        'job' => 'Illuminate\\Queue\\CallQueuedHandler@call',
+        'data' => [
+            'commandName' => TestQueueJobForJobRuns::class,
+            'command' => serialize(new TestQueueJobForJobRuns),
+        ],
+    ]);
+
+    $queueJob = Mockery::mock(Job::class);
+    $queueJob->shouldReceive('payload')->andReturn(json_decode($payload, true));
+    $queueJob->shouldReceive('getQueue')->andReturn('default');
+    $queueJob->shouldReceive('getRawBody')->andReturn($payload);
+
+    Event::dispatch(new JobProcessing('database', $queueJob));
+    Event::dispatch(new JobProcessed('database', $queueJob));
+
+    $jobRunId = (int) DB::table('job_runs')->where('correlation_id', $uuid)->value('id');
+
+    $this->actingAs($user)
+        ->from(route('jobs.index', ['tab' => 'history']))
+        ->delete(route('jobs.history.destroy', ['jobRun' => $jobRunId]))
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(DB::table('job_runs')->whereKey($jobRunId)->exists())->toBeFalse();
+});
+
+test('authenticated users can delete all job run history records', function () {
+    $user = User::factory()->create();
+
+    DB::table('job_runs')->insert([
+        [
+            'correlation_id' => (string) Str::uuid(),
+            'type' => 'queue',
+            'name' => TestQueueJobForJobRuns::class,
+            'status' => 'completed',
+            'queue' => 'default',
+            'connection' => 'database',
+            'trigger' => 'system',
+            'started_at' => now(),
+            'finished_at' => now(),
+            'duration_ms' => 100,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+        [
+            'correlation_id' => (string) Str::uuid(),
+            'type' => 'queue',
+            'name' => TestQueueJobForJobRuns::class,
+            'status' => 'failed',
+            'queue' => 'default',
+            'connection' => 'database',
+            'trigger' => 'system',
+            'started_at' => now(),
+            'finished_at' => now(),
+            'duration_ms' => 50,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('jobs.index', ['tab' => 'history']))
+        ->delete(route('jobs.history.destroy-all'))
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(DB::table('job_runs')->count())->toBe(0);
+});
+
+test('authenticated users can delete a pending queue job', function () {
+    $user = User::factory()->create();
+
+    $jobId = DB::table('jobs')->insertGetId([
+        'queue' => 'default',
+        'payload' => json_encode(['displayName' => TestQueueJobForJobRuns::class]),
+        'attempts' => 0,
+        'reserved_at' => null,
+        'available_at' => now()->timestamp,
+        'created_at' => now()->timestamp,
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('jobs.index', ['tab' => 'pending']))
+        ->delete(route('jobs.pending.destroy', ['id' => $jobId]))
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(DB::table('jobs')->where('id', $jobId)->exists())->toBeFalse();
+});
+
+test('authenticated users can delete all pending queue jobs', function () {
+    $user = User::factory()->create();
+
+    DB::table('jobs')->insert([
+        [
+            'queue' => 'default',
+            'payload' => json_encode(['displayName' => TestQueueJobForJobRuns::class]),
+            'attempts' => 0,
+            'reserved_at' => null,
+            'available_at' => now()->timestamp,
+            'created_at' => now()->timestamp,
+        ],
+        [
+            'queue' => 'default',
+            'payload' => json_encode(['displayName' => TestQueueJobForJobRuns::class]),
+            'attempts' => 1,
+            'reserved_at' => now()->timestamp,
+            'available_at' => now()->timestamp,
+            'created_at' => now()->timestamp,
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('jobs.index', ['tab' => 'pending']))
+        ->delete(route('jobs.pending.destroy-all'))
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(DB::table('jobs')->count())->toBe(0);
+});
+
 class TestQueueJobForJobRuns implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;

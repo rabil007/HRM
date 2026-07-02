@@ -2,11 +2,7 @@ import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { FilenameInput } from '@/features/organization/documents/pdf-merge/filename-input';
 import {
     buildDefaultMergeFilename,
@@ -35,9 +31,14 @@ export function PdfMergeModal({
     documents: initialDocuments,
     onMergeComplete,
 }: PdfMergeModalProps) {
-    const [orderedDocuments, setOrderedDocuments] = useState<MergeDocumentItem[]>(initialDocuments);
-    const [filename, setFilename] = useState(() => buildDefaultMergeFilename(employee.name));
-    const [pageCounts, setPageCounts] = useState<Record<number, number | null>>({});
+    const [orderedDocuments, setOrderedDocuments] =
+        useState<MergeDocumentItem[]>(initialDocuments);
+    const [filename, setFilename] = useState(() =>
+        buildDefaultMergeFilename(employee.name),
+    );
+    const [pageCounts, setPageCounts] = useState<Record<number, number | null>>(
+        {},
+    );
     const [isDownloading, setIsDownloading] = useState(false);
 
     useEffect(() => {
@@ -61,20 +62,28 @@ export function PdfMergeModal({
 
     const handleReorder = useCallback((orderedIds: number[]) => {
         setOrderedDocuments((current) => {
-            const byId = new Map(current.map((document) => [document.id, document]));
+            const byId = new Map(
+                current.map((document) => [document.id, document]),
+            );
 
             return orderedIds
                 .map((id) => byId.get(id))
-                .filter((document): document is MergeDocumentItem => document !== undefined);
+                .filter(
+                    (document): document is MergeDocumentItem =>
+                        document !== undefined,
+                );
         });
     }, []);
 
-    const handlePreviewLoaded = useCallback((documentId: number, pageCount: number) => {
-        setPageCounts((current) => ({
-            ...current,
-            [documentId]: pageCount,
-        }));
-    }, []);
+    const handlePreviewLoaded = useCallback(
+        (documentId: number, pageCount: number) => {
+            setPageCounts((current) => ({
+                ...current,
+                [documentId]: pageCount,
+            }));
+        },
+        [],
+    );
 
     const handleDownload = async () => {
         const sanitizedFilename = sanitizeMergeFilename(filename);
@@ -91,7 +100,9 @@ export function PdfMergeModal({
             await downloadBinaryExport(
                 mergePdf.url({ employee: employee.id }),
                 {
-                    document_ids: orderedDocuments.map((document) => document.id),
+                    document_ids: orderedDocuments.map(
+                        (document) => document.id,
+                    ),
                     download_name: sanitizedFilename,
                 },
                 'application/pdf',
@@ -103,7 +114,9 @@ export function PdfMergeModal({
             toast.success('Merged PDF downloaded.');
         } catch (error) {
             toast.error(
-                error instanceof Error ? error.message : 'Merge failed. Please try again.',
+                error instanceof Error
+                    ? error.message
+                    : 'Merge failed. Please try again.',
             );
         } finally {
             setIsDownloading(false);

@@ -130,7 +130,9 @@ export function CrewTimesheetImportDialog({
             formData.append('file', selected);
 
             try {
-                const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+                const csrf = document.querySelector<HTMLMetaElement>(
+                    'meta[name="csrf-token"]',
+                )?.content;
                 const response = await fetch(importPreview.url(periodId), {
                     method: 'POST',
                     body: formData,
@@ -143,11 +145,17 @@ export function CrewTimesheetImportDialog({
                 });
 
                 const data = (await response.json().catch(() => null)) as
-                    | (ImportPreviewResponse & { message?: string; errors?: Record<string, string[]> })
+                    | (ImportPreviewResponse & {
+                          message?: string;
+                          errors?: Record<string, string[]>;
+                      })
                     | null;
 
                 if (!response.ok) {
-                    const fileError = data?.errors?.file?.[0] ?? data?.message ?? 'Could not preview the file.';
+                    const fileError =
+                        data?.errors?.file?.[0] ??
+                        data?.message ??
+                        'Could not preview the file.';
                     setMessage(fileError);
                     setPreview(null);
 
@@ -157,7 +165,11 @@ export function CrewTimesheetImportDialog({
                 setFile(selected);
                 setPreview(data);
             } catch (error) {
-                setMessage(error instanceof Error ? error.message : 'Could not preview the file.');
+                setMessage(
+                    error instanceof Error
+                        ? error.message
+                        : 'Could not preview the file.',
+                );
                 setPreview(null);
             } finally {
                 setIsPreviewing(false);
@@ -182,7 +194,9 @@ export function CrewTimesheetImportDialog({
 
     const handleImport = () => {
         if (!file || !preview || preview.summary.valid === 0) {
-            toast.error('Upload a valid file with at least one importable row.');
+            toast.error(
+                'Upload a valid file with at least one importable row.',
+            );
 
             return;
         }
@@ -219,7 +233,8 @@ export function CrewTimesheetImportDialog({
                 <DialogHeader>
                     <DialogTitle>Import crew timesheets</DialogTitle>
                     <DialogDescription>
-                        Upload the monthly crew timesheet Excel file. Rows are matched by employee number.
+                        Upload the monthly crew timesheet Excel file. Rows are
+                        matched by employee number.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -236,7 +251,9 @@ export function CrewTimesheetImportDialog({
                     <div
                         className={cn(
                             'flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition-colors',
-                            dragActive ? 'border-primary bg-primary/5' : 'border-border/70 bg-muted/20',
+                            dragActive
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border/70 bg-muted/20',
                         )}
                         onDragOver={(event) => {
                             event.preventDefault();
@@ -251,7 +268,9 @@ export function CrewTimesheetImportDialog({
                             type="file"
                             accept=".xlsx,.xls,.csv"
                             className="hidden"
-                            onChange={(event) => pickFile(event.target.files?.[0])}
+                            onChange={(event) =>
+                                pickFile(event.target.files?.[0])
+                            }
                         />
                         {isPreviewing ? (
                             <Loader2 className="mb-2 h-8 w-8 animate-spin text-muted-foreground" />
@@ -259,9 +278,13 @@ export function CrewTimesheetImportDialog({
                             <FileSpreadsheet className="mb-2 h-8 w-8 text-muted-foreground" />
                         )}
                         <p className="text-sm font-medium">
-                            {file ? file.name : 'Drop your timesheet file here or click to browse'}
+                            {file
+                                ? file.name
+                                : 'Drop your timesheet file here or click to browse'}
                         </p>
-                        <p className="mt-1 text-xs text-muted-foreground">Salary Sheet worksheet · .xlsx, .xls, .csv</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            Salary Sheet worksheet · .xlsx, .xls, .csv
+                        </p>
                     </div>
 
                     {message ? (
@@ -274,13 +297,21 @@ export function CrewTimesheetImportDialog({
                     {preview ? (
                         <div className="space-y-3">
                             <div className="flex flex-wrap gap-2">
-                                <Badge variant="secondary">{preview.summary.total} rows</Badge>
-                                <Badge variant="default">{preview.summary.valid} valid</Badge>
+                                <Badge variant="secondary">
+                                    {preview.summary.total} rows
+                                </Badge>
+                                <Badge variant="default">
+                                    {preview.summary.valid} valid
+                                </Badge>
                                 {preview.summary.invalid > 0 ? (
-                                    <Badge variant="destructive">{preview.summary.invalid} invalid</Badge>
+                                    <Badge variant="destructive">
+                                        {preview.summary.invalid} invalid
+                                    </Badge>
                                 ) : null}
                                 {preview.summary.warnings > 0 ? (
-                                    <Badge variant="outline">{preview.summary.warnings} warnings</Badge>
+                                    <Badge variant="outline">
+                                        {preview.summary.warnings} warnings
+                                    </Badge>
                                 ) : null}
                             </div>
 
@@ -288,7 +319,8 @@ export function CrewTimesheetImportDialog({
                                 <Alert>
                                     <AlertTriangle className="h-4 w-4" />
                                     <AlertDescription>
-                                        Some rows have contract rate mismatches. Import will continue for valid rows.
+                                        Some rows have contract rate mismatches.
+                                        Import will continue for valid rows.
                                     </AlertDescription>
                                 </Alert>
                             ) : null}
@@ -310,20 +342,38 @@ export function CrewTimesheetImportDialog({
                                         {preview.rows.map((row) => (
                                             <TableRow key={row.row}>
                                                 <TableCell>{row.row}</TableCell>
-                                                <TableCell>{row.employee_no}</TableCell>
-                                                <TableCell>{row.name ?? '—'}</TableCell>
-                                                <TableCell>{row.standby_days ?? '—'}</TableCell>
-                                                <TableCell>{row.onsite_days ?? '—'}</TableCell>
-                                                <TableCell>{row.overtime_amount}</TableCell>
+                                                <TableCell>
+                                                    {row.employee_no}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {row.name ?? '—'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {row.standby_days ?? '—'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {row.onsite_days ?? '—'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {row.overtime_amount}
+                                                </TableCell>
                                                 <TableCell>
                                                     {row.errors.length > 0 ? (
-                                                        <span className="text-destructive text-xs">
-                                                            {row.errors[0]?.message}
+                                                        <span className="text-xs text-destructive">
+                                                            {
+                                                                row.errors[0]
+                                                                    ?.message
+                                                            }
                                                         </span>
-                                                    ) : row.warnings.length > 0 ? (
-                                                        <span className="text-amber-600 text-xs">Warning</span>
+                                                    ) : row.warnings.length >
+                                                      0 ? (
+                                                        <span className="text-xs text-amber-600">
+                                                            Warning
+                                                        </span>
                                                     ) : (
-                                                        <span className="text-emerald-600 text-xs">Ready</span>
+                                                        <span className="text-xs text-emerald-600">
+                                                            Ready
+                                                        </span>
                                                     )}
                                                 </TableCell>
                                             </TableRow>
@@ -336,15 +386,28 @@ export function CrewTimesheetImportDialog({
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => handleOpenChange(false)}>
+                    <Button
+                        variant="outline"
+                        onClick={() => handleOpenChange(false)}
+                    >
                         Cancel
                     </Button>
                     <Button
                         onClick={handleImport}
-                        disabled={!preview || preview.summary.valid === 0 || isImporting || isPreviewing}
+                        disabled={
+                            !preview ||
+                            preview.summary.valid === 0 ||
+                            isImporting ||
+                            isPreviewing
+                        }
                     >
-                        {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                        Import {preview ? `${preview.summary.valid} row(s)` : ''}
+                        {isImporting ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Upload className="mr-2 h-4 w-4" />
+                        )}
+                        Import{' '}
+                        {preview ? `${preview.summary.valid} row(s)` : ''}
                     </Button>
                 </DialogFooter>
             </DialogContent>

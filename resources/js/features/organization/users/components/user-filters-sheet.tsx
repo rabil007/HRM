@@ -26,29 +26,38 @@ export function UserFiltersSheet({
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
             <div className="space-y-4">
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Status
                     </Label>
                     <AppSelect
                         value={value.status}
-                        onValueChange={(v) => onChange({ ...value, status: v as UserFilters['status'] })}
+                        onValueChange={(v) =>
+                            onChange({
+                                ...value,
+                                status: v as UserFilters['status'],
+                            })
+                        }
                         variant="dark"
                         placeholder="All"
                     >
                         <AppSelectItem value="">All</AppSelectItem>
                         <AppSelectItem value="active">Active</AppSelectItem>
                         <AppSelectItem value="inactive">Inactive</AppSelectItem>
-                        <AppSelectItem value="suspended">Suspended</AppSelectItem>
+                        <AppSelectItem value="suspended">
+                            Suspended
+                        </AppSelectItem>
                     </AppSelect>
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Role
                     </Label>
                     <AppSelect
                         value={value.role_id}
-                        onValueChange={(v) => onChange({ ...value, role_id: v })}
+                        onValueChange={(v) =>
+                            onChange({ ...value, role_id: v })
+                        }
                         variant="dark"
                         placeholder="All"
                     >

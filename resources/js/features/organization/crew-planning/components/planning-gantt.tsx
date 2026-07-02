@@ -4,7 +4,11 @@ import { useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { formatIsoDateLocal } from '../lib/planning-gantt-math';
 import { useZoom } from '../lib/zoom-context';
-import type { GanttBar, GanttVesselGroup, PlanningPagePermissions } from '../types';
+import type {
+    GanttBar,
+    GanttVesselGroup,
+    PlanningPagePermissions,
+} from '../types';
 import { PlanningGanttRow, RANK_LABEL_WIDTH } from './planning-gantt-row';
 
 type Props = {
@@ -16,7 +20,12 @@ type Props = {
     search: string;
     highlightedRowKey: string | null;
     can: PlanningPagePermissions;
-    onRowClick?: (rowKey: string, vesselId: number, rankId: number, estimatedDate: string) => void;
+    onRowClick?: (
+        rowKey: string,
+        vesselId: number,
+        rankId: number,
+        estimatedDate: string,
+    ) => void;
     onEditBar?: (bar: GanttBar) => void;
     onDeleteBar?: (bar: GanttBar) => void;
 };
@@ -26,7 +35,12 @@ function buildDayColumns(
     to: Date,
     today: string,
 ): { date: Date; label: string; isToday: boolean; isWeekend: boolean }[] {
-    const cols: { date: Date; label: string; isToday: boolean; isWeekend: boolean }[] = [];
+    const cols: {
+        date: Date;
+        label: string;
+        isToday: boolean;
+        isWeekend: boolean;
+    }[] = [];
     const cursor = new Date(from);
 
     while (cursor <= to) {
@@ -52,7 +66,10 @@ function buildMonthGroups(days: { date: Date }[]): MonthGroup[] {
     let current: MonthGroup | null = null;
 
     for (const day of days) {
-        const label = day.date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        const label = day.date.toLocaleDateString('en-US', {
+            month: 'short',
+            year: 'numeric',
+        });
 
         if (!current || current.label !== label) {
             current = { label, days: 0 };
@@ -110,21 +127,30 @@ export function PlanningGantt({
     return (
         <div className="flex min-w-0 flex-1 flex-col overflow-auto">
             {/* Timeline header */}
-            <div ref={headerRef} className="sticky top-0 z-20 border-b bg-background shadow-sm">
+            <div
+                ref={headerRef}
+                className="sticky top-0 z-20 border-b bg-background shadow-sm"
+            >
                 {/* Month row */}
                 <div className="flex">
                     <div
-                        className="sticky left-0 z-30 flex shrink-0 items-center border-r bg-background px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60"
+                        className="sticky left-0 z-30 flex shrink-0 items-center border-r bg-background px-3 text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase"
                         style={{ width: RANK_LABEL_WIDTH }}
                     >
                         Rank
                     </div>
-                    <div className="flex" style={{ minWidth: `${timelineMinWidth}px` }}>
+                    <div
+                        className="flex"
+                        style={{ minWidth: `${timelineMinWidth}px` }}
+                    >
                         {monthGroups.map((group) => (
                             <div
                                 key={group.label}
                                 className="border-r px-2 py-1.5 text-xs font-semibold text-foreground/70"
-                                style={{ width: `${group.days * dayWidth}px`, minWidth: `${group.days * dayWidth}px` }}
+                                style={{
+                                    width: `${group.days * dayWidth}px`,
+                                    minWidth: `${group.days * dayWidth}px`,
+                                }}
                             >
                                 {group.label}
                             </div>
@@ -137,24 +163,39 @@ export function PlanningGantt({
                         className="sticky left-0 z-30 shrink-0 border-r bg-background"
                         style={{ width: RANK_LABEL_WIDTH }}
                     />
-                    <div className="flex" style={{ minWidth: `${timelineMinWidth}px` }}>
+                    <div
+                        className="flex"
+                        style={{ minWidth: `${timelineMinWidth}px` }}
+                    >
                         {days.map((day, i) => (
                             <div
                                 key={i}
-                                {...(day.isToday ? { 'data-today-col': '' } : {})}
+                                {...(day.isToday
+                                    ? { 'data-today-col': '' }
+                                    : {})}
                                 className={cn(
                                     'flex shrink-0 items-center justify-center border-r py-0.5 text-[10px] transition-colors',
                                     day.isToday &&
                                         'bg-red-500 font-bold text-white',
-                                    !day.isToday && day.isWeekend && 'bg-muted/50 text-muted-foreground/50',
-                                    !day.isToday && !day.isWeekend && 'text-muted-foreground/60 hover:bg-muted/30',
+                                    !day.isToday &&
+                                        day.isWeekend &&
+                                        'bg-muted/50 text-muted-foreground/50',
+                                    !day.isToday &&
+                                        !day.isWeekend &&
+                                        'text-muted-foreground/60 hover:bg-muted/30',
                                 )}
-                                style={{ width: `${dayWidth}px`, minWidth: `${dayWidth}px` }}
+                                style={{
+                                    width: `${dayWidth}px`,
+                                    minWidth: `${dayWidth}px`,
+                                }}
                             >
                                 {day.isToday ? (
                                     <span className="relative flex flex-col items-center leading-none">
                                         <span className="text-[8px] font-normal uppercase opacity-80">
-                                            {day.date.toLocaleDateString('en-US', { weekday: 'short' })}
+                                            {day.date.toLocaleDateString(
+                                                'en-US',
+                                                { weekday: 'short' },
+                                            )}
                                         </span>
                                         <span>{day.label}</span>
                                     </span>
@@ -174,29 +215,37 @@ export function PlanningGantt({
                         {/* Vessel sub-header */}
                         <div
                             className="flex border-b border-border/60 bg-muted/30"
-                            style={{ minWidth: timelineMinWidth + RANK_LABEL_WIDTH }}
+                            style={{
+                                minWidth: timelineMinWidth + RANK_LABEL_WIDTH,
+                            }}
                         >
                             <div
                                 className="sticky left-0 z-20 flex shrink-0 items-center gap-2 border-r border-border/60 bg-muted/30 px-3"
                                 style={{ width: RANK_LABEL_WIDTH, height: 36 }}
                             >
                                 <Ship className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
-                                <span className="truncate text-[11px] font-bold uppercase tracking-widest text-foreground/60">
+                                <span className="truncate text-[11px] font-bold tracking-widest text-foreground/60 uppercase">
                                     {vessel.vessel_name}
                                 </span>
                             </div>
                             <div
                                 className="border-l-2 border-l-primary/30 bg-muted/30"
-                                style={{ minWidth: `${timelineMinWidth}px`, height: 36 }}
+                                style={{
+                                    minWidth: `${timelineMinWidth}px`,
+                                    height: 36,
+                                }}
                             />
                         </div>
                         {vessel.ranks.map((rank) => {
                             const rowBars = barsByRow.get(rank.row_key) ?? [];
-                            const isHighlightedRow = highlightedRowKey === rank.row_key;
+                            const isHighlightedRow =
+                                highlightedRowKey === rank.row_key;
                             const matchesSearch =
                                 lowerSearch !== '' &&
                                 rowBars.some((b) =>
-                                    b.employee_name.toLowerCase().includes(lowerSearch),
+                                    b.employee_name
+                                        .toLowerCase()
+                                        .includes(lowerSearch),
                                 );
 
                             return (
@@ -211,7 +260,9 @@ export function PlanningGantt({
                                     rangeTo={rangeTo}
                                     today={todayDate}
                                     highlightedCrewName={search}
-                                    isHighlighted={isHighlightedRow || matchesSearch}
+                                    isHighlighted={
+                                        isHighlightedRow || matchesSearch
+                                    }
                                     timelineMinWidth={timelineMinWidth}
                                     can={can}
                                     onRowClick={onRowClick}

@@ -39,11 +39,13 @@ function IconInput({
                     {icon}
                 </div>
                 <div className="h-5 w-px shrink-0 bg-border transition-colors duration-200 group-focus-within:bg-primary/30" />
-                <div className="flex-1 [&_button]:text-muted-foreground [&_button:hover]:text-foreground [&_button]:transition-colors [&_input]:input-autofill-reset [&_input]:h-11 [&_input]:border-0 [&_input]:bg-transparent [&_input]:px-3.5 [&_input]:text-sm [&_input]:text-foreground [&_input]:shadow-none [&_input]:ring-0 [&_input]:outline-none [&_input]:placeholder:text-muted-foreground/60 [&_input]:focus-visible:border-0 [&_input]:focus-visible:ring-0">
+                <div className="flex-1 [&_button]:text-muted-foreground [&_button]:transition-colors [&_button:hover]:text-foreground [&_input]:h-11 [&_input]:border-0 [&_input]:bg-transparent [&_input]:px-3.5 [&_input]:text-sm [&_input]:text-foreground [&_input]:input-autofill-reset [&_input]:shadow-none [&_input]:ring-0 [&_input]:outline-none [&_input]:placeholder:text-muted-foreground/60 [&_input]:focus-visible:border-0 [&_input]:focus-visible:ring-0">
                     {children}
                 </div>
             </div>
-            {error ? <p className="text-xs font-medium text-destructive">{error}</p> : null}
+            {error ? (
+                <p className="text-xs font-medium text-destructive">{error}</p>
+            ) : null}
         </div>
     );
 }
@@ -65,14 +67,24 @@ export default function Login({ status, canResetPassword }: Props) {
                 </div>
             ) : null}
 
-            <Form {...store.form()} resetOnSuccess={['password']} className="flex flex-col gap-4">
+            <Form
+                {...store.form()}
+                resetOnSuccess={['password']}
+                className="flex flex-col gap-4"
+            >
                 {({ processing, errors }) => (
                     <>
                         <div className="flex flex-col gap-2">
-                            <label htmlFor="email" className={masterDataFieldLabelClass}>
+                            <label
+                                htmlFor="email"
+                                className={masterDataFieldLabelClass}
+                            >
                                 Email address
                             </label>
-                            <IconInput icon={<AtSign className="size-4" />} error={errors.email}>
+                            <IconInput
+                                icon={<AtSign className="size-4" />}
+                                error={errors.email}
+                            >
                                 <input
                                     id="email"
                                     type="email"
@@ -88,7 +100,10 @@ export default function Login({ status, canResetPassword }: Props) {
 
                         <div className="flex flex-col gap-2">
                             <div className="flex items-center justify-between">
-                                <label htmlFor="password" className={masterDataFieldLabelClass}>
+                                <label
+                                    htmlFor="password"
+                                    className={masterDataFieldLabelClass}
+                                >
                                     Password
                                 </label>
                                 {canResetPassword ? (
@@ -101,7 +116,10 @@ export default function Login({ status, canResetPassword }: Props) {
                                     </TextLink>
                                 ) : null}
                             </div>
-                            <IconInput icon={<Lock className="size-4" />} error={errors.password}>
+                            <IconInput
+                                icon={<Lock className="size-4" />}
+                                error={errors.password}
+                            >
                                 <PasswordInput
                                     id="password"
                                     name="password"
@@ -119,9 +137,17 @@ export default function Login({ status, canResetPassword }: Props) {
                                 checked={remember}
                                 tabIndex={3}
                                 className="border-border data-[state=checked]:border-primary data-[state=checked]:bg-primary"
-                                onCheckedChange={(checked) => setRemember(checked === true)}
+                                onCheckedChange={(checked) =>
+                                    setRemember(checked === true)
+                                }
                             />
-                            {remember ? <input type="hidden" name="remember" value="1" /> : null}
+                            {remember ? (
+                                <input
+                                    type="hidden"
+                                    name="remember"
+                                    value="1"
+                                />
+                            ) : null}
                             <label
                                 htmlFor="remember"
                                 className="cursor-pointer text-sm text-muted-foreground select-none"

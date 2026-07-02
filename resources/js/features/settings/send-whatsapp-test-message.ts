@@ -3,7 +3,10 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
         return fallback;
     }
 
-    const data = payload as { message?: string; errors?: Record<string, string[]> };
+    const data = payload as {
+        message?: string;
+        errors?: Record<string, string[]>;
+    };
 
     if (data.message) {
         return data.message;
@@ -43,17 +46,22 @@ export async function sendWhatsAppTestText(
     phone: string,
     message: string,
 ): Promise<WhatsAppTestSendResult> {
-    const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+    const csrf = document.querySelector<HTMLMetaElement>(
+        'meta[name="csrf-token"]',
+    )?.content;
 
-    const response = await fetch('/settings/application/whatsapp/send-test-text', {
-        method: 'POST',
-        headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+    const response = await fetch(
+        '/settings/application/whatsapp/send-test-text',
+        {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+            },
+            body: JSON.stringify({ phone, message }),
         },
-        body: JSON.stringify({ phone, message }),
-    });
+    );
 
     const contentType = response.headers.get('Content-Type') ?? '';
     const data = contentType.includes('application/json')
@@ -64,7 +72,9 @@ export async function sendWhatsAppTestText(
         return data as WhatsAppTestSendResult;
     }
 
-    throw new Error(extractErrorMessage(data, 'Failed to send WhatsApp test message.'));
+    throw new Error(
+        extractErrorMessage(data, 'Failed to send WhatsApp test message.'),
+    );
 }
 
 export async function sendWhatsAppTestDocument(
@@ -72,7 +82,9 @@ export async function sendWhatsAppTestDocument(
     file: File,
     caption?: string,
 ): Promise<WhatsAppTestSendResult> {
-    const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+    const csrf = document.querySelector<HTMLMetaElement>(
+        'meta[name="csrf-token"]',
+    )?.content;
     const formData = new FormData();
     formData.append('phone', phone);
     formData.append('file', file);
@@ -81,14 +93,17 @@ export async function sendWhatsAppTestDocument(
         formData.append('caption', caption.trim());
     }
 
-    const response = await fetch('/settings/application/whatsapp/send-test-document', {
-        method: 'POST',
-        headers: {
-            Accept: 'application/json',
-            ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+    const response = await fetch(
+        '/settings/application/whatsapp/send-test-document',
+        {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+            },
+            body: formData,
         },
-        body: formData,
-    });
+    );
 
     const contentType = response.headers.get('Content-Type') ?? '';
     const data = contentType.includes('application/json')
@@ -99,21 +114,30 @@ export async function sendWhatsAppTestDocument(
         return data as WhatsAppTestSendResult;
     }
 
-    throw new Error(extractErrorMessage(data, 'Failed to send WhatsApp test document.'));
+    throw new Error(
+        extractErrorMessage(data, 'Failed to send WhatsApp test document.'),
+    );
 }
 
-export async function sendWhatsAppTestTemplate(phone: string): Promise<WhatsAppTestSendResult> {
-    const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+export async function sendWhatsAppTestTemplate(
+    phone: string,
+): Promise<WhatsAppTestSendResult> {
+    const csrf = document.querySelector<HTMLMetaElement>(
+        'meta[name="csrf-token"]',
+    )?.content;
 
-    const response = await fetch('/settings/application/whatsapp/send-test-template', {
-        method: 'POST',
-        headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+    const response = await fetch(
+        '/settings/application/whatsapp/send-test-template',
+        {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+            },
+            body: JSON.stringify({ phone }),
         },
-        body: JSON.stringify({ phone }),
-    });
+    );
 
     const contentType = response.headers.get('Content-Type') ?? '';
     const data = contentType.includes('application/json')
@@ -124,7 +148,9 @@ export async function sendWhatsAppTestTemplate(phone: string): Promise<WhatsAppT
         return data as WhatsAppTestSendResult;
     }
 
-    throw new Error(extractErrorMessage(data, 'Failed to send WhatsApp test template.'));
+    throw new Error(
+        extractErrorMessage(data, 'Failed to send WhatsApp test template.'),
+    );
 }
 
 export async function sendWhatsAppTestDocumentTemplate(
@@ -133,7 +159,9 @@ export async function sendWhatsAppTestDocumentTemplate(
     sampleName?: string,
     templateSlug?: string,
 ): Promise<WhatsAppTestSendResult> {
-    const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+    const csrf = document.querySelector<HTMLMetaElement>(
+        'meta[name="csrf-token"]',
+    )?.content;
     const formData = new FormData();
     formData.append('phone', phone);
     formData.append('file', file);
@@ -146,14 +174,17 @@ export async function sendWhatsAppTestDocumentTemplate(
         formData.append('template_slug', templateSlug.trim());
     }
 
-    const response = await fetch('/settings/application/whatsapp/send-test-document-template', {
-        method: 'POST',
-        headers: {
-            Accept: 'application/json',
-            ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+    const response = await fetch(
+        '/settings/application/whatsapp/send-test-document-template',
+        {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+            },
+            body: formData,
         },
-        body: formData,
-    });
+    );
 
     const contentType = response.headers.get('Content-Type') ?? '';
     const data = contentType.includes('application/json')
@@ -165,6 +196,9 @@ export async function sendWhatsAppTestDocumentTemplate(
     }
 
     throw new Error(
-        extractErrorMessage(data, 'Failed to send WhatsApp document delivery template.'),
+        extractErrorMessage(
+            data,
+            'Failed to send WhatsApp document delivery template.',
+        ),
     );
 }

@@ -48,7 +48,9 @@ export function ConfirmDeleteDocumentDialog({
                         )}
                         <AlertDialogTitle>{title}</AlertDialogTitle>
                     </div>
-                    <AlertDialogDescription>{description}</AlertDialogDescription>
+                    <AlertDialogDescription>
+                        {description}
+                    </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel
@@ -60,7 +62,10 @@ export function ConfirmDeleteDocumentDialog({
                         Cancel
                     </AlertDialogCancel>
                     <AlertDialogAction
-                        className={confirmClassName ?? 'bg-red-600 text-white hover:bg-red-500'}
+                        className={
+                            confirmClassName ??
+                            'bg-red-600 text-white hover:bg-red-500'
+                        }
                         disabled={confirmDisabled}
                         onClick={onConfirm}
                     >

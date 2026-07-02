@@ -18,7 +18,12 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
@@ -27,8 +32,8 @@ import type { PaginationMeta } from '@/types/pagination';
 import { LeaveTypeCard } from './components/leave-type-card';
 import { LeaveTypeDeleteDialog } from './components/leave-type-delete-dialog';
 import { LeaveTypeFormSheet } from './components/leave-type-form-sheet';
-import { defaultLeaveTypeFormData, leaveTypeToFormData  } from './types';
-import type {LeaveType} from './types';
+import { defaultLeaveTypeFormData, leaveTypeToFormData } from './types';
+import type { LeaveType } from './types';
 
 export function AttendanceTypesContent({
     leave_types,
@@ -48,7 +53,9 @@ export function AttendanceTypesContent({
     const [view, setView] = useViewPreference('attendance-types:view', 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [currentLeaveType, setCurrentLeaveType] = useState<LeaveType | null>(null);
+    const [currentLeaveType, setCurrentLeaveType] = useState<LeaveType | null>(
+        null,
+    );
 
     const form = useForm(defaultLeaveTypeFormData());
 
@@ -92,7 +99,8 @@ export function AttendanceTypesContent({
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onError: () => toast.error('Failed to update status. Please try again.'),
+                onError: () =>
+                    toast.error('Failed to update status. Please try again.'),
             },
         );
     };
@@ -119,7 +127,10 @@ export function AttendanceTypesContent({
                 title="Types"
                 description="Manage leave categories such as annual leave and sick leave."
                 right={
-                    <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
+                    <Button
+                        onClick={handleAdd}
+                        className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                    >
                         <Plus className="mr-2 h-4 w-4" />
                         Add Type
                     </Button>
@@ -155,34 +166,58 @@ export function AttendanceTypesContent({
                             <DataTableHead>Max carry</DataTableHead>
                             <DataTableHead>Color</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
-                            <DataTableHead className="text-right">Actions</DataTableHead>
+                            <DataTableHead className="text-right">
+                                Actions
+                            </DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
                     <TableBody>
                         {leave_types.map((leaveType) => (
-                            <TableRow key={leaveType.id} className={dataTableBodyRowClass()}>
-                                <TableCell className={dataTableCellPrimaryClass()}>{leaveType.name}</TableCell>
-                                <TableCell className={dataTableCellClass()}>{leaveType.code}</TableCell>
-                                <TableCell className={dataTableCellClass()}>{leaveType.days_per_year}</TableCell>
-                                <TableCell className={dataTableCellClass()}>{leaveType.max_carry_days}</TableCell>
+                            <TableRow
+                                key={leaveType.id}
+                                className={dataTableBodyRowClass()}
+                            >
+                                <TableCell
+                                    className={dataTableCellPrimaryClass()}
+                                >
+                                    {leaveType.name}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {leaveType.code}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {leaveType.days_per_year}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {leaveType.max_carry_days}
+                                </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     <span
                                         className="inline-block h-5 w-5 rounded-full border border-border/60"
-                                        style={{ backgroundColor: leaveType.color ?? '#94a3b8' }}
+                                        style={{
+                                            backgroundColor:
+                                                leaveType.color ?? '#94a3b8',
+                                        }}
                                     />
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     <div className="flex items-center gap-3">
                                         <Switch
-                                            checked={leaveType.status === 'active'}
-                                            onCheckedChange={(checked) => toggleStatus(leaveType, checked)}
+                                            checked={
+                                                leaveType.status === 'active'
+                                            }
+                                            onCheckedChange={(checked) =>
+                                                toggleStatus(leaveType, checked)
+                                            }
                                         />
-                                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        <span className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                             {leaveType.status}
                                         </span>
                                     </div>
                                 </TableCell>
-                                <TableCell className={dataTableActionsCellClass()}>
+                                <TableCell
+                                    className={dataTableActionsCellClass()}
+                                >
                                     <ListTableCrudActions
                                         viewHref={`/attendance/types/${leaveType.id}`}
                                         onEdit={() => handleEdit(leaveType)}
@@ -195,7 +230,9 @@ export function AttendanceTypesContent({
                 </OrganizationDataTable>
             )}
 
-            {leave_types.length === 0 ? <EmptyState title="No types found." /> : null}
+            {leave_types.length === 0 ? (
+                <EmptyState title="No types found." />
+            ) : null}
 
             <Pagination {...list.paginationProps} label="types" />
 

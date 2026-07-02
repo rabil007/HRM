@@ -1,4 +1,9 @@
-export type HikvisionEventsFetchStatus = 'idle' | 'queued' | 'running' | 'completed' | 'failed';
+export type HikvisionEventsFetchStatus =
+    | 'idle'
+    | 'queued'
+    | 'running'
+    | 'completed'
+    | 'failed';
 
 export type HikvisionAccessEventFilters = {
     search: string;

@@ -88,7 +88,8 @@ export function EmployeeVaccinationTab({
         validateRequired,
         syncMissingFromFormData,
     } = useTemplateRecordFields(templateFields, {
-        defaultRequiredFields: TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_vaccinations,
+        defaultRequiredFields:
+            TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_vaccinations,
     });
 
     const [vaccinationDialogOpen, setVaccinationDialogOpen] = useState(false);
@@ -157,7 +158,9 @@ export function EmployeeVaccinationTab({
             return;
         }
 
-        if (!validateRequired(vaccinationForm.data as Record<string, unknown>)) {
+        if (
+            !validateRequired(vaccinationForm.data as Record<string, unknown>)
+        ) {
             return;
         }
 
@@ -166,13 +169,20 @@ export function EmployeeVaccinationTab({
             omitHiddenTemplateRecordFields(
                 {
                     vaccination_name: data.vaccination_name.trim(),
-                    country_id: data.country_id === '' ? null : Number(data.country_id),
+                    country_id:
+                        data.country_id === '' ? null : Number(data.country_id),
                     first_dose_date:
-                        data.first_dose_date === '' ? null : data.first_dose_date,
+                        data.first_dose_date === ''
+                            ? null
+                            : data.first_dose_date,
                     second_dose_date:
-                        data.second_dose_date === '' ? null : data.second_dose_date,
+                        data.second_dose_date === ''
+                            ? null
+                            : data.second_dose_date,
                     booster_dose_date:
-                        data.booster_dose_date === '' ? null : data.booster_dose_date,
+                        data.booster_dose_date === ''
+                            ? null
+                            : data.booster_dose_date,
                 },
                 templateFields,
             ),
@@ -247,27 +257,44 @@ export function EmployeeVaccinationTab({
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
                             {showField('vaccination_name') ? (
-                                <th className={employeeRecordsTableThClass()}>Vaccination</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Vaccination
+                                </th>
                             ) : null}
                             {showField('country_id') ? (
-                                <th className={employeeRecordsTableThClass()}>Country</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Country
+                                </th>
                             ) : null}
                             {showField('first_dose_date') ? (
-                                <th className={employeeRecordsTableThClass()}>1st dose</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    1st dose
+                                </th>
                             ) : null}
                             {showField('second_dose_date') ? (
-                                <th className={employeeRecordsTableThClass()}>2nd dose</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    2nd dose
+                                </th>
                             ) : null}
                             {showField('booster_dose_date') ? (
-                                <th className={employeeRecordsTableThClass()}>Booster</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Booster
+                                </th>
                             ) : null}
-                            <th className={employeeRecordsTableThClass()}>Added</th>
-                            {canManage ? <EmployeeRecordsActionsHeader /> : null}
+                            <th className={employeeRecordsTableThClass()}>
+                                Added
+                            </th>
+                            {canManage ? (
+                                <EmployeeRecordsActionsHeader />
+                            ) : null}
                         </tr>
                     </thead>
                     <tbody>
                         {vaccinations.map((row) => (
-                            <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                            <tr
+                                key={row.id}
+                                className={employeeRecordsTableRowClass()}
+                            >
                                 {showField('vaccination_name') ? (
                                     <td
                                         className={cn(
@@ -293,45 +320,58 @@ export function EmployeeVaccinationTab({
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
-                                            'whitespace-nowrap text-xs text-muted-foreground',
+                                            'text-xs whitespace-nowrap text-muted-foreground',
                                         )}
                                     >
-                                        {formatIsoDateDisplay(row.first_dose_date)}
+                                        {formatIsoDateDisplay(
+                                            row.first_dose_date,
+                                        )}
                                     </td>
                                 ) : null}
                                 {showField('second_dose_date') ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
-                                            'whitespace-nowrap text-xs text-muted-foreground',
+                                            'text-xs whitespace-nowrap text-muted-foreground',
                                         )}
                                     >
-                                        {formatIsoDateDisplay(row.second_dose_date)}
+                                        {formatIsoDateDisplay(
+                                            row.second_dose_date,
+                                        )}
                                     </td>
                                 ) : null}
                                 {showField('booster_dose_date') ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
-                                            'whitespace-nowrap text-xs text-muted-foreground',
+                                            'text-xs whitespace-nowrap text-muted-foreground',
                                         )}
                                     >
-                                        {formatIsoDateDisplay(row.booster_dose_date)}
+                                        {formatIsoDateDisplay(
+                                            row.booster_dose_date,
+                                        )}
                                     </td>
                                 ) : null}
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'whitespace-nowrap text-xs text-muted-foreground',
+                                        'text-xs whitespace-nowrap text-muted-foreground',
                                     )}
                                 >
                                     {formatDisplayDate(row.created_at)}
                                 </td>
                                 {canManage ? (
-                                    <td className={cn(employeeRecordsTableTdClass(), 'text-right')}>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'text-right',
+                                        )}
+                                    >
                                         <EmployeeRecordRowActions
                                             onEdit={() => openEditDialog(row)}
-                                            onDelete={() => setDeleteVaccinationId(row.id)}
+                                            onDelete={() =>
+                                                setDeleteVaccinationId(row.id)
+                                            }
                                         />
                                     </td>
                                 ) : null}
@@ -356,7 +396,9 @@ export function EmployeeVaccinationTab({
                 <DialogContent className="sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>
-                            {editingVaccination ? 'Edit vaccination' : 'Add vaccination'}
+                            {editingVaccination
+                                ? 'Edit vaccination'
+                                : 'Add vaccination'}
                         </DialogTitle>
                         <p className="text-xs text-muted-foreground">
                             Log a vaccination record and dose dates.
@@ -371,7 +413,7 @@ export function EmployeeVaccinationTab({
                     {showVaccineDetailsSection ? (
                         <div className="space-y-4 py-1">
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Vaccine details
                                 </span>
                                 <div className="h-px flex-1 bg-muted/50" />
@@ -380,24 +422,35 @@ export function EmployeeVaccinationTab({
                                 {showField('vaccination_name') ? (
                                     <RecordFormField
                                         field="vaccination_name"
-                                        highlightMissing={isMissingRequired('vaccination_name')}
+                                        highlightMissing={isMissingRequired(
+                                            'vaccination_name',
+                                        )}
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
-                                                isMissingRequired('vaccination_name'),
+                                                isMissingRequired(
+                                                    'vaccination_name',
+                                                ),
                                             )}
                                         >
                                             Vaccination name
                                             <RequiredIndicator
-                                                show={isFieldRequired('vaccination_name')}
+                                                show={isFieldRequired(
+                                                    'vaccination_name',
+                                                )}
                                             />
                                         </Label>
                                         <Input
                                             className={recordFieldInputClass(
-                                                isMissingRequired('vaccination_name'),
+                                                isMissingRequired(
+                                                    'vaccination_name',
+                                                ),
                                             )}
                                             placeholder="e.g. COVID-19 (Pfizer), Yellow Fever"
-                                            value={vaccinationForm.data.vaccination_name}
+                                            value={
+                                                vaccinationForm.data
+                                                    .vaccination_name
+                                            }
                                             onChange={(e) =>
                                                 vaccinationForm.setData(
                                                     'vaccination_name',
@@ -405,14 +458,20 @@ export function EmployeeVaccinationTab({
                                                 )
                                             }
                                         />
-                                        {vaccinationForm.errors.vaccination_name ? (
+                                        {vaccinationForm.errors
+                                            .vaccination_name ? (
                                             <p className="text-xs text-destructive">
-                                                {vaccinationForm.errors.vaccination_name}
+                                                {
+                                                    vaccinationForm.errors
+                                                        .vaccination_name
+                                                }
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
                                                 The name or type of the vaccine
-                                                {isFieldRequired('vaccination_name')
+                                                {isFieldRequired(
+                                                    'vaccination_name',
+                                                )
                                                     ? ''
                                                     : ' (optional)'}
                                             </p>
@@ -422,7 +481,9 @@ export function EmployeeVaccinationTab({
                                 {showField('country_id') ? (
                                     <RecordFormField
                                         field="country_id"
-                                        highlightMissing={isMissingRequired('country_id')}
+                                        highlightMissing={isMissingRequired(
+                                            'country_id',
+                                        )}
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
@@ -430,12 +491,21 @@ export function EmployeeVaccinationTab({
                                             )}
                                         >
                                             Country
-                                            <RequiredIndicator show={isFieldRequired('country_id')} />
+                                            <RequiredIndicator
+                                                show={isFieldRequired(
+                                                    'country_id',
+                                                )}
+                                            />
                                         </Label>
                                         <AppSelect
-                                            value={vaccinationForm.data.country_id}
+                                            value={
+                                                vaccinationForm.data.country_id
+                                            }
                                             onValueChange={(v) =>
-                                                vaccinationForm.setData('country_id', v)
+                                                vaccinationForm.setData(
+                                                    'country_id',
+                                                    v,
+                                                )
                                             }
                                             variant="dark"
                                             placeholder="— Select a country —"
@@ -444,19 +514,28 @@ export function EmployeeVaccinationTab({
                                                 — Select a country —
                                             </AppSelectItem>
                                             {countries.map((c) => (
-                                                <AppSelectItem key={c.id} value={String(c.id)}>
+                                                <AppSelectItem
+                                                    key={c.id}
+                                                    value={String(c.id)}
+                                                >
                                                     {c.name}
                                                 </AppSelectItem>
                                             ))}
                                         </AppSelect>
                                         {vaccinationForm.errors.country_id ? (
                                             <p className="text-xs text-destructive">
-                                                {vaccinationForm.errors.country_id}
+                                                {
+                                                    vaccinationForm.errors
+                                                        .country_id
+                                                }
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
-                                                Where the vaccination was administered
-                                                {isFieldRequired('country_id') ? '' : ' (optional)'}
+                                                Where the vaccination was
+                                                administered
+                                                {isFieldRequired('country_id')
+                                                    ? ''
+                                                    : ' (optional)'}
                                             </p>
                                         )}
                                     </RecordFormField>
@@ -468,7 +547,7 @@ export function EmployeeVaccinationTab({
                     {showDoseDatesSection ? (
                         <div className="space-y-4 pt-2">
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Dose dates
                                 </span>
                                 <div className="h-px flex-1 bg-muted/50" />
@@ -477,24 +556,35 @@ export function EmployeeVaccinationTab({
                                 {showField('first_dose_date') ? (
                                     <RecordFormField
                                         field="first_dose_date"
-                                        highlightMissing={isMissingRequired('first_dose_date')}
+                                        highlightMissing={isMissingRequired(
+                                            'first_dose_date',
+                                        )}
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
-                                                isMissingRequired('first_dose_date'),
+                                                isMissingRequired(
+                                                    'first_dose_date',
+                                                ),
                                             )}
                                         >
                                             1st dose
                                             <RequiredIndicator
-                                                show={isFieldRequired('first_dose_date')}
+                                                show={isFieldRequired(
+                                                    'first_dose_date',
+                                                )}
                                             />
                                         </Label>
                                         <Input
                                             type="date"
                                             className={recordFieldInputClass(
-                                                isMissingRequired('first_dose_date'),
+                                                isMissingRequired(
+                                                    'first_dose_date',
+                                                ),
                                             )}
-                                            value={vaccinationForm.data.first_dose_date}
+                                            value={
+                                                vaccinationForm.data
+                                                    .first_dose_date
+                                            }
                                             onChange={(e) =>
                                                 vaccinationForm.setData(
                                                     'first_dose_date',
@@ -502,14 +592,20 @@ export function EmployeeVaccinationTab({
                                                 )
                                             }
                                         />
-                                        {vaccinationForm.errors.first_dose_date ? (
+                                        {vaccinationForm.errors
+                                            .first_dose_date ? (
                                             <p className="text-xs text-destructive">
-                                                {vaccinationForm.errors.first_dose_date}
+                                                {
+                                                    vaccinationForm.errors
+                                                        .first_dose_date
+                                                }
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
                                                 Date of first dose
-                                                {isFieldRequired('first_dose_date')
+                                                {isFieldRequired(
+                                                    'first_dose_date',
+                                                )
                                                     ? ''
                                                     : ' (optional)'}
                                             </p>
@@ -519,24 +615,35 @@ export function EmployeeVaccinationTab({
                                 {showField('second_dose_date') ? (
                                     <RecordFormField
                                         field="second_dose_date"
-                                        highlightMissing={isMissingRequired('second_dose_date')}
+                                        highlightMissing={isMissingRequired(
+                                            'second_dose_date',
+                                        )}
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
-                                                isMissingRequired('second_dose_date'),
+                                                isMissingRequired(
+                                                    'second_dose_date',
+                                                ),
                                             )}
                                         >
                                             2nd dose
                                             <RequiredIndicator
-                                                show={isFieldRequired('second_dose_date')}
+                                                show={isFieldRequired(
+                                                    'second_dose_date',
+                                                )}
                                             />
                                         </Label>
                                         <Input
                                             type="date"
                                             className={recordFieldInputClass(
-                                                isMissingRequired('second_dose_date'),
+                                                isMissingRequired(
+                                                    'second_dose_date',
+                                                ),
                                             )}
-                                            value={vaccinationForm.data.second_dose_date}
+                                            value={
+                                                vaccinationForm.data
+                                                    .second_dose_date
+                                            }
                                             onChange={(e) =>
                                                 vaccinationForm.setData(
                                                     'second_dose_date',
@@ -544,14 +651,20 @@ export function EmployeeVaccinationTab({
                                                 )
                                             }
                                         />
-                                        {vaccinationForm.errors.second_dose_date ? (
+                                        {vaccinationForm.errors
+                                            .second_dose_date ? (
                                             <p className="text-xs text-destructive">
-                                                {vaccinationForm.errors.second_dose_date}
+                                                {
+                                                    vaccinationForm.errors
+                                                        .second_dose_date
+                                                }
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
                                                 Date of second dose
-                                                {isFieldRequired('second_dose_date')
+                                                {isFieldRequired(
+                                                    'second_dose_date',
+                                                )
                                                     ? ''
                                                     : ' (optional)'}
                                             </p>
@@ -561,24 +674,35 @@ export function EmployeeVaccinationTab({
                                 {showField('booster_dose_date') ? (
                                     <RecordFormField
                                         field="booster_dose_date"
-                                        highlightMissing={isMissingRequired('booster_dose_date')}
+                                        highlightMissing={isMissingRequired(
+                                            'booster_dose_date',
+                                        )}
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
-                                                isMissingRequired('booster_dose_date'),
+                                                isMissingRequired(
+                                                    'booster_dose_date',
+                                                ),
                                             )}
                                         >
                                             Booster
                                             <RequiredIndicator
-                                                show={isFieldRequired('booster_dose_date')}
+                                                show={isFieldRequired(
+                                                    'booster_dose_date',
+                                                )}
                                             />
                                         </Label>
                                         <Input
                                             type="date"
                                             className={recordFieldInputClass(
-                                                isMissingRequired('booster_dose_date'),
+                                                isMissingRequired(
+                                                    'booster_dose_date',
+                                                ),
                                             )}
-                                            value={vaccinationForm.data.booster_dose_date}
+                                            value={
+                                                vaccinationForm.data
+                                                    .booster_dose_date
+                                            }
                                             onChange={(e) =>
                                                 vaccinationForm.setData(
                                                     'booster_dose_date',
@@ -586,14 +710,20 @@ export function EmployeeVaccinationTab({
                                                 )
                                             }
                                         />
-                                        {vaccinationForm.errors.booster_dose_date ? (
+                                        {vaccinationForm.errors
+                                            .booster_dose_date ? (
                                             <p className="text-xs text-destructive">
-                                                {vaccinationForm.errors.booster_dose_date}
+                                                {
+                                                    vaccinationForm.errors
+                                                        .booster_dose_date
+                                                }
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
                                                 Date of booster dose
-                                                {isFieldRequired('booster_dose_date')
+                                                {isFieldRequired(
+                                                    'booster_dose_date',
+                                                )
                                                     ? ''
                                                     : ' (optional)'}
                                             </p>

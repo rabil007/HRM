@@ -5,7 +5,11 @@ import {
     employeeFieldMissingLabelClass,
 } from '@/pages/organization/_lib/employee-required-field-labels';
 
-export function RequiredIndicator({ show }: { show: boolean }): ReactElement | null {
+export function RequiredIndicator({
+    show,
+}: {
+    show: boolean;
+}): ReactElement | null {
     if (!show) {
         return null;
     }

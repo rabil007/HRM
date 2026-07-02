@@ -2,13 +2,21 @@ import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PaginationMeta } from '@/types/pagination';
 
-export type ServerQueryParams = Record<string, string | number | boolean | null>;
+export type ServerQueryParams = Record<
+    string,
+    string | number | boolean | null
+>;
 
 function cleanParams(params: ServerQueryParams): Record<string, string> {
     const clean: Record<string, string> = {};
 
     Object.entries(params).forEach(([key, value]) => {
-        if (value !== null && value !== '' && value !== undefined && value !== false) {
+        if (
+            value !== null &&
+            value !== '' &&
+            value !== undefined &&
+            value !== false
+        ) {
             clean[key] = String(value);
         }
     });
@@ -59,11 +67,19 @@ export function useServerPaginationFilters<TFilters extends ServerQueryParams>({
 
     const visit = useCallback(
         (overrides: ServerQueryParams = {}) => {
-            router.get(url, cleanParams({ ...baseQuery(), per_page: pagination.per_page, ...overrides }), {
-                preserveState: true,
-                preserveScroll: true,
-                replace: true,
-            });
+            router.get(
+                url,
+                cleanParams({
+                    ...baseQuery(),
+                    per_page: pagination.per_page,
+                    ...overrides,
+                }),
+                {
+                    preserveState: true,
+                    preserveScroll: true,
+                    replace: true,
+                },
+            );
         },
         [url, baseQuery, pagination.per_page],
     );
@@ -92,7 +108,10 @@ export function useServerPaginationFilters<TFilters extends ServerQueryParams>({
 
     const goToPage = useCallback((page: number) => visit({ page }), [visit]);
 
-    const setPerPage = useCallback((perPage: number) => visit({ page: null, per_page: perPage }), [visit]);
+    const setPerPage = useCallback(
+        (perPage: number) => visit({ page: null, per_page: perPage }),
+        [visit],
+    );
 
     const paginationProps = {
         currentPage: pagination.current_page,

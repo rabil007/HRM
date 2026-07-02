@@ -17,9 +17,12 @@ export function RoleDeleteDialog({
             open={open}
             onOpenChange={onOpenChange}
             title="Delete role"
-            description={role ? `This will permanently delete “${role.name}”.` : 'This will permanently delete this role.'}
+            description={
+                role
+                    ? `This will permanently delete “${role.name}”.`
+                    : 'This will permanently delete this role.'
+            }
             onConfirm={onConfirm}
         />
     );
 }
-

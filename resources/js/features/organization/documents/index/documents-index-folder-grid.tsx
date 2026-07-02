@@ -93,7 +93,9 @@ export function DocumentsIndexFolderGrid({
                             canDownload={canDownload}
                             selectionMode={selectionMode}
                             selected={isFolderSelected(employee.employee_id)}
-                            onSelectedChange={() => onToggleFolder(employee.employee_id)}
+                            onSelectedChange={() =>
+                                onToggleFolder(employee.employee_id)
+                            }
                         />
                     ))}
                 </div>

@@ -3,7 +3,11 @@ import ApplicationLogo from '@/components/application-logo';
 import { home } from '@/routes';
 import type { AuthLayoutProps } from '@/types';
 
-export default function AuthSplitLayout({ children, title, description }: AuthLayoutProps) {
+export default function AuthSplitLayout({
+    children,
+    title,
+    description,
+}: AuthLayoutProps) {
     const { name, settings } = usePage().props;
     const loginBackground = settings?.branding?.login_background_url;
 
@@ -45,7 +49,9 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
                                 iconClassName="size-5 text-primary"
                             />
                         </div>
-                        <span className="text-lg font-bold tracking-tight text-foreground">{name}</span>
+                        <span className="text-lg font-bold tracking-tight text-foreground">
+                            {name}
+                        </span>
                     </Link>
                 </header>
 
@@ -58,11 +64,15 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
                             <p className="mb-3 text-[10px] font-bold tracking-[0.2em] text-primary uppercase">
                                 HR & Workforce Platform
                             </p>
-                            <h1 className="text-3xl font-bold tracking-tight text-foreground">{title}</h1>
-                            <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+                            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                                {title}
+                            </h1>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                                {description}
+                            </p>
                         </div>
 
-                        <div className="glass-card rounded-2xl border border-border/80 p-6 shadow-lg sm:p-8">
+                        <div className="rounded-2xl border glass-card border-border/80 p-6 shadow-lg sm:p-8">
                             {children}
                         </div>
                     </div>

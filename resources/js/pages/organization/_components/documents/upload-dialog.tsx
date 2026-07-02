@@ -18,10 +18,9 @@ import {
 } from '@/features/organization/documents/upload/compress-upload-file';
 import {
     DocumentUploadProgressOverlay,
-    resolveDocumentUploadPhase
-    
+    resolveDocumentUploadPhase,
 } from '@/features/organization/documents/upload/document-upload-progress';
-import type {DocumentUploadProgressState} from '@/features/organization/documents/upload/document-upload-progress';
+import type { DocumentUploadProgressState } from '@/features/organization/documents/upload/document-upload-progress';
 import { UploadDocumentDraftForm } from '@/features/organization/documents/upload/upload-document-draft-form';
 import { UploadDocumentDraftListItem } from '@/features/organization/documents/upload/upload-document-draft-list-item';
 import {
@@ -98,7 +97,8 @@ export function UploadDocumentDialog({
         validateRequired,
         syncMissingFromFormData,
     } = useTemplateRecordFields(templateFields, {
-        defaultRequiredFields: TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_documents,
+        defaultRequiredFields:
+            TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_documents,
     });
 
     const requiredFields = useMemo(
@@ -141,7 +141,8 @@ export function UploadDocumentDialog({
     const [isDraggingFiles, setIsDraggingFiles] = useState(false);
     const [isCompressingFiles, setIsCompressingFiles] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState<DocumentUploadProgressState>(null);
+    const [uploadProgress, setUploadProgress] =
+        useState<DocumentUploadProgressState>(null);
 
     const uploadProgressPhase = resolveDocumentUploadPhase({
         isPreparing: isCompressingFiles,
@@ -180,7 +181,9 @@ export function UploadDocumentDialog({
     }, [clearMissingRequired]);
 
     const addUploadFiles = useCallback(async (files: File[]) => {
-        const supportedFiles = files.filter((file) => isSupportedUploadFile(file));
+        const supportedFiles = files.filter((file) =>
+            isSupportedUploadFile(file),
+        );
 
         if (supportedFiles.length !== files.length) {
             toast.error('Only PDF, JPG, JPEG, and PNG files are supported.');
@@ -208,7 +211,9 @@ export function UploadDocumentDialog({
 
             for (const file of preparedFiles) {
                 if (next.length >= MAX_UPLOAD_FILES) {
-                    toast.error(`You can upload up to ${MAX_UPLOAD_FILES} files at once.`);
+                    toast.error(
+                        `You can upload up to ${MAX_UPLOAD_FILES} files at once.`,
+                    );
 
                     break;
                 }
@@ -232,7 +237,9 @@ export function UploadDocumentDialog({
 
     const removeDraft = useCallback((draftId: string) => {
         setDrafts((current) => {
-            const removedIndex = current.findIndex((draft) => draft.id === draftId);
+            const removedIndex = current.findIndex(
+                (draft) => draft.id === draftId,
+            );
             const next = current.filter((draft) => draft.id !== draftId);
 
             if (removedIndex !== -1) {
@@ -244,7 +251,10 @@ export function UploadDocumentDialog({
                             return;
                         }
 
-                        remapped.set(index > removedIndex ? index - 1 : index, value);
+                        remapped.set(
+                            index > removedIndex ? index - 1 : index,
+                            value,
+                        );
                     });
 
                     return remapped;
@@ -266,7 +276,9 @@ export function UploadDocumentDialog({
     const updateDraft = useCallback(
         (draftId: string, patch: Partial<UploadDraftMetadata>) => {
             setDrafts((current) => {
-                const index = current.findIndex((draft) => draft.id === draftId);
+                const index = current.findIndex(
+                    (draft) => draft.id === draftId,
+                );
 
                 if (index !== -1) {
                     setFieldErrorsByIndex((errors) => {
@@ -276,7 +288,9 @@ export function UploadDocumentDialog({
 
                         const next = new Map(errors);
                         const existing = { ...next.get(index)! };
-                        const field = Object.keys(patch)[0] as keyof UploadDraftFieldErrors;
+                        const field = Object.keys(
+                            patch,
+                        )[0] as keyof UploadDraftFieldErrors;
 
                         if (field && existing[field]) {
                             delete existing[field];
@@ -309,7 +323,9 @@ export function UploadDocumentDialog({
 
         setDrafts((current) =>
             current.map((draft) =>
-                draft.id === selectedDraft.id ? draft : { ...draft, ...metadata },
+                draft.id === selectedDraft.id
+                    ? draft
+                    : { ...draft, ...metadata },
             ),
         );
     }, [drafts.length, selectedDraft]);
@@ -352,7 +368,9 @@ export function UploadDocumentDialog({
         setFieldErrorsByIndex(new Map());
 
         router.post(
-            EmployeeDocumentController.bulkStore.url({ employee: resolvedEmployeeId }),
+            EmployeeDocumentController.bulkStore.url({
+                employee: resolvedEmployeeId,
+            }),
             {
                 documents: drafts.map((draft) =>
                     omitHiddenTemplateRecordFields(
@@ -401,7 +419,16 @@ export function UploadDocumentDialog({
                 },
             },
         );
-    }, [drafts, employeeId, ensureEmployee, isUploading, onOpenChange, resetUploadDialog, templateFields, validateRequired]);
+    }, [
+        drafts,
+        employeeId,
+        ensureEmployee,
+        isUploading,
+        onOpenChange,
+        resetUploadDialog,
+        templateFields,
+        validateRequired,
+    ]);
 
     return (
         <Dialog
@@ -432,185 +459,218 @@ export function UploadDocumentDialog({
                                   : null
                         }
                     />
-                <DialogHeader>
-                    <DialogTitle>Upload Employee Documents</DialogTitle>
-                    <p className="text-sm text-muted-foreground">
-                        Add one or many files for {employeeName}. Select a file on the left, then
-                        enter its details on the right.
-                    </p>
-                </DialogHeader>
+                    <DialogHeader>
+                        <DialogTitle>Upload Employee Documents</DialogTitle>
+                        <p className="text-sm text-muted-foreground">
+                            Add one or many files for {employeeName}. Select a
+                            file on the left, then enter its details on the
+                            right.
+                        </p>
+                    </DialogHeader>
 
-                <EmployeeMissingRequiredFieldsAlert
-                    missingFields={missingRequiredFieldsList}
-                    onFocusField={focusMissingField}
-                />
+                    <EmployeeMissingRequiredFieldsAlert
+                        missingFields={missingRequiredFieldsList}
+                        onFocusField={focusMissingField}
+                    />
 
-                <div className="grid gap-5 py-2 lg:grid-cols-[1.1fr_0.9fr]">
-                    <div className="space-y-4">
-                        <div
-                            onDragOver={(event) => {
-                                event.preventDefault();
-                                setIsDraggingFiles(true);
-                            }}
-                            onDragLeave={() => setIsDraggingFiles(false)}
-                            onDrop={(event) => {
-                                event.preventDefault();
-                                setIsDraggingFiles(false);
-                                void addUploadFiles(Array.from(event.dataTransfer.files));
-                            }}
-                            className={`rounded-2xl border border-dashed p-6 transition-colors ${
-                                isDraggingFiles
-                                    ? 'border-primary bg-primary/10'
-                                    : 'border-border bg-muted/20 hover:bg-muted/30'
-                            }`}
-                        >
-                            <div className="flex flex-col items-center gap-3 text-center">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                                    <UploadCloud className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <div className="text-sm font-semibold">Drag and drop files here</div>
-                                    <div className="mt-1 text-xs text-muted-foreground">
-                                        Upload up to {MAX_UPLOAD_FILES} files. Supported formats: PDF,
-                                        JPG, JPEG, PNG. Images are compressed in your browser. PDFs
-                                        larger than {PDF_COMPRESS_THRESHOLD_LABEL} are optimized on
-                                        the server.
+                    <div className="grid gap-5 py-2 lg:grid-cols-[1.1fr_0.9fr]">
+                        <div className="space-y-4">
+                            <div
+                                onDragOver={(event) => {
+                                    event.preventDefault();
+                                    setIsDraggingFiles(true);
+                                }}
+                                onDragLeave={() => setIsDraggingFiles(false)}
+                                onDrop={(event) => {
+                                    event.preventDefault();
+                                    setIsDraggingFiles(false);
+                                    void addUploadFiles(
+                                        Array.from(event.dataTransfer.files),
+                                    );
+                                }}
+                                className={`rounded-2xl border border-dashed p-6 transition-colors ${
+                                    isDraggingFiles
+                                        ? 'border-primary bg-primary/10'
+                                        : 'border-border bg-muted/20 hover:bg-muted/30'
+                                }`}
+                            >
+                                <div className="flex flex-col items-center gap-3 text-center">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                                        <UploadCloud className="h-6 w-6" />
                                     </div>
-                                </div>
-                                {isCompressingFiles && !isUploading ? (
-                                    <p className="text-xs text-muted-foreground">
-                                        Optimizing images…
-                                    </p>
-                                ) : null}
-                                <label className="inline-flex cursor-pointer items-center rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
-                                    Browse files
-                                    <input
-                                        type="file"
-                                        accept=".pdf,.jpg,.jpeg,.png"
-                                        multiple
-                                        disabled={isBusy}
-                                        className="sr-only"
-                                        onChange={(event) => {
-                                            void addUploadFiles(Array.from(event.target.files ?? []));
-                                            event.currentTarget.value = '';
-                                        }}
-                                    />
-                                </label>
-                            </div>
-                        </div>
-
-                        <div className="rounded-2xl border border-border bg-card/40">
-                            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                                <div>
-                                    <div className="text-sm font-semibold">Selected files</div>
-                                    <div className="text-xs text-muted-foreground">
-                                        {drafts.length} file(s), {formatUploadFileSize(uploadFileSize)}{' '}
-                                        total
+                                    <div>
+                                        <div className="text-sm font-semibold">
+                                            Drag and drop files here
+                                        </div>
+                                        <div className="mt-1 text-xs text-muted-foreground">
+                                            Upload up to {MAX_UPLOAD_FILES}{' '}
+                                            files. Supported formats: PDF, JPG,
+                                            JPEG, PNG. Images are compressed in
+                                            your browser. PDFs larger than{' '}
+                                            {PDF_COMPRESS_THRESHOLD_LABEL} are
+                                            optimized on the server.
+                                        </div>
                                     </div>
-                                </div>
-                                {drafts.length > 0 ? (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => {
-                                            setDrafts([]);
-                                            setSelectedDraftId(null);
-                                            setFieldErrorsByIndex(new Map());
-                                        }}
-                                    >
-                                        Clear
-                                    </Button>
-                                ) : null}
-                            </div>
-                            <div className="max-h-56 space-y-2 overflow-y-auto p-3">
-                                {drafts.length === 0 ? (
-                                    <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-                                        No files selected yet.
-                                    </div>
-                                ) : (
-                                    drafts.map((draft, index) => (
-                                        <UploadDocumentDraftListItem
-                                            key={draft.id}
-                                            draft={draft}
-                                            index={index}
-                                            documentTypes={documentTypes}
-                                            selected={selectedDraftId === draft.id}
-                                            hasErrors={fieldErrorsByIndex.has(index)}
-                                            onSelect={() => setSelectedDraftId(draft.id)}
-                                            onRemove={() => removeDraft(draft.id)}
+                                    {isCompressingFiles && !isUploading ? (
+                                        <p className="text-xs text-muted-foreground">
+                                            Optimizing images…
+                                        </p>
+                                    ) : null}
+                                    <label className="inline-flex cursor-pointer items-center rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
+                                        Browse files
+                                        <input
+                                            type="file"
+                                            accept=".pdf,.jpg,.jpeg,.png"
+                                            multiple
+                                            disabled={isBusy}
+                                            className="sr-only"
+                                            onChange={(event) => {
+                                                void addUploadFiles(
+                                                    Array.from(
+                                                        event.target.files ??
+                                                            [],
+                                                    ),
+                                                );
+                                                event.currentTarget.value = '';
+                                            }}
                                         />
-                                    ))
-                                )}
+                                    </label>
+                                </div>
                             </div>
+
+                            <div className="rounded-2xl border border-border bg-card/40">
+                                <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                                    <div>
+                                        <div className="text-sm font-semibold">
+                                            Selected files
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {drafts.length} file(s),{' '}
+                                            {formatUploadFileSize(
+                                                uploadFileSize,
+                                            )}{' '}
+                                            total
+                                        </div>
+                                    </div>
+                                    {drafts.length > 0 ? (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                                setDrafts([]);
+                                                setSelectedDraftId(null);
+                                                setFieldErrorsByIndex(
+                                                    new Map(),
+                                                );
+                                            }}
+                                        >
+                                            Clear
+                                        </Button>
+                                    ) : null}
+                                </div>
+                                <div className="max-h-56 space-y-2 overflow-y-auto p-3">
+                                    {drafts.length === 0 ? (
+                                        <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                                            No files selected yet.
+                                        </div>
+                                    ) : (
+                                        drafts.map((draft, index) => (
+                                            <UploadDocumentDraftListItem
+                                                key={draft.id}
+                                                draft={draft}
+                                                index={index}
+                                                documentTypes={documentTypes}
+                                                selected={
+                                                    selectedDraftId === draft.id
+                                                }
+                                                hasErrors={fieldErrorsByIndex.has(
+                                                    index,
+                                                )}
+                                                onSelect={() =>
+                                                    setSelectedDraftId(draft.id)
+                                                }
+                                                onRemove={() =>
+                                                    removeDraft(draft.id)
+                                                }
+                                            />
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 rounded-2xl border border-border bg-card/40 p-4">
+                            {selectedDraft ? (
+                                <UploadDocumentDraftForm
+                                    draft={selectedDraft}
+                                    documentTypes={documentTypes}
+                                    onChange={(patch) =>
+                                        updateDraft(selectedDraft.id, patch)
+                                    }
+                                    fieldErrors={
+                                        selectedDraftIndex >= 0
+                                            ? fieldErrorsByIndex.get(
+                                                  selectedDraftIndex,
+                                              )
+                                            : undefined
+                                    }
+                                    showApplyToAll={drafts.length > 1}
+                                    onApplyToAll={applyMetadataToAll}
+                                    showField={showField}
+                                    isFieldRequired={isFieldRequired}
+                                    isMissingRequired={isMissingRequired}
+                                />
+                            ) : (
+                                <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-3 px-4 text-center">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                                        <FileText className="h-6 w-6" />
+                                    </div>
+                                    <div className="text-sm font-semibold">
+                                        Select a file
+                                    </div>
+                                    <p className="max-w-xs text-xs text-muted-foreground">
+                                        Choose a file from the list to set its
+                                        document type, title, dates, and notes.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    <div className="space-y-4 rounded-2xl border border-border bg-card/40 p-4">
-                        {selectedDraft ? (
-                            <UploadDocumentDraftForm
-                                draft={selectedDraft}
-                                documentTypes={documentTypes}
-                                onChange={(patch) => updateDraft(selectedDraft.id, patch)}
-                                fieldErrors={
-                                    selectedDraftIndex >= 0
-                                        ? fieldErrorsByIndex.get(selectedDraftIndex)
-                                        : undefined
-                                }
-                                showApplyToAll={drafts.length > 1}
-                                onApplyToAll={applyMetadataToAll}
-                                showField={showField}
-                                isFieldRequired={isFieldRequired}
-                                isMissingRequired={isMissingRequired}
-                            />
-                        ) : (
-                            <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-3 px-4 text-center">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-                                    <FileText className="h-6 w-6" />
-                                </div>
-                                <div className="text-sm font-semibold">Select a file</div>
-                                <p className="max-w-xs text-xs text-muted-foreground">
-                                    Choose a file from the list to set its document type, title,
-                                    dates, and notes.
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <DialogFooter className="items-center border-t border-border/60 pt-4 sm:justify-between">
-                    <div className="text-xs text-muted-foreground">
-                        {drafts.length === 0
-                            ? 'Select at least one file to upload.'
-                            : drafts.length > 1
-                              ? 'Bulk upload will create one document record per file.'
-                              : 'One document will be created.'}
-                    </div>
-                    <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className={actions.dialogSecondary}
-                            disabled={isBusy}
-                            onClick={() => onOpenChange(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            size="sm"
-                            className={actions.dialogPrimary}
-                            disabled={!canUpload || isBusy}
-                            onClick={submitUpload}
-                        >
-                            {isUploading
-                                ? uploadProgress?.percentage
-                                    ? `Uploading ${uploadProgress.percentage}%…`
-                                    : 'Uploading…'
-                                : isCompressingFiles
-                                  ? 'Preparing…'
-                                  : `Upload ${drafts.length || ''}`.trim()}
-                        </Button>
-                    </div>
-                </DialogFooter>
+                    <DialogFooter className="items-center border-t border-border/60 pt-4 sm:justify-between">
+                        <div className="text-xs text-muted-foreground">
+                            {drafts.length === 0
+                                ? 'Select at least one file to upload.'
+                                : drafts.length > 1
+                                  ? 'Bulk upload will create one document record per file.'
+                                  : 'One document will be created.'}
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className={actions.dialogSecondary}
+                                disabled={isBusy}
+                                onClick={() => onOpenChange(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                size="sm"
+                                className={actions.dialogPrimary}
+                                disabled={!canUpload || isBusy}
+                                onClick={submitUpload}
+                            >
+                                {isUploading
+                                    ? uploadProgress?.percentage
+                                        ? `Uploading ${uploadProgress.percentage}%…`
+                                        : 'Uploading…'
+                                    : isCompressingFiles
+                                      ? 'Preparing…'
+                                      : `Upload ${drafts.length || ''}`.trim()}
+                            </Button>
+                        </div>
+                    </DialogFooter>
                 </div>
             </DialogContent>
         </Dialog>

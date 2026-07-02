@@ -1,13 +1,11 @@
 import { router } from '@inertiajs/react';
 import { ClipboardList, Loader2 } from 'lucide-react';
-import { useState  } from 'react';
-import type {ReactElement} from 'react';
+import { useState } from 'react';
+import type { ReactElement } from 'react';
 import { assignProfileTemplate } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
-import type {
-    ProfileTemplateOption,
-} from '@/pages/organization/employee-page.types';
+import type { ProfileTemplateOption } from '@/pages/organization/employee-page.types';
 
 type AssignEmployeeProfileTemplateProps = {
     employeeId: number;
@@ -42,16 +40,16 @@ export function AssignEmployeeProfileTemplate({
 
     if (profileTemplates.length === 0) {
         return (
-            <p className="max-w-[14rem] text-center text-[10px] text-amber-600 dark:text-amber-300/90 md:text-right">
-                No profile templates available. Create one under Organization → Employee
-                templates.
+            <p className="max-w-[14rem] text-center text-[10px] text-amber-600 md:text-right dark:text-amber-300/90">
+                No profile templates available. Create one under Organization →
+                Employee templates.
             </p>
         );
     }
 
     return (
         <div className="flex w-full max-w-[18rem] flex-col gap-2 md:items-end">
-            <p className="text-center text-[10px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-300/90 md:text-right">
+            <p className="text-center text-[10px] font-medium tracking-wide text-amber-600 uppercase md:text-right dark:text-amber-300/90">
                 No profile template
             </p>
             <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
@@ -63,7 +61,10 @@ export function AssignEmployeeProfileTemplate({
                     className="min-w-0 flex-1"
                 >
                     {profileTemplates.map((template) => (
-                        <AppSelectItem key={template.id} value={String(template.id)}>
+                        <AppSelectItem
+                            key={template.id}
+                            value={String(template.id)}
+                        >
                             {template.name}
                         </AppSelectItem>
                     ))}

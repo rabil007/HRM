@@ -17,9 +17,12 @@ export function PositionDeleteDialog({
             open={open}
             onOpenChange={onOpenChange}
             title="Delete position"
-            description={position ? `This will permanently delete “${position.title}”.` : 'This will permanently delete this position.'}
+            description={
+                position
+                    ? `This will permanently delete “${position.title}”.`
+                    : 'This will permanently delete this position.'
+            }
             onConfirm={onConfirm}
         />
     );
 }
-

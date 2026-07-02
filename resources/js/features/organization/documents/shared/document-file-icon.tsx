@@ -84,7 +84,11 @@ export function resolveDocumentFileKind(
         return 'pdf';
     }
 
-    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'heic'].includes(extension)) {
+    if (
+        ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'heic'].includes(
+            extension,
+        )
+    ) {
         return 'image';
     }
 
@@ -137,5 +141,10 @@ export function DocumentFileIcon({
     const kind = resolveDocumentFileKind(mimeType, fileName);
     const { icon: Icon, className: kindClassName } = FILE_KIND_CONFIG[kind];
 
-    return <Icon className={cn('h-5 w-5 shrink-0', kindClassName, className)} aria-hidden />;
+    return (
+        <Icon
+            className={cn('h-5 w-5 shrink-0', kindClassName, className)}
+            aria-hidden
+        />
+    );
 }

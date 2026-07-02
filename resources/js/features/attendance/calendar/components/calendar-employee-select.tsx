@@ -20,24 +20,36 @@ export function CalendarEmployeeSelect({
             params.employee_id = Number(employeeId);
         }
 
-        router.get('/attendance/calendar', params, { preserveState: true, preserveScroll: true });
+        router.get('/attendance/calendar', params, {
+            preserveState: true,
+            preserveScroll: true,
+        });
     };
 
     return (
-        <div className="glass-card space-y-2 rounded-2xl border border-border/60 bg-card/80 p-3 dark:border-white/6 dark:bg-white/4">
-            <Label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+        <div className="space-y-2 rounded-2xl border glass-card border-border/60 bg-card/80 p-3 dark:border-white/6 dark:bg-white/4">
+            <Label className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                 <UserRound className="size-3.5" />
                 Employee
             </Label>
             <AppSelect
-                value={selectedEmployeeId !== null ? String(selectedEmployeeId) : ''}
+                value={
+                    selectedEmployeeId !== null
+                        ? String(selectedEmployeeId)
+                        : ''
+                }
                 onValueChange={navigate}
                 variant="card"
                 placeholder="Select employee"
             >
                 {employees.map((employee) => (
-                    <AppSelectItem key={employee.id} value={String(employee.id)}>
-                        {employee.employee_no ? `${employee.employee_no} — ${employee.name}` : employee.name}
+                    <AppSelectItem
+                        key={employee.id}
+                        value={String(employee.id)}
+                    >
+                        {employee.employee_no
+                            ? `${employee.employee_no} — ${employee.name}`
+                            : employee.name}
                     </AppSelectItem>
                 ))}
             </AppSelect>

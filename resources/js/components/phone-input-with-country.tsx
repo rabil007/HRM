@@ -9,7 +9,11 @@ import {
     CommandList,
 } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import {
     combinePhoneWithDialCode,
     countriesWithDialCode,
@@ -70,7 +74,10 @@ export function PhoneInputWithCountry({
         return dialCountries[0]?.dial_code ?? '';
     }, [countries, defaultDialCode, dialCountries, fieldKey]);
 
-    const { dialCode, nationalNumber } = parsePhoneWithDialCode(value, countries);
+    const { dialCode, nationalNumber } = parsePhoneWithDialCode(
+        value,
+        countries,
+    );
     const effectiveDialCode = dialCode || fallbackDialCode;
 
     const selectedCountry = useMemo(
@@ -113,7 +120,10 @@ export function PhoneInputWithCountry({
     };
 
     return (
-        <div className={cn('flex min-w-0 gap-2', className)} onBlur={handleContainerBlur}>
+        <div
+            className={cn('flex min-w-0 gap-2', className)}
+            onBlur={handleContainerBlur}
+        >
             <Popover open={countryOpen} onOpenChange={handleCountryOpenChange}>
                 <PopoverTrigger asChild>
                     <button

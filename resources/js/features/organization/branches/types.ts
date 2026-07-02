@@ -34,4 +34,3 @@ export type BranchFormData = {
     is_headquarters: boolean;
     status: 'active' | 'inactive';
 };
-

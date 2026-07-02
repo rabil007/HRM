@@ -44,7 +44,9 @@ export function BrowseDocumentActions({
                     {
                         label: 'Download',
                         icon: Download,
-                        href: documents.files.download.url({ document: doc.id }),
+                        href: documents.files.download.url({
+                            document: doc.id,
+                        }),
                         hidden: !canDownload,
                     },
                     {

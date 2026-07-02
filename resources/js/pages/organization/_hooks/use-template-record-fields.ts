@@ -25,19 +25,24 @@ export function useTemplateRecordFields(
     );
 
     const requiredFields = useMemo(
-        () => getTemplateRequiredFieldKeys(templateFields, defaultRequiredFields),
+        () =>
+            getTemplateRequiredFieldKeys(templateFields, defaultRequiredFields),
         [defaultRequiredFields, templateFields],
     );
 
     const isFieldRequired = useCallback(
         (fieldKey: string) =>
-            isTemplateFieldRequired(templateFields, fieldKey, defaultRequiredFields),
+            isTemplateFieldRequired(
+                templateFields,
+                fieldKey,
+                defaultRequiredFields,
+            ),
         [defaultRequiredFields, templateFields],
     );
 
-    const [missingRequiredFields, setMissingRequiredFields] = useState<Set<string>>(
-        () => new Set(),
-    );
+    const [missingRequiredFields, setMissingRequiredFields] = useState<
+        Set<string>
+    >(() => new Set());
 
     const isMissingRequired = useCallback(
         (field: string) => missingRequiredFields.has(field),
@@ -144,6 +149,6 @@ export function useClearMissingOnFormChange(
 ): void {
     useEffect(() => {
         syncMissingFromFormData(formData);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- clear highlights when field values change
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- clear highlights when field values change
     }, [formData]);
 }

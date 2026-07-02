@@ -21,7 +21,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -30,10 +35,9 @@ import { SalaryInputTypeDeleteDialog } from './components/salary-input-type-dele
 import { SalaryInputTypeFormSheet } from './components/salary-input-type-form-sheet';
 import {
     defaultSalaryInputTypeFormData,
-    salaryInputTypeToFormData
-    
+    salaryInputTypeToFormData,
 } from './types';
-import type {SalaryInputTypeRecord} from './types';
+import type { SalaryInputTypeRecord } from './types';
 
 export function SalaryInputsContent({
     salary_input_types,
@@ -52,7 +56,8 @@ export function SalaryInputsContent({
     });
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [currentType, setCurrentType] = useState<SalaryInputTypeRecord | null>(null);
+    const [currentType, setCurrentType] =
+        useState<SalaryInputTypeRecord | null>(null);
 
     const form = useForm(defaultSalaryInputTypeFormData());
 
@@ -96,7 +101,8 @@ export function SalaryInputsContent({
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onError: () => toast.error('Failed to update status. Please try again.'),
+                onError: () =>
+                    toast.error('Failed to update status. Please try again.'),
             },
         );
     };
@@ -123,21 +129,27 @@ export function SalaryInputsContent({
                 title="Salary inputs"
                 description="Manage addition and deduction types for office payroll. Assign amounts on each pay record, then update the pay run."
                 right={
-                    <Button onClick={handleAdd} className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20">
+                    <Button
+                        onClick={handleAdd}
+                        className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                    >
                         <Plus className="mr-2 h-4 w-4" />
                         Add type
                     </Button>
                 }
             />
 
-            <Card className="glass-card mb-8 border-primary/20 bg-primary/5">
+            <Card className="mb-8 glass-card border-primary/20 bg-primary/5">
                 <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-1">
-                        <p className="text-sm font-semibold">Assign on pay records</p>
+                        <p className="text-sm font-semibold">
+                            Assign on pay records
+                        </p>
                         <p className="text-sm text-muted-foreground">
-                            Open an office pay run, go to the Payroll tab, and use the{' '}
-                            <strong>+</strong> action on each employee row. Click{' '}
-                            <strong>Update payroll</strong> when done.
+                            Open an office pay run, go to the Payroll tab, and
+                            use the <strong>+</strong> action on each employee
+                            row. Click <strong>Update payroll</strong> when
+                            done.
                         </p>
                     </div>
                     <Button asChild className="shrink-0 rounded-xl">
@@ -164,14 +176,23 @@ export function SalaryInputsContent({
                         <DataTableHead>Category</DataTableHead>
                         <DataTableHead>Used in pay runs</DataTableHead>
                         <DataTableHead>Status</DataTableHead>
-                        <DataTableHead className="text-right">Actions</DataTableHead>
+                        <DataTableHead className="text-right">
+                            Actions
+                        </DataTableHead>
                     </DataTableHeaderRow>
                 </TableHeader>
                 <TableBody>
                     {salary_input_types.map((type) => (
-                        <TableRow key={type.id} className={dataTableBodyRowClass()}>
-                            <TableCell className={dataTableCellPrimaryClass()}>{type.name}</TableCell>
-                            <TableCell className={dataTableCellClass()}>{type.code}</TableCell>
+                        <TableRow
+                            key={type.id}
+                            className={dataTableBodyRowClass()}
+                        >
+                            <TableCell className={dataTableCellPrimaryClass()}>
+                                {type.name}
+                            </TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                {type.code}
+                            </TableCell>
                             <TableCell className={dataTableCellClass()}>
                                 <Badge
                                     variant="outline"
@@ -181,17 +202,23 @@ export function SalaryInputsContent({
                                             : 'border-amber-500/30 text-amber-700 dark:text-amber-200',
                                     )}
                                 >
-                                    {type.is_addition ? 'Addition' : 'Deduction'}
+                                    {type.is_addition
+                                        ? 'Addition'
+                                        : 'Deduction'}
                                 </Badge>
                             </TableCell>
-                            <TableCell className={dataTableCellClass()}>{type.salary_inputs_count}</TableCell>
+                            <TableCell className={dataTableCellClass()}>
+                                {type.salary_inputs_count}
+                            </TableCell>
                             <TableCell className={dataTableCellClass()}>
                                 <div className="flex items-center gap-3">
                                     <Switch
                                         checked={type.status === 'active'}
-                                        onCheckedChange={(checked) => toggleStatus(type, checked)}
+                                        onCheckedChange={(checked) =>
+                                            toggleStatus(type, checked)
+                                        }
                                     />
-                                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                    <span className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                         {type.status}
                                     </span>
                                 </div>
@@ -207,7 +234,9 @@ export function SalaryInputsContent({
                 </TableBody>
             </OrganizationDataTable>
 
-            {salary_input_types.length === 0 ? <EmptyState title="No salary input types found." /> : null}
+            {salary_input_types.length === 0 ? (
+                <EmptyState title="No salary input types found." />
+            ) : null}
 
             <Pagination {...list.paginationProps} label="types" />
 

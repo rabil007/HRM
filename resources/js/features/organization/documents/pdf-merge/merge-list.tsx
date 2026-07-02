@@ -11,7 +11,12 @@ type MergeListProps = {
     onPreviewLoaded?: (documentId: number, pageCount: number) => void;
 };
 
-export function MergeList({ documents, pageCounts, onReorder, onPreviewLoaded }: MergeListProps) {
+export function MergeList({
+    documents,
+    pageCounts,
+    onReorder,
+    onPreviewLoaded,
+}: MergeListProps) {
     const listRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {

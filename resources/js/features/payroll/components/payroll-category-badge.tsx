@@ -30,7 +30,14 @@ export function PayrollCategoryBadge({
     const style = CATEGORY_STYLES[category];
 
     return (
-        <Badge variant="outline" className={cn('rounded-lg font-semibold', style.className, className)}>
+        <Badge
+            variant="outline"
+            className={cn(
+                'rounded-lg font-semibold',
+                style.className,
+                className,
+            )}
+        >
             {label ?? style.label}
         </Badge>
     );

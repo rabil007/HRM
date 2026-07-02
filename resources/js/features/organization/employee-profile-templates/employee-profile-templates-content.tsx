@@ -17,7 +17,12 @@ import { PageHeader } from '@/components/page-header';
 import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { TemplateCard } from './components/template-card';
@@ -34,9 +39,13 @@ export function EmployeeProfileTemplatesContent({
     templates: EmployeeProfileTemplate[];
 }) {
     const [searchInput, setSearchInput] = useState('');
-    const [view, setView] = useViewPreference('employee-profile-templates:view', 'grid');
+    const [view, setView] = useViewPreference(
+        'employee-profile-templates:view',
+        'grid',
+    );
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [currentTemplate, setCurrentTemplate] = useState<EmployeeProfileTemplate | null>(null);
+    const [currentTemplate, setCurrentTemplate] =
+        useState<EmployeeProfileTemplate | null>(null);
 
     const rows = useMemo(() => {
         const query = searchInput.trim().toLowerCase();
@@ -63,13 +72,16 @@ export function EmployeeProfileTemplatesContent({
             return;
         }
 
-        router.delete(`/organization/templates/employee-profile/${currentTemplate.id}`, {
-            preserveScroll: true,
-            onFinish: () => {
-                setIsDeleteOpen(false);
-                setCurrentTemplate(null);
+        router.delete(
+            `/organization/templates/employee-profile/${currentTemplate.id}`,
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setIsDeleteOpen(false);
+                    setCurrentTemplate(null);
+                },
             },
-        });
+        );
     };
 
     return (
@@ -114,7 +126,9 @@ export function EmployeeProfileTemplatesContent({
                             <DataTableHead className="pl-5">Name</DataTableHead>
                             <DataTableHead>Description</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
-                            <DataTableHead className="text-right">Actions</DataTableHead>
+                            <DataTableHead className="text-right">
+                                Actions
+                            </DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
                     <TableBody>
@@ -124,7 +138,9 @@ export function EmployeeProfileTemplatesContent({
                                 className={dataTableBodyRowClass()}
                                 onClick={() => router.visit(editHref(template))}
                             >
-                                <TableCell className={dataTableCellPrimaryClass()}>
+                                <TableCell
+                                    className={dataTableCellPrimaryClass()}
+                                >
                                     {template.name}
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
@@ -132,13 +148,21 @@ export function EmployeeProfileTemplatesContent({
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     <Badge
-                                        variant={template.is_active ? 'default' : 'secondary'}
+                                        variant={
+                                            template.is_active
+                                                ? 'default'
+                                                : 'secondary'
+                                        }
                                         className="text-[10px] font-bold tracking-wider uppercase"
                                     >
-                                        {template.is_active ? 'Active' : 'Inactive'}
+                                        {template.is_active
+                                            ? 'Active'
+                                            : 'Inactive'}
                                     </Badge>
                                 </TableCell>
-                                <TableCell className={dataTableActionsCellClass()}>
+                                <TableCell
+                                    className={dataTableActionsCellClass()}
+                                >
                                     <ListTableCrudActions
                                         showView={false}
                                         onEdit={(event) => {

@@ -67,7 +67,8 @@ function CheckboxGrid({
                         key={option.id}
                         className={cn(
                             'flex items-center gap-3 rounded-xl border border-border/80 bg-muted/10 px-3 py-2.5 transition-colors dark:border-white/5 dark:bg-white/[0.02]',
-                            !disabled && 'cursor-pointer hover:bg-muted/30 dark:hover:bg-white/[0.04]',
+                            !disabled &&
+                                'cursor-pointer hover:bg-muted/30 dark:hover:bg-white/[0.04]',
                             disabled && 'opacity-70',
                         )}
                     >
@@ -75,10 +76,18 @@ function CheckboxGrid({
                             checked={checked}
                             disabled={disabled}
                             onCheckedChange={(value) =>
-                                onChange(toggleId(selectedIds, option.id, value === true))
+                                onChange(
+                                    toggleId(
+                                        selectedIds,
+                                        option.id,
+                                        value === true,
+                                    ),
+                                )
                             }
                         />
-                        <span className="text-sm text-foreground">{option.name}</span>
+                        <span className="text-sm text-foreground">
+                            {option.name}
+                        </span>
                     </label>
                 );
             })}
@@ -115,7 +124,7 @@ export function EmployeeWorkAssignmentsSection({
                     <div className="space-y-3">
                         <Label
                             className={cn(
-                                'text-xs font-semibold uppercase tracking-wider text-muted-foreground/70',
+                                'text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase',
                                 highlightMissingApprovalLocations &&
                                     employeeFieldMissingLabelClass,
                             )}
@@ -137,8 +146,9 @@ export function EmployeeWorkAssignmentsSection({
                     <div className="space-y-3">
                         <Label
                             className={cn(
-                                'text-xs font-semibold uppercase tracking-wider text-muted-foreground/70',
-                                highlightMissingSssaOptions && employeeFieldMissingLabelClass,
+                                'text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase',
+                                highlightMissingSssaOptions &&
+                                    employeeFieldMissingLabelClass,
                             )}
                         >
                             SSSA

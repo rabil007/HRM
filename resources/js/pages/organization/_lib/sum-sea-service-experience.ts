@@ -10,9 +10,7 @@ function seaServiceRowPeriodDays(row: SeaServiceTotalsRow): number {
         return Number(row.total_days) || 0;
     }
 
-    return (
-        (Number(row.total_months) || 0) * 30 + (Number(row.total_days) || 0)
-    );
+    return (Number(row.total_months) || 0) * 30 + (Number(row.total_days) || 0);
 }
 
 export function formatSeaServiceTotalsYmd<T extends SeaServiceTotalsRow>(

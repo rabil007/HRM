@@ -49,40 +49,60 @@ export function BranchCard({
     };
 
     return (
-        <Card className="glass-card group overflow-hidden relative transition-all duration-300 dark:bg-linear-to-br dark:from-white/6 dark:to-white/3 dark:hover:from-white/8 dark:hover:to-white/4">
-            <a href={`/organization/branches/${branch.id}`} className="absolute inset-0" aria-label="View branch details" />
+        <Card className="group relative overflow-hidden glass-card transition-all duration-300 dark:bg-linear-to-br dark:from-white/6 dark:to-white/3 dark:hover:from-white/8 dark:hover:to-white/4">
+            <a
+                href={`/organization/branches/${branch.id}`}
+                className="absolute inset-0"
+                aria-label="View branch details"
+            />
 
             <CardHeader className="pb-3">
                 <div className="flex items-start gap-4">
-                    <div className="h-12 w-12 rounded-2xl bg-muted/40 flex items-center justify-center border border-border/60 text-foreground/80 shrink-0 dark:bg-white/6 dark:border-white/10">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-muted/40 text-foreground/80 dark:border-white/10 dark:bg-white/6">
                         <Store className="h-6 w-6" />
                     </div>
 
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-3">
-                            <CardTitle className="text-lg font-extrabold tracking-tight line-clamp-1">{branch.name}</CardTitle>
-                            <div className="flex items-center gap-1.5 relative z-10">
-                                <Badge className={`text-[10px] uppercase font-bold tracking-wider border ${statusClass}`}>{statusLabel}</Badge>
+                            <CardTitle className="line-clamp-1 text-lg font-extrabold tracking-tight">
+                                {branch.name}
+                            </CardTitle>
+                            <div className="relative z-10 flex items-center gap-1.5">
+                                <Badge
+                                    className={`border text-[10px] font-bold tracking-wider uppercase ${statusClass}`}
+                                >
+                                    {statusLabel}
+                                </Badge>
                             </div>
                         </div>
 
                         <div className="mt-2 flex flex-wrap gap-2">
-                            <Badge variant="secondary" className="bg-muted/40 text-muted-foreground border-border/60 text-[10px] uppercase font-bold tracking-wider dark:bg-white/5 dark:border-white/10">
+                            <Badge
+                                variant="secondary"
+                                className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5"
+                            >
                                 {branch.code || '—'}
                             </Badge>
                             {branch.is_headquarters ? (
-                                <Badge className="text-[10px] uppercase font-bold tracking-wider border bg-primary/10 text-primary border-primary/20">
+                                <Badge className="border border-primary/20 bg-primary/10 text-[10px] font-bold tracking-wider text-primary uppercase">
                                     HQ
                                 </Badge>
                             ) : null}
-                            <Badge variant="secondary" className="bg-muted/40 text-muted-foreground border-border/60 text-[10px] uppercase font-bold tracking-wider dark:bg-white/5 dark:border-white/10">
+                            <Badge
+                                variant="secondary"
+                                className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5"
+                            >
                                 {branch.company.name ?? '—'}
                             </Badge>
                         </div>
 
                         <CardDescription className="mt-3 flex items-center gap-2 text-sm font-medium text-muted-foreground/85">
                             <MapPin className="h-4 w-4" />
-                            <span className="truncate">{[branch.city, branch.country].filter(Boolean).join(', ') || '—'}</span>
+                            <span className="truncate">
+                                {[branch.city, branch.country]
+                                    .filter(Boolean)
+                                    .join(', ') || '—'}
+                            </span>
                         </CardDescription>
                     </div>
                 </div>
@@ -95,14 +115,16 @@ export function BranchCard({
                             <IdCard className="h-4 w-4" />
                             ID
                         </div>
-                        <div className="text-sm font-bold tabular-nums">#{String(branch.id).padStart(4, '0')}</div>
+                        <div className="text-sm font-bold tabular-nums">
+                            #{String(branch.id).padStart(4, '0')}
+                        </div>
                     </div>
 
                     {branch.phone ? (
                         <div className="flex items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 dark:border-white/6 dark:bg-white/4">
                             <a
                                 href={`tel:${branch.phone}`}
-                                className="min-w-0 flex items-center gap-2 text-sm font-medium text-foreground/90 hover:text-primary transition-colors relative z-10"
+                                className="relative z-10 flex min-w-0 items-center gap-2 text-sm font-medium text-foreground/90 transition-colors hover:text-primary"
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <Phone className="h-4 w-4 text-muted-foreground" />
@@ -112,7 +134,7 @@ export function BranchCard({
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-9 w-9 rounded-lg hover:bg-accent dark:hover:bg-white/10 relative z-10"
+                                className="relative z-10 h-9 w-9 rounded-lg hover:bg-accent dark:hover:bg-white/10"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     void copy(branch.phone ?? '');
@@ -128,7 +150,7 @@ export function BranchCard({
                         <div className="flex items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 dark:border-white/6 dark:bg-white/4">
                             <a
                                 href={`mailto:${branch.email}`}
-                                className="min-w-0 flex items-center gap-2 text-sm font-medium text-foreground/90 hover:text-primary transition-colors relative z-10"
+                                className="relative z-10 flex min-w-0 items-center gap-2 text-sm font-medium text-foreground/90 transition-colors hover:text-primary"
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <Mail className="h-4 w-4 text-muted-foreground" />
@@ -138,7 +160,7 @@ export function BranchCard({
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-9 w-9 rounded-lg hover:bg-accent dark:hover:bg-white/10 relative z-10"
+                                className="relative z-10 h-9 w-9 rounded-lg hover:bg-accent dark:hover:bg-white/10"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     void copy(branch.email ?? '');
@@ -152,58 +174,68 @@ export function BranchCard({
                 </div>
             </CardContent>
 
-            <div className="pointer-events-none absolute bottom-4 left-4 right-4">
-                <div className="pointer-events-auto flex items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/30 backdrop-blur-xl p-1.5 dark:border-white/6 dark:bg-white/4">
-                    <div className="flex items-center gap-2 pl-1.5" onClick={(e) => e.stopPropagation()}>
-                        <Switch checked={branch.status === 'active'} onCheckedChange={(checked) => onToggleStatus(branch, checked)} />
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70">
+            <div className="pointer-events-none absolute right-4 bottom-4 left-4">
+                <div className="pointer-events-auto flex items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/30 p-1.5 backdrop-blur-xl dark:border-white/6 dark:bg-white/4">
+                    <div
+                        className="flex items-center gap-2 pl-1.5"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <Switch
+                            checked={branch.status === 'active'}
+                            onCheckedChange={(checked) =>
+                                onToggleStatus(branch, checked)
+                            }
+                        />
+                        <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/70 uppercase">
                             Active
                         </span>
                     </div>
 
                     <div className="flex items-center justify-end gap-1">
-                    <Button
-                        asChild
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
-                        title="View"
-                    >
-                        <a href={`/organization/branches/${branch.id}`} onClick={(e) => e.stopPropagation()}>
-                            <Eye className="h-4 w-4" />
-                        </a>
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(branch);
-                        }}
-                        title="Edit"
-                    >
-                        <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg hover:bg-destructive/10 text-destructive hover:text-destructive"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(branch);
-                        }}
-                        title="Delete"
-                    >
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
+                        <Button
+                            asChild
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
+                            title="View"
+                        >
+                            <a
+                                href={`/organization/branches/${branch.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <Eye className="h-4 w-4" />
+                            </a>
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(branch);
+                            }}
+                            title="Edit"
+                        >
+                            <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(branch);
+                            }}
+                            title="Delete"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
                     </div>
                 </div>
             </div>
         </Card>
     );
 }
-

@@ -1,5 +1,9 @@
 export function toUtcDateMs(localDate: Date): number {
-    return Date.UTC(localDate.getFullYear(), localDate.getMonth(), localDate.getDate());
+    return Date.UTC(
+        localDate.getFullYear(),
+        localDate.getMonth(),
+        localDate.getDate(),
+    );
 }
 
 export function formatUtcIsoDate(utcMs: number): string {
@@ -7,13 +11,13 @@ export function formatUtcIsoDate(utcMs: number): string {
     const year = d.getUTCFullYear();
     const month = String(d.getUTCMonth() + 1).padStart(2, '0');
     const day = String(d.getUTCDate()).padStart(2, '0');
-    
+
     return `${year}-${month}-${day}`;
 }
 
 export function parseIsoToUtcMs(iso: string): number {
     const [y, m, d] = iso.split('-').map(Number);
-    
+
     return Date.UTC(y, m - 1, d);
 }
 
@@ -47,7 +51,11 @@ export function barPositionStyle(
 }
 
 /** Center of today's column as a percentage within [rangeFrom, rangeTo]. */
-export function todayLinePositionPercent(today: Date, rangeFrom: Date, rangeTo: Date): number | null {
+export function todayLinePositionPercent(
+    today: Date,
+    rangeFrom: Date,
+    rangeTo: Date,
+): number | null {
     const rangeFromMs = toUtcDateMs(rangeFrom);
     const rangeToMs = toUtcDateMs(rangeTo) + 86400000;
     const totalMs = rangeToMs - rangeFromMs;
@@ -77,7 +85,11 @@ export function formatIsoDateLocal(date: Date): string {
 }
 
 /** Converts a fractional X position [0, 1] within the timeline to an ISO date string. */
-export function dateFromPointerRatio(ratio: number, rangeFrom: Date, rangeTo: Date): string {
+export function dateFromPointerRatio(
+    ratio: number,
+    rangeFrom: Date,
+    rangeTo: Date,
+): string {
     const rangeFromMs = toUtcDateMs(rangeFrom);
     const rangeToMs = toUtcDateMs(rangeTo) + 86400000;
     const totalMs = rangeToMs - rangeFromMs;
@@ -119,7 +131,12 @@ export function shiftDateRange(
 }
 
 /** Converts a pixel delta within the timeline to a fractional day count. */
-export function pxToDays(pxDelta: number, containerWidth: number, rangeFrom: Date, rangeTo: Date): number {
+export function pxToDays(
+    pxDelta: number,
+    containerWidth: number,
+    rangeFrom: Date,
+    rangeTo: Date,
+): number {
     const rangeFromMs = toUtcDateMs(rangeFrom);
     const rangeToMs = toUtcDateMs(rangeTo) + 86400000;
     const totalDays = Math.round((rangeToMs - rangeFromMs) / 86400000);

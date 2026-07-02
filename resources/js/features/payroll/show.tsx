@@ -1,5 +1,20 @@
 import { Link, router } from '@inertiajs/react';
-import { Calculator, CalendarDays, CheckCircle2, Paperclip, RotateCcw, Upload, XCircle } from 'lucide-react';
+import {
+    Calculator,
+    AlertCircle,
+    Ban,
+    Building2,
+    Calendar,
+    CalendarDays,
+    CheckCircle2,
+    CheckSquare,
+    CreditCard,
+    Paperclip,
+    RotateCcw,
+    Upload,
+    Users,
+    XCircle,
+} from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { show as showEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import {
@@ -30,11 +45,20 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
-import type {SalaryPaymentMethodValue} from '@/features/organization/employees/salary-payment-method';
+import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -71,10 +95,6 @@ import type {
 } from './types';
 import { formatTimesheetDays } from './types';
 
-
-
-
-
 export function PayrollShowContent({
     period,
     rows,
@@ -90,6 +110,7 @@ export function PayrollShowContent({
     permissions,
     payslip_summary,
     wps_preview,
+    employee_stats,
 }: PayrollShowProps) {
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -102,20 +123,30 @@ export function PayrollShowContent({
     const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-    const [salaryInputsRecord, setSalaryInputsRecord] = useState<PayrollRecordListItem | null>(
-        null,
-    );
+    const [salaryInputsRecord, setSalaryInputsRecord] =
+        useState<PayrollRecordListItem | null>(null);
     const [excludedIds, setExcludedIds] = useState<Set<number>>(
         () => new Set(period.excluded_employee_ids ?? []),
     );
-    const [removeRecord, setRemoveRecord] = useState<PayrollRecordListItem | null>(null);
+    const [removeRecord, setRemoveRecord] =
+        useState<PayrollRecordListItem | null>(null);
     const [isRemovingRecord, setIsRemovingRecord] = useState(false);
     const [selectedWpsRecordIds, setSelectedWpsRecordIds] = useState<number[]>(
         () => all_payroll_record_ids,
     );
-    const [rowDates, setRowDates] = useState<Record<number, { start: string; end: string }>>({});
+    const [rowDates, setRowDates] = useState<
+        Record<number, { start: string; end: string }>
+    >({});
     const [crewDates, setCrewDates] = useState<
-        Record<number, { standby_from: string; standby_to: string; onsite_from: string; onsite_to: string }>
+        Record<
+            number,
+            {
+                standby_from: string;
+                standby_to: string;
+                onsite_from: string;
+                onsite_to: string;
+            }
+        >
     >({});
 
     const handleCrewDateChange = (
@@ -142,15 +173,24 @@ export function PayrollShowContent({
         });
     };
 
-    const handleSaveCrewTimesheet = (employeeId: number, initialTimesheet: any) => {
+    const handleSaveCrewTimesheet = (
+        employeeId: number,
+        initialTimesheet: any,
+    ) => {
         const current = crewDates[employeeId];
 
         if (!current) {
-return;
-}
+            return;
+        }
 
-        const standby_days = calculateInclusiveDays(current.standby_from, current.standby_to);
-        const onsite_days = calculateInclusiveDays(current.onsite_from, current.onsite_to);
+        const standby_days = calculateInclusiveDays(
+            current.standby_from,
+            current.standby_to,
+        );
+        const onsite_days = calculateInclusiveDays(
+            current.onsite_from,
+            current.onsite_to,
+        );
 
         router.post(
             storeTimesheet.url(period.id),
@@ -186,13 +226,12 @@ return;
         pagination,
     });
 
-
-
-
-
     const handleGeneratePayroll = () => {
         setIsGenerating(true);
-        const employeeDatesPayload: Record<number, { start_date: string; end_date: string }> = {};
+        const employeeDatesPayload: Record<
+            number,
+            { start_date: string; end_date: string }
+        > = {};
         Object.entries(rowDates).forEach(([empId, dates]) => {
             employeeDatesPayload[Number(empId)] = {
                 start_date: dates.start,
@@ -256,17 +295,13 @@ return;
             payload.payment_proof = files;
         }
 
-        router.post(
-            markPaid.url(period.id),
-            payload,
-            {
-                preserveScroll: true,
-                onFinish: () => {
-                    setIsMarkingPaid(false);
-                    setIsMarkPaidDialogOpen(false);
-                },
+        router.post(markPaid.url(period.id), payload, {
+            preserveScroll: true,
+            onFinish: () => {
+                setIsMarkingPaid(false);
+                setIsMarkPaidDialogOpen(false);
             },
-        );
+        });
     };
 
     const handleCancel = () => {
@@ -315,12 +350,16 @@ return;
 
     const activeSalaryInputs: SalaryInput[] =
         salaryInputsRecord !== null
-            ? salary_inputs_by_employee[String(salaryInputsRecord.employee.id)] ?? []
+            ? (salary_inputs_by_employee[
+                  String(salaryInputsRecord.employee.id)
+              ] ?? [])
             : [];
 
-    const canGenerate = period.can_generate_payroll && permissions.generate_payroll;
+    const canGenerate =
+        period.can_generate_payroll && permissions.generate_payroll;
 
-    const canRevertToDraft = period.can_revert_to_draft && permissions.revert_to_draft;
+    const canRevertToDraft =
+        period.can_revert_to_draft && permissions.revert_to_draft;
     const canApprove = period.can_approve && permissions.approve;
     const canMarkPaid = period.can_mark_paid && permissions.mark_paid;
     const canCancelPeriod = period.can_cancel && permissions.cancel;
@@ -346,7 +385,8 @@ return;
 
         const recordIds = payroll_records.map((record) => record.id);
         const allSelected =
-            recordIds.length > 0 && recordIds.every((id) => selectedWpsRecordIds.includes(id));
+            recordIds.length > 0 &&
+            recordIds.every((id) => selectedWpsRecordIds.includes(id));
         const someSelected = selectedWpsRecordIds.length > 0 && !allSelected;
 
         return {
@@ -389,7 +429,9 @@ return;
                 title={
                     <span className="inline-flex flex-wrap items-center gap-3">
                         {period.name}
-                        <PayrollCategoryBadge category={period.payroll_category} />
+                        <PayrollCategoryBadge
+                            category={period.payroll_category}
+                        />
                         <PayrollPeriodStatusBadge
                             status={period.status}
                             label={period.status_label}
@@ -402,36 +444,39 @@ return;
                 actions={
                     hasHeaderActions ? (
                         <div className="flex flex-wrap items-center gap-2">
-                            {period.has_payment_proof && period.payment_proofs && period.payment_proofs.length > 0
-                                ? period.payment_proofs.map((proof, idx) => (
-                                      <a
-                                          key={proof.id ?? idx}
-                                          href={proof.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-2 h-12 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all"
-                                      >
-                                          <Paperclip className="h-4 w-4" />
-                                          {period.payment_proofs!.length > 1
-                                              ? `Payment Proof #${idx + 1}`
-                                              : 'Payment Proof'}
-                                      </a>
-                                  ))
-                                : period.has_payment_proof && period.payment_proof_url ? (
-                                      <a
-                                          href={period.payment_proof_url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-2 h-12 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all"
-                                      >
-                                          <Paperclip className="h-4 w-4" />
-                                          Payment Proof
-                                      </a>
-                                  ) : null}
+                            {period.has_payment_proof &&
+                            period.payment_proofs &&
+                            period.payment_proofs.length > 0 ? (
+                                period.payment_proofs.map((proof, idx) => (
+                                    <a
+                                        key={proof.id ?? idx}
+                                        href={proof.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex h-12 items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 text-sm font-medium text-emerald-600 transition-all hover:bg-emerald-500/20 dark:text-emerald-400"
+                                    >
+                                        <Paperclip className="h-4 w-4" />
+                                        {period.payment_proofs!.length > 1
+                                            ? `Payment Proof #${idx + 1}`
+                                            : 'Payment Proof'}
+                                    </a>
+                                ))
+                            ) : period.has_payment_proof &&
+                              period.payment_proof_url ? (
+                                <a
+                                    href={period.payment_proof_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex h-12 items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 text-sm font-medium text-emerald-600 transition-all hover:bg-emerald-500/20 dark:text-emerald-400"
+                                >
+                                    <Paperclip className="h-4 w-4" />
+                                    Payment Proof
+                                </a>
+                            ) : null}
                             {canCancelPeriod ? (
                                 <Button
                                     variant="outline"
-                                    className="h-12 rounded-xl border-destructive/30 px-6 text-destructive bg-destructive/5 hover:bg-destructive/15 hover:text-destructive transition-all duration-300"
+                                    className="h-12 rounded-xl border-destructive/30 bg-destructive/5 px-6 text-destructive transition-all duration-300 hover:bg-destructive/15 hover:text-destructive"
                                     onClick={() => setIsCancelDialogOpen(true)}
                                 >
                                     <XCircle className="mr-2 h-4 w-4" />
@@ -450,21 +495,29 @@ return;
                             ) : null}
                             {canMarkPaid ? (
                                 <Button
-                                    className="h-12 rounded-xl px-6 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-600 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25 transition-all duration-300 hover:scale-105 active:scale-95"
-                                    onClick={() => setIsMarkPaidDialogOpen(true)}
+                                    className="h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-6 text-white shadow-lg shadow-emerald-500/25 transition-all duration-300 hover:scale-105 hover:from-emerald-600 hover:to-emerald-500 active:scale-95"
+                                    onClick={() =>
+                                        setIsMarkPaidDialogOpen(true)
+                                    }
                                 >
                                     Mark as paid
                                 </Button>
                             ) : null}
                             {canGenerate ? (
                                 <Button
-                                    variant={isProcessingPayRun ? 'outline' : undefined}
+                                    variant={
+                                        isProcessingPayRun
+                                            ? 'outline'
+                                            : undefined
+                                    }
                                     className={
                                         isProcessingPayRun
                                             ? headerSecondaryActionClass
                                             : headerPrimaryActionClass
                                     }
-                                    onClick={() => setIsGenerateDialogOpen(true)}
+                                    onClick={() =>
+                                        setIsGenerateDialogOpen(true)
+                                    }
                                 >
                                     <Calculator className="mr-2 h-4 w-4" />
                                     {payroll_records.length > 0
@@ -474,7 +527,11 @@ return;
                             ) : null}
                             {canApprove ? (
                                 <Button
-                                    variant={isProcessingPayRun ? undefined : 'outline'}
+                                    variant={
+                                        isProcessingPayRun
+                                            ? undefined
+                                            : 'outline'
+                                    }
                                     className={
                                         isProcessingPayRun
                                             ? headerPrimaryActionClass
@@ -492,15 +549,20 @@ return;
             />
 
             {/* ── Status Timeline ─────────────────────────── */}
-            <PayrollStatusTimeline status={period.status} approver={period.approver} />
+            <PayrollStatusTimeline
+                status={period.status}
+                approver={period.approver}
+            />
 
             {/* ── Section 1: Employees / Timesheets ──────── */}
             {period.status === 'draft' && (
                 <section className="space-y-4">
                     <div className="flex items-center gap-3">
                         <div className="h-px flex-1 bg-border/60" />
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50">
-                            {period.supports_timesheets ? 'Timesheets' : 'Employees'}
+                        <span className="text-[11px] font-bold tracking-widest text-muted-foreground/50 uppercase">
+                            {period.supports_timesheets
+                                ? 'Timesheets'
+                                : 'Employees'}
                         </span>
                         <div className="h-px flex-1 bg-border/60" />
                     </div>
@@ -514,7 +576,7 @@ return;
                                     placeholder={`Search ${period.payroll_category_label.toLowerCase()} employees...`}
                                 />
                             </div>
-                            {permissions.import_timesheets && canSave ? (
+                            {permissions.import_timesheets ? (
                                 <Button
                                     variant="outline"
                                     className="h-12 rounded-xl px-6"
@@ -535,7 +597,9 @@ return;
                         </div>
                     )}
 
-                    {period.supports_timesheets ? renderTimesheetsTab() : renderOfficeEmployeesTab()}
+                    {period.supports_timesheets
+                        ? renderTimesheetsTab()
+                        : renderOfficeEmployeesTab()}
                 </section>
             )}
 
@@ -544,7 +608,7 @@ return;
                 <section className="space-y-4">
                     <div className="flex items-center gap-3">
                         <div className="h-px flex-1 bg-border/60" />
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50">
+                        <span className="text-[11px] font-bold tracking-widest text-muted-foreground/50 uppercase">
                             Payroll Records
                         </span>
                         <div className="h-px flex-1 bg-border/60" />
@@ -565,15 +629,18 @@ return;
                         payslip_summary={payslip_summary}
                         wps_preview={wps_preview}
                         permissions={permissions}
-                        selectedWpsRecordIds={canSelectForWpsExport ? selectedWpsRecordIds : null}
+                        selectedWpsRecordIds={
+                            canSelectForWpsExport ? selectedWpsRecordIds : null
+                        }
                     />
                     {payroll_records_summary ? (
-                        <PayrollRecordsSummaryCards summary={payroll_records_summary} />
+                        <PayrollRecordsSummaryCards
+                            summary={payroll_records_summary}
+                        />
                     ) : null}
                     {renderPayrollTab()}
                 </section>
             )}
-
 
             {period.supports_timesheets ? (
                 <CrewTimesheetImportDialog
@@ -664,7 +731,8 @@ return;
 
         const allIds = rows.map((r) => r.employee.id);
         const allSelected = excludedIds.size === 0;
-        const noneSelected = excludedIds.size === rows.length && rows.length > 0;
+        const noneSelected =
+            excludedIds.size === rows.length && rows.length > 0;
 
         const handleSelectAll = (checked: boolean | 'indeterminate') => {
             if (checked === true) {
@@ -674,7 +742,10 @@ return;
             }
         };
 
-        const handleRowToggle = (employeeId: number, checked: boolean | 'indeterminate') => {
+        const handleRowToggle = (
+            employeeId: number,
+            checked: boolean | 'indeterminate',
+        ) => {
             setExcludedIds((prev) => {
                 const next = new Set(prev);
 
@@ -714,7 +785,11 @@ return;
                             value={employee_stats.cash_payment_count}
                             subtitle="Paid by C3, Ansari, or cash"
                             icon={Building2}
-                            variant={employee_stats.cash_payment_count > 0 ? 'warning' : 'success'}
+                            variant={
+                                employee_stats.cash_payment_count > 0
+                                    ? 'warning'
+                                    : 'success'
+                            }
                         />
                         <EmployeeAnalyticsCard
                             title="Missing Bank Account"
@@ -724,8 +799,16 @@ return;
                                     ? 'Bank-transfer employees only — action required before WPS'
                                     : 'All bank-transfer employees configured'
                             }
-                            icon={employee_stats.missing_bank_account > 0 ? AlertCircle : Building2}
-                            variant={employee_stats.missing_bank_account > 0 ? 'warning' : 'success'}
+                            icon={
+                                employee_stats.missing_bank_account > 0
+                                    ? AlertCircle
+                                    : Building2
+                            }
+                            variant={
+                                employee_stats.missing_bank_account > 0
+                                    ? 'warning'
+                                    : 'success'
+                            }
                         />
                     </div>
                 )}
@@ -735,13 +818,19 @@ return;
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <CheckSquare className="h-4 w-4 shrink-0 text-primary" />
                         <span>
-                            <span className="font-semibold text-foreground">{includedCount}</span> of{' '}
-                            <span className="font-semibold text-foreground">{rows.length}</span> employees included
+                            <span className="font-semibold text-foreground">
+                                {includedCount}
+                            </span>{' '}
+                            of{' '}
+                            <span className="font-semibold text-foreground">
+                                {rows.length}
+                            </span>{' '}
+                            employees included
                         </span>
                         {excludedIds.size > 0 && (
                             <Badge
                                 variant="outline"
-                                className="ml-1 border-amber-500/30 bg-amber-500/10 text-amber-700 text-[10px] font-semibold dark:text-amber-300"
+                                className="ml-1 border-amber-500/30 bg-amber-500/10 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
                             >
                                 {excludedIds.size} excluded
                             </Badge>
@@ -751,7 +840,7 @@ return;
                         <button
                             type="button"
                             onClick={() => setExcludedIds(new Set())}
-                            className="text-xs font-medium text-primary underline-offset-2 hover:underline transition-colors"
+                            className="text-xs font-medium text-primary underline-offset-2 transition-colors hover:underline"
                         >
                             Select all
                         </button>
@@ -762,27 +851,42 @@ return;
                     <TableHeader>
                         {/* Group labels row */}
                         <tr className="border-b-0">
-                            <th colSpan={2} className="h-7 border-b border-border/30" />
-                            <th colSpan={1} className="h-7 border-b border-border/30" />
+                            <th
+                                colSpan={2}
+                                className="h-7 border-b border-border/30"
+                            />
+                            <th
+                                colSpan={1}
+                                className="h-7 border-b border-border/30"
+                            />
                             <th
                                 colSpan={3}
-                                className="h-7 border-x border-b border-primary/15 bg-primary/3 px-3 text-center text-[10px] font-bold uppercase tracking-[0.15em] text-primary/50"
+                                className="h-7 border-x border-b border-primary/15 bg-primary/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-primary/50 uppercase"
                             >
                                 Daily Rates
                             </th>
                             <th
                                 colSpan={2}
-                                className="h-7 border-x border-b border-blue-500/15 bg-blue-500/3 px-3 text-center text-[10px] font-bold uppercase tracking-[0.15em] text-blue-600/60 dark:text-blue-400/60"
+                                className="h-7 border-x border-b border-blue-500/15 bg-blue-500/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-blue-600/60 uppercase dark:text-blue-400/60"
                             >
                                 Days
                             </th>
-                            <th colSpan={2} className="h-7 border-b border-border/30" />
+                            <th
+                                colSpan={2}
+                                className="h-7 border-b border-border/30"
+                            />
                         </tr>
                         <DataTableHeaderRow>
                             <DataTableHead className="w-10">
                                 <Checkbox
                                     id="select-all-crew-employees"
-                                    checked={allSelected ? true : noneSelected ? false : 'indeterminate'}
+                                    checked={
+                                        allSelected
+                                            ? true
+                                            : noneSelected
+                                              ? false
+                                              : 'indeterminate'
+                                    }
                                     onCheckedChange={handleSelectAll}
                                     aria-label="Select all employees"
                                     className="rounded"
@@ -790,11 +894,21 @@ return;
                             </DataTableHead>
                             <DataTableHead>Employee</DataTableHead>
                             <DataTableHead>Bank</DataTableHead>
-                            <DataTableHead className="border-l border-primary/10 bg-primary/3 text-right">Basic</DataTableHead>
-                            <DataTableHead className="bg-primary/3 text-right">Suppl.</DataTableHead>
-                            <DataTableHead className="border-r border-primary/10 bg-primary/3 text-right">Site</DataTableHead>
-                            <DataTableHead className="border-l border-blue-500/10 bg-blue-500/3">Standby</DataTableHead>
-                            <DataTableHead className="border-r border-blue-500/10 bg-blue-500/3">Onsite</DataTableHead>
+                            <DataTableHead className="border-l border-primary/10 bg-primary/3 text-right">
+                                Basic
+                            </DataTableHead>
+                            <DataTableHead className="bg-primary/3 text-right">
+                                Suppl.
+                            </DataTableHead>
+                            <DataTableHead className="border-r border-primary/10 bg-primary/3 text-right">
+                                Site
+                            </DataTableHead>
+                            <DataTableHead className="border-l border-blue-500/10 bg-blue-500/3">
+                                Standby
+                            </DataTableHead>
+                            <DataTableHead className="border-r border-blue-500/10 bg-blue-500/3">
+                                Onsite
+                            </DataTableHead>
                             <DataTableHead>Payment</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
                         </DataTableHeaderRow>
@@ -802,22 +916,39 @@ return;
                     <TableBody>
                         {rows.map((row) => {
                             const isExcluded = excludedIds.has(row.employee.id);
-                            const paymentMethod =
-                                (row.salary_payment_method ?? 'bank_transfer') as SalaryPaymentMethodValue;
+                            const paymentMethod = (row.salary_payment_method ??
+                                'bank_transfer') as SalaryPaymentMethodValue;
                             const contract = row.contract ?? null;
 
                             const currentCrewDates = crewDates[row.employee.id];
-                            const standbyFrom = currentCrewDates?.standby_from ?? row.timesheet?.standby_from ?? '';
-                            const standbyTo = currentCrewDates?.standby_to ?? row.timesheet?.standby_to ?? '';
-                            const onsiteFrom = currentCrewDates?.onsite_from ?? row.timesheet?.onsite_from ?? '';
-                            const onsiteTo = currentCrewDates?.onsite_to ?? row.timesheet?.onsite_to ?? '';
+                            const standbyFrom =
+                                currentCrewDates?.standby_from ??
+                                row.timesheet?.standby_from ??
+                                '';
+                            const standbyTo =
+                                currentCrewDates?.standby_to ??
+                                row.timesheet?.standby_to ??
+                                '';
+                            const onsiteFrom =
+                                currentCrewDates?.onsite_from ??
+                                row.timesheet?.onsite_from ??
+                                '';
+                            const onsiteTo =
+                                currentCrewDates?.onsite_to ??
+                                row.timesheet?.onsite_to ??
+                                '';
 
                             const standbyDays = currentCrewDates
                                 ? calculateInclusiveDays(standbyFrom, standbyTo)
-                                : (row.timesheet?.standby_days ?? calculateInclusiveDays(standbyFrom, standbyTo));
+                                : (row.timesheet?.standby_days ??
+                                  calculateInclusiveDays(
+                                      standbyFrom,
+                                      standbyTo,
+                                  ));
                             const onsiteDays = currentCrewDates
                                 ? calculateInclusiveDays(onsiteFrom, onsiteTo)
-                                : (row.timesheet?.onsite_days ?? calculateInclusiveDays(onsiteFrom, onsiteTo));
+                                : (row.timesheet?.onsite_days ??
+                                  calculateInclusiveDays(onsiteFrom, onsiteTo));
 
                             const isDirty = !!crewDates[row.employee.id];
 
@@ -828,18 +959,28 @@ return;
                                         dataTableBodyRowClass(),
                                         'group transition-all duration-200',
                                         isExcluded
-                                            ? 'opacity-35 bg-muted/10 dark:bg-muted/5'
+                                            ? 'bg-muted/10 opacity-35 dark:bg-muted/5'
                                             : 'hover:bg-muted/30',
-                                        isDirty && !isExcluded && 'ring-1 ring-inset ring-primary/20',
+                                        isDirty &&
+                                            !isExcluded &&
+                                            'ring-1 ring-primary/20 ring-inset',
                                     )}
                                 >
                                     {/* Checkbox */}
-                                    <TableCell className={cn(dataTableCellClass(), 'pl-4')}>
+                                    <TableCell
+                                        className={cn(
+                                            dataTableCellClass(),
+                                            'pl-4',
+                                        )}
+                                    >
                                         <Checkbox
                                             id={`crew-employee-${row.employee.id}`}
                                             checked={!isExcluded}
                                             onCheckedChange={(checked) =>
-                                                handleRowToggle(row.employee.id, checked)
+                                                handleRowToggle(
+                                                    row.employee.id,
+                                                    checked,
+                                                )
                                             }
                                             aria-label={`Include ${row.employee.name}`}
                                             className="rounded"
@@ -847,14 +988,18 @@ return;
                                     </TableCell>
 
                                     {/* Employee */}
-                                    <TableCell className={dataTableCellPrimaryClass()}>
+                                    <TableCell
+                                        className={dataTableCellPrimaryClass()}
+                                    >
                                         <Link
-                                            href={showEmployee.url(row.employee.id)}
-                                            className="flex items-center gap-3 group/link"
+                                            href={showEmployee.url(
+                                                row.employee.id,
+                                            )}
+                                            className="group/link flex items-center gap-3"
                                         >
                                             <div
                                                 className={cn(
-                                                    'relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-xs font-bold shadow-sm overflow-hidden transition-all duration-200 group-hover/link:scale-105',
+                                                    'relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border text-xs font-bold shadow-sm transition-all duration-200 group-hover/link:scale-105',
                                                     isExcluded
                                                         ? 'border-border/40 bg-muted/50 text-muted-foreground'
                                                         : 'border-primary/20 bg-gradient-to-br from-primary/10 to-primary/25 text-primary dark:border-primary/15',
@@ -862,7 +1007,12 @@ return;
                                             >
                                                 {row.employee.image ? (
                                                     <img
-                                                        src={resolveEmployeeImageUrl(row.employee.image) ?? undefined}
+                                                        src={
+                                                            resolveEmployeeImageUrl(
+                                                                row.employee
+                                                                    .image,
+                                                            ) ?? undefined
+                                                        }
                                                         alt=""
                                                         className="h-full w-full object-cover"
                                                     />
@@ -871,16 +1021,19 @@ return;
                                                         .split(' ')
                                                         .filter(Boolean)
                                                         .slice(0, 2)
-                                                        .map((part) => part[0]?.toUpperCase())
+                                                        .map((part) =>
+                                                            part[0]?.toUpperCase(),
+                                                        )
                                                         .join('') || '—'
                                                 )}
                                             </div>
                                             <div className="min-w-0">
-                                                <span className="block truncate font-semibold leading-tight transition-colors group-hover/link:text-primary">
+                                                <span className="block truncate leading-tight font-semibold transition-colors group-hover/link:text-primary">
                                                     {row.employee.name}
                                                 </span>
                                                 <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground/70">
-                                                    {row.employee.employee_no ?? '—'}
+                                                    {row.employee.employee_no ??
+                                                        '—'}
                                                 </span>
                                             </div>
                                         </Link>
@@ -888,32 +1041,66 @@ return;
 
                                     {/* Bank account */}
                                     <PayrollRecordBankAccountCell
-                                        primary_account={row.primary_account ?? null}
+                                        primary_account={
+                                            row.primary_account ?? null
+                                        }
                                         salary_payment_method={paymentMethod}
                                     />
 
                                     {/* Basic salary */}
-                                    <TableCell className={cn(dataTableCellClass(), 'border-l border-primary/8 bg-primary/2 text-right')}>
+                                    <TableCell
+                                        className={cn(
+                                            dataTableCellClass(),
+                                            'border-l border-primary/8 bg-primary/2 text-right',
+                                        )}
+                                    >
                                         <div className="flex flex-col items-end gap-0.5">
-                                            <SalaryCell value={contract?.basic_salary} />
-                                            {contract?.basic_salary && Number(contract.basic_salary) > 0 && (
-                                                <span className="text-[10px] text-muted-foreground/50">/ day</span>
-                                            )}
+                                            <SalaryCell
+                                                value={contract?.basic_salary}
+                                            />
+                                            {contract?.basic_salary &&
+                                                Number(contract.basic_salary) >
+                                                    0 && (
+                                                    <span className="text-[10px] text-muted-foreground/50">
+                                                        / day
+                                                    </span>
+                                                )}
                                         </div>
                                     </TableCell>
 
                                     {/* Supplementary */}
-                                    <TableCell className={cn(dataTableCellClass(), 'bg-primary/2 text-right')}>
-                                        <SalaryCell value={contract?.supplementary_allowance} />
+                                    <TableCell
+                                        className={cn(
+                                            dataTableCellClass(),
+                                            'bg-primary/2 text-right',
+                                        )}
+                                    >
+                                        <SalaryCell
+                                            value={
+                                                contract?.supplementary_allowance
+                                            }
+                                        />
                                     </TableCell>
 
                                     {/* Site allowance */}
-                                    <TableCell className={cn(dataTableCellClass(), 'border-r border-primary/8 bg-primary/2 text-right')}>
-                                        <SalaryCell value={contract?.site_allowance} />
+                                    <TableCell
+                                        className={cn(
+                                            dataTableCellClass(),
+                                            'border-r border-primary/8 bg-primary/2 text-right',
+                                        )}
+                                    >
+                                        <SalaryCell
+                                            value={contract?.site_allowance}
+                                        />
                                     </TableCell>
 
                                     {/* Standby dates */}
-                                    <TableCell className={cn(dataTableCellClass(), 'border-l border-blue-500/8 bg-blue-500/2')}>
+                                    <TableCell
+                                        className={cn(
+                                            dataTableCellClass(),
+                                            'border-l border-blue-500/8 bg-blue-500/2',
+                                        )}
+                                    >
                                         <div className="flex flex-col gap-2">
                                             <div className="flex items-center gap-1">
                                                 <Input
@@ -927,10 +1114,17 @@ return;
                                                             row.timesheet,
                                                         )
                                                     }
-                                                    onBlur={() => handleSaveCrewTimesheet(row.employee.id, row.timesheet)}
-                                                    className="h-7 w-[130px] px-1.5 text-[11px] font-mono rounded-md border-border/50 bg-background/60 focus:bg-background transition-colors shadow-none [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    onBlur={() =>
+                                                        handleSaveCrewTimesheet(
+                                                            row.employee.id,
+                                                            row.timesheet,
+                                                        )
+                                                    }
+                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
                                                 />
-                                                <span className="text-muted-foreground/40 text-[10px] font-bold shrink-0">→</span>
+                                                <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
+                                                    →
+                                                </span>
                                                 <Input
                                                     type="date"
                                                     value={standbyTo}
@@ -942,21 +1136,33 @@ return;
                                                             row.timesheet,
                                                         )
                                                     }
-                                                    onBlur={() => handleSaveCrewTimesheet(row.employee.id, row.timesheet)}
-                                                    className="h-7 w-[130px] px-1.5 text-[11px] font-mono rounded-md border-border/50 bg-background/60 focus:bg-background transition-colors shadow-none [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    onBlur={() =>
+                                                        handleSaveCrewTimesheet(
+                                                            row.employee.id,
+                                                            row.timesheet,
+                                                        )
+                                                    }
+                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
                                                 />
                                             </div>
                                             <Badge
                                                 variant="secondary"
                                                 className={cn(
-                                                    'w-fit inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
-                                                    standbyDays && Number(standbyDays) > 0
+                                                    'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
+                                                    standbyDays &&
+                                                        Number(standbyDays) > 0
                                                         ? 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300'
                                                         : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
                                                 )}
                                             >
-                                                {standbyDays && Number(standbyDays) > 0 ? (
-                                                    <>{formatTimesheetDays(standbyDays)} days</>
+                                                {standbyDays &&
+                                                Number(standbyDays) > 0 ? (
+                                                    <>
+                                                        {formatTimesheetDays(
+                                                            standbyDays,
+                                                        )}{' '}
+                                                        days
+                                                    </>
                                                 ) : (
                                                     <>No dates set</>
                                                 )}
@@ -965,7 +1171,12 @@ return;
                                     </TableCell>
 
                                     {/* Onsite dates */}
-                                    <TableCell className={cn(dataTableCellClass(), 'border-r border-blue-500/8 bg-blue-500/2')}>
+                                    <TableCell
+                                        className={cn(
+                                            dataTableCellClass(),
+                                            'border-r border-blue-500/8 bg-blue-500/2',
+                                        )}
+                                    >
                                         <div className="flex flex-col gap-2">
                                             <div className="flex items-center gap-1">
                                                 <Input
@@ -979,10 +1190,17 @@ return;
                                                             row.timesheet,
                                                         )
                                                     }
-                                                    onBlur={() => handleSaveCrewTimesheet(row.employee.id, row.timesheet)}
-                                                    className="h-7 w-[130px] px-1.5 text-[11px] font-mono rounded-md border-border/50 bg-background/60 focus:bg-background transition-colors shadow-none [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    onBlur={() =>
+                                                        handleSaveCrewTimesheet(
+                                                            row.employee.id,
+                                                            row.timesheet,
+                                                        )
+                                                    }
+                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
                                                 />
-                                                <span className="text-muted-foreground/40 text-[10px] font-bold shrink-0">→</span>
+                                                <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
+                                                    →
+                                                </span>
                                                 <Input
                                                     type="date"
                                                     value={onsiteTo}
@@ -994,21 +1212,33 @@ return;
                                                             row.timesheet,
                                                         )
                                                     }
-                                                    onBlur={() => handleSaveCrewTimesheet(row.employee.id, row.timesheet)}
-                                                    className="h-7 w-[130px] px-1.5 text-[11px] font-mono rounded-md border-border/50 bg-background/60 focus:bg-background transition-colors shadow-none [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    onBlur={() =>
+                                                        handleSaveCrewTimesheet(
+                                                            row.employee.id,
+                                                            row.timesheet,
+                                                        )
+                                                    }
+                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
                                                 />
                                             </div>
                                             <Badge
                                                 variant="secondary"
                                                 className={cn(
-                                                    'w-fit inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
-                                                    onsiteDays && Number(onsiteDays) > 0
+                                                    'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
+                                                    onsiteDays &&
+                                                        Number(onsiteDays) > 0
                                                         ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
                                                         : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
                                                 )}
                                             >
-                                                {onsiteDays && Number(onsiteDays) > 0 ? (
-                                                    <>{formatTimesheetDays(onsiteDays)} days</>
+                                                {onsiteDays &&
+                                                Number(onsiteDays) > 0 ? (
+                                                    <>
+                                                        {formatTimesheetDays(
+                                                            onsiteDays,
+                                                        )}{' '}
+                                                        days
+                                                    </>
                                                 ) : (
                                                     <>No dates set</>
                                                 )}
@@ -1019,14 +1249,21 @@ return;
                                     {/* Payment method */}
                                     <PayrollRecordPaymentMethodCell
                                         method={paymentMethod}
-                                        label={row.salary_payment_method_label ?? 'Bank transfer'}
+                                        label={
+                                            row.salary_payment_method_label ??
+                                            'Bank transfer'
+                                        }
                                     />
 
                                     {/* Status */}
                                     <TableCell className={dataTableCellClass()}>
                                         <div className="flex flex-col items-start gap-1.5">
                                             <Badge
-                                                variant={row.is_filled ? 'default' : 'outline'}
+                                                variant={
+                                                    row.is_filled
+                                                        ? 'default'
+                                                        : 'outline'
+                                                }
                                                 className={cn(
                                                     'text-[11px] font-semibold',
                                                     row.is_filled
@@ -1034,11 +1271,13 @@ return;
                                                         : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
                                                 )}
                                             >
-                                                {row.is_filled ? '✓ Filled' : 'Pending'}
+                                                {row.is_filled
+                                                    ? '✓ Filled'
+                                                    : 'Pending'}
                                             </Badge>
                                             {isDirty && (
-                                                <span className="inline-flex items-center gap-1 text-[10px] text-primary/70 font-medium">
-                                                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/60 animate-pulse" />
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary/70">
+                                                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary/60" />
                                                     Unsaved
                                                 </span>
                                             )}
@@ -1075,7 +1314,10 @@ return;
                     description={emptyDescription}
                     action={
                         canGenerate ? (
-                            <Button className="rounded-xl" onClick={() => setIsGenerateDialogOpen(true)}>
+                            <Button
+                                className="rounded-xl"
+                                onClick={() => setIsGenerateDialogOpen(true)}
+                            >
                                 <Calculator className="mr-2 h-4 w-4" />
                                 Generate payroll
                             </Button>
@@ -1086,10 +1328,12 @@ return;
         }
 
         const crewRecords = payroll_records.filter(
-            (record): record is CrewPayrollRecordListItem => record.payroll_category === 'crew',
+            (record): record is CrewPayrollRecordListItem =>
+                record.payroll_category === 'crew',
         );
         const officeRecords = payroll_records.filter(
-            (record): record is OfficePayrollRecordListItem => record.payroll_category === 'office',
+            (record): record is OfficePayrollRecordListItem =>
+                record.payroll_category === 'office',
         );
 
         return (
@@ -1130,7 +1374,11 @@ return;
                         onPageChange={(page) => {
                             router.get(
                                 show.url(period.id),
-                                { tab: 'payroll', records_page: page, search: initialSearch || undefined },
+                                {
+                                    tab: 'payroll',
+                                    records_page: page,
+                                    search: initialSearch || undefined,
+                                },
                                 { preserveState: true, preserveScroll: true },
                             );
                         }}
@@ -1191,8 +1439,6 @@ const PAYROLL_FLOW = [
     },
 ] as const;
 
-
-
 function PayrollStatusTimeline({
     status,
     approver,
@@ -1212,8 +1458,13 @@ function PayrollStatusTimeline({
                         <Ban className="h-5 w-5" />
                     </div>
                     <div>
-                        <p className="text-sm font-bold text-destructive">Pay Run Cancelled</p>
-                        <p className="text-xs text-muted-foreground/70">This payroll period has been cancelled and cannot be processed.</p>
+                        <p className="text-sm font-bold text-destructive">
+                            Pay Run Cancelled
+                        </p>
+                        <p className="text-xs text-muted-foreground/70">
+                            This payroll period has been cancelled and cannot be
+                            processed.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -1241,9 +1492,12 @@ function PayrollStatusTimeline({
                                     <div
                                         className={cn(
                                             'relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-500',
-                                            isCompleted && 'border-emerald-500 bg-emerald-500 text-white shadow-lg shadow-emerald-500/30',
-                                            isActive && 'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/40 scale-110',
-                                            isFuture && 'border-border/40 bg-muted/30 text-muted-foreground/40',
+                                            isCompleted &&
+                                                'border-emerald-500 bg-emerald-500 text-white shadow-lg shadow-emerald-500/30',
+                                            isActive &&
+                                                'scale-110 border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/40',
+                                            isFuture &&
+                                                'border-border/40 bg-muted/30 text-muted-foreground/40',
                                         )}
                                     >
                                         {isCompleted ? (
@@ -1264,9 +1518,11 @@ function PayrollStatusTimeline({
                                         <p
                                             className={cn(
                                                 'text-xs font-bold transition-colors duration-300',
-                                                isCompleted && 'text-emerald-600 dark:text-emerald-400',
+                                                isCompleted &&
+                                                    'text-emerald-600 dark:text-emerald-400',
                                                 isActive && 'text-primary',
-                                                isFuture && 'text-muted-foreground/40',
+                                                isFuture &&
+                                                    'text-muted-foreground/40',
                                             )}
                                         >
                                             {step.label}
@@ -1274,13 +1530,17 @@ function PayrollStatusTimeline({
                                         <p
                                             className={cn(
                                                 'mt-0.5 text-[10px] transition-colors duration-300',
-                                                isActive ? 'text-muted-foreground' : 'text-muted-foreground/40',
+                                                isActive
+                                                    ? 'text-muted-foreground'
+                                                    : 'text-muted-foreground/40',
                                             )}
                                         >
                                             {step.description}
                                         </p>
                                         {/* Approver badge */}
-                                        {step.status === 'approved' && isCompleted && approver ? (
+                                        {step.status === 'approved' &&
+                                        isCompleted &&
+                                        approver ? (
                                             <p className="mt-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
                                                 by {approver.name}
                                             </p>
@@ -1294,7 +1554,9 @@ function PayrollStatusTimeline({
                                         <div
                                             className={cn(
                                                 'h-full rounded-full transition-all duration-700',
-                                                isCompleted ? 'bg-emerald-500 w-full' : 'w-0',
+                                                isCompleted
+                                                    ? 'w-full bg-emerald-500'
+                                                    : 'w-0',
                                             )}
                                         />
                                     </div>
@@ -1356,14 +1618,24 @@ function EmployeeAnalyticsCard({
 
             <div className="relative z-10 flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground/60">
+                    <p className="text-[11px] font-bold tracking-[0.16em] text-muted-foreground/60 uppercase">
                         {title}
                     </p>
-                    <p className={cn('mt-2 text-3xl font-extrabold tabular-nums tracking-tight', styles.value)}>
+                    <p
+                        className={cn(
+                            'mt-2 text-3xl font-extrabold tracking-tight tabular-nums',
+                            styles.value,
+                        )}
+                    >
                         {value.toLocaleString()}
                     </p>
                     <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground/70">
-                        <span className={cn('inline-block h-1.5 w-1.5 rounded-full', styles.dot)} />
+                        <span
+                            className={cn(
+                                'inline-block h-1.5 w-1.5 rounded-full',
+                                styles.dot,
+                            )}
+                        />
                         {subtitle}
                     </p>
                 </div>
@@ -1384,12 +1656,15 @@ function EmployeeAnalyticsCard({
 
 function SalaryCell({ value }: { value: string | null | undefined }) {
     if (!value || Number(value) === 0) {
-        return <span className="text-muted-foreground/40 text-xs">—</span>;
+        return <span className="text-xs text-muted-foreground/40">—</span>;
     }
 
     return (
-        <span className="tabular-nums font-medium">
-            {Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        <span className="font-medium tabular-nums">
+            {Number(value).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            })}
         </span>
     );
 }
@@ -1413,7 +1688,9 @@ function OfficeEmployeesTabContent({
     excludedIds: Set<number>;
     setExcludedIds: React.Dispatch<React.SetStateAction<Set<number>>>;
     rowDates: Record<number, { start: string; end: string }>;
-    setRowDates: React.Dispatch<React.SetStateAction<Record<number, { start: string; end: string }>>>;
+    setRowDates: React.Dispatch<
+        React.SetStateAction<Record<number, { start: string; end: string }>>
+    >;
 }) {
     const handleStartDateChange = (employeeId: number, val: string) => {
         setRowDates((prev) => ({
@@ -1447,7 +1724,10 @@ function OfficeEmployeesTabContent({
         }
     };
 
-    const handleRowToggle = (employeeId: number, checked: boolean | 'indeterminate') => {
+    const handleRowToggle = (
+        employeeId: number,
+        checked: boolean | 'indeterminate',
+    ) => {
         setExcludedIds((prev) => {
             const next = new Set(prev);
 
@@ -1487,7 +1767,11 @@ function OfficeEmployeesTabContent({
                         value={employee_stats.cash_payment_count}
                         subtitle="Paid by C3, Ansari, or cash"
                         icon={Building2}
-                        variant={employee_stats.cash_payment_count > 0 ? 'warning' : 'success'}
+                        variant={
+                            employee_stats.cash_payment_count > 0
+                                ? 'warning'
+                                : 'success'
+                        }
                     />
                     <EmployeeAnalyticsCard
                         title="Missing Bank Account"
@@ -1497,8 +1781,16 @@ function OfficeEmployeesTabContent({
                                 ? 'Bank-transfer employees only — action required before WPS'
                                 : 'All bank-transfer employees configured'
                         }
-                        icon={employee_stats.missing_bank_account > 0 ? AlertCircle : Building2}
-                        variant={employee_stats.missing_bank_account > 0 ? 'warning' : 'success'}
+                        icon={
+                            employee_stats.missing_bank_account > 0
+                                ? AlertCircle
+                                : Building2
+                        }
+                        variant={
+                            employee_stats.missing_bank_account > 0
+                                ? 'warning'
+                                : 'success'
+                        }
                     />
                 </div>
             )}
@@ -1508,13 +1800,19 @@ function OfficeEmployeesTabContent({
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <CheckSquare className="h-4 w-4 shrink-0 text-primary" />
                     <span>
-                        <span className="font-semibold text-foreground">{includedCount}</span> of{' '}
-                        <span className="font-semibold text-foreground">{rows.length}</span> employees included
+                        <span className="font-semibold text-foreground">
+                            {includedCount}
+                        </span>{' '}
+                        of{' '}
+                        <span className="font-semibold text-foreground">
+                            {rows.length}
+                        </span>{' '}
+                        employees included
                     </span>
                     {excludedIds.size > 0 && (
                         <Badge
                             variant="outline"
-                            className="ml-1 border-amber-500/30 bg-amber-500/10 text-amber-700 text-[10px] font-semibold dark:text-amber-300"
+                            className="ml-1 border-amber-500/30 bg-amber-500/10 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
                         >
                             {excludedIds.size} excluded
                         </Badge>
@@ -1524,7 +1822,7 @@ function OfficeEmployeesTabContent({
                     <button
                         type="button"
                         onClick={() => setExcludedIds(new Set())}
-                        className="text-xs font-medium text-primary underline-offset-2 hover:underline transition-colors"
+                        className="text-xs font-medium text-primary underline-offset-2 transition-colors hover:underline"
                     >
                         Select all
                     </button>
@@ -1539,7 +1837,13 @@ function OfficeEmployeesTabContent({
                         <DataTableHead className="w-10">
                             <Checkbox
                                 id="select-all-employees"
-                                checked={allSelected ? true : noneSelected ? false : 'indeterminate'}
+                                checked={
+                                    allSelected
+                                        ? true
+                                        : noneSelected
+                                          ? false
+                                          : 'indeterminate'
+                                }
                                 onCheckedChange={handleSelectAll}
                                 aria-label="Select all employees"
                                 className="rounded"
@@ -1551,12 +1855,14 @@ function OfficeEmployeesTabContent({
                         <DataTableHead>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <span className="inline-flex items-center gap-1.5 cursor-default">
+                                    <span className="inline-flex cursor-default items-center gap-1.5">
                                         <Calculator className="h-3 w-3 text-primary/60" />
                                         Basic Salary
                                     </span>
                                 </TooltipTrigger>
-                                <TooltipContent>From current contract</TooltipContent>
+                                <TooltipContent>
+                                    From current contract
+                                </TooltipContent>
                             </Tooltip>
                         </DataTableHead>
                         <DataTableHead>Housing Allow.</DataTableHead>
@@ -1564,29 +1870,34 @@ function OfficeEmployeesTabContent({
                         <DataTableHead>Other Allow.</DataTableHead>
                         <DataTableHead>Payment</DataTableHead>
                         <DataTableHead>
-                            <span className="inline-flex items-center gap-1.5 cursor-default">
+                            <span className="inline-flex cursor-default items-center gap-1.5">
                                 <Calendar className="h-3 w-3 text-primary/60" />
                                 Period (Start — End)
                             </span>
                         </DataTableHead>
                         <DataTableHead>
-                            <span className="inline-flex items-center gap-1.5 cursor-default">
+                            <span className="inline-flex cursor-default items-center gap-1.5">
                                 <CalendarDays className="h-3 w-3 text-primary/60" />
                                 Total Days
                             </span>
                         </DataTableHead>
-
                     </DataTableHeaderRow>
                 </TableHeader>
                 <TableBody>
                     {rows.map((row) => {
                         const isExcluded = excludedIds.has(row.employee.id);
-                        const paymentMethod =
-                            (row.salary_payment_method ?? 'bank_transfer') as SalaryPaymentMethodValue;
+                        const paymentMethod = (row.salary_payment_method ??
+                            'bank_transfer') as SalaryPaymentMethodValue;
                         const contract = row.contract ?? null;
-                        const startDate = rowDates[row.employee.id]?.start ?? period.start_date;
-                        const endDate = rowDates[row.employee.id]?.end ?? period.end_date;
-                        const totalDays = calculateInclusiveDays(startDate, endDate);
+                        const startDate =
+                            rowDates[row.employee.id]?.start ??
+                            period.start_date;
+                        const endDate =
+                            rowDates[row.employee.id]?.end ?? period.end_date;
+                        const totalDays = calculateInclusiveDays(
+                            startDate,
+                            endDate,
+                        );
 
                         return (
                             <TableRow
@@ -1595,7 +1906,7 @@ function OfficeEmployeesTabContent({
                                     dataTableBodyRowClass(),
                                     'group transition-all duration-200',
                                     isExcluded
-                                        ? 'opacity-40 bg-muted/20 dark:bg-muted/10'
+                                        ? 'bg-muted/20 opacity-40 dark:bg-muted/10'
                                         : 'hover:bg-muted/40',
                                 )}
                             >
@@ -1605,7 +1916,10 @@ function OfficeEmployeesTabContent({
                                         id={`employee-${row.employee.id}`}
                                         checked={!isExcluded}
                                         onCheckedChange={(checked) =>
-                                            handleRowToggle(row.employee.id, checked)
+                                            handleRowToggle(
+                                                row.employee.id,
+                                                checked,
+                                            )
                                         }
                                         aria-label={`Include ${row.employee.name}`}
                                         className="rounded"
@@ -1613,22 +1927,28 @@ function OfficeEmployeesTabContent({
                                 </TableCell>
 
                                 {/* Employee name + avatar — clickable link */}
-                                <TableCell className={dataTableCellPrimaryClass()}>
+                                <TableCell
+                                    className={dataTableCellPrimaryClass()}
+                                >
                                     <Link
                                         href={showEmployee.url(row.employee.id)}
-                                        className="flex items-center gap-3 group/link"
+                                        className="group/link flex items-center gap-3"
                                     >
                                         <div
                                             className={cn(
-                                                'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-xs font-bold shadow-inner overflow-hidden transition-all duration-200',
+                                                'flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border text-xs font-bold shadow-inner transition-all duration-200',
                                                 isExcluded
                                                     ? 'border-border/40 bg-muted/50 text-muted-foreground'
-                                                    : 'border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-primary dark:border-white/10 group-hover/link:scale-105',
+                                                    : 'border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-primary group-hover/link:scale-105 dark:border-white/10',
                                             )}
                                         >
                                             {row.employee.image ? (
                                                 <img
-                                                    src={resolveEmployeeImageUrl(row.employee.image) ?? undefined}
+                                                    src={
+                                                        resolveEmployeeImageUrl(
+                                                            row.employee.image,
+                                                        ) ?? undefined
+                                                    }
                                                     alt=""
                                                     className="h-full w-full object-cover"
                                                 />
@@ -1637,21 +1957,25 @@ function OfficeEmployeesTabContent({
                                                     .split(' ')
                                                     .filter(Boolean)
                                                     .slice(0, 2)
-                                                    .map((part) => part[0]?.toUpperCase())
+                                                    .map((part) =>
+                                                        part[0]?.toUpperCase(),
+                                                    )
                                                     .join('') || '—'
                                             )}
                                         </div>
                                         <div className="min-w-0">
                                             <span
                                                 className={cn(
-                                                    'block font-semibold leading-tight transition-colors group-hover/link:text-primary',
-                                                    isExcluded && 'line-through',
+                                                    'block leading-tight font-semibold transition-colors group-hover/link:text-primary',
+                                                    isExcluded &&
+                                                        'line-through',
                                                 )}
                                             >
                                                 {row.employee.name}
                                             </span>
                                             <span className="block font-mono text-xs text-muted-foreground">
-                                                {row.employee.employee_no ?? '—'}
+                                                {row.employee.employee_no ??
+                                                    '—'}
                                             </span>
                                             <span className="text-[11px] text-muted-foreground/60">
                                                 View profile →
@@ -1661,50 +1985,95 @@ function OfficeEmployeesTabContent({
                                 </TableCell>
 
                                 <PayrollRecordBankAccountCell
-                                    primary_account={row.primary_account ?? null}
+                                    primary_account={
+                                        row.primary_account ?? null
+                                    }
                                     salary_payment_method={paymentMethod}
                                 />
 
                                 {/* Basic salary */}
-                                <TableCell className={cn(dataTableCellClass(), 'text-right')}>
-                                    <SalaryCell value={contract?.basic_salary} />
+                                <TableCell
+                                    className={cn(
+                                        dataTableCellClass(),
+                                        'text-right',
+                                    )}
+                                >
+                                    <SalaryCell
+                                        value={contract?.basic_salary}
+                                    />
                                 </TableCell>
 
                                 {/* Housing allowance */}
-                                <TableCell className={cn(dataTableCellClass(), 'text-right')}>
-                                    <SalaryCell value={contract?.housing_allowance} />
+                                <TableCell
+                                    className={cn(
+                                        dataTableCellClass(),
+                                        'text-right',
+                                    )}
+                                >
+                                    <SalaryCell
+                                        value={contract?.housing_allowance}
+                                    />
                                 </TableCell>
 
                                 {/* Transport allowance */}
-                                <TableCell className={cn(dataTableCellClass(), 'text-right')}>
-                                    <SalaryCell value={contract?.transport_allowance} />
+                                <TableCell
+                                    className={cn(
+                                        dataTableCellClass(),
+                                        'text-right',
+                                    )}
+                                >
+                                    <SalaryCell
+                                        value={contract?.transport_allowance}
+                                    />
                                 </TableCell>
 
                                 {/* Other allowances */}
-                                <TableCell className={cn(dataTableCellClass(), 'text-right')}>
-                                    <SalaryCell value={contract?.other_allowances} />
+                                <TableCell
+                                    className={cn(
+                                        dataTableCellClass(),
+                                        'text-right',
+                                    )}
+                                >
+                                    <SalaryCell
+                                        value={contract?.other_allowances}
+                                    />
                                 </TableCell>
 
                                 <PayrollRecordPaymentMethodCell
                                     method={paymentMethod}
-                                    label={row.salary_payment_method_label ?? 'Bank transfer'}
+                                    label={
+                                        row.salary_payment_method_label ??
+                                        'Bank transfer'
+                                    }
                                 />
 
                                 {/* Period dates */}
                                 <TableCell className={dataTableCellClass()}>
-                                    <div className="flex items-center gap-2 min-w-[310px]">
+                                    <div className="flex min-w-[310px] items-center gap-2">
                                         <Input
                                             type="date"
                                             value={startDate}
-                                            onChange={(e) => handleStartDateChange(row.employee.id, e.target.value)}
-                                            className="h-8 w-[142px] px-2 text-xs font-mono rounded-lg border-border/60 bg-background/50 focus:bg-background transition-colors [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                            onChange={(e) =>
+                                                handleStartDateChange(
+                                                    row.employee.id,
+                                                    e.target.value,
+                                                )
+                                            }
+                                            className="h-8 w-[142px] rounded-lg border-border/60 bg-background/50 px-2 font-mono text-xs transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert"
                                         />
-                                        <span className="text-muted-foreground/50 text-xs font-bold">—</span>
+                                        <span className="text-xs font-bold text-muted-foreground/50">
+                                            —
+                                        </span>
                                         <Input
                                             type="date"
                                             value={endDate}
-                                            onChange={(e) => handleEndDateChange(row.employee.id, e.target.value)}
-                                            className="h-8 w-[142px] px-2 text-xs font-mono rounded-lg border-border/60 bg-background/50 focus:bg-background transition-colors [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                            onChange={(e) =>
+                                                handleEndDateChange(
+                                                    row.employee.id,
+                                                    e.target.value,
+                                                )
+                                            }
+                                            className="h-8 w-[142px] rounded-lg border-border/60 bg-background/50 px-2 font-mono text-xs transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert"
                                         />
                                     </div>
                                 </TableCell>

@@ -11,7 +11,9 @@ export function submitWpsExport(
     form.method = 'POST';
     form.action = exportWps.url();
 
-    const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+    const csrf = document.querySelector<HTMLMetaElement>(
+        'meta[name="csrf-token"]',
+    )?.content;
 
     if (csrf) {
         const tokenInput = document.createElement('input');

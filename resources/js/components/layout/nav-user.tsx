@@ -92,7 +92,10 @@ export function NavUser() {
                             <DropdownMenuSeparator />
                             <DropdownMenuGroup>
                                 <DropdownMenuItem asChild>
-                                    <Link href={`/organization/users/${user.id}`} prefetch="click">
+                                    <Link
+                                        href={`/organization/users/${user.id}`}
+                                        prefetch="click"
+                                    >
                                         <Settings />
                                         Settings
                                     </Link>

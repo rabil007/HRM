@@ -1,5 +1,8 @@
 import { templateBodyToMessage } from '@/features/organization/documents/email-send/email-utils';
-import { joinEmailList, parseEmailList } from '@/features/organization/documents/email-send/parse-email-list';
+import {
+    joinEmailList,
+    parseEmailList,
+} from '@/features/organization/documents/email-send/parse-email-list';
 
 export type EmailTemplateOption = {
     slug: string;

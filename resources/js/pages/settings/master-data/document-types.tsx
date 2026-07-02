@@ -1,7 +1,14 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { AlertCircle, Download, FileSpreadsheet, Info, Loader2, Upload } from 'lucide-react';
-import { useMemo, useRef, useState   } from 'react';
-import type {DragEvent, KeyboardEvent} from 'react';
+import {
+    AlertCircle,
+    Download,
+    FileSpreadsheet,
+    Info,
+    Loader2,
+    Upload,
+} from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import type { DragEvent, KeyboardEvent } from 'react';
 import Heading from '@/components/heading';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -25,10 +32,19 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
-import { firstValidationError, hasFlashSuccess } from '@/lib/first-validation-error';
+import {
+    firstValidationError,
+    hasFlashSuccess,
+} from '@/lib/first-validation-error';
 import { cn } from '@/lib/utils';
 
 type DocumentType = {
@@ -37,7 +53,11 @@ type DocumentType = {
     is_active: boolean;
 };
 
-export default function DocumentTypes({ document_types }: { document_types: DocumentType[] }) {
+export default function DocumentTypes({
+    document_types,
+}: {
+    document_types: DocumentType[];
+}) {
     const can = useSettingsMasterDataCan('document-types');
 
     const [query, setQuery] = useState('');
@@ -132,7 +152,7 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
             },
             {
                 preserveScroll: true,
-            }
+            },
         );
     };
 
@@ -232,7 +252,7 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                             'Import failed.',
                         ),
                     ),
-            }
+            },
         );
     };
 
@@ -256,40 +276,77 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                         />
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                        <Button variant="outline" type="button" onClick={openImport}>
+                        <Button
+                            variant="outline"
+                            type="button"
+                            onClick={openImport}
+                        >
                             <Upload className="mr-2 h-4 w-4" />
                             Import CSV
                         </Button>
-                        {can.create ? <Button onClick={openCreate}>Add document type</Button> : null}
+                        {can.create ? (
+                            <Button onClick={openCreate}>
+                                Add document type
+                            </Button>
+                        ) : null}
                     </div>
                 </div>
 
-                <div className="rounded-xl border border-border/60 overflow-hidden">
+                <div className="overflow-hidden rounded-xl border border-border/60">
                     <div className="overflow-x-auto">
                         <div className="min-w-[640px]">
-                            <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30 whitespace-nowrap">
+                            <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
                                 <div className="col-span-8">Title</div>
                                 <div className="col-span-1">Active</div>
-                                <div className="col-span-3 text-right">Actions</div>
+                                <div className="col-span-3 text-right">
+                                    Actions
+                                </div>
                             </div>
 
                             {rows.map((d) => (
-                                <div key={d.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-t border-border/60 whitespace-nowrap">
-                                    <div className="col-span-8 text-sm font-medium truncate">{d.title}</div>
-                                    <div className="col-span-1 flex items-center">
-                                        <Switch disabled={!can.update} checked={d.is_active} onCheckedChange={() => toggleActive(d)} />
+                                <div
+                                    key={d.id}
+                                    className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
+                                >
+                                    <div className="col-span-8 truncate text-sm font-medium">
+                                        {d.title}
                                     </div>
-                                    <div className="col-span-3 flex justify-end gap-2 flex-nowrap">
-                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
-                                        {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(d)}>
-                                            Delete
-                                        </Button> : null}
+                                    <div className="col-span-1 flex items-center">
+                                        <Switch
+                                            disabled={!can.update}
+                                            checked={d.is_active}
+                                            onCheckedChange={() =>
+                                                toggleActive(d)
+                                            }
+                                        />
+                                    </div>
+                                    <div className="col-span-3 flex flex-nowrap justify-end gap-2">
+                                        {can.update ? (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => openEdit(d)}
+                                            >
+                                                Edit
+                                            </Button>
+                                        ) : null}
+                                        {can.delete ? (
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => requestDelete(d)}
+                                            >
+                                                Delete
+                                            </Button>
+                                        ) : null}
                                     </div>
                                 </div>
                             ))}
 
                             {rows.length === 0 ? (
-                                <div className="px-4 py-10 text-sm text-muted-foreground">No document types found.</div>
+                                <div className="px-4 py-10 text-sm text-muted-foreground">
+                                    No document types found.
+                                </div>
                             ) : null}
                         </div>
                     </div>
@@ -322,9 +379,12 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                                 <Upload className="size-5" />
                             </div>
                             <div className="min-w-0 space-y-1.5 pt-0.5">
-                                <DialogTitle className="text-xl leading-tight">Import document types</DialogTitle>
+                                <DialogTitle className="text-xl leading-tight">
+                                    Import document types
+                                </DialogTitle>
                                 <DialogDescription>
-                                    Add or update rows in bulk. Existing titles are updated; new titles are created.
+                                    Add or update rows in bulk. Existing titles
+                                    are updated; new titles are created.
                                 </DialogDescription>
                             </div>
                         </div>
@@ -337,23 +397,37 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                                 <span className="sr-only">CSV format:</span>
                                 <ul className="list-inside list-disc space-y-1 text-muted-foreground">
                                     <li>
-                                        <span className="font-medium text-foreground">title</span> — required header and value on each row
+                                        <span className="font-medium text-foreground">
+                                            title
+                                        </span>{' '}
+                                        — required header and value on each row
                                     </li>
                                     <li>
-                                        <span className="font-medium text-foreground">is_active</span> — optional; use yes, true, 1, or active for
-                                        enabled
+                                        <span className="font-medium text-foreground">
+                                            is_active
+                                        </span>{' '}
+                                        — optional; use yes, true, 1, or active
+                                        for enabled
                                     </li>
                                 </ul>
                             </AlertDescription>
                         </Alert>
 
                         <div className="space-y-2">
-                            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Step 1 — Template</p>
+                            <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                Step 1 — Template
+                            </p>
                             <div className="rounded-xl border border-border/80 bg-muted/20 p-4">
                                 <p className="text-sm text-muted-foreground">
-                                    Download a file with the correct column headers so your import validates cleanly.
+                                    Download a file with the correct column
+                                    headers so your import validates cleanly.
                                 </p>
-                                <Button variant="secondary" type="button" className="mt-3 w-full sm:w-auto" asChild>
+                                <Button
+                                    variant="secondary"
+                                    type="button"
+                                    className="mt-3 w-full sm:w-auto"
+                                    asChild
+                                >
                                     <a href="/settings/master-data/document-types/import/template">
                                         <Download className="mr-2 size-4" />
                                         Download CSV template
@@ -363,7 +437,7 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                         </div>
 
                         <div className="space-y-2">
-                            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                                 Step 2 — Upload
                             </p>
                             <input
@@ -383,13 +457,19 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                                 className={cn(
                                     'group relative rounded-xl border-2 border-dashed border-border bg-background/80 p-6 text-center transition-[color,background-color,border-color,box-shadow] outline-none',
                                     'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/35',
-                                    importDragActive && 'border-primary bg-primary/6 ring-2 ring-primary/25 ring-offset-2 ring-offset-background',
+                                    importDragActive &&
+                                        'border-primary bg-primary/6 ring-2 ring-primary/25 ring-offset-2 ring-offset-background',
                                     importFile &&
                                         'border-solid border-emerald-500/40 bg-emerald-500/7 hover:bg-emerald-500/9',
                                 )}
                                 onClick={() => fileInputRef.current?.click()}
-                                onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
-                                    if (event.key === 'Enter' || event.key === ' ') {
+                                onKeyDown={(
+                                    event: KeyboardEvent<HTMLDivElement>,
+                                ) => {
+                                    if (
+                                        event.key === 'Enter' ||
+                                        event.key === ' '
+                                    ) {
                                         event.preventDefault();
                                         fileInputRef.current?.click();
                                     }
@@ -409,8 +489,12 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                                                 <FileSpreadsheet className="size-5" />
                                             </div>
                                             <div className="min-w-0 pt-0.5">
-                                                <p className="truncate text-sm font-medium text-foreground">{importFile.name}</p>
-                                                <p className="text-xs text-muted-foreground">Ready to import</p>
+                                                <p className="truncate text-sm font-medium text-foreground">
+                                                    {importFile.name}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Ready to import
+                                                </p>
                                             </div>
                                         </div>
                                         <Button
@@ -432,9 +516,15 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                                             <Upload className="size-6" />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-foreground">Drop your CSV here</p>
+                                            <p className="text-sm font-medium text-foreground">
+                                                Drop your CSV here
+                                            </p>
                                             <p className="mt-0.5 text-xs text-muted-foreground">
-                                                or click to browse — <span className="text-foreground/80">.csv</span> files only
+                                                or click to browse —{' '}
+                                                <span className="text-foreground/80">
+                                                    .csv
+                                                </span>{' '}
+                                                files only
                                             </p>
                                         </div>
                                     </div>
@@ -443,15 +533,25 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                         </div>
 
                         {importMessage ? (
-                            <Alert variant="destructive" className="border-destructive/40">
+                            <Alert
+                                variant="destructive"
+                                className="border-destructive/40"
+                            >
                                 <AlertCircle aria-hidden />
-                                <AlertDescription>{importMessage}</AlertDescription>
+                                <AlertDescription>
+                                    {importMessage}
+                                </AlertDescription>
                             </Alert>
                         ) : null}
                     </div>
 
                     <DialogFooter className="gap-2 border-t border-border bg-muted/30 px-6 py-4 sm:justify-end">
-                        <Button type="button" variant="outline" disabled={importProcessing} onClick={() => setImportOpen(false)}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={importProcessing}
+                            onClick={() => setImportOpen(false)}
+                        >
                             Cancel
                         </Button>
                         <Button
@@ -463,12 +563,18 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                         >
                             {importProcessing ? (
                                 <>
-                                    <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+                                    <Loader2
+                                        className="mr-2 size-4 animate-spin"
+                                        aria-hidden
+                                    />
                                     Importing…
                                 </>
                             ) : (
                                 <>
-                                    <Upload className="mr-2 size-4" aria-hidden />
+                                    <Upload
+                                        className="mr-2 size-4"
+                                        aria-hidden
+                                    />
                                     Import
                                 </>
                             )}
@@ -480,14 +586,17 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
                 <SheetContent
                     side="right"
-                    className="flex w-full flex-col rounded-none p-0 glass-card sm:max-w-md"
+                    className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-md"
                 >
-                    <SheetHeader className="p-8 pb-6 border-b border-border/60">
+                    <SheetHeader className="border-b border-border/60 p-8 pb-6">
                         <SheetTitle className="text-xl font-bold tracking-tight">
-                            {current ? 'Edit document type' : 'New document type'}
+                            {current
+                                ? 'Edit document type'
+                                : 'New document type'}
                         </SheetTitle>
-                        <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
-                            Used for employee documents and onboarding requirements.
+                        <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
+                            Used for employee documents and onboarding
+                            requirements.
                         </SheetDescription>
                     </SheetHeader>
 
@@ -496,34 +605,54 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                             e.preventDefault();
                             submit();
                         }}
-                        className="flex-1 overflow-y-auto p-8 space-y-5"
+                        className="flex-1 space-y-5 overflow-y-auto p-8"
                     >
                         <div className="space-y-2">
                             <Label
                                 htmlFor="title"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Title
                             </Label>
                             <Input
                                 id="title"
                                 value={form.data.title}
-                                onChange={(e) => form.setData('title', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('title', e.target.value)
+                                }
                                 className="h-11 rounded-xl border-border bg-card"
                             />
-                            {form.errors.title ? <div className="text-xs text-destructive">{form.errors.title}</div> : null}
+                            {form.errors.title ? (
+                                <div className="text-xs text-destructive">
+                                    {form.errors.title}
+                                </div>
+                            ) : null}
                         </div>
 
                         <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3">
                             <div>
-                                <div className="text-sm font-semibold">Active</div>
-                                <div className="text-xs text-muted-foreground">Visible in dropdowns and templates.</div>
+                                <div className="text-sm font-semibold">
+                                    Active
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                    Visible in dropdowns and templates.
+                                </div>
                             </div>
-                            <Switch disabled={!can.update} checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
+                            <Switch
+                                disabled={!can.update}
+                                checked={form.data.is_active}
+                                onCheckedChange={(v) =>
+                                    form.setData('is_active', v)
+                                }
+                            />
                         </div>
 
-                        <div className="pt-2 flex items-center justify-end gap-2">
-                            <Button type="button" variant="outline" onClick={() => setSheetOpen(false)}>
+                        <div className="flex items-center justify-end gap-2 pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setSheetOpen(false)}
+                            >
                                 Cancel
                             </Button>
                             <Button type="submit" disabled={form.processing}>
@@ -537,12 +666,18 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
             <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete document type?</AlertDialogTitle>
-                        <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+                        <AlertDialogTitle>
+                            Delete document type?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone.
+                        </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+                        <AlertDialogAction onClick={confirmDelete}>
+                            Delete
+                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

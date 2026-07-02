@@ -34,7 +34,12 @@ import { cn } from '@/lib/utils';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 
 type Option = { id: number; name: string };
-type EmployeeOption = { id: number; employee_no: string; name: string; rank_id: number | null };
+type EmployeeOption = {
+    id: number;
+    employee_no: string;
+    name: string;
+    rank_id: number | null;
+};
 
 function displayValue(value: string | null | undefined): string {
     return value && value.trim() !== '' ? value : '—';
@@ -62,7 +67,7 @@ function StatChip({
                     : 'border-border/80 bg-muted/20 dark:border-white/10 dark:bg-white/3',
             )}
         >
-            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70">
+            <div className="text-[10px] font-bold tracking-[0.18em] text-muted-foreground/70 uppercase">
                 {label}
             </div>
             <div className="mt-1 text-lg font-bold tracking-tight">{value}</div>
@@ -100,9 +105,10 @@ export default function CrewDeploymentShow({
         [back_query],
     );
 
-    const pageTitle = [deployment.employee_name, deployment.vessel_name]
-        .filter(Boolean)
-        .join(' · ') || 'Deployment';
+    const pageTitle =
+        [deployment.employee_name, deployment.vessel_name]
+            .filter(Boolean)
+            .join(' · ') || 'Deployment';
 
     const hasRemarks = Boolean(deployment.remarks?.trim());
 
@@ -162,7 +168,7 @@ export default function CrewDeploymentShow({
                 ) : null}
 
                 <div className="grid gap-6 lg:grid-cols-3">
-                    <Card className="glass-card overflow-hidden lg:col-span-2 dark:border-white/5 dark:bg-white/5">
+                    <Card className="overflow-hidden glass-card lg:col-span-2 dark:border-white/5 dark:bg-white/5">
                         <CardHeader className="border-b border-border pb-5 dark:border-white/5">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="flex items-start gap-4">
@@ -177,7 +183,9 @@ export default function CrewDeploymentShow({
                                         />
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                                             {deployment.nationality ? (
-                                                <span>{deployment.nationality}</span>
+                                                <span>
+                                                    {deployment.nationality}
+                                                </span>
                                             ) : null}
                                             {deployment.vessel_name ? (
                                                 <span className="inline-flex items-center gap-1.5">
@@ -186,10 +194,12 @@ export default function CrewDeploymentShow({
                                                 </span>
                                             ) : null}
                                             {deployment.current_vessel &&
-                                            deployment.current_vessel !== deployment.vessel_name ? (
+                                            deployment.current_vessel !==
+                                                deployment.vessel_name ? (
                                                 <span className="inline-flex items-center gap-1.5">
                                                     <Anchor className="h-3.5 w-3.5" />
-                                                    Now: {deployment.current_vessel}
+                                                    Now:{' '}
+                                                    {deployment.current_vessel}
                                                 </span>
                                             ) : null}
                                         </div>
@@ -198,18 +208,31 @@ export default function CrewDeploymentShow({
                                 <div className="grid grid-cols-3 gap-2 sm:max-w-sm">
                                     <StatChip
                                         label="Vessel days"
-                                        value={displayNumber(deployment.vessel_days)}
-                                        highlight={deployment.status === 'on_vessel'}
+                                        value={displayNumber(
+                                            deployment.vessel_days,
+                                        )}
+                                        highlight={
+                                            deployment.status === 'on_vessel'
+                                        }
                                     />
                                     <StatChip
                                         label="Join SB"
-                                        value={displayNumber(deployment.join_standby_days)}
-                                        highlight={deployment.status === 'join_standby'}
+                                        value={displayNumber(
+                                            deployment.join_standby_days,
+                                        )}
+                                        highlight={
+                                            deployment.status === 'join_standby'
+                                        }
                                     />
                                     <StatChip
                                         label="Leave SB"
-                                        value={displayNumber(deployment.leave_standby_days)}
-                                        highlight={deployment.status === 'leave_standby'}
+                                        value={displayNumber(
+                                            deployment.leave_standby_days,
+                                        )}
+                                        highlight={
+                                            deployment.status ===
+                                            'leave_standby'
+                                        }
                                     />
                                 </div>
                             </div>
@@ -218,7 +241,9 @@ export default function CrewDeploymentShow({
                             <div className="divide-y divide-border dark:divide-white/5">
                                 <DeploymentDetailField
                                     label="Employee"
-                                    value={displayValue(deployment.employee_name)}
+                                    value={displayValue(
+                                        deployment.employee_name,
+                                    )}
                                     employeeId={deployment.employee_id}
                                 />
                                 <DeploymentDetailField
@@ -231,7 +256,9 @@ export default function CrewDeploymentShow({
                                 />
                                 <DeploymentDetailField
                                     label="Sponsor"
-                                    value={displayValue(deployment.company_visa_type_name)}
+                                    value={displayValue(
+                                        deployment.company_visa_type_name,
+                                    )}
                                 />
                                 <DeploymentDetailField
                                     label="Client"
@@ -239,7 +266,9 @@ export default function CrewDeploymentShow({
                                 />
                                 <DeploymentDetailField
                                     label="Date of hire"
-                                    value={formatIsoDateDisplay(deployment.hire_date)}
+                                    value={formatIsoDateDisplay(
+                                        deployment.hire_date,
+                                    )}
                                     subdued
                                 />
                             </div>
@@ -258,7 +287,7 @@ export default function CrewDeploymentShow({
                             </CardHeader>
                             <CardContent className="space-y-3 p-6">
                                 <div className="rounded-xl border border-border/80 bg-muted/20 p-4 dark:border-white/10 dark:bg-white/3">
-                                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70">
+                                    <div className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/70 uppercase">
                                         Vessel
                                     </div>
                                     <div className="mt-1 text-base font-semibold">
@@ -267,19 +296,23 @@ export default function CrewDeploymentShow({
                                 </div>
                                 <div className="grid grid-cols-2 gap-3 text-sm">
                                     <div>
-                                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                                        <div className="text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
                                             Client
                                         </div>
                                         <div className="mt-1 font-medium">
-                                            {displayValue(deployment.client_name)}
+                                            {displayValue(
+                                                deployment.client_name,
+                                            )}
                                         </div>
                                     </div>
                                     <div>
-                                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                                        <div className="text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
                                             Sponsor
                                         </div>
                                         <div className="mt-1 font-medium">
-                                            {displayValue(deployment.company_visa_type_name)}
+                                            {displayValue(
+                                                deployment.company_visa_type_name,
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -297,19 +330,31 @@ export default function CrewDeploymentShow({
                             </CardHeader>
                             <CardContent className="space-y-2 p-6 text-sm text-muted-foreground">
                                 <div>
-                                    <span className="font-medium text-foreground/80">Created</span>
-                                    <div>{formatDisplayDateTime(deployment.created_at)}</div>
+                                    <span className="font-medium text-foreground/80">
+                                        Created
+                                    </span>
+                                    <div>
+                                        {formatDisplayDateTime(
+                                            deployment.created_at,
+                                        )}
+                                    </div>
                                 </div>
                                 <div>
-                                    <span className="font-medium text-foreground/80">Updated</span>
-                                    <div>{formatDisplayDateTime(deployment.updated_at)}</div>
+                                    <span className="font-medium text-foreground/80">
+                                        Updated
+                                    </span>
+                                    <div>
+                                        {formatDisplayDateTime(
+                                            deployment.updated_at,
+                                        )}
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
                     </div>
                 </div>
 
-                <Card className="glass-card mt-6 dark:border-white/5 dark:bg-white/5">
+                <Card className="mt-6 glass-card dark:border-white/5 dark:bg-white/5">
                     <CardHeader className="flex flex-row items-center gap-3 border-b border-border pb-4 dark:border-white/5">
                         <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
                             <Calendar className="h-4 w-4" />
@@ -319,7 +364,8 @@ export default function CrewDeploymentShow({
                                 Deployment lifecycle
                             </CardTitle>
                             <p className="text-xs text-muted-foreground">
-                                Arrived → join standby → on vessel → leave standby → travelled
+                                Arrived → join standby → on vessel → leave
+                                standby → travelled
                             </p>
                         </div>
                     </CardHeader>
@@ -328,20 +374,22 @@ export default function CrewDeploymentShow({
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card mt-6 dark:border-white/5 dark:bg-white/5">
+                <Card className="mt-6 glass-card dark:border-white/5 dark:bg-white/5">
                     <CardHeader className="flex flex-row items-center gap-3 border-b border-border pb-4 dark:border-white/5">
                         <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
                             <MessageSquare className="h-4 w-4" />
                         </div>
-                        <CardTitle className="text-lg font-bold tracking-tight">Remarks</CardTitle>
+                        <CardTitle className="text-lg font-bold tracking-tight">
+                            Remarks
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent className="px-6 pb-6 pt-4">
+                    <CardContent className="px-6 pt-4 pb-6">
                         {hasRemarks ? (
-                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
                                 {deployment.remarks}
                             </p>
                         ) : (
-                            <p className="text-sm italic text-muted-foreground/60">
+                            <p className="text-sm text-muted-foreground/60 italic">
                                 No remarks recorded for this deployment.
                             </p>
                         )}
@@ -350,7 +398,9 @@ export default function CrewDeploymentShow({
 
                 {can_view_audit ? (
                     <div className="mt-8">
-                        <DeploymentShowActivity recentActivity={recent_activity} />
+                        <DeploymentShowActivity
+                            recentActivity={recent_activity}
+                        />
                     </div>
                 ) : null}
 

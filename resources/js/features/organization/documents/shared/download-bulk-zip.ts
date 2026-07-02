@@ -31,7 +31,9 @@ export async function downloadBulkZip(
     payload: Record<string, unknown>,
     fallbackFilename = 'documents_export.zip',
 ): Promise<void> {
-    const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+    const csrf = document.querySelector<HTMLMetaElement>(
+        'meta[name="csrf-token"]',
+    )?.content;
 
     const response = await fetch(url, {
         method: 'POST',
@@ -53,8 +55,9 @@ export async function downloadBulkZip(
 
     const blob = await response.blob();
     const filename =
-        parseContentDispositionFilename(response.headers.get('Content-Disposition')) ??
-        fallbackFilename;
+        parseContentDispositionFilename(
+            response.headers.get('Content-Disposition'),
+        ) ?? fallbackFilename;
 
     triggerBrowserDownload(blob, filename);
 }

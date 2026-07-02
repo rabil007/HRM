@@ -25,7 +25,11 @@ export function SortableDeploymentTableHead({
     const isActive = activeSort === sortKey;
 
     return (
-        <DataTableHead className={className} colSpan={colSpan} rowSpan={rowSpan}>
+        <DataTableHead
+            className={className}
+            colSpan={colSpan}
+            rowSpan={rowSpan}
+        >
             <button
                 type="button"
                 onClick={() => onSort(sortKey)}
@@ -42,7 +46,10 @@ export function SortableDeploymentTableHead({
                         <ArrowDown className="size-3.5 shrink-0" aria-hidden />
                     )
                 ) : (
-                    <ArrowUpDown className="size-3.5 shrink-0 opacity-35" aria-hidden />
+                    <ArrowUpDown
+                        className="size-3.5 shrink-0 opacity-35"
+                        aria-hidden
+                    />
                 )}
             </button>
         </DataTableHead>

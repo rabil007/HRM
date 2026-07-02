@@ -30,11 +30,17 @@ export function PayrollRevertToDraftDialog({
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent className="glass-card">
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Revert pay period to draft?</AlertDialogTitle>
-                    <AlertDialogDescription>{description}</AlertDialogDescription>
+                    <AlertDialogTitle>
+                        Revert pay period to draft?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {description}
+                    </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                    <AlertDialogCancel className="rounded-xl">
+                        Cancel
+                    </AlertDialogCancel>
                     <AlertDialogAction
                         className="rounded-xl"
                         disabled={processing}

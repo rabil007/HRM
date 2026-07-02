@@ -23,7 +23,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { EmployeeProfileLink } from '@/features/organization/crew-deployments/employee-profile-link';
 import { deploymentHasWriteActions } from '@/features/organization/crew-deployments/types';
-import type { DeploymentItem, DeploymentPagePermissions } from '@/features/organization/crew-deployments/types';
+import type {
+    DeploymentItem,
+    DeploymentPagePermissions,
+} from '@/features/organization/crew-deployments/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -41,9 +44,12 @@ export const STATUS_ACCENT: Record<string, string> = {
 };
 
 const DAYS_COLORS: Record<string, string> = {
-    on_vessel: 'from-emerald-500/15 to-emerald-500/5 text-emerald-700 dark:text-emerald-300',
-    join_standby: 'from-amber-500/15 to-amber-500/5 text-amber-700 dark:text-amber-300',
-    leave_standby: 'from-orange-500/15 to-orange-500/5 text-orange-700 dark:text-orange-300',
+    on_vessel:
+        'from-emerald-500/15 to-emerald-500/5 text-emerald-700 dark:text-emerald-300',
+    join_standby:
+        'from-amber-500/15 to-amber-500/5 text-amber-700 dark:text-amber-300',
+    leave_standby:
+        'from-orange-500/15 to-orange-500/5 text-orange-700 dark:text-orange-300',
     in_home: 'from-teal-500/15 to-teal-500/5 text-teal-700 dark:text-teal-300',
 };
 
@@ -78,7 +84,9 @@ function getKeyDates(
 ): { label: string; value: string; isOverdue: boolean; isDueSoon: boolean }[] {
     const field = (key: string, label: string) => ({
         label,
-        value: formatDisplayDate(d[key as keyof DeploymentItem] as string | null),
+        value: formatDisplayDate(
+            d[key as keyof DeploymentItem] as string | null,
+        ),
         isOverdue: d.overdue_date_fields.includes(key),
         isDueSoon: d.due_soon_date_fields.includes(key),
     });
@@ -87,11 +95,16 @@ function getKeyDates(
         case 'arrived':
             return [field('arrived_date', 'Arrived')];
         case 'join_standby':
-            return [field('join_standby_from', 'From'), field('join_standby_to', 'To')];
+            return [
+                field('join_standby_from', 'From'),
+                field('join_standby_to', 'To'),
+            ];
         case 'on_vessel':
             return [
                 field('joined_date', 'Joined'),
-                ...(d.disembarked_date ? [field('disembarked_date', 'Expected off')] : []),
+                ...(d.disembarked_date
+                    ? [field('disembarked_date', 'Expected off')]
+                    : []),
             ];
         case 'disembarked':
             return [
@@ -99,7 +112,10 @@ function getKeyDates(
                 ...(d.joined_date ? [field('joined_date', 'Was joined')] : []),
             ];
         case 'leave_standby':
-            return [field('leave_standby_from', 'From'), field('leave_standby_to', 'To')];
+            return [
+                field('leave_standby_from', 'From'),
+                field('leave_standby_to', 'To'),
+            ];
         case 'travel':
             return [field('travelled_date', 'Travelled')];
         default:
@@ -126,13 +142,16 @@ export function DeploymentCard({
     backQuery,
     isOverlay = false,
 }: Props): ReactElement {
-    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-        id: d.id,
-        data: { deployment: d },
-        disabled: isOverlay || !can.update,
-    });
+    const { attributes, listeners, setNodeRef, transform, isDragging } =
+        useDraggable({
+            id: d.id,
+            data: { deployment: d },
+            disabled: isOverlay || !can.update,
+        });
 
-    const style: CSSProperties = transform ? { transform: CSS.Translate.toString(transform) } : {};
+    const style: CSSProperties = transform
+        ? { transform: CSS.Translate.toString(transform) }
+        : {};
 
     const handleClick = (): void => {
         if (isDragging) {
@@ -142,7 +161,9 @@ export function DeploymentCard({
         router.visit(
             showDeployment.url(
                 { deployment: d.id },
-                backQuery && Object.keys(backQuery).length > 0 ? { query: backQuery } : undefined,
+                backQuery && Object.keys(backQuery).length > 0
+                    ? { query: backQuery }
+                    : undefined,
             ),
         );
     };
@@ -169,14 +190,21 @@ export function DeploymentCard({
     const hasOverdue = d.overdue_date_fields.length > 0;
     const hasDueSoon = !hasOverdue && d.due_soon_date_fields.length > 0;
     const isUnknown = d.status === 'unknown';
-    const daysBg = DAYS_COLORS[d.status] ?? 'from-muted/60 to-muted/30 text-foreground';
+    const daysBg =
+        DAYS_COLORS[d.status] ?? 'from-muted/60 to-muted/30 text-foreground';
 
     // Determine the top alert bar content
-    const topAlert: { icon: ReactElement; text: string; classes: string } | null = (() => {
+    const topAlert: {
+        icon: ReactElement;
+        text: string;
+        classes: string;
+    } | null = (() => {
         if (isUnknown || hasOverdue) {
             const text = isUnknown
                 ? (d.status_hint ?? 'Status unclear — update required')
-                : d.overdue_date_fields.map((f) => FIELD_LABELS[f] ?? f).join(', ') + ' overdue';
+                : d.overdue_date_fields
+                      .map((f) => FIELD_LABELS[f] ?? f)
+                      .join(', ') + ' overdue';
 
             return {
                 icon: <AlertTriangle className="h-3 w-3 shrink-0" />,
@@ -190,8 +218,9 @@ export function DeploymentCard({
             return {
                 icon: <Clock className="h-3 w-3 shrink-0" />,
                 text:
-                    d.due_soon_date_fields.map((f) => FIELD_LABELS[f] ?? f).join(', ') +
-                    ' due soon',
+                    d.due_soon_date_fields
+                        .map((f) => FIELD_LABELS[f] ?? f)
+                        .join(', ') + ' due soon',
                 classes:
                     'bg-amber-500/10 border-b border-amber-500/20 text-amber-700 dark:text-amber-300',
             };
@@ -244,7 +273,7 @@ export function DeploymentCard({
                         ) : null}
 
                         {/* Avatar */}
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold uppercase tracking-wide text-muted-foreground ring-2 ring-background">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold tracking-wide text-muted-foreground uppercase ring-2 ring-background">
                             {getInitials(d.employee_name)}
                         </div>
 
@@ -253,13 +282,13 @@ export function DeploymentCard({
                             {d.employee_name ? (
                                 <EmployeeProfileLink
                                     employeeId={d.employee_id}
-                                    className="block truncate text-[13px] font-bold leading-tight"
+                                    className="block truncate text-[13px] leading-tight font-bold"
                                     stopRowNavigation
                                 >
                                     {d.employee_name}
                                 </EmployeeProfileLink>
                             ) : (
-                                <div className="truncate text-[13px] font-bold leading-tight text-muted-foreground">
+                                <div className="truncate text-[13px] leading-tight font-bold text-muted-foreground">
                                     Unknown
                                 </div>
                             )}
@@ -280,7 +309,7 @@ export function DeploymentCard({
                         {deploymentHasWriteActions(can) && !isOverlay ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger
-                                    className="rounded-md p-1 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 focus:opacity-100"
+                                    className="rounded-md p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-muted focus:opacity-100"
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
@@ -321,7 +350,9 @@ export function DeploymentCard({
                             <Ship className="h-3 w-3 shrink-0 text-muted-foreground/50" />
                             <span className="truncate text-xs font-medium text-foreground/80">
                                 {d.vessel_name ?? (
-                                    <span className="text-muted-foreground">No vessel</span>
+                                    <span className="text-muted-foreground">
+                                        No vessel
+                                    </span>
                                 )}
                             </span>
                         </div>
@@ -360,25 +391,30 @@ export function DeploymentCard({
                     {/* ── Key dates ────────────────────────────────────── */}
                     {keyDates.length > 0 ? (
                         <div className="mx-3.5 mt-3 grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-border/30 bg-muted/30 px-3 py-2.5">
-                            {keyDates.map(({ label, value, isOverdue, isDueSoon }) => (
-                                <div key={label} className="min-w-0">
-                                    <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                                        {label}
+                            {keyDates.map(
+                                ({ label, value, isOverdue, isDueSoon }) => (
+                                    <div key={label} className="min-w-0">
+                                        <div className="text-[9px] font-bold tracking-widest text-muted-foreground/60 uppercase">
+                                            {label}
+                                        </div>
+                                        <div
+                                            className={cn(
+                                                'mt-0.5 text-[11px] font-semibold tabular-nums',
+                                                isOverdue &&
+                                                    'text-red-600 dark:text-red-400',
+                                                !isOverdue &&
+                                                    isDueSoon &&
+                                                    'text-amber-600 dark:text-amber-400',
+                                                !isOverdue &&
+                                                    !isDueSoon &&
+                                                    'text-foreground',
+                                            )}
+                                        >
+                                            {value}
+                                        </div>
                                     </div>
-                                    <div
-                                        className={cn(
-                                            'mt-0.5 text-[11px] font-semibold tabular-nums',
-                                            isOverdue && 'text-red-600 dark:text-red-400',
-                                            !isOverdue &&
-                                                isDueSoon &&
-                                                'text-amber-600 dark:text-amber-400',
-                                            !isOverdue && !isDueSoon && 'text-foreground',
-                                        )}
-                                    >
-                                        {value}
-                                    </div>
-                                </div>
-                            ))}
+                                ),
+                            )}
                         </div>
                     ) : null}
 
@@ -390,10 +426,10 @@ export function DeploymentCard({
                                 daysBg,
                             )}
                         >
-                            <span className="text-2xl font-black tabular-nums leading-none">
+                            <span className="text-2xl leading-none font-black tabular-nums">
                                 {daysValue}
                             </span>
-                            <span className="text-[9px] font-bold uppercase tracking-widest opacity-70">
+                            <span className="text-[9px] font-bold tracking-widest uppercase opacity-70">
                                 {daysLabel}
                             </span>
                         </div>
@@ -401,7 +437,7 @@ export function DeploymentCard({
 
                     {/* ── Remarks ──────────────────────────────────────── */}
                     {d.remarks ? (
-                        <div className="mx-3.5 mt-2.5 truncate text-[10px] italic text-muted-foreground/60">
+                        <div className="mx-3.5 mt-2.5 truncate text-[10px] text-muted-foreground/60 italic">
                             {d.remarks}
                         </div>
                     ) : null}

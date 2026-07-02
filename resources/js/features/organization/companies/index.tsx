@@ -19,7 +19,12 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
@@ -132,7 +137,9 @@ export function CompaniesContent({
         form.clearErrors();
 
         const payrollCycle =
-            company.payroll_cycle === 'monthly' || company.payroll_cycle === 'biweekly' || company.payroll_cycle === 'weekly'
+            company.payroll_cycle === 'monthly' ||
+            company.payroll_cycle === 'biweekly' ||
+            company.payroll_cycle === 'weekly'
                 ? company.payroll_cycle
                 : 'monthly';
 
@@ -168,8 +175,8 @@ export function CompaniesContent({
 
     const confirmDelete = () => {
         if (!currentCompany) {
-return;
-}
+            return;
+        }
 
         router.delete(`/organization/companies/${currentCompany.id}`, {
             onFinish: () => {
@@ -185,33 +192,38 @@ return;
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onError: () => toast.error('Failed to update status. Please try again.'),
+                onError: () =>
+                    toast.error('Failed to update status. Please try again.'),
             },
         );
     };
 
     const handleFiltersChange = (next: CompanyFilters) => {
-        list.applyFilters({ industry: next.industry, country: next.country, currency: next.currency });
+        list.applyFilters({
+            industry: next.industry,
+            country: next.country,
+            currency: next.currency,
+        });
     };
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
 
         if (initialSearch) {
-params.set('search', initialSearch);
-}
+            params.set('search', initialSearch);
+        }
 
         if (initialFilters.industry) {
-params.set('industry', initialFilters.industry);
-}
+            params.set('industry', initialFilters.industry);
+        }
 
         if (initialFilters.country) {
-params.set('country', initialFilters.country);
-}
+            params.set('country', initialFilters.country);
+        }
 
         if (initialFilters.currency) {
-params.set('currency', initialFilters.currency);
-}
+            params.set('currency', initialFilters.currency);
+        }
 
         params.set('format', format);
 
@@ -246,7 +258,10 @@ params.set('currency', initialFilters.currency);
                             buttonVariant="secondary"
                             buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
                         />
-                        <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
+                        <Button
+                            onClick={handleAdd}
+                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                        >
                             <Plus className="mr-2 h-4 w-4" />
                             Add Company
                         </Button>
@@ -264,7 +279,7 @@ params.set('currency', initialFilters.currency);
 
                         <Button
                             variant="outline"
-                            className="glass-card rounded-xl py-6 px-6 hover:bg-accent"
+                            className="rounded-xl glass-card px-6 py-6 hover:bg-accent"
                             onClick={() => setIsFiltersOpen(true)}
                         >
                             <Filter className="mr-2 h-4 w-4" />
@@ -295,58 +310,87 @@ params.set('currency', initialFilters.currency);
                 <OrganizationDataTable minWidth="min-w-[860px]">
                     <TableHeader>
                         <DataTableHeaderRow>
-                            <DataTableHead className="pl-5">Company</DataTableHead>
+                            <DataTableHead className="pl-5">
+                                Company
+                            </DataTableHead>
                             <DataTableHead>Industry</DataTableHead>
                             <DataTableHead>Location</DataTableHead>
                             <DataTableHead>Currency</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
-                            <DataTableHead className="text-right">Actions</DataTableHead>
+                            <DataTableHead className="text-right">
+                                Actions
+                            </DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
-                            <TableBody>
-                                {companies.map((company) => (
-                                    <TableRow
-                                        key={company.id}
-                                        className={dataTableBodyRowClass()}
-                                        onClick={() => router.visit(`/organization/companies/${company.id}`)}
+                    <TableBody>
+                        {companies.map((company) => (
+                            <TableRow
+                                key={company.id}
+                                className={dataTableBodyRowClass()}
+                                onClick={() =>
+                                    router.visit(
+                                        `/organization/companies/${company.id}`,
+                                    )
+                                }
+                            >
+                                <TableCell
+                                    className={dataTableCellPrimaryClass()}
+                                >
+                                    {company.name}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {company.industry ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {[company.city, company.country.name]
+                                        .filter(Boolean)
+                                        .join(', ') || '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {company.currency.code ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    <div
+                                        className="flex items-center gap-3"
+                                        onClick={(e) => e.stopPropagation()}
                                     >
-                                        <TableCell className={dataTableCellPrimaryClass()}>{company.name}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>{company.industry ?? '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>
-                                            {[company.city, company.country.name].filter(Boolean).join(', ') || '—'}
-                                        </TableCell>
-                                        <TableCell className={dataTableCellClass()}>{company.currency.code ?? '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>
-                                            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                                                <Switch
-                                                    checked={company.status === 'active'}
-                                                    onCheckedChange={(checked) => toggleStatus(company, checked)}
-                                                />
-                                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                                    {company.status ?? '—'}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className={dataTableActionsCellClass()}>
-                                            <ListTableCrudActions
-                                                viewHref={`/organization/companies/${company.id}`}
-                                                onEdit={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEdit(company);
-                                                }}
-                                                onDelete={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteClick(company);
-                                                }}
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
+                                        <Switch
+                                            checked={
+                                                company.status === 'active'
+                                            }
+                                            onCheckedChange={(checked) =>
+                                                toggleStatus(company, checked)
+                                            }
+                                        />
+                                        <span className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                            {company.status ?? '—'}
+                                        </span>
+                                    </div>
+                                </TableCell>
+                                <TableCell
+                                    className={dataTableActionsCellClass()}
+                                >
+                                    <ListTableCrudActions
+                                        viewHref={`/organization/companies/${company.id}`}
+                                        onEdit={(e) => {
+                                            e.stopPropagation();
+                                            handleEdit(company);
+                                        }}
+                                        onDelete={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteClick(company);
+                                        }}
+                                    />
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
                 </OrganizationDataTable>
             )}
 
-            {companies.length === 0 ? <EmptyState title="No companies found." /> : null}
+            {companies.length === 0 ? (
+                <EmptyState title="No companies found." />
+            ) : null}
 
             <Pagination {...list.paginationProps} label="companies" />
 
@@ -367,7 +411,16 @@ params.set('currency', initialFilters.currency);
                 currencies={currencies}
                 value={filters}
                 onChange={handleFiltersChange}
-                onReset={() => handleFiltersChange({ industry: '', country: '', currency: '', hasLogo: false, hasEmail: false, hasWebsite: false })}
+                onReset={() =>
+                    handleFiltersChange({
+                        industry: '',
+                        country: '',
+                        currency: '',
+                        hasLogo: false,
+                        hasEmail: false,
+                        hasWebsite: false,
+                    })
+                }
             />
 
             <CompanyDeleteDialog

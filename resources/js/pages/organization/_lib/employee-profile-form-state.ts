@@ -38,7 +38,8 @@ export const EMPLOYEE_PROFILE_FORM_KEYS = [
     'salary_payment_method',
 ] as const;
 
-export type EmployeeProfileFormKey = (typeof EMPLOYEE_PROFILE_FORM_KEYS)[number];
+export type EmployeeProfileFormKey =
+    (typeof EMPLOYEE_PROFILE_FORM_KEYS)[number];
 
 export type EmployeeProfileFormData = Record<EmployeeProfileFormKey, string> & {
     approval_location_ids: number[];
@@ -85,7 +86,9 @@ export function buildEmployeeProfileFormInitial(
         place_of_birth: employee.place_of_birth ?? '',
         gender_id: employee.gender_id ? String(employee.gender_id) : '',
         religion_id: employee.religion_id ? String(employee.religion_id) : '',
-        visa_type_id: employee.visa_type_id ? String(employee.visa_type_id) : '',
+        visa_type_id: employee.visa_type_id
+            ? String(employee.visa_type_id)
+            : '',
         company_visa_type_id: employee.company_visa_type_id
             ? String(employee.company_visa_type_id)
             : '',
@@ -97,7 +100,8 @@ export function buildEmployeeProfileFormInitial(
         passport_number: employee.passport_number ?? '',
         emirates_id: employee.emirates_id ?? '',
         labor_card_number: employee.labor_card_number ?? '',
-        salary_payment_method: employee.salary_payment_method ?? 'bank_transfer',
+        salary_payment_method:
+            employee.salary_payment_method ?? 'bank_transfer',
         approval_location_ids: employee.approval_location_ids ?? [],
         sssa_option_ids: employee.sssa_option_ids ?? [],
         image: null,
@@ -133,47 +137,60 @@ export function transformEmployeeProfileFormData(
     templateEmployeeFields?: Record<string, TemplateFieldConfig>,
 ): Record<string, unknown> {
     const approvalLocationIds = Array.isArray(data.approval_location_ids)
-        ? data.approval_location_ids.map((id) => Number(id)).filter((id) => !Number.isNaN(id))
+        ? data.approval_location_ids
+              .map((id) => Number(id))
+              .filter((id) => !Number.isNaN(id))
         : [];
 
     const sssaOptionIds = Array.isArray(data.sssa_option_ids)
-        ? data.sssa_option_ids.map((id) => Number(id)).filter((id) => !Number.isNaN(id))
+        ? data.sssa_option_ids
+              .map((id) => Number(id))
+              .filter((id) => !Number.isNaN(id))
         : [];
 
     return omitHiddenTemplateEmployeeFields(
         {
-        employee_no: String(data.employee_no ?? '').trim() || null,
-        name: String(data.name ?? '').trim() || null,
-        branch_id: data.branch_id ? Number(data.branch_id) : null,
-        department_id: data.department_id ? Number(data.department_id) : null,
-        position_id: data.position_id ? Number(data.position_id) : null,
-        rank_id: data.rank_id ? Number(data.rank_id) : null,
-        personal_email: String(data.personal_email ?? '').trim() || null,
-        work_email: String(data.work_email ?? '').trim() || null,
-        phone: String(data.phone ?? '').trim() || null,
-        phone_home_country: String(data.phone_home_country ?? '').trim() || null,
-        emergency_contact: String(data.emergency_contact ?? '').trim() || null,
-        emergency_phone: String(data.emergency_phone ?? '').trim() || null,
-        nearest_airport: String(data.nearest_airport ?? '').trim() || null,
-        address: String(data.address ?? '').trim() || null,
-        date_of_birth: data.date_of_birth || null,
-        hire_date: data.hire_date || null,
-        place_of_birth: String(data.place_of_birth ?? '').trim() || null,
-        gender_id: data.gender_id ? Number(data.gender_id) : null,
-        religion_id: data.religion_id ? Number(data.religion_id) : null,
-        visa_type_id: data.visa_type_id ? Number(data.visa_type_id) : null,
-        company_visa_type_id: data.company_visa_type_id
-            ? Number(data.company_visa_type_id)
-            : null,
-        nationality_id: data.nationality_id ? Number(data.nationality_id) : null,
-        marital_status: data.marital_status || null,
-        spouse_name: String(data.spouse_name ?? '').trim() || null,
-        passport_number: String(data.passport_number ?? '').trim() || null,
-        emirates_id: String(data.emirates_id ?? '').trim() || null,
-        labor_card_number: String(data.labor_card_number ?? '').trim() || null,
-        salary_payment_method: String(data.salary_payment_method ?? '').trim() || 'bank_transfer',
-        approval_location_ids: approvalLocationIds,
-        sssa_option_ids: sssaOptionIds,
+            employee_no: String(data.employee_no ?? '').trim() || null,
+            name: String(data.name ?? '').trim() || null,
+            branch_id: data.branch_id ? Number(data.branch_id) : null,
+            department_id: data.department_id
+                ? Number(data.department_id)
+                : null,
+            position_id: data.position_id ? Number(data.position_id) : null,
+            rank_id: data.rank_id ? Number(data.rank_id) : null,
+            personal_email: String(data.personal_email ?? '').trim() || null,
+            work_email: String(data.work_email ?? '').trim() || null,
+            phone: String(data.phone ?? '').trim() || null,
+            phone_home_country:
+                String(data.phone_home_country ?? '').trim() || null,
+            emergency_contact:
+                String(data.emergency_contact ?? '').trim() || null,
+            emergency_phone: String(data.emergency_phone ?? '').trim() || null,
+            nearest_airport: String(data.nearest_airport ?? '').trim() || null,
+            address: String(data.address ?? '').trim() || null,
+            date_of_birth: data.date_of_birth || null,
+            hire_date: data.hire_date || null,
+            place_of_birth: String(data.place_of_birth ?? '').trim() || null,
+            gender_id: data.gender_id ? Number(data.gender_id) : null,
+            religion_id: data.religion_id ? Number(data.religion_id) : null,
+            visa_type_id: data.visa_type_id ? Number(data.visa_type_id) : null,
+            company_visa_type_id: data.company_visa_type_id
+                ? Number(data.company_visa_type_id)
+                : null,
+            nationality_id: data.nationality_id
+                ? Number(data.nationality_id)
+                : null,
+            marital_status: data.marital_status || null,
+            spouse_name: String(data.spouse_name ?? '').trim() || null,
+            passport_number: String(data.passport_number ?? '').trim() || null,
+            emirates_id: String(data.emirates_id ?? '').trim() || null,
+            labor_card_number:
+                String(data.labor_card_number ?? '').trim() || null,
+            salary_payment_method:
+                String(data.salary_payment_method ?? '').trim() ||
+                'bank_transfer',
+            approval_location_ids: approvalLocationIds,
+            sssa_option_ids: sssaOptionIds,
         },
         templateEmployeeFields,
     );
@@ -192,7 +209,9 @@ export function isEmployeeProfileFormDirty(
     }
 
     return (
-        !sameIdSet(current.approval_location_ids, initial.approval_location_ids) ||
-        !sameIdSet(current.sssa_option_ids, initial.sssa_option_ids)
+        !sameIdSet(
+            current.approval_location_ids,
+            initial.approval_location_ids,
+        ) || !sameIdSet(current.sssa_option_ids, initial.sssa_option_ids)
     );
 }

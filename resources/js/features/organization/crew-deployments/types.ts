@@ -55,7 +55,9 @@ export type DeploymentPagePermissions = {
     export: boolean;
 };
 
-export function deploymentHasWriteActions(can: DeploymentPagePermissions): boolean {
+export function deploymentHasWriteActions(
+    can: DeploymentPagePermissions,
+): boolean {
     return can.create || can.update || can.delete;
 }
 

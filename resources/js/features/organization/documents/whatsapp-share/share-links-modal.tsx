@@ -1,4 +1,12 @@
-import { Loader2, Copy, Check, MessageCircle, Lock, Key, Calendar } from 'lucide-react';
+import {
+    Loader2,
+    Copy,
+    Check,
+    MessageCircle,
+    Lock,
+    Key,
+    Calendar,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -70,7 +78,9 @@ export function ShareLinksModal({
     const [password, setPassword] = useState('');
     const [expiresAt, setExpiresAt] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
-    const [generatedLinks, setGeneratedLinks] = useState<ShareLinkDocument[]>([]);
+    const [generatedLinks, setGeneratedLinks] = useState<ShareLinkDocument[]>(
+        [],
+    );
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const [copiedAll, setCopiedAll] = useState(false);
 
@@ -82,12 +92,16 @@ export function ShareLinksModal({
                 shareLinksUrl,
                 documentIds,
                 usePassword ? password : '',
-                expiresAt || undefined
+                expiresAt || undefined,
             );
             setGeneratedLinks(shareDocuments);
             toast.success('Share links generated successfully.');
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Failed to generate share links.');
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to generate share links.',
+            );
         } finally {
             setIsGenerating(false);
         }
@@ -123,7 +137,7 @@ export function ShareLinksModal({
         window.open(
             `https://wa.me/?text=${encodeURIComponent(message)}`,
             '_blank',
-            'noopener,noreferrer'
+            'noopener,noreferrer',
         );
         onOpenChange(false);
         onComplete();
@@ -138,7 +152,8 @@ export function ShareLinksModal({
     };
 
     const generateRandomPassword = () => {
-        const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%';
+        const chars =
+            'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%';
         let pass = '';
 
         for (let i = 0; i < 8; i++) {
@@ -149,16 +164,19 @@ export function ShareLinksModal({
     };
 
     return (
-        <Dialog open={open} onOpenChange={(openState) => {
-            if (!openState) {
-                handleClose();
-            } else {
-                onOpenChange(true);
-            }
-        }}>
-            <DialogContent className="sm:max-w-md bg-zinc-900/95 border-zinc-800 text-zinc-100 backdrop-blur-xl">
+        <Dialog
+            open={open}
+            onOpenChange={(openState) => {
+                if (!openState) {
+                    handleClose();
+                } else {
+                    onOpenChange(true);
+                }
+            }}
+        >
+            <DialogContent className="border-zinc-800 bg-zinc-900/95 text-zinc-100 backdrop-blur-xl sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="text-zinc-100 flex items-center gap-2">
+                    <DialogTitle className="flex items-center gap-2 text-zinc-100">
                         <Lock className="h-5 w-5 text-zinc-400" />
                         Generate Share Links
                     </DialogTitle>
@@ -167,7 +185,8 @@ export function ShareLinksModal({
                 {generatedLinks.length === 0 ? (
                     <div className="space-y-4 py-4">
                         <p className="text-sm text-zinc-400">
-                            Configure security and expiration settings for the {documentIds.length} selected document(s).
+                            Configure security and expiration settings for the{' '}
+                            {documentIds.length} selected document(s).
                         </p>
 
                         <div className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
@@ -185,31 +204,37 @@ export function ShareLinksModal({
                                     className="border-zinc-700 data-[state=checked]:bg-zinc-100 data-[state=checked]:text-zinc-950"
                                 />
                                 <div className="space-y-1">
-                                    <Label htmlFor="use-password" className="text-sm font-medium text-zinc-200 cursor-pointer">
+                                    <Label
+                                        htmlFor="use-password"
+                                        className="cursor-pointer text-sm font-medium text-zinc-200"
+                                    >
                                         Password Protection
                                     </Label>
                                     <span className="block text-xs text-zinc-500">
-                                        Require a password to access and download the document(s).
+                                        Require a password to access and
+                                        download the document(s).
                                     </span>
                                 </div>
                             </div>
 
                             {usePassword && (
-                                <div className="space-y-2 pl-7 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="animate-in space-y-2 pl-7 duration-200 fade-in slide-in-from-top-2">
                                     <div className="flex gap-2">
                                         <Input
                                             type="text"
                                             value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
+                                            onChange={(e) =>
+                                                setPassword(e.target.value)
+                                            }
                                             placeholder="Enter password"
-                                            className="bg-zinc-900/60 border-zinc-800 text-zinc-100 placeholder-zinc-600 focus-visible:ring-zinc-700 h-9 text-sm rounded-xl font-mono"
+                                            className="h-9 rounded-xl border-zinc-800 bg-zinc-900/60 font-mono text-sm text-zinc-100 placeholder-zinc-600 focus-visible:ring-zinc-700"
                                         />
                                         <Button
                                             type="button"
                                             variant="outline"
                                             size="sm"
                                             onClick={generateRandomPassword}
-                                            className="border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850 h-9 px-3 rounded-xl gap-1 shrink-0"
+                                            className="hover:bg-zinc-850 h-9 shrink-0 gap-1 rounded-xl border-zinc-800 px-3 text-zinc-400 hover:text-zinc-200"
                                         >
                                             <Key className="h-3.5 w-3.5" />
                                             Auto
@@ -220,19 +245,22 @@ export function ShareLinksModal({
                         </div>
 
                         <div className="space-y-2 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-                            <div className="flex items-center gap-2 text-zinc-200 text-sm font-medium">
+                            <div className="flex items-center gap-2 text-sm font-medium text-zinc-200">
                                 <Calendar className="h-4 w-4 text-zinc-400" />
                                 Custom Expiration Date
                             </div>
-                            <p className="text-xs text-zinc-500 pl-6">
-                                Specify when the generated links will automatically deactivate. Defaults to 24 hours.
+                            <p className="pl-6 text-xs text-zinc-500">
+                                Specify when the generated links will
+                                automatically deactivate. Defaults to 24 hours.
                             </p>
-                            <div className="pl-6 pt-1">
+                            <div className="pt-1 pl-6">
                                 <Input
                                     type="datetime-local"
                                     value={expiresAt}
-                                    onChange={(e) => setExpiresAt(e.target.value)}
-                                    className="bg-zinc-900/60 border-zinc-800 text-zinc-100 placeholder-zinc-600 focus-visible:ring-zinc-700 h-9 text-sm rounded-xl"
+                                    onChange={(e) =>
+                                        setExpiresAt(e.target.value)
+                                    }
+                                    className="h-9 rounded-xl border-zinc-800 bg-zinc-900/60 text-sm text-zinc-100 placeholder-zinc-600 focus-visible:ring-zinc-700"
                                 />
                             </div>
                         </div>
@@ -244,30 +272,47 @@ export function ShareLinksModal({
                         </p>
 
                         {usePassword && (
-                            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200/90 flex items-center gap-2">
+                            <div className="flex items-center gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200/90">
                                 <Lock className="h-4 w-4 shrink-0 text-amber-400" />
                                 <div>
-                                    <span className="font-semibold">Password Protected:</span> Share the password <code className="bg-amber-950/50 border border-amber-500/20 px-1.5 py-0.5 rounded font-mono text-white text-xs select-all">{password}</code> securely with the recipient.
+                                    <span className="font-semibold">
+                                        Password Protected:
+                                    </span>{' '}
+                                    Share the password{' '}
+                                    <code className="rounded border border-amber-500/20 bg-amber-950/50 px-1.5 py-0.5 font-mono text-xs text-white select-all">
+                                        {password}
+                                    </code>{' '}
+                                    securely with the recipient.
                                 </div>
                             </div>
                         )}
 
-                        <div className="max-h-48 overflow-y-auto space-y-3 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-3">
+                        <div className="max-h-48 space-y-3 overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-950/40 p-3">
                             {generatedLinks.map((doc, index) => (
-                                <div key={doc.id} className="space-y-1.5 p-2 rounded-xl bg-zinc-900/50 border border-zinc-800/40">
-                                    <span className="block text-xs font-medium text-zinc-200 truncate">{doc.name}</span>
+                                <div
+                                    key={doc.id}
+                                    className="space-y-1.5 rounded-xl border border-zinc-800/40 bg-zinc-900/50 p-2"
+                                >
+                                    <span className="block truncate text-xs font-medium text-zinc-200">
+                                        {doc.name}
+                                    </span>
                                     <div className="flex items-center gap-2">
                                         <Input
                                             readOnly
                                             value={doc.share_url}
-                                            className="h-8 bg-zinc-950 border-zinc-800/80 text-[11px] font-mono text-zinc-400 select-all rounded-lg flex-1 min-w-0"
+                                            className="h-8 min-w-0 flex-1 rounded-lg border-zinc-800/80 bg-zinc-950 font-mono text-[11px] text-zinc-400 select-all"
                                         />
                                         <Button
                                             type="button"
                                             size="icon"
                                             variant="outline"
-                                            onClick={() => handleCopyLink(doc.share_url, index)}
-                                            className="h-8 w-8 rounded-lg border-zinc-850 bg-zinc-900 text-zinc-400 hover:text-zinc-200 shrink-0"
+                                            onClick={() =>
+                                                handleCopyLink(
+                                                    doc.share_url,
+                                                    index,
+                                                )
+                                            }
+                                            className="border-zinc-850 h-8 w-8 shrink-0 rounded-lg bg-zinc-900 text-zinc-400 hover:text-zinc-200"
                                         >
                                             {copiedIndex === index ? (
                                                 <Check className="h-3.5 w-3.5 text-green-400" />
@@ -282,22 +327,25 @@ export function ShareLinksModal({
                     </div>
                 )}
 
-                <DialogFooter className="border-t border-zinc-800/60 pt-4 flex sm:justify-between items-center gap-2">
+                <DialogFooter className="flex items-center gap-2 border-t border-zinc-800/60 pt-4 sm:justify-between">
                     {generatedLinks.length === 0 ? (
                         <>
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={handleClose}
-                                className="border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850 rounded-xl"
+                                className="hover:bg-zinc-850 rounded-xl border-zinc-800 text-zinc-400 hover:text-zinc-200"
                             >
                                 Cancel
                             </Button>
                             <Button
                                 type="button"
-                                disabled={isGenerating || (usePassword && !password.trim())}
+                                disabled={
+                                    isGenerating ||
+                                    (usePassword && !password.trim())
+                                }
                                 onClick={handleGenerate}
-                                className="bg-zinc-100 hover:bg-zinc-200 text-zinc-950 rounded-xl font-medium"
+                                className="rounded-xl bg-zinc-100 font-medium text-zinc-950 hover:bg-zinc-200"
                             >
                                 {isGenerating ? (
                                     <>
@@ -315,7 +363,7 @@ export function ShareLinksModal({
                                 type="button"
                                 variant="outline"
                                 onClick={handleCopyAll}
-                                className="border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850 rounded-xl gap-1.5"
+                                className="hover:bg-zinc-850 gap-1.5 rounded-xl border-zinc-800 text-zinc-400 hover:text-zinc-200"
                             >
                                 {copiedAll ? (
                                     <Check className="h-4 w-4 text-green-400" />
@@ -327,7 +375,7 @@ export function ShareLinksModal({
                             <Button
                                 type="button"
                                 onClick={handleWhatsAppShare}
-                                className="bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium gap-1.5"
+                                className="gap-1.5 rounded-xl bg-green-600 font-medium text-white hover:bg-green-700"
                             >
                                 <MessageCircle className="h-4 w-4 fill-current" />
                                 Share on WhatsApp

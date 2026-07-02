@@ -60,10 +60,14 @@ export function buildMonthGrid(year: number, month: number): CalendarDayCell[] {
 
 export function getIsoWeekNumber(dateString: string): number {
     const date = new Date(`${dateString}T00:00:00`);
-    const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const utcDate = new Date(
+        Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+    );
     const dayNumber = utcDate.getUTCDay() || 7;
     utcDate.setUTCDate(utcDate.getUTCDate() + 4 - dayNumber);
     const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
 
-    return Math.ceil((((utcDate.getTime() - yearStart.getTime()) / 86_400_000) + 1) / 7);
+    return Math.ceil(
+        ((utcDate.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7,
+    );
 }

@@ -1,7 +1,10 @@
 import { Link, router, useForm } from '@inertiajs/react';
 import { ChevronRight, Filter, Plus, Receipt } from 'lucide-react';
 import { useState } from 'react';
-import { index, storePeriod } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
+import {
+    index,
+    storePeriod,
+} from '@/actions/App/Http/Controllers/Payroll/PayrollController';
 import { show } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
 import {
     OrganizationDataTable,
@@ -18,7 +21,12 @@ import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
@@ -87,7 +95,8 @@ export function PayrollIndexContent({
         notes: '',
     });
 
-    const canOpen = permissions.view_crew_timesheets || permissions.create_period;
+    const canOpen =
+        permissions.view_crew_timesheets || permissions.create_period;
 
     const handleAdd = () => {
         form.reset();
@@ -115,10 +124,10 @@ export function PayrollIndexContent({
 
     const hasActiveFilters = Boolean(
         initialFilters.category ||
-            initialFilters.status ||
-            initialFilters.date_from ||
-            initialFilters.date_to ||
-            initialSearch,
+        initialFilters.status ||
+        initialFilters.date_from ||
+        initialFilters.date_to ||
+        initialSearch,
     );
 
     return (
@@ -129,7 +138,10 @@ export function PayrollIndexContent({
                 description="Create pay periods, enter crew timesheets, and prepare office payroll from approved leave usage."
                 right={
                     permissions.create_period ? (
-                        <Button onClick={handleAdd} className="h-12 rounded-xl px-6 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-105 active:scale-95">
+                        <Button
+                            onClick={handleAdd}
+                            className="h-12 rounded-xl bg-gradient-to-r from-primary to-primary/80 px-6 text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-105 hover:from-primary/90 hover:to-primary active:scale-95"
+                        >
                             <Plus className="mr-2 h-4 w-4 drop-shadow-sm" />
                             New pay period
                         </Button>
@@ -146,7 +158,7 @@ export function PayrollIndexContent({
                 right={
                     <div className="flex flex-wrap items-center gap-2">
                         <ViewToggle value={view} onChange={setView} />
-                        <div className="glass-card flex items-center rounded-xl p-1">
+                        <div className="flex items-center rounded-xl glass-card p-1">
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -173,7 +185,11 @@ export function PayrollIndexContent({
                             <Receipt className="h-6 w-6 text-muted-foreground" />
                         </div>
                     }
-                    title={hasActiveFilters ? 'No matching pay runs' : 'No pay periods yet'}
+                    title={
+                        hasActiveFilters
+                            ? 'No matching pay runs'
+                            : 'No pay periods yet'
+                    }
                     description={
                         hasActiveFilters
                             ? 'Try a different search term or clear the filters.'
@@ -181,7 +197,10 @@ export function PayrollIndexContent({
                     }
                     action={
                         permissions.create_period ? (
-                            <Button onClick={handleAdd} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-primary-foreground shadow-md shadow-primary/25 transition-all duration-300 hover:scale-105 active:scale-95">
+                            <Button
+                                onClick={handleAdd}
+                                className="rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md shadow-primary/25 transition-all duration-300 hover:scale-105 hover:from-primary/90 hover:to-primary active:scale-95"
+                            >
                                 <Plus className="mr-2 h-4 w-4" />
                                 New pay period
                             </Button>
@@ -192,7 +211,11 @@ export function PayrollIndexContent({
                 <>
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
                         {periods.map((period) => (
-                            <PayrollPeriodCard key={period.id} period={period} canOpen={canOpen} />
+                            <PayrollPeriodCard
+                                key={period.id}
+                                period={period}
+                                canOpen={canOpen}
+                            />
                         ))}
                     </div>
 
@@ -211,54 +234,98 @@ export function PayrollIndexContent({
                     <OrganizationDataTable minWidth="min-w-[1080px]">
                         <TableHeader>
                             <DataTableHeaderRow>
-                                <DataTableHead className="pl-5">Pay run</DataTableHead>
+                                <DataTableHead className="pl-5">
+                                    Pay run
+                                </DataTableHead>
                                 <DataTableHead>Type</DataTableHead>
                                 <DataTableHead>Period</DataTableHead>
                                 <DataTableHead>Payment</DataTableHead>
                                 <DataTableHead>Progress</DataTableHead>
                                 <DataTableHead>Status</DataTableHead>
-                                <DataTableHead className="text-right">Actions</DataTableHead>
+                                <DataTableHead className="text-right">
+                                    Actions
+                                </DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>
                             {periods.map((period) => {
-                                const progress = getPeriodProgressPercent(period);
+                                const progress =
+                                    getPeriodProgressPercent(period);
 
                                 return (
                                     <TableRow
                                         key={period.id}
-                                        className={cn(dataTableBodyRowClass(canOpen), "group hover:bg-muted/40 transition-colors duration-200", canOpen && 'cursor-pointer')}
+                                        className={cn(
+                                            dataTableBodyRowClass(canOpen),
+                                            'group transition-colors duration-200 hover:bg-muted/40',
+                                            canOpen && 'cursor-pointer',
+                                        )}
                                         onClick={
                                             canOpen
-                                                ? () => router.visit(show.url(period.id))
+                                                ? () =>
+                                                      router.visit(
+                                                          show.url(period.id),
+                                                      )
                                                 : undefined
                                         }
                                     >
-                                        <TableCell className={dataTableCellPrimaryClass()}>
-                                            <div className="font-semibold">{period.name}</div>
+                                        <TableCell
+                                            className={dataTableCellPrimaryClass()}
+                                        >
+                                            <div className="font-semibold">
+                                                {period.name}
+                                            </div>
                                             <div className="text-xs text-muted-foreground">
                                                 {period.employee_count}{' '}
-                                                {period.payroll_category_label.toLowerCase()} employees
+                                                {period.payroll_category_label.toLowerCase()}{' '}
+                                                employees
                                             </div>
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass()}>
-                                            <PayrollCategoryBadge category={period.payroll_category} />
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            <PayrollCategoryBadge
+                                                category={
+                                                    period.payroll_category
+                                                }
+                                            />
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass()}>
-                                            {formatDisplayDate(period.start_date)} —{' '}
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {formatDisplayDate(
+                                                period.start_date,
+                                            )}{' '}
+                                            —{' '}
                                             {formatDisplayDate(period.end_date)}
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass()}>
-                                            {formatDisplayDate(period.payment_date)}
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {formatDisplayDate(
+                                                period.payment_date,
+                                            )}
                                         </TableCell>
-                                        <TableCell className={cn(dataTableCellClass(), 'min-w-[180px]')}>
+                                        <TableCell
+                                            className={cn(
+                                                dataTableCellClass(),
+                                                'min-w-[180px]',
+                                            )}
+                                        >
                                             {period.supports_timesheets ? (
                                                 <div className="space-y-2 pr-4">
                                                     <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                                                        <span>{period.timesheets_progress_label} filled</span>
+                                                        <span>
+                                                            {
+                                                                period.timesheets_progress_label
+                                                            }{' '}
+                                                            filled
+                                                        </span>
                                                         <span>{progress}%</span>
                                                     </div>
-                                                    <PayrollPeriodProgress value={progress} />
+                                                    <PayrollPeriodProgress
+                                                        value={progress}
+                                                    />
                                                 </div>
                                             ) : (
                                                 <span className="text-sm text-muted-foreground">
@@ -266,22 +333,32 @@ export function PayrollIndexContent({
                                                 </span>
                                             )}
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass()}>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
                                             <PayrollPeriodStatusBadge
                                                 status={period.status}
                                                 label={period.status_label}
                                             />
                                         </TableCell>
-                                        <TableCell className={dataTableActionsCellClass()}>
+                                        <TableCell
+                                            className={dataTableActionsCellClass()}
+                                        >
                                             {canOpen ? (
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
                                                     className="rounded-lg"
                                                     asChild
-                                                    onClick={(event) => event.stopPropagation()}
+                                                    onClick={(event) =>
+                                                        event.stopPropagation()
+                                                    }
                                                 >
-                                                    <Link href={show.url(period.id)}>
+                                                    <Link
+                                                        href={show.url(
+                                                            period.id,
+                                                        )}
+                                                    >
                                                         Open
                                                         <ChevronRight className="ml-2 h-4 w-4" />
                                                     </Link>
@@ -326,7 +403,14 @@ export function PayrollIndexContent({
                     date_to: initialFilters.date_to,
                 }}
                 onChange={handleFiltersChange}
-                onReset={() => handleFiltersChange({ category: '', status: '', date_from: '', date_to: '' })}
+                onReset={() =>
+                    handleFiltersChange({
+                        category: '',
+                        status: '',
+                        date_from: '',
+                        date_to: '',
+                    })
+                }
             />
         </Main>
     );

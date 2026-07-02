@@ -96,6 +96,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('jobs/failed/clear-all', [JobRunController::class, 'destroyAllFailed'])->name('jobs.failed.destroy-all');
     Route::post('jobs/failed/{uuid}/retry', [JobRunController::class, 'retryFailed'])->name('jobs.failed.retry');
     Route::delete('jobs/failed/{uuid}', [JobRunController::class, 'destroyFailed'])->name('jobs.failed.destroy');
+    Route::delete('jobs/history/clear-all', [JobRunController::class, 'destroyAllHistory'])->name('jobs.history.destroy-all');
+    Route::delete('jobs/history/{jobRun}', [JobRunController::class, 'destroyHistory'])->name('jobs.history.destroy');
+    Route::delete('jobs/pending/clear-all', [JobRunController::class, 'destroyAllPending'])->name('jobs.pending.destroy-all');
+    Route::delete('jobs/pending/{id}', [JobRunController::class, 'destroyPending'])->name('jobs.pending.destroy');
 
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('organization/companies', [CompanyController::class, 'index'])->middleware('can:companies.view')->name('organization.companies');

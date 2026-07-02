@@ -5,7 +5,10 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
         return fallback;
     }
 
-    const data = payload as { message?: string; errors?: Record<string, string[]> };
+    const data = payload as {
+        message?: string;
+        errors?: Record<string, string[]>;
+    };
 
     if (data.message) {
         return data.message;
@@ -23,7 +26,9 @@ export async function fetchDocumentShareLinks(
     expiresAt?: string,
     errorFallback = 'Failed to generate share links. Please try again.',
 ): Promise<ShareLinksResponse> {
-    const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+    const csrf = document.querySelector<HTMLMetaElement>(
+        'meta[name="csrf-token"]',
+    )?.content;
 
     const response = await fetch(url, {
         method: 'POST',

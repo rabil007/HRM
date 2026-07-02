@@ -39,11 +39,12 @@ import { index as vesselManningIndex } from '@/routes/organization/vessel-mannin
 
 export type { CrewOperationsDashboardProps } from '@/features/organization/crew-operations/types';
 
-const SEVERITY_BADGE: Record<string, 'destructive' | 'warning' | 'secondary'> = {
-    critical: 'destructive',
-    warning: 'warning',
-    info: 'secondary',
-};
+const SEVERITY_BADGE: Record<string, 'destructive' | 'warning' | 'secondary'> =
+    {
+        critical: 'destructive',
+        warning: 'warning',
+        info: 'secondary',
+    };
 
 export function CrewOperationsDashboardContent({
     deployment_summary: deploymentSummary,
@@ -59,7 +60,13 @@ export function CrewOperationsDashboardContent({
     can_view_audit: canViewAudit,
 }: CrewOperationsDashboardProps): ReactElement {
     usePoll(60_000, {
-        only: ['alert_counts', 'deployment_summary', 'attention_items', 'manning_gaps', 'deployment_trends'],
+        only: [
+            'alert_counts',
+            'deployment_summary',
+            'attention_items',
+            'manning_gaps',
+            'deployment_trends',
+        ],
     });
 
     const today = new Date().toLocaleDateString('en-US', {
@@ -82,11 +89,11 @@ export function CrewOperationsDashboardContent({
                 <div className="space-y-2">
                     <div className="flex items-center gap-2">
                         <LayoutDashboard className="h-4 w-4 text-primary" />
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
+                        <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/60 uppercase">
                             Crew Operations
                         </span>
                     </div>
-                    <h1 className="text-4xl font-extrabold tracking-tight bg-linear-to-br from-foreground to-foreground/50 bg-clip-text text-transparent">
+                    <h1 className="bg-linear-to-br from-foreground to-foreground/50 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent">
                         Overview
                     </h1>
                     <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground/60">
@@ -96,7 +103,11 @@ export function CrewOperationsDashboardContent({
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                     {can.deployments ? (
-                        <Button variant="outline" className="rounded-xl glass-card" asChild>
+                        <Button
+                            variant="outline"
+                            className="rounded-xl glass-card"
+                            asChild
+                        >
                             <Link href={crewDeploymentsIndex.url()}>
                                 <Ship className="mr-2 h-4 w-4" />
                                 Deployments
@@ -104,7 +115,11 @@ export function CrewOperationsDashboardContent({
                         </Button>
                     ) : null}
                     {can.planning ? (
-                        <Button variant="outline" className="rounded-xl glass-card" asChild>
+                        <Button
+                            variant="outline"
+                            className="rounded-xl glass-card"
+                            asChild
+                        >
                             <Link href={crewPlanningIndex.url()}>
                                 <CalendarRange className="mr-2 h-4 w-4" />
                                 Planning
@@ -112,7 +127,11 @@ export function CrewOperationsDashboardContent({
                         </Button>
                     ) : null}
                     {can.vessel_manning ? (
-                        <Button variant="outline" className="rounded-xl glass-card" asChild>
+                        <Button
+                            variant="outline"
+                            className="rounded-xl glass-card"
+                            asChild
+                        >
                             <Link href={vesselManningIndex.url()}>
                                 <Anchor className="mr-2 h-4 w-4" />
                                 Manning
@@ -120,7 +139,11 @@ export function CrewOperationsDashboardContent({
                         </Button>
                     ) : null}
                     {can.planning ? (
-                        <Button variant="outline" className="rounded-xl glass-card" asChild>
+                        <Button
+                            variant="outline"
+                            className="rounded-xl glass-card"
+                            asChild
+                        >
                             <Link href={crewOperations.settings.index.url()}>
                                 <Settings className="mr-2 h-4 w-4" />
                                 Settings
@@ -132,14 +155,18 @@ export function CrewOperationsDashboardContent({
 
             {hasUrgentAlerts ? (
                 <Link
-                    href={crewDeploymentsIndex.url({ query: { status: 'unknown' } })}
+                    href={crewDeploymentsIndex.url({
+                        query: { status: 'unknown' },
+                    })}
                     className="group mb-8 flex items-center gap-3 rounded-2xl border border-red-500/25 bg-red-500/5 px-5 py-4 transition-all duration-300 hover:border-red-500/40 hover:bg-red-500/10"
                 >
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10">
                         <AlertTriangle className="h-4.5 w-4.5 text-red-400" />
                     </div>
                     <div className="flex-1">
-                        <p className="text-sm font-bold text-red-400">Immediate attention required</p>
+                        <p className="text-sm font-bold text-red-400">
+                            Immediate attention required
+                        </p>
                         <p className="mt-0.5 text-xs text-muted-foreground/75">
                             {[
                                 alertCounts.needs_update > 0 &&
@@ -175,7 +202,9 @@ export function CrewOperationsDashboardContent({
                     iconColor="text-red-400"
                     iconBg="bg-red-500/10 border-red-500/20"
                     accent="border-red-500/20 hover:border-red-500/30"
-                    href={crewDeploymentsIndex.url({ query: { status: 'unknown' } })}
+                    href={crewDeploymentsIndex.url({
+                        query: { status: 'unknown' },
+                    })}
                 />
                 <MetricCard
                     title="Due soon"
@@ -195,7 +224,9 @@ export function CrewOperationsDashboardContent({
                     iconColor="text-teal-400"
                     iconBg="bg-teal-500/10 border-teal-500/20"
                     accent="border-teal-500/20 hover:border-teal-500/30"
-                    href={crewDeploymentsIndex.url({ query: { status: 'in_home' } })}
+                    href={crewDeploymentsIndex.url({
+                        query: { status: 'in_home' },
+                    })}
                 />
                 <MetricCard
                     title="Upcoming joins"
@@ -227,13 +258,15 @@ export function CrewOperationsDashboardContent({
 
             <SectionLabel icon={Ship} label="Deployment status" />
             <div className="mb-8">
-                <CrewOperationsDeploymentSummaryCards summary={deploymentSummary} />
+                <CrewOperationsDeploymentSummaryCards
+                    summary={deploymentSummary}
+                />
             </div>
 
             <div className="mb-6 grid gap-6 lg:grid-cols-2">
                 <Card
                     className={cn(
-                        'glass-card overflow-hidden dark:border-white/5 dark:bg-white/2',
+                        'overflow-hidden glass-card dark:border-white/5 dark:bg-white/2',
                         !can.vessel_manning && 'lg:col-span-2',
                     )}
                 >
@@ -257,11 +290,13 @@ export function CrewOperationsDashboardContent({
                     </CardContent>
                 </Card>
 
-                {can.vessel_manning ? <ManningGapsCard manningGaps={manningGaps} /> : null}
+                {can.vessel_manning ? (
+                    <ManningGapsCard manningGaps={manningGaps} />
+                ) : null}
             </div>
 
             <div className="mb-6 grid gap-6 lg:grid-cols-2">
-                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
                     <CardHeader className="border-b border-border/60 pb-4 dark:border-white/5">
                         <CardTitle className="text-base font-bold tracking-tight">
                             Attention required
@@ -289,7 +324,13 @@ export function CrewOperationsDashboardContent({
                                             <p className="truncate text-sm font-semibold text-foreground/80 group-hover:text-primary">
                                                 {item.title}
                                             </p>
-                                            <Badge variant={SEVERITY_BADGE[item.severity] ?? 'secondary'}>
+                                            <Badge
+                                                variant={
+                                                    SEVERITY_BADGE[
+                                                        item.severity
+                                                    ] ?? 'secondary'
+                                                }
+                                            >
                                                 {item.type.replace(/_/g, ' ')}
                                             </Badge>
                                         </div>
@@ -298,7 +339,9 @@ export function CrewOperationsDashboardContent({
                                                 {item.subtitle}
                                             </p>
                                         ) : null}
-                                        <p className="mt-1 text-[11px] text-muted-foreground/50">{item.hint}</p>
+                                        <p className="mt-1 text-[11px] text-muted-foreground/50">
+                                            {item.hint}
+                                        </p>
                                     </div>
                                     <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/45 opacity-0 transition-all group-hover:opacity-100" />
                                 </Link>
@@ -309,7 +352,7 @@ export function CrewOperationsDashboardContent({
 
                 <div className="space-y-6">
                     {can.planning ? (
-                        <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                        <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
                             <CardHeader className="border-b border-border/60 pb-4 dark:border-white/5">
                                 <div className="flex items-center justify-between gap-4">
                                     <div>
@@ -320,8 +363,15 @@ export function CrewOperationsDashboardContent({
                                             Joins scheduled in the next 14 days
                                         </CardDescription>
                                     </div>
-                                    <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" asChild>
-                                        <Link href={crewPlanningIndex.url()}>View all</Link>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 rounded-lg text-xs"
+                                        asChild
+                                    >
+                                        <Link href={crewPlanningIndex.url()}>
+                                            View all
+                                        </Link>
                                     </Button>
                                 </div>
                             </CardHeader>
@@ -337,15 +387,26 @@ export function CrewOperationsDashboardContent({
                                             className="rounded-xl border border-border/80 bg-muted/10 px-3 py-3 dark:border-white/5 dark:bg-white/[0.01]"
                                         >
                                             <p className="text-sm font-semibold text-foreground/80">
-                                                {item.employee_name ?? 'Unassigned'}
+                                                {item.employee_name ??
+                                                    'Unassigned'}
                                             </p>
                                             <p className="mt-0.5 text-xs text-muted-foreground/60">
-                                                {[item.vessel_name, item.rank_name].filter(Boolean).join(' · ') ||
+                                                {[
+                                                    item.vessel_name,
+                                                    item.rank_name,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' · ') ||
                                                     'No vessel / rank'}
                                             </p>
                                             <p className="mt-1 text-[11px] font-medium text-muted-foreground/50">
-                                                {formatDisplayDate(item.planned_join_date)} →{' '}
-                                                {formatDisplayDate(item.planned_leave_date)}
+                                                {formatDisplayDate(
+                                                    item.planned_join_date,
+                                                )}{' '}
+                                                →{' '}
+                                                {formatDisplayDate(
+                                                    item.planned_leave_date,
+                                                )}
                                             </p>
                                         </div>
                                     ))
@@ -354,11 +415,14 @@ export function CrewOperationsDashboardContent({
                         </Card>
                     ) : null}
 
-                    <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                    <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
                         <CardHeader className="border-b border-border/60 pb-4 dark:border-white/5">
-                            <CardTitle className="text-base font-bold tracking-tight">Crew pool</CardTitle>
+                            <CardTitle className="text-base font-bold tracking-tight">
+                                Crew pool
+                            </CardTitle>
                             <CardDescription className="text-xs">
-                                Available employees in configured pool departments
+                                Available employees in configured pool
+                                departments
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="flex items-center justify-between gap-4 pt-5">
@@ -367,13 +431,19 @@ export function CrewOperationsDashboardContent({
                                     <Users className="h-5 w-5 text-primary" />
                                 </div>
                                 <div>
-                                    <p className="text-3xl font-black tabular-nums">{poolSnapshot.count}</p>
-                                    <p className="text-xs text-muted-foreground/60">employees in pool</p>
+                                    <p className="text-3xl font-black tabular-nums">
+                                        {poolSnapshot.count}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground/60">
+                                        employees in pool
+                                    </p>
                                 </div>
                             </div>
                             {can.planning ? (
                                 <Button variant="outline" size="sm" asChild>
-                                    <Link href={crewPlanningIndex.url()}>Open planning</Link>
+                                    <Link href={crewPlanningIndex.url()}>
+                                        Open planning
+                                    </Link>
                                 </Button>
                             ) : null}
                         </CardContent>
@@ -401,7 +471,7 @@ function SectionLabel({
     return (
         <div className="mb-4 flex items-center gap-2 select-none">
             <Icon className="h-3.5 w-3.5 text-muted-foreground/50" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/50">
+            <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/50 uppercase">
                 {label}
             </span>
             <div className="h-px flex-1 bg-border/80 dark:bg-white/5" />
@@ -431,7 +501,7 @@ function MetricCard({
     const content = (
         <Card
             className={cn(
-                'group glass-card gap-0 overflow-hidden p-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl',
+                'group gap-0 overflow-hidden glass-card p-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl',
                 accent,
                 href && 'cursor-pointer',
             )}
@@ -440,13 +510,22 @@ function MetricCard({
                 <CardTitle className="text-[10px] font-bold tracking-wider text-muted-foreground/85 uppercase">
                     {title}
                 </CardTitle>
-                <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl border', iconBg)}>
+                <div
+                    className={cn(
+                        'flex h-9 w-9 items-center justify-center rounded-xl border',
+                        iconBg,
+                    )}
+                >
                     <Icon className={cn('h-4.5 w-4.5', iconColor)} />
                 </div>
             </CardHeader>
             <CardContent className="relative px-5 pt-0 pb-4">
-                <div className="text-3xl font-black tracking-tight">{value}</div>
-                <p className="mt-1.5 text-xs text-muted-foreground/80">{hint}</p>
+                <div className="text-3xl font-black tracking-tight">
+                    {value}
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground/80">
+                    {hint}
+                </p>
             </CardContent>
         </Card>
     );

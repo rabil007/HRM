@@ -30,12 +30,15 @@ export function PayrollPeriodFormSheet({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="right"
-                className="flex w-full flex-col rounded-none p-0 glass-card sm:max-w-md"
+                className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-md"
             >
                 <SheetHeader className="border-b border-border/60 p-8 pb-6">
-                    <SheetTitle className="text-xl font-bold tracking-tight">New Payroll Period</SheetTitle>
+                    <SheetTitle className="text-xl font-bold tracking-tight">
+                        New Payroll Period
+                    </SheetTitle>
                     <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
-                        Choose the payroll type and dates. Only employees on matching contracts appear on this run.
+                        Choose the payroll type and dates. Only employees on
+                        matching contracts appear on this run.
                     </SheetDescription>
                 </SheetHeader>
 
@@ -43,32 +46,40 @@ export function PayrollPeriodFormSheet({
                     <div className="space-y-2">
                         <Label
                             htmlFor="payroll_category"
-                            className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                            className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                         >
                             Payroll type
                         </Label>
                         <AppSelect
                             value={form.data.payroll_category}
                             onValueChange={(value) =>
-                                form.setData('payroll_category', value as PayrollPeriodFormData['payroll_category'])
+                                form.setData(
+                                    'payroll_category',
+                                    value as PayrollPeriodFormData['payroll_category'],
+                                )
                             }
                             variant="card"
                         >
                             {payrollCategories.map((category) => (
-                                <AppSelectItem key={category.value} value={category.value}>
+                                <AppSelectItem
+                                    key={category.value}
+                                    value={category.value}
+                                >
                                     {category.label}
                                 </AppSelectItem>
                             ))}
                         </AppSelect>
                         {form.errors.payroll_category ? (
-                            <div className="text-xs font-medium text-destructive">{form.errors.payroll_category}</div>
+                            <div className="text-xs font-medium text-destructive">
+                                {form.errors.payroll_category}
+                            </div>
                         ) : null}
                     </div>
 
                     <div className="space-y-2">
                         <Label
                             htmlFor="name"
-                            className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                            className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                         >
                             Period name
                         </Label>
@@ -77,10 +88,14 @@ export function PayrollPeriodFormSheet({
                             placeholder="June 2026"
                             className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                             value={form.data.name}
-                            onChange={(e) => form.setData('name', e.target.value)}
+                            onChange={(e) =>
+                                form.setData('name', e.target.value)
+                            }
                         />
                         {form.errors.name ? (
-                            <div className="text-xs font-medium text-destructive">{form.errors.name}</div>
+                            <div className="text-xs font-medium text-destructive">
+                                {form.errors.name}
+                            </div>
                         ) : null}
                     </div>
 
@@ -88,7 +103,7 @@ export function PayrollPeriodFormSheet({
                         <div className="space-y-2">
                             <Label
                                 htmlFor="start_date"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Start date
                             </Label>
@@ -97,17 +112,21 @@ export function PayrollPeriodFormSheet({
                                 type="date"
                                 className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                 value={form.data.start_date}
-                                onChange={(e) => form.setData('start_date', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('start_date', e.target.value)
+                                }
                             />
                             {form.errors.start_date ? (
-                                <div className="text-xs font-medium text-destructive">{form.errors.start_date}</div>
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.start_date}
+                                </div>
                             ) : null}
                         </div>
 
                         <div className="space-y-2">
                             <Label
                                 htmlFor="end_date"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 End date
                             </Label>
@@ -116,10 +135,14 @@ export function PayrollPeriodFormSheet({
                                 type="date"
                                 className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                 value={form.data.end_date}
-                                onChange={(e) => form.setData('end_date', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('end_date', e.target.value)
+                                }
                             />
                             {form.errors.end_date ? (
-                                <div className="text-xs font-medium text-destructive">{form.errors.end_date}</div>
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.end_date}
+                                </div>
                             ) : null}
                         </div>
                     </div>
@@ -127,7 +150,7 @@ export function PayrollPeriodFormSheet({
                     <div className="space-y-2">
                         <Label
                             htmlFor="payment_date"
-                            className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                            className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                         >
                             Payment date
                         </Label>
@@ -136,17 +159,21 @@ export function PayrollPeriodFormSheet({
                             type="date"
                             className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                             value={form.data.payment_date}
-                            onChange={(e) => form.setData('payment_date', e.target.value)}
+                            onChange={(e) =>
+                                form.setData('payment_date', e.target.value)
+                            }
                         />
                         {form.errors.payment_date ? (
-                            <div className="text-xs font-medium text-destructive">{form.errors.payment_date}</div>
+                            <div className="text-xs font-medium text-destructive">
+                                {form.errors.payment_date}
+                            </div>
                         ) : null}
                     </div>
 
                     <div className="space-y-2">
                         <Label
                             htmlFor="notes"
-                            className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                            className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                         >
                             Notes
                         </Label>
@@ -155,16 +182,24 @@ export function PayrollPeriodFormSheet({
                             placeholder="Optional notes"
                             className="min-h-24 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                             value={form.data.notes}
-                            onChange={(e) => form.setData('notes', e.target.value)}
+                            onChange={(e) =>
+                                form.setData('notes', e.target.value)
+                            }
                         />
                         {form.errors.notes ? (
-                            <div className="text-xs font-medium text-destructive">{form.errors.notes}</div>
+                            <div className="text-xs font-medium text-destructive">
+                                {form.errors.notes}
+                            </div>
                         ) : null}
                     </div>
                 </div>
 
                 <div className="border-t border-border/60 p-8">
-                    <Button className="w-full rounded-xl" disabled={form.processing} onClick={onSubmit}>
+                    <Button
+                        className="w-full rounded-xl"
+                        disabled={form.processing}
+                        onClick={onSubmit}
+                    >
                         Create period
                     </Button>
                 </div>

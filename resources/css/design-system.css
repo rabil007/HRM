@@ -79,7 +79,7 @@
 }
 
 @utility ds-table-head-row {
-    @apply border-b border-border/80 bg-muted/30 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground;
+    @apply border-b border-border/80 bg-muted/30 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase;
 }
 
 @utility ds-table-th {
@@ -120,8 +120,10 @@
     &:-webkit-autofill:active {
         -webkit-text-fill-color: var(--foreground) !important;
         caret-color: var(--foreground);
-        -webkit-box-shadow: 0 0 0 1000px color-mix(in oklch, var(--muted) 30%, transparent) inset !important;
-        box-shadow: 0 0 0 1000px color-mix(in oklch, var(--muted) 30%, transparent) inset !important;
+        -webkit-box-shadow: 0 0 0 1000px
+            color-mix(in oklch, var(--muted) 30%, transparent) inset !important;
+        box-shadow: 0 0 0 1000px
+            color-mix(in oklch, var(--muted) 30%, transparent) inset !important;
         transition: background-color 99999s ease-out 0s;
     }
 }

@@ -1,4 +1,12 @@
-import { Download, Eye, ExternalLink, History, Pencil, RefreshCw, Trash2 } from 'lucide-react';
+import {
+    Download,
+    Eye,
+    ExternalLink,
+    History,
+    Pencil,
+    RefreshCw,
+    Trash2,
+} from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -75,7 +83,11 @@ export function ManagementDocumentActions({
                     title="Download"
                     aria-label="Download"
                 >
-                    <a href={documents.files.download.url({ document: documentId })}>
+                    <a
+                        href={documents.files.download.url({
+                            document: documentId,
+                        })}
+                    >
                         <Download className="size-4" />
                     </a>
                 </Button>

@@ -36,10 +36,16 @@ type CreatableRegistryEntry = {
     permission: string;
     labelField: 'name' | 'title';
     url: () => string;
-    body: (query: string, context?: CreatableMasterDataContext) => Record<string, unknown>;
+    body: (
+        query: string,
+        context?: CreatableMasterDataContext,
+    ) => Record<string, unknown>;
 };
 
-export const creatableRegistry: Record<CreatableMasterDataKey, CreatableRegistryEntry> = {
+export const creatableRegistry: Record<
+    CreatableMasterDataKey,
+    CreatableRegistryEntry
+> = {
     bank: {
         permission: 'settings.master-data.banks.create',
         labelField: 'name',

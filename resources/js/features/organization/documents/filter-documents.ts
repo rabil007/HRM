@@ -1,7 +1,10 @@
 import { formatDisplayDate } from '@/lib/format-date';
 import type { DocumentBrowseItem } from './types';
 
-export function matchesFileSearch(doc: DocumentBrowseItem, query: string): boolean {
+export function matchesFileSearch(
+    doc: DocumentBrowseItem,
+    query: string,
+): boolean {
     const haystack = [
         doc.document_name,
         doc.document_type,

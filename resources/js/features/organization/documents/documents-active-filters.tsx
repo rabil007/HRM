@@ -1,11 +1,8 @@
 import { X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    EXPIRY_FILTER_LABELS
-    
-} from '@/features/organization/documents/document-expiry';
-import type {ExpiryFilter} from '@/features/organization/documents/document-expiry';
+import { EXPIRY_FILTER_LABELS } from '@/features/organization/documents/document-expiry';
+import type { ExpiryFilter } from '@/features/organization/documents/document-expiry';
 
 export function DocumentsActiveFilters({
     expiryFilter,
@@ -19,7 +16,8 @@ export function DocumentsActiveFilters({
     onClearSearch?: () => void;
 }) {
     const hasExpiryFilter = expiryFilter !== 'all';
-    const hasSearch = (search?.trim() ?? '') !== '' && onClearSearch !== undefined;
+    const hasSearch =
+        (search?.trim() ?? '') !== '' && onClearSearch !== undefined;
 
     if (!hasExpiryFilter && !hasSearch) {
         return null;
@@ -27,10 +25,15 @@ export function DocumentsActiveFilters({
 
     return (
         <div className="mb-4 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground/80">Active filters</span>
+            <span className="text-xs font-medium text-muted-foreground/80">
+                Active filters
+            </span>
 
             {hasExpiryFilter ? (
-                <Badge variant="outline" className="gap-1 border-primary/25 bg-primary/5 pr-1 pl-2.5 font-normal">
+                <Badge
+                    variant="outline"
+                    className="gap-1 border-primary/25 bg-primary/5 pr-1 pl-2.5 font-normal"
+                >
                     {EXPIRY_FILTER_LABELS[expiryFilter]}
                     {onClearExpiry ? (
                         <Button
@@ -48,7 +51,10 @@ export function DocumentsActiveFilters({
             ) : null}
 
             {hasSearch ? (
-                <Badge variant="outline" className="max-w-xs gap-1 truncate border-border pr-1 pl-2.5 font-normal dark:border-white/10">
+                <Badge
+                    variant="outline"
+                    className="max-w-xs gap-1 truncate border-border pr-1 pl-2.5 font-normal dark:border-white/10"
+                >
                     <span className="truncate">Search: {search}</span>
                     <Button
                         type="button"

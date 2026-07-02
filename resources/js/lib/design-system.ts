@@ -32,8 +32,10 @@ export const tables = {
     td: 'ds-table-td',
     tdPrimary: 'ds-table-td-primary',
     headRowLegacy: 'border-b border-border/80 bg-muted/30 hover:bg-muted/30',
-    headCell: 'h-10 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap',
-    bodyRow: 'border-b border-border/50 transition-colors duration-150 hover:bg-muted/30',
+    headCell:
+        'h-10 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap',
+    bodyRow:
+        'border-b border-border/50 transition-colors duration-150 hover:bg-muted/30',
     cell: 'px-4 py-4 align-middle text-sm text-muted-foreground',
     cellPrimary: 'px-4 py-4 align-middle text-sm font-medium text-foreground',
     actionsCell: 'px-4 py-3.5 align-middle text-right last:pr-5',
@@ -48,7 +50,8 @@ export const typography = {
     pageTitle: 'text-2xl font-semibold tracking-tight text-foreground',
     sectionTitle: 'text-lg font-semibold tracking-tight text-foreground',
     label: 'text-xs font-semibold uppercase tracking-wider text-muted-foreground',
-    sectionLabel: 'text-[10px] font-semibold uppercase tracking-widest text-muted-foreground',
+    sectionLabel:
+        'text-[10px] font-semibold uppercase tracking-widest text-muted-foreground',
     muted: 'text-sm text-muted-foreground',
     hint: 'text-[11px] text-muted-foreground',
     tableMuted: 'text-xs text-muted-foreground',

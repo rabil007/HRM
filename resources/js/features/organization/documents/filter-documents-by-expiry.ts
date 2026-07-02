@@ -1,12 +1,15 @@
 import type { ExpiryFilter } from './document-expiry';
 import type { DocumentBrowseItem } from './types';
 
-export function matchesExpiryFilter(doc: DocumentBrowseItem, filter: ExpiryFilter): boolean {
+export function matchesExpiryFilter(
+    doc: DocumentBrowseItem,
+    filter: ExpiryFilter,
+): boolean {
     if (filter === 'all') {
         return true;
     }
 
-    if (! doc.expiry_status) {
+    if (!doc.expiry_status) {
         return false;
     }
 
@@ -19,7 +22,10 @@ export function matchesExpiryFilter(doc: DocumentBrowseItem, filter: ExpiryFilte
     }
 
     if (filter === 'expiring_15') {
-        return doc.expiry_status === 'expiring_7' || doc.expiry_status === 'expiring_15';
+        return (
+            doc.expiry_status === 'expiring_7' ||
+            doc.expiry_status === 'expiring_15'
+        );
     }
 
     return (

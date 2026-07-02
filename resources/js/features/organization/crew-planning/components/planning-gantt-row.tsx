@@ -1,7 +1,11 @@
 import { useDroppable } from '@dnd-kit/core';
 import type { MouseEvent, ReactElement } from 'react';
 import { cn } from '@/lib/utils';
-import { barPositionStyle, dateFromPointerRatio, todayLinePositionPercent } from '../lib/planning-gantt-math';
+import {
+    barPositionStyle,
+    dateFromPointerRatio,
+    todayLinePositionPercent,
+} from '../lib/planning-gantt-math';
 import type { GanttBar, PlanningPagePermissions, RowDropData } from '../types';
 import { PlanningGanttBar } from './planning-bar-tooltip';
 
@@ -22,12 +26,21 @@ type Props = {
     timelineMinWidth: number;
     can: PlanningPagePermissions;
     isDraggingBar?: boolean;
-    onRowClick?: (rowKey: string, vesselId: number, rankId: number, estimatedDate: string) => void;
+    onRowClick?: (
+        rowKey: string,
+        vesselId: number,
+        rankId: number,
+        estimatedDate: string,
+    ) => void;
     onEditBar?: (bar: GanttBar) => void;
     onDeleteBar?: (bar: GanttBar) => void;
 };
 
-function todayLineStyle(today: Date, rangeFrom: Date, rangeTo: Date): React.CSSProperties | null {
+function todayLineStyle(
+    today: Date,
+    rangeFrom: Date,
+    rangeTo: Date,
+): React.CSSProperties | null {
     const pos = todayLinePositionPercent(today, rangeFrom, rangeTo);
 
     if (pos === null) {
@@ -71,7 +84,10 @@ export function PlanningGanttRow({
 
         const target = e.target as HTMLElement;
 
-        if (target.closest('[data-radix-popper-content-wrapper]') ?? target.closest('.absolute')) {
+        if (
+            target.closest('[data-radix-popper-content-wrapper]') ??
+            target.closest('.absolute')
+        ) {
             return;
         }
 
@@ -91,7 +107,10 @@ export function PlanningGanttRow({
                 isOver && 'bg-primary/5 dark:bg-primary/10',
                 can.create && 'hover:bg-muted/30 dark:hover:bg-muted/20',
             )}
-            style={{ height: ROW_HEIGHT, minWidth: timelineMinWidth + RANK_LABEL_WIDTH }}
+            style={{
+                height: ROW_HEIGHT,
+                minWidth: timelineMinWidth + RANK_LABEL_WIDTH,
+            }}
         >
             {/* Rank label */}
             <div
@@ -99,7 +118,8 @@ export function PlanningGanttRow({
                     'sticky left-0 z-20 flex shrink-0 items-center border-r border-border/50 bg-background px-3',
                     isHighlighted && 'bg-amber-50/50 dark:bg-amber-950/30',
                     isOver && 'bg-primary/5 dark:bg-primary/10',
-                    can.create && 'group-hover:bg-muted/30 dark:group-hover:bg-muted/20',
+                    can.create &&
+                        'group-hover:bg-muted/30 dark:group-hover:bg-muted/20',
                 )}
                 style={{ width: RANK_LABEL_WIDTH }}
             >
@@ -136,10 +156,17 @@ export function PlanningGanttRow({
 
                 <div className="relative z-10 h-full overflow-hidden">
                     {bars.map((bar) => {
-                        const style = barPositionStyle(bar.start, bar.end, rangeFrom, rangeTo);
+                        const style = barPositionStyle(
+                            bar.start,
+                            bar.end,
+                            rangeFrom,
+                            rangeTo,
+                        );
                         const isBarHighlighted =
                             lowerSearch !== '' &&
-                            bar.employee_name.toLowerCase().includes(lowerSearch);
+                            bar.employee_name
+                                .toLowerCase()
+                                .includes(lowerSearch);
 
                         return (
                             <PlanningGanttBar

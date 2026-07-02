@@ -32,7 +32,10 @@ export function BranchFiltersSheet({
     return (
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
             <div className="space-y-2">
-                <Label htmlFor="filter-country" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label
+                    htmlFor="filter-country"
+                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                >
                     Country
                 </Label>
                 <AppSelect
@@ -52,24 +55,34 @@ export function BranchFiltersSheet({
 
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="filter-city" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label
+                        htmlFor="filter-city"
+                        className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                    >
                         City
                     </Label>
                     <Input
                         id="filter-city"
                         placeholder="e.g. Dubai"
-                        className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                        className="h-11 rounded-xl border-white/10 bg-white/5 transition-all focus-visible:ring-primary/40"
                         value={value.city}
-                        onChange={(e) => onChange({ ...value, city: e.target.value })}
+                        onChange={(e) =>
+                            onChange({ ...value, city: e.target.value })
+                        }
                     />
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Status
                     </Label>
                     <AppSelect
                         value={value.status}
-                        onValueChange={(v) => onChange({ ...value, status: v as BranchFilters['status'] })}
+                        onValueChange={(v) =>
+                            onChange({
+                                ...value,
+                                status: v as BranchFilters['status'],
+                            })
+                        }
                         variant="dark"
                         placeholder="All"
                     >
@@ -81,24 +94,47 @@ export function BranchFiltersSheet({
             </div>
 
             <div className="space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">Flags</div>
+                <div className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                    Flags
+                </div>
 
                 <div className="flex items-center gap-3">
                     <Checkbox
                         checked={value.headquartersOnly}
-                        onCheckedChange={(checked) => onChange({ ...value, headquartersOnly: checked === true })}
+                        onCheckedChange={(checked) =>
+                            onChange({
+                                ...value,
+                                headquartersOnly: checked === true,
+                            })
+                        }
                     />
-                    <span className="text-sm text-muted-foreground">Headquarters only</span>
+                    <span className="text-sm text-muted-foreground">
+                        Headquarters only
+                    </span>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <Checkbox checked={value.hasPhone} onCheckedChange={(checked) => onChange({ ...value, hasPhone: checked === true })} />
-                    <span className="text-sm text-muted-foreground">Has phone</span>
+                    <Checkbox
+                        checked={value.hasPhone}
+                        onCheckedChange={(checked) =>
+                            onChange({ ...value, hasPhone: checked === true })
+                        }
+                    />
+                    <span className="text-sm text-muted-foreground">
+                        Has phone
+                    </span>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <Checkbox checked={value.hasEmail} onCheckedChange={(checked) => onChange({ ...value, hasEmail: checked === true })} />
-                    <span className="text-sm text-muted-foreground">Has email</span>
+                    <Checkbox
+                        checked={value.hasEmail}
+                        onCheckedChange={(checked) =>
+                            onChange({ ...value, hasEmail: checked === true })
+                        }
+                    />
+                    <span className="text-sm text-muted-foreground">
+                        Has email
+                    </span>
                 </div>
             </div>
         </FiltersSheet>

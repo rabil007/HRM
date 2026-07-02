@@ -29,13 +29,17 @@ export function PayrollMarkPaidDialog({
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) {
-return;
-}
+            return;
+        }
 
         const newFiles = Array.from(e.target.files);
         setSelectedFiles((prev) => {
-            const existingKeys = new Set(prev.map((f) => `${f.name}-${f.size}`));
-            const filtered = newFiles.filter((f) => !existingKeys.has(`${f.name}-${f.size}`));
+            const existingKeys = new Set(
+                prev.map((f) => `${f.name}-${f.size}`),
+            );
+            const filtered = newFiles.filter(
+                (f) => !existingKeys.has(`${f.name}-${f.size}`),
+            );
 
             return [...prev, ...filtered];
         });
@@ -67,13 +71,14 @@ return;
                 <AlertDialogHeader>
                     <AlertDialogTitle>Mark pay run as paid?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This confirms payment has been completed for all payroll records in this period.
+                        This confirms payment has been completed for all payroll
+                        records in this period.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
 
                 <div className="space-y-3 py-2">
                     <div className="flex items-center justify-between">
-                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                             Payment Proof Documents ({selectedFiles.length})
                         </Label>
                         {selectedFiles.length > 0 ? (
@@ -102,31 +107,42 @@ return;
                     {selectedFiles.length === 0 ? (
                         <div
                             onClick={() => fileInputRef.current?.click()}
-                            className="flex flex-col items-center justify-center cursor-pointer rounded-xl border border-dashed border-muted-foreground/30 bg-muted/20 p-4 transition-colors hover:border-primary/50 hover:bg-accent/30 text-center gap-2"
+                            className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/20 p-4 text-center transition-colors hover:border-primary/50 hover:bg-accent/30"
                         >
                             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
                                 <Upload className="h-4 w-4" />
                             </div>
                             <div>
-                                <p className="text-xs font-medium">Click to upload payment proof files</p>
-                                <p className="text-[11px] text-muted-foreground">PDF, JPG, PNG or DOC (Upload multiple files)</p>
+                                <p className="text-xs font-medium">
+                                    Click to upload payment proof files
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">
+                                    PDF, JPG, PNG or DOC (Upload multiple files)
+                                </p>
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
                             {selectedFiles.map((file, idx) => (
                                 <div
                                     key={`${file.name}-${idx}`}
                                     className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5"
                                 >
-                                    <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="flex min-w-0 items-center gap-2.5">
                                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
                                             <FileCheck className="h-3.5 w-3.5" />
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-xs font-semibold truncate">{file.name}</p>
+                                            <p className="truncate text-xs font-semibold">
+                                                {file.name}
+                                            </p>
                                             <p className="text-[10px] text-muted-foreground">
-                                                {(file.size / 1024 / 1024).toFixed(2)} MB
+                                                {(
+                                                    file.size /
+                                                    1024 /
+                                                    1024
+                                                ).toFixed(2)}{' '}
+                                                MB
                                             </p>
                                         </div>
                                     </div>
@@ -146,7 +162,9 @@ return;
                 </div>
 
                 <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                    <AlertDialogCancel className="rounded-xl">
+                        Cancel
+                    </AlertDialogCancel>
                     <AlertDialogAction
                         className="rounded-xl"
                         disabled={processing}

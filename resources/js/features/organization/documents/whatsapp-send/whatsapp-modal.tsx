@@ -70,7 +70,11 @@ export function WhatsAppDocumentsModal({
             onSendComplete();
             toast.success(`${result.message} Sent to ${number}.`);
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Failed to send via WhatsApp.');
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to send via WhatsApp.',
+            );
         } finally {
             setIsSending(false);
         }
@@ -90,26 +94,35 @@ export function WhatsAppDocumentsModal({
 
                     <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-100/90">
                         <p>
-                            Files are sent via the WhatsApp Business API as document attachments.
-                            They only appear on the phone if the recipient messaged your business
-                            number within 24 hours, or is on your Meta test recipient list.
+                            Files are sent via the WhatsApp Business API as
+                            document attachments. They only appear on the phone
+                            if the recipient messaged your business number
+                            within 24 hours, or is on your Meta test recipient
+                            list.
                         </p>
                         <p className="mt-2">
-                            The <span className="font-medium">hello_world template</span> sends a
-                            greeting only — it does not attach your PDF. Enable it below to notify
-                            new contacts; they must reply before documents can be delivered.
+                            The{' '}
+                            <span className="font-medium">
+                                hello_world template
+                            </span>{' '}
+                            sends a greeting only — it does not attach your PDF.
+                            Enable it below to notify new contacts; they must
+                            reply before documents can be delivered.
                         </p>
                     </div>
 
                     <div className="space-y-2">
                         <Label htmlFor="whatsapp-number">
-                            WhatsApp number <span className="text-red-400">*</span>
+                            WhatsApp number{' '}
+                            <span className="text-red-400">*</span>
                         </Label>
                         <Input
                             id="whatsapp-number"
                             type="tel"
                             value={whatsappNumber}
-                            onChange={(event) => setWhatsappNumber(event.target.value)}
+                            onChange={(event) =>
+                                setWhatsappNumber(event.target.value)
+                            }
                             placeholder="+971501234567"
                             autoComplete="tel"
                             required
@@ -126,7 +139,9 @@ export function WhatsAppDocumentsModal({
                     <label className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 px-3 py-3 dark:border-white/10 dark:bg-zinc-950/40">
                         <Checkbox
                             checked={sendTemplateFirst}
-                            onCheckedChange={(checked) => setSendTemplateFirst(checked === true)}
+                            onCheckedChange={(checked) =>
+                                setSendTemplateFirst(checked === true)
+                            }
                             disabled={isSending}
                             className="mt-0.5"
                         />
@@ -135,8 +150,9 @@ export function WhatsAppDocumentsModal({
                                 Send hello_world template first
                             </span>
                             <span className="block text-xs text-muted-foreground">
-                                Recommended for contacts who have not messaged you recently. Sends a
-                                Meta-approved greeting before the document(s).
+                                Recommended for contacts who have not messaged
+                                you recently. Sends a Meta-approved greeting
+                                before the document(s).
                             </span>
                         </span>
                     </label>
@@ -155,7 +171,11 @@ export function WhatsAppDocumentsModal({
                     <Button
                         type="button"
                         className="rounded-lg"
-                        disabled={isSending || whatsappNumber.trim() === '' || documents.length === 0}
+                        disabled={
+                            isSending ||
+                            whatsappNumber.trim() === '' ||
+                            documents.length === 0
+                        }
                         onClick={handleSend}
                     >
                         {isSending ? (

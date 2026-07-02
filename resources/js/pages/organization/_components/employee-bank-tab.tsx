@@ -88,14 +88,14 @@ export function EmployeeBankTab({
         validateRequired,
         syncMissingFromFormData,
     } = useTemplateRecordFields(templateFields, {
-        defaultRequiredFields: TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_bank_accounts,
+        defaultRequiredFields:
+            TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_bank_accounts,
         booleanFields: ['is_primary'],
     });
 
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [editingRow, setEditingRow] = useState<EmployeeBankAccountItem | null>(
-        null,
-    );
+    const [editingRow, setEditingRow] =
+        useState<EmployeeBankAccountItem | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
 
     const bankForm = useForm({
@@ -198,9 +198,7 @@ export function EmployeeBankTab({
     };
 
     const showAccountDetailsSection =
-        showField('bank_id') ||
-        showField('account_name') ||
-        showField('iban');
+        showField('bank_id') || showField('account_name') || showField('iban');
     const showSettingsSection = showField('is_primary');
 
     return (
@@ -227,26 +225,44 @@ export function EmployeeBankTab({
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
                             {showField('bank_id') ? (
-                                <th className={employeeRecordsTableThClass()}>Bank</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Bank
+                                </th>
                             ) : null}
                             {showField('account_name') ? (
-                                <th className={employeeRecordsTableThClass()}>Account holder</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Account holder
+                                </th>
                             ) : null}
                             {showField('iban') ? (
-                                <th className={employeeRecordsTableThClass()}>IBAN</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    IBAN
+                                </th>
                             ) : null}
                             {showField('is_primary') ? (
-                                <th className={cn(employeeRecordsTableThClass(), 'text-center')}>
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'text-center',
+                                    )}
+                                >
                                     Primary
                                 </th>
                             ) : null}
-                            <th className={employeeRecordsTableThClass()}>Added</th>
-                            {canManage ? <EmployeeRecordsActionsHeader /> : null}
+                            <th className={employeeRecordsTableThClass()}>
+                                Added
+                            </th>
+                            {canManage ? (
+                                <EmployeeRecordsActionsHeader />
+                            ) : null}
                         </tr>
                     </thead>
                     <tbody>
                         {bank_accounts.map((row) => (
-                            <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                            <tr
+                                key={row.id}
+                                className={employeeRecordsTableRowClass()}
+                            >
                                 {showField('bank_id') ? (
                                     <td
                                         className={cn(
@@ -285,22 +301,31 @@ export function EmployeeBankTab({
                                         )}
                                     >
                                         {row.is_primary ? (
-                                            <span className="text-emerald-600 dark:text-emerald-400">✓</span>
+                                            <span className="text-emerald-600 dark:text-emerald-400">
+                                                ✓
+                                            </span>
                                         ) : (
-                                            <span className="text-muted-foreground/50">—</span>
+                                            <span className="text-muted-foreground/50">
+                                                —
+                                            </span>
                                         )}
                                     </td>
                                 ) : null}
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'whitespace-nowrap text-xs text-muted-foreground',
+                                        'text-xs whitespace-nowrap text-muted-foreground',
                                     )}
                                 >
                                     {formatDisplayDate(row.created_at)}
                                 </td>
                                 {canManage ? (
-                                    <td className={cn(employeeRecordsTableTdClass(), 'text-right')}>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'text-right',
+                                        )}
+                                    >
                                         <EmployeeRecordRowActions
                                             onEdit={() => openEditDialog(row)}
                                             onDelete={() => setDeleteId(row.id)}
@@ -328,10 +353,13 @@ export function EmployeeBankTab({
                 <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>
-                            {editingRow ? 'Edit bank account' : 'Add bank account'}
+                            {editingRow
+                                ? 'Edit bank account'
+                                : 'Add bank account'}
                         </DialogTitle>
                         <DialogDescription className="text-xs text-muted-foreground">
-                            Enter the account details used for payroll disbursement.
+                            Enter the account details used for payroll
+                            disbursement.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -343,7 +371,7 @@ export function EmployeeBankTab({
                     {showAccountDetailsSection ? (
                         <div className="space-y-4 py-1">
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Account details
                                 </span>
                                 <div className="h-px flex-1 bg-muted/50" />
@@ -351,15 +379,25 @@ export function EmployeeBankTab({
                             {showField('bank_id') ? (
                                 <RecordFormField
                                     field="bank_id"
-                                    highlightMissing={isMissingRequired('bank_id')}
+                                    highlightMissing={isMissingRequired(
+                                        'bank_id',
+                                    )}
                                 >
-                                    <Label className={recordFieldLabelClass(isMissingRequired('bank_id'))}>
+                                    <Label
+                                        className={recordFieldLabelClass(
+                                            isMissingRequired('bank_id'),
+                                        )}
+                                    >
                                         Bank
-                                        <RequiredIndicator show={isFieldRequired('bank_id')} />
+                                        <RequiredIndicator
+                                            show={isFieldRequired('bank_id')}
+                                        />
                                     </Label>
                                     <CreatableSelect
                                         value={bankForm.data.bank_id}
-                                        onValueChange={(v) => bankForm.setData('bank_id', v)}
+                                        onValueChange={(v) =>
+                                            bankForm.setData('bank_id', v)
+                                        }
                                         variant="dark"
                                         placeholder="— Select a bank —"
                                         options={bankSelectOptions}
@@ -368,7 +406,8 @@ export function EmployeeBankTab({
                                                 (option) =>
                                                     !bankSelectOptions.some(
                                                         (existing) =>
-                                                            existing.value === option.value,
+                                                            existing.value ===
+                                                            option.value,
                                                     ),
                                             );
 
@@ -389,8 +428,11 @@ export function EmployeeBankTab({
                                         </p>
                                     ) : (
                                         <p className="text-[11px] text-muted-foreground">
-                                            The financial institution holding this account
-                                            {isFieldRequired('bank_id') ? '' : ' (optional)'}
+                                            The financial institution holding
+                                            this account
+                                            {isFieldRequired('bank_id')
+                                                ? ''
+                                                : ' (optional)'}
                                         </p>
                                     )}
                                 </RecordFormField>
@@ -399,26 +441,37 @@ export function EmployeeBankTab({
                                 {showField('account_name') ? (
                                     <RecordFormField
                                         field="account_name"
-                                        highlightMissing={isMissingRequired('account_name')}
+                                        highlightMissing={isMissingRequired(
+                                            'account_name',
+                                        )}
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
-                                                isMissingRequired('account_name'),
+                                                isMissingRequired(
+                                                    'account_name',
+                                                ),
                                             )}
                                         >
                                             Account holder
                                             <RequiredIndicator
-                                                show={isFieldRequired('account_name')}
+                                                show={isFieldRequired(
+                                                    'account_name',
+                                                )}
                                             />
                                         </Label>
                                         <Input
                                             className={recordFieldInputClass(
-                                                isMissingRequired('account_name'),
+                                                isMissingRequired(
+                                                    'account_name',
+                                                ),
                                             )}
                                             placeholder="e.g. John M. Doe"
                                             value={bankForm.data.account_name}
                                             onChange={(e) =>
-                                                bankForm.setData('account_name', e.target.value)
+                                                bankForm.setData(
+                                                    'account_name',
+                                                    e.target.value,
+                                                )
                                             }
                                         />
                                         {bankForm.errors.account_name ? (
@@ -427,8 +480,11 @@ export function EmployeeBankTab({
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
-                                                Full name as shown on the account
-                                                {isFieldRequired('account_name') ? '' : ' (optional)'}
+                                                Full name as shown on the
+                                                account
+                                                {isFieldRequired('account_name')
+                                                    ? ''
+                                                    : ' (optional)'}
                                             </p>
                                         )}
                                     </RecordFormField>
@@ -436,7 +492,9 @@ export function EmployeeBankTab({
                                 {showField('iban') ? (
                                     <RecordFormField
                                         field="iban"
-                                        highlightMissing={isMissingRequired('iban')}
+                                        highlightMissing={isMissingRequired(
+                                            'iban',
+                                        )}
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
@@ -444,17 +502,24 @@ export function EmployeeBankTab({
                                             )}
                                         >
                                             IBAN
-                                            <RequiredIndicator show={isFieldRequired('iban')} />
+                                            <RequiredIndicator
+                                                show={isFieldRequired('iban')}
+                                            />
                                         </Label>
                                         <Input
                                             className={cn(
-                                                recordFieldInputClass(isMissingRequired('iban')),
+                                                recordFieldInputClass(
+                                                    isMissingRequired('iban'),
+                                                ),
                                                 'font-mono',
                                             )}
                                             placeholder="e.g. AE07 0331 2345 6789 0123 456"
                                             value={bankForm.data.iban}
                                             onChange={(e) =>
-                                                bankForm.setData('iban', e.target.value)
+                                                bankForm.setData(
+                                                    'iban',
+                                                    e.target.value,
+                                                )
                                             }
                                         />
                                         {bankForm.errors.iban ? (
@@ -463,8 +528,11 @@ export function EmployeeBankTab({
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
-                                                International bank account number
-                                                {isFieldRequired('iban') ? '' : ' (optional)'}
+                                                International bank account
+                                                number
+                                                {isFieldRequired('iban')
+                                                    ? ''
+                                                    : ' (optional)'}
                                             </p>
                                         )}
                                     </RecordFormField>
@@ -476,14 +544,16 @@ export function EmployeeBankTab({
                     {showSettingsSection ? (
                         <div className="space-y-4 py-1">
                             <div className="flex items-center gap-2 pt-1">
-                                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Settings
                                 </span>
                                 <div className="h-px flex-1 bg-muted/50" />
                             </div>
                             <RecordFormField
                                 field="is_primary"
-                                highlightMissing={isMissingRequired('is_primary')}
+                                highlightMissing={isMissingRequired(
+                                    'is_primary',
+                                )}
                             >
                                 <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
                                     <label className="flex items-center gap-3 text-sm text-foreground">
@@ -494,18 +564,24 @@ export function EmployeeBankTab({
                                                 bank_accounts.length === 1
                                             }
                                             onCheckedChange={(v) =>
-                                                bankForm.setData('is_primary', v === true)
+                                                bankForm.setData(
+                                                    'is_primary',
+                                                    v === true,
+                                                )
                                             }
                                         />
                                         <div>
                                             <div className="font-medium">
                                                 Primary payroll account
                                                 <RequiredIndicator
-                                                    show={isFieldRequired('is_primary')}
+                                                    show={isFieldRequired(
+                                                        'is_primary',
+                                                    )}
                                                 />
                                             </div>
                                             <div className="mt-0.5 text-[11px] text-muted-foreground">
-                                                Salary will be deposited to this account by default
+                                                Salary will be deposited to this
+                                                account by default
                                             </div>
                                         </div>
                                     </label>

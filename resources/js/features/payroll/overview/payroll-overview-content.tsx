@@ -63,7 +63,11 @@ type OverviewSummary = {
     last_paid_period_name: string | null;
     monthly_trend: MonthlyTrend[];
     attention_items: AttentionItem[];
-    salary_breakdown: { basic: number; allowances: number; deductions: number } | null;
+    salary_breakdown: {
+        basic: number;
+        allowances: number;
+        deductions: number;
+    } | null;
     department_costs: { name: string; total: number }[] | null;
     category_split: { name: string; total: number }[] | null;
 };
@@ -80,10 +84,11 @@ export type PayrollOverviewProps = {
     can: CanPermissions;
 };
 
-const SEVERITY_BADGE: Record<string, 'destructive' | 'warning' | 'secondary'> = {
-    warning: 'warning',
-    info: 'secondary',
-};
+const SEVERITY_BADGE: Record<string, 'destructive' | 'warning' | 'secondary'> =
+    {
+        warning: 'warning',
+        info: 'secondary',
+    };
 
 const TYPE_LABELS: Record<string, string> = {
     draft: 'Draft',
@@ -91,7 +96,10 @@ const TYPE_LABELS: Record<string, string> = {
     approved: 'Approved',
 };
 
-export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): ReactElement {
+export function PayrollOverviewContent({
+    summary,
+    can,
+}: PayrollOverviewProps): ReactElement {
     const { settings } = usePage().props;
     const currency = settings.currency || 'USD';
 
@@ -120,7 +128,7 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                 <div className="space-y-2">
                     <div className="flex items-center gap-2">
                         <LayoutDashboard className="h-4 w-4 text-primary" />
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
+                        <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/60 uppercase">
                             Payroll
                         </span>
                     </div>
@@ -134,7 +142,11 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                     {can.view_periods ? (
-                        <Button variant="outline" className="glass-card rounded-xl" asChild>
+                        <Button
+                            variant="outline"
+                            className="rounded-xl glass-card"
+                            asChild
+                        >
                             <Link href={payrollIndex.url()}>
                                 <Wallet className="mr-2 h-4 w-4" />
                                 Pay runs
@@ -142,7 +154,11 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                         </Button>
                     ) : null}
                     {can.view_records ? (
-                        <Button variant="outline" className="glass-card rounded-xl" asChild>
+                        <Button
+                            variant="outline"
+                            className="rounded-xl glass-card"
+                            asChild
+                        >
                             <Link href={recordsIndex.url()}>
                                 <PiggyBank className="mr-2 h-4 w-4" />
                                 Records
@@ -170,9 +186,13 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                         <Clock className="h-4 w-4 text-amber-400" />
                     </div>
                     <div className="flex-1">
-                        <p className="text-sm font-bold text-amber-400">Approval required</p>
+                        <p className="text-sm font-bold text-amber-400">
+                            Approval required
+                        </p>
                         <p className="mt-0.5 text-xs text-muted-foreground/75">
-                            {summary.processing_periods} pay period{summary.processing_periods !== 1 ? 's' : ''} awaiting approval
+                            {summary.processing_periods} pay period
+                            {summary.processing_periods !== 1 ? 's' : ''}{' '}
+                            awaiting approval
                         </p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
@@ -190,7 +210,11 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                     iconColor="text-slate-400"
                     iconBg="bg-slate-500/10 border-slate-500/20"
                     accent="border-slate-500/20 hover:border-slate-500/30"
-                    href={can.view_periods ? payrollIndex.url({ query: { status: 'draft' } }) : undefined}
+                    href={
+                        can.view_periods
+                            ? payrollIndex.url({ query: { status: 'draft' } })
+                            : undefined
+                    }
                 />
                 <MetricCard
                     title="Processing"
@@ -200,7 +224,13 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                     iconColor="text-amber-400"
                     iconBg="bg-amber-500/10 border-amber-500/20"
                     accent="border-amber-500/20 hover:border-amber-500/30"
-                    href={can.view_periods ? payrollIndex.url({ query: { status: 'processing' } }) : undefined}
+                    href={
+                        can.view_periods
+                            ? payrollIndex.url({
+                                  query: { status: 'processing' },
+                              })
+                            : undefined
+                    }
                 />
                 <MetricCard
                     title="Approved"
@@ -210,7 +240,13 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                     iconColor="text-emerald-400"
                     iconBg="bg-emerald-500/10 border-emerald-500/20"
                     accent="border-emerald-500/20 hover:border-emerald-500/30"
-                    href={can.view_periods ? payrollIndex.url({ query: { status: 'approved' } }) : undefined}
+                    href={
+                        can.view_periods
+                            ? payrollIndex.url({
+                                  query: { status: 'approved' },
+                              })
+                            : undefined
+                    }
                 />
                 <MetricCard
                     title="Paid"
@@ -220,7 +256,11 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                     iconColor="text-primary"
                     iconBg="bg-primary/10 border-primary/20"
                     accent="border-primary/20 hover:border-primary/30"
-                    href={can.view_periods ? payrollIndex.url({ query: { status: 'paid' } }) : undefined}
+                    href={
+                        can.view_periods
+                            ? payrollIndex.url({ query: { status: 'paid' } })
+                            : undefined
+                    }
                 />
                 <MetricCard
                     title="Employees"
@@ -236,7 +276,7 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
             {/* Trend + Attention */}
             <div className="mb-6 grid gap-6 lg:grid-cols-2">
                 {/* Payroll Trend */}
-                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
                     <CardHeader className="border-b border-border/60 pb-4 dark:border-white/5">
                         <div className="flex items-start justify-between gap-4">
                             <div>
@@ -262,18 +302,25 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                         ) : (
                             <div className="space-y-3">
                                 {summary.monthly_trend.map((month) => (
-                                    <div key={month.month} className="flex items-center gap-3">
+                                    <div
+                                        key={month.month}
+                                        className="flex items-center gap-3"
+                                    >
                                         <span className="w-14 shrink-0 text-right text-[11px] font-medium text-muted-foreground/60">
                                             {month.month}
                                         </span>
-                                        <div className="relative flex-1 overflow-hidden rounded-full bg-muted/30 h-7">
+                                        <div className="relative h-7 flex-1 overflow-hidden rounded-full bg-muted/30">
                                             <div
                                                 className="h-full rounded-full bg-gradient-to-r from-primary/70 to-primary/40 transition-all duration-700"
-                                                style={{ width: `${Math.max((month.total / maxTrend) * 100, month.total > 0 ? 2 : 0)}%` }}
+                                                style={{
+                                                    width: `${Math.max((month.total / maxTrend) * 100, month.total > 0 ? 2 : 0)}%`,
+                                                }}
                                             />
                                             {month.total > 0 ? (
                                                 <span className="absolute inset-y-0 left-3 flex items-center text-[11px] font-bold text-foreground/80">
-                                                    {formatCurrency(month.total)}
+                                                    {formatCurrency(
+                                                        month.total,
+                                                    )}
                                                 </span>
                                             ) : (
                                                 <span className="absolute inset-y-0 left-3 flex items-center text-[11px] text-muted-foreground/40">
@@ -282,29 +329,36 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                                             )}
                                         </div>
                                         <span className="w-8 shrink-0 text-right text-[11px] text-muted-foreground/50">
-                                            {month.count > 0 ? `${month.count}` : ''}
+                                            {month.count > 0
+                                                ? `${month.count}`
+                                                : ''}
                                         </span>
                                     </div>
                                 ))}
                             </div>
                         )}
 
-                        {summary.last_paid_period_name !== null && summary.last_paid_period_total !== null ? (
+                        {summary.last_paid_period_name !== null &&
+                        summary.last_paid_period_total !== null ? (
                             <div className="mt-5 rounded-xl border border-border/60 bg-muted/10 px-4 py-3 dark:border-white/5">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">
+                                <p className="text-[10px] font-bold tracking-widest text-muted-foreground/50 uppercase">
                                     Last paid period
                                 </p>
                                 <p className="mt-1 text-lg font-black tabular-nums">
-                                    {formatCurrency(summary.last_paid_period_total)}
+                                    {formatCurrency(
+                                        summary.last_paid_period_total,
+                                    )}
                                 </p>
-                                <p className="text-xs text-muted-foreground/60">{summary.last_paid_period_name}</p>
+                                <p className="text-xs text-muted-foreground/60">
+                                    {summary.last_paid_period_name}
+                                </p>
                             </div>
                         ) : null}
                     </CardContent>
                 </Card>
 
                 {/* Attention Required */}
-                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
                     <CardHeader className="border-b border-border/60 pb-4 dark:border-white/5">
                         <div className="flex items-center justify-between gap-4">
                             <div>
@@ -316,8 +370,15 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                                 </CardDescription>
                             </div>
                             {can.view_periods ? (
-                                <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" asChild>
-                                    <Link href={payrollIndex.url()}>View all</Link>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 rounded-lg text-xs"
+                                    asChild
+                                >
+                                    <Link href={payrollIndex.url()}>
+                                        View all
+                                    </Link>
                                 </Button>
                             ) : null}
                         </div>
@@ -336,7 +397,16 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                             summary.attention_items.map((item, index) => (
                                 <Link
                                     key={`${item.type}-${index}`}
-                                    href={payrollIndex.url({ query: { status: item.type === 'pending_approval' ? 'processing' : item.type === 'approved' ? 'approved' : 'draft' } })}
+                                    href={payrollIndex.url({
+                                        query: {
+                                            status:
+                                                item.type === 'pending_approval'
+                                                    ? 'processing'
+                                                    : item.type === 'approved'
+                                                      ? 'approved'
+                                                      : 'draft',
+                                        },
+                                    })}
                                     className="group flex items-center gap-3 rounded-xl border border-border/80 bg-muted/10 p-3 transition-all hover:border-border hover:bg-muted/30 dark:border-white/5 dark:bg-white/[0.01] dark:hover:border-white/10"
                                 >
                                     <div className="min-w-0 flex-1">
@@ -344,8 +414,15 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                                             <p className="truncate text-sm font-semibold text-foreground/80 group-hover:text-primary">
                                                 {item.title}
                                             </p>
-                                            <Badge variant={SEVERITY_BADGE[item.severity] ?? 'secondary'}>
-                                                {TYPE_LABELS[item.type] ?? item.type}
+                                            <Badge
+                                                variant={
+                                                    SEVERITY_BADGE[
+                                                        item.severity
+                                                    ] ?? 'secondary'
+                                                }
+                                            >
+                                                {TYPE_LABELS[item.type] ??
+                                                    item.type}
                                             </Badge>
                                         </div>
                                         <p className="mt-0.5 truncate text-xs text-muted-foreground/60">
@@ -363,11 +440,14 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
             {/* Advanced Analytics */}
             {summary.salary_breakdown || summary.department_costs ? (
                 <>
-                    <SectionLabel icon={BarChart3} label="Analytics (Last Paid Period)" />
+                    <SectionLabel
+                        icon={BarChart3}
+                        label="Analytics (Last Paid Period)"
+                    />
                     <div className="mb-6 grid gap-6 lg:grid-cols-3">
                         {/* Salary Breakdown */}
                         {summary.salary_breakdown ? (
-                            <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                            <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
                                 <CardHeader className="border-b border-border/60 pb-4 dark:border-white/5">
                                     <CardTitle className="text-base font-bold tracking-tight">
                                         Salary components
@@ -378,13 +458,34 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                                 </CardHeader>
                                 <CardContent className="flex flex-col items-center justify-center pt-5">
                                     <div className="h-48 w-full">
-                                        <ResponsiveContainer width="100%" height="100%">
+                                        <ResponsiveContainer
+                                            width="100%"
+                                            height="100%"
+                                        >
                                             <PieChart>
                                                 <Pie
                                                     data={[
-                                                        { name: 'Basic', value: summary.salary_breakdown.basic, color: '#3b82f6' },
-                                                        { name: 'Allowances', value: summary.salary_breakdown.allowances, color: '#10b981' },
-                                                        { name: 'Deductions', value: summary.salary_breakdown.deductions, color: '#ef4444' },
+                                                        {
+                                                            name: 'Basic',
+                                                            value: summary
+                                                                .salary_breakdown
+                                                                .basic,
+                                                            color: '#3b82f6',
+                                                        },
+                                                        {
+                                                            name: 'Allowances',
+                                                            value: summary
+                                                                .salary_breakdown
+                                                                .allowances,
+                                                            color: '#10b981',
+                                                        },
+                                                        {
+                                                            name: 'Deductions',
+                                                            value: summary
+                                                                .salary_breakdown
+                                                                .deductions,
+                                                            color: '#ef4444',
+                                                        },
                                                     ]}
                                                     cx="50%"
                                                     cy="50%"
@@ -393,21 +494,44 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                                                     paddingAngle={3}
                                                     dataKey="value"
                                                 >
-                                                    {['#3b82f6', '#10b981', '#ef4444'].map((color, index) => (
-                                                        <Cell key={`cell-${index}`} fill={color} />
+                                                    {[
+                                                        '#3b82f6',
+                                                        '#10b981',
+                                                        '#ef4444',
+                                                    ].map((color, index) => (
+                                                        <Cell
+                                                            key={`cell-${index}`}
+                                                            fill={color}
+                                                        />
                                                     ))}
                                                 </Pie>
                                                 <Tooltip
-                                                    formatter={(value: number) => formatCurrency(value)}
-                                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' }}
+                                                    formatter={(
+                                                        value: number,
+                                                    ) => formatCurrency(value)}
+                                                    contentStyle={{
+                                                        borderRadius: '12px',
+                                                        border: 'none',
+                                                        boxShadow:
+                                                            '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                                                    }}
                                                 />
                                             </PieChart>
                                         </ResponsiveContainer>
                                     </div>
                                     <div className="mt-2 flex w-full justify-between px-2 text-xs text-muted-foreground">
-                                        <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-blue-500" /> Basic</div>
-                                        <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-emerald-500" /> Allowances</div>
-                                        <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-red-500" /> Deductions</div>
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="h-2 w-2 rounded-full bg-blue-500" />{' '}
+                                            Basic
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="h-2 w-2 rounded-full bg-emerald-500" />{' '}
+                                            Allowances
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="h-2 w-2 rounded-full bg-red-500" />{' '}
+                                            Deductions
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -415,7 +539,7 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
 
                         {/* Category Split */}
                         {summary.category_split ? (
-                            <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                            <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
                                 <CardHeader className="border-b border-border/60 pb-4 dark:border-white/5">
                                     <CardTitle className="text-base font-bold tracking-tight">
                                         Payroll category
@@ -426,10 +550,22 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                                 </CardHeader>
                                 <CardContent className="flex flex-col items-center justify-center pt-5">
                                     <div className="h-48 w-full">
-                                        <ResponsiveContainer width="100%" height="100%">
+                                        <ResponsiveContainer
+                                            width="100%"
+                                            height="100%"
+                                        >
                                             <PieChart>
                                                 <Pie
-                                                    data={summary.category_split.map((c, i) => ({ ...c, color: ['#8b5cf6', '#f59e0b', '#ec4899'][i % 3] }))}
+                                                    data={summary.category_split.map(
+                                                        (c, i) => ({
+                                                            ...c,
+                                                            color: [
+                                                                '#8b5cf6',
+                                                                '#f59e0b',
+                                                                '#ec4899',
+                                                            ][i % 3],
+                                                        }),
+                                                    )}
                                                     cx="50%"
                                                     cy="50%"
                                                     innerRadius={50}
@@ -437,21 +573,51 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                                                     paddingAngle={3}
                                                     dataKey="total"
                                                 >
-                                                    {summary.category_split.map((c, i) => (
-                                                        <Cell key={`cell-${i}`} fill={['#8b5cf6', '#f59e0b', '#ec4899'][i % 3]} />
-                                                    ))}
+                                                    {summary.category_split.map(
+                                                        (c, i) => (
+                                                            <Cell
+                                                                key={`cell-${i}`}
+                                                                fill={
+                                                                    [
+                                                                        '#8b5cf6',
+                                                                        '#f59e0b',
+                                                                        '#ec4899',
+                                                                    ][i % 3]
+                                                                }
+                                                            />
+                                                        ),
+                                                    )}
                                                 </Pie>
                                                 <Tooltip
-                                                    formatter={(value: number) => formatCurrency(value)}
-                                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' }}
+                                                    formatter={(
+                                                        value: number,
+                                                    ) => formatCurrency(value)}
+                                                    contentStyle={{
+                                                        borderRadius: '12px',
+                                                        border: 'none',
+                                                        boxShadow:
+                                                            '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                                                    }}
                                                 />
                                             </PieChart>
                                         </ResponsiveContainer>
                                     </div>
                                     <div className="mt-2 flex w-full justify-center gap-4 px-2 text-xs text-muted-foreground">
                                         {summary.category_split.map((c, i) => (
-                                            <div key={c.name} className="flex items-center gap-1.5">
-                                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: ['#8b5cf6', '#f59e0b', '#ec4899'][i % 3] }} />
+                                            <div
+                                                key={c.name}
+                                                className="flex items-center gap-1.5"
+                                            >
+                                                <div
+                                                    className="h-2 w-2 rounded-full"
+                                                    style={{
+                                                        backgroundColor: [
+                                                            '#8b5cf6',
+                                                            '#f59e0b',
+                                                            '#ec4899',
+                                                        ][i % 3],
+                                                    }}
+                                                />
                                                 {c.name}
                                             </div>
                                         ))}
@@ -462,7 +628,7 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
 
                         {/* Department Cost */}
                         {summary.department_costs ? (
-                            <Card className="glass-card lg:col-span-1 overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                            <Card className="overflow-hidden glass-card lg:col-span-1 dark:border-white/5 dark:bg-white/[0.02]">
                                 <CardHeader className="border-b border-border/60 pb-4 dark:border-white/5">
                                     <CardTitle className="text-base font-bold tracking-tight">
                                         Department cost
@@ -473,16 +639,55 @@ export function PayrollOverviewContent({ summary, can }: PayrollOverviewProps): 
                                 </CardHeader>
                                 <CardContent className="pt-5">
                                     <div className="h-[216px] w-full">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={summary.department_costs.slice(0, 5)} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                                        <ResponsiveContainer
+                                            width="100%"
+                                            height="100%"
+                                        >
+                                            <BarChart
+                                                data={summary.department_costs.slice(
+                                                    0,
+                                                    5,
+                                                )}
+                                                layout="vertical"
+                                                margin={{
+                                                    top: 0,
+                                                    right: 0,
+                                                    left: 0,
+                                                    bottom: 0,
+                                                }}
+                                            >
                                                 <XAxis type="number" hide />
-                                                <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 11, fill: '#888888' }} axisLine={false} tickLine={false} />
-                                                <Tooltip
-                                                    formatter={(value: number) => formatCurrency(value)}
-                                                    cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' }}
+                                                <YAxis
+                                                    dataKey="name"
+                                                    type="category"
+                                                    width={80}
+                                                    tick={{
+                                                        fontSize: 11,
+                                                        fill: '#888888',
+                                                    }}
+                                                    axisLine={false}
+                                                    tickLine={false}
                                                 />
-                                                <Bar dataKey="total" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
+                                                <Tooltip
+                                                    formatter={(
+                                                        value: number,
+                                                    ) => formatCurrency(value)}
+                                                    cursor={{
+                                                        fill: 'rgba(0,0,0,0.05)',
+                                                    }}
+                                                    contentStyle={{
+                                                        borderRadius: '12px',
+                                                        border: 'none',
+                                                        boxShadow:
+                                                            '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                                                    }}
+                                                />
+                                                <Bar
+                                                    dataKey="total"
+                                                    fill="#3b82f6"
+                                                    radius={[0, 4, 4, 0]}
+                                                    barSize={20}
+                                                />
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </div>
@@ -504,9 +709,9 @@ function SectionLabel({
     label: string;
 }): ReactElement {
     return (
-        <div className="mb-4 flex select-none items-center gap-2">
+        <div className="mb-4 flex items-center gap-2 select-none">
             <Icon className="h-3.5 w-3.5 text-muted-foreground/50" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/50">
+            <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/50 uppercase">
                 {label}
             </span>
             <div className="h-px flex-1 bg-border/80 dark:bg-white/5" />
@@ -536,22 +741,31 @@ function MetricCard({
     const content = (
         <Card
             className={cn(
-                'group glass-card gap-0 overflow-hidden p-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl',
+                'group gap-0 overflow-hidden glass-card p-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl',
                 accent,
                 href && 'cursor-pointer',
             )}
         >
-            <CardHeader className="relative flex flex-row items-center justify-between space-y-0 px-5 pb-1 pt-4">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/85">
+            <CardHeader className="relative flex flex-row items-center justify-between space-y-0 px-5 pt-4 pb-1">
+                <CardTitle className="text-[10px] font-bold tracking-wider text-muted-foreground/85 uppercase">
                     {title}
                 </CardTitle>
-                <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl border', iconBg)}>
+                <div
+                    className={cn(
+                        'flex h-9 w-9 items-center justify-center rounded-xl border',
+                        iconBg,
+                    )}
+                >
                     <Icon className={cn('h-4 w-4', iconColor)} />
                 </div>
             </CardHeader>
-            <CardContent className="relative px-5 pb-4 pt-0">
-                <div className="text-3xl font-black tracking-tight">{value}</div>
-                <p className="mt-1.5 text-xs text-muted-foreground/80">{hint}</p>
+            <CardContent className="relative px-5 pt-0 pb-4">
+                <div className="text-3xl font-black tracking-tight">
+                    {value}
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground/80">
+                    {hint}
+                </p>
             </CardContent>
         </Card>
     );

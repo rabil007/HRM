@@ -3,7 +3,10 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
         return fallback;
     }
 
-    const data = payload as { message?: string; errors?: Record<string, string[]> };
+    const data = payload as {
+        message?: string;
+        errors?: Record<string, string[]>;
+    };
 
     if (data.message) {
         return data.message;
@@ -15,10 +18,16 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
 }
 
 function csrfToken(): string {
-    return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+    return (
+        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+            ?.content ?? ''
+    );
 }
 
-export async function sendSmtpTestEmail(url: string, formData: FormData): Promise<string> {
+export async function sendSmtpTestEmail(
+    url: string,
+    formData: FormData,
+): Promise<string> {
     const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -36,7 +45,9 @@ export async function sendSmtpTestEmail(url: string, formData: FormData): Promis
         : null;
 
     if (!response.ok) {
-        throw new Error(extractErrorMessage(data, 'Failed to send test email.'));
+        throw new Error(
+            extractErrorMessage(data, 'Failed to send test email.'),
+        );
     }
 
     return (data as { message?: string } | null)?.message ?? 'Test email sent.';

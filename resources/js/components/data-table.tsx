@@ -15,8 +15,13 @@ export function OrganizationDataTable({
     compact?: boolean;
 }): ReactElement {
     return (
-        <Card className="glass-card w-full overflow-hidden">
-            <CardContent className={cn('w-full p-0', compact ? 'min-h-0' : 'min-h-[360px]')}>
+        <Card className="w-full overflow-hidden glass-card">
+            <CardContent
+                className={cn(
+                    'w-full p-0',
+                    compact ? 'min-h-0' : 'min-h-[360px]',
+                )}
+            >
                 <Table className={minWidth}>{children}</Table>
             </CardContent>
         </Card>
@@ -54,7 +59,11 @@ export function DataTableHeaderRow({
     children: ReactNode;
     className?: string;
 }): ReactElement {
-    return <TableRow className={cn(dataTableHeaderRowClass(), className)}>{children}</TableRow>;
+    return (
+        <TableRow className={cn(dataTableHeaderRowClass(), className)}>
+            {children}
+        </TableRow>
+    );
 }
 
 export function DataTableHead({

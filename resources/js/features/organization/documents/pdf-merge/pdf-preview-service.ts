@@ -30,9 +30,12 @@ async function getPdfJs(): Promise<typeof PdfJs> {
 }
 
 async function fetchPdfBytes(documentId: number): Promise<ArrayBuffer> {
-    const response = await fetch(documents.files.download.url({ document: documentId }), {
-        credentials: 'same-origin',
-    });
+    const response = await fetch(
+        documents.files.download.url({ document: documentId }),
+        {
+            credentials: 'same-origin',
+        },
+    );
 
     if (!response.ok) {
         throw new Error('Failed to load PDF.');
@@ -41,7 +44,9 @@ async function fetchPdfBytes(documentId: number): Promise<ArrayBuffer> {
     return response.arrayBuffer();
 }
 
-async function renderFirstPageThumbnail(pdf: PDFDocumentProxy): Promise<string | null> {
+async function renderFirstPageThumbnail(
+    pdf: PDFDocumentProxy,
+): Promise<string | null> {
     try {
         const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: THUMBNAIL_SCALE });
@@ -63,7 +68,9 @@ async function renderFirstPageThumbnail(pdf: PDFDocumentProxy): Promise<string |
     }
 }
 
-export async function loadPdfPreview(documentId: number): Promise<PdfPreviewData> {
+export async function loadPdfPreview(
+    documentId: number,
+): Promise<PdfPreviewData> {
     const cached = previewCache.get(documentId);
 
     if (cached) {

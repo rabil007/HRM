@@ -66,7 +66,7 @@
 }
 
 @utility glass-card {
-    @apply border-border/70 bg-card/80! backdrop-blur-xl shadow-sm dark:border-white/10 dark:bg-white/5!;
+    @apply border-border/70 bg-card/80! shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5!;
 }
 
 @utility glow-primary {
@@ -117,58 +117,123 @@
 
 /* ── Auth page animations ── */
 @keyframes float-slow {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    33%       { transform: translateY(-18px) rotate(1deg); }
-    66%       { transform: translateY(-8px) rotate(-1deg); }
+    0%,
+    100% {
+        transform: translateY(0px) rotate(0deg);
+    }
+    33% {
+        transform: translateY(-18px) rotate(1deg);
+    }
+    66% {
+        transform: translateY(-8px) rotate(-1deg);
+    }
 }
 
 @keyframes float-medium {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    50%       { transform: translateY(-24px) rotate(-1.5deg); }
+    0%,
+    100% {
+        transform: translateY(0px) rotate(0deg);
+    }
+    50% {
+        transform: translateY(-24px) rotate(-1.5deg);
+    }
 }
 
 @keyframes float-fast {
-    0%, 100% { transform: translateY(0px); }
-    50%       { transform: translateY(-14px); }
+    0%,
+    100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-14px);
+    }
 }
 
 @keyframes mesh-drift {
-    0%, 100% { transform: translate(0, 0) scale(1); }
-    33%       { transform: translate(40px, -30px) scale(1.08); }
-    66%       { transform: translate(-25px, 20px) scale(0.95); }
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+    33% {
+        transform: translate(40px, -30px) scale(1.08);
+    }
+    66% {
+        transform: translate(-25px, 20px) scale(0.95);
+    }
 }
 
 @keyframes mesh-drift-reverse {
-    0%, 100% { transform: translate(0, 0) scale(1); }
-    33%       { transform: translate(-35px, 25px) scale(0.92); }
-    66%       { transform: translate(30px, -20px) scale(1.06); }
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+    33% {
+        transform: translate(-35px, 25px) scale(0.92);
+    }
+    66% {
+        transform: translate(30px, -20px) scale(1.06);
+    }
 }
 
 @keyframes fade-up {
-    from { opacity: 0; transform: translateY(24px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(24px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @keyframes fade-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes shimmer {
-    0%   { background-position: -200% center; }
-    100% { background-position:  200% center; }
+    0% {
+        background-position: -200% center;
+    }
+    100% {
+        background-position: 200% center;
+    }
 }
 
 @keyframes spin-slow {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
-.auth-float-slow   { animation: float-slow   7s ease-in-out infinite; }
-.auth-float-medium { animation: float-medium 5s ease-in-out infinite; }
-.auth-float-fast   { animation: float-fast   3.5s ease-in-out infinite; }
-.auth-mesh-1       { animation: mesh-drift         18s ease-in-out infinite; }
-.auth-mesh-2       { animation: mesh-drift-reverse 22s ease-in-out infinite; }
-.auth-mesh-3       { animation: mesh-drift         14s ease-in-out infinite 2s; }
-.auth-fade-up      { animation: fade-up    0.6s ease-out both; }
-.auth-fade-in      { animation: fade-in    0.4s ease-out both; }
+.auth-float-slow {
+    animation: float-slow 7s ease-in-out infinite;
+}
+.auth-float-medium {
+    animation: float-medium 5s ease-in-out infinite;
+}
+.auth-float-fast {
+    animation: float-fast 3.5s ease-in-out infinite;
+}
+.auth-mesh-1 {
+    animation: mesh-drift 18s ease-in-out infinite;
+}
+.auth-mesh-2 {
+    animation: mesh-drift-reverse 22s ease-in-out infinite;
+}
+.auth-mesh-3 {
+    animation: mesh-drift 14s ease-in-out infinite 2s;
+}
+.auth-fade-up {
+    animation: fade-up 0.6s ease-out both;
+}
+.auth-fade-in {
+    animation: fade-in 0.4s ease-out both;
+}

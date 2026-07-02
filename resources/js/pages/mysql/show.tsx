@@ -29,8 +29,10 @@ interface ShowProps {
 
 export default function Show({ tableName, columns, data, filters }: ShowProps) {
     const [search, setSearch] = useState(filters.search || '');
-    const [columnFilters, setColumnFilters] = useState<Record<string, string>>(filters.column_filters || {});
-    
+    const [columnFilters, setColumnFilters] = useState<Record<string, string>>(
+        filters.column_filters || {},
+    );
+
     const [selectedRow, setSelectedRow] = useState<any | null>(null);
     const [copied, setCopied] = useState(false);
 
@@ -38,13 +40,13 @@ export default function Show({ tableName, columns, data, filters }: ShowProps) {
         const timeout = setTimeout(() => {
             router.get(
                 `/mysql/${tableName}`,
-                { 
-                    search, 
-                    sort_by: filters.sort_by, 
+                {
+                    search,
+                    sort_by: filters.sort_by,
                     sort_dir: filters.sort_dir,
-                    column_filters: columnFilters
+                    column_filters: columnFilters,
                 },
-                { preserveState: true, replace: true }
+                { preserveState: true, replace: true },
             );
         }, 400);
 
@@ -60,15 +62,20 @@ export default function Show({ tableName, columns, data, filters }: ShowProps) {
 
         router.get(
             `/mysql/${tableName}`,
-            { search, sort_by: column, sort_dir: sortDir, column_filters: columnFilters },
-            { preserveState: true, replace: true }
+            {
+                search,
+                sort_by: column,
+                sort_dir: sortDir,
+                column_filters: columnFilters,
+            },
+            { preserveState: true, replace: true },
         );
     };
 
     const handleColumnFilterChange = (col: string, value: string) => {
-        setColumnFilters(prev => ({
+        setColumnFilters((prev) => ({
             ...prev,
-            [col]: value
+            [col]: value,
         }));
     };
 
@@ -81,16 +88,18 @@ export default function Show({ tableName, columns, data, filters }: ShowProps) {
 
     const renderCell = (value: any, isModal: boolean = false) => {
         if (value === null) {
-return <span className="text-gray-400 italic">NULL</span>;
-}
-        
+            return <span className="text-gray-400 italic">NULL</span>;
+        }
+
         if (typeof value === 'string') {
             try {
                 const parsed = JSON.parse(value);
 
                 if (typeof parsed === 'object' && parsed !== null) {
                     return (
-                        <pre className={`text-xs bg-gray-100 dark:bg-gray-900 p-2 rounded ${!isModal ? 'max-h-32 max-w-sm overflow-auto' : 'overflow-auto whitespace-pre-wrap'}`}>
+                        <pre
+                            className={`rounded bg-gray-100 p-2 text-xs dark:bg-gray-900 ${!isModal ? 'max-h-32 max-w-sm overflow-auto' : 'overflow-auto whitespace-pre-wrap'}`}
+                        >
                             {JSON.stringify(parsed, null, 2)}
                         </pre>
                     );
@@ -99,7 +108,7 @@ return <span className="text-gray-400 italic">NULL</span>;
                 // Not JSON, continue to normal string render
             }
         }
-        
+
         const strValue = String(value);
 
         if (!isModal && strValue.length > 50) {
@@ -110,19 +119,21 @@ return <span className="text-gray-400 italic">NULL</span>;
     };
 
     return (
-        <div className="p-6 max-w-[100vw] mx-auto w-full">
+        <div className="mx-auto w-full max-w-[100vw] p-6">
             <Head title={`Table: ${tableName}`} />
-            
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
                     <Link
                         href="/mysql"
-                        className="px-3 py-1.5 bg-gray-200 text-gray-800 rounded shadow-sm hover:bg-gray-300 transition-colors dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600 font-medium"
+                        className="rounded bg-gray-200 px-3 py-1.5 font-medium text-gray-800 shadow-sm transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
                         title="Back to Tables"
                     >
                         &larr;
                     </Link>
-                    <h1 className="text-3xl font-bold tracking-tight">Table: {tableName}</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Table: {tableName}
+                    </h1>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -131,52 +142,67 @@ return <span className="text-gray-400 italic">NULL</span>;
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder={`Global search...`}
-                        className="w-full sm:w-64 px-4 py-2 border rounded shadow-sm focus:ring focus:ring-blue-200 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                        className="w-full rounded border px-4 py-2 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 sm:w-64 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                     />
-                    
+
                     <button
                         onClick={copyToClipboard}
-                        className="px-4 py-2 bg-gray-100 border rounded shadow-sm hover:bg-gray-200 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors font-medium whitespace-nowrap text-sm"
+                        className="rounded border bg-gray-100 px-4 py-2 text-sm font-medium whitespace-nowrap shadow-sm transition-colors hover:bg-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700"
                     >
                         {copied ? 'Copied!' : 'Copy to Clipboard'}
                     </button>
-                    
+
                     <a
                         href={`/mysql/${tableName}/export?search=${search || ''}&sort_by=${filters.sort_by || ''}&sort_dir=${filters.sort_dir || ''}&${new URLSearchParams(
-                            Object.entries(columnFilters).reduce((acc, [k, v]) => ({ ...acc, [`column_filters[${k}]`]: v }), {})
+                            Object.entries(columnFilters).reduce(
+                                (acc, [k, v]) => ({
+                                    ...acc,
+                                    [`column_filters[${k}]`]: v,
+                                }),
+                                {},
+                            ),
                         ).toString()}`}
                         target="_blank"
-                        className="px-4 py-2 bg-blue-600 text-white rounded shadow-sm hover:bg-blue-700 transition-colors font-medium whitespace-nowrap text-sm"
+                        className="rounded bg-blue-600 px-4 py-2 text-sm font-medium whitespace-nowrap text-white shadow-sm transition-colors hover:bg-blue-700"
                     >
                         Export CSV
                     </a>
                 </div>
             </div>
 
-            <div className="overflow-x-auto bg-white border rounded shadow-sm dark:bg-gray-800 dark:border-gray-700">
+            <div className="overflow-x-auto rounded border bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <table className="min-w-full text-left text-sm whitespace-nowrap">
-                    <thead className="uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 dark:bg-gray-900/50 dark:border-gray-700">
+                    <thead className="border-b-2 border-gray-200 bg-gray-50 tracking-wider uppercase dark:border-gray-700 dark:bg-gray-900/50">
                         <tr>
-                            <th className="px-4 py-4 w-12 text-center text-gray-500">#</th>
+                            <th className="w-12 px-4 py-4 text-center text-gray-500">
+                                #
+                            </th>
                             {columns.map((col) => (
                                 <th key={col} className="px-6 py-4">
-                                    <div 
-                                        className="font-semibold text-gray-700 dark:text-gray-300 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1 mb-2 select-none"
+                                    <div
+                                        className="mb-2 flex cursor-pointer items-center gap-1 font-semibold text-gray-700 select-none hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400"
                                         onClick={() => handleSort(col)}
                                     >
                                         {col}
                                         {filters.sort_by === col && (
                                             <span className="text-blue-600 dark:text-blue-400">
-                                                {filters.sort_dir === 'asc' ? '▲' : '▼'}
+                                                {filters.sort_dir === 'asc'
+                                                    ? '▲'
+                                                    : '▼'}
                                             </span>
                                         )}
                                     </div>
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder={`Filter ${col}...`}
-                                        className="w-full text-xs px-2 py-1 border rounded bg-white dark:bg-gray-900 dark:border-gray-700 font-normal normal-case"
+                                        className="w-full rounded border bg-white px-2 py-1 text-xs font-normal normal-case dark:border-gray-700 dark:bg-gray-900"
                                         value={columnFilters[col] || ''}
-                                        onChange={(e) => handleColumnFilterChange(col, e.target.value)}
+                                        onChange={(e) =>
+                                            handleColumnFilterChange(
+                                                col,
+                                                e.target.value,
+                                            )
+                                        }
                                     />
                                 </th>
                             ))}
@@ -184,18 +210,37 @@ return <span className="text-gray-400 italic">NULL</span>;
                     </thead>
                     <tbody>
                         {data.data.map((row, index) => (
-                            <tr key={index} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                            <tr
+                                key={index}
+                                className="border-b border-gray-100 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-700/50"
+                            >
                                 <td className="px-4 py-4 text-center">
-                                    <button 
+                                    <button
                                         onClick={() => setSelectedRow(row)}
-                                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1"
+                                        className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                                         title="View Record Details"
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="16"
+                                            height="16"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        >
+                                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                                            <circle cx="12" cy="12" r="3" />
+                                        </svg>
                                     </button>
                                 </td>
                                 {columns.map((col) => (
-                                    <td key={col} className="px-6 py-4 align-top">
+                                    <td
+                                        key={col}
+                                        className="px-6 py-4 align-top"
+                                    >
                                         {renderCell(row[col])}
                                     </td>
                                 ))}
@@ -203,7 +248,10 @@ return <span className="text-gray-400 italic">NULL</span>;
                         ))}
                         {data.data.length === 0 && (
                             <tr>
-                                <td colSpan={columns.length + 1} className="px-6 py-8 text-center text-gray-500">
+                                <td
+                                    colSpan={columns.length + 1}
+                                    className="px-6 py-8 text-center text-gray-500"
+                                >
                                     No records found matching your search.
                                 </td>
                             </tr>
@@ -212,20 +260,28 @@ return <span className="text-gray-400 italic">NULL</span>;
                 </table>
             </div>
 
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="mt-6 flex flex-col items-center justify-between gap-4 sm:flex-row">
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Showing <span className="font-semibold text-gray-900 dark:text-white">{data.data.length}</span> of <span className="font-semibold text-gray-900 dark:text-white">{data.total}</span> results
+                    Showing{' '}
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                        {data.data.length}
+                    </span>{' '}
+                    of{' '}
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                        {data.total}
+                    </span>{' '}
+                    results
                 </div>
                 <div className="flex flex-wrap gap-1">
                     {data.links.map((link, index) => (
                         <Link
                             key={index}
                             href={link.url || '#'}
-                            className={`px-3 py-1.5 border rounded text-sm font-medium transition-colors ${
-                                link.active 
-                                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
-                                    : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700'
-                            } ${!link.url ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`rounded border px-3 py-1.5 text-sm font-medium transition-colors ${
+                                link.active
+                                    ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                                    : 'bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                            } ${!link.url ? 'cursor-not-allowed opacity-50' : ''}`}
                             dangerouslySetInnerHTML={{ __html: link.label }}
                             preserveScroll
                             disabled={!link.url}
@@ -234,23 +290,32 @@ return <span className="text-gray-400 italic">NULL</span>;
                 </div>
             </div>
 
-            <Dialog open={!!selectedRow} onOpenChange={(open) => !open && setSelectedRow(null)}>
-                <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+            <Dialog
+                open={!!selectedRow}
+                onOpenChange={(open) => !open && setSelectedRow(null)}
+            >
+                <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col overflow-hidden">
                     <DialogHeader>
                         <DialogTitle>Record Details</DialogTitle>
                     </DialogHeader>
-                    
+
                     {selectedRow && (
-                        <div className="overflow-y-auto mt-4 pr-2">
-                            <table className="w-full text-sm text-left">
+                        <div className="mt-4 overflow-y-auto pr-2">
+                            <table className="w-full text-left text-sm">
                                 <tbody>
                                     {columns.map((col) => (
-                                        <tr key={col} className="border-b dark:border-gray-800 last:border-0">
-                                            <th className="py-3 pr-4 font-semibold w-1/4 align-top text-gray-700 dark:text-gray-300">
+                                        <tr
+                                            key={col}
+                                            className="border-b last:border-0 dark:border-gray-800"
+                                        >
+                                            <th className="w-1/4 py-3 pr-4 align-top font-semibold text-gray-700 dark:text-gray-300">
                                                 {col}
                                             </th>
                                             <td className="py-3 align-top font-mono text-sm break-all">
-                                                {renderCell(selectedRow[col], true)}
+                                                {renderCell(
+                                                    selectedRow[col],
+                                                    true,
+                                                )}
                                             </td>
                                         </tr>
                                     ))}

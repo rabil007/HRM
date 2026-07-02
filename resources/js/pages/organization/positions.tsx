@@ -1,6 +1,9 @@
 import { Head } from '@inertiajs/react';
 import { PositionsContent } from '@/features/organization/positions';
-import type { DepartmentOption, Position } from '@/features/organization/positions/types';
+import type {
+    DepartmentOption,
+    Position,
+} from '@/features/organization/positions/types';
 import type { PaginationMeta } from '@/types/pagination';
 
 export default function Positions({

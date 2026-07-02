@@ -151,8 +151,11 @@ export function EmployeeEducationTab({
                     certificate: data.certificate.trim(),
                     issue_date: data.issue_date === '' ? null : data.issue_date,
                     university:
-                        data.university.trim() === '' ? null : data.university.trim(),
-                    country_id: data.country_id === '' ? null : Number(data.country_id),
+                        data.university.trim() === ''
+                            ? null
+                            : data.university.trim(),
+                    country_id:
+                        data.country_id === '' ? null : Number(data.country_id),
                 },
                 templateFields,
             ),
@@ -212,18 +215,28 @@ export function EmployeeEducationTab({
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
                             {showField('certificate') ? (
-                                <th className={employeeRecordsTableThClass()}>Certificate</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Certificate
+                                </th>
                             ) : null}
                             {showField('issue_date') ? (
-                                <th className={employeeRecordsTableThClass()}>Issue date</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Issue date
+                                </th>
                             ) : null}
                             {showField('university') ? (
-                                <th className={employeeRecordsTableThClass()}>University</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    University
+                                </th>
                             ) : null}
                             {showField('country_id') ? (
-                                <th className={employeeRecordsTableThClass()}>Country</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Country
+                                </th>
                             ) : null}
-                            {canManage ? <EmployeeRecordsActionsHeader /> : null}
+                            {canManage ? (
+                                <EmployeeRecordsActionsHeader />
+                            ) : null}
                         </tr>
                     </thead>
                     <tbody>
@@ -281,7 +294,9 @@ export function EmployeeEducationTab({
                                     >
                                         <EmployeeRecordRowActions
                                             onEdit={() => openEditDialog(row)}
-                                            onDelete={() => setDeleteEducationId(row.id)}
+                                            onDelete={() =>
+                                                setDeleteEducationId(row.id)
+                                            }
                                         />
                                     </td>
                                 ) : null}
@@ -307,7 +322,9 @@ export function EmployeeEducationTab({
                 <DialogContent className="sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>
-                            {editingEducation ? 'Edit qualification' : 'Add qualification'}
+                            {editingEducation
+                                ? 'Edit qualification'
+                                : 'Add qualification'}
                         </DialogTitle>
                         <p className="text-xs text-muted-foreground">
                             Enter the details of the educational qualification.
@@ -322,7 +339,7 @@ export function EmployeeEducationTab({
                     {showQualificationSection ? (
                         <div className="space-y-4 py-1">
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Qualification details
                                 </span>
                                 <div className="h-px flex-1 bg-muted/50" />
@@ -330,7 +347,9 @@ export function EmployeeEducationTab({
                             {showField('certificate') ? (
                                 <RecordFormField
                                     field="certificate"
-                                    highlightMissing={isMissingRequired('certificate')}
+                                    highlightMissing={isMissingRequired(
+                                        'certificate',
+                                    )}
                                 >
                                     <Label
                                         className={recordFieldLabelClass(
@@ -339,7 +358,9 @@ export function EmployeeEducationTab({
                                     >
                                         Certificate / Degree
                                         <RequiredIndicator
-                                            show={isFieldRequired('certificate')}
+                                            show={isFieldRequired(
+                                                'certificate',
+                                            )}
                                         />
                                     </Label>
                                     <Input
@@ -349,7 +370,10 @@ export function EmployeeEducationTab({
                                         placeholder="e.g. Bachelor of Science in Marine Engineering"
                                         value={educationForm.data.certificate}
                                         onChange={(e) =>
-                                            educationForm.setData('certificate', e.target.value)
+                                            educationForm.setData(
+                                                'certificate',
+                                                e.target.value,
+                                            )
                                         }
                                     />
                                     {educationForm.errors.certificate ? (
@@ -358,8 +382,11 @@ export function EmployeeEducationTab({
                                         </p>
                                     ) : (
                                         <p className="text-[11px] text-muted-foreground">
-                                            The title of the obtained qualification
-                                            {isFieldRequired('certificate') ? '' : ' (optional)'}
+                                            The title of the obtained
+                                            qualification
+                                            {isFieldRequired('certificate')
+                                                ? ''
+                                                : ' (optional)'}
                                         </p>
                                     )}
                                 </RecordFormField>
@@ -368,7 +395,9 @@ export function EmployeeEducationTab({
                                 {showField('university') ? (
                                     <RecordFormField
                                         field="university"
-                                        highlightMissing={isMissingRequired('university')}
+                                        highlightMissing={isMissingRequired(
+                                            'university',
+                                        )}
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
@@ -377,7 +406,9 @@ export function EmployeeEducationTab({
                                         >
                                             University / Institution
                                             <RequiredIndicator
-                                                show={isFieldRequired('university')}
+                                                show={isFieldRequired(
+                                                    'university',
+                                                )}
                                             />
                                         </Label>
                                         <Input
@@ -385,19 +416,29 @@ export function EmployeeEducationTab({
                                                 isMissingRequired('university'),
                                             )}
                                             placeholder="e.g. Maritime Academy"
-                                            value={educationForm.data.university}
+                                            value={
+                                                educationForm.data.university
+                                            }
                                             onChange={(e) =>
-                                                educationForm.setData('university', e.target.value)
+                                                educationForm.setData(
+                                                    'university',
+                                                    e.target.value,
+                                                )
                                             }
                                         />
                                         {educationForm.errors.university ? (
                                             <p className="text-xs text-destructive">
-                                                {educationForm.errors.university}
+                                                {
+                                                    educationForm.errors
+                                                        .university
+                                                }
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
                                                 The awarding institution
-                                                {isFieldRequired('university') ? '' : ' (optional)'}
+                                                {isFieldRequired('university')
+                                                    ? ''
+                                                    : ' (optional)'}
                                             </p>
                                         )}
                                     </RecordFormField>
@@ -405,7 +446,9 @@ export function EmployeeEducationTab({
                                 {showField('country_id') ? (
                                     <RecordFormField
                                         field="country_id"
-                                        highlightMissing={isMissingRequired('country_id')}
+                                        highlightMissing={isMissingRequired(
+                                            'country_id',
+                                        )}
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
@@ -414,13 +457,20 @@ export function EmployeeEducationTab({
                                         >
                                             Country
                                             <RequiredIndicator
-                                                show={isFieldRequired('country_id')}
+                                                show={isFieldRequired(
+                                                    'country_id',
+                                                )}
                                             />
                                         </Label>
                                         <AppSelect
-                                            value={educationForm.data.country_id}
+                                            value={
+                                                educationForm.data.country_id
+                                            }
                                             onValueChange={(v) =>
-                                                educationForm.setData('country_id', v)
+                                                educationForm.setData(
+                                                    'country_id',
+                                                    v,
+                                                )
                                             }
                                             variant="dark"
                                             placeholder="— Select a country —"
@@ -429,19 +479,27 @@ export function EmployeeEducationTab({
                                                 — Select a country —
                                             </AppSelectItem>
                                             {countries.map((c) => (
-                                                <AppSelectItem key={c.id} value={String(c.id)}>
+                                                <AppSelectItem
+                                                    key={c.id}
+                                                    value={String(c.id)}
+                                                >
                                                     {c.name}
                                                 </AppSelectItem>
                                             ))}
                                         </AppSelect>
                                         {educationForm.errors.country_id ? (
                                             <p className="text-xs text-destructive">
-                                                {educationForm.errors.country_id}
+                                                {
+                                                    educationForm.errors
+                                                        .country_id
+                                                }
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
                                                 Country of the institution
-                                                {isFieldRequired('country_id') ? '' : ' (optional)'}
+                                                {isFieldRequired('country_id')
+                                                    ? ''
+                                                    : ' (optional)'}
                                             </p>
                                         )}
                                     </RecordFormField>
@@ -449,7 +507,9 @@ export function EmployeeEducationTab({
                                 {showField('issue_date') ? (
                                     <RecordFormField
                                         field="issue_date"
-                                        highlightMissing={isMissingRequired('issue_date')}
+                                        highlightMissing={isMissingRequired(
+                                            'issue_date',
+                                        )}
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
@@ -458,7 +518,9 @@ export function EmployeeEducationTab({
                                         >
                                             Issue date
                                             <RequiredIndicator
-                                                show={isFieldRequired('issue_date')}
+                                                show={isFieldRequired(
+                                                    'issue_date',
+                                                )}
                                             />
                                         </Label>
                                         <Input
@@ -466,19 +528,29 @@ export function EmployeeEducationTab({
                                             className={recordFieldInputClass(
                                                 isMissingRequired('issue_date'),
                                             )}
-                                            value={educationForm.data.issue_date}
+                                            value={
+                                                educationForm.data.issue_date
+                                            }
                                             onChange={(e) =>
-                                                educationForm.setData('issue_date', e.target.value)
+                                                educationForm.setData(
+                                                    'issue_date',
+                                                    e.target.value,
+                                                )
                                             }
                                         />
                                         {educationForm.errors.issue_date ? (
                                             <p className="text-xs text-destructive">
-                                                {educationForm.errors.issue_date}
+                                                {
+                                                    educationForm.errors
+                                                        .issue_date
+                                                }
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
                                                 When the certificate was issued
-                                                {isFieldRequired('issue_date') ? '' : ' (optional)'}
+                                                {isFieldRequired('issue_date')
+                                                    ? ''
+                                                    : ' (optional)'}
                                             </p>
                                         )}
                                     </RecordFormField>

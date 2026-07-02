@@ -126,7 +126,9 @@ export function StatusTransitionDialog({
             rank_id: deployment.rank_id ?? null,
             client_id: deployment.client_id ?? null,
             company_visa_type_id: deployment.company_visa_type_id ?? null,
-            vessel_id: data.vessel_id ? Number(data.vessel_id) : (deployment.vessel_id ?? null),
+            vessel_id: data.vessel_id
+                ? Number(data.vessel_id)
+                : (deployment.vessel_id ?? null),
             arrived_date: data.arrived_date || null,
             join_standby_from: data.join_standby_from || null,
             join_standby_to: data.join_standby_to || null,
@@ -148,7 +150,9 @@ export function StatusTransitionDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-md">
                 <DialogHeader className="border-b border-border/60 px-6 py-5 dark:border-white/10">
-                    <DialogTitle className="text-base">Move deployment</DialogTitle>
+                    <DialogTitle className="text-base">
+                        Move deployment
+                    </DialogTitle>
                     <DialogDescription asChild>
                         <div className="flex items-center gap-2 pt-2">
                             <DeploymentStatusBadge
@@ -158,7 +162,9 @@ export function StatusTransitionDialog({
                             <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                             <DeploymentStatusBadge
                                 status={targetStatus}
-                                label={STATUS_LABELS[targetStatus] ?? targetStatus}
+                                label={
+                                    STATUS_LABELS[targetStatus] ?? targetStatus
+                                }
                             />
                         </div>
                     </DialogDescription>
@@ -171,7 +177,9 @@ export function StatusTransitionDialog({
                         <span className="font-semibold text-foreground">
                             {STATUS_LABELS[targetStatus] ?? targetStatus}
                         </span>
-                        {hasFields ? '. Fill in the date(s) for this stage.' : '.'}
+                        {hasFields
+                            ? '. Fill in the date(s) for this stage.'
+                            : '.'}
                     </p>
                 </DialogHeader>
 
@@ -179,28 +187,40 @@ export function StatusTransitionDialog({
                     <div className="space-y-4 px-6 py-5">
                         {showVesselField ? (
                             <div className="space-y-1.5">
-                                <Label className="text-xs font-medium">Vessel</Label>
+                                <Label className="text-xs font-medium">
+                                    Vessel
+                                </Label>
                                 <AppSelect
                                     value={form.data.vessel_id}
-                                    onValueChange={(value) => form.setData('vessel_id', value)}
+                                    onValueChange={(value) =>
+                                        form.setData('vessel_id', value)
+                                    }
                                     placeholder="Select vessel"
                                     className={fieldInputClass}
                                 >
                                     {vessels.map((vessel) => (
-                                        <AppSelectItem key={vessel.id} value={String(vessel.id)}>
+                                        <AppSelectItem
+                                            key={vessel.id}
+                                            value={String(vessel.id)}
+                                        >
                                             {vessel.name}
                                         </AppSelectItem>
                                     ))}
                                 </AppSelect>
                                 {form.errors.vessel_id ? (
-                                    <p className="text-xs text-destructive">{form.errors.vessel_id}</p>
+                                    <p className="text-xs text-destructive">
+                                        {form.errors.vessel_id}
+                                    </p>
                                 ) : null}
                             </div>
                         ) : null}
 
                         {dateFields.map(({ key, label }) => (
                             <div key={key} className="space-y-1.5">
-                                <Label htmlFor={key} className="text-xs font-medium">
+                                <Label
+                                    htmlFor={key}
+                                    className="text-xs font-medium"
+                                >
                                     {label}
                                 </Label>
                                 <Input
@@ -208,13 +228,22 @@ export function StatusTransitionDialog({
                                     type="date"
                                     value={form.data[key as keyof FormData]}
                                     onChange={(e) =>
-                                        form.setData(key as keyof FormData, e.target.value)
+                                        form.setData(
+                                            key as keyof FormData,
+                                            e.target.value,
+                                        )
                                     }
                                     className={fieldInputClass}
                                 />
-                                {form.errors[key as keyof typeof form.errors] ? (
+                                {form.errors[
+                                    key as keyof typeof form.errors
+                                ] ? (
                                     <p className="text-xs text-destructive">
-                                        {form.errors[key as keyof typeof form.errors]}
+                                        {
+                                            form.errors[
+                                                key as keyof typeof form.errors
+                                            ]
+                                        }
                                     </p>
                                 ) : null}
                             </div>
@@ -223,7 +252,8 @@ export function StatusTransitionDialog({
                 ) : (
                     <div className="px-6 py-5">
                         <p className="text-sm text-muted-foreground">
-                            No additional information needed. Click confirm to move.
+                            No additional information needed. Click confirm to
+                            move.
                         </p>
                     </div>
                 )}

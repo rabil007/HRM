@@ -19,11 +19,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
-import {
-    HikvisionDevicesSection
-    
-} from '@/features/settings/hikvision-devices-section';
-import type {HikvisionDevicesSectionProps} from '@/features/settings/hikvision-devices-section';
+import { HikvisionDevicesSection } from '@/features/settings/hikvision-devices-section';
+import type { HikvisionDevicesSectionProps } from '@/features/settings/hikvision-devices-section';
 import { testHikvisionConnection } from '@/features/settings/test-hikvision-connection';
 import { formatDisplayDateTime } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
@@ -61,11 +58,17 @@ export type HikvisionSettingsPanelProps = {
     devices?: HikvisionDevicesSectionProps['devices'];
 };
 
-function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
+function FieldLabel({
+    htmlFor,
+    children,
+}: {
+    htmlFor?: string;
+    children: React.ReactNode;
+}) {
     return (
         <Label
             htmlFor={htmlFor}
-            className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold ml-0.5"
+            className="ml-0.5 text-[10px] font-bold tracking-widest text-muted-foreground/60 uppercase"
         >
             {children}
         </Label>
@@ -77,7 +80,7 @@ function FieldInput(props: React.ComponentProps<typeof Input>) {
         <Input
             {...props}
             className={cn(
-                'rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 focus-visible:ring-primary/40 h-11 px-4 transition-all',
+                'h-11 rounded-xl border-input bg-background/50 px-4 text-foreground transition-all focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5',
                 props.className,
             )}
         />
@@ -92,8 +95,8 @@ function StatusItem({
     children: React.ReactNode;
 }) {
     return (
-        <div className="rounded-xl border border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/5 px-4 py-3">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">
+        <div className="rounded-xl border border-border/80 bg-muted/20 px-4 py-3 dark:border-white/5 dark:bg-white/5">
+            <p className="text-[10px] font-bold tracking-widest text-muted-foreground/60 uppercase">
                 {label}
             </p>
             <div className="mt-1">{children}</div>
@@ -108,8 +111,11 @@ export function HikvisionSettingsPanel({
     can,
     devices,
 }: HikvisionSettingsPanelProps) {
-    const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
-    const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
+    const [connectionStatus, setConnectionStatus] =
+        useState<ConnectionStatus>('idle');
+    const [connectionMessage, setConnectionMessage] = useState<string | null>(
+        null,
+    );
     const [testing, setTesting] = useState(false);
     const [registeringWebhook, setRegisteringWebhook] = useState(false);
 
@@ -120,10 +126,13 @@ export function HikvisionSettingsPanel({
         enabled: settings.enabled ?? false,
         webhook_enabled: settings.webhook_enabled ?? false,
         webhook_verify_token: settings.webhook_verify_token ?? '',
-        events_fetch_schedule_enabled: settings.events_fetch_schedule_enabled ?? false,
+        events_fetch_schedule_enabled:
+            settings.events_fetch_schedule_enabled ?? false,
         events_fetch_schedule_at: settings.events_fetch_schedule_at ?? '18:00',
-        events_evening_fetch_schedule_enabled: settings.events_evening_fetch_schedule_enabled ?? false,
-        events_evening_fetch_schedule_at: settings.events_evening_fetch_schedule_at ?? '20:00',
+        events_evening_fetch_schedule_enabled:
+            settings.events_evening_fetch_schedule_enabled ?? false,
+        events_evening_fetch_schedule_at:
+            settings.events_evening_fetch_schedule_at ?? '20:00',
     });
 
     const submit = (event: React.FormEvent) => {
@@ -152,12 +161,15 @@ export function HikvisionSettingsPanel({
         setConnectionMessage(null);
 
         try {
-            const result = await testHikvisionConnection('/settings/application/hikvision/test', {
-                api_host: form.data.api_host,
-                api_key: form.data.api_key,
-                api_secret: form.data.api_secret,
-                enabled: form.data.enabled,
-            });
+            const result = await testHikvisionConnection(
+                '/settings/application/hikvision/test',
+                {
+                    api_host: form.data.api_host,
+                    api_key: form.data.api_key,
+                    api_secret: form.data.api_secret,
+                    enabled: form.data.enabled,
+                },
+            );
 
             if (result.success) {
                 setConnectionStatus('connected');
@@ -170,7 +182,9 @@ export function HikvisionSettingsPanel({
             }
         } catch (error) {
             const message =
-                error instanceof Error ? error.message : 'Hikvision connection test failed.';
+                error instanceof Error
+                    ? error.message
+                    : 'Hikvision connection test failed.';
             setConnectionStatus('failed');
             setConnectionMessage(message);
             toast.error(message);
@@ -231,24 +245,27 @@ export function HikvisionSettingsPanel({
     return (
         <div className="space-y-6">
             {settings.uses_env_fallback ? (
-                <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-400 text-sm">
+                <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-400">
                     <span className="mt-0.5 shrink-0">⚠</span>
                     <p>
-                        Currently using values from <code className="font-mono text-xs">.env</code>{' '}
-                        until you save Hikvision settings here.
+                        Currently using values from{' '}
+                        <code className="font-mono text-xs">.env</code> until
+                        you save Hikvision settings here.
                     </p>
                 </div>
             ) : null}
 
             <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
-                <CardContent className="p-6 space-y-5">
+                <CardContent className="space-y-5 p-6">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-2xl border border-primary/20 bg-primary/10 flex items-center justify-center shrink-0">
-                            <PlugZap className="w-5 h-5 text-primary" />
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
+                            <PlugZap className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                            <h2 className="text-base font-bold tracking-tight">Connection status</h2>
-                            <p className="text-xs text-muted-foreground mt-0.5">
+                            <h2 className="text-base font-bold tracking-tight">
+                                Connection status
+                            </h2>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
                                 Test your Hik-Connect for Teams API credentials.
                             </p>
                         </div>
@@ -257,18 +274,25 @@ export function HikvisionSettingsPanel({
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         <StatusItem label="Connection status">
                             <span className="inline-flex items-center gap-2 text-sm font-medium">
-                                <span className={cn('h-2.5 w-2.5 rounded-full', statusDotClass)} />
+                                <span
+                                    className={cn(
+                                        'h-2.5 w-2.5 rounded-full',
+                                        statusDotClass,
+                                    )}
+                                />
                                 {statusLabel}
                             </span>
                         </StatusItem>
                         <StatusItem label="API host">
-                            <span className="text-sm font-mono truncate">
+                            <span className="truncate font-mono text-sm">
                                 {form.data.api_host || '—'}
                             </span>
                         </StatusItem>
                         <StatusItem label="Integration">
                             <span className="text-sm">
-                                {settings.is_configured ? 'Configured' : 'Not configured'}
+                                {settings.is_configured
+                                    ? 'Configured'
+                                    : 'Not configured'}
                             </span>
                         </StatusItem>
                     </div>
@@ -299,7 +323,11 @@ export function HikvisionSettingsPanel({
                             disabled={testing || !form.data.api_host}
                             onClick={handleTestConnection}
                         >
-                            {testing ? <Spinner className="mr-2" /> : <PlugZap className="mr-2 h-4 w-4" />}
+                            {testing ? (
+                                <Spinner className="mr-2" />
+                            ) : (
+                                <PlugZap className="mr-2 h-4 w-4" />
+                            )}
                             Test connection
                         </Button>
                     ) : null}
@@ -310,51 +338,65 @@ export function HikvisionSettingsPanel({
                 <Info className="h-4 w-4" />
                 <AlertTitle>Hik-Connect for Teams OpenAPI</AlertTitle>
                 <AlertDescription>
-                    Generate your app key and secret from Hik-Connect Team Management → API
-                    Integration. Use your regional host, for example{' '}
-                    <span className="font-mono text-xs">https://isgp.hikcentralconnect.com</span>{' '}
+                    Generate your app key and secret from Hik-Connect Team
+                    Management → API Integration. Use your regional host, for
+                    example{' '}
+                    <span className="font-mono text-xs">
+                        https://isgp.hikcentralconnect.com
+                    </span>{' '}
                     for Singapore/India.
                 </AlertDescription>
             </Alert>
 
             <form onSubmit={submit} className="space-y-6">
                 <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
-                    <CardContent className="p-6 space-y-6">
+                    <CardContent className="space-y-6 p-6">
                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-2xl border border-primary/20 bg-primary/10 flex items-center justify-center shrink-0">
-                                <Camera className="w-5 h-5 text-primary" />
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
+                                <Camera className="h-5 w-5 text-primary" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold tracking-tight">API credentials</h2>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    HikCentral Connect OpenAPI credentials for access control and
-                                    attendance integration.
+                                <h2 className="text-base font-bold tracking-tight">
+                                    API credentials
+                                </h2>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                    HikCentral Connect OpenAPI credentials for
+                                    access control and attendance integration.
                                 </p>
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/5 px-4 py-3">
+                        <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 px-4 py-3 dark:border-white/5 dark:bg-white/5">
                             <div>
-                                <p className="text-sm font-medium">Enable Hikvision integration</p>
+                                <p className="text-sm font-medium">
+                                    Enable Hikvision integration
+                                </p>
                                 <p className="text-xs text-muted-foreground">
-                                    Required before syncing persons, devices, or attendance data.
+                                    Required before syncing persons, devices, or
+                                    attendance data.
                                 </p>
                             </div>
                             <Switch
                                 checked={form.data.enabled}
-                                onCheckedChange={(checked) => form.setData('enabled', checked)}
+                                onCheckedChange={(checked) =>
+                                    form.setData('enabled', checked)
+                                }
                                 disabled={!can.update}
                             />
                         </div>
 
                         <div className="grid gap-5 sm:grid-cols-2">
                             <div className="space-y-1.5 sm:col-span-2">
-                                <FieldLabel htmlFor="api_host">API host</FieldLabel>
+                                <FieldLabel htmlFor="api_host">
+                                    API host
+                                </FieldLabel>
                                 <FieldInput
                                     id="api_host"
                                     type="url"
                                     value={form.data.api_host}
-                                    onChange={(e) => form.setData('api_host', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData('api_host', e.target.value)
+                                    }
                                     placeholder="https://isgp.hikcentralconnect.com"
                                     disabled={!can.update}
                                     autoComplete="off"
@@ -363,11 +405,15 @@ export function HikvisionSettingsPanel({
                             </div>
 
                             <div className="space-y-1.5 sm:col-span-2">
-                                <FieldLabel htmlFor="api_key">API key</FieldLabel>
+                                <FieldLabel htmlFor="api_key">
+                                    API key
+                                </FieldLabel>
                                 <SettingsSecretInput
                                     id="api_key"
                                     value={form.data.api_key}
-                                    onChange={(e) => form.setData('api_key', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData('api_key', e.target.value)
+                                    }
                                     placeholder="App key (AK)"
                                     disabled={!can.update}
                                     autoComplete="new-password"
@@ -376,11 +422,18 @@ export function HikvisionSettingsPanel({
                             </div>
 
                             <div className="space-y-1.5 sm:col-span-2">
-                                <FieldLabel htmlFor="api_secret">API secret</FieldLabel>
+                                <FieldLabel htmlFor="api_secret">
+                                    API secret
+                                </FieldLabel>
                                 <SettingsSecretInput
                                     id="api_secret"
                                     value={form.data.api_secret}
-                                    onChange={(e) => form.setData('api_secret', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'api_secret',
+                                            e.target.value,
+                                        )
+                                    }
                                     placeholder="App secret (SK)"
                                     disabled={!can.update}
                                     autoComplete="new-password"
@@ -393,7 +446,7 @@ export function HikvisionSettingsPanel({
                             <div className="flex justify-end">
                                 <Button
                                     type="submit"
-                                    className="rounded-xl h-11 px-6"
+                                    className="h-11 rounded-xl px-6"
                                     disabled={form.processing}
                                 >
                                     {form.processing ? <Spinner /> : null}
@@ -411,10 +464,14 @@ export function HikvisionSettingsPanel({
                                 <Clock className="h-5 w-5 text-primary" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold tracking-tight">Automatic daily fetch</h2>
+                                <h2 className="text-base font-bold tracking-tight">
+                                    Automatic daily fetch
+                                </h2>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
-                                    Pull yesterday&apos;s door and mobile app access records from Hik-Connect on a schedule.
-                                    Today is covered by webhooks and the evening fetch.
+                                    Pull yesterday&apos;s door and mobile app
+                                    access records from Hik-Connect on a
+                                    schedule. Today is covered by webhooks and
+                                    the evening fetch.
                                 </p>
                             </div>
                         </div>
@@ -423,9 +480,13 @@ export function HikvisionSettingsPanel({
                             <Info className="h-4 w-4" />
                             <AlertTitle>Server cron required</AlertTitle>
                             <AlertDescription>
-                                Laravel scheduler must run every minute on the server, for example{' '}
-                                <span className="font-mono text-xs">* * * * * php artisan schedule:run</span>.
-                                A queue worker is also required to process the fetch job.
+                                Laravel scheduler must run every minute on the
+                                server, for example{' '}
+                                <span className="font-mono text-xs">
+                                    * * * * * php artisan schedule:run
+                                </span>
+                                . A queue worker is also required to process the
+                                fetch job.
                             </AlertDescription>
                         </Alert>
 
@@ -433,7 +494,9 @@ export function HikvisionSettingsPanel({
                             <StatusItem label="Last fetch">
                                 <span className="text-sm">
                                     {settings.events_last_fetched_at
-                                        ? formatDisplayDateTime(settings.events_last_fetched_at)
+                                        ? formatDisplayDateTime(
+                                              settings.events_last_fetched_at,
+                                          )
                                         : 'Never'}
                                 </span>
                             </StatusItem>
@@ -445,44 +508,68 @@ export function HikvisionSettingsPanel({
                                 </span>
                             </StatusItem>
                             <StatusItem label="Fetch scope">
-                                <span className="text-sm">Yesterday and today</span>
+                                <span className="text-sm">
+                                    Yesterday and today
+                                </span>
                             </StatusItem>
                         </div>
 
-                        <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/5 px-4 py-3">
+                        <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 px-4 py-3 dark:border-white/5 dark:bg-white/5">
                             <div>
-                                <p className="text-sm font-medium">Enable daily fetch</p>
+                                <p className="text-sm font-medium">
+                                    Enable daily fetch
+                                </p>
                                 <p className="text-xs text-muted-foreground">
-                                    Fetches yesterday (mobile backfill) and today (door + mobile). Manual fetch on Access
-                                    Events can target a single date.
+                                    Fetches yesterday (mobile backfill) and
+                                    today (door + mobile). Manual fetch on
+                                    Access Events can target a single date.
                                 </p>
                             </div>
                             <Switch
-                                checked={form.data.events_fetch_schedule_enabled}
-                                onCheckedChange={(checked) =>
-                                    form.setData('events_fetch_schedule_enabled', checked)
+                                checked={
+                                    form.data.events_fetch_schedule_enabled
                                 }
-                                disabled={!can.update || !settings.is_configured}
+                                onCheckedChange={(checked) =>
+                                    form.setData(
+                                        'events_fetch_schedule_enabled',
+                                        checked,
+                                    )
+                                }
+                                disabled={
+                                    !can.update || !settings.is_configured
+                                }
                             />
                         </div>
 
                         {form.data.events_fetch_schedule_enabled ? (
-                            <div className="space-y-1.5 max-w-xs">
-                                <FieldLabel htmlFor="events_fetch_schedule_at">Daily fetch time</FieldLabel>
+                            <div className="max-w-xs space-y-1.5">
+                                <FieldLabel htmlFor="events_fetch_schedule_at">
+                                    Daily fetch time
+                                </FieldLabel>
                                 <FieldInput
                                     id="events_fetch_schedule_at"
                                     type="time"
                                     value={form.data.events_fetch_schedule_at}
                                     onChange={(event) =>
-                                        form.setData('events_fetch_schedule_at', event.target.value)
+                                        form.setData(
+                                            'events_fetch_schedule_at',
+                                            event.target.value,
+                                        )
                                     }
                                     disabled={!can.update}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    Uses application timezone ({scheduler_timezone}). Mobile app records are usually
-                                    available the next day; yesterday is included on each run for backfill.
+                                    Uses application timezone (
+                                    {scheduler_timezone}). Mobile app records
+                                    are usually available the next day;
+                                    yesterday is included on each run for
+                                    backfill.
                                 </p>
-                                <InputError message={form.errors.events_fetch_schedule_at} />
+                                <InputError
+                                    message={
+                                        form.errors.events_fetch_schedule_at
+                                    }
+                                />
                             </div>
                         ) : null}
 
@@ -490,7 +577,7 @@ export function HikvisionSettingsPanel({
                             <div className="flex justify-end">
                                 <Button
                                     type="submit"
-                                    className="rounded-xl h-11 px-6"
+                                    className="h-11 rounded-xl px-6"
                                     disabled={form.processing}
                                 >
                                     {form.processing ? <Spinner /> : null}
@@ -508,9 +595,12 @@ export function HikvisionSettingsPanel({
                                 <Clock className="h-5 w-5 text-primary" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold tracking-tight">Evening fetch (manual-style)</h2>
+                                <h2 className="text-base font-bold tracking-tight">
+                                    Evening fetch (manual-style)
+                                </h2>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
-                                    Runs the same fetch as manual Access Events for today&apos;s date — ideal after mobile
+                                    Runs the same fetch as manual Access Events
+                                    for today&apos;s date — ideal after mobile
                                     check-outs are complete.
                                 </p>
                             </div>
@@ -519,55 +609,83 @@ export function HikvisionSettingsPanel({
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                             <StatusItem label="Scheduled time">
                                 <span className="text-sm">
-                                    {form.data.events_evening_fetch_schedule_enabled
+                                    {form.data
+                                        .events_evening_fetch_schedule_enabled
                                         ? `${form.data.events_evening_fetch_schedule_at} (${scheduler_timezone})`
                                         : 'Disabled'}
                                 </span>
                             </StatusItem>
                             <StatusItem label="Fetch scope">
-                                <span className="text-sm">Today (manual fetch path)</span>
+                                <span className="text-sm">
+                                    Today (manual fetch path)
+                                </span>
                             </StatusItem>
                             <StatusItem label="Separate from morning">
-                                <span className="text-sm">Independent schedule</span>
+                                <span className="text-sm">
+                                    Independent schedule
+                                </span>
                             </StatusItem>
                         </div>
 
-                        <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/5 px-4 py-3">
+                        <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 px-4 py-3 dark:border-white/5 dark:bg-white/5">
                             <div>
-                                <p className="text-sm font-medium">Enable evening fetch</p>
+                                <p className="text-sm font-medium">
+                                    Enable evening fetch
+                                </p>
                                 <p className="text-xs text-muted-foreground">
-                                    Fetches today&apos;s door and mobile records using the manual fetch job. Does not
-                                    change the morning schedule above.
+                                    Fetches today&apos;s door and mobile records
+                                    using the manual fetch job. Does not change
+                                    the morning schedule above.
                                 </p>
                             </div>
                             <Switch
-                                checked={form.data.events_evening_fetch_schedule_enabled}
-                                onCheckedChange={(checked) =>
-                                    form.setData('events_evening_fetch_schedule_enabled', checked)
+                                checked={
+                                    form.data
+                                        .events_evening_fetch_schedule_enabled
                                 }
-                                disabled={!can.update || !settings.is_configured}
+                                onCheckedChange={(checked) =>
+                                    form.setData(
+                                        'events_evening_fetch_schedule_enabled',
+                                        checked,
+                                    )
+                                }
+                                disabled={
+                                    !can.update || !settings.is_configured
+                                }
                             />
                         </div>
 
                         {form.data.events_evening_fetch_schedule_enabled ? (
-                            <div className="space-y-1.5 max-w-xs">
+                            <div className="max-w-xs space-y-1.5">
                                 <FieldLabel htmlFor="events_evening_fetch_schedule_at">
                                     Evening fetch time
                                 </FieldLabel>
                                 <FieldInput
                                     id="events_evening_fetch_schedule_at"
                                     type="time"
-                                    value={form.data.events_evening_fetch_schedule_at}
+                                    value={
+                                        form.data
+                                            .events_evening_fetch_schedule_at
+                                    }
                                     onChange={(event) =>
-                                        form.setData('events_evening_fetch_schedule_at', event.target.value)
+                                        form.setData(
+                                            'events_evening_fetch_schedule_at',
+                                            event.target.value,
+                                        )
                                     }
                                     disabled={!can.update}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    Uses application timezone ({scheduler_timezone}). Recommended around 20:00 after
-                                    mobile check-outs.
+                                    Uses application timezone (
+                                    {scheduler_timezone}). Recommended around
+                                    20:00 after mobile check-outs.
                                 </p>
-                                <InputError message={form.errors.events_evening_fetch_schedule_at} />
+                                <InputError
+                                    message={
+                                        form.errors
+                                            .events_evening_fetch_schedule_at
+                                    }
+                                />
                             </div>
                         ) : null}
 
@@ -575,7 +693,7 @@ export function HikvisionSettingsPanel({
                             <div className="flex justify-end">
                                 <Button
                                     type="submit"
-                                    className="rounded-xl h-11 px-6"
+                                    className="h-11 rounded-xl px-6"
                                     disabled={form.processing}
                                 >
                                     {form.processing ? <Spinner /> : null}
@@ -593,9 +711,12 @@ export function HikvisionSettingsPanel({
                                 <Radio className="h-5 w-5 text-primary" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold tracking-tight">Webhook push</h2>
+                                <h2 className="text-base font-bold tracking-tight">
+                                    Webhook push
+                                </h2>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
-                                    Receive real-time access events from Hik-Connect at your public callback URL.
+                                    Receive real-time access events from
+                                    Hik-Connect at your public callback URL.
                                 </p>
                             </div>
                         </div>
@@ -604,26 +725,34 @@ export function HikvisionSettingsPanel({
                             <Info className="h-4 w-4" />
                             <AlertTitle>Public HTTPS URL required</AlertTitle>
                             <AlertDescription>
-                                Hik-Connect must reach your callback URL over the public internet. Local
-                                development requires a tunnel (for example ngrok) pointing to this app.
+                                Hik-Connect must reach your callback URL over
+                                the public internet. Local development requires
+                                a tunnel (for example ngrok) pointing to this
+                                app.
                             </AlertDescription>
                         </Alert>
 
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                             <StatusItem label="Webhook status">
-                                <span className="text-sm font-medium">{webhookStatusLabel}</span>
+                                <span className="text-sm font-medium">
+                                    {webhookStatusLabel}
+                                </span>
                             </StatusItem>
                             <StatusItem label="Last event received">
                                 <span className="text-sm">
                                     {settings.webhook_last_event_at
-                                        ? formatDisplayDateTime(settings.webhook_last_event_at)
+                                        ? formatDisplayDateTime(
+                                              settings.webhook_last_event_at,
+                                          )
                                         : 'Never'}
                                 </span>
                             </StatusItem>
                             <StatusItem label="Registered at">
                                 <span className="text-sm">
                                     {settings.webhook_registered_at
-                                        ? formatDisplayDateTime(settings.webhook_registered_at)
+                                        ? formatDisplayDateTime(
+                                              settings.webhook_registered_at,
+                                          )
                                         : '—'}
                                 </span>
                             </StatusItem>
@@ -631,37 +760,51 @@ export function HikvisionSettingsPanel({
 
                         <div className="space-y-1.5">
                             <FieldLabel>Callback URL</FieldLabel>
-                            <div className="flex items-center gap-2 rounded-xl border border-border/80 bg-muted/20 dark:border-white/10 dark:bg-white/5 px-4 py-3">
+                            <div className="flex items-center gap-2 rounded-xl border border-border/80 bg-muted/20 px-4 py-3 dark:border-white/10 dark:bg-white/5">
                                 <Link2 className="h-4 w-4 shrink-0 text-muted-foreground/50" />
-                                <span className="truncate font-mono text-xs">{webhook_url}</span>
+                                <span className="truncate font-mono text-xs">
+                                    {webhook_url}
+                                </span>
                             </div>
                         </div>
 
                         <div className="space-y-1.5">
-                            <FieldLabel htmlFor="webhook_verify_token">Sign secret</FieldLabel>
+                            <FieldLabel htmlFor="webhook_verify_token">
+                                Sign secret
+                            </FieldLabel>
                             <SettingsSecretInput
                                 id="webhook_verify_token"
                                 value={form.data.webhook_verify_token}
                                 onChange={(event) =>
-                                    form.setData('webhook_verify_token', event.target.value)
+                                    form.setData(
+                                        'webhook_verify_token',
+                                        event.target.value,
+                                    )
                                 }
                                 placeholder="Auto-generated on save, or use 8-32 letters/digits"
                                 disabled={!can.update}
                                 autoComplete="off"
                             />
-                            <InputError message={form.errors.webhook_verify_token} />
+                            <InputError
+                                message={form.errors.webhook_verify_token}
+                            />
                         </div>
 
-                        <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/5 px-4 py-3">
+                        <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 px-4 py-3 dark:border-white/5 dark:bg-white/5">
                             <div>
-                                <p className="text-sm font-medium">Enable webhook ingestion</p>
+                                <p className="text-sm font-medium">
+                                    Enable webhook ingestion
+                                </p>
                                 <p className="text-xs text-muted-foreground">
-                                    Accept inbound events at the callback URL using the verify token.
+                                    Accept inbound events at the callback URL
+                                    using the verify token.
                                 </p>
                             </div>
                             <Switch
                                 checked={form.data.webhook_enabled}
-                                onCheckedChange={(checked) => form.setData('webhook_enabled', checked)}
+                                onCheckedChange={(checked) =>
+                                    form.setData('webhook_enabled', checked)
+                                }
                                 disabled={!can.update}
                             />
                         </div>
@@ -671,7 +814,10 @@ export function HikvisionSettingsPanel({
                                 type="button"
                                 variant="outline"
                                 className="rounded-xl"
-                                disabled={!settings.is_configured || registeringWebhook}
+                                disabled={
+                                    !settings.is_configured ||
+                                    registeringWebhook
+                                }
                                 onClick={handleRegisterWebhook}
                             >
                                 {registeringWebhook ? (

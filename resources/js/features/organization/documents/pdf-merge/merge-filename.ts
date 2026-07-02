@@ -6,7 +6,10 @@ function formatDateYmd(date: Date): string {
     return `${year}${month}${day}`;
 }
 
-export function buildDefaultMergeFilename(employeeName: string, date = new Date()): string {
+export function buildDefaultMergeFilename(
+    employeeName: string,
+    date = new Date(),
+): string {
     const segment =
         employeeName
             .trim()

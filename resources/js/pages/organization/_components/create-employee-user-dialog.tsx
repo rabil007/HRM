@@ -23,14 +23,12 @@ export type CreateEmployeeUserFormData = {
 };
 
 function defaultEmailFromEmployee(employee: EmployeeDetails): string {
-    return (
-        employee.work_email?.trim() ||
-        employee.personal_email?.trim() ||
-        ''
-    );
+    return employee.work_email?.trim() || employee.personal_email?.trim() || '';
 }
 
-function buildInitialForm(employee: EmployeeDetails): CreateEmployeeUserFormData {
+function buildInitialForm(
+    employee: EmployeeDetails,
+): CreateEmployeeUserFormData {
     return {
         role_id: '',
         email: defaultEmailFromEmployee(employee),
@@ -53,7 +51,9 @@ export function CreateEmployeeUserDialog({
     roles: { id: number; name: string }[];
     onSuccess?: () => void;
 }): ReactElement {
-    const form = useForm<CreateEmployeeUserFormData>(buildInitialForm(employee));
+    const form = useForm<CreateEmployeeUserFormData>(
+        buildInitialForm(employee),
+    );
 
     const handleOpenChange = (nextOpen: boolean): void => {
         if (nextOpen) {
@@ -81,8 +81,8 @@ export function CreateEmployeeUserDialog({
                 <DialogHeader>
                     <DialogTitle>Create user account</DialogTitle>
                     <DialogDescription>
-                        Create a login for {employee.name}. They can sign in with the email and
-                        password below.
+                        Create a login for {employee.name}. They can sign in
+                        with the email and password below.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -91,18 +91,25 @@ export function CreateEmployeeUserDialog({
                         <Label htmlFor="create-user-role">Role</Label>
                         <AppSelect
                             value={form.data.role_id}
-                            onValueChange={(value) => form.setData('role_id', value)}
+                            onValueChange={(value) =>
+                                form.setData('role_id', value)
+                            }
                             variant="card"
                             placeholder="Select role"
                         >
                             {roles.map((role) => (
-                                <AppSelectItem key={role.id} value={String(role.id)}>
+                                <AppSelectItem
+                                    key={role.id}
+                                    value={String(role.id)}
+                                >
                                     {role.name}
                                 </AppSelectItem>
                             ))}
                         </AppSelect>
                         {form.errors.role_id ? (
-                            <p className="text-xs text-destructive">{form.errors.role_id}</p>
+                            <p className="text-xs text-destructive">
+                                {form.errors.role_id}
+                            </p>
                         ) : null}
                     </div>
 
@@ -113,10 +120,14 @@ export function CreateEmployeeUserDialog({
                             type="email"
                             autoComplete="email"
                             value={form.data.email}
-                            onChange={(e) => form.setData('email', e.target.value)}
+                            onChange={(e) =>
+                                form.setData('email', e.target.value)
+                            }
                         />
                         {form.errors.email ? (
-                            <p className="text-xs text-destructive">{form.errors.email}</p>
+                            <p className="text-xs text-destructive">
+                                {form.errors.email}
+                            </p>
                         ) : null}
                     </div>
 
@@ -125,10 +136,14 @@ export function CreateEmployeeUserDialog({
                         <Input
                             id="create-user-name"
                             value={form.data.name}
-                            onChange={(e) => form.setData('name', e.target.value)}
+                            onChange={(e) =>
+                                form.setData('name', e.target.value)
+                            }
                         />
                         {form.errors.name ? (
-                            <p className="text-xs text-destructive">{form.errors.name}</p>
+                            <p className="text-xs text-destructive">
+                                {form.errors.name}
+                            </p>
                         ) : null}
                     </div>
 
@@ -139,10 +154,14 @@ export function CreateEmployeeUserDialog({
                             type="password"
                             autoComplete="new-password"
                             value={form.data.password}
-                            onChange={(e) => form.setData('password', e.target.value)}
+                            onChange={(e) =>
+                                form.setData('password', e.target.value)
+                            }
                         />
                         {form.errors.password ? (
-                            <p className="text-xs text-destructive">{form.errors.password}</p>
+                            <p className="text-xs text-destructive">
+                                {form.errors.password}
+                            </p>
                         ) : null}
                     </div>
 
@@ -156,7 +175,10 @@ export function CreateEmployeeUserDialog({
                             autoComplete="new-password"
                             value={form.data.password_confirmation}
                             onChange={(e) =>
-                                form.setData('password_confirmation', e.target.value)
+                                form.setData(
+                                    'password_confirmation',
+                                    e.target.value,
+                                )
                             }
                         />
                     </div>
@@ -171,7 +193,11 @@ export function CreateEmployeeUserDialog({
                     >
                         Cancel
                     </Button>
-                    <Button type="button" onClick={submit} disabled={form.processing}>
+                    <Button
+                        type="button"
+                        onClick={submit}
+                        disabled={form.processing}
+                    >
                         Create User
                     </Button>
                 </DialogFooter>

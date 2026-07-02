@@ -16,7 +16,12 @@ export function filterCreatableOptions<T extends SearchableOption>(
     }
 
     return options.filter((option) => {
-        const haystack = [option.search, option.label, option.value, option.keywords]
+        const haystack = [
+            option.search,
+            option.label,
+            option.value,
+            option.keywords,
+        ]
             .filter(Boolean)
             .join(' ')
             .toLowerCase();

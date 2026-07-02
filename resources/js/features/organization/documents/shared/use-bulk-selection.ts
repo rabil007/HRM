@@ -34,7 +34,8 @@ export function useBulkSelection<T extends string | number>(visibleIds: T[]) {
     const toggleAll = useCallback(() => {
         setSelected((current) => {
             const allVisibleSelected =
-                visibleIds.length > 0 && visibleIds.every((id) => current.has(id));
+                visibleIds.length > 0 &&
+                visibleIds.every((id) => current.has(id));
 
             return allVisibleSelected ? new Set<T>() : new Set(visibleIds);
         });
@@ -44,12 +45,19 @@ export function useBulkSelection<T extends string | number>(visibleIds: T[]) {
         setSelected(new Set());
     }, []);
 
-    const isSelected = useCallback((id: T) => visibleSelection.has(id), [visibleSelection]);
+    const isSelected = useCallback(
+        (id: T) => visibleSelection.has(id),
+        [visibleSelection],
+    );
 
-    const selectedIds = useMemo(() => Array.from(visibleSelection), [visibleSelection]);
+    const selectedIds = useMemo(
+        () => Array.from(visibleSelection),
+        [visibleSelection],
+    );
 
     const isAllSelected =
-        visibleIds.length > 0 && visibleIds.every((id) => visibleSelection.has(id));
+        visibleIds.length > 0 &&
+        visibleIds.every((id) => visibleSelection.has(id));
 
     const isPartiallySelected =
         !isAllSelected && visibleIds.some((id) => visibleSelection.has(id));

@@ -13,17 +13,22 @@ export function CalendarToolbar({
     selectedEmployeeId: number | null;
 }) {
     const navigate = (nextYear: number) => {
-        const params: { year: number; employee_id?: number } = { year: nextYear };
+        const params: { year: number; employee_id?: number } = {
+            year: nextYear,
+        };
 
         if (selectedEmployeeId !== null) {
             params.employee_id = selectedEmployeeId;
         }
 
-        router.get('/attendance/calendar', params, { preserveState: true, preserveScroll: true });
+        router.get('/attendance/calendar', params, {
+            preserveState: true,
+            preserveScroll: true,
+        });
     };
 
     return (
-        <div className="glass-card space-y-3 rounded-2xl border border-border/60 bg-card/80 p-3 dark:border-white/6 dark:bg-white/4">
+        <div className="space-y-3 rounded-2xl border glass-card border-border/60 bg-card/80 p-3 dark:border-white/6 dark:bg-white/4">
             <div className="flex items-center justify-between gap-2">
                 <Button
                     type="button"
@@ -40,7 +45,9 @@ export function CalendarToolbar({
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         <CalendarDays className="size-4" />
                     </div>
-                    <div className="text-2xl font-extrabold tracking-tight tabular-nums">{year}</div>
+                    <div className="text-2xl font-extrabold tracking-tight tabular-nums">
+                        {year}
+                    </div>
                 </div>
 
                 <Button
@@ -67,7 +74,7 @@ export function CalendarToolbar({
                 </Button>
                 <div
                     className={cn(
-                        'shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em]',
+                        'shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[0.14em] uppercase',
                         year === currentYear
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
                             : 'bg-muted/60 text-muted-foreground',

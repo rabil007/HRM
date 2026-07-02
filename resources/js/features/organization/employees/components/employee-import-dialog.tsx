@@ -1,5 +1,13 @@
 import { router } from '@inertiajs/react';
-import { AlertCircle, CheckCircle2, Download, FileSpreadsheet, Loader2, RotateCcw, Upload } from 'lucide-react';
+import {
+    AlertCircle,
+    CheckCircle2,
+    Download,
+    FileSpreadsheet,
+    Loader2,
+    RotateCcw,
+    Upload,
+} from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,7 +20,11 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { firstValidationError } from '@/lib/first-validation-error';
 import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
@@ -119,9 +131,9 @@ export function EmployeeImportDialog({
                 const formData = new FormData();
                 formData.append('file', target);
 
-                const csrf = document
-                    .querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
-                    ?.content;
+                const csrf = document.querySelector<HTMLMetaElement>(
+                    'meta[name="csrf-token"]',
+                )?.content;
 
                 const response = await fetch(PREVIEW_URL, {
                     method: 'POST',
@@ -136,7 +148,8 @@ export function EmployeeImportDialog({
 
                 if (!response.ok) {
                     const data = await response.json().catch(() => null);
-                    const message = (data as { message?: string } | null)?.message;
+                    const message = (data as { message?: string } | null)
+                        ?.message;
                     toast.error(message ?? 'Could not preview the file.');
 
                     return;
@@ -146,7 +159,11 @@ export function EmployeeImportDialog({
                 setPreview(data);
                 setStep('preview');
             } catch (error) {
-                toast.error(error instanceof Error ? error.message : 'Could not preview the file.');
+                toast.error(
+                    error instanceof Error
+                        ? error.message
+                        : 'Could not preview the file.',
+                );
             } finally {
                 setIsPreviewing(false);
             }
@@ -207,9 +224,9 @@ export function EmployeeImportDialog({
 
         const entries = Object.entries(preview.mapping);
         const ordered = [
-            ...PRIORITY_FIELDS.map((field) => entries.find(([key]) => key === field)).filter(Boolean) as Array<
-                [string, string | null]
-            >,
+            ...(PRIORITY_FIELDS.map((field) =>
+                entries.find(([key]) => key === field),
+            ).filter(Boolean) as Array<[string, string | null]>),
             ...entries.filter(([field]) => !PRIORITY_FIELDS.includes(field)),
         ];
 
@@ -235,11 +252,14 @@ export function EmployeeImportDialog({
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
-            <DialogContent className="glass-card max-h-[90vh] w-full overflow-hidden p-0 sm:max-w-3xl">
-                <DialogHeader className="border-border/40 border-b px-6 py-4">
-                    <DialogTitle className="text-lg font-semibold">Import employees</DialogTitle>
-                    <DialogDescription className="text-muted-foreground/80 text-sm">
-                        Upload a CSV or Excel file to bulk-create employees and their primary contracts.
+            <DialogContent className="max-h-[90vh] w-full overflow-hidden glass-card p-0 sm:max-w-3xl">
+                <DialogHeader className="border-b border-border/40 px-6 py-4">
+                    <DialogTitle className="text-lg font-semibold">
+                        Import employees
+                    </DialogTitle>
+                    <DialogDescription className="text-sm text-muted-foreground/80">
+                        Upload a CSV or Excel file to bulk-create employees and
+                        their primary contracts.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -271,19 +291,25 @@ export function EmployeeImportDialog({
                         />
                     ) : null}
 
-                    {step === 'result' && result ? <ResultStep result={result} /> : null}
+                    {step === 'result' && result ? (
+                        <ResultStep result={result} />
+                    ) : null}
                 </ScrollArea>
 
-                <DialogFooter className="border-border/40 mt-2 flex flex-row items-center justify-between gap-2 border-t px-6 py-4 sm:flex-row sm:justify-between">
+                <DialogFooter className="mt-2 flex flex-row items-center justify-between gap-2 border-t border-border/40 px-6 py-4 sm:flex-row sm:justify-between">
                     <a
                         href={TEMPLATE_URL}
-                        className="text-muted-foreground/80 hover:text-foreground inline-flex items-center gap-2 text-sm"
+                        className="inline-flex items-center gap-2 text-sm text-muted-foreground/80 hover:text-foreground"
                     >
                         <Download className="h-4 w-4" /> Download template
                     </a>
 
                     <div className="flex items-center gap-2">
-                        <Button type="button" variant="ghost" onClick={() => handleClose(false)}>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => handleClose(false)}
+                        >
                             {step === 'result' ? 'Close' : 'Cancel'}
                         </Button>
 
@@ -296,20 +322,30 @@ export function EmployeeImportDialog({
                             >
                                 {isImporting ? (
                                     <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importing...
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />{' '}
+                                        Importing...
                                     </>
                                 ) : (
                                     <>
-                                        <Upload className="mr-2 h-4 w-4" /> Import {preview?.summary.valid ?? 0} row
-                                        {preview?.summary.valid === 1 ? '' : 's'}
+                                        <Upload className="mr-2 h-4 w-4" />{' '}
+                                        Import {preview?.summary.valid ?? 0} row
+                                        {preview?.summary.valid === 1
+                                            ? ''
+                                            : 's'}
                                     </>
                                 )}
                             </Button>
                         ) : null}
 
                         {step === 'result' ? (
-                            <Button type="button" onClick={reset} variant="outline" className="rounded-xl">
-                                <RotateCcw className="mr-2 h-4 w-4" /> Import another file
+                            <Button
+                                type="button"
+                                onClick={reset}
+                                variant="outline"
+                                className="rounded-xl"
+                            >
+                                <RotateCcw className="mr-2 h-4 w-4" /> Import
+                                another file
                             </Button>
                         ) : null}
                     </div>
@@ -350,7 +386,7 @@ function Stepper({ step }: { step: Step }) {
                         <span
                             className={
                                 isActive
-                                    ? 'text-foreground font-semibold'
+                                    ? 'font-semibold text-foreground'
                                     : isDone
                                       ? 'text-foreground/80'
                                       : 'text-muted-foreground/70'
@@ -358,7 +394,9 @@ function Stepper({ step }: { step: Step }) {
                         >
                             {item.label}
                         </span>
-                        {index < steps.length - 1 ? <span className="bg-border/60 h-px w-8" /> : null}
+                        {index < steps.length - 1 ? (
+                            <span className="h-px w-8 bg-border/60" />
+                        ) : null}
                     </li>
                 );
             })}
@@ -384,9 +422,9 @@ function UploadStep({
             <button
                 type="button"
                 onClick={onChoose}
-                className="border-border/60 hover:bg-accent/30 flex w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-8 py-12 transition-colors"
+                className="flex w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border/60 px-8 py-12 transition-colors hover:bg-accent/30"
             >
-                <div className="bg-primary/10 text-primary flex h-12 w-12 items-center justify-center rounded-full">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
                     {isPreviewing ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
@@ -394,8 +432,12 @@ function UploadStep({
                     )}
                 </div>
                 <div className="space-y-1 text-center">
-                    <p className="text-sm font-medium">{file ? file.name : 'Click to choose a CSV or Excel file'}</p>
-                    <p className="text-muted-foreground/70 text-xs">
+                    <p className="text-sm font-medium">
+                        {file
+                            ? file.name
+                            : 'Click to choose a CSV or Excel file'}
+                    </p>
+                    <p className="text-xs text-muted-foreground/70">
                         Accepted formats: .csv, .xlsx, .xls (max 10 MB).
                     </p>
                 </div>
@@ -409,17 +451,28 @@ function UploadStep({
                 onChange={onFileChange}
             />
 
-            <div className="text-muted-foreground/80 space-y-1 rounded-xl border border-dashed border-border/60 px-4 py-3 text-xs">
-                <p className="text-foreground text-sm font-medium">Tips for a clean import</p>
+            <div className="space-y-1 rounded-xl border border-dashed border-border/60 px-4 py-3 text-xs text-muted-foreground/80">
+                <p className="text-sm font-medium text-foreground">
+                    Tips for a clean import
+                </p>
                 <ul className="list-inside list-disc space-y-0.5">
                     <li>
-                        <strong>employee_no</strong> and <strong>name</strong> are required. If you skip{' '}
-                        <strong>contract_type</strong> or <strong>start_date</strong>, the import uses unlimited contract
-                        and today&apos;s date.
+                        <strong>employee_no</strong> and <strong>name</strong>{' '}
+                        are required. If you skip <strong>contract_type</strong>{' '}
+                        or <strong>start_date</strong>, the import uses
+                        unlimited contract and today&apos;s date.
                     </li>
-                    <li>Branch / Department / Position / Manager are matched by name.</li>
-                    <li>Manager can also be matched by their employee number.</li>
-                    <li>Dates use the YYYY-MM-DD format. Excel-style dates are auto-converted.</li>
+                    <li>
+                        Branch / Department / Position / Manager are matched by
+                        name.
+                    </li>
+                    <li>
+                        Manager can also be matched by their employee number.
+                    </li>
+                    <li>
+                        Dates use the YYYY-MM-DD format. Excel-style dates are
+                        auto-converted.
+                    </li>
                 </ul>
             </div>
         </div>
@@ -447,27 +500,37 @@ function PreviewStep({
     return (
         <div className="space-y-5 py-2">
             <div className="flex flex-wrap items-center gap-3 text-sm">
-                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
-                    {preview.summary.total} row{preview.summary.total === 1 ? '' : 's'}
+                <Badge
+                    variant="outline"
+                    className="border-primary/30 bg-primary/10 text-primary"
+                >
+                    {preview.summary.total} row
+                    {preview.summary.total === 1 ? '' : 's'}
                 </Badge>
                 <Badge
                     variant="outline"
                     className="border-emerald-500/30 bg-emerald-500/10 text-emerald-500 dark:text-emerald-300"
                 >
-                    <CheckCircle2 className="mr-1 h-3 w-3" /> {preview.summary.valid} valid
+                    <CheckCircle2 className="mr-1 h-3 w-3" />{' '}
+                    {preview.summary.valid} valid
                 </Badge>
                 {preview.summary.invalid > 0 ? (
                     <Badge
                         variant="outline"
                         className="border-destructive/30 bg-destructive/10 text-destructive"
                     >
-                        <AlertCircle className="mr-1 h-3 w-3" /> {preview.summary.invalid} invalid
+                        <AlertCircle className="mr-1 h-3 w-3" />{' '}
+                        {preview.summary.invalid} invalid
                     </Badge>
                 ) : null}
                 {file ? (
-                    <span className="text-muted-foreground/70 ml-auto text-xs">
+                    <span className="ml-auto text-xs text-muted-foreground/70">
                         {file.name} ·{' '}
-                        <button type="button" onClick={onReUpload} className="hover:text-foreground underline">
+                        <button
+                            type="button"
+                            onClick={onReUpload}
+                            className="underline hover:text-foreground"
+                        >
                             change file
                         </button>
                     </span>
@@ -476,16 +539,22 @@ function PreviewStep({
 
             <div className="grid gap-2 sm:grid-cols-2">
                 <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
-                    <div className="text-2xl font-bold tabular-nums text-emerald-500">{preview.summary.valid}</div>
-                    <div className="text-muted-foreground text-xs">
-                        {preview.summary.valid === 1 ? 'Employee' : 'Employees'} will be created
+                    <div className="text-2xl font-bold text-emerald-500 tabular-nums">
+                        {preview.summary.valid}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                        {preview.summary.valid === 1 ? 'Employee' : 'Employees'}{' '}
+                        will be created
                     </div>
                 </div>
                 {preview.summary.invalid > 0 ? (
                     <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3">
-                        <div className="text-lg font-semibold tabular-nums text-destructive">{preview.summary.invalid}</div>
+                        <div className="text-lg font-semibold text-destructive tabular-nums">
+                            {preview.summary.invalid}
+                        </div>
                         <div className="text-xs text-destructive/90">
-                            Row{preview.summary.invalid === 1 ? '' : 's'} skipped (errors)
+                            Row{preview.summary.invalid === 1 ? '' : 's'}{' '}
+                            skipped (errors)
                         </div>
                     </div>
                 ) : (
@@ -496,20 +565,25 @@ function PreviewStep({
             </div>
 
             {unmappedRequired.length > 0 ? (
-                <div className="border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2 rounded-xl border px-4 py-3 text-xs">
+                <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                     <div>
-                        <p className="font-semibold">Missing required columns</p>
+                        <p className="font-semibold">
+                            Missing required columns
+                        </p>
                         <p className="opacity-90">
-                            Add columns for: <strong>{unmappedRequired.join(', ')}</strong>. Use the template if you're
-                            unsure of the exact names.
+                            Add columns for:{' '}
+                            <strong>{unmappedRequired.join(', ')}</strong>. Use
+                            the template if you're unsure of the exact names.
                         </p>
                     </div>
                 </div>
             ) : null}
 
             <section>
-                <header className="text-foreground mb-2 text-sm font-semibold">Detected column mapping</header>
+                <header className="mb-2 text-sm font-semibold text-foreground">
+                    Detected column mapping
+                </header>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {mappedFields.map(({ field, header }) => {
                         const isRequired = requiredFields.includes(field);
@@ -527,12 +601,22 @@ function PreviewStep({
                                 }`}
                             >
                                 <div className="flex items-center gap-2">
-                                    <span className="text-foreground font-medium">{field}</span>
+                                    <span className="font-medium text-foreground">
+                                        {field}
+                                    </span>
                                     {isRequired ? (
-                                        <span className="text-destructive text-[10px] uppercase">required</span>
+                                        <span className="text-[10px] text-destructive uppercase">
+                                            required
+                                        </span>
                                     ) : null}
                                 </div>
-                                <span className={isMapped ? 'text-muted-foreground/80' : 'text-muted-foreground/60'}>
+                                <span
+                                    className={
+                                        isMapped
+                                            ? 'text-muted-foreground/80'
+                                            : 'text-muted-foreground/60'
+                                    }
+                                >
                                     {header ?? '— not mapped —'}
                                 </span>
                             </div>
@@ -542,52 +626,81 @@ function PreviewStep({
             </section>
 
             <section>
-                <header className="text-foreground mb-2 text-sm font-semibold">Rows</header>
-                <div className="border-border/60 max-h-[min(50vh,24rem)] overflow-auto rounded-xl border">
+                <header className="mb-2 text-sm font-semibold text-foreground">
+                    Rows
+                </header>
+                <div className="max-h-[min(50vh,24rem)] overflow-auto rounded-xl border border-border/60">
                     <table className="min-w-full text-left text-xs">
-                        <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm text-muted-foreground/80">
+                        <thead className="sticky top-0 z-10 bg-background/95 text-muted-foreground/80 backdrop-blur-sm">
                             <tr>
                                 <th className="px-3 py-2 font-medium">Row</th>
-                                <th className="px-3 py-2 font-medium">Employee no</th>
+                                <th className="px-3 py-2 font-medium">
+                                    Employee no
+                                </th>
                                 <th className="px-3 py-2 font-medium">Name</th>
-                                <th className="px-3 py-2 font-medium">Date of hire</th>
-                                <th className="px-3 py-2 font-medium">Contract</th>
-                                <th className="px-3 py-2 font-medium">Start date</th>
-                                <th className="px-3 py-2 font-medium">Status</th>
+                                <th className="px-3 py-2 font-medium">
+                                    Date of hire
+                                </th>
+                                <th className="px-3 py-2 font-medium">
+                                    Contract
+                                </th>
+                                <th className="px-3 py-2 font-medium">
+                                    Start date
+                                </th>
+                                <th className="px-3 py-2 font-medium">
+                                    Status
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
                             {preview.rows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="text-muted-foreground/70 px-3 py-6 text-center">
+                                    <td
+                                        colSpan={7}
+                                        className="px-3 py-6 text-center text-muted-foreground/70"
+                                    >
                                         No rows found in the file.
                                     </td>
                                 </tr>
                             ) : (
                                 preview.rows.map((row, index) => {
                                     const rowNumber = index + 2;
-                                    const rowErrors = errorsByRow.get(rowNumber);
+                                    const rowErrors =
+                                        errorsByRow.get(rowNumber);
 
                                     return (
                                         <tr
                                             key={rowNumber}
-                                            className={`border-border/40 border-t ${
-                                                rowErrors ? 'bg-destructive/5' : ''
+                                            className={`border-t border-border/40 ${
+                                                rowErrors
+                                                    ? 'bg-destructive/5'
+                                                    : ''
                                             }`}
                                         >
-                                            <td className="text-muted-foreground/70 px-3 py-2">{rowNumber}</td>
-                                            <td className="px-3 py-2 font-medium">{stringy(row.employee_no)}</td>
+                                            <td className="px-3 py-2 text-muted-foreground/70">
+                                                {rowNumber}
+                                            </td>
+                                            <td className="px-3 py-2 font-medium">
+                                                {stringy(row.employee_no)}
+                                            </td>
                                             <td className="px-3 py-2">
                                                 {stringy(row.name) || '—'}
                                             </td>
-                                            <td className="text-muted-foreground/80 px-3 py-2">
-                                                {formatDisplayDate(stringy(row.hire_date) || null)}
+                                            <td className="px-3 py-2 text-muted-foreground/80">
+                                                {formatDisplayDate(
+                                                    stringy(row.hire_date) ||
+                                                        null,
+                                                )}
                                             </td>
-                                            <td className="text-muted-foreground/80 px-3 py-2">
-                                                {stringy(row.contract_type) || '—'}
+                                            <td className="px-3 py-2 text-muted-foreground/80">
+                                                {stringy(row.contract_type) ||
+                                                    '—'}
                                             </td>
-                                            <td className="text-muted-foreground/80 px-3 py-2">
-                                                {formatDisplayDate(stringy(row.start_date) || null)}
+                                            <td className="px-3 py-2 text-muted-foreground/80">
+                                                {formatDisplayDate(
+                                                    stringy(row.start_date) ||
+                                                        null,
+                                                )}
                                             </td>
                                             <td className="px-3 py-2">
                                                 {rowErrors ? (
@@ -598,8 +711,14 @@ function PreviewStep({
                                                                     variant="outline"
                                                                     className="border-destructive/30 bg-destructive/10 text-destructive"
                                                                 >
-                                                                    {rowErrors.length} error
-                                                                    {rowErrors.length === 1 ? '' : 's'}
+                                                                    {
+                                                                        rowErrors.length
+                                                                    }{' '}
+                                                                    error
+                                                                    {rowErrors.length ===
+                                                                    1
+                                                                        ? ''
+                                                                        : 's'}
                                                                 </Badge>
                                                             </span>
                                                         </TooltipTrigger>
@@ -609,12 +728,23 @@ function PreviewStep({
                                                             className="max-w-sm text-left font-normal"
                                                         >
                                                             <ul className="list-inside list-disc space-y-1">
-                                                                {rowErrors.map((e, i) => (
-                                                                    <li key={`${e.field}-${i}`}>
-                                                                        <span className="font-medium">{e.field}:</span>{' '}
-                                                                        {e.message}
-                                                                    </li>
-                                                                ))}
+                                                                {rowErrors.map(
+                                                                    (e, i) => (
+                                                                        <li
+                                                                            key={`${e.field}-${i}`}
+                                                                        >
+                                                                            <span className="font-medium">
+                                                                                {
+                                                                                    e.field
+                                                                                }
+                                                                                :
+                                                                            </span>{' '}
+                                                                            {
+                                                                                e.message
+                                                                            }
+                                                                        </li>
+                                                                    ),
+                                                                )}
                                                             </ul>
                                                         </TooltipContent>
                                                     </Tooltip>
@@ -638,24 +768,39 @@ function PreviewStep({
 
             {preview.errors.length > 0 ? (
                 <section>
-                    <header className="text-foreground mb-2 text-sm font-semibold">
+                    <header className="mb-2 text-sm font-semibold text-foreground">
                         Validation errors ({preview.errors.length})
                     </header>
-                    <div className="border-border/60 max-h-60 overflow-auto rounded-xl border">
+                    <div className="max-h-60 overflow-auto rounded-xl border border-border/60">
                         <table className="min-w-full text-left text-xs">
-                            <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm text-muted-foreground/80">
+                            <thead className="sticky top-0 z-10 bg-background/95 text-muted-foreground/80 backdrop-blur-sm">
                                 <tr>
-                                    <th className="px-3 py-2 font-medium">Row</th>
-                                    <th className="px-3 py-2 font-medium">Field</th>
-                                    <th className="px-3 py-2 font-medium">Message</th>
+                                    <th className="px-3 py-2 font-medium">
+                                        Row
+                                    </th>
+                                    <th className="px-3 py-2 font-medium">
+                                        Field
+                                    </th>
+                                    <th className="px-3 py-2 font-medium">
+                                        Message
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {preview.errors.map((error, index) => (
-                                    <tr key={`${error.row}-${index}`} className="border-border/40 border-t">
-                                        <td className="text-muted-foreground/70 px-3 py-2">{error.row}</td>
-                                        <td className="text-foreground px-3 py-2 font-medium">{error.field}</td>
-                                        <td className="text-destructive/90 px-3 py-2">{error.message}</td>
+                                    <tr
+                                        key={`${error.row}-${index}`}
+                                        className="border-t border-border/40"
+                                    >
+                                        <td className="px-3 py-2 text-muted-foreground/70">
+                                            {error.row}
+                                        </td>
+                                        <td className="px-3 py-2 font-medium text-foreground">
+                                            {error.field}
+                                        </td>
+                                        <td className="px-3 py-2 text-destructive/90">
+                                            {error.message}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -670,18 +815,26 @@ function PreviewStep({
 function ResultStep({ result }: { result: ImportResult }) {
     return (
         <div className="space-y-4 py-6 text-center">
-            <div className="bg-emerald-500/10 text-emerald-500 dark:text-emerald-300 mx-auto flex h-14 w-14 items-center justify-center rounded-full">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 dark:text-emerald-300">
                 <CheckCircle2 className="h-7 w-7" />
             </div>
             <div className="space-y-1">
                 <h3 className="text-lg font-semibold">Import finished</h3>
-                <p className="text-muted-foreground/80 text-sm">
-                    Created <strong className="text-foreground">{result.created}</strong> employee
+                <p className="text-sm text-muted-foreground/80">
+                    Created{' '}
+                    <strong className="text-foreground">
+                        {result.created}
+                    </strong>{' '}
+                    employee
                     {result.created === 1 ? '' : 's'}.
                     {result.skipped > 0 ? (
                         <>
                             {' '}
-                            Skipped <strong className="text-foreground">{result.skipped}</strong> invalid row
+                            Skipped{' '}
+                            <strong className="text-foreground">
+                                {result.skipped}
+                            </strong>{' '}
+                            invalid row
                             {result.skipped === 1 ? '' : 's'}.
                         </>
                     ) : null}

@@ -6,6 +6,7 @@ use App\Models\Concerns\LogsActivityWithCompany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -44,7 +45,7 @@ class Position extends Model
         return $this->belongsTo(Department::class);
     }
 
-    public function employees(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function employees(): HasMany
     {
         return $this->hasMany(Employee::class);
     }

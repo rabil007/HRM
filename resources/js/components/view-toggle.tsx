@@ -26,11 +26,15 @@ export function ViewToggle({
     defaultLabel?: string;
 }) {
     return (
-        <div className="glass-card flex items-center rounded-xl p-1">
+        <div className="flex items-center rounded-xl glass-card p-1">
             <Button
                 type="button"
                 variant={value === 'grid' ? 'default' : 'ghost'}
-                className={value === 'grid' ? 'rounded-lg h-11 px-3' : 'rounded-lg h-11 px-3 hover:bg-accent'}
+                className={
+                    value === 'grid'
+                        ? 'h-11 rounded-lg px-3'
+                        : 'h-11 rounded-lg px-3 hover:bg-accent'
+                }
                 onClick={() => onChange('grid')}
                 title={gridLabel}
             >
@@ -39,7 +43,11 @@ export function ViewToggle({
             <Button
                 type="button"
                 variant={value === 'list' ? 'default' : 'ghost'}
-                className={value === 'list' ? 'rounded-lg h-11 px-3' : 'rounded-lg h-11 px-3 hover:bg-accent'}
+                className={
+                    value === 'list'
+                        ? 'h-11 rounded-lg px-3'
+                        : 'h-11 rounded-lg px-3 hover:bg-accent'
+                }
                 onClick={() => onChange('list')}
                 title={listLabel}
             >
@@ -49,7 +57,11 @@ export function ViewToggle({
                 <Button
                     type="button"
                     variant={value === 'tree' ? 'default' : 'ghost'}
-                    className={value === 'tree' ? 'rounded-lg h-11 px-3' : 'rounded-lg h-11 px-3 hover:bg-accent'}
+                    className={
+                        value === 'tree'
+                            ? 'h-11 rounded-lg px-3'
+                            : 'h-11 rounded-lg px-3 hover:bg-accent'
+                    }
                     onClick={() => onChange('tree')}
                     title={treeLabel}
                 >
@@ -60,7 +72,11 @@ export function ViewToggle({
                 <Button
                     type="button"
                     variant={value === 'employee' ? 'default' : 'ghost'}
-                    className={value === 'employee' ? 'rounded-lg h-11 px-3' : 'rounded-lg h-11 px-3 hover:bg-accent'}
+                    className={
+                        value === 'employee'
+                            ? 'h-11 rounded-lg px-3'
+                            : 'h-11 rounded-lg px-3 hover:bg-accent'
+                    }
                     onClick={() => onChange('employee')}
                     title={employeeLabel}
                 >
@@ -76,7 +92,9 @@ export function ViewToggle({
                 onClick={() => {
                     if (value !== 'employee') {
                         setOrganizationDefaultView(value);
-                        toast.success(`Default view set to ${value === 'list' ? 'List' : 'Grid'}.`);
+                        toast.success(
+                            `Default view set to ${value === 'list' ? 'List' : 'Grid'}.`,
+                        );
                     }
                 }}
                 title={defaultLabel}

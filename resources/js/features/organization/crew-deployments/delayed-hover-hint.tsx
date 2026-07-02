@@ -1,14 +1,5 @@
-import {
-    useCallback,
-    useEffect,
-    useRef,
-    useState
-    
-    
-    
-    
-} from 'react';
-import type {MouseEvent, PointerEvent, ReactElement, ReactNode} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { MouseEvent, PointerEvent, ReactElement, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 export const NEEDS_UPDATE_TOOLTIP_DELAY_MS = 500;
@@ -82,7 +73,9 @@ export function DelayedHoverHint({
 
     useEffect(() => () => clearTimer(), [clearTimer]);
 
-    const stopPropagation = (event: MouseEvent<HTMLSpanElement> | PointerEvent<HTMLSpanElement>): void => {
+    const stopPropagation = (
+        event: MouseEvent<HTMLSpanElement> | PointerEvent<HTMLSpanElement>,
+    ): void => {
         if (stopRowNavigation) {
             event.stopPropagation();
         }

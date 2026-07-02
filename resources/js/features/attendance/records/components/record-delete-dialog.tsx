@@ -28,9 +28,12 @@ export function RecordDeleteDialog({
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Delete attendance record?</AlertDialogTitle>
+                    <AlertDialogTitle>
+                        Delete attendance record?
+                    </AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will permanently delete the record for {record.employee?.name ?? 'this employee'} on{' '}
+                        This will permanently delete the record for{' '}
+                        {record.employee?.name ?? 'this employee'} on{' '}
                         {record.date}.
                     </AlertDialogDescription>
                 </AlertDialogHeader>

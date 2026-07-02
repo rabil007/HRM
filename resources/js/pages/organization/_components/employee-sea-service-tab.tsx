@@ -92,7 +92,9 @@ function buildSeaServicePayload(
                     ? null
                     : Number.parseInt(data.vessel_type_id, 10),
             vessel_id:
-                data.vessel_id === '' ? null : Number.parseInt(data.vessel_id, 10),
+                data.vessel_id === ''
+                    ? null
+                    : Number.parseInt(data.vessel_id, 10),
             rank_id:
                 data.rank_id === '' ? null : Number.parseInt(data.rank_id, 10),
             start_date: data.start_date,
@@ -122,10 +124,10 @@ function resolveDisplayedDuration(
     }
 
     if (
-        legacyRow
-        && (!startDate || !endDate)
-        && legacyRow.start_date === null
-        && legacyRow.end_date === null
+        legacyRow &&
+        (!startDate || !endDate) &&
+        legacyRow.start_date === null &&
+        legacyRow.end_date === null
     ) {
         return {
             months: String(legacyRow.total_months),
@@ -171,7 +173,8 @@ export function EmployeeSeaServiceTab({
         validateRequired,
         syncMissingFromFormData,
     } = useTemplateRecordFields(templateFields, {
-        defaultRequiredFields: TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_sea_services,
+        defaultRequiredFields:
+            TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_sea_services,
         booleanFields: ['is_offshore'],
     });
 
@@ -224,10 +227,14 @@ export function EmployeeSeaServiceTab({
     } = useMutableSelectOptions(vessels);
     const { selectOptions: rankSelectOptions, appendOption: appendRankOption } =
         useMutableSelectOptions(ranks);
-    const { selectOptions: clientSelectOptions, appendOption: appendClientOption } =
-        useMutableSelectOptions(clients);
-    const { canCreate: canCreateVesselType, createConfig: vesselTypeCreateConfig } =
-        useCreatableMasterData('vesselType');
+    const {
+        selectOptions: clientSelectOptions,
+        appendOption: appendClientOption,
+    } = useMutableSelectOptions(clients);
+    const {
+        canCreate: canCreateVesselType,
+        createConfig: vesselTypeCreateConfig,
+    } = useCreatableMasterData('vesselType');
     const { canCreate: canCreateVessel, createConfig: vesselCreateConfig } =
         useCreatableMasterData('vessel', {
             vesselTypeId: employeeForm.data.vessel_type_id || null,
@@ -267,9 +274,9 @@ export function EmployeeSeaServiceTab({
                 );
 
                 if (
-                    selectedVessel
-                    && value !== ''
-                    && String(selectedVessel.vessel_type_id) !== value
+                    selectedVessel &&
+                    value !== '' &&
+                    String(selectedVessel.vessel_type_id) !== value
                 ) {
                     employeeForm.setData({
                         vessel_type_id: value,
@@ -318,11 +325,7 @@ export function EmployeeSeaServiceTab({
                 employeeForm.data.end_date,
                 editingRow,
             ),
-        [
-            employeeForm.data.start_date,
-            employeeForm.data.end_date,
-            editingRow,
-        ],
+        [employeeForm.data.start_date, employeeForm.data.end_date, editingRow],
     );
 
     const seaServiceImport = seaServiceImportConfig(employeeId);
@@ -436,7 +439,12 @@ export function EmployeeSeaServiceTab({
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
                             {canManage ? (
-                                <th className={cn(employeeRecordsTableThClass(), 'w-10 px-3')}>
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'w-10 px-3',
+                                    )}
+                                >
                                     <Checkbox
                                         checked={
                                             allSeaServicesSelected
@@ -451,37 +459,74 @@ export function EmployeeSeaServiceTab({
                                 </th>
                             ) : null}
                             {showField('vessel_type_id') ? (
-                                <th className={employeeRecordsTableThClass()}>Vessel type</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Vessel type
+                                </th>
                             ) : null}
                             {showField('vessel_id') ? (
-                                <th className={employeeRecordsTableThClass()}>Vessel</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Vessel
+                                </th>
                             ) : null}
                             {showField('rank_id') ? (
-                                <th className={employeeRecordsTableThClass()}>Rank</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Rank
+                                </th>
                             ) : null}
                             {showField('start_date') ? (
-                                <th className={employeeRecordsTableThClass()}>Start</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Start
+                                </th>
                             ) : null}
                             {showField('end_date') ? (
-                                <th className={employeeRecordsTableThClass()}>End</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    End
+                                </th>
                             ) : null}
-                            <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>
+                            <th
+                                className={cn(
+                                    employeeRecordsTableThClass(),
+                                    'text-right tabular-nums',
+                                )}
+                            >
                                 Total months
                             </th>
-                            <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>
+                            <th
+                                className={cn(
+                                    employeeRecordsTableThClass(),
+                                    'text-right tabular-nums',
+                                )}
+                            >
                                 Total days
                             </th>
-                            <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>
+                            <th
+                                className={cn(
+                                    employeeRecordsTableThClass(),
+                                    'text-right tabular-nums',
+                                )}
+                            >
                                 GRT
                             </th>
-                            <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>
+                            <th
+                                className={cn(
+                                    employeeRecordsTableThClass(),
+                                    'text-right tabular-nums',
+                                )}
+                            >
                                 BHP
                             </th>
                             {showField('client_id') ? (
-                                <th className={employeeRecordsTableThClass()}>Client</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Client
+                                </th>
                             ) : null}
                             {showField('is_offshore') ? (
-                                <th className={cn(employeeRecordsTableThClass(), 'text-center')}>
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'text-center',
+                                    )}
+                                >
                                     Offshore
                                 </th>
                             ) : null}
@@ -492,73 +537,87 @@ export function EmployeeSeaServiceTab({
                     </thead>
                     <tbody>
                         {sea_services.map((row) => (
-                            <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                            <tr
+                                key={row.id}
+                                className={employeeRecordsTableRowClass()}
+                            >
                                 {canManage ? (
-                                    <td className={cn(employeeRecordsTableTdClass(), 'w-10 px-3')}>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'w-10 px-3',
+                                        )}
+                                    >
                                         <Checkbox
-                                            checked={isSeaServiceSelected(row.id)}
-                                            onCheckedChange={() => toggleSeaService(row.id)}
+                                            checked={isSeaServiceSelected(
+                                                row.id,
+                                            )}
+                                            onCheckedChange={() =>
+                                                toggleSeaService(row.id)
+                                            }
                                             aria-label={`Select sea service record ${row.vessel_name ?? row.id}`}
                                         />
                                     </td>
                                 ) : null}
                                 {showField('vessel_type_id') ? (
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'max-w-[200px] truncate font-medium text-foreground',
-                                    )}
-                                    title={row.vessel_type_name ?? ''}
-                                >
-                                    {row.vessel_type_name ?? '—'}
-                                </td>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'max-w-[200px] truncate font-medium text-foreground',
+                                        )}
+                                        title={row.vessel_type_name ?? ''}
+                                    >
+                                        {row.vessel_type_name ?? '—'}
+                                    </td>
                                 ) : null}
                                 {showField('vessel_id') ? (
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'max-w-[200px] truncate text-muted-foreground',
-                                    )}
-                                    title={row.vessel_name ?? ''}
-                                >
-                                    {row.vessel_name?.trim() ? row.vessel_name : '—'}
-                                </td>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'max-w-[200px] truncate text-muted-foreground',
+                                        )}
+                                        title={row.vessel_name ?? ''}
+                                    >
+                                        {row.vessel_name?.trim()
+                                            ? row.vessel_name
+                                            : '—'}
+                                    </td>
                                 ) : null}
                                 {showField('rank_id') ? (
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'max-w-[180px] truncate text-muted-foreground',
-                                    )}
-                                    title={row.rank_name ?? ''}
-                                >
-                                    {row.rank_name ?? '—'}
-                                </td>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'max-w-[180px] truncate text-muted-foreground',
+                                        )}
+                                        title={row.rank_name ?? ''}
+                                    >
+                                        {row.rank_name ?? '—'}
+                                    </td>
                                 ) : null}
                                 {showField('start_date') ? (
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'whitespace-nowrap text-muted-foreground',
-                                    )}
-                                >
-                                    {formatIsoDateDisplay(row.start_date)}
-                                </td>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'whitespace-nowrap text-muted-foreground',
+                                        )}
+                                    >
+                                        {formatIsoDateDisplay(row.start_date)}
+                                    </td>
                                 ) : null}
                                 {showField('end_date') ? (
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'whitespace-nowrap text-muted-foreground',
-                                    )}
-                                >
-                                    {formatIsoDateDisplay(row.end_date)}
-                                </td>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'whitespace-nowrap text-muted-foreground',
+                                        )}
+                                    >
+                                        {formatIsoDateDisplay(row.end_date)}
+                                    </td>
                                 ) : null}
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'text-right tabular-nums text-muted-foreground',
+                                        'text-right text-muted-foreground tabular-nums',
                                     )}
                                 >
                                     {row.total_months}
@@ -566,7 +625,7 @@ export function EmployeeSeaServiceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'text-right tabular-nums text-muted-foreground',
+                                        'text-right text-muted-foreground tabular-nums',
                                     )}
                                 >
                                     {row.total_days}
@@ -574,7 +633,7 @@ export function EmployeeSeaServiceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'text-right text-xs tabular-nums text-muted-foreground',
+                                        'text-right text-xs text-muted-foreground tabular-nums',
                                     )}
                                 >
                                     {row.grt ?? '—'}
@@ -582,56 +641,82 @@ export function EmployeeSeaServiceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'text-right text-xs tabular-nums text-muted-foreground',
+                                        'text-right text-xs text-muted-foreground tabular-nums',
                                     )}
                                 >
                                     {row.bhp ?? '—'}
                                 </td>
                                 {showField('client_id') ? (
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'max-w-[160px] truncate text-xs text-muted-foreground',
-                                    )}
-                                    title={row.client_name ?? ''}
-                                >
-                                    {row.client_name ?? '—'}
-                                </td>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'max-w-[160px] truncate text-xs text-muted-foreground',
+                                        )}
+                                        title={row.client_name ?? ''}
+                                    >
+                                        {row.client_name ?? '—'}
+                                    </td>
                                 ) : null}
                                 {showField('is_offshore') ? (
-                                <td className={cn(employeeRecordsTableTdClass(), 'text-center text-xs')}>
-                                    {row.is_offshore ? (
-                                        <span className="text-emerald-600 dark:text-emerald-400">✓</span>
-                                    ) : (
-                                        <span className="text-muted-foreground/50">—</span>
-                                    )}
-                                </td>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'text-center text-xs',
+                                        )}
+                                    >
+                                        {row.is_offshore ? (
+                                            <span className="text-emerald-600 dark:text-emerald-400">
+                                                ✓
+                                            </span>
+                                        ) : (
+                                            <span className="text-muted-foreground/50">
+                                                —
+                                            </span>
+                                        )}
+                                    </td>
                                 ) : null}
                                 {canManage ? (
-                                    <td className={employeeRecordsActionsTdClass('min-w-[4.5rem]')}>
+                                    <td
+                                        className={employeeRecordsActionsTdClass(
+                                            'min-w-[4.5rem]',
+                                        )}
+                                    >
                                         <EmployeeRecordRowActions
                                             onEdit={() => {
                                                 setEditingRow(row);
                                                 clearMissingRequired();
                                                 employeeForm.setData({
-                                                    vessel_type_id: String(row.vessel_type_id),
+                                                    vessel_type_id: String(
+                                                        row.vessel_type_id,
+                                                    ),
                                                     vessel_id:
                                                         row.vessel_id != null
-                                                            ? String(row.vessel_id)
+                                                            ? String(
+                                                                  row.vessel_id,
+                                                              )
                                                             : '',
-                                                    rank_id: String(row.rank_id),
-                                                    start_date: row.start_date ?? '',
-                                                    end_date: row.end_date ?? '',
+                                                    rank_id: String(
+                                                        row.rank_id,
+                                                    ),
+                                                    start_date:
+                                                        row.start_date ?? '',
+                                                    end_date:
+                                                        row.end_date ?? '',
                                                     client_id:
                                                         row.client_id != null
-                                                            ? String(row.client_id)
+                                                            ? String(
+                                                                  row.client_id,
+                                                              )
                                                             : '',
-                                                    is_offshore: row.is_offshore,
+                                                    is_offshore:
+                                                        row.is_offshore,
                                                 });
                                                 employeeForm.clearErrors();
                                                 setDialogOpen(true);
                                             }}
-                                            onDelete={() => setDeleteRowId(row.id)}
+                                            onDelete={() =>
+                                                setDeleteRowId(row.id)
+                                            }
                                         />
                                     </td>
                                 ) : null}
@@ -657,7 +742,9 @@ export function EmployeeSeaServiceTab({
                 <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>
-                            {editingRow ? 'Edit sea service' : 'Add sea service'}
+                            {editingRow
+                                ? 'Edit sea service'
+                                : 'Add sea service'}
                         </DialogTitle>
                         <p className="text-xs text-muted-foreground">
                             Enter the details of the vessel and the time served.
@@ -670,303 +757,535 @@ export function EmployeeSeaServiceTab({
                     />
 
                     <div className="space-y-4 py-1">
-                        {(showField('vessel_id') ||
-                            showField('vessel_type_id') ||
-                            showField('rank_id') ||
-                            showField('client_id')) ? (
-                        <>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Vessel & Role</span>
-                            <div className="h-px flex-1 bg-muted/50" />
-                        </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            {showField('vessel_id') ? (
-                            <RecordFormField field="vessel_id" highlightMissing={isMissingRequired('vessel_id')}>
-                                <Label className={recordFieldLabelClass(isMissingRequired('vessel_id'))}>
-                                    Vessel
-                                    <RequiredIndicator show={isFieldRequired('vessel_id')} />
-                                </Label>
-                                <CreatableSelect
-                                    value={employeeForm.data.vessel_id}
-                                    onValueChange={handleVesselChange}
-                                    variant="dark"
-                                    placeholder="— Select a vessel —"
-                                    options={filteredVesselSelectOptions}
-                                    onOptionsChange={(next) => {
-                                        const added = next.find(
-                                            (option) =>
-                                                !filteredVesselSelectOptions.some(
-                                                    (existing) => existing.value === option.value,
-                                                ),
-                                        );
+                        {showField('vessel_id') ||
+                        showField('vessel_type_id') ||
+                        showField('rank_id') ||
+                        showField('client_id') ? (
+                            <>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+                                        Vessel & Role
+                                    </span>
+                                    <div className="h-px flex-1 bg-muted/50" />
+                                </div>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    {showField('vessel_id') ? (
+                                        <RecordFormField
+                                            field="vessel_id"
+                                            highlightMissing={isMissingRequired(
+                                                'vessel_id',
+                                            )}
+                                        >
+                                            <Label
+                                                className={recordFieldLabelClass(
+                                                    isMissingRequired(
+                                                        'vessel_id',
+                                                    ),
+                                                )}
+                                            >
+                                                Vessel
+                                                <RequiredIndicator
+                                                    show={isFieldRequired(
+                                                        'vessel_id',
+                                                    )}
+                                                />
+                                            </Label>
+                                            <CreatableSelect
+                                                value={
+                                                    employeeForm.data.vessel_id
+                                                }
+                                                onValueChange={
+                                                    handleVesselChange
+                                                }
+                                                variant="dark"
+                                                placeholder="— Select a vessel —"
+                                                options={
+                                                    filteredVesselSelectOptions
+                                                }
+                                                onOptionsChange={(next) => {
+                                                    const added = next.find(
+                                                        (option) =>
+                                                            !filteredVesselSelectOptions.some(
+                                                                (existing) =>
+                                                                    existing.value ===
+                                                                    option.value,
+                                                            ),
+                                                    );
 
-                                        if (added) {
-                                            appendVesselOption({
-                                                id: added.id,
-                                                label: added.label,
-                                            });
-                                        }
-                                    }}
-                                    creatable
-                                    canCreate={canCreateVessel}
-                                    createConfig={vesselCreateConfig}
-                                />
-                                {employeeForm.errors.vessel_id ? (
-                                    <p className="text-xs text-destructive">{employeeForm.errors.vessel_id}</p>
-                                ) : (
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Vessel from master data
-                                        {isFieldRequired('vessel_id') ? '' : ' (optional)'}
-                                    </p>
-                                )}
-                            </RecordFormField>
-                            ) : null}
-                            {showField('vessel_type_id') ? (
-                            <RecordFormField field="vessel_type_id" highlightMissing={isMissingRequired('vessel_type_id')}>
-                                <Label className={recordFieldLabelClass(isMissingRequired('vessel_type_id'))}>
-                                    Vessel type
-                                    <RequiredIndicator show={isFieldRequired('vessel_type_id')} />
-                                </Label>
-                                <CreatableSelect
-                                    value={employeeForm.data.vessel_type_id}
-                                    onValueChange={handleVesselTypeChange}
-                                    variant="dark"
-                                    placeholder="— Select a type —"
-                                    options={vesselTypeSelectOptions}
-                                    onOptionsChange={(next) => {
-                                        const added = next.find(
-                                            (option) =>
-                                                !vesselTypeSelectOptions.some(
-                                                    (existing) => existing.value === option.value,
-                                                ),
-                                        );
+                                                    if (added) {
+                                                        appendVesselOption({
+                                                            id: added.id,
+                                                            label: added.label,
+                                                        });
+                                                    }
+                                                }}
+                                                creatable
+                                                canCreate={canCreateVessel}
+                                                createConfig={
+                                                    vesselCreateConfig
+                                                }
+                                            />
+                                            {employeeForm.errors.vessel_id ? (
+                                                <p className="text-xs text-destructive">
+                                                    {
+                                                        employeeForm.errors
+                                                            .vessel_id
+                                                    }
+                                                </p>
+                                            ) : (
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    Vessel from master data
+                                                    {isFieldRequired(
+                                                        'vessel_id',
+                                                    )
+                                                        ? ''
+                                                        : ' (optional)'}
+                                                </p>
+                                            )}
+                                        </RecordFormField>
+                                    ) : null}
+                                    {showField('vessel_type_id') ? (
+                                        <RecordFormField
+                                            field="vessel_type_id"
+                                            highlightMissing={isMissingRequired(
+                                                'vessel_type_id',
+                                            )}
+                                        >
+                                            <Label
+                                                className={recordFieldLabelClass(
+                                                    isMissingRequired(
+                                                        'vessel_type_id',
+                                                    ),
+                                                )}
+                                            >
+                                                Vessel type
+                                                <RequiredIndicator
+                                                    show={isFieldRequired(
+                                                        'vessel_type_id',
+                                                    )}
+                                                />
+                                            </Label>
+                                            <CreatableSelect
+                                                value={
+                                                    employeeForm.data
+                                                        .vessel_type_id
+                                                }
+                                                onValueChange={
+                                                    handleVesselTypeChange
+                                                }
+                                                variant="dark"
+                                                placeholder="— Select a type —"
+                                                options={
+                                                    vesselTypeSelectOptions
+                                                }
+                                                onOptionsChange={(next) => {
+                                                    const added = next.find(
+                                                        (option) =>
+                                                            !vesselTypeSelectOptions.some(
+                                                                (existing) =>
+                                                                    existing.value ===
+                                                                    option.value,
+                                                            ),
+                                                    );
 
-                                        if (added) {
-                                            appendVesselTypeOption({
-                                                id: added.id,
-                                                label: added.label,
-                                            });
-                                        }
-                                    }}
-                                    creatable
-                                    canCreate={canCreateVesselType}
-                                    createConfig={vesselTypeCreateConfig}
-                                />
-                                {employeeForm.errors.vessel_type_id ? (
-                                    <p className="text-xs text-destructive">{employeeForm.errors.vessel_type_id}</p>
-                                ) : (
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Category of the vessel
-                                        {isFieldRequired('vessel_type_id') ? '' : ' (optional)'}
-                                    </p>
-                                )}
-                            </RecordFormField>
-                            ) : null}
-                            {showField('rank_id') ? (
-                            <RecordFormField field="rank_id" highlightMissing={isMissingRequired('rank_id')}>
-                                <Label className={recordFieldLabelClass(isMissingRequired('rank_id'))}>
-                                    Rank
-                                    <RequiredIndicator show={isFieldRequired('rank_id')} />
-                                </Label>
-                                <CreatableSelect
-                                    value={employeeForm.data.rank_id}
-                                    onValueChange={(v) => employeeForm.setData('rank_id', v)}
-                                    variant="dark"
-                                    placeholder="— Select a rank —"
-                                    options={rankSelectOptions}
-                                    onOptionsChange={(next) => {
-                                        const added = next.find(
-                                            (option) =>
-                                                !rankSelectOptions.some(
-                                                    (existing) => existing.value === option.value,
-                                                ),
-                                        );
+                                                    if (added) {
+                                                        appendVesselTypeOption({
+                                                            id: added.id,
+                                                            label: added.label,
+                                                        });
+                                                    }
+                                                }}
+                                                creatable
+                                                canCreate={canCreateVesselType}
+                                                createConfig={
+                                                    vesselTypeCreateConfig
+                                                }
+                                            />
+                                            {employeeForm.errors
+                                                .vessel_type_id ? (
+                                                <p className="text-xs text-destructive">
+                                                    {
+                                                        employeeForm.errors
+                                                            .vessel_type_id
+                                                    }
+                                                </p>
+                                            ) : (
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    Category of the vessel
+                                                    {isFieldRequired(
+                                                        'vessel_type_id',
+                                                    )
+                                                        ? ''
+                                                        : ' (optional)'}
+                                                </p>
+                                            )}
+                                        </RecordFormField>
+                                    ) : null}
+                                    {showField('rank_id') ? (
+                                        <RecordFormField
+                                            field="rank_id"
+                                            highlightMissing={isMissingRequired(
+                                                'rank_id',
+                                            )}
+                                        >
+                                            <Label
+                                                className={recordFieldLabelClass(
+                                                    isMissingRequired(
+                                                        'rank_id',
+                                                    ),
+                                                )}
+                                            >
+                                                Rank
+                                                <RequiredIndicator
+                                                    show={isFieldRequired(
+                                                        'rank_id',
+                                                    )}
+                                                />
+                                            </Label>
+                                            <CreatableSelect
+                                                value={
+                                                    employeeForm.data.rank_id
+                                                }
+                                                onValueChange={(v) =>
+                                                    employeeForm.setData(
+                                                        'rank_id',
+                                                        v,
+                                                    )
+                                                }
+                                                variant="dark"
+                                                placeholder="— Select a rank —"
+                                                options={rankSelectOptions}
+                                                onOptionsChange={(next) => {
+                                                    const added = next.find(
+                                                        (option) =>
+                                                            !rankSelectOptions.some(
+                                                                (existing) =>
+                                                                    existing.value ===
+                                                                    option.value,
+                                                            ),
+                                                    );
 
-                                        if (added) {
-                                            appendRankOption({
-                                                id: added.id,
-                                                label: added.label,
-                                            });
-                                        }
-                                    }}
-                                    creatable
-                                    canCreate={canCreateRank}
-                                    createConfig={rankCreateConfig}
-                                />
-                                {employeeForm.errors.rank_id ? (
-                                    <p className="text-xs text-destructive">{employeeForm.errors.rank_id}</p>
-                                ) : (
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Position held on board
-                                        {isFieldRequired('rank_id') ? '' : ' (optional)'}
-                                    </p>
-                                )}
-                            </RecordFormField>
-                            ) : null}
-                            {showField('client_id') ? (
-                            <RecordFormField field="client_id" highlightMissing={isMissingRequired('client_id')}>
-                                <Label className={recordFieldLabelClass(isMissingRequired('client_id'))}>
-                                    Client
-                                    <RequiredIndicator show={isFieldRequired('client_id')} />
-                                </Label>
-                                <CreatableSelect
-                                    value={employeeForm.data.client_id}
-                                    onValueChange={(v) => employeeForm.setData('client_id', v)}
-                                    variant="dark"
-                                    placeholder="— Select a client —"
-                                    options={clientSelectOptions}
-                                    onOptionsChange={(next) => {
-                                        const added = next.find(
-                                            (option) =>
-                                                !clientSelectOptions.some(
-                                                    (existing) => existing.value === option.value,
-                                                ),
-                                        );
+                                                    if (added) {
+                                                        appendRankOption({
+                                                            id: added.id,
+                                                            label: added.label,
+                                                        });
+                                                    }
+                                                }}
+                                                creatable
+                                                canCreate={canCreateRank}
+                                                createConfig={rankCreateConfig}
+                                            />
+                                            {employeeForm.errors.rank_id ? (
+                                                <p className="text-xs text-destructive">
+                                                    {
+                                                        employeeForm.errors
+                                                            .rank_id
+                                                    }
+                                                </p>
+                                            ) : (
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    Position held on board
+                                                    {isFieldRequired('rank_id')
+                                                        ? ''
+                                                        : ' (optional)'}
+                                                </p>
+                                            )}
+                                        </RecordFormField>
+                                    ) : null}
+                                    {showField('client_id') ? (
+                                        <RecordFormField
+                                            field="client_id"
+                                            highlightMissing={isMissingRequired(
+                                                'client_id',
+                                            )}
+                                        >
+                                            <Label
+                                                className={recordFieldLabelClass(
+                                                    isMissingRequired(
+                                                        'client_id',
+                                                    ),
+                                                )}
+                                            >
+                                                Client
+                                                <RequiredIndicator
+                                                    show={isFieldRequired(
+                                                        'client_id',
+                                                    )}
+                                                />
+                                            </Label>
+                                            <CreatableSelect
+                                                value={
+                                                    employeeForm.data.client_id
+                                                }
+                                                onValueChange={(v) =>
+                                                    employeeForm.setData(
+                                                        'client_id',
+                                                        v,
+                                                    )
+                                                }
+                                                variant="dark"
+                                                placeholder="— Select a client —"
+                                                options={clientSelectOptions}
+                                                onOptionsChange={(next) => {
+                                                    const added = next.find(
+                                                        (option) =>
+                                                            !clientSelectOptions.some(
+                                                                (existing) =>
+                                                                    existing.value ===
+                                                                    option.value,
+                                                            ),
+                                                    );
 
-                                        if (added) {
-                                            appendClientOption({
-                                                id: added.id,
-                                                label: added.label,
-                                            });
-                                        }
-                                    }}
-                                    creatable
-                                    canCreate={canCreateClient}
-                                    createConfig={clientCreateConfig}
-                                />
-                                {employeeForm.errors.client_id ? (
-                                    <p className="text-xs text-destructive">{employeeForm.errors.client_id}</p>
-                                ) : (
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Client or charterer
-                                        {isFieldRequired('client_id') ? '' : ' (optional)'}
-                                    </p>
-                                )}
-                            </RecordFormField>
-                            ) : null}
-                        </div>
-                        </>
+                                                    if (added) {
+                                                        appendClientOption({
+                                                            id: added.id,
+                                                            label: added.label,
+                                                        });
+                                                    }
+                                                }}
+                                                creatable
+                                                canCreate={canCreateClient}
+                                                createConfig={
+                                                    clientCreateConfig
+                                                }
+                                            />
+                                            {employeeForm.errors.client_id ? (
+                                                <p className="text-xs text-destructive">
+                                                    {
+                                                        employeeForm.errors
+                                                            .client_id
+                                                    }
+                                                </p>
+                                            ) : (
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    Client or charterer
+                                                    {isFieldRequired(
+                                                        'client_id',
+                                                    )
+                                                        ? ''
+                                                        : ' (optional)'}
+                                                </p>
+                                            )}
+                                        </RecordFormField>
+                                    ) : null}
+                                </div>
+                            </>
                         ) : null}
 
-                        {(showField('start_date') || showField('end_date')) ? (
-                        <>
-                        <div className="flex items-center gap-2 pt-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Duration</span>
-                            <div className="h-px flex-1 bg-muted/50" />
-                        </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            {showField('start_date') ? (
-                            <RecordFormField field="start_date" highlightMissing={isMissingRequired('start_date')}>
-                                <Label htmlFor="sea_service_start_date" className={recordFieldLabelClass(isMissingRequired('start_date'))}>
-                                    Start date
-                                    <RequiredIndicator show={isFieldRequired('start_date')} />
-                                </Label>
-                                <Input
-                                    id="sea_service_start_date"
-                                    type="date"
-                                    className={recordFieldInputClass(isMissingRequired('start_date'))}
-                                    value={employeeForm.data.start_date}
-                                    onChange={(e) =>
-                                        employeeForm.setData('start_date', e.target.value)
-                                    }
-                                />
-                                {employeeForm.errors.start_date ? (
-                                    <p className="text-xs text-destructive">
-                                        {employeeForm.errors.start_date}
-                                    </p>
-                                ) : (
-                                    <p className="text-[11px] text-muted-foreground">
-                                        First day of service on board
-                                        {isFieldRequired('start_date') ? '' : ' (optional)'}
-                                    </p>
-                                )}
-                            </RecordFormField>
-                            ) : null}
-                            {showField('end_date') ? (
-                            <RecordFormField field="end_date" highlightMissing={isMissingRequired('end_date')}>
-                                <Label htmlFor="sea_service_end_date" className={recordFieldLabelClass(isMissingRequired('end_date'))}>
-                                    End date
-                                    <RequiredIndicator show={isFieldRequired('end_date')} />
-                                </Label>
-                                <Input
-                                    id="sea_service_end_date"
-                                    type="date"
-                                    className={recordFieldInputClass(isMissingRequired('end_date'))}
-                                    value={employeeForm.data.end_date}
-                                    onChange={(e) =>
-                                        employeeForm.setData('end_date', e.target.value)
-                                    }
-                                />
-                                {employeeForm.errors.end_date ? (
-                                    <p className="text-xs text-destructive">
-                                        {employeeForm.errors.end_date}
-                                    </p>
-                                ) : (
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Last day of service on board
-                                        {isFieldRequired('end_date') ? '' : ' (optional)'}
-                                    </p>
-                                )}
-                            </RecordFormField>
-                            ) : null}
-                            <div className="space-y-1.5">
-                                <Label className="text-xs">Total months</Label>
-                                <Input
-                                    type="number"
-                                    readOnly
-                                    tabIndex={-1}
-                                    className="h-10 cursor-default rounded-xl border-border/60 bg-muted/30 text-sm tabular-nums text-muted-foreground"
-                                    value={displayedDuration.months}
-                                />
-                                <p className="text-[11px] text-muted-foreground">
-                                    Calculated from service dates
-                                </p>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-xs">Total days</Label>
-                                <Input
-                                    type="number"
-                                    readOnly
-                                    tabIndex={-1}
-                                    className="h-10 cursor-default rounded-xl border-border/60 bg-muted/30 text-sm tabular-nums text-muted-foreground"
-                                    value={displayedDuration.days}
-                                />
-                                <p className="text-[11px] text-muted-foreground">
-                                    Total days in the service period (inclusive)
-                                </p>
-                            </div>
-                        </div>
-                        </>
+                        {showField('start_date') || showField('end_date') ? (
+                            <>
+                                <div className="flex items-center gap-2 pt-2">
+                                    <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+                                        Duration
+                                    </span>
+                                    <div className="h-px flex-1 bg-muted/50" />
+                                </div>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    {showField('start_date') ? (
+                                        <RecordFormField
+                                            field="start_date"
+                                            highlightMissing={isMissingRequired(
+                                                'start_date',
+                                            )}
+                                        >
+                                            <Label
+                                                htmlFor="sea_service_start_date"
+                                                className={recordFieldLabelClass(
+                                                    isMissingRequired(
+                                                        'start_date',
+                                                    ),
+                                                )}
+                                            >
+                                                Start date
+                                                <RequiredIndicator
+                                                    show={isFieldRequired(
+                                                        'start_date',
+                                                    )}
+                                                />
+                                            </Label>
+                                            <Input
+                                                id="sea_service_start_date"
+                                                type="date"
+                                                className={recordFieldInputClass(
+                                                    isMissingRequired(
+                                                        'start_date',
+                                                    ),
+                                                )}
+                                                value={
+                                                    employeeForm.data.start_date
+                                                }
+                                                onChange={(e) =>
+                                                    employeeForm.setData(
+                                                        'start_date',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                            />
+                                            {employeeForm.errors.start_date ? (
+                                                <p className="text-xs text-destructive">
+                                                    {
+                                                        employeeForm.errors
+                                                            .start_date
+                                                    }
+                                                </p>
+                                            ) : (
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    First day of service on
+                                                    board
+                                                    {isFieldRequired(
+                                                        'start_date',
+                                                    )
+                                                        ? ''
+                                                        : ' (optional)'}
+                                                </p>
+                                            )}
+                                        </RecordFormField>
+                                    ) : null}
+                                    {showField('end_date') ? (
+                                        <RecordFormField
+                                            field="end_date"
+                                            highlightMissing={isMissingRequired(
+                                                'end_date',
+                                            )}
+                                        >
+                                            <Label
+                                                htmlFor="sea_service_end_date"
+                                                className={recordFieldLabelClass(
+                                                    isMissingRequired(
+                                                        'end_date',
+                                                    ),
+                                                )}
+                                            >
+                                                End date
+                                                <RequiredIndicator
+                                                    show={isFieldRequired(
+                                                        'end_date',
+                                                    )}
+                                                />
+                                            </Label>
+                                            <Input
+                                                id="sea_service_end_date"
+                                                type="date"
+                                                className={recordFieldInputClass(
+                                                    isMissingRequired(
+                                                        'end_date',
+                                                    ),
+                                                )}
+                                                value={
+                                                    employeeForm.data.end_date
+                                                }
+                                                onChange={(e) =>
+                                                    employeeForm.setData(
+                                                        'end_date',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                            />
+                                            {employeeForm.errors.end_date ? (
+                                                <p className="text-xs text-destructive">
+                                                    {
+                                                        employeeForm.errors
+                                                            .end_date
+                                                    }
+                                                </p>
+                                            ) : (
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    Last day of service on board
+                                                    {isFieldRequired('end_date')
+                                                        ? ''
+                                                        : ' (optional)'}
+                                                </p>
+                                            )}
+                                        </RecordFormField>
+                                    ) : null}
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs">
+                                            Total months
+                                        </Label>
+                                        <Input
+                                            type="number"
+                                            readOnly
+                                            tabIndex={-1}
+                                            className="h-10 cursor-default rounded-xl border-border/60 bg-muted/30 text-sm text-muted-foreground tabular-nums"
+                                            value={displayedDuration.months}
+                                        />
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Calculated from service dates
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs">
+                                            Total days
+                                        </Label>
+                                        <Input
+                                            type="number"
+                                            readOnly
+                                            tabIndex={-1}
+                                            className="h-10 cursor-default rounded-xl border-border/60 bg-muted/30 text-sm text-muted-foreground tabular-nums"
+                                            value={displayedDuration.days}
+                                        />
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Total days in the service period
+                                            (inclusive)
+                                        </p>
+                                    </div>
+                                </div>
+                            </>
                         ) : null}
 
                         {showField('is_offshore') ? (
-                        <>
-                        <div className="flex items-center gap-2 pt-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Settings</span>
-                            <div className="h-px flex-1 bg-muted/50" />
-                        </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            {showField('is_offshore') ? (
-                            <RecordFormField field="is_offshore" highlightMissing={isMissingRequired('is_offshore')} className="sm:col-span-2">
-                                <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
-                                    <label className="flex items-center gap-3 text-sm text-foreground">
-                                        <Checkbox
-                                            checked={employeeForm.data.is_offshore}
-                                            onCheckedChange={(v) => employeeForm.setData('is_offshore', v === true)}
-                                        />
-                                        <div>
-                                            <div className="font-medium">
-                                                Offshore experience
-                                                <RequiredIndicator show={isFieldRequired('is_offshore')} />
-                                            </div>
-                                            <div className="mt-0.5 text-[11px] text-muted-foreground">Mark if this sea service was completed offshore</div>
-                                        </div>
-                                    </label>
+                            <>
+                                <div className="flex items-center gap-2 pt-2">
+                                    <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+                                        Settings
+                                    </span>
+                                    <div className="h-px flex-1 bg-muted/50" />
                                 </div>
-                            </RecordFormField>
-                            ) : null}
-                        </div>
-                        </>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    {showField('is_offshore') ? (
+                                        <RecordFormField
+                                            field="is_offshore"
+                                            highlightMissing={isMissingRequired(
+                                                'is_offshore',
+                                            )}
+                                            className="sm:col-span-2"
+                                        >
+                                            <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                                                <label className="flex items-center gap-3 text-sm text-foreground">
+                                                    <Checkbox
+                                                        checked={
+                                                            employeeForm.data
+                                                                .is_offshore
+                                                        }
+                                                        onCheckedChange={(v) =>
+                                                            employeeForm.setData(
+                                                                'is_offshore',
+                                                                v === true,
+                                                            )
+                                                        }
+                                                    />
+                                                    <div>
+                                                        <div className="font-medium">
+                                                            Offshore experience
+                                                            <RequiredIndicator
+                                                                show={isFieldRequired(
+                                                                    'is_offshore',
+                                                                )}
+                                                            />
+                                                        </div>
+                                                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                                                            Mark if this sea
+                                                            service was
+                                                            completed offshore
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </RecordFormField>
+                                    ) : null}
+                                </div>
+                            </>
                         ) : null}
                     </div>
                     <DialogFooter className="border-t border-border/60 pt-4">
@@ -988,15 +1307,23 @@ export function EmployeeSeaServiceTab({
                                 let resolvedEmployeeId: number;
 
                                 try {
-                                    resolvedEmployeeId = await resolveEmployeeIdForSave(
-                                        employeeId,
-                                        ensureEmployee,
-                                    );
+                                    resolvedEmployeeId =
+                                        await resolveEmployeeIdForSave(
+                                            employeeId,
+                                            ensureEmployee,
+                                        );
                                 } catch {
                                     return;
                                 }
 
-                                if (!validateRequired(employeeForm.data as Record<string, unknown>)) {
+                                if (
+                                    !validateRequired(
+                                        employeeForm.data as Record<
+                                            string,
+                                            unknown
+                                        >,
+                                    )
+                                ) {
                                     return;
                                 }
 
@@ -1023,7 +1350,9 @@ export function EmployeeSeaServiceTab({
                                         setEditingRow(null);
                                         clearMissingRequired();
                                     },
-                                    onError: (errors: Record<string, string>) => {
+                                    onError: (
+                                        errors: Record<string, string>,
+                                    ) => {
                                         Object.entries(errors).forEach(
                                             ([key, message]) => {
                                                 employeeForm.setError(
@@ -1055,7 +1384,10 @@ export function EmployeeSeaServiceTab({
                 description={`${selectedSeaServiceCount} selected ${selectedSeaServiceCount === 1 ? 'record' : 'records'} will be permanently removed.`}
                 confirmText={isBulkDeleting ? 'Removing…' : 'Remove'}
                 onConfirm={() => {
-                    if (selectedSeaServiceIds.length === 0 || employeeId === null) {
+                    if (
+                        selectedSeaServiceIds.length === 0 ||
+                        employeeId === null
+                    ) {
                         return;
                     }
 

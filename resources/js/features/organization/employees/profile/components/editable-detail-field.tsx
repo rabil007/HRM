@@ -42,7 +42,7 @@ export function EditableDetailField({
         >
             <div
                 className={cn(
-                    'mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground',
+                    'mb-1.5 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase',
                     highlightMissing && employeeFieldMissingLabelClass,
                 )}
             >
@@ -52,7 +52,9 @@ export function EditableDetailField({
                 <div>
                     {editControl}
                     {highlightMissing ? (
-                        <div className="mt-1 text-xs text-rose-400">Required</div>
+                        <div className="mt-1 text-xs text-rose-400">
+                            Required
+                        </div>
                     ) : null}
                 </div>
             ) : (

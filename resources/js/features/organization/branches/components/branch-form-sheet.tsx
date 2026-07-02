@@ -35,35 +35,41 @@ export function BranchFormSheet({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="right"
-                className="w-full sm:max-w-md p-0 flex flex-col glass-card rounded-none"
+                className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-md"
             >
-                <SheetHeader className="p-8 pb-6 border-b border-border/60">
+                <SheetHeader className="border-b border-border/60 p-8 pb-6">
                     <SheetTitle className="text-xl font-bold tracking-tight">
                         {branch ? 'Edit Branch' : 'New Branch'}
                     </SheetTitle>
-                    <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
-                        {branch ? 'Update branch details.' : 'Add a new branch to a company.'}
+                    <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
+                        {branch
+                            ? 'Update branch details.'
+                            : 'Add a new branch to a company.'}
                     </SheetDescription>
                 </SheetHeader>
 
-                <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                <div className="flex-1 space-y-8 overflow-y-auto p-8">
                     <div className="space-y-5">
                         <div className="space-y-2">
                             <Label
                                 htmlFor="name"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Branch Name
                             </Label>
                             <Input
                                 id="name"
                                 placeholder="Main Office"
-                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                 value={form.data.name}
-                                onChange={(e) => form.setData('name', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('name', e.target.value)
+                                }
                             />
                             {form.errors.name ? (
-                                <div className="text-xs font-medium text-destructive">{form.errors.name}</div>
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.name}
+                                </div>
                             ) : null}
                         </div>
 
@@ -71,61 +77,80 @@ export function BranchFormSheet({
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="code"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Code
                                 </Label>
                                 <Input
                                     id="code"
                                     placeholder="DXB-HQ"
-                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                     value={form.data.code}
-                                    onChange={(e) => form.setData('code', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData('code', e.target.value)
+                                    }
                                 />
                                 {form.errors.code ? (
-                                    <div className="text-xs font-medium text-destructive">{form.errors.code}</div>
+                                    <div className="text-xs font-medium text-destructive">
+                                        {form.errors.code}
+                                    </div>
                                 ) : null}
                             </div>
 
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="status"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Status
                                 </Label>
                                 <AppSelect
                                     value={form.data.status}
-                                    onValueChange={(v) => form.setData('status', v as 'active' | 'inactive')}
+                                    onValueChange={(v) =>
+                                        form.setData(
+                                            'status',
+                                            v as 'active' | 'inactive',
+                                        )
+                                    }
                                     variant="card"
                                 >
-                                    <AppSelectItem value="active">Active</AppSelectItem>
-                                    <AppSelectItem value="inactive">Inactive</AppSelectItem>
+                                    <AppSelectItem value="active">
+                                        Active
+                                    </AppSelectItem>
+                                    <AppSelectItem value="inactive">
+                                        Inactive
+                                    </AppSelectItem>
                                 </AppSelect>
                                 {form.errors.status ? (
-                                    <div className="text-xs font-medium text-destructive">{form.errors.status}</div>
+                                    <div className="text-xs font-medium text-destructive">
+                                        {form.errors.status}
+                                    </div>
                                 ) : null}
                             </div>
                         </div>
                     </div>
 
-                    <div className="pt-4 space-y-5 border-t border-border/60">
+                    <div className="space-y-5 border-t border-border/60 pt-4">
                         <div className="space-y-2">
                             <Label
                                 htmlFor="address"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Address
                             </Label>
                             <Input
                                 id="address"
                                 placeholder="Building 1, Street 2"
-                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                 value={form.data.address}
-                                onChange={(e) => form.setData('address', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('address', e.target.value)
+                                }
                             />
                             {form.errors.address ? (
-                                <div className="text-xs font-medium text-destructive">{form.errors.address}</div>
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.address}
+                                </div>
                             ) : null}
                         </div>
 
@@ -133,44 +158,57 @@ export function BranchFormSheet({
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="city"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     City
                                 </Label>
                                 <Input
                                     id="city"
                                     placeholder="Dubai"
-                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                     value={form.data.city}
-                                    onChange={(e) => form.setData('city', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData('city', e.target.value)
+                                    }
                                 />
                                 {form.errors.city ? (
-                                    <div className="text-xs font-medium text-destructive">{form.errors.city}</div>
+                                    <div className="text-xs font-medium text-destructive">
+                                        {form.errors.city}
+                                    </div>
                                 ) : null}
                             </div>
 
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="country"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Country
                                 </Label>
                                 <AppSelect
                                     value={form.data.country}
-                                    onValueChange={(v) => form.setData('country', v)}
+                                    onValueChange={(v) =>
+                                        form.setData('country', v)
+                                    }
                                     variant="card"
                                     placeholder="Select country"
                                 >
-                                    <AppSelectItem value="">Select country</AppSelectItem>
+                                    <AppSelectItem value="">
+                                        Select country
+                                    </AppSelectItem>
                                     {countries.map((country) => (
-                                        <AppSelectItem key={country.code} value={country.code}>
+                                        <AppSelectItem
+                                            key={country.code}
+                                            value={country.code}
+                                        >
                                             {country.code} {country.name}
                                         </AppSelectItem>
                                     ))}
                                 </AppSelect>
                                 {form.errors.country ? (
-                                    <div className="text-xs font-medium text-destructive">{form.errors.country}</div>
+                                    <div className="text-xs font-medium text-destructive">
+                                        {form.errors.country}
+                                    </div>
                                 ) : null}
                             </div>
                         </div>
@@ -179,33 +217,42 @@ export function BranchFormSheet({
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="phone"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Phone
                                 </Label>
                                 <div className="relative">
                                     {dialCode ? (
                                         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                            <span className="text-sm text-muted-foreground/80">{dialCode}</span>
+                                            <span className="text-sm text-muted-foreground/80">
+                                                {dialCode}
+                                            </span>
                                         </div>
                                     ) : null}
                                     <Input
                                         id="phone"
                                         placeholder="Phone number"
-                                        className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all pl-14"
+                                        className="h-11 rounded-xl border-border bg-card pl-14 transition-all focus-visible:ring-primary/40"
                                         value={form.data.phone}
-                                        onChange={(e) => form.setData('phone', e.target.value)}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'phone',
+                                                e.target.value,
+                                            )
+                                        }
                                     />
                                 </div>
                                 {form.errors.phone ? (
-                                    <div className="text-xs font-medium text-destructive">{form.errors.phone}</div>
+                                    <div className="text-xs font-medium text-destructive">
+                                        {form.errors.phone}
+                                    </div>
                                 ) : null}
                             </div>
 
                             <div className="space-y-2">
                                 <Label
                                     htmlFor="email"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
                                     Email
                                 </Label>
@@ -213,41 +260,49 @@ export function BranchFormSheet({
                                     id="email"
                                     type="email"
                                     placeholder="branch@company.com"
-                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                                     value={form.data.email}
-                                    onChange={(e) => form.setData('email', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData('email', e.target.value)
+                                    }
                                 />
                                 {form.errors.email ? (
-                                    <div className="text-xs font-medium text-destructive">{form.errors.email}</div>
+                                    <div className="text-xs font-medium text-destructive">
+                                        {form.errors.email}
+                                    </div>
                                 ) : null}
                             </div>
                         </div>
 
                         <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
                             <div className="min-w-0">
-                                <div className="text-sm font-semibold text-foreground">Headquarters</div>
-                                <div className="text-xs text-muted-foreground/80 truncate">
+                                <div className="text-sm font-semibold text-foreground">
+                                    Headquarters
+                                </div>
+                                <div className="truncate text-xs text-muted-foreground/80">
                                     Mark this branch as the main office.
                                 </div>
                             </div>
                             <Switch
                                 checked={form.data.is_headquarters}
-                                onCheckedChange={(checked) => form.setData('is_headquarters', checked)}
+                                onCheckedChange={(checked) =>
+                                    form.setData('is_headquarters', checked)
+                                }
                             />
                         </div>
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-border/60 bg-background/40 flex gap-3">
+                <div className="flex gap-3 border-t border-border/60 bg-background/40 p-6">
                     <Button
                         variant="ghost"
                         onClick={() => onOpenChange(false)}
-                        className="rounded-xl h-11 px-6 text-muted-foreground flex-1"
+                        className="h-11 flex-1 rounded-xl px-6 text-muted-foreground"
                     >
                         Cancel
                     </Button>
                     <Button
-                        className="rounded-xl h-11 px-8 flex-1 font-semibold"
+                        className="h-11 flex-1 rounded-xl px-8 font-semibold"
                         disabled={form.processing}
                         onClick={onSubmit}
                     >
@@ -258,4 +313,3 @@ export function BranchFormSheet({
         </Sheet>
     );
 }
-

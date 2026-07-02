@@ -14,7 +14,9 @@ export function resolveApplicationAppName(): string {
     }
 
     if (typeof document !== 'undefined') {
-        const fromMeta = document.querySelector('meta[name="app-name"]')?.getAttribute('content');
+        const fromMeta = document
+            .querySelector('meta[name="app-name"]')
+            ?.getAttribute('content');
 
         if (fromMeta?.trim()) {
             return fromMeta.trim();
@@ -45,7 +47,7 @@ export function seedApplicationAppNameFromDom(): void {
 
     const pageJson = document.getElementById('app')?.dataset?.page;
 
-    if (! pageJson) {
+    if (!pageJson) {
         return;
     }
 

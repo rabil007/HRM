@@ -13,12 +13,14 @@ import { cn } from '@/lib/utils';
 const SETTINGS_GROUPS = [
     {
         title: 'System',
-        description: 'Application branding, email, WhatsApp, security, and appearance.',
+        description:
+            'Application branding, email, WhatsApp, security, and appearance.',
         items: SETTINGS_SYSTEM_ITEMS,
     },
     {
         title: 'Master data',
-        description: 'Reference data used across employees, payroll, and compliance.',
+        description:
+            'Reference data used across employees, payroll, and compliance.',
         items: SETTINGS_MASTER_DATA_ITEMS,
     },
 ];
@@ -48,7 +50,8 @@ export default function SettingsIndex() {
                 />
 
                 <p className="text-sm text-muted-foreground">
-                    {moduleCount} {moduleCount === 1 ? 'module' : 'modules'} available
+                    {moduleCount} {moduleCount === 1 ? 'module' : 'modules'}{' '}
+                    available
                 </p>
 
                 {visibleGroups.map((group) => (
@@ -101,7 +104,8 @@ function SettingsNavCard({ item }: { item: SettingsNavItem }) {
                         {item.title}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                        Manage {item.title.toLowerCase()} standards and validations.
+                        Manage {item.title.toLowerCase()} standards and
+                        validations.
                     </p>
                 </div>
             </Card>

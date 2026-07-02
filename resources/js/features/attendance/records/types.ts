@@ -67,13 +67,17 @@ export const defaultAttendanceRecordFormData = (
     notes: '',
 });
 
-export const attendanceRecordToFormData = (record: AttendanceRecord): AttendanceRecordFormData => ({
+export const attendanceRecordToFormData = (
+    record: AttendanceRecord,
+): AttendanceRecordFormData => ({
     employee_id: record.employee ? String(record.employee.id) : '',
     date: record.date,
     clock_in: record.clock_in ? record.clock_in.slice(0, 16) : '',
     clock_out: record.clock_out ? record.clock_out.slice(0, 16) : '',
-    hours_worked: record.hours_worked !== null ? String(record.hours_worked) : '',
-    overtime_hours: record.overtime_hours !== null ? String(record.overtime_hours) : '0',
+    hours_worked:
+        record.hours_worked !== null ? String(record.hours_worked) : '',
+    overtime_hours:
+        record.overtime_hours !== null ? String(record.overtime_hours) : '0',
     late_minutes: String(record.late_minutes ?? 0),
     status: record.status,
     notes: record.notes ?? '',

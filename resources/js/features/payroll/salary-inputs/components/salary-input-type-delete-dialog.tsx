@@ -25,7 +25,9 @@ export function SalaryInputTypeDeleteDialog({
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Delete salary input type?</AlertDialogTitle>
+                    <AlertDialogTitle>
+                        Delete salary input type?
+                    </AlertDialogTitle>
                     <AlertDialogDescription>
                         {salaryInputType
                             ? `"${salaryInputType.name}" will be removed. Types used in pay runs cannot be deleted.`
@@ -34,7 +36,9 @@ export function SalaryInputTypeDeleteDialog({
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={onConfirm}>Delete</AlertDialogAction>
+                    <AlertDialogAction onClick={onConfirm}>
+                        Delete
+                    </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

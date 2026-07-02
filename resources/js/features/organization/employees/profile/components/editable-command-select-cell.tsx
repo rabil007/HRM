@@ -10,7 +10,10 @@ import {
 import { CommandCreateRow } from '@/components/ui/command-create-row';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { filterCreatableOptions } from '@/lib/filter-creatable-options';
-import type { CreatableMasterDataContext, CreatableMasterDataKey } from '@/lib/master-data/creatable-registry';
+import type {
+    CreatableMasterDataContext,
+    CreatableMasterDataKey,
+} from '@/lib/master-data/creatable-registry';
 import { cn } from '@/lib/utils';
 import { employeeFieldMissingHighlightClass } from '@/pages/organization/_lib/employee-required-field-labels';
 
@@ -80,7 +83,12 @@ export function EditableCommandSelectCell({
     const isSearching = searchQuery.trim() !== '';
 
     const showCreateRow = useMemo(
-        () => creatable && canCreate && Boolean(createConfig) && isSearching && filteredItems.length === 0,
+        () =>
+            creatable &&
+            canCreate &&
+            Boolean(createConfig) &&
+            isSearching &&
+            filteredItems.length === 0,
         [canCreate, creatable, createConfig, filteredItems.length, isSearching],
     );
 
@@ -106,7 +114,9 @@ export function EditableCommandSelectCell({
                 value: String(created.id),
             };
 
-            const nextItems = localItems.some((item) => item.value === nextItem.value)
+            const nextItems = localItems.some(
+                (item) => item.value === nextItem.value,
+            )
                 ? localItems
                 : [...localItems, nextItem];
 
@@ -116,7 +126,11 @@ export function EditableCommandSelectCell({
             setSearchQuery('');
             setActiveField(null);
         } catch (error) {
-            setCreateError(error instanceof Error ? error.message : 'Could not create this option.');
+            setCreateError(
+                error instanceof Error
+                    ? error.message
+                    : 'Could not create this option.',
+            );
         } finally {
             setIsCreating(false);
         }
@@ -132,7 +146,7 @@ export function EditableCommandSelectCell({
         >
             <div
                 className={cn(
-                    'text-[10px] font-semibold uppercase tracking-wider text-muted-foreground',
+                    'text-[10px] font-semibold tracking-wider text-muted-foreground uppercase',
                     highlightMissing && 'text-rose-400',
                 )}
             >
@@ -166,7 +180,9 @@ export function EditableCommandSelectCell({
                     onValueChange={setSearchQuery}
                 />
                 <CommandList>
-                    {!showCreateRow && filteredItems.length === 0 && isSearching ? (
+                    {!showCreateRow &&
+                    filteredItems.length === 0 &&
+                    isSearching ? (
                         <CommandEmpty>No results found.</CommandEmpty>
                     ) : null}
                     {!isSearching ? (

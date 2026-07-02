@@ -11,7 +11,11 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
-import type { RankOption, VesselManningFormData, VesselManningItem } from '../types';
+import type {
+    RankOption,
+    VesselManningFormData,
+    VesselManningItem,
+} from '../types';
 
 function emptyRequirementRow(): VesselManningFormData['requirements'][number] {
     return {
@@ -37,7 +41,9 @@ export function VesselManningFormSheet({
 }) {
     const requirements = form.data.requirements;
 
-    const setRequirements = (next: VesselManningFormData['requirements']): void => {
+    const setRequirements = (
+        next: VesselManningFormData['requirements'],
+    ): void => {
         form.setData('requirements', next);
     };
 
@@ -46,7 +52,9 @@ export function VesselManningFormSheet({
     };
 
     const removeRow = (index: number): void => {
-        setRequirements(requirements.filter((_, rowIndex) => rowIndex !== index));
+        setRequirements(
+            requirements.filter((_, rowIndex) => rowIndex !== index),
+        );
     };
 
     const updateRow = (
@@ -62,14 +70,16 @@ export function VesselManningFormSheet({
     };
 
     const usedRankIds = new Set(
-        requirements.map((row) => row.rank_id).filter((rankId) => rankId !== ''),
+        requirements
+            .map((row) => row.rank_id)
+            .filter((rankId) => rankId !== ''),
     );
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="right"
-                className="flex w-full flex-col p-0 sm:max-w-lg glass-card rounded-none"
+                className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-lg"
             >
                 <SheetHeader className="border-b border-border/60 p-8 pb-6">
                     <SheetTitle className="text-xl font-bold tracking-tight">
@@ -85,10 +95,12 @@ export function VesselManningFormSheet({
                 <div className="flex-1 space-y-6 overflow-y-auto p-8">
                     {vessel ? (
                         <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
-                            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                            <div className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                 Vessel
                             </div>
-                            <div className="mt-1 text-base font-semibold">{vessel.name}</div>
+                            <div className="mt-1 text-base font-semibold">
+                                {vessel.name}
+                            </div>
                             {vessel.vessel_type_name ? (
                                 <div className="mt-1 text-sm text-muted-foreground">
                                     {vessel.vessel_type_name}
@@ -99,7 +111,7 @@ export function VesselManningFormSheet({
 
                     <div className="space-y-4">
                         <div className="flex items-center justify-between gap-3">
-                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                            <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                 Rank requirements
                             </Label>
                             <Button
@@ -107,7 +119,7 @@ export function VesselManningFormSheet({
                                 variant="outline"
                                 size="sm"
                                 onClick={addRow}
-                                className="border-primary/25 bg-primary/5 text-primary hover:bg-primary/10 transition-colors rounded-xl"
+                                className="rounded-xl border-primary/25 bg-primary/5 text-primary transition-colors hover:bg-primary/10"
                             >
                                 <Plus className="mr-1.5 h-4 w-4" />
                                 Add rank
@@ -116,18 +128,20 @@ export function VesselManningFormSheet({
 
                         {requirements.length === 0 ? (
                             <div className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-                                No ranks configured yet. Add a rank to define this vessel&apos;s
-                                manning.
+                                No ranks configured yet. Add a rank to define
+                                this vessel&apos;s manning.
                             </div>
                         ) : (
                             <div className="space-y-3">
                                 {requirements.map((row, index) => {
-                                    const rankError = form.errors[
-                                        `requirements.${index}.rank_id` as keyof typeof form.errors
-                                    ];
-                                    const countError = form.errors[
-                                        `requirements.${index}.required_count` as keyof typeof form.errors
-                                    ];
+                                    const rankError =
+                                        form.errors[
+                                            `requirements.${index}.rank_id` as keyof typeof form.errors
+                                        ];
+                                    const countError =
+                                        form.errors[
+                                            `requirements.${index}.required_count` as keyof typeof form.errors
+                                        ];
 
                                     return (
                                         <div
@@ -135,13 +149,17 @@ export function VesselManningFormSheet({
                                             className="grid grid-cols-[1fr_120px_auto] items-start gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 transition-all duration-200 hover:border-border/80 hover:bg-muted/30"
                                         >
                                             <div className="space-y-2">
-                                                <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                                <Label className="text-[11px] font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                                     Rank
                                                 </Label>
                                                 <AppSelect
                                                     value={row.rank_id}
                                                     onValueChange={(value) =>
-                                                        updateRow(index, 'rank_id', value)
+                                                        updateRow(
+                                                            index,
+                                                            'rank_id',
+                                                            value,
+                                                        )
                                                     }
                                                     placeholder="Select rank"
                                                     variant="card"
@@ -149,10 +167,19 @@ export function VesselManningFormSheet({
                                                     {ranks.map((rank) => (
                                                         <AppSelectItem
                                                             key={rank.id}
-                                                            value={String(rank.id)}
+                                                            value={String(
+                                                                rank.id,
+                                                            )}
                                                             disabled={
-                                                                usedRankIds.has(String(rank.id)) &&
-                                                                row.rank_id !== String(rank.id)
+                                                                usedRankIds.has(
+                                                                    String(
+                                                                        rank.id,
+                                                                    ),
+                                                                ) &&
+                                                                row.rank_id !==
+                                                                    String(
+                                                                        rank.id,
+                                                                    )
                                                             }
                                                         >
                                                             {rank.name}
@@ -167,7 +194,7 @@ export function VesselManningFormSheet({
                                             </div>
 
                                             <div className="space-y-2">
-                                                <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                                <Label className="text-[11px] font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                                     Required
                                                 </Label>
                                                 <Input
@@ -195,7 +222,7 @@ export function VesselManningFormSheet({
                                                 type="button"
                                                 variant="ghost"
                                                 size="icon"
-                                                className="mt-7 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors duration-200 rounded-lg"
+                                                className="mt-7 shrink-0 rounded-lg text-muted-foreground transition-colors duration-200 hover:bg-destructive/10 hover:text-destructive"
                                                 aria-label="Remove rank row"
                                                 onClick={() => removeRow(index)}
                                             >
@@ -216,10 +243,18 @@ export function VesselManningFormSheet({
                 </div>
 
                 <div className="flex items-center justify-end gap-3 border-t border-border/60 p-8">
-                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                    >
                         Cancel
                     </Button>
-                    <Button type="button" disabled={form.processing} onClick={onSubmit}>
+                    <Button
+                        type="button"
+                        disabled={form.processing}
+                        onClick={onSubmit}
+                    >
                         Save manning
                     </Button>
                 </div>

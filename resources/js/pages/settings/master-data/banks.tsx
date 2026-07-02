@@ -15,7 +15,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 
@@ -34,7 +40,13 @@ type CountryOption = {
     code: string;
 };
 
-export default function Banks({ banks, countries }: { banks: Bank[]; countries: CountryOption[] }) {
+export default function Banks({
+    banks,
+    countries,
+}: {
+    banks: Bank[];
+    countries: CountryOption[];
+}) {
     const can = useSettingsMasterDataCan('banks');
 
     const [query, setQuery] = useState('');
@@ -94,7 +106,8 @@ export default function Banks({ banks, countries }: { banks: Bank[]; countries: 
     const submit = () => {
         const payload = {
             name: form.data.name,
-            uae_routing_code_agent_id: form.data.uae_routing_code_agent_id || null,
+            uae_routing_code_agent_id:
+                form.data.uae_routing_code_agent_id || null,
             country_id: form.data.country_id || null,
             is_active: form.data.is_active,
         };
@@ -153,45 +166,88 @@ export default function Banks({ banks, countries }: { banks: Bank[]; countries: 
             <Head title="Banks" />
 
             <div className="space-y-6">
-                <Heading variant="small" title="Banks" description="Manage banks and routing identifiers used across the system." />
+                <Heading
+                    variant="small"
+                    title="Banks"
+                    description="Manage banks and routing identifiers used across the system."
+                />
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
-                        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search banks..." />
+                        <Input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Search banks..."
+                        />
                     </div>
-                    {can.create ? <Button onClick={openCreate}>Add bank</Button> : null}
+                    {can.create ? (
+                        <Button onClick={openCreate}>Add bank</Button>
+                    ) : null}
                 </div>
 
-                <div className="rounded-xl border border-border/60 overflow-hidden">
+                <div className="overflow-hidden rounded-xl border border-border/60">
                     <div className="overflow-x-auto">
                         <div className="min-w-[980px]">
-                            <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30 whitespace-nowrap">
+                            <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
                                 <div className="col-span-4">Name</div>
                                 <div className="col-span-2">Routing</div>
                                 <div className="col-span-4">Country</div>
                                 <div className="col-span-1">Active</div>
-                                <div className="col-span-1 text-right">Actions</div>
+                                <div className="col-span-1 text-right">
+                                    Actions
+                                </div>
                             </div>
 
                             {rows.map((b) => (
-                                <div key={b.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-t border-border/60 whitespace-nowrap">
-                                    <div className="col-span-4 text-sm truncate">{b.name}</div>
-                                    <div className="col-span-2 font-mono text-sm text-muted-foreground">{b.uae_routing_code_agent_id ?? '—'}</div>
-                                    <div className="col-span-4 text-sm text-muted-foreground truncate">{b.country?.name ?? '—'}</div>
+                                <div
+                                    key={b.id}
+                                    className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
+                                >
+                                    <div className="col-span-4 truncate text-sm">
+                                        {b.name}
+                                    </div>
+                                    <div className="col-span-2 font-mono text-sm text-muted-foreground">
+                                        {b.uae_routing_code_agent_id ?? '—'}
+                                    </div>
+                                    <div className="col-span-4 truncate text-sm text-muted-foreground">
+                                        {b.country?.name ?? '—'}
+                                    </div>
                                     <div className="col-span-1 flex items-center">
-                                        <Switch disabled={!can.update} checked={b.is_active} onCheckedChange={() => toggleActive(b)} />
+                                        <Switch
+                                            disabled={!can.update}
+                                            checked={b.is_active}
+                                            onCheckedChange={() =>
+                                                toggleActive(b)
+                                            }
+                                        />
                                     </div>
                                     <div className="col-span-1 flex justify-end gap-2">
-                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
-                                        {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(b)}>
-                                            Delete
-                                        </Button> : null}
+                                        {can.update ? (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => openEdit(b)}
+                                            >
+                                                Edit
+                                            </Button>
+                                        ) : null}
+                                        {can.delete ? (
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => requestDelete(b)}
+                                            >
+                                                Delete
+                                            </Button>
+                                        ) : null}
                                     </div>
                                 </div>
                             ))}
 
                             {rows.length === 0 ? (
-                                <div className="px-4 py-10 text-sm text-muted-foreground">No banks found.</div>
+                                <div className="px-4 py-10 text-sm text-muted-foreground">
+                                    No banks found.
+                                </div>
                             ) : null}
                         </div>
                     </div>
@@ -199,74 +255,137 @@ export default function Banks({ banks, countries }: { banks: Bank[]; countries: 
             </div>
 
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-                <SheetContent side="right" className="flex w-full flex-col rounded-none p-0 glass-card sm:max-w-md">
-                    <SheetHeader className="p-8 pb-6 border-b border-border/60">
-                        <SheetTitle className="text-xl font-bold tracking-tight">{current ? 'Edit bank' : 'New bank'}</SheetTitle>
-                        <SheetDescription className="text-sm text-muted-foreground/80 mt-1">Add name and optional identifiers.</SheetDescription>
+                <SheetContent
+                    side="right"
+                    className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-md"
+                >
+                    <SheetHeader className="border-b border-border/60 p-8 pb-6">
+                        <SheetTitle className="text-xl font-bold tracking-tight">
+                            {current ? 'Edit bank' : 'New bank'}
+                        </SheetTitle>
+                        <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
+                            Add name and optional identifiers.
+                        </SheetDescription>
                     </SheetHeader>
 
-                    <div className="flex-1 overflow-y-auto p-8 space-y-5">
+                    <div className="flex-1 space-y-5 overflow-y-auto p-8">
                         <div className="space-y-2">
-                            <Label htmlFor="name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                            <Label
+                                htmlFor="name"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
                                 Name
                             </Label>
                             <Input
                                 id="name"
                                 value={form.data.name}
-                                onChange={(e) => form.setData('name', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('name', e.target.value)
+                                }
                                 placeholder="ABU DHABI ISLAMIC BK"
-                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                             />
-                            {form.errors.name ? <div className="text-xs font-medium text-destructive">{form.errors.name}</div> : null}
+                            {form.errors.name ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.name}
+                                </div>
+                            ) : null}
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="uae_routing_code_agent_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                            <Label
+                                htmlFor="uae_routing_code_agent_id"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
                                 UAE routing code / agent ID
                             </Label>
                             <Input
                                 id="uae_routing_code_agent_id"
                                 value={form.data.uae_routing_code_agent_id}
-                                onChange={(e) => form.setData('uae_routing_code_agent_id', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData(
+                                        'uae_routing_code_agent_id',
+                                        e.target.value,
+                                    )
+                                }
                                 placeholder="405010101"
-                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="country_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                            <Label
+                                htmlFor="country_id"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
                                 Country
                             </Label>
                             <AppSelect
-                                value={form.data.country_id === '' ? '' : String(form.data.country_id)}
-                                onValueChange={(v) => form.setData('country_id', v ? Number(v) : '')}
+                                value={
+                                    form.data.country_id === ''
+                                        ? ''
+                                        : String(form.data.country_id)
+                                }
+                                onValueChange={(v) =>
+                                    form.setData(
+                                        'country_id',
+                                        v ? Number(v) : '',
+                                    )
+                                }
                                 variant="dark"
                                 placeholder="—"
                             >
                                 <AppSelectItem value="">—</AppSelectItem>
                                 {countries.map((c) => (
-                                    <AppSelectItem key={c.id} value={String(c.id)}>
+                                    <AppSelectItem
+                                        key={c.id}
+                                        value={String(c.id)}
+                                    >
                                         {c.name} ({c.code})
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
-                            {form.errors.country_id ? <div className="text-xs font-medium text-destructive">{form.errors.country_id}</div> : null}
+                            {form.errors.country_id ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.country_id}
+                                </div>
+                            ) : null}
                         </div>
 
                         <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
                             <div>
-                                <div className="text-sm font-semibold text-foreground">Active</div>
-                                <div className="text-xs text-muted-foreground/80">Disable to hide from selections.</div>
+                                <div className="text-sm font-semibold text-foreground">
+                                    Active
+                                </div>
+                                <div className="text-xs text-muted-foreground/80">
+                                    Disable to hide from selections.
+                                </div>
                             </div>
-                            <Switch disabled={!can.update} checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
+                            <Switch
+                                disabled={!can.update}
+                                checked={form.data.is_active}
+                                onCheckedChange={(v) =>
+                                    form.setData('is_active', v)
+                                }
+                            />
                         </div>
                     </div>
 
                     <div className="flex gap-3 border-t border-border/60 bg-background/40 p-6">
-                        <Button type="button" variant="ghost" className="h-11 flex-1 rounded-xl px-6 text-muted-foreground" onClick={() => setSheetOpen(false)}>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-11 flex-1 rounded-xl px-6 text-muted-foreground"
+                            onClick={() => setSheetOpen(false)}
+                        >
                             Cancel
                         </Button>
-                        <Button type="button" className="h-11 flex-1 rounded-xl px-6 font-semibold" onClick={submit} disabled={form.processing}>
+                        <Button
+                            type="button"
+                            className="h-11 flex-1 rounded-xl px-6 font-semibold"
+                            onClick={submit}
+                            disabled={form.processing}
+                        >
                             {form.processing ? 'Saving…' : 'Save'}
                         </Button>
                     </div>
@@ -278,12 +397,19 @@ export default function Banks({ banks, countries }: { banks: Bank[]; countries: 
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete bank</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {current ? `This will permanently delete “${current.name}”.` : 'This will permanently delete this bank.'}
+                            {current
+                                ? `This will permanently delete “${current.name}”.`
+                                : 'This will permanently delete this bank.'}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel className="glass-card rounded-xl hover:bg-accent">Cancel</AlertDialogCancel>
-                        <AlertDialogAction className="rounded-xl" onClick={confirmDelete}>
+                        <AlertDialogCancel className="rounded-xl glass-card hover:bg-accent">
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className="rounded-xl"
+                            onClick={confirmDelete}
+                        >
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>
@@ -292,4 +418,3 @@ export default function Banks({ banks, countries }: { banks: Bank[]; countries: 
         </>
     );
 }
-

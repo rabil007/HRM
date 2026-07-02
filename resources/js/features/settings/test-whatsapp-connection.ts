@@ -3,7 +3,10 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
         return fallback;
     }
 
-    const data = payload as { message?: string; errors?: Record<string, string[]> };
+    const data = payload as {
+        message?: string;
+        errors?: Record<string, string[]>;
+    };
 
     if (data.message) {
         return data.message;
@@ -20,7 +23,10 @@ export type WhatsAppConnectionTestResult = {
 };
 
 function csrfToken(): string {
-    return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+    return (
+        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+            ?.content ?? ''
+    );
 }
 
 export async function testWhatsAppConnection(
@@ -45,11 +51,15 @@ export async function testWhatsAppConnection(
         : null;
 
     if (!response.ok) {
-        throw new Error(extractErrorMessage(data, 'WhatsApp connection test failed.'));
+        throw new Error(
+            extractErrorMessage(data, 'WhatsApp connection test failed.'),
+        );
     }
 
-    return (data as WhatsAppConnectionTestResult | null) ?? {
-        success: false,
-        message: 'WhatsApp connection test failed.',
-    };
+    return (
+        (data as WhatsAppConnectionTestResult | null) ?? {
+            success: false,
+            message: 'WhatsApp connection test failed.',
+        }
+    );
 }

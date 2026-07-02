@@ -67,13 +67,18 @@ export function EmployeeTrainingTab({
     templateFields = null,
 }: EmployeeTrainingTabProps): ReactElement {
     const { showField } = useTemplateRecordFields(templateFields, {
-        defaultRequiredFields: TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_trainings,
+        defaultRequiredFields:
+            TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_trainings,
     });
 
     const [trainingDialogOpen, setTrainingDialogOpen] = useState(false);
     const [trainingImportOpen, setTrainingImportOpen] = useState(false);
-    const [editingTraining, setEditingTraining] = useState<TrainingItem | null>(null);
-    const [deleteTrainingId, setDeleteTrainingId] = useState<number | null>(null);
+    const [editingTraining, setEditingTraining] = useState<TrainingItem | null>(
+        null,
+    );
+    const [deleteTrainingId, setDeleteTrainingId] = useState<number | null>(
+        null,
+    );
     const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
     const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
@@ -95,7 +100,11 @@ export function EmployeeTrainingTab({
 
     const trainingImport = trainingImportConfig(employeeId);
     const trainingImportUrls = useMemo(
-        () => resolveRecordImportUrls(trainingImportConfig(employeeId), employeeId),
+        () =>
+            resolveRecordImportUrls(
+                trainingImportConfig(employeeId),
+                employeeId,
+            ),
         [employeeId],
     );
     const canImportRecords = employeeId !== null && employeeId > 0;
@@ -166,7 +175,12 @@ export function EmployeeTrainingTab({
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
                             {canManage ? (
-                                <th className={cn(employeeRecordsTableThClass(), 'w-10 px-3')}>
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'w-10 px-3',
+                                    )}
+                                >
                                     <Checkbox
                                         checked={
                                             allTrainingsSelected
@@ -181,32 +195,56 @@ export function EmployeeTrainingTab({
                                 </th>
                             ) : null}
                             {showField('course_id') ? (
-                                <th className={employeeRecordsTableThClass()}>Course</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Course
+                                </th>
                             ) : null}
                             {showField('issue_date') ? (
-                                <th className={employeeRecordsTableThClass()}>Issue date</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Issue date
+                                </th>
                             ) : null}
                             {showField('expiry_date') ? (
-                                <th className={employeeRecordsTableThClass()}>Expiry date</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Expiry date
+                                </th>
                             ) : null}
                             {showField('institute_center') ? (
-                                <th className={employeeRecordsTableThClass()}>Institute/Center</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Institute/Center
+                                </th>
                             ) : null}
                             {showField(CERTIFICATE_TEMPLATE_FIELD) ? (
-                                <th className={employeeRecordsTableThClass()}>Certificate</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Certificate
+                                </th>
                             ) : null}
-                            <th className={employeeRecordsTableThClass()}>Created on</th>
-                            {canManage ? <EmployeeRecordsActionsHeader /> : null}
+                            <th className={employeeRecordsTableThClass()}>
+                                Created on
+                            </th>
+                            {canManage ? (
+                                <EmployeeRecordsActionsHeader />
+                            ) : null}
                         </tr>
                     </thead>
                     <tbody>
                         {trainings.map((row) => (
-                            <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                            <tr
+                                key={row.id}
+                                className={employeeRecordsTableRowClass()}
+                            >
                                 {canManage ? (
-                                    <td className={cn(employeeRecordsTableTdClass(), 'w-10 px-3')}>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'w-10 px-3',
+                                        )}
+                                    >
                                         <Checkbox
                                             checked={isTrainingSelected(row.id)}
-                                            onCheckedChange={() => toggleTraining(row.id)}
+                                            onCheckedChange={() =>
+                                                toggleTraining(row.id)
+                                            }
                                             aria-label={`Select training record ${row.course_name ?? row.id}`}
                                         />
                                     </td>
@@ -226,7 +264,7 @@ export function EmployeeTrainingTab({
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
-                                            'whitespace-nowrap text-xs text-muted-foreground',
+                                            'text-xs whitespace-nowrap text-muted-foreground',
                                         )}
                                     >
                                         {formatIsoDateDisplay(row.issue_date)}
@@ -236,7 +274,7 @@ export function EmployeeTrainingTab({
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
-                                            'whitespace-nowrap text-xs text-muted-foreground',
+                                            'text-xs whitespace-nowrap text-muted-foreground',
                                         )}
                                     >
                                         {formatIsoDateDisplay(row.expiry_date)}
@@ -254,7 +292,9 @@ export function EmployeeTrainingTab({
                                     </td>
                                 ) : null}
                                 {showField(CERTIFICATE_TEMPLATE_FIELD) ? (
-                                    <td className={employeeRecordsTableTdClass()}>
+                                    <td
+                                        className={employeeRecordsTableTdClass()}
+                                    >
                                         {row.certificate_url ? (
                                             <Button
                                                 variant="outline"
@@ -271,24 +311,35 @@ export function EmployeeTrainingTab({
                                                 </a>
                                             </Button>
                                         ) : (
-                                            <span className="text-xs text-muted-foreground">—</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                —
+                                            </span>
                                         )}
                                     </td>
                                 ) : null}
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'whitespace-nowrap text-xs text-muted-foreground',
+                                        'text-xs whitespace-nowrap text-muted-foreground',
                                     )}
                                 >
                                     {formatDisplayDate(row.created_at)}
                                 </td>
                                 {canManage ? (
-                                    <td className={cn(employeeRecordsTableTdClass(), 'text-right')}>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'text-right',
+                                        )}
+                                    >
                                         <div className="flex items-center justify-end gap-2">
                                             <EmployeeRecordRowActions
-                                                onEdit={() => openEditDialog(row)}
-                                                onDelete={() => setDeleteTrainingId(row.id)}
+                                                onEdit={() =>
+                                                    openEditDialog(row)
+                                                }
+                                                onDelete={() =>
+                                                    setDeleteTrainingId(row.id)
+                                                }
                                             />
                                         </div>
                                     </td>
@@ -324,7 +375,10 @@ export function EmployeeTrainingTab({
                 description={`${selectedTrainingCount} selected ${selectedTrainingCount === 1 ? 'record' : 'records'} will be permanently removed.`}
                 confirmText={isBulkDeleting ? 'Removing…' : 'Remove'}
                 onConfirm={() => {
-                    if (selectedTrainingIds.length === 0 || employeeId === null) {
+                    if (
+                        selectedTrainingIds.length === 0 ||
+                        employeeId === null
+                    ) {
                         return;
                     }
 

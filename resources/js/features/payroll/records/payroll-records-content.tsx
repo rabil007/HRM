@@ -19,7 +19,12 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -74,64 +79,100 @@ export function PayrollRecordsContent({
             <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <button
                     type="button"
-                    onClick={() => list.applyFilters({ status: null, page: null })}
-                    className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
+                    onClick={() =>
+                        list.applyFilters({ status: null, page: null })
+                    }
+                    className="rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
                 >
-                    <Card className={cn(
-                        "glass-card transition-all duration-200 border-border hover:border-border dark:border-white/5 dark:hover:border-white/10",
-                        !initialFilters.status && "border-primary/30 ring-1 ring-primary/10 dark:border-white/20 dark:ring-white/10"
-                    )}>
+                    <Card
+                        className={cn(
+                            'glass-card border-border transition-all duration-200 hover:border-border dark:border-white/5 dark:hover:border-white/10',
+                            !initialFilters.status &&
+                                'border-primary/30 ring-1 ring-primary/10 dark:border-white/20 dark:ring-white/10',
+                        )}
+                    >
                         <CardContent className="p-4">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">Total Records</p>
-                            <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{counts.all}</p>
+                            <p className="text-[11px] font-semibold tracking-wide text-muted-foreground/80 uppercase">
+                                Total Records
+                            </p>
+                            <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">
+                                {counts.all}
+                            </p>
                         </CardContent>
                     </Card>
                 </button>
 
                 <button
                     type="button"
-                    onClick={() => list.applyFilters({ status: 'draft', page: null })}
-                    className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
+                    onClick={() =>
+                        list.applyFilters({ status: 'draft', page: null })
+                    }
+                    className="rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
                 >
-                    <Card className={cn(
-                        "glass-card transition-all duration-200 border-orange-500/20 bg-orange-500/[0.06] hover:border-orange-500/35",
-                        initialFilters.status === 'draft' && "border-orange-500/45 ring-1 ring-orange-500/30"
-                    )}>
+                    <Card
+                        className={cn(
+                            'glass-card border-orange-500/20 bg-orange-500/[0.06] transition-all duration-200 hover:border-orange-500/35',
+                            initialFilters.status === 'draft' &&
+                                'border-orange-500/45 ring-1 ring-orange-500/30',
+                        )}
+                    >
                         <CardContent className="p-4">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">Draft</p>
-                            <p className="mt-1 text-2xl font-bold tabular-nums text-orange-400">{counts.draft}</p>
+                            <p className="text-[11px] font-semibold tracking-wide text-muted-foreground/80 uppercase">
+                                Draft
+                            </p>
+                            <p className="mt-1 text-2xl font-bold text-orange-400 tabular-nums">
+                                {counts.draft}
+                            </p>
                         </CardContent>
                     </Card>
                 </button>
 
                 <button
                     type="button"
-                    onClick={() => list.applyFilters({ status: 'approved', page: null })}
-                    className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
+                    onClick={() =>
+                        list.applyFilters({ status: 'approved', page: null })
+                    }
+                    className="rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
                 >
-                    <Card className={cn(
-                        "glass-card transition-all duration-200 border-sky-500/15 bg-sky-500/[0.04] hover:border-sky-500/30",
-                        initialFilters.status === 'approved' && "border-sky-500/40 ring-1 ring-sky-500/25"
-                    )}>
+                    <Card
+                        className={cn(
+                            'glass-card border-sky-500/15 bg-sky-500/[0.04] transition-all duration-200 hover:border-sky-500/30',
+                            initialFilters.status === 'approved' &&
+                                'border-sky-500/40 ring-1 ring-sky-500/25',
+                        )}
+                    >
                         <CardContent className="p-4">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">Approved</p>
-                            <p className="mt-1 text-2xl font-bold tabular-nums text-sky-400">{counts.approved}</p>
+                            <p className="text-[11px] font-semibold tracking-wide text-muted-foreground/80 uppercase">
+                                Approved
+                            </p>
+                            <p className="mt-1 text-2xl font-bold text-sky-400 tabular-nums">
+                                {counts.approved}
+                            </p>
                         </CardContent>
                     </Card>
                 </button>
 
                 <button
                     type="button"
-                    onClick={() => list.applyFilters({ status: 'paid', page: null })}
-                    className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
+                    onClick={() =>
+                        list.applyFilters({ status: 'paid', page: null })
+                    }
+                    className="rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
                 >
-                    <Card className={cn(
-                        "glass-card transition-all duration-200 border-emerald-500/20 bg-emerald-500/[0.06] hover:border-emerald-500/35",
-                        initialFilters.status === 'paid' && "border-emerald-500/45 ring-1 ring-emerald-500/30"
-                    )}>
+                    <Card
+                        className={cn(
+                            'glass-card border-emerald-500/20 bg-emerald-500/[0.06] transition-all duration-200 hover:border-emerald-500/35',
+                            initialFilters.status === 'paid' &&
+                                'border-emerald-500/45 ring-1 ring-emerald-500/30',
+                        )}
+                    >
                         <CardContent className="p-4">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">Paid</p>
-                            <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-500 dark:text-emerald-400">{counts.paid}</p>
+                            <p className="text-[11px] font-semibold tracking-wide text-muted-foreground/80 uppercase">
+                                Paid
+                            </p>
+                            <p className="mt-1 text-2xl font-bold text-emerald-500 tabular-nums dark:text-emerald-400">
+                                {counts.paid}
+                            </p>
                         </CardContent>
                     </Card>
                 </button>
@@ -143,7 +184,7 @@ export function PayrollRecordsContent({
                 placeholder="Search employees..."
                 className="mb-6"
                 right={
-                    <div className="glass-card flex items-center rounded-xl p-1">
+                    <div className="flex items-center rounded-xl glass-card p-1">
                         <Button
                             type="button"
                             variant="ghost"
@@ -172,51 +213,92 @@ export function PayrollRecordsContent({
                     <OrganizationDataTable minWidth="min-w-[1000px]">
                         <TableHeader>
                             <DataTableHeaderRow>
-                                <DataTableHead className="pl-5">Employee</DataTableHead>
+                                <DataTableHead className="pl-5">
+                                    Employee
+                                </DataTableHead>
                                 <DataTableHead>Period</DataTableHead>
                                 <DataTableHead>Category</DataTableHead>
                                 <DataTableHead>Gross</DataTableHead>
                                 <DataTableHead>Net</DataTableHead>
                                 <DataTableHead>Status</DataTableHead>
-                                <DataTableHead className="text-right">Actions</DataTableHead>
+                                <DataTableHead className="text-right">
+                                    Actions
+                                </DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>
                             {records.map((record) => (
-                                <TableRow key={record.id} className={cn(dataTableBodyRowClass(false), "group hover:bg-muted/40 transition-colors duration-200")}>
-                                    <TableCell className={dataTableCellPrimaryClass()}>
-                                        <div className="font-semibold">{record.employee.name}</div>
+                                <TableRow
+                                    key={record.id}
+                                    className={cn(
+                                        dataTableBodyRowClass(false),
+                                        'group transition-colors duration-200 hover:bg-muted/40',
+                                    )}
+                                >
+                                    <TableCell
+                                        className={dataTableCellPrimaryClass()}
+                                    >
+                                        <div className="font-semibold">
+                                            {record.employee.name}
+                                        </div>
                                         <div className="text-xs text-muted-foreground">
                                             {record.employee.employee_no ?? '—'}
                                         </div>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        <div className="font-medium">{record.period.name}</div>
+                                        <div className="font-medium">
+                                            {record.period.name}
+                                        </div>
                                         <div className="text-xs text-muted-foreground">
-                                            {formatDisplayDate(record.period.start_date)} —{' '}
-                                            {formatDisplayDate(record.period.end_date)}
+                                            {formatDisplayDate(
+                                                record.period.start_date,
+                                            )}{' '}
+                                            —{' '}
+                                            {formatDisplayDate(
+                                                record.period.end_date,
+                                            )}
                                         </div>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        <PayrollCategoryBadge category={record.payroll_category} />
+                                        <PayrollCategoryBadge
+                                            category={record.payroll_category}
+                                        />
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        {formatTimesheetAmount(record.gross_salary)}
+                                        {formatTimesheetAmount(
+                                            record.gross_salary,
+                                        )}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
                                         <span className="font-semibold">
-                                            {formatTimesheetAmount(record.net_salary)}
+                                            {formatTimesheetAmount(
+                                                record.net_salary,
+                                            )}
                                         </span>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        <span className="text-sm capitalize">{record.status}</span>
+                                        <span className="text-sm capitalize">
+                                            {record.status}
+                                        </span>
                                     </TableCell>
-                                    <TableCell className={dataTableActionsCellClass()}>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" asChild>
+                                    <TableCell
+                                        className={dataTableActionsCellClass()}
+                                    >
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-lg"
+                                            asChild
+                                        >
                                             <Link
-                                                href={payrollShow.url(record.period.id, {
-                                                    query: { tab: 'payroll' },
-                                                })}
+                                                href={payrollShow.url(
+                                                    record.period.id,
+                                                    {
+                                                        query: {
+                                                            tab: 'payroll',
+                                                        },
+                                                    },
+                                                )}
                                                 aria-label="View period"
                                             >
                                                 <Eye className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />

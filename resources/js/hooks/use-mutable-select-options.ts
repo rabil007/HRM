@@ -25,7 +25,9 @@ export function useMutableSelectOptions<T extends SourceOption>(
         () =>
             sourceItems.map((item) => ({
                 id: item.id,
-                label: (labelKey === 'title' ? item.title : item.name) ?? `#${item.id}`,
+                label:
+                    (labelKey === 'title' ? item.title : item.name) ??
+                    `#${item.id}`,
                 value: String(item.id),
             })),
         [labelKey, sourceItems],
@@ -34,7 +36,11 @@ export function useMutableSelectOptions<T extends SourceOption>(
     const appendOption = useCallback(
         (entry: { id: number | string; label: string }) => {
             setSourceItems((previous) => {
-                if (previous.some((item) => String(item.id) === String(entry.id))) {
+                if (
+                    previous.some(
+                        (item) => String(item.id) === String(entry.id),
+                    )
+                ) {
                     return previous;
                 }
 

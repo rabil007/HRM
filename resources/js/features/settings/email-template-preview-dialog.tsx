@@ -32,7 +32,10 @@ type EmailTemplatePreviewDialogProps = {
 };
 
 function getCsrfToken(): string {
-    return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+    return (
+        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+            ?.content ?? ''
+    );
 }
 
 export function EmailTemplatePreviewDialog({
@@ -63,27 +66,33 @@ export function EmailTemplatePreviewDialog({
             setDraftHtml(null);
 
             try {
-                const response = await fetch('/settings/application/email-templates/preview', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Accept: 'application/json',
-                        'X-CSRF-TOKEN': getCsrfToken(),
-                        'X-Requested-With': 'XMLHttpRequest',
+                const response = await fetch(
+                    '/settings/application/email-templates/preview',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Accept: 'application/json',
+                            'X-CSRF-TOKEN': getCsrfToken(),
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({
+                            slug: target.slug,
+                            subject: target.subject,
+                            body_html: target.bodyHtml,
+                            include_company_footer: target.includeCompanyFooter,
+                        }),
                     },
-                    body: JSON.stringify({
-                        slug: target.slug,
-                        subject: target.subject,
-                        body_html: target.bodyHtml,
-                        include_company_footer: target.includeCompanyFooter,
-                    }),
-                });
+                );
 
                 if (!response.ok) {
                     throw new Error('Preview could not be generated.');
                 }
 
-                const data = (await response.json()) as { subject?: string; html?: string };
+                const data = (await response.json()) as {
+                    subject?: string;
+                    html?: string;
+                };
 
                 if (!cancelled) {
                     setDraftSubject(data.subject ?? target.subject);
@@ -91,7 +100,9 @@ export function EmailTemplatePreviewDialog({
                 }
             } catch {
                 if (!cancelled) {
-                    setError('Preview could not be generated. Check the template fields and try again.');
+                    setError(
+                        'Preview could not be generated. Check the template fields and try again.',
+                    );
                 }
             } finally {
                 if (!cancelled) {
@@ -114,7 +125,7 @@ export function EmailTemplatePreviewDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="glass-card flex max-h-[90vh] w-[min(960px,calc(100vw-2rem))] max-w-[960px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[960px]">
+            <DialogContent className="flex max-h-[90vh] w-[min(960px,calc(100vw-2rem))] max-w-[960px] flex-col gap-0 overflow-hidden glass-card p-0 sm:max-w-[960px]">
                 <DialogHeader className="space-y-1 border-b border-border/80 px-6 py-4 dark:border-white/10">
                     <div className="flex items-center gap-2">
                         <Eye className="h-4 w-4 text-primary" />
@@ -129,7 +140,10 @@ export function EmailTemplatePreviewDialog({
                                 {subject ? (
                                     <>
                                         {' '}
-                                        — <span className="text-muted-foreground">{subject}</span>
+                                        —{' '}
+                                        <span className="text-muted-foreground">
+                                            {subject}
+                                        </span>
                                     </>
                                 ) : null}
                             </>
@@ -161,7 +175,10 @@ export function EmailTemplatePreviewDialog({
                         </div>
                     ) : null}
 
-                    {target?.mode === 'draft' && !loading && !error && draftHtml ? (
+                    {target?.mode === 'draft' &&
+                    !loading &&
+                    !error &&
+                    draftHtml ? (
                         <iframe
                             title={`Draft preview of ${target.label}`}
                             srcDoc={draftHtml}
@@ -171,8 +188,8 @@ export function EmailTemplatePreviewDialog({
                 </div>
 
                 <p className="border-t border-border/80 px-6 py-3 text-xs text-muted-foreground dark:border-white/10">
-                    Preview uses sample placeholder values. Actual emails use real employee and request
-                    data when sent.
+                    Preview uses sample placeholder values. Actual emails use
+                    real employee and request data when sent.
                 </p>
             </DialogContent>
         </Dialog>

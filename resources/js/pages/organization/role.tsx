@@ -1,5 +1,12 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Search, Shield, CheckCircle2, Circle, LayoutGrid, Users } from 'lucide-react';
+import {
+    Search,
+    Shield,
+    CheckCircle2,
+    Circle,
+    LayoutGrid,
+    Users,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
@@ -10,15 +17,15 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { Company, Role, RoleFormData } from '@/features/organization/roles/types';
+import type {
+    Company,
+    Role,
+    RoleFormData,
+} from '@/features/organization/roles/types';
 
 function normalizePermissions(value: string[]): string[] {
     return Array.from(
-        new Set(
-            value
-                .map((p) => p.trim())
-                .filter(Boolean),
-        ),
+        new Set(value.map((p) => p.trim()).filter(Boolean)),
     ).sort();
 }
 
@@ -44,11 +51,21 @@ export default function RoleDetails({
     });
 
     const [permissionQuery, setPermissionQuery] = useState('');
-    const [permissionView, setPermissionView] = useState<'all' | 'selected' | 'unselected'>('all');
-    const [selectedPermissions, setSelectedPermissions] = useState<string[]>(normalizePermissions(role.permissions ?? []));
+    const [permissionView, setPermissionView] = useState<
+        'all' | 'selected' | 'unselected'
+    >('all');
+    const [selectedPermissions, setSelectedPermissions] = useState<string[]>(
+        normalizePermissions(role.permissions ?? []),
+    );
 
-    const availablePermissions = useMemo(() => normalizePermissions(permissions.map((p) => p.name)), [permissions]);
-    const selectedSet = useMemo(() => new Set(selectedPermissions), [selectedPermissions]);
+    const availablePermissions = useMemo(
+        () => normalizePermissions(permissions.map((p) => p.name)),
+        [permissions],
+    );
+    const selectedSet = useMemo(
+        () => new Set(selectedPermissions),
+        [selectedPermissions],
+    );
 
     const formatPermissionName = (name: string) => {
         if (PERMISSION_LABEL_OVERRIDES[name]) {
@@ -58,19 +75,30 @@ export default function RoleDetails({
         const parts = name.split('.');
 
         if (parts.length <= 1) {
-return name;
-}
-        
+            return name;
+        }
+
         // Remove the group from the name for display if it's the first part
         const rest = parts.slice(1);
 
-        return rest.map(p => p.split(/[-_]/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')).join(': ');
+        return rest
+            .map((p) =>
+                p
+                    .split(/[-_]/)
+                    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' '),
+            )
+            .join(': ');
     };
 
     const grouped = useMemo(() => {
         const query = permissionQuery.trim().toLowerCase();
-        const list = query ? availablePermissions.filter((p) => p.toLowerCase().includes(query)) : availablePermissions;
-        
+        const list = query
+            ? availablePermissions.filter((p) =>
+                  p.toLowerCase().includes(query),
+              )
+            : availablePermissions;
+
         // Map<MainGroup, Map<SubGroup, Permission[]>>
         const mainMap = new Map<string, Map<string, string[]>>();
 
@@ -82,7 +110,8 @@ return name;
             let subGroup = 'GENERAL';
 
             if (parts.length > 2) {
-                subGroup = parts.slice(1, -1)
+                subGroup = parts
+                    .slice(1, -1)
                     .map((p) => formatPermissionGroupLabel(p))
                     .join(' • ');
             } else if (parts.length === 2 && mainGroup === 'SETTINGS') {
@@ -110,7 +139,7 @@ return name;
                 const subGroups = Array.from(subMap.entries())
                     .sort(([a], [b]) => a.localeCompare(b))
                     .map(([name, items]) => [name, items.sort()] as const);
-                
+
                 return [mainGroup, subGroups] as const;
             });
     }, [availablePermissions, permissionQuery]);
@@ -121,7 +150,9 @@ return name;
 
     const togglePermission = (permission: string, next: boolean) => {
         if (next) {
-            setSelectedPermissions((prev) => normalizePermissions([...prev, permission]));
+            setSelectedPermissions((prev) =>
+                normalizePermissions([...prev, permission]),
+            );
 
             return;
         }
@@ -144,15 +175,17 @@ return name;
                             <Button
                                 asChild
                                 variant="outline"
-                                className="rounded-xl h-11 px-5 border-border bg-card dark:border-white/10 dark:bg-white/5"
+                                className="h-11 rounded-xl border-border bg-card px-5 dark:border-white/10 dark:bg-white/5"
                             >
-                                <a href={`/organization/users?role_id=${role.id}`}>
+                                <a
+                                    href={`/organization/users?role_id=${role.id}`}
+                                >
                                     <Users className="mr-2 h-4 w-4" />
                                     View Users
                                 </a>
                             </Button>
                             <Button
-                                className="rounded-xl h-11 px-5"
+                                className="h-11 rounded-xl px-5"
                                 onClick={() => {
                                     router.put(
                                         `/organization/roles/${role.id}`,
@@ -176,50 +209,77 @@ return name;
                 <div className="flex flex-col gap-6">
                     {/* Top Action Bar */}
                     <Card className="border-border bg-card dark:border-white/5 dark:bg-white/5">
-                        <CardContent className="p-4 flex flex-col md:flex-row items-center justify-between gap-6">
-                            <div className="w-full md:max-w-md space-y-1.5 font-medium">
-                                <Label htmlFor="role-name" className="text-[10px] uppercase tracking-widest text-muted-foreground/60 ml-1">
+                        <CardContent className="flex flex-col items-center justify-between gap-6 p-4 md:flex-row">
+                            <div className="w-full space-y-1.5 font-medium md:max-w-md">
+                                <Label
+                                    htmlFor="role-name"
+                                    className="ml-1 text-[10px] tracking-widest text-muted-foreground/60 uppercase"
+                                >
                                     Role Display Name
                                 </Label>
                                 <Input
                                     id="role-name"
                                     value={form.data.name}
-                                    onChange={(e) => form.setData('name', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData('name', e.target.value)
+                                    }
                                     placeholder="Enter role name..."
-                                className="rounded-xl border-border bg-muted/50 focus-visible:ring-primary/40 h-11 text-base font-semibold transition-all px-4 dark:border-white/10 dark:bg-white/5"
+                                    className="h-11 rounded-xl border-border bg-muted/50 px-4 text-base font-semibold transition-all focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                                 />
-                                {form.errors.name ? <div className="text-xs font-medium text-destructive mt-1">{form.errors.name}</div> : null}
+                                {form.errors.name ? (
+                                    <div className="mt-1 text-xs font-medium text-destructive">
+                                        {form.errors.name}
+                                    </div>
+                                ) : null}
                             </div>
 
-                            <div className="flex items-center gap-4 w-full md:w-auto">
-                                <div className="relative flex-1 md:w-80 group">
-                                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                            <div className="flex w-full items-center gap-4 md:w-auto">
+                                <div className="group relative flex-1 md:w-80">
+                                    <Search className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground/40 transition-colors group-focus-within:text-primary" />
                                     <Input
                                         value={permissionQuery}
-                                        onChange={(e) => setPermissionQuery(e.target.value)}
+                                        onChange={(e) =>
+                                            setPermissionQuery(e.target.value)
+                                        }
                                         placeholder="Search permissions..."
-                                        className="rounded-xl border-border bg-muted/50 focus-visible:ring-primary/40 h-11 pl-11 transition-all dark:border-white/10 dark:bg-white/5"
+                                        className="h-11 rounded-xl border-border bg-muted/50 pl-11 transition-all focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                                     />
                                 </div>
-                                <div className="flex items-center gap-1.5 p-1 bg-muted/20 border border-border rounded-xl dark:bg-white/[0.03] dark:border-white/5">
+                                <div className="flex items-center gap-1.5 rounded-xl border border-border bg-muted/20 p-1 dark:border-white/5 dark:bg-white/[0.03]">
                                     {[
-                                        { id: 'all', label: 'All', icon: LayoutGrid },
-                                        { id: 'selected', label: 'Selected', icon: CheckCircle2 },
-                                        { id: 'unselected', label: 'Unselected', icon: Circle },
+                                        {
+                                            id: 'all',
+                                            label: 'All',
+                                            icon: LayoutGrid,
+                                        },
+                                        {
+                                            id: 'selected',
+                                            label: 'Selected',
+                                            icon: CheckCircle2,
+                                        },
+                                        {
+                                            id: 'unselected',
+                                            label: 'Unselected',
+                                            icon: Circle,
+                                        },
                                     ].map((view) => (
                                         <Button
                                             key={view.id}
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            className={`rounded-lg h-9 px-4 gap-2 text-xs font-bold transition-all ${
-                                                permissionView === view.id 
-                                                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' 
+                                            className={`h-9 gap-2 rounded-lg px-4 text-xs font-bold transition-all ${
+                                                permissionView === view.id
+                                                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
                                                     : 'text-muted-foreground hover:bg-accent dark:hover:bg-white/5'
                                             }`}
-                                            onClick={() => setPermissionView(view.id as any)}
+                                            onClick={() =>
+                                                setPermissionView(
+                                                    view.id as any,
+                                                )
+                                            }
                                         >
-                                            <view.icon className="w-3.5 h-3.5" />
+                                            <view.icon className="h-3.5 w-3.5" />
                                             {view.label}
                                         </Button>
                                     ))}
@@ -229,42 +289,69 @@ return name;
                     </Card>
 
                     {/* Main Workspace */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px]">
+                    <div className="grid min-h-[600px] grid-cols-1 gap-6 lg:grid-cols-12">
                         {/* Sidebar Navigator */}
-                        <aside className="lg:col-span-3 space-y-4 lg:sticky lg:top-6 lg:self-start">
-                            <Card className="border-border bg-card flex flex-col overflow-hidden max-h-[calc(100vh-6rem)] dark:border-white/5 dark:bg-white/5">
-                                <div className="p-4 border-b border-border bg-muted/20 flex items-center justify-between dark:border-white/5 dark:bg-white/[0.02]">
-                                    <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Categories</h3>
-                                    <Badge variant="outline" className="text-[10px] border-border font-mono opacity-60 dark:border-white/5">
+                        <aside className="space-y-4 lg:sticky lg:top-6 lg:col-span-3 lg:self-start">
+                            <Card className="flex max-h-[calc(100vh-6rem)] flex-col overflow-hidden border-border bg-card dark:border-white/5 dark:bg-white/5">
+                                <div className="flex items-center justify-between border-b border-border bg-muted/20 p-4 dark:border-white/5 dark:bg-white/[0.02]">
+                                    <h3 className="text-xs font-bold tracking-widest text-muted-foreground uppercase">
+                                        Categories
+                                    </h3>
+                                    <Badge
+                                        variant="outline"
+                                        className="border-border font-mono text-[10px] opacity-60 dark:border-white/5"
+                                    >
                                         {grouped.length}
                                     </Badge>
                                 </div>
                                 <ScrollArea className="flex-1">
-                                    <div className="p-2 space-y-1">
+                                    <div className="space-y-1 p-2">
                                         {grouped.map(([group, subGroups]) => {
-                                            const allItems = subGroups.flatMap(([, items]) => items);
-                                            const selectedCount = allItems.filter((p) => selectedSet.has(p)).length;
-                                            const isActive = effectiveActiveGroup === group;
-                                            const isComplete = selectedCount === allItems.length && allItems.length > 0;
+                                            const allItems = subGroups.flatMap(
+                                                ([, items]) => items,
+                                            );
+                                            const selectedCount =
+                                                allItems.filter((p) =>
+                                                    selectedSet.has(p),
+                                                ).length;
+                                            const isActive =
+                                                effectiveActiveGroup === group;
+                                            const isComplete =
+                                                selectedCount ===
+                                                    allItems.length &&
+                                                allItems.length > 0;
 
                                             return (
                                                 <button
                                                     key={group}
-                                                    onClick={() => setActiveGroup(group)}
-                                                    className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all group ${
-                                                        isActive 
-                                                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' 
+                                                    onClick={() =>
+                                                        setActiveGroup(group)
+                                                    }
+                                                    className={`group flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 transition-all ${
+                                                        isActive
+                                                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
                                                             : 'text-muted-foreground hover:bg-accent hover:text-foreground dark:hover:bg-white/5'
                                                     }`}
                                                 >
                                                     <div className="flex items-center gap-3 overflow-hidden">
-                                                        <Shield className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-primary-foreground' : 'text-primary'}`} />
-                                                        <span className="text-sm font-bold truncate tracking-tight">{group}</span>
+                                                        <Shield
+                                                            className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-primary-foreground' : 'text-primary'}`}
+                                                        />
+                                                        <span className="truncate text-sm font-bold tracking-tight">
+                                                            {group}
+                                                        </span>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        {isComplete && <CheckCircle2 className={`w-3.5 h-3.5 ${isActive ? 'text-primary-foreground' : 'text-primary'}`} />}
-                                                        <span className={`text-[10px] font-mono ${isActive ? 'opacity-80' : 'opacity-40'}`}>
-                                                            {selectedCount}/{allItems.length}
+                                                        {isComplete && (
+                                                            <CheckCircle2
+                                                                className={`h-3.5 w-3.5 ${isActive ? 'text-primary-foreground' : 'text-primary'}`}
+                                                            />
+                                                        )}
+                                                        <span
+                                                            className={`font-mono text-[10px] ${isActive ? 'opacity-80' : 'opacity-40'}`}
+                                                        >
+                                                            {selectedCount}/
+                                                            {allItems.length}
                                                         </span>
                                                     </div>
                                                 </button>
@@ -272,11 +359,15 @@ return name;
                                         })}
                                     </div>
                                 </ScrollArea>
-                                <div className="p-3 bg-muted/20 border-t border-border dark:bg-white/[0.02] dark:border-white/5">
-                                    <Button 
-                                        variant="ghost" 
-                                        className="w-full text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 hover:text-primary h-8"
-                                        onClick={() => setSelectedPermissions(availablePermissions)}
+                                <div className="border-t border-border bg-muted/20 p-3 dark:border-white/5 dark:bg-white/[0.02]">
+                                    <Button
+                                        variant="ghost"
+                                        className="h-8 w-full text-[10px] font-bold tracking-widest text-muted-foreground/40 uppercase hover:text-primary"
+                                        onClick={() =>
+                                            setSelectedPermissions(
+                                                availablePermissions,
+                                            )
+                                        }
                                     >
                                         Enable All Permissions
                                     </Button>
@@ -286,35 +377,56 @@ return name;
 
                         {/* Content Area */}
                         <main className="lg:col-span-9">
-                            <Card className="border-border bg-card h-full flex flex-col overflow-hidden shadow-2xl dark:border-white/5 dark:bg-white/5">
+                            <Card className="flex h-full flex-col overflow-hidden border-border bg-card shadow-2xl dark:border-white/5 dark:bg-white/5">
                                 {effectiveActiveGroup ? (
                                     <>
                                         {(() => {
-                                            const groupData = grouped.find(([g]) => g === effectiveActiveGroup);
+                                            const groupData = grouped.find(
+                                                ([g]) =>
+                                                    g === effectiveActiveGroup,
+                                            );
 
                                             if (!groupData) {
-return null;
-}
+                                                return null;
+                                            }
 
-                                            const [group, subGroups] = groupData;
-                                            
-                                            const allItems = subGroups.flatMap(([, items]) => items);
-                                            const selectedCount = allItems.filter((p) => selectedSet.has(p)).length;
-                                            const allSelected = selectedCount === allItems.length && allItems.length > 0;
+                                            const [group, subGroups] =
+                                                groupData;
+
+                                            const allItems = subGroups.flatMap(
+                                                ([, items]) => items,
+                                            );
+                                            const selectedCount =
+                                                allItems.filter((p) =>
+                                                    selectedSet.has(p),
+                                                ).length;
+                                            const allSelected =
+                                                selectedCount ===
+                                                    allItems.length &&
+                                                allItems.length > 0;
 
                                             return (
                                                 <>
-                                                    <div className="p-6 border-b border-border bg-muted/20 flex items-center justify-between sticky top-0 bg-background/80 backdrop-blur-md z-10 dark:border-white/5 dark:bg-white/[0.02]">
+                                                    <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/80 bg-muted/20 p-6 backdrop-blur-md dark:border-white/5 dark:bg-white/[0.02]">
                                                         <div className="flex items-center gap-4">
-                                                            <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                                                                <Shield className="w-5 h-5" />
+                                                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+                                                                <Shield className="h-5 w-5" />
                                                             </div>
                                                             <div>
-                                                                <h2 className="text-lg font-bold tracking-tight text-foreground">{group}</h2>
-                                                                <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-                                                                    Manage permissions for the {group.toLowerCase()} module
-                                                                    <span className="inline-block w-1 h-1 rounded-full bg-muted-foreground/40 mx-1" />
-                                                                    {selectedCount} selected
+                                                                <h2 className="text-lg font-bold tracking-tight text-foreground">
+                                                                    {group}
+                                                                </h2>
+                                                                <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                                                    Manage
+                                                                    permissions
+                                                                    for the{' '}
+                                                                    {group.toLowerCase()}{' '}
+                                                                    module
+                                                                    <span className="mx-1 inline-block h-1 w-1 rounded-full bg-muted-foreground/40" />
+                                                                    {
+                                                                        selectedCount
+                                                                    }{' '}
+                                                                    selected
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -322,92 +434,217 @@ return null;
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"
-                                                                className="rounded-xl border-border bg-muted/50 hover:bg-accent text-xs font-bold dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
+                                                                className="rounded-xl border-border bg-muted/50 text-xs font-bold hover:bg-accent dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
                                                                 onClick={() => {
-                                                                    if (allSelected) {
-                                                                        const remove = new Set(allItems);
-                                                                        setSelectedPermissions((prev) => prev.filter((p) => !remove.has(p)));
+                                                                    if (
+                                                                        allSelected
+                                                                    ) {
+                                                                        const remove =
+                                                                            new Set(
+                                                                                allItems,
+                                                                            );
+                                                                        setSelectedPermissions(
+                                                                            (
+                                                                                prev,
+                                                                            ) =>
+                                                                                prev.filter(
+                                                                                    (
+                                                                                        p,
+                                                                                    ) =>
+                                                                                        !remove.has(
+                                                                                            p,
+                                                                                        ),
+                                                                                ),
+                                                                        );
 
                                                                         return;
                                                                     }
 
-                                                                    setSelectedPermissions((prev) => normalizePermissions([...prev, ...allItems]));
+                                                                    setSelectedPermissions(
+                                                                        (
+                                                                            prev,
+                                                                        ) =>
+                                                                            normalizePermissions(
+                                                                                [
+                                                                                    ...prev,
+                                                                                    ...allItems,
+                                                                                ],
+                                                                            ),
+                                                                    );
                                                                 }}
                                                             >
-                                                                {allSelected ? 'Unselect All' : 'Select All'}
+                                                                {allSelected
+                                                                    ? 'Unselect All'
+                                                                    : 'Select All'}
                                                             </Button>
                                                         </div>
                                                     </div>
                                                     <ScrollArea className="flex-1">
-                                                        <div className="p-8 space-y-12">
-                                                            {subGroups.map(([subName, items]) => {
-                                                                const subSelectedCount = items.filter((p) => selectedSet.has(p)).length;
-                                                                const subAllSelected = subSelectedCount === items.length && items.length > 0;
+                                                        <div className="space-y-12 p-8">
+                                                            {subGroups.map(
+                                                                ([
+                                                                    subName,
+                                                                    items,
+                                                                ]) => {
+                                                                    const subSelectedCount =
+                                                                        items.filter(
+                                                                            (
+                                                                                p,
+                                                                            ) =>
+                                                                                selectedSet.has(
+                                                                                    p,
+                                                                                ),
+                                                                        ).length;
+                                                                    const subAllSelected =
+                                                                        subSelectedCount ===
+                                                                            items.length &&
+                                                                        items.length >
+                                                                            0;
 
-                                                                return (
-                                                                    <div key={subName} className="space-y-6">
-                                                                        <div className="flex items-center justify-between group/sub">
-                                                                            <div className="flex items-center gap-3">
-                                                                                <div className="h-6 w-1 rounded-full bg-primary" />
-                                                                                <div>
-                                                                                    <h4 className="text-sm font-bold tracking-widest text-foreground uppercase">{subName}</h4>
-                                                                                    <p className="text-[10px] font-medium text-muted-foreground/40 tracking-wider">
-                                                                                        {subSelectedCount} of {items.length} Selected
-                                                                                    </p>
+                                                                    return (
+                                                                        <div
+                                                                            key={
+                                                                                subName
+                                                                            }
+                                                                            className="space-y-6"
+                                                                        >
+                                                                            <div className="group/sub flex items-center justify-between">
+                                                                                <div className="flex items-center gap-3">
+                                                                                    <div className="h-6 w-1 rounded-full bg-primary" />
+                                                                                    <div>
+                                                                                        <h4 className="text-sm font-bold tracking-widest text-foreground uppercase">
+                                                                                            {
+                                                                                                subName
+                                                                                            }
+                                                                                        </h4>
+                                                                                        <p className="text-[10px] font-medium tracking-wider text-muted-foreground/40">
+                                                                                            {
+                                                                                                subSelectedCount
+                                                                                            }{' '}
+                                                                                            of{' '}
+                                                                                            {
+                                                                                                items.length
+                                                                                            }{' '}
+                                                                                            Selected
+                                                                                        </p>
+                                                                                    </div>
                                                                                 </div>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    className="h-8 rounded-lg px-3 text-[10px] font-bold tracking-widest text-muted-foreground/40 uppercase opacity-0 transition-opacity group-hover/sub:opacity-100 hover:bg-primary/5 hover:text-primary"
+                                                                                    onClick={() => {
+                                                                                        if (
+                                                                                            subAllSelected
+                                                                                        ) {
+                                                                                            const remove =
+                                                                                                new Set(
+                                                                                                    items,
+                                                                                                );
+                                                                                            setSelectedPermissions(
+                                                                                                (
+                                                                                                    prev,
+                                                                                                ) =>
+                                                                                                    prev.filter(
+                                                                                                        (
+                                                                                                            p,
+                                                                                                        ) =>
+                                                                                                            !remove.has(
+                                                                                                                p,
+                                                                                                            ),
+                                                                                                    ),
+                                                                                            );
+
+                                                                                            return;
+                                                                                        }
+
+                                                                                        setSelectedPermissions(
+                                                                                            (
+                                                                                                prev,
+                                                                                            ) =>
+                                                                                                normalizePermissions(
+                                                                                                    [
+                                                                                                        ...prev,
+                                                                                                        ...items,
+                                                                                                    ],
+                                                                                                ),
+                                                                                        );
+                                                                                    }}
+                                                                                >
+                                                                                    {subAllSelected
+                                                                                        ? 'Unselect'
+                                                                                        : 'Select'}{' '}
+                                                                                    Group
+                                                                                </Button>
                                                                             </div>
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                className="h-8 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 hover:text-primary hover:bg-primary/5 rounded-lg opacity-0 group-hover/sub:opacity-100 transition-opacity"
-                                                                                onClick={() => {
-                                                                                    if (subAllSelected) {
-                                                                                        const remove = new Set(items);
-                                                                                        setSelectedPermissions((prev) => prev.filter((p) => !remove.has(p)));
 
-                                                                                        return;
-                                                                                    }
+                                                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                                                                {items.map(
+                                                                                    (
+                                                                                        permission,
+                                                                                    ) => {
+                                                                                        const checked =
+                                                                                            selectedSet.has(
+                                                                                                permission,
+                                                                                            );
 
-                                                                                    setSelectedPermissions((prev) => normalizePermissions([...prev, ...items]));
-                                                                                }}
-                                                                            >
-                                                                                {subAllSelected ? 'Unselect' : 'Select'} Group
-                                                                            </Button>
+                                                                                        return (
+                                                                                            <label
+                                                                                                key={
+                                                                                                    permission
+                                                                                                }
+                                                                                                className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-all ${
+                                                                                                    checked
+                                                                                                        ? 'border-primary/20 bg-primary/[0.08] shadow-lg ring-1 shadow-primary/[0.03] ring-primary/10'
+                                                                                                        : 'border-border bg-muted/20 hover:border-border hover:bg-muted/40 dark:border-white/5 dark:bg-white/[0.02] dark:hover:border-white/10 dark:hover:bg-white/[0.04]'
+                                                                                                }`}
+                                                                                            >
+                                                                                                <Checkbox
+                                                                                                    checked={
+                                                                                                        checked
+                                                                                                    }
+                                                                                                    onCheckedChange={(
+                                                                                                        value,
+                                                                                                    ) =>
+                                                                                                        togglePermission(
+                                                                                                            permission,
+                                                                                                            Boolean(
+                                                                                                                value,
+                                                                                                            ),
+                                                                                                        )
+                                                                                                    }
+                                                                                                    className="h-5 w-5 border-border data-[state=checked]:border-primary data-[state=checked]:bg-primary dark:border-white/10"
+                                                                                                />
+                                                                                                <div className="flex-1 overflow-hidden">
+                                                                                                    <p
+                                                                                                        className={`truncate text-sm font-bold tracking-tight ${checked ? 'text-primary' : 'text-foreground/80'}`}
+                                                                                                    >
+                                                                                                        {formatPermissionName(
+                                                                                                            permission,
+                                                                                                        )}
+                                                                                                    </p>
+                                                                                                    <p className="mt-0.5 truncate text-[10px] font-medium tracking-tighter text-muted-foreground/40 uppercase">
+                                                                                                        {permission
+                                                                                                            .split(
+                                                                                                                '.',
+                                                                                                            )
+                                                                                                            .pop()
+                                                                                                            ?.replace(
+                                                                                                                /-/g,
+                                                                                                                ' ',
+                                                                                                            )}{' '}
+                                                                                                        Access
+                                                                                                    </p>
+                                                                                                </div>
+                                                                                            </label>
+                                                                                        );
+                                                                                    },
+                                                                                )}
+                                                                            </div>
                                                                         </div>
-
-                                                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                                                            {items.map((permission) => {
-                                                                                const checked = selectedSet.has(permission);
-
-                                                                                return (
-                                                                                    <label 
-                                                                                        key={permission} 
-                                                                                        className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border ${
-                                                                                            checked 
-                                                                                                ? 'bg-primary/[0.08] border-primary/20 ring-1 ring-primary/10 shadow-lg shadow-primary/[0.03]' 
-                                                                                                : 'bg-muted/20 border-border hover:bg-muted/40 hover:border-border dark:bg-white/[0.02] dark:border-white/5 dark:hover:bg-white/[0.04] dark:hover:border-white/10'
-                                                                                        }`}
-                                                                                    >
-                                                                                        <Checkbox
-                                                                                            checked={checked}
-                                                                                            onCheckedChange={(value) => togglePermission(permission, Boolean(value))}
-                                                                                            className="h-5 w-5 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary dark:border-white/10"
-                                                                                        />
-                                                                                        <div className="flex-1 overflow-hidden">
-                                                                                            <p className={`text-sm font-bold truncate tracking-tight ${checked ? 'text-primary' : 'text-foreground/80'}`}>
-                                                                                                {formatPermissionName(permission)}
-                                                                                            </p>
-                                                                                            <p className="text-[10px] font-medium text-muted-foreground/40 mt-0.5 truncate uppercase tracking-tighter">
-                                                                                                {permission.split('.').pop()?.replace(/-/g, ' ')} Access
-                                                                                            </p>
-                                                                                        </div>
-                                                                                    </label>
-                                                                                );
-                                                                            })}
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
+                                                                    );
+                                                                },
+                                                            )}
                                                         </div>
                                                     </ScrollArea>
                                                 </>
@@ -415,13 +652,17 @@ return null;
                                         })()}
                                     </>
                                 ) : (
-                                    <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-                                        <div className="w-20 h-20 rounded-3xl bg-muted/50 border border-dashed border-border flex items-center justify-center mb-6 group-hover:scale-110 transition-transform dark:bg-white/5 dark:border-white/10">
-                                            <Shield className="w-10 h-10 text-muted-foreground/20" />
+                                    <div className="flex flex-1 flex-col items-center justify-center p-12 text-center">
+                                        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl border border-dashed border-border bg-muted/50 transition-transform group-hover:scale-110 dark:border-white/10 dark:bg-white/5">
+                                            <Shield className="h-10 w-10 text-muted-foreground/20" />
                                         </div>
-                                        <h3 className="text-xl font-bold text-foreground mb-2">Select a Category</h3>
-                                        <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                                            Choose a module from the left categories to manage its specific access permissions for this role.
+                                        <h3 className="mb-2 text-xl font-bold text-foreground">
+                                            Select a Category
+                                        </h3>
+                                        <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground">
+                                            Choose a module from the left
+                                            categories to manage its specific
+                                            access permissions for this role.
                                         </p>
                                     </div>
                                 )}

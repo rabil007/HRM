@@ -23,7 +23,8 @@ export function isTemplateFieldVisible(
 export function createTemplateFieldVisibility(
     templateFields: Record<string, TemplateFieldConfig> | null | undefined,
 ): (fieldKey: string) => boolean {
-    return (fieldKey: string) => isTemplateFieldVisible(templateFields, fieldKey);
+    return (fieldKey: string) =>
+        isTemplateFieldVisible(templateFields, fieldKey);
 }
 
 export function isTemplateFieldRequired(
@@ -59,13 +60,25 @@ export function getTemplateRequiredFieldKeys(
     const keys = new Set<string>();
 
     for (const fieldKey of Object.keys(templateFields)) {
-        if (isTemplateFieldRequired(templateFields, fieldKey, defaultRequiredKeys)) {
+        if (
+            isTemplateFieldRequired(
+                templateFields,
+                fieldKey,
+                defaultRequiredKeys,
+            )
+        ) {
             keys.add(fieldKey);
         }
     }
 
     for (const fieldKey of defaultRequiredKeys) {
-        if (isTemplateFieldRequired(templateFields, fieldKey, defaultRequiredKeys)) {
+        if (
+            isTemplateFieldRequired(
+                templateFields,
+                fieldKey,
+                defaultRequiredKeys,
+            )
+        ) {
             keys.add(fieldKey);
         }
     }

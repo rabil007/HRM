@@ -1,5 +1,18 @@
 import { Link, router } from '@inertiajs/react';
-import { Filter, Fingerprint, Info, KeyRound, Link2, MoreHorizontal, Pencil, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import {
+    Filter,
+    Fingerprint,
+    Info,
+    KeyRound,
+    Link2,
+    MoreHorizontal,
+    Pencil,
+    Plus,
+    RefreshCw,
+    Search,
+    Trash2,
+    X,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
@@ -26,7 +39,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDateTime } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
@@ -85,12 +103,20 @@ export function HikvisionPersonsContent({
     });
     const [syncing, setSyncing] = useState(false);
     const [formOpen, setFormOpen] = useState(false);
-    const [editingPerson, setEditingPerson] = useState<HikvisionPerson | null>(null);
-    const [deletePerson, setDeletePerson] = useState<HikvisionPerson | null>(null);
-    const [linkingPerson, setLinkingPerson] = useState<HikvisionPerson | null>(null);
+    const [editingPerson, setEditingPerson] = useState<HikvisionPerson | null>(
+        null,
+    );
+    const [deletePerson, setDeletePerson] = useState<HikvisionPerson | null>(
+        null,
+    );
+    const [linkingPerson, setLinkingPerson] = useState<HikvisionPerson | null>(
+        null,
+    );
 
     const activeFilterCount = useMemo(
-        () => [filters.search, filters.group, filters.credential].filter(Boolean).length,
+        () =>
+            [filters.search, filters.group, filters.credential].filter(Boolean)
+                .length,
         [filters],
     );
 
@@ -197,7 +223,11 @@ export function HikvisionPersonsContent({
                                 disabled={!isConfigured || syncing}
                                 onClick={handleSync}
                             >
-                                {syncing ? <Spinner className="mr-2" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                                {syncing ? (
+                                    <Spinner className="mr-2" />
+                                ) : (
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                )}
                                 Sync
                             </Button>
                         ) : null}
@@ -224,7 +254,9 @@ export function HikvisionPersonsContent({
                 <p className="mb-6 text-sm text-muted-foreground">
                     Last synced:{' '}
                     <span className="font-medium text-foreground">
-                        {lastSyncedAt ? formatDisplayDateTime(lastSyncedAt) : 'Never synced'}
+                        {lastSyncedAt
+                            ? formatDisplayDateTime(lastSyncedAt)
+                            : 'Never synced'}
                     </span>
                 </p>
             )}
@@ -233,7 +265,7 @@ export function HikvisionPersonsContent({
                 <CardContent className="p-5">
                     <div className="mb-4 flex items-center gap-3">
                         <Filter className="h-4 w-4 text-muted-foreground/50" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
+                        <span className="text-xs font-bold tracking-widest text-muted-foreground/50 uppercase">
                             Filters
                         </span>
                         {activeFilterCount > 0 ? (
@@ -262,29 +294,40 @@ export function HikvisionPersonsContent({
                                 Search
                             </label>
                             <div className="relative">
-                                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
+                                <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
                                 <Input
                                     id="persons-search"
                                     value={list.searchInput}
-                                    onChange={(event) => list.onSearchChange(event.target.value)}
+                                    onChange={(event) =>
+                                        list.onSearchChange(event.target.value)
+                                    }
                                     placeholder="Name, employee no, email, phone…"
-                                    className="h-10 rounded-xl border-input bg-background/50 dark:border-white/10 dark:bg-white/5 pl-10 focus-visible:ring-primary/40"
+                                    className="h-10 rounded-xl border-input bg-background/50 pl-10 focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                                 />
                             </div>
                         </div>
 
                         <div className="flex min-w-0 flex-col gap-1.5">
-                            <span className="text-[11px] font-medium text-muted-foreground/60">Department</span>
+                            <span className="text-[11px] font-medium text-muted-foreground/60">
+                                Department
+                            </span>
                             <AppSelect
                                 value={filters.group || ''}
-                                onValueChange={(value) => applyFilters({ group: value })}
+                                onValueChange={(value) =>
+                                    applyFilters({ group: value })
+                                }
                                 variant="dark"
                                 placeholder="All departments"
                                 className="h-10"
                             >
-                                <AppSelectItem value="">All departments</AppSelectItem>
+                                <AppSelectItem value="">
+                                    All departments
+                                </AppSelectItem>
                                 {groupOptions.map((option) => (
-                                    <AppSelectItem key={option.value} value={option.value}>
+                                    <AppSelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                    >
                                         {option.label}
                                     </AppSelectItem>
                                 ))}
@@ -292,17 +335,26 @@ export function HikvisionPersonsContent({
                         </div>
 
                         <div className="flex min-w-0 flex-col gap-1.5">
-                            <span className="text-[11px] font-medium text-muted-foreground/60">Credentials</span>
+                            <span className="text-[11px] font-medium text-muted-foreground/60">
+                                Credentials
+                            </span>
                             <AppSelect
                                 value={filters.credential || ''}
-                                onValueChange={(value) => applyFilters({ credential: value })}
+                                onValueChange={(value) =>
+                                    applyFilters({ credential: value })
+                                }
                                 variant="dark"
                                 placeholder="All credentials"
                                 className="h-10"
                             >
-                                <AppSelectItem value="">All credentials</AppSelectItem>
+                                <AppSelectItem value="">
+                                    All credentials
+                                </AppSelectItem>
                                 {credentialOptions.map((option) => (
-                                    <AppSelectItem key={option.value} value={option.value}>
+                                    <AppSelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                    >
                                         {option.label}
                                     </AppSelectItem>
                                 ))}
@@ -314,7 +366,11 @@ export function HikvisionPersonsContent({
 
             {persons.length === 0 ? (
                 <EmptyState
-                    title={hasActiveFilters(filters) ? 'No persons match your filters' : 'No persons synced yet'}
+                    title={
+                        hasActiveFilters(filters)
+                            ? 'No persons match your filters'
+                            : 'No persons synced yet'
+                    }
                     description={
                         hasActiveFilters(filters)
                             ? 'Try adjusting your filters or clear them to see all persons.'
@@ -340,8 +396,13 @@ export function HikvisionPersonsContent({
                         </TableHeader>
                         <TableBody>
                             {persons.map((person) => (
-                                <TableRow key={person.id} className={dataTableBodyRowClass}>
-                                    <TableCell className={dataTableCellPrimaryClass}>
+                                <TableRow
+                                    key={person.id}
+                                    className={dataTableBodyRowClass}
+                                >
+                                    <TableCell
+                                        className={dataTableCellPrimaryClass}
+                                    >
                                         <div className="flex items-center gap-3">
                                             {person.photo_url ? (
                                                 <img
@@ -351,10 +412,14 @@ export function HikvisionPersonsContent({
                                                 />
                                             ) : (
                                                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-                                                    {(person.full_name ?? '?').slice(0, 1).toUpperCase()}
+                                                    {(person.full_name ?? '?')
+                                                        .slice(0, 1)
+                                                        .toUpperCase()}
                                                 </div>
                                             )}
-                                            <span>{person.full_name ?? '—'}</span>
+                                            <span>
+                                                {person.full_name ?? '—'}
+                                            </span>
                                         </div>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
@@ -368,17 +433,25 @@ export function HikvisionPersonsContent({
                                             can.link ? (
                                                 <button
                                                     type="button"
-                                                    onClick={() => setLinkingPerson(person)}
+                                                    onClick={() =>
+                                                        setLinkingPerson(person)
+                                                    }
                                                     className="font-medium text-primary underline-offset-4 hover:underline"
                                                 >
-                                                    {person.linked_employee.name}
+                                                    {
+                                                        person.linked_employee
+                                                            .name
+                                                    }
                                                 </button>
                                             ) : (
                                                 <Link
                                                     href={`/organization/employees/${person.linked_employee.id}`}
                                                     className="font-medium text-primary underline-offset-4 hover:underline"
                                                 >
-                                                    {person.linked_employee.name}
+                                                    {
+                                                        person.linked_employee
+                                                            .name
+                                                    }
                                                 </Link>
                                             )
                                         ) : can.link ? (
@@ -387,7 +460,9 @@ export function HikvisionPersonsContent({
                                                 variant="ghost"
                                                 size="sm"
                                                 className="h-8 px-2 text-muted-foreground hover:text-foreground"
-                                                onClick={() => setLinkingPerson(person)}
+                                                onClick={() =>
+                                                    setLinkingPerson(person)
+                                                }
                                             >
                                                 <Link2 className="mr-1.5 h-3.5 w-3.5" />
                                                 Link employee
@@ -402,27 +477,42 @@ export function HikvisionPersonsContent({
                                     <TableCell className={dataTableCellClass}>
                                         <div className="flex flex-wrap gap-1">
                                             {person.has_fingerprint ? (
-                                                <Badge variant="secondary" className="gap-1">
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="gap-1"
+                                                >
                                                     <Fingerprint className="h-3 w-3" />
                                                     Fingerprint
                                                 </Badge>
                                             ) : null}
                                             {person.has_pin ? (
-                                                <Badge variant="secondary" className="gap-1">
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="gap-1"
+                                                >
                                                     <KeyRound className="h-3 w-3" />
                                                     PIN
                                                 </Badge>
                                             ) : null}
-                                            {!person.has_fingerprint && !person.has_pin ? (
-                                                <span className="text-muted-foreground">—</span>
+                                            {!person.has_fingerprint &&
+                                            !person.has_pin ? (
+                                                <span className="text-muted-foreground">
+                                                    —
+                                                </span>
                                             ) : null}
                                         </div>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
-                                        {person.synced_at ? formatDisplayDateTime(person.synced_at) : '—'}
+                                        {person.synced_at
+                                            ? formatDisplayDateTime(
+                                                  person.synced_at,
+                                              )
+                                            : '—'}
                                     </TableCell>
                                     {can.update || can.delete || can.link ? (
-                                        <TableCell className={dataTableCellClass}>
+                                        <TableCell
+                                            className={dataTableCellClass}
+                                        >
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <Button
@@ -436,7 +526,13 @@ export function HikvisionPersonsContent({
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     {can.link ? (
-                                                        <DropdownMenuItem onClick={() => setLinkingPerson(person)}>
+                                                        <DropdownMenuItem
+                                                            onClick={() =>
+                                                                setLinkingPerson(
+                                                                    person,
+                                                                )
+                                                            }
+                                                        >
                                                             <Link2 className="mr-2 h-4 w-4" />
                                                             {person.linked_employee
                                                                 ? 'Change linked employee'
@@ -444,7 +540,13 @@ export function HikvisionPersonsContent({
                                                         </DropdownMenuItem>
                                                     ) : null}
                                                     {can.update ? (
-                                                        <DropdownMenuItem onClick={() => openEditDialog(person)}>
+                                                        <DropdownMenuItem
+                                                            onClick={() =>
+                                                                openEditDialog(
+                                                                    person,
+                                                                )
+                                                            }
+                                                        >
                                                             <Pencil className="mr-2 h-4 w-4" />
                                                             Edit
                                                         </DropdownMenuItem>
@@ -452,7 +554,11 @@ export function HikvisionPersonsContent({
                                                     {can.delete ? (
                                                         <DropdownMenuItem
                                                             className="text-destructive focus:text-destructive"
-                                                            onClick={() => setDeletePerson(person)}
+                                                            onClick={() =>
+                                                                setDeletePerson(
+                                                                    person,
+                                                                )
+                                                            }
                                                         >
                                                             <Trash2 className="mr-2 h-4 w-4" />
                                                             Delete

@@ -10,7 +10,12 @@ export type CrewOperationsAlertCounts = {
 };
 
 export type CrewOperationsAttentionItem = {
-    type: 'needs_update' | 'overdue_home' | 'due_soon' | 'upcoming_join' | 'manning_gap';
+    type:
+        | 'needs_update'
+        | 'overdue_home'
+        | 'due_soon'
+        | 'upcoming_join'
+        | 'manning_gap';
     title: string;
     subtitle: string | null;
     hint: string;

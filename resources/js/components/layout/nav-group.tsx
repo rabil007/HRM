@@ -229,7 +229,10 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
         }
 
         if (item.url === '/settings') {
-            return path === '/settings' || path.startsWith('/settings/master-data/');
+            return (
+                path === '/settings' ||
+                path.startsWith('/settings/master-data/')
+            );
         }
 
         if (item.url === '/settings/application') {
@@ -243,13 +246,21 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
             return false;
         }
 
-        if (path === item.url || (item.url !== '/' && path.startsWith(`${item.url}/`))) {
+        if (
+            path === item.url ||
+            (item.url !== '/' && path.startsWith(`${item.url}/`))
+        ) {
             return true;
         }
     }
 
     return (
-        !!item?.items?.some((i) => i.url && (i.url === path || (i.url !== '/' && path.startsWith(`${i.url}/`)))) ||
+        !!item?.items?.some(
+            (i) =>
+                i.url &&
+                (i.url === path ||
+                    (i.url !== '/' && path.startsWith(`${i.url}/`))),
+        ) ||
         (mainNav &&
             path.split('/')[1] !== '' &&
             path.split('/')[1] === item?.url?.split('/')[1])

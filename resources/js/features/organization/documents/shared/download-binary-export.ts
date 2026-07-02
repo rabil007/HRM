@@ -31,7 +31,10 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
         return fallback;
     }
 
-    const data = payload as { message?: string; errors?: Record<string, string[]> };
+    const data = payload as {
+        message?: string;
+        errors?: Record<string, string[]>;
+    };
 
     if (data.message) {
         return data.message;
@@ -49,7 +52,9 @@ export async function downloadBinaryExport(
     fallbackFilename: string,
     errorFallback = 'Download failed. Please try again.',
 ): Promise<void> {
-    const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+    const csrf = document.querySelector<HTMLMetaElement>(
+        'meta[name="csrf-token"]',
+    )?.content;
 
     const response = await fetch(url, {
         method: 'POST',
@@ -79,8 +84,9 @@ export async function downloadBinaryExport(
 
     const blob = await response.blob();
     const filename =
-        parseContentDispositionFilename(response.headers.get('Content-Disposition')) ??
-        fallbackFilename;
+        parseContentDispositionFilename(
+            response.headers.get('Content-Disposition'),
+        ) ?? fallbackFilename;
 
     triggerBrowserDownload(blob, filename);
 }

@@ -9,7 +9,12 @@ type PageHeaderProps = {
     className?: string;
 };
 
-export function PageHeader({ title, description, actions, className }: PageHeaderProps) {
+export function PageHeader({
+    title,
+    description,
+    actions,
+    className,
+}: PageHeaderProps) {
     return (
         <div
             className={cn(
@@ -23,7 +28,11 @@ export function PageHeader({ title, description, actions, className }: PageHeade
                     <p className={typography.muted}>{description}</p>
                 ) : null}
             </div>
-            {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+            {actions ? (
+                <div className="flex shrink-0 items-center gap-2">
+                    {actions}
+                </div>
+            ) : null}
         </div>
     );
 }

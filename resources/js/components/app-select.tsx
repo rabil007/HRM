@@ -7,7 +7,11 @@ import {
     CommandItem,
     CommandList,
 } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
 const NONE_SENTINEL = '__app_select_none__';
@@ -69,7 +73,10 @@ function parseAppSelectItems(children: React.ReactNode): ParsedAppSelectItem[] {
     const items: ParsedAppSelectItem[] = [];
 
     React.Children.forEach(children, (child) => {
-        if (!React.isValidElement<AppSelectItemProps>(child) || child.type !== AppSelectItem) {
+        if (
+            !React.isValidElement<AppSelectItemProps>(child) ||
+            child.type !== AppSelectItem
+        ) {
             return;
         }
 
@@ -106,7 +113,10 @@ export function AppSelect({
     children,
 }: AppSelectProps): React.ReactElement {
     const [open, setOpen] = React.useState(false);
-    const items = React.useMemo(() => parseAppSelectItems(children), [children]);
+    const items = React.useMemo(
+        () => parseAppSelectItems(children),
+        [children],
+    );
 
     const radixValue = value === '' ? NONE_SENTINEL : value || NONE_SENTINEL;
     const selectedItem = items.find((item) => item.radixValue === radixValue);
@@ -128,7 +138,7 @@ export function AppSelect({
     const triggerClassName = cn(
         'flex w-full items-center justify-between gap-2 rounded-md border text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50',
         variant === 'dark'
-            ? 'border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 dark:text-zinc-100 focus-visible:ring-primary/40'
+            ? 'border-input bg-background/50 text-foreground focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5 dark:text-zinc-100'
             : 'border-border bg-card text-foreground focus-visible:ring-primary/40',
         variant === 'dark' ? 'h-11 rounded-xl' : 'h-11 rounded-xl',
         size === 'sm' && 'h-8 rounded-lg px-2 text-xs',
@@ -147,7 +157,12 @@ export function AppSelect({
                     data-slot="app-select-trigger"
                     className={triggerClassName}
                 >
-                    <span className={cn('line-clamp-1 text-left', !displayLabel && 'text-muted-foreground')}>
+                    <span
+                        className={cn(
+                            'line-clamp-1 text-left',
+                            !displayLabel && 'text-muted-foreground',
+                        )}
+                    >
                         {displayLabel || placeholder}
                     </span>
                     <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
@@ -174,7 +189,9 @@ export function AppSelect({
                                     }
                                 }}
                             >
-                                <span className="flex-1 truncate">{item.label || item.value}</span>
+                                <span className="flex-1 truncate">
+                                    {item.label || item.value}
+                                </span>
                                 {item.radixValue === radixValue ? (
                                     <CheckIcon className="size-4 shrink-0 opacity-70" />
                                 ) : null}

@@ -1,17 +1,29 @@
-import { Link  } from '@inertiajs/react';
-import type {InertiaFormProps} from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
+import type { InertiaFormProps } from '@inertiajs/react';
 import { AlertCircle, FileText, Trash2, Upload } from 'lucide-react';
 import { useId } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { formatUploadFileSize } from '@/features/organization/documents/upload/upload-draft';
-import type { LeaveRequest, LeaveRequestEmployeeOption, LeaveRequestFormData, LeaveRequestTypeOption } from '../types';
+import type {
+    LeaveRequest,
+    LeaveRequestEmployeeOption,
+    LeaveRequestFormData,
+    LeaveRequestTypeOption,
+} from '../types';
 
-const inputClass = 'rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all';
+const inputClass =
+    'rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all';
 
 export function LeaveRequestFormSheet({
     open,
@@ -39,8 +51,13 @@ export function LeaveRequestFormSheet({
     const attachmentId = useId();
     const existingAttachment = leaveRequest?.attachments[0] ?? null;
     const pendingAttachment = form.data.attachment;
-    const showExistingAttachment = existingAttachment && !form.data.remove_attachment && !pendingAttachment;
-    const displayName = pendingAttachment?.name ?? (showExistingAttachment ? existingAttachment.name : null);
+    const showExistingAttachment =
+        existingAttachment &&
+        !form.data.remove_attachment &&
+        !pendingAttachment;
+    const displayName =
+        pendingAttachment?.name ??
+        (showExistingAttachment ? existingAttachment.name : null);
 
     const clearAttachment = () => {
         if (pendingAttachment) {
@@ -62,32 +79,57 @@ export function LeaveRequestFormSheet({
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col glass-card rounded-none">
-                <SheetHeader className="p-8 pb-6 border-b border-border/60">
+            <SheetContent
+                side="right"
+                className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-md"
+            >
+                <SheetHeader className="border-b border-border/60 p-8 pb-6">
                     <SheetTitle className="text-xl font-bold tracking-tight">
-                        {leaveRequest ? 'Edit Leave Request' : 'New Leave Request'}
+                        {leaveRequest
+                            ? 'Edit Leave Request'
+                            : 'New Leave Request'}
                     </SheetTitle>
-                    <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
-                        {leaveRequest ? 'Update leave request details.' : 'Submit a new leave request for an employee.'}
+                    <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
+                        {leaveRequest
+                            ? 'Update leave request details.'
+                            : 'Submit a new leave request for an employee.'}
                     </SheetDescription>
                 </SheetHeader>
 
-                <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                <div className="flex-1 space-y-8 overflow-y-auto p-8">
                     <div className="space-y-5">
                         <div className="space-y-2">
-                            <Label htmlFor="employee_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                Employee <span className="text-destructive">*</span>
+                            <Label
+                                htmlFor="employee_id"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
+                                Employee{' '}
+                                <span className="text-destructive">*</span>
                             </Label>
                             <AppSelect
                                 value={String(form.data.employee_id ?? '')}
-                                onValueChange={(v) => form.setData('employee_id', v ? Number(v) : '')}
+                                onValueChange={(v) =>
+                                    form.setData(
+                                        'employee_id',
+                                        v ? Number(v) : '',
+                                    )
+                                }
                                 variant="card"
-                                placeholder={employeeUnavailable ? 'No employee profile linked' : 'Select employee'}
+                                placeholder={
+                                    employeeUnavailable
+                                        ? 'No employee profile linked'
+                                        : 'Select employee'
+                                }
                                 disabled={employeeLocked || employeeUnavailable}
                             >
                                 {employees.map((employee) => (
-                                    <AppSelectItem key={employee.id} value={String(employee.id)}>
-                                        {employee.employee_no ? `${employee.employee_no} — ${employee.name}` : employee.name}
+                                    <AppSelectItem
+                                        key={employee.id}
+                                        value={String(employee.id)}
+                                    >
+                                        {employee.employee_no
+                                            ? `${employee.employee_no} — ${employee.name}`
+                                            : employee.name}
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
@@ -95,84 +137,147 @@ export function LeaveRequestFormSheet({
                                 <div className="flex gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-800 dark:text-amber-200">
                                     <AlertCircle className="mt-0.5 size-4 shrink-0" />
                                     <div className="space-y-1">
-                                        <p className="font-semibold">Your user account is not linked to an employee profile.</p>
-                                        <p className="text-amber-900/80 dark:text-amber-100/80">
-                                            Ask an administrator to link your user to an employee record before submitting leave requests.
+                                        <p className="font-semibold">
+                                            Your user account is not linked to
+                                            an employee profile.
                                         </p>
-                                        <Link href="/organization/users" className="inline-flex font-semibold text-primary hover:underline">
+                                        <p className="text-amber-900/80 dark:text-amber-100/80">
+                                            Ask an administrator to link your
+                                            user to an employee record before
+                                            submitting leave requests.
+                                        </p>
+                                        <Link
+                                            href="/organization/users"
+                                            className="inline-flex font-semibold text-primary hover:underline"
+                                        >
                                             Go to users
                                         </Link>
                                     </div>
                                 </div>
                             ) : null}
-                            {form.errors.employee_id ? <div className="text-xs font-medium text-destructive">{form.errors.employee_id}</div> : null}
+                            {form.errors.employee_id ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.employee_id}
+                                </div>
+                            ) : null}
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="leave_type_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                Leave type <span className="text-destructive">*</span>
+                            <Label
+                                htmlFor="leave_type_id"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
+                                Leave type{' '}
+                                <span className="text-destructive">*</span>
                             </Label>
                             <AppSelect
                                 value={String(form.data.leave_type_id ?? '')}
-                                onValueChange={(v) => form.setData('leave_type_id', v ? Number(v) : '')}
+                                onValueChange={(v) =>
+                                    form.setData(
+                                        'leave_type_id',
+                                        v ? Number(v) : '',
+                                    )
+                                }
                                 variant="card"
                                 placeholder="Select leave type"
                             >
                                 {leaveTypes.map((leaveType) => (
-                                    <AppSelectItem key={leaveType.id} value={String(leaveType.id)}>
+                                    <AppSelectItem
+                                        key={leaveType.id}
+                                        value={String(leaveType.id)}
+                                    >
                                         {leaveType.code} — {leaveType.name}
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
-                            {form.errors.leave_type_id ? <div className="text-xs font-medium text-destructive">{form.errors.leave_type_id}</div> : null}
+                            {form.errors.leave_type_id ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.leave_type_id}
+                                </div>
+                            ) : null}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="start_date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                    Start date <span className="text-destructive">*</span>
+                                <Label
+                                    htmlFor="start_date"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                                >
+                                    Start date{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <Input
                                     id="start_date"
                                     type="date"
                                     className={inputClass}
                                     value={form.data.start_date}
-                                    onChange={(e) => form.setData('start_date', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'start_date',
+                                            e.target.value,
+                                        )
+                                    }
                                 />
-                                {form.errors.start_date ? <div className="text-xs font-medium text-destructive">{form.errors.start_date}</div> : null}
+                                {form.errors.start_date ? (
+                                    <div className="text-xs font-medium text-destructive">
+                                        {form.errors.start_date}
+                                    </div>
+                                ) : null}
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="end_date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                    End date <span className="text-destructive">*</span>
+                                <Label
+                                    htmlFor="end_date"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                                >
+                                    End date{' '}
+                                    <span className="text-destructive">*</span>
                                 </Label>
                                 <Input
                                     id="end_date"
                                     type="date"
                                     className={inputClass}
                                     value={form.data.end_date}
-                                    onChange={(e) => form.setData('end_date', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData('end_date', e.target.value)
+                                    }
                                 />
-                                {form.errors.end_date ? <div className="text-xs font-medium text-destructive">{form.errors.end_date}</div> : null}
+                                {form.errors.end_date ? (
+                                    <div className="text-xs font-medium text-destructive">
+                                        {form.errors.end_date}
+                                    </div>
+                                ) : null}
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="reason" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                            <Label
+                                htmlFor="reason"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
                                 Reason (optional)
                             </Label>
                             <Textarea
                                 id="reason"
                                 value={form.data.reason}
-                                onChange={(e) => form.setData('reason', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('reason', e.target.value)
+                                }
                                 className="min-h-24 rounded-xl border-border bg-card"
                                 placeholder="Reason for leave..."
                             />
-                            {form.errors.reason ? <div className="text-xs font-medium text-destructive">{form.errors.reason}</div> : null}
+                            {form.errors.reason ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.reason}
+                                </div>
+                            ) : null}
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor={attachmentId} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                            <Label
+                                htmlFor={attachmentId}
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
                                 Attachment (optional)
                             </Label>
                             <Input
@@ -181,7 +286,8 @@ export function LeaveRequestFormSheet({
                                 accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,application/pdf,image/jpeg,image/png"
                                 className="sr-only"
                                 onChange={(e) => {
-                                    const file = e.currentTarget.files?.[0] ?? null;
+                                    const file =
+                                        e.currentTarget.files?.[0] ?? null;
 
                                     if (file) {
                                         form.setData((data) => ({
@@ -205,23 +311,30 @@ export function LeaveRequestFormSheet({
                                             <div className="min-w-0">
                                                 {showExistingAttachment ? (
                                                     <a
-                                                        href={existingAttachment.url}
+                                                        href={
+                                                            existingAttachment.url
+                                                        }
                                                         className="block truncate text-sm font-medium text-primary hover:underline"
                                                     >
                                                         {displayName}
                                                     </a>
                                                 ) : (
-                                                    <p className="truncate text-sm font-medium">{displayName}</p>
+                                                    <p className="truncate text-sm font-medium">
+                                                        {displayName}
+                                                    </p>
                                                 )}
                                                 {pendingAttachment ? (
                                                     <p className="text-xs text-muted-foreground">
-                                                        {formatUploadFileSize(pendingAttachment.size)}
+                                                        {formatUploadFileSize(
+                                                            pendingAttachment.size,
+                                                        )}
                                                     </p>
                                                 ) : null}
                                             </div>
                                         ) : (
                                             <p className="text-xs leading-relaxed text-muted-foreground">
-                                                Supported formats: PDF, JPG, PNG, DOC, DOCX. Max 10 MB.
+                                                Supported formats: PDF, JPG,
+                                                PNG, DOC, DOCX. Max 10 MB.
                                             </p>
                                         )}
 
@@ -233,9 +346,14 @@ export function LeaveRequestFormSheet({
                                                 size="sm"
                                                 className="h-9 rounded-xl px-3"
                                             >
-                                                <label htmlFor={attachmentId} className="cursor-pointer">
+                                                <label
+                                                    htmlFor={attachmentId}
+                                                    className="cursor-pointer"
+                                                >
                                                     <Upload className="size-3.5" />
-                                                    {displayName ? 'Replace file' : 'Upload file'}
+                                                    {displayName
+                                                        ? 'Replace file'
+                                                        : 'Upload file'}
                                                 </label>
                                             </Button>
                                             {displayName ? (
@@ -254,22 +372,26 @@ export function LeaveRequestFormSheet({
                                     </div>
                                 </div>
                             </div>
-                            {form.errors.attachment ? <div className="text-xs font-medium text-destructive">{form.errors.attachment}</div> : null}
+                            {form.errors.attachment ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.attachment}
+                                </div>
+                            ) : null}
                         </div>
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-border/60 bg-background/40 flex gap-3">
+                <div className="flex gap-3 border-t border-border/60 bg-background/40 p-6">
                     <Button
                         type="button"
                         variant="ghost"
-                        className="rounded-xl h-11 px-6 text-muted-foreground flex-1"
+                        className="h-11 flex-1 rounded-xl px-6 text-muted-foreground"
                         onClick={() => onOpenChange(false)}
                     >
                         Cancel
                     </Button>
                     <Button
-                        className="rounded-xl h-11 px-6 flex-1 font-semibold"
+                        className="h-11 flex-1 rounded-xl px-6 font-semibold"
                         type="button"
                         onClick={onSubmit}
                         disabled={form.processing || employeeUnavailable}

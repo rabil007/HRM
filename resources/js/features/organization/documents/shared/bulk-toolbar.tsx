@@ -21,18 +21,23 @@ export function DocumentsBulkToolbar({
         return null;
     }
 
-    const label = count === 1 ? `1 ${itemLabel.replace(/s$/, '')}` : `${count} ${itemLabel}`;
+    const label =
+        count === 1
+            ? `1 ${itemLabel.replace(/s$/, '')}`
+            : `${count} ${itemLabel}`;
 
     return (
         <div
             className={cn(
                 'mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5',
-                'animate-in fade-in slide-in-from-top-1 duration-200',
+                'animate-in duration-200 fade-in slide-in-from-top-1',
                 className,
             )}
         >
             {selectAll}
-            <span className="text-sm font-medium text-foreground">{label} selected</span>
+            <span className="text-sm font-medium text-foreground">
+                {label} selected
+            </span>
             <Button
                 type="button"
                 variant="ghost"
@@ -42,7 +47,9 @@ export function DocumentsBulkToolbar({
             >
                 Clear
             </Button>
-            <div className="ml-auto flex flex-wrap items-center gap-2">{actions}</div>
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+                {actions}
+            </div>
         </div>
     );
 }

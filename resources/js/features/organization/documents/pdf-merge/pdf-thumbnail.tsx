@@ -2,7 +2,10 @@ import { FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { loadPdfPreview } from '@/features/organization/documents/pdf-merge/pdf-preview-service';
-import type { MergeDocumentItem, PdfPreviewData } from '@/features/organization/documents/pdf-merge/types';
+import type {
+    MergeDocumentItem,
+    PdfPreviewData,
+} from '@/features/organization/documents/pdf-merge/types';
 import { cn } from '@/lib/utils';
 
 function PdfThumbnailContent({
@@ -64,7 +67,9 @@ function PdfThumbnailContent({
                 <FileText
                     className={cn(
                         'h-6 w-6',
-                        hasError ? 'text-muted-foreground/60' : 'text-muted-foreground',
+                        hasError
+                            ? 'text-muted-foreground/60'
+                            : 'text-muted-foreground',
                     )}
                 />
             )}

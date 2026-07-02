@@ -46,6 +46,8 @@ export type VesselManningPagePermissions = {
     delete: boolean;
 };
 
-export function vesselManningHasWriteActions(can: VesselManningPagePermissions): boolean {
+export function vesselManningHasWriteActions(
+    can: VesselManningPagePermissions,
+): boolean {
     return can.create || can.update || can.delete;
 }

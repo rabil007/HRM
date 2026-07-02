@@ -1,4 +1,12 @@
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+    Bar,
+    BarChart,
+    Cell,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
+} from 'recharts';
 
 export type DistributionPoint = {
     name: string;
@@ -34,22 +42,42 @@ export function DistributionBarChart({
     const isHorizontal = layout === 'horizontal';
 
     return (
-        <ResponsiveContainer width="100%" height={isHorizontal ? Math.max(200, data.length * 40) : 240}>
+        <ResponsiveContainer
+            width="100%"
+            height={isHorizontal ? Math.max(200, data.length * 40) : 240}
+        >
             <BarChart
                 data={data}
                 layout={isHorizontal ? 'vertical' : 'horizontal'}
-                margin={{ top: 4, right: 12, left: isHorizontal ? 4 : -8, bottom: 4 }}
+                margin={{
+                    top: 4,
+                    right: 12,
+                    left: isHorizontal ? 4 : -8,
+                    bottom: 4,
+                }}
             >
                 {isHorizontal ? (
                     <>
-                        <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                        <XAxis
+                            type="number"
+                            allowDecimals={false}
+                            tickLine={false}
+                            axisLine={false}
+                            tick={{
+                                fontSize: 11,
+                                fill: 'var(--muted-foreground)',
+                            }}
+                        />
                         <YAxis
                             type="category"
                             dataKey="name"
                             width={100}
                             tickLine={false}
                             axisLine={false}
-                            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                            tick={{
+                                fontSize: 11,
+                                fill: 'var(--muted-foreground)',
+                            }}
                         />
                     </>
                 ) : (
@@ -58,9 +86,20 @@ export function DistributionBarChart({
                             dataKey="name"
                             tickLine={false}
                             axisLine={false}
-                            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                            tick={{
+                                fontSize: 11,
+                                fill: 'var(--muted-foreground)',
+                            }}
                         />
-                        <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                        <YAxis
+                            allowDecimals={false}
+                            tickLine={false}
+                            axisLine={false}
+                            tick={{
+                                fontSize: 11,
+                                fill: 'var(--muted-foreground)',
+                            }}
+                        />
                     </>
                 )}
                 <Tooltip

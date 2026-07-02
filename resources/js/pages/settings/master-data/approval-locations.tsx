@@ -29,7 +29,11 @@ type ApprovalLocation = {
     is_active: boolean;
 };
 
-export default function ApprovalLocations({ approval_locations }: { approval_locations: ApprovalLocation[] }) {
+export default function ApprovalLocations({
+    approval_locations,
+}: {
+    approval_locations: ApprovalLocation[];
+}) {
     const can = useSettingsMasterDataCan('approval-locations');
 
     const [query, setQuery] = useState('');
@@ -49,7 +53,9 @@ export default function ApprovalLocations({ approval_locations }: { approval_loc
             return approval_locations;
         }
 
-        return approval_locations.filter((v) => v.name.toLowerCase().includes(q));
+        return approval_locations.filter((v) =>
+            v.name.toLowerCase().includes(q),
+        );
     }, [query, approval_locations]);
 
     const openCreate = () => {
@@ -100,13 +106,16 @@ export default function ApprovalLocations({ approval_locations }: { approval_loc
             return;
         }
 
-        router.delete(`/settings/master-data/approval-locations/${current.id}`, {
-            preserveScroll: true,
-            onFinish: () => {
-                setDeleteOpen(false);
-                setCurrent(null);
+        router.delete(
+            `/settings/master-data/approval-locations/${current.id}`,
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setDeleteOpen(false);
+                    setCurrent(null);
+                },
             },
-        });
+        );
     };
 
     const toggleActive = (companyVisaType: ApprovalLocation) => {
@@ -140,38 +149,68 @@ export default function ApprovalLocations({ approval_locations }: { approval_loc
                             className={masterDataInputClass}
                         />
                     </div>
-                    {can.create ? <Button onClick={openCreate}>Add approval location</Button> : null}
+                    {can.create ? (
+                        <Button onClick={openCreate}>
+                            Add approval location
+                        </Button>
+                    ) : null}
                 </div>
 
                 <div className="overflow-hidden rounded-xl border border-border/60">
                     <div className="overflow-x-auto">
                         <div className="min-w-[640px]">
-                            <div className="grid grid-cols-12 gap-2 whitespace-nowrap bg-muted/30 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
                                 <div className="col-span-7">Title</div>
                                 <div className="col-span-2">Active</div>
-                                <div className="col-span-3 text-right">Actions</div>
+                                <div className="col-span-3 text-right">
+                                    Actions
+                                </div>
                             </div>
 
                             {rows.map((v) => (
                                 <div
                                     key={v.id}
-                                    className="grid grid-cols-12 gap-2 whitespace-nowrap border-t border-border/60 px-4 py-3"
+                                    className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
                                 >
-                                    <div className="col-span-7 truncate text-sm">{v.name}</div>
+                                    <div className="col-span-7 truncate text-sm">
+                                        {v.name}
+                                    </div>
                                     <div className="col-span-2 flex items-center">
-                                        <Switch disabled={!can.update} checked={v.is_active} onCheckedChange={() => toggleActive(v)} />
+                                        <Switch
+                                            disabled={!can.update}
+                                            checked={v.is_active}
+                                            onCheckedChange={() =>
+                                                toggleActive(v)
+                                            }
+                                        />
                                     </div>
                                     <div className="col-span-3 flex flex-nowrap justify-end gap-2">
-                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
-                                        {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(v)}>
-                                            Delete
-                                        </Button> : null}
+                                        {can.update ? (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => openEdit(v)}
+                                            >
+                                                Edit
+                                            </Button>
+                                        ) : null}
+                                        {can.delete ? (
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => requestDelete(v)}
+                                            >
+                                                Delete
+                                            </Button>
+                                        ) : null}
                                     </div>
                                 </div>
                             ))}
 
                             {rows.length === 0 ? (
-                                <div className="px-4 py-10 text-sm text-muted-foreground">No approval locations found.</div>
+                                <div className="px-4 py-10 text-sm text-muted-foreground">
+                                    No approval locations found.
+                                </div>
                             ) : null}
                         </div>
                     </div>
@@ -181,18 +220,28 @@ export default function ApprovalLocations({ approval_locations }: { approval_loc
             <MasterDataFormSheet
                 open={sheetOpen}
                 onOpenChange={setSheetOpen}
-                title={current ? 'Edit approval location' : 'New approval location'}
+                title={
+                    current ? 'Edit approval location' : 'New approval location'
+                }
                 description="Enter the approval location title only."
                 footer={
                     <MasterDataFormSheetFooter
                         onCancel={() => setSheetOpen(false)}
                         onSubmit={submit}
                         processing={form.processing}
-                        submitLabel={current ? 'Save changes' : 'Create approval location'}
+                        submitLabel={
+                            current
+                                ? 'Save changes'
+                                : 'Create approval location'
+                        }
                     />
                 }
             >
-                <MasterDataField id="title" label="Title" error={form.errors.name}>
+                <MasterDataField
+                    id="title"
+                    label="Title"
+                    error={form.errors.name}
+                >
                     <Input
                         id="title"
                         value={form.data.name}
@@ -204,14 +253,18 @@ export default function ApprovalLocations({ approval_locations }: { approval_loc
 
                 <MasterDataActiveToggle
                     checked={form.data.is_active}
-                    onCheckedChange={(value) => form.setData('is_active', value)}
+                    onCheckedChange={(value) =>
+                        form.setData('is_active', value)
+                    }
                 />
             </MasterDataFormSheet>
 
             <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                 <AlertDialogContent className="glass-card">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete approval location</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            Delete approval location
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                             {current
                                 ? `This will permanently delete “${current.name}”.`
@@ -219,8 +272,13 @@ export default function ApprovalLocations({ approval_locations }: { approval_loc
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel className="glass-card rounded-xl hover:bg-accent">Cancel</AlertDialogCancel>
-                        <AlertDialogAction className="rounded-xl" onClick={confirmDelete}>
+                        <AlertDialogCancel className="rounded-xl glass-card hover:bg-accent">
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className="rounded-xl"
+                            onClick={confirmDelete}
+                        >
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>

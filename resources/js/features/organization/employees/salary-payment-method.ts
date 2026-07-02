@@ -8,7 +8,9 @@ export const SALARY_PAYMENT_METHOD_OPTIONS = [
 export type SalaryPaymentMethodValue =
     (typeof SALARY_PAYMENT_METHOD_OPTIONS)[number]['value'];
 
-export function cashPaymentBadgeLabel(method: SalaryPaymentMethodValue): string | null {
+export function cashPaymentBadgeLabel(
+    method: SalaryPaymentMethodValue,
+): string | null {
     switch (method) {
         case 'cash_c3':
             return 'C3';

@@ -26,9 +26,9 @@ export function EmployeeSectionCard({
                 className,
             )}
         >
-            <header className="flex items-start gap-3 border-b border-border/60 dark:border-white/[0.06] px-5 py-4">
+            <header className="flex items-start gap-3 border-b border-border/60 px-5 py-4 dark:border-white/[0.06]">
                 {Icon ? (
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/40 dark:bg-white/[0.04] text-muted-foreground">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/40 text-muted-foreground dark:bg-white/[0.04]">
                         <Icon className="size-4" aria-hidden />
                     </span>
                 ) : null}
@@ -43,7 +43,12 @@ export function EmployeeSectionCard({
                     ) : null}
                 </div>
             </header>
-            <div className={cn('flex flex-1 flex-col gap-1 px-5 py-4', bodyClassName)}>
+            <div
+                className={cn(
+                    'flex flex-1 flex-col gap-1 px-5 py-4',
+                    bodyClassName,
+                )}
+            >
                 {children}
             </div>
         </section>

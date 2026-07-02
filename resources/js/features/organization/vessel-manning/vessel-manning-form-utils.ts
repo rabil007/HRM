@@ -1,6 +1,8 @@
 import type { VesselManningFormData, VesselManningItem } from './types';
 
-export function toVesselManningFormData(vessel: VesselManningItem): VesselManningFormData {
+export function toVesselManningFormData(
+    vessel: VesselManningItem,
+): VesselManningFormData {
     return {
         requirements: vessel.manning.map((line) => ({
             rank_id: String(line.rank_id),

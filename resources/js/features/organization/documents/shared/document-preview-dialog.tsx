@@ -4,11 +4,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import {
-    DocumentPreviewPanel
-    
-} from '@/features/organization/documents/shared/document-preview-panel';
-import type {DocumentPreviewSource} from '@/features/organization/documents/shared/document-preview-panel';
+import { DocumentPreviewPanel } from '@/features/organization/documents/shared/document-preview-panel';
+import type { DocumentPreviewSource } from '@/features/organization/documents/shared/document-preview-panel';
 
 export function DocumentPreviewDialog({
     document,
@@ -22,7 +19,9 @@ export function DocumentPreviewDialog({
             <DialogContent className="sm:max-w-5xl">
                 <DialogHeader>
                     <DialogTitle>
-                        {document?.title || document?.document_type_label || 'Document preview'}
+                        {document?.title ||
+                            document?.document_type_label ||
+                            'Document preview'}
                     </DialogTitle>
                 </DialogHeader>
                 {document ? <DocumentPreviewPanel document={document} /> : null}

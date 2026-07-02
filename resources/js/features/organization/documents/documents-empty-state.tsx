@@ -33,7 +33,8 @@ function resolveEmptyCopy(
     if (context === 'index-folders') {
         return {
             title: 'No employee folders yet.',
-            description: 'Upload documents from an employee profile to see folders here.',
+            description:
+                'Upload documents from an employee profile to see folders here.',
         };
     }
 
@@ -41,20 +42,23 @@ function resolveEmptyCopy(
         if (expiryFilter === 'all') {
             return {
                 title: 'No documents in this folder.',
-                description: 'Upload files from the employee profile to see them here.',
+                description:
+                    'Upload files from the employee profile to see them here.',
             };
         }
 
         return {
             title: `No ${EXPIRY_FILTER_LABELS[expiryFilter].toLowerCase()} documents.`,
-            description: 'Try another expiry filter or view all documents in this folder.',
+            description:
+                'Try another expiry filter or view all documents in this folder.',
         };
     }
 
     if (expiryFilter === 'expired') {
         return {
             title: 'No expired documents.',
-            description: 'All expiry-tracked documents are currently within their validity period.',
+            description:
+                'All expiry-tracked documents are currently within their validity period.',
         };
     }
 
@@ -96,7 +100,9 @@ export function DocumentsEmptyState({
     return (
         <EmptyState
             title={copy.title}
-            description={showSearchHints ? undefined : copy.description || undefined}
+            description={
+                showSearchHints ? undefined : copy.description || undefined
+            }
             action={action}
             icon={
                 <div

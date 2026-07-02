@@ -22,7 +22,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import {
     DEFAULT_DEPLOYMENT_SORT,
     DEFAULT_DEPLOYMENT_SORT_DIRECTION,
@@ -129,32 +134,34 @@ export default function CrewDeploymentsIndex({
     // };
 
     const activeSort = filters.sort ?? DEFAULT_DEPLOYMENT_SORT;
-    const activeDirection = filters.direction ?? DEFAULT_DEPLOYMENT_SORT_DIRECTION;
+    const activeDirection =
+        filters.direction ?? DEFAULT_DEPLOYMENT_SORT_DIRECTION;
     const showInHomeDaysColumn = filters.status === 'in_home';
-    const tableColumnCount = TABLE_COLUMN_COUNT + (showInHomeDaysColumn ? 1 : 0);
+    const tableColumnCount =
+        TABLE_COLUMN_COUNT + (showInHomeDaysColumn ? 1 : 0);
 
     const activeFilterCount = useMemo(() => {
         let count = 0;
 
         if (filters.status) {
-count++;
-}
+            count++;
+        }
 
         if (filters.rank_id) {
-count++;
-}
+            count++;
+        }
 
         if (filters.client_id) {
-count++;
-}
+            count++;
+        }
 
         if (filters.company_visa_type_id) {
-count++;
-}
+            count++;
+        }
 
         if (filters.search) {
-count++;
-}
+            count++;
+        }
 
         return count;
     }, [filters]);
@@ -177,40 +184,40 @@ count++;
         const query: Record<string, string> = {};
 
         if (filters.status) {
-query.status = filters.status;
-}
+            query.status = filters.status;
+        }
 
         if (filters.search) {
-query.search = filters.search;
-}
+            query.search = filters.search;
+        }
 
         if (filters.rank_id) {
-query.rank_id = String(filters.rank_id);
-}
+            query.rank_id = String(filters.rank_id);
+        }
 
         if (filters.client_id) {
-query.client_id = String(filters.client_id);
-}
+            query.client_id = String(filters.client_id);
+        }
 
         if (filters.company_visa_type_id) {
             query.company_visa_type_id = String(filters.company_visa_type_id);
         }
 
         if (filters.sort) {
-query.sort = filters.sort;
-}
+            query.sort = filters.sort;
+        }
 
         if (filters.direction) {
-query.direction = filters.direction;
-}
+            query.direction = filters.direction;
+        }
 
         if (filters.view) {
-query.view = filters.view;
-}
+            query.view = filters.view;
+        }
 
         if (deployments.per_page) {
-query.per_page = String(deployments.per_page);
-}
+            query.per_page = String(deployments.per_page);
+        }
 
         return query;
     }, [deployments.per_page, filters]);
@@ -220,7 +227,9 @@ query.per_page = String(deployments.per_page);
             router.visit(
                 showDeployment.url(
                     { deployment: deploymentId },
-                    Object.keys(listBackQuery).length > 0 ? { query: listBackQuery } : undefined,
+                    Object.keys(listBackQuery).length > 0
+                        ? { query: listBackQuery }
+                        : undefined,
                 ),
             );
         },
@@ -258,7 +267,7 @@ query.per_page = String(deployments.per_page);
 
             <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0">
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
+                    <p className="mb-1 text-[10px] font-bold tracking-[0.2em] text-muted-foreground/60 uppercase">
                         Crew Operations
                     </p>
                     <div className="flex items-center gap-2">
@@ -277,8 +286,8 @@ query.per_page = String(deployments.per_page);
                         </Button>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        Track where crew are now — on vessel, join/leave standby, travel, and
-                        assignment history.
+                        Track where crew are now — on vessel, join/leave
+                        standby, travel, and assignment history.
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
@@ -308,7 +317,12 @@ query.per_page = String(deployments.per_page);
                     */}
 
                     {can.export ? (
-                        <Button variant="outline" size="sm" className="h-9" asChild>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9"
+                            asChild
+                        >
                             <a href="/organization/crew-deployments/export">
                                 <Download className="mr-2 h-4 w-4" />
                                 Export
@@ -342,7 +356,7 @@ query.per_page = String(deployments.per_page);
                 <CardContent className="p-5">
                     <div className="mb-4 flex flex-wrap items-center gap-3">
                         <Filter className="h-4 w-4 text-muted-foreground/50" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
+                        <span className="text-xs font-bold tracking-widest text-muted-foreground/50 uppercase">
                             Filters
                         </span>
                         {activeFilterCount > 0 ? (
@@ -364,18 +378,24 @@ query.per_page = String(deployments.per_page);
 
                     <div className="flex flex-col gap-3 lg:flex-row">
                         <div className="relative min-w-0 flex-1">
-                            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
+                            <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
                             <Input
                                 value={list.searchInput}
-                                onChange={(event) => list.onSearchChange(event.target.value)}
+                                onChange={(event) =>
+                                    list.onSearchChange(event.target.value)
+                                }
                                 placeholder="Search employee no, name, vessel, remarks…"
                                 className="h-10 rounded-xl border-border bg-muted/50 pl-10 focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-3 lg:w-auto lg:shrink-0">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:w-auto lg:shrink-0 xl:grid-cols-3">
                             <AppSelect
-                                value={filters.rank_id ? String(filters.rank_id) : ''}
+                                value={
+                                    filters.rank_id
+                                        ? String(filters.rank_id)
+                                        : ''
+                                }
                                 onValueChange={(rankId) =>
                                     list.applyFilters({ rank_id: rankId })
                                 }
@@ -383,16 +403,25 @@ query.per_page = String(deployments.per_page);
                                 variant="dark"
                                 className="h-10"
                             >
-                                <AppSelectItem value="">All ranks</AppSelectItem>
+                                <AppSelectItem value="">
+                                    All ranks
+                                </AppSelectItem>
                                 {ranks.map((rank) => (
-                                    <AppSelectItem key={rank.id} value={String(rank.id)}>
+                                    <AppSelectItem
+                                        key={rank.id}
+                                        value={String(rank.id)}
+                                    >
                                         {rank.name}
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
 
                             <AppSelect
-                                value={filters.client_id ? String(filters.client_id) : ''}
+                                value={
+                                    filters.client_id
+                                        ? String(filters.client_id)
+                                        : ''
+                                }
                                 onValueChange={(clientId) =>
                                     list.applyFilters({ client_id: clientId })
                                 }
@@ -400,9 +429,14 @@ query.per_page = String(deployments.per_page);
                                 variant="dark"
                                 className="h-10"
                             >
-                                <AppSelectItem value="">All clients</AppSelectItem>
+                                <AppSelectItem value="">
+                                    All clients
+                                </AppSelectItem>
                                 {clients.map((client) => (
-                                    <AppSelectItem key={client.id} value={String(client.id)}>
+                                    <AppSelectItem
+                                        key={client.id}
+                                        value={String(client.id)}
+                                    >
                                         {client.name}
                                     </AppSelectItem>
                                 ))}
@@ -415,13 +449,17 @@ query.per_page = String(deployments.per_page);
                                         : ''
                                 }
                                 onValueChange={(companyVisaTypeId) =>
-                                    list.applyFilters({ company_visa_type_id: companyVisaTypeId })
+                                    list.applyFilters({
+                                        company_visa_type_id: companyVisaTypeId,
+                                    })
                                 }
                                 placeholder="All sponsors"
                                 variant="dark"
                                 className="h-10"
                             >
-                                <AppSelectItem value="">All sponsors</AppSelectItem>
+                                <AppSelectItem value="">
+                                    All sponsors
+                                </AppSelectItem>
                                 {company_visa_types.map((companyVisaType) => (
                                     <AppSelectItem
                                         key={companyVisaType.id}
@@ -438,10 +476,10 @@ query.per_page = String(deployments.per_page);
 
             {/* Board view disabled — uncomment the ternary below when ready to ship
             {view === 'table' ? ( */}
-                <OrganizationDataTable minWidth="min-w-[2600px]">
-                    <TableHeader>
-                        <DataTableHeaderRow>
-                            <DataTableHead rowSpan={2}>Where now</DataTableHead>
+            <OrganizationDataTable minWidth="min-w-[2600px]">
+                <TableHeader>
+                    <DataTableHeaderRow>
+                        <DataTableHead rowSpan={2}>Where now</DataTableHead>
                         <SortableDeploymentTableHead
                             sortKey="employee_no"
                             activeSort={activeSort}
@@ -654,7 +692,9 @@ query.per_page = String(deployments.per_page);
                                         stopRowNavigation
                                     />
                                 </TableCell>
-                                <TableCell>{displayValue(deployment.employee_no)}</TableCell>
+                                <TableCell>
+                                    {displayValue(deployment.employee_no)}
+                                </TableCell>
                                 <TableCell>
                                     {deployment.employee_name ? (
                                         <EmployeeProfileLink
@@ -671,8 +711,12 @@ query.per_page = String(deployments.per_page);
                                         {displayValue(deployment.nationality)}
                                     </div>
                                 </TableCell>
-                                <TableCell>{displayValue(deployment.rank_name)}</TableCell>
-                                <TableCell>{displayValue(deployment.vessel_name)}</TableCell>
+                                <TableCell>
+                                    {displayValue(deployment.rank_name)}
+                                </TableCell>
+                                <TableCell>
+                                    {displayValue(deployment.vessel_name)}
+                                </TableCell>
                                 <TableCell>
                                     {formatIsoDateDisplay(deployment.hire_date)}
                                 </TableCell>
@@ -680,76 +724,124 @@ query.per_page = String(deployments.per_page);
                                     <DeploymentDateCell
                                         value={deployment.arrived_date}
                                         field="arrived_date"
-                                        overdueFields={deployment.overdue_date_fields}
-                                        dueSoonFields={deployment.due_soon_date_fields}
+                                        overdueFields={
+                                            deployment.overdue_date_fields
+                                        }
+                                        dueSoonFields={
+                                            deployment.due_soon_date_fields
+                                        }
                                     />
                                 </TableCell>
                                 <TableCell>
                                     <DeploymentDateCell
                                         value={deployment.join_standby_from}
                                         field="join_standby_from"
-                                        overdueFields={deployment.overdue_date_fields}
-                                        dueSoonFields={deployment.due_soon_date_fields}
+                                        overdueFields={
+                                            deployment.overdue_date_fields
+                                        }
+                                        dueSoonFields={
+                                            deployment.due_soon_date_fields
+                                        }
                                     />
                                 </TableCell>
                                 <TableCell>
                                     <DeploymentDateCell
                                         value={deployment.join_standby_to}
                                         field="join_standby_to"
-                                        overdueFields={deployment.overdue_date_fields}
-                                        dueSoonFields={deployment.due_soon_date_fields}
+                                        overdueFields={
+                                            deployment.overdue_date_fields
+                                        }
+                                        dueSoonFields={
+                                            deployment.due_soon_date_fields
+                                        }
                                     />
                                 </TableCell>
-                                <TableCell>{displayNumber(deployment.join_standby_days)}</TableCell>
+                                <TableCell>
+                                    {displayNumber(
+                                        deployment.join_standby_days,
+                                    )}
+                                </TableCell>
                                 <TableCell>
                                     <DeploymentDateCell
                                         value={deployment.joined_date}
                                         field="joined_date"
-                                        overdueFields={deployment.overdue_date_fields}
-                                        dueSoonFields={deployment.due_soon_date_fields}
+                                        overdueFields={
+                                            deployment.overdue_date_fields
+                                        }
+                                        dueSoonFields={
+                                            deployment.due_soon_date_fields
+                                        }
                                     />
                                 </TableCell>
                                 <TableCell>
                                     <DeploymentDateCell
                                         value={deployment.disembarked_date}
                                         field="disembarked_date"
-                                        overdueFields={deployment.overdue_date_fields}
-                                        dueSoonFields={deployment.due_soon_date_fields}
+                                        overdueFields={
+                                            deployment.overdue_date_fields
+                                        }
+                                        dueSoonFields={
+                                            deployment.due_soon_date_fields
+                                        }
                                     />
                                 </TableCell>
-                                <TableCell>{displayNumber(deployment.vessel_days)}</TableCell>
+                                <TableCell>
+                                    {displayNumber(deployment.vessel_days)}
+                                </TableCell>
                                 <TableCell>
                                     <DeploymentDateCell
                                         value={deployment.leave_standby_from}
                                         field="leave_standby_from"
-                                        overdueFields={deployment.overdue_date_fields}
-                                        dueSoonFields={deployment.due_soon_date_fields}
+                                        overdueFields={
+                                            deployment.overdue_date_fields
+                                        }
+                                        dueSoonFields={
+                                            deployment.due_soon_date_fields
+                                        }
                                     />
                                 </TableCell>
                                 <TableCell>
                                     <DeploymentDateCell
                                         value={deployment.leave_standby_to}
                                         field="leave_standby_to"
-                                        overdueFields={deployment.overdue_date_fields}
-                                        dueSoonFields={deployment.due_soon_date_fields}
+                                        overdueFields={
+                                            deployment.overdue_date_fields
+                                        }
+                                        dueSoonFields={
+                                            deployment.due_soon_date_fields
+                                        }
                                     />
                                 </TableCell>
-                                <TableCell>{displayNumber(deployment.leave_standby_days)}</TableCell>
+                                <TableCell>
+                                    {displayNumber(
+                                        deployment.leave_standby_days,
+                                    )}
+                                </TableCell>
                                 <TableCell>
                                     <DeploymentDateCell
                                         value={deployment.travelled_date}
                                         field="travelled_date"
-                                        overdueFields={deployment.overdue_date_fields}
-                                        dueSoonFields={deployment.due_soon_date_fields}
+                                        overdueFields={
+                                            deployment.overdue_date_fields
+                                        }
+                                        dueSoonFields={
+                                            deployment.due_soon_date_fields
+                                        }
                                     />
                                 </TableCell>
                                 {showInHomeDaysColumn ? (
-                                    <TableCell>{displayNumber(deployment.in_home_days)}</TableCell>
+                                    <TableCell>
+                                        {displayNumber(deployment.in_home_days)}
+                                    </TableCell>
                                 ) : null}
                                 <TableCell>
-                                    {displayValue(deployment.company_visa_type_name)}
+                                    {displayValue(
+                                        deployment.company_visa_type_name,
+                                    )}
                                 </TableCell>
-                                <TableCell>{displayValue(deployment.client_name)}</TableCell>
+                                <TableCell>
+                                    {displayValue(deployment.client_name)}
+                                </TableCell>
                                 <TableCell
                                     className="max-w-[200px] truncate"
                                     title={deployment.remarks ?? undefined}
@@ -757,16 +849,30 @@ query.per_page = String(deployments.per_page);
                                     {displayValue(deployment.remarks)}
                                 </TableCell>
                                 {deploymentHasWriteActions(can) ? (
-                                    <TableCell className={dataTableActionsCellClass()}>
+                                    <TableCell
+                                        className={dataTableActionsCellClass()}
+                                    >
                                         <ListTableCrudActions
                                             viewHref={showDeployment.url(
                                                 { deployment: deployment.id },
-                                                Object.keys(listBackQuery).length > 0
+                                                Object.keys(listBackQuery)
+                                                    .length > 0
                                                     ? { query: listBackQuery }
                                                     : undefined,
                                             )}
-                                            onEdit={can.update ? () => openEdit(deployment) : undefined}
-                                            onDelete={can.delete ? () => setDeleting(deployment) : undefined}
+                                            onEdit={
+                                                can.update
+                                                    ? () => openEdit(deployment)
+                                                    : undefined
+                                            }
+                                            onDelete={
+                                                can.delete
+                                                    ? () =>
+                                                          setDeleting(
+                                                              deployment,
+                                                          )
+                                                    : undefined
+                                            }
                                             showEdit={can.update}
                                             showDelete={can.delete}
                                         />
@@ -789,7 +895,11 @@ query.per_page = String(deployments.per_page);
                 />
             )} */}
 
-            <Pagination {...list.paginationProps} className="mt-4" label="deployments" />
+            <Pagination
+                {...list.paginationProps}
+                className="mt-4"
+                label="deployments"
+            />
 
             <DeploymentStatusRulesDialog
                 open={rulesDialogOpen}
@@ -812,20 +922,23 @@ query.per_page = String(deployments.per_page);
                 open={deleting !== null}
                 onOpenChange={(open) => {
                     if (!open) {
-setDeleting(null);
-}
+                        setDeleting(null);
+                    }
                 }}
                 title="Delete deployment record?"
                 description="This removes the assignment from the crew tracker."
                 onConfirm={() => {
                     if (!deleting) {
-return;
-}
+                        return;
+                    }
 
-                    router.delete(destroyDeployment.url({ deployment: deleting.id }), {
-                        preserveScroll: true,
-                        onSuccess: () => setDeleting(null),
-                    });
+                    router.delete(
+                        destroyDeployment.url({ deployment: deleting.id }),
+                        {
+                            preserveScroll: true,
+                            onSuccess: () => setDeleting(null),
+                        },
+                    );
                 }}
             />
         </Main>

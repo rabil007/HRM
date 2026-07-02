@@ -1,4 +1,8 @@
-export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type LeaveRequestStatus =
+    | 'pending'
+    | 'approved'
+    | 'rejected'
+    | 'cancelled';
 
 export type LeaveRequestEmployeeOption = {
     id: number;
@@ -71,7 +75,9 @@ export const defaultLeaveRequestFormData = (): LeaveRequestFormData => ({
     remove_attachment: false,
 });
 
-export function leaveRequestToFormData(leaveRequest: LeaveRequest): LeaveRequestFormData {
+export function leaveRequestToFormData(
+    leaveRequest: LeaveRequest,
+): LeaveRequestFormData {
     return {
         employee_id: leaveRequest.employee?.id ?? '',
         leave_type_id: leaveRequest.leave_type?.id ?? '',

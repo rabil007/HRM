@@ -32,9 +32,10 @@ export function useApplicationBrandingSync(): void {
         const faviconUrl = settings?.branding?.favicon_url;
 
         if (faviconUrl) {
-            let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+            let link =
+                document.querySelector<HTMLLinkElement>('link[rel="icon"]');
 
-            if (! link) {
+            if (!link) {
                 link = document.createElement('link');
                 link.rel = 'icon';
                 document.head.appendChild(link);

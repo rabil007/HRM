@@ -26,7 +26,8 @@ export function LeaveRequestRowActions({
 }) {
     const isPending = leaveRequest.status === 'pending';
     const canModify = isPending && can.update;
-    const canRemove = (isPending || leaveRequest.status === 'cancelled') && can.delete;
+    const canRemove =
+        (isPending || leaveRequest.status === 'cancelled') && can.delete;
 
     const actions: TableRowActionItem[] = [
         {
@@ -69,7 +70,9 @@ export function LeaveRequestRowActions({
         },
     ];
 
-    const rowActions = <TableRowActions actions={actions} className={className} />;
+    const rowActions = (
+        <TableRowActions actions={actions} className={className} />
+    );
 
     if (!wrapped) {
         return rowActions;

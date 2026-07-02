@@ -30,7 +30,9 @@ function Avatar({
     size: 'sm' | 'md';
     bar?: Pick<GanttBar, 'employee_id' | 'is_deployed'>;
 }): ReactElement {
-    const avatarClass = bar ? barAvatarClass(bar) : barAvatarClass({ employee_id: 1, is_deployed: false });
+    const avatarClass = bar
+        ? barAvatarClass(bar)
+        : barAvatarClass({ employee_id: 1, is_deployed: false });
 
     return (
         <span
@@ -46,7 +48,13 @@ function Avatar({
     );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }): ReactElement {
+function InfoRow({
+    label,
+    value,
+}: {
+    label: string;
+    value: string;
+}): ReactElement {
     return (
         <div className="flex items-center justify-between gap-4">
             <span className="text-muted-foreground">{label}</span>
@@ -77,30 +85,50 @@ function AssignmentBarPopoverContent({
                 <Avatar name={bar.employee_name} size="md" bar={bar} />
                 <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                        <p className="truncate font-semibold">{bar.employee_name}</p>
+                        <p className="truncate font-semibold">
+                            {bar.employee_name}
+                        </p>
                         {!isVacant ? (
-                            <Badge variant="secondary" className="shrink-0 text-[10px]">
+                            <Badge
+                                variant="secondary"
+                                className="shrink-0 text-[10px]"
+                            >
                                 {sourceLabel}
                             </Badge>
                         ) : null}
                     </div>
                     {bar.rank_name ? (
-                        <p className="truncate text-xs text-muted-foreground">{bar.rank_name}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                            {bar.rank_name}
+                        </p>
                     ) : null}
                 </div>
             </div>
             <div className="space-y-1.5 px-4 py-3 text-xs">
-                {bar.vessel_name ? <InfoRow label="Vessel" value={bar.vessel_name} /> : null}
-                <InfoRow label="Planned join" value={formatDate(bar.planned_join_date)} />
-                <InfoRow label="Planned leave" value={formatDate(bar.planned_leave_date)} />
+                {bar.vessel_name ? (
+                    <InfoRow label="Vessel" value={bar.vessel_name} />
+                ) : null}
+                <InfoRow
+                    label="Planned join"
+                    value={formatDate(bar.planned_join_date)}
+                />
+                <InfoRow
+                    label="Planned leave"
+                    value={formatDate(bar.planned_leave_date)}
+                />
                 {bar.relieves_employee_name ? (
-                    <InfoRow label="Replacing" value={bar.relieves_employee_name} />
+                    <InfoRow
+                        label="Replacing"
+                        value={bar.relieves_employee_name}
+                    />
                 ) : null}
                 {bar.notes ? (
-                    <p className="mt-1 rounded-md bg-muted px-2 py-1.5 text-muted-foreground">{bar.notes}</p>
+                    <p className="mt-1 rounded-md bg-muted px-2 py-1.5 text-muted-foreground">
+                        {bar.notes}
+                    </p>
                 ) : null}
             </div>
-            {(can.update || can.delete) ? (
+            {can.update || can.delete ? (
                 <div className="border-t px-4 pb-3">
                     <AssignmentBarActions
                         bar={bar}
@@ -114,4 +142,6 @@ function AssignmentBarPopoverContent({
     );
 }
 
-export const AssignmentBarPopover = Object.assign(AssignmentBarPopoverContent, { Avatar });
+export const AssignmentBarPopover = Object.assign(AssignmentBarPopoverContent, {
+    Avatar,
+});

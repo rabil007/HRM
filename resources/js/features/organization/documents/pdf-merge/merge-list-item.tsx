@@ -30,11 +30,15 @@ export function MergeListItem({
                 <GripVertical className="h-5 w-5" />
             </button>
 
-            <span className="w-6 shrink-0 text-sm font-medium text-muted-foreground">{index + 1}</span>
+            <span className="w-6 shrink-0 text-sm font-medium text-muted-foreground">
+                {index + 1}
+            </span>
 
             <PdfThumbnail
                 document={document}
-                onPreviewLoaded={(preview) => onPreviewLoaded?.(document.id, preview.pageCount)}
+                onPreviewLoaded={(preview) =>
+                    onPreviewLoaded?.(document.id, preview.pageCount)
+                }
             />
 
             <div className="min-w-0 flex-1">
@@ -42,7 +46,9 @@ export function MergeListItem({
                     {document.document_name}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                    {pageCount !== null ? `${pageCount} page${pageCount === 1 ? '' : 's'}` : '— pages'}
+                    {pageCount !== null
+                        ? `${pageCount} page${pageCount === 1 ? '' : 's'}`
+                        : '— pages'}
                     {' • '}
                     {formatBytes(document.size_bytes)}
                 </p>

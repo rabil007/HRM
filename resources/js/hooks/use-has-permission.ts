@@ -3,7 +3,8 @@ import { useMemo } from 'react';
 
 export function useAuthPermissions(): string[] {
     return (
-        (usePage().props.auth as { permissions?: string[] } | undefined)?.permissions ?? []
+        (usePage().props.auth as { permissions?: string[] } | undefined)
+            ?.permissions ?? []
     );
 }
 

@@ -1,6 +1,9 @@
 import { Head } from '@inertiajs/react';
 import { UsersContent } from '@/features/organization/users';
-import type { EmployeeForLinking, User } from '@/features/organization/users/types';
+import type {
+    EmployeeForLinking,
+    User,
+} from '@/features/organization/users/types';
 import type { PaginationMeta } from '@/types/pagination';
 
 export default function Users({

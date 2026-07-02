@@ -55,9 +55,18 @@ function EmployeesSection({
     }
 
     return (
-        <section className="space-y-4" aria-labelledby="documents-index-employees-heading">
-            <DocumentsIndexSectionHeading label="Employees" count={employees.length} />
-            <DocumentsIndexFolderGrid employees={employees} {...folderGridProps} />
+        <section
+            className="space-y-4"
+            aria-labelledby="documents-index-employees-heading"
+        >
+            <DocumentsIndexSectionHeading
+                label="Employees"
+                count={employees.length}
+            />
+            <DocumentsIndexFolderGrid
+                employees={employees}
+                {...folderGridProps}
+            />
         </section>
     );
 }
@@ -78,7 +87,10 @@ function DocumentsSection({
     }
 
     return (
-        <section className="space-y-4" aria-labelledby="documents-index-documents-heading">
+        <section
+            className="space-y-4"
+            aria-labelledby="documents-index-documents-heading"
+        >
             <DocumentsIndexSectionHeading label="Documents" count={count} />
             <DocumentsIndexDocumentsTable
                 documents={searchDocuments}
@@ -127,7 +139,12 @@ export function DocumentsIndexSearchResults({
     }
 
     if (mode === 'employees-only') {
-        return <EmployeesSection employees={employees} folderGridProps={folderGridProps} />;
+        return (
+            <EmployeesSection
+                employees={employees}
+                folderGridProps={folderGridProps}
+            />
+        );
     }
 
     if (mode !== 'tabbed') {
@@ -149,7 +166,10 @@ export function DocumentsIndexSearchResults({
             </TabsList>
 
             <TabsContent value="all" className="mt-6 space-y-10">
-                <EmployeesSection employees={employees} folderGridProps={folderGridProps} />
+                <EmployeesSection
+                    employees={employees}
+                    folderGridProps={folderGridProps}
+                />
                 <DocumentsSection
                     searchDocuments={searchDocuments}
                     onPageChange={onPageChange}
@@ -158,7 +178,10 @@ export function DocumentsIndexSearchResults({
             </TabsContent>
 
             <TabsContent value="employees" className="mt-6">
-                <EmployeesSection employees={employees} folderGridProps={folderGridProps} />
+                <EmployeesSection
+                    employees={employees}
+                    folderGridProps={folderGridProps}
+                />
             </TabsContent>
 
             <TabsContent value="documents" className="mt-6">

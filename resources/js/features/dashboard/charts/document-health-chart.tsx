@@ -1,4 +1,11 @@
-import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import {
+    Cell,
+    Legend,
+    Pie,
+    PieChart,
+    ResponsiveContainer,
+    Tooltip,
+} from 'recharts';
 
 export type DocumentHealthSlice = {
     name: string;
@@ -17,8 +24,12 @@ export function DocumentHealthChart({ data }: { data: DocumentHealthSlice[] }) {
     if (data.length === 0) {
         return (
             <div className="flex h-[240px] flex-col items-center justify-center gap-2 text-center">
-                <p className="text-sm font-medium text-muted-foreground">No documents tracked</p>
-                <p className="text-xs text-muted-foreground/80">Upload employee documents to see health breakdown</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                    No documents tracked
+                </p>
+                <p className="text-xs text-muted-foreground/80">
+                    Upload employee documents to see health breakdown
+                </p>
             </div>
         );
     }

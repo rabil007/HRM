@@ -40,7 +40,7 @@ export function DeploymentStatusRulesDialog({
                                 className="rounded-lg border border-border/60 bg-card px-4 py-3 dark:border-white/10 dark:bg-white/[0.02]"
                             >
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-xs font-bold tabular-nums text-muted-foreground/50">
+                                    <span className="text-xs font-bold text-muted-foreground/50 tabular-nums">
                                         {index + 1}.
                                     </span>
                                     <DeploymentStatusBadge
@@ -48,14 +48,18 @@ export function DeploymentStatusRulesDialog({
                                         label={item.label}
                                     />
                                 </div>
-                                <p className="mt-2 text-sm text-foreground">{item.summary}</p>
+                                <p className="mt-2 text-sm text-foreground">
+                                    {item.summary}
+                                </p>
                                 <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
                                     {item.conditions.map((condition) => (
                                         <li key={condition}>{condition}</li>
                                     ))}
                                 </ul>
                                 {item.badge ? (
-                                    <p className="mt-2 text-xs text-muted-foreground/80">{item.badge}</p>
+                                    <p className="mt-2 text-xs text-muted-foreground/80">
+                                        {item.badge}
+                                    </p>
                                 ) : null}
                             </article>
                         ))}
@@ -63,9 +67,14 @@ export function DeploymentStatusRulesDialog({
 
                     <section className="rounded-lg border border-teal-500/20 bg-teal-500/5 px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
-                            <DeploymentStatusBadge status="in_home" label={rules.in_home.title} />
+                            <DeploymentStatusBadge
+                                status="in_home"
+                                label={rules.in_home.title}
+                            />
                         </div>
-                        <p className="mt-2 text-sm text-foreground">{rules.in_home.summary}</p>
+                        <p className="mt-2 text-sm text-foreground">
+                            {rules.in_home.summary}
+                        </p>
                         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
                             {rules.in_home.conditions.map((condition) => (
                                 <li key={condition}>{condition}</li>
@@ -78,8 +87,10 @@ export function DeploymentStatusRulesDialog({
                             {rules.date_highlights.title}
                         </h3>
                         <p className="mt-2 text-sm text-muted-foreground">
-                            <span className="font-medium text-red-400">Overdue</span> —{' '}
-                            {rules.date_highlights.overdue}
+                            <span className="font-medium text-red-400">
+                                Overdue
+                            </span>{' '}
+                            — {rules.date_highlights.overdue}
                         </p>
                         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
                             {rules.date_highlights.fields.map((field) => (
@@ -93,8 +104,8 @@ export function DeploymentStatusRulesDialog({
                             Needs update hints
                         </h3>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            When a record shows Needs update, hover the badge to see which date is
-                            missing. Common messages:
+                            When a record shows Needs update, hover the badge to
+                            see which date is missing. Common messages:
                         </p>
                         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
                             {rules.needs_update_hints.map((hint) => (

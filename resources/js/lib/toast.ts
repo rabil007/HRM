@@ -6,4 +6,3 @@ export const toast = {
     info: (message: string) => sonnerToast(message),
     dismiss: () => sonnerToast.dismiss(),
 } as const;
-

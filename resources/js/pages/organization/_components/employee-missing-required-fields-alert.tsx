@@ -19,13 +19,17 @@ export function EmployeeMissingRequiredFieldsAlert({
             className="rounded-2xl border border-rose-500/35 bg-rose-500/10 p-4 shadow-lg shadow-black/10 backdrop-blur-xl"
         >
             <div className="flex gap-3">
-                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" aria-hidden />
+                <AlertCircle
+                    className="mt-0.5 h-5 w-5 shrink-0 text-rose-400"
+                    aria-hidden
+                />
                 <div className="min-w-0 flex-1 space-y-2">
                     <p className="text-sm font-semibold text-rose-100">
                         Required fields are missing
                     </p>
                     <p className="text-xs text-rose-200/80">
-                        Fill in the highlighted fields below, or select a field to jump to it.
+                        Fill in the highlighted fields below, or select a field
+                        to jump to it.
                     </p>
                     <ul className="flex flex-wrap gap-2">
                         {missingFields.map((field) => (

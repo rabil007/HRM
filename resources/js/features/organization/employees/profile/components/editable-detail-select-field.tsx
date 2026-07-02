@@ -1,10 +1,13 @@
 import type { ReactElement, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { CreatableSelect  } from '@/components/ui/creatable-select';
-import type {CreatableOption} from '@/components/ui/creatable-select';
+import { CreatableSelect } from '@/components/ui/creatable-select';
+import type { CreatableOption } from '@/components/ui/creatable-select';
 import { EditableDetailField } from '@/features/organization/employees/profile/components/editable-detail-field';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
-import type { CreatableMasterDataContext, CreatableMasterDataKey } from '@/lib/master-data/creatable-registry';
+import type {
+    CreatableMasterDataContext,
+    CreatableMasterDataKey,
+} from '@/lib/master-data/creatable-registry';
 
 export type EditableSelectOption = {
     id: number;
@@ -49,7 +52,8 @@ export function EditableDetailSelectField({
     size = 'sm',
     highlightMissing = false,
 }: EditableDetailSelectFieldProps): ReactElement {
-    const [localOptions, setLocalOptions] = useState<CreatableOption[]>(options);
+    const [localOptions, setLocalOptions] =
+        useState<CreatableOption[]>(options);
     const creatable = Boolean(creatableKey);
     const { canCreate, createConfig } = useCreatableMasterData(
         creatableKey ?? 'bank',

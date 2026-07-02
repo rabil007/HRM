@@ -9,7 +9,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { DocumentModuleRowActions } from '@/features/organization/documents/shared/document-actions/document-module-row-actions';
 import { DocumentExpiryBadge } from '@/features/organization/documents/shared/document-expiry-badge';
-import { DocumentExpiryDisplay, DocumentExpiryStatusCell } from '@/features/organization/documents/shared/document-expiry-display';
+import {
+    DocumentExpiryDisplay,
+    DocumentExpiryStatusCell,
+} from '@/features/organization/documents/shared/document-expiry-display';
 import { DocumentFileIcon } from '@/features/organization/documents/shared/document-file-icon';
 import { DocumentUploadedDisplay } from '@/features/organization/documents/shared/document-uploaded-display';
 import type { DocumentProfileItem } from '@/features/organization/documents/shared/types';
@@ -61,7 +64,11 @@ export function EmployeeDocumentTableRow({
 }) {
     return (
         <TableRow
-            className={cn(dataTableBodyRowClass(false), 'cursor-pointer', selected && 'bg-primary/5')}
+            className={cn(
+                dataTableBodyRowClass(false),
+                'cursor-pointer',
+                selected && 'bg-primary/5',
+            )}
             onClick={() => router.visit(viewHref)}
         >
             {selectionMode ? (
@@ -71,7 +78,9 @@ export function EmployeeDocumentTableRow({
                 >
                     <Checkbox
                         checked={selected}
-                        onCheckedChange={(value) => onSelectedChange?.(value === true)}
+                        onCheckedChange={(value) =>
+                            onSelectedChange?.(value === true)
+                        }
                         aria-label={`Select ${doc.document_name}`}
                     />
                 </TableCell>
@@ -86,18 +95,28 @@ export function EmployeeDocumentTableRow({
                         />
                     </div>
                     <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-foreground">{doc.document_name}</p>
+                        <p className="truncate text-sm font-semibold text-foreground">
+                            {doc.document_name}
+                        </p>
                         <p className="mt-0.5 truncate text-xs text-muted-foreground sm:hidden">
                             {doc.document_type}
                         </p>
                         <p className="mt-1 md:hidden">
-                            <DocumentExpiryBadge status={doc.expiry_status} className="text-[10px]" />
+                            <DocumentExpiryBadge
+                                status={doc.expiry_status}
+                                className="text-[10px]"
+                            />
                         </p>
                     </div>
                 </div>
             </TableCell>
-            <TableCell className={cn(dataTableCellClass(), 'hidden sm:table-cell')}>
-                <Badge variant="outline" className="max-w-48 truncate border-border font-normal dark:border-white/10">
+            <TableCell
+                className={cn(dataTableCellClass(), 'hidden sm:table-cell')}
+            >
+                <Badge
+                    variant="outline"
+                    className="max-w-48 truncate border-border font-normal dark:border-white/10"
+                >
                     {doc.document_type}
                 </Badge>
             </TableCell>
@@ -109,22 +128,49 @@ export function EmployeeDocumentTableRow({
             >
                 {doc.document_number?.trim() || '—'}
             </TableCell>
-            <TableCell className={cn(dataTableCellClass(), 'hidden whitespace-nowrap md:table-cell')}>
+            <TableCell
+                className={cn(
+                    dataTableCellClass(),
+                    'hidden whitespace-nowrap md:table-cell',
+                )}
+            >
                 {formatOptionalDate(doc.issue_date)}
             </TableCell>
-            <TableCell className={cn(dataTableCellClass(), 'hidden whitespace-nowrap lg:table-cell')}>
+            <TableCell
+                className={cn(
+                    dataTableCellClass(),
+                    'hidden whitespace-nowrap lg:table-cell',
+                )}
+            >
                 <DocumentExpiryDisplay doc={doc} />
             </TableCell>
-            <TableCell className={cn(dataTableCellClass(), 'hidden whitespace-nowrap md:table-cell tabular-nums')}>
+            <TableCell
+                className={cn(
+                    dataTableCellClass(),
+                    'hidden whitespace-nowrap tabular-nums md:table-cell',
+                )}
+            >
                 {formatBytes(doc.size_bytes)}
             </TableCell>
-            <TableCell className={cn(dataTableCellClass(), 'hidden whitespace-nowrap lg:table-cell')}>
+            <TableCell
+                className={cn(
+                    dataTableCellClass(),
+                    'hidden whitespace-nowrap lg:table-cell',
+                )}
+            >
                 <DocumentExpiryStatusCell status={doc.expiry_status} />
             </TableCell>
-            <TableCell className={cn(dataTableCellClass(), 'hidden min-w-[120px] xl:table-cell')}>
+            <TableCell
+                className={cn(
+                    dataTableCellClass(),
+                    'hidden min-w-[120px] xl:table-cell',
+                )}
+            >
                 <DocumentUploadedDisplay doc={doc} />
             </TableCell>
-            <TableCell className={cn(dataTableActionsCellClass(), 'min-w-[13.5rem]')}>
+            <TableCell
+                className={cn(dataTableActionsCellClass(), 'min-w-[13.5rem]')}
+            >
                 <DocumentModuleRowActions
                     doc={doc}
                     viewHref={viewHref}

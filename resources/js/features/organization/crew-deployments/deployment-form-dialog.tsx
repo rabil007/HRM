@@ -1,10 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import {
-    Building2,
-    CalendarDays,
-    FileText,
-    User,
-} from 'lucide-react';
+import { Building2, CalendarDays, FileText, User } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
 import { useEffect } from 'react';
 import {
@@ -32,7 +27,12 @@ import { actions } from '@/lib/design-system';
 import { cn } from '@/lib/utils';
 
 type Option = { id: number; name: string };
-type EmployeeOption = { id: number; employee_no: string; name: string; rank_id: number | null };
+type EmployeeOption = {
+    id: number;
+    employee_no: string;
+    name: string;
+    rank_id: number | null;
+};
 
 const fieldInputClass =
     'h-10 rounded-xl border-border/60 bg-background text-sm focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5';
@@ -99,7 +99,10 @@ function FormField({
 }): ReactElement {
     return (
         <div className={cn('space-y-1.5', className)}>
-            <Label htmlFor={htmlFor} className="flex items-center gap-1 text-xs font-medium">
+            <Label
+                htmlFor={htmlFor}
+                className="flex items-center gap-1 text-xs font-medium"
+            >
                 {label}
                 {required ? <span className="text-destructive">*</span> : null}
             </Label>
@@ -143,7 +146,7 @@ function DateInput({
                     size="sm"
                     disabled={disabled}
                     onClick={() => onChange(todayIso())}
-                    className="h-10 shrink-0 rounded-xl border-border/60 px-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground dark:border-white/10"
+                    className="h-10 shrink-0 rounded-xl border-border/60 px-2.5 text-[10px] font-bold tracking-wider text-muted-foreground uppercase hover:text-foreground dark:border-white/10"
                 >
                     Today
                 </Button>
@@ -183,7 +186,7 @@ function TimelineStep({
         <div className="relative flex gap-4">
             {/* Connector line */}
             {!isLast ? (
-                <div className="absolute left-4 top-9 h-full w-px bg-border/60" />
+                <div className="absolute top-9 left-4 h-full w-px bg-border/60" />
             ) : null}
 
             {/* Icon */}
@@ -198,7 +201,7 @@ function TimelineStep({
 
             {/* Content */}
             <div className="flex-1 pb-6">
-                <div className="mb-2 mt-0.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                <div className="mt-0.5 mb-2 text-[11px] font-bold tracking-widest text-muted-foreground/70 uppercase">
                     {label}
                 </div>
                 {children}
@@ -230,8 +233,10 @@ export function DeploymentFormDialog({
     vessels: Option[];
     redirectToShow?: boolean;
 }): ReactElement {
-    const { selectOptions: vesselSelectOptions, appendOption: appendVesselOption } =
-        useMutableSelectOptions(vessels);
+    const {
+        selectOptions: vesselSelectOptions,
+        appendOption: appendVesselOption,
+    } = useMutableSelectOptions(vessels);
     const { canCreate: canCreateVessel, createConfig: vesselCreateConfig } =
         useCreatableMasterData('vessel');
 
@@ -325,7 +330,9 @@ export function DeploymentFormDialog({
     const err = (key: string): string | undefined =>
         form.errors[key as keyof typeof form.errors];
 
-    const selectedEmployee = employees.find((e) => String(e.id) === form.data.employee_id);
+    const selectedEmployee = employees.find(
+        (e) => String(e.id) === form.data.employee_id,
+    );
     const joinedDateRequiresDisembarked = Boolean(form.data.joined_date);
 
     const handleJoinedDateChange = (value: string): void => {
@@ -349,14 +356,15 @@ export function DeploymentFormDialog({
                     <div className="flex items-center justify-between gap-4 pr-8">
                         <div className="flex items-center gap-3">
                             {editing ? (
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold uppercase text-muted-foreground">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold text-muted-foreground uppercase">
                                     {getInitials(editing.employee_name ?? '?')}
                                 </div>
                             ) : null}
                             <div>
                                 <DialogTitle className="text-base font-bold">
                                     {editing
-                                        ? (editing.employee_name ?? 'Edit deployment')
+                                        ? (editing.employee_name ??
+                                          'Edit deployment')
                                         : 'New deployment'}
                                 </DialogTitle>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
@@ -402,7 +410,10 @@ export function DeploymentFormDialog({
                                         );
 
                                         if (employee?.rank_id) {
-                                            form.setData('rank_id', String(employee.rank_id));
+                                            form.setData(
+                                                'rank_id',
+                                                String(employee.rank_id),
+                                            );
                                         }
                                     }}
                                     placeholder="Search and select employee…"
@@ -413,7 +424,8 @@ export function DeploymentFormDialog({
                                             key={employee.id}
                                             value={String(employee.id)}
                                         >
-                                            {employee.employee_no} — {employee.name}
+                                            {employee.employee_no} —{' '}
+                                            {employee.name}
                                         </AppSelectItem>
                                     ))}
                                 </AppSelect>
@@ -422,14 +434,14 @@ export function DeploymentFormDialog({
                             {/* Employee mini-card — shown after selection */}
                             {selectedEmployee ? (
                                 <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-muted/30 px-3.5 py-2.5">
-                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold uppercase text-muted-foreground">
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold text-muted-foreground uppercase">
                                         {getInitials(selectedEmployee.name)}
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <div className="truncate text-sm font-semibold">
                                             {selectedEmployee.name}
                                         </div>
-                                        <div className="text-[10px] font-mono text-muted-foreground">
+                                        <div className="font-mono text-[10px] text-muted-foreground">
                                             {selectedEmployee.employee_no}
                                         </div>
                                     </div>
@@ -438,18 +450,20 @@ export function DeploymentFormDialog({
 
                             {/* Rank + Vessel */}
                             <div className="grid grid-cols-2 gap-4">
-                                <FormField
-                                    label="Rank"
-                                    error={err('rank_id')}
-                                >
+                                <FormField label="Rank" error={err('rank_id')}>
                                     <AppSelect
                                         value={form.data.rank_id}
-                                        onValueChange={(value) => form.setData('rank_id', value)}
+                                        onValueChange={(value) =>
+                                            form.setData('rank_id', value)
+                                        }
                                         placeholder="Select rank"
                                         className={fieldInputClass}
                                     >
                                         {ranks.map((rank) => (
-                                            <AppSelectItem key={rank.id} value={String(rank.id)}>
+                                            <AppSelectItem
+                                                key={rank.id}
+                                                value={String(rank.id)}
+                                            >
                                                 {rank.name}
                                             </AppSelectItem>
                                         ))}
@@ -473,7 +487,8 @@ export function DeploymentFormDialog({
                                                 (option) =>
                                                     !vesselSelectOptions.some(
                                                         (existing) =>
-                                                            existing.value === option.value,
+                                                            existing.value ===
+                                                            option.value,
                                                     ),
                                             );
 
@@ -502,17 +517,26 @@ export function DeploymentFormDialog({
                         />
 
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField label="Sponsor" error={err('company_visa_type_id')}>
+                            <FormField
+                                label="Sponsor"
+                                error={err('company_visa_type_id')}
+                            >
                                 <AppSelect
                                     value={form.data.company_visa_type_id}
                                     onValueChange={(value) =>
-                                        form.setData('company_visa_type_id', value)
+                                        form.setData(
+                                            'company_visa_type_id',
+                                            value,
+                                        )
                                     }
                                     placeholder="Select sponsor"
                                     className={fieldInputClass}
                                 >
                                     {companyVisaTypes.map((cvt) => (
-                                        <AppSelectItem key={cvt.id} value={String(cvt.id)}>
+                                        <AppSelectItem
+                                            key={cvt.id}
+                                            value={String(cvt.id)}
+                                        >
                                             {cvt.name}
                                         </AppSelectItem>
                                     ))}
@@ -559,7 +583,9 @@ export function DeploymentFormDialog({
                                 <DateInput
                                     id="arrived_date"
                                     value={form.data.arrived_date}
-                                    onChange={(v) => form.setData('arrived_date', v)}
+                                    onChange={(v) =>
+                                        form.setData('arrived_date', v)
+                                    }
                                     error={err('arrived_date')}
                                 />
                             </TimelineStep>
@@ -572,27 +598,33 @@ export function DeploymentFormDialog({
                             >
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
-                                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        <Label className="text-[10px] font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                             From
                                         </Label>
                                         <DateInput
                                             id="join_standby_from"
                                             value={form.data.join_standby_from}
                                             onChange={(v) =>
-                                                form.setData('join_standby_from', v)
+                                                form.setData(
+                                                    'join_standby_from',
+                                                    v,
+                                                )
                                             }
                                             error={err('join_standby_from')}
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        <Label className="text-[10px] font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                             To
                                         </Label>
                                         <DateInput
                                             id="join_standby_to"
                                             value={form.data.join_standby_to}
                                             onChange={(v) =>
-                                                form.setData('join_standby_to', v)
+                                                form.setData(
+                                                    'join_standby_to',
+                                                    v,
+                                                )
                                             }
                                             error={err('join_standby_to')}
                                         />
@@ -608,7 +640,7 @@ export function DeploymentFormDialog({
                             >
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
-                                        <Label className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        <Label className="flex items-center gap-1 text-[10px] font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                             Joined
                                         </Label>
                                         <DateInput
@@ -619,17 +651,22 @@ export function DeploymentFormDialog({
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <Label className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        <Label className="flex items-center gap-1 text-[10px] font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                             Disembarked
                                             {joinedDateRequiresDisembarked ? (
-                                                <span className="text-destructive">*</span>
+                                                <span className="text-destructive">
+                                                    *
+                                                </span>
                                             ) : null}
                                         </Label>
                                         <DateInput
                                             id="disembarked_date"
                                             value={form.data.disembarked_date}
                                             onChange={(v) =>
-                                                form.setData('disembarked_date', v)
+                                                form.setData(
+                                                    'disembarked_date',
+                                                    v,
+                                                )
                                             }
                                             error={err('disembarked_date')}
                                         />
@@ -645,27 +682,33 @@ export function DeploymentFormDialog({
                             >
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
-                                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        <Label className="text-[10px] font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                             From
                                         </Label>
                                         <DateInput
                                             id="leave_standby_from"
                                             value={form.data.leave_standby_from}
                                             onChange={(v) =>
-                                                form.setData('leave_standby_from', v)
+                                                form.setData(
+                                                    'leave_standby_from',
+                                                    v,
+                                                )
                                             }
                                             error={err('leave_standby_from')}
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        <Label className="text-[10px] font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                             To
                                         </Label>
                                         <DateInput
                                             id="leave_standby_to"
                                             value={form.data.leave_standby_to}
                                             onChange={(v) =>
-                                                form.setData('leave_standby_to', v)
+                                                form.setData(
+                                                    'leave_standby_to',
+                                                    v,
+                                                )
                                             }
                                             error={err('leave_standby_to')}
                                         />
@@ -683,7 +726,9 @@ export function DeploymentFormDialog({
                                 <DateInput
                                     id="travelled_date"
                                     value={form.data.travelled_date}
-                                    onChange={(v) => form.setData('travelled_date', v)}
+                                    onChange={(v) =>
+                                        form.setData('travelled_date', v)
+                                    }
                                     error={err('travelled_date')}
                                 />
                             </TimelineStep>
@@ -700,16 +745,21 @@ export function DeploymentFormDialog({
                         <div className="space-y-1.5">
                             <Textarea
                                 value={form.data.remarks}
-                                onChange={(event) => form.setData('remarks', event.target.value)}
+                                onChange={(event) =>
+                                    form.setData('remarks', event.target.value)
+                                }
                                 placeholder="Standby pool until join, travel booked, visa pending…"
                                 rows={3}
                                 className="resize-y rounded-xl border-border/60 bg-background px-4 py-3 text-sm focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                             />
                             {err('remarks') ? (
-                                <p className="text-xs text-destructive">{err('remarks')}</p>
+                                <p className="text-xs text-destructive">
+                                    {err('remarks')}
+                                </p>
                             ) : (
                                 <p className="text-[11px] text-muted-foreground">
-                                    Standby details, travel plans, or handover notes.
+                                    Standby details, travel plans, or handover
+                                    notes.
                                 </p>
                             )}
                         </div>

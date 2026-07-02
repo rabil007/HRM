@@ -2,8 +2,8 @@ import { FileText, X } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Badge } from '@/components/ui/badge';
 import type { DocumentTypeOption } from '@/features/organization/documents/shared/types';
-import { formatUploadFileSize  } from '@/features/organization/documents/upload/upload-draft';
-import type {UploadDraft} from '@/features/organization/documents/upload/upload-draft';
+import { formatUploadFileSize } from '@/features/organization/documents/upload/upload-draft';
+import type { UploadDraft } from '@/features/organization/documents/upload/upload-draft';
 import { cn } from '@/lib/utils';
 
 export type UploadDocumentDraftListItemProps = {
@@ -50,7 +50,9 @@ export function UploadDocumentDraftListItem({
                 </div>
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate text-sm font-medium">{draft.file.name}</span>
+                        <span className="truncate text-sm font-medium">
+                            {draft.file.name}
+                        </span>
                         {typeLabel ? (
                             <Badge variant="secondary" className="text-[10px]">
                                 {typeLabel}
@@ -64,7 +66,10 @@ export function UploadDocumentDraftListItem({
                             </Badge>
                         ) : null}
                         {hasErrors ? (
-                            <Badge variant="destructive" className="text-[10px]">
+                            <Badge
+                                variant="destructive"
+                                className="text-[10px]"
+                            >
                                 Fix errors
                             </Badge>
                         ) : null}

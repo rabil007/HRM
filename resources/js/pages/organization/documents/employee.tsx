@@ -1,5 +1,14 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Download, FileStack, FolderOpen, Loader2, Mail, MessageCircle, Send, Trash2 } from 'lucide-react';
+import {
+    Download,
+    FileStack,
+    FolderOpen,
+    Loader2,
+    Mail,
+    MessageCircle,
+    Send,
+    Trash2,
+} from 'lucide-react';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -15,9 +24,7 @@ import { DocumentsActiveFilters } from '@/features/organization/documents/docume
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
-import {
-    EmailDocumentsModal
-} from '@/features/organization/documents/email-send';
+import { EmailDocumentsModal } from '@/features/organization/documents/email-send';
 import type { EmailDocumentItem } from '@/features/organization/documents/email-send';
 import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
@@ -26,9 +33,11 @@ import { filterDocumentsByExpiry } from '@/features/organization/documents/filte
 import type { MergeDocumentItem } from '@/features/organization/documents/pdf-merge/types';
 
 const PdfMergeModal = lazy(() =>
-    import('@/features/organization/documents/pdf-merge/merge-modal').then((module) => ({
-        default: module.PdfMergeModal,
-    })),
+    import('@/features/organization/documents/pdf-merge/merge-modal').then(
+        (module) => ({
+            default: module.PdfMergeModal,
+        }),
+    ),
 );
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
@@ -42,13 +51,9 @@ import type {
     EmployeeSummary,
 } from '@/features/organization/documents/shared/types';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
-import {
-    ShareLinksModal,
-} from '@/features/organization/documents/whatsapp-share';
+import { ShareLinksModal } from '@/features/organization/documents/whatsapp-share';
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
-import {
-    resolveDefaultWhatsAppTemplate
-} from '@/features/organization/documents/whatsapp-template/types';
+import { resolveDefaultWhatsAppTemplate } from '@/features/organization/documents/whatsapp-template/types';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { toast } from '@/lib/toast';
@@ -79,14 +84,16 @@ export default function EmployeeDocumentsBrowse({
     countries,
     can,
 }: Props) {
-    const { company_switcher_companies, current_company_id } = usePage().props as unknown as {
+    const { company_switcher_companies, current_company_id } = usePage()
+        .props as unknown as {
         company_switcher_companies?: Array<{ id: number; name: string }>;
         current_company_id?: number | null;
     };
 
     const organizationName =
-        company_switcher_companies?.find((company) => company.id === current_company_id)?.name ??
-        'Organization';
+        company_switcher_companies?.find(
+            (company) => company.id === current_company_id,
+        )?.name ?? 'Organization';
 
     const canDeleteDocuments = can.delete;
     const canDownloadDocuments = can.download;
@@ -95,18 +102,25 @@ export default function EmployeeDocumentsBrowse({
     const canSendWhatsAppTemplate = can.whatsapp_template;
     const whatsappTemplates = can.whatsapp_templates ?? [];
     const emailTemplates = can.email_templates ?? [];
-    const defaultWhatsappTemplate = resolveDefaultWhatsAppTemplate(whatsappTemplates);
+    const defaultWhatsappTemplate =
+        resolveDefaultWhatsAppTemplate(whatsappTemplates);
 
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
-    const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(null);
+    const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(
+        null,
+    );
     const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
     const [fileSearch, setFileSearch] = useState('');
     const [expiryFilter, setExpiryFilter] = useState<ExpiryFilter>('all');
     const [isBulkDownloading, setIsBulkDownloading] = useState(false);
     const [mergeModalOpen, setMergeModalOpen] = useState(false);
-    const [mergeDocuments, setMergeDocuments] = useState<MergeDocumentItem[]>([]);
+    const [mergeDocuments, setMergeDocuments] = useState<MergeDocumentItem[]>(
+        [],
+    );
     const [emailModalOpen, setEmailModalOpen] = useState(false);
-    const [emailDocuments, setEmailDocuments] = useState<EmailDocumentItem[]>([]);
+    const [emailDocuments, setEmailDocuments] = useState<EmailDocumentItem[]>(
+        [],
+    );
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [shareLinksModalOpen, setShareLinksModalOpen] = useState(false);
@@ -153,7 +167,9 @@ export default function EmployeeDocumentsBrowse({
             });
             clearDocumentSelection();
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Download failed.');
+            toast.error(
+                error instanceof Error ? error.message : 'Download failed.',
+            );
         } finally {
             setIsBulkDownloading(false);
         }
@@ -170,7 +186,11 @@ export default function EmployeeDocumentsBrowse({
             return;
         }
 
-        if (selectedDocs.some((document) => document.mime_type !== 'application/pdf')) {
+        if (
+            selectedDocs.some(
+                (document) => document.mime_type !== 'application/pdf',
+            )
+        ) {
             toast.error('Only PDF documents can be merged.');
 
             return;
@@ -249,20 +269,23 @@ export default function EmployeeDocumentsBrowse({
 
         setIsDeleting(true);
 
-        router.delete(documents.employee.files.bulkDestroy.url({ employee: employee.id }), {
-            data: { document_ids: selectedDocumentIds },
-            preserveScroll: true,
-            onSuccess: () => {
-                clearDocumentSelection();
-                setDeleteDialogOpen(false);
+        router.delete(
+            documents.employee.files.bulkDestroy.url({ employee: employee.id }),
+            {
+                data: { document_ids: selectedDocumentIds },
+                preserveScroll: true,
+                onSuccess: () => {
+                    clearDocumentSelection();
+                    setDeleteDialogOpen(false);
+                },
+                onError: () => {
+                    toast.error('Failed to delete selected documents.');
+                },
+                onFinish: () => {
+                    setIsDeleting(false);
+                },
             },
-            onError: () => {
-                toast.error('Failed to delete selected documents.');
-            },
-            onFinish: () => {
-                setIsDeleting(false);
-            },
-        });
+        );
     };
 
     return (
@@ -397,7 +420,12 @@ export default function EmployeeDocumentsBrowse({
                     expiryFilter="all"
                     hasSearch={false}
                     action={
-                        <Button variant="outline" size="sm" className="rounded-lg" asChild>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-lg"
+                            asChild
+                        >
                             <Link href={profileDocumentsUrl}>
                                 <FolderOpen className="mr-2 h-4 w-4" />
                                 Go to employee profile
@@ -428,15 +456,33 @@ export default function EmployeeDocumentsBrowse({
                                     aria-label="Select all files"
                                 />
                             </DataTableHead>
-                            <DataTableHead className="min-w-[240px]">File</DataTableHead>
-                            <DataTableHead className="hidden sm:table-cell">Type</DataTableHead>
-                            <DataTableHead className="hidden md:table-cell">Document no.</DataTableHead>
-                            <DataTableHead className="hidden md:table-cell">Issue date</DataTableHead>
-                            <DataTableHead className="hidden lg:table-cell">Expiry</DataTableHead>
-                            <DataTableHead className="hidden md:table-cell">File size</DataTableHead>
-                            <DataTableHead className="hidden lg:table-cell">Status</DataTableHead>
-                            <DataTableHead className="hidden xl:table-cell">Uploaded</DataTableHead>
-                            <DataTableHead className="text-right">Actions</DataTableHead>
+                            <DataTableHead className="min-w-[240px]">
+                                File
+                            </DataTableHead>
+                            <DataTableHead className="hidden sm:table-cell">
+                                Type
+                            </DataTableHead>
+                            <DataTableHead className="hidden md:table-cell">
+                                Document no.
+                            </DataTableHead>
+                            <DataTableHead className="hidden md:table-cell">
+                                Issue date
+                            </DataTableHead>
+                            <DataTableHead className="hidden lg:table-cell">
+                                Expiry
+                            </DataTableHead>
+                            <DataTableHead className="hidden md:table-cell">
+                                File size
+                            </DataTableHead>
+                            <DataTableHead className="hidden lg:table-cell">
+                                Status
+                            </DataTableHead>
+                            <DataTableHead className="hidden xl:table-cell">
+                                Uploaded
+                            </DataTableHead>
+                            <DataTableHead className="text-right">
+                                Actions
+                            </DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
                     <TableBody>
@@ -447,16 +493,24 @@ export default function EmployeeDocumentsBrowse({
                                 employeeId={employee.id}
                                 employeeName={employee.name}
                                 employeePhone={employee.phone}
-                                viewHref={buildDocumentShowUrl(employee.id, doc.id, {
-                                    from: 'employee-browse',
-                                })}
+                                viewHref={buildDocumentShowUrl(
+                                    employee.id,
+                                    doc.id,
+                                    {
+                                        from: 'employee-browse',
+                                    },
+                                )}
                                 canDownload={canDownloadDocuments}
                                 canUpload={canUploadDocuments}
                                 canDelete={canDeleteDocuments}
                                 onEdit={setEditDoc}
                                 onReplace={setReplaceDoc}
-                                onDelete={(document) => setDeleteDocId(document.id)}
-                                canSendWhatsAppTemplate={canSendWhatsAppTemplate}
+                                onDelete={(document) =>
+                                    setDeleteDocId(document.id)
+                                }
+                                canSendWhatsAppTemplate={
+                                    canSendWhatsAppTemplate
+                                }
                                 whatsappTemplates={whatsappTemplates}
                                 countries={countries}
                                 selectionMode
@@ -474,8 +528,10 @@ export default function EmployeeDocumentsBrowse({
                 title="Delete selected documents"
                 description={
                     <>
-                        Are you sure you want to delete {selectedDocumentCount} selected{' '}
-                        {selectedDocumentCount === 1 ? 'document' : 'documents'}? This action cannot be undone.
+                        Are you sure you want to delete {selectedDocumentCount}{' '}
+                        selected{' '}
+                        {selectedDocumentCount === 1 ? 'document' : 'documents'}
+                        ? This action cannot be undone.
                     </>
                 }
                 confirmLabel={isDeleting ? 'Deleting…' : 'Delete'}

@@ -26,7 +26,9 @@ export function PayrollRecordRemoveDialog({
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent className="glass-card">
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Remove employee from pay run?</AlertDialogTitle>
+                    <AlertDialogTitle>
+                        Remove employee from pay run?
+                    </AlertDialogTitle>
                     <AlertDialogDescription>
                         {employeeName
                             ? `${employeeName} will be removed from this pay run. Any salary inputs for this period will be deleted. Updating payroll will not add them back unless you include them again from the employees tab.`
@@ -34,7 +36,9 @@ export function PayrollRecordRemoveDialog({
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                    <AlertDialogCancel className="rounded-xl">
+                        Cancel
+                    </AlertDialogCancel>
                     <AlertDialogAction
                         className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         disabled={processing}

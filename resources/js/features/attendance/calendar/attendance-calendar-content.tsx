@@ -5,7 +5,10 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { LeaveRequestFormSheet } from '@/features/attendance/leave-requests/components/leave-request-form-sheet';
 import { defaultLeaveRequestFormData } from '@/features/attendance/leave-requests/types';
-import type { LeaveRequestEmployeeOption, LeaveRequestTypeOption } from '@/features/attendance/leave-requests/types';
+import type {
+    LeaveRequestEmployeeOption,
+    LeaveRequestTypeOption,
+} from '@/features/attendance/leave-requests/types';
 import { CalendarEmployeeSelect } from './components/calendar-employee-select';
 import { CalendarSummaryStats } from './components/calendar-summary-stats';
 import { CalendarToolbar } from './components/calendar-toolbar';
@@ -56,18 +59,28 @@ export function AttendanceCalendarContent({
     const currentYear = new Date(`${today}T00:00:00`).getFullYear();
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const form = useForm(defaultLeaveRequestFormData());
-    const stats = useMemo(() => getCalendarStats(approved_leaves, year), [approved_leaves, year]);
-    const leaveDayMap = useMemo(() => buildLeaveDayMap(approved_leaves, year), [approved_leaves, year]);
+    const stats = useMemo(
+        () => getCalendarStats(approved_leaves, year),
+        [approved_leaves, year],
+    );
+    const leaveDayMap = useMemo(
+        () => buildLeaveDayMap(approved_leaves, year),
+        [approved_leaves, year],
+    );
     const canCreateFromCalendar = can.create && selected_employee_id !== null;
     const showEmptyState =
         selected_employee_id !== null &&
         approved_leaves.length === 0 &&
         pending_request_count === 0;
-    const selectedEmployeeLabel = selected_employee?.name?.trim() || 'This employee';
+    const selectedEmployeeLabel =
+        selected_employee?.name?.trim() || 'This employee';
 
     const openCreateSheet = useCallback(
         (range: CalendarDateRange) => {
-            if (range.start === range.end && (leaveDayMap.get(range.start)?.length ?? 0) > 0) {
+            if (
+                range.start === range.end &&
+                (leaveDayMap.get(range.start)?.length ?? 0) > 0
+            ) {
                 return;
             }
 
@@ -84,10 +97,11 @@ export function AttendanceCalendarContent({
         [form, leaveDayMap, selected_employee_id],
     );
 
-    const { isSelecting, beginSelection, extendSelection, isDateInRange } = useCalendarRangeSelection({
-        enabled: canCreateFromCalendar,
-        onRangeComplete: openCreateSheet,
-    });
+    const { isSelecting, beginSelection, extendSelection, isDateInRange } =
+        useCalendarRangeSelection({
+            enabled: canCreateFromCalendar,
+            onRangeComplete: openCreateSheet,
+        });
 
     const submit = () => {
         if (!form.data.employee_id) {
@@ -108,7 +122,12 @@ export function AttendanceCalendarContent({
             onSuccess: () => {
                 setIsSheetOpen(false);
                 router.reload({
-                    only: ['approved_leaves', 'leave_types', 'pending_request_count', 'employees'],
+                    only: [
+                        'approved_leaves',
+                        'leave_types',
+                        'pending_request_count',
+                        'employees',
+                    ],
                 });
             },
         });
@@ -162,7 +181,11 @@ export function AttendanceCalendarContent({
                             selectedEmployeeId={selected_employee_id}
                         />
                     ) : null}
-                    <CalendarToolbar year={year} currentYear={currentYear} selectedEmployeeId={selected_employee_id} />
+                    <CalendarToolbar
+                        year={year}
+                        currentYear={currentYear}
+                        selectedEmployeeId={selected_employee_id}
+                    />
                     <LeaveTypeLegend
                         leaveTypes={leave_types}
                         year={year}

@@ -21,11 +21,8 @@ import { Button } from '@/components/ui/button';
 import { EmployeeTabSkeleton } from '@/features/organization/employees/profile/components/employee-tab-skeleton';
 import { EmployeeProfileShell } from '@/features/organization/employees/profile/employee-profile-shell';
 import { buildEmployeeProfileTabs } from '@/features/organization/employees/profile/employee-profile-tabs';
-import {
-    useEnsureEmployee
-    
-} from '@/features/organization/employees/profile/use-ensure-employee';
-import type {EnsuredEmployee} from '@/features/organization/employees/profile/use-ensure-employee';
+import { useEnsureEmployee } from '@/features/organization/employees/profile/use-ensure-employee';
+import type { EnsuredEmployee } from '@/features/organization/employees/profile/use-ensure-employee';
 import { actions } from '@/lib/design-system';
 import { CreateEmployeeUserDialog } from '@/pages/organization/_components/create-employee-user-dialog';
 import { EmployeeDocumentsTab } from '@/pages/organization/_components/documents/employee-documents-tab';
@@ -41,9 +38,7 @@ import { EmployeeSeaServiceTab } from '@/pages/organization/_components/employee
 import { EmployeeTrainingTab } from '@/pages/organization/_components/employee-training-tab';
 import { EmployeeVaccinationTab } from '@/pages/organization/_components/employee-vaccination-tab';
 import { EmployeeWorkExperienceTab } from '@/pages/organization/_components/employee-work-experience-tab';
-import {
-    useEmployeeProfileForm,
-} from '@/pages/organization/_hooks/use-employee-profile-form';
+import { useEmployeeProfileForm } from '@/pages/organization/_hooks/use-employee-profile-form';
 import type { UseEmployeeProfileFormResult } from '@/pages/organization/_hooks/use-employee-profile-form';
 import { resolveTemplateTableFields } from '@/pages/organization/_lib/resolve-template-table-fields';
 import type {
@@ -148,7 +143,9 @@ function EmployeeDetailsPage({
         return EMPLOYEE_PAGE_TAB_HASH_KEYS[window.location.hash] ?? 'personal';
     });
     const [pendingTab, setPendingTab] = useState<EmployeeTab | null>(null);
-    const [pendingEmployeeId, setPendingEmployeeId] = useState<number | null>(null);
+    const [pendingEmployeeId, setPendingEmployeeId] = useState<number | null>(
+        null,
+    );
     const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
     const [createUserOpen, setCreateUserOpen] = useState(false);
 
@@ -212,8 +209,12 @@ function EmployeeDetailsPage({
 
     const canViewLinkedUser = (auth?.permissions ?? []).includes('users.view');
     const permissions = auth?.permissions ?? [];
-    const canViewAttendanceCalendar = permissions.includes('attendance.leave-requests.view');
-    const canApproveLeaveRequests = permissions.includes('attendance.leave-requests.approve');
+    const canViewAttendanceCalendar = permissions.includes(
+        'attendance.leave-requests.view',
+    );
+    const canApproveLeaveRequests = permissions.includes(
+        'attendance.leave-requests.approve',
+    );
     const isOwnEmployeeProfile = linkedUser?.id === auth?.user?.id;
     const showAttendanceCalendarButton =
         !isCreateMode &&
@@ -224,14 +225,15 @@ function EmployeeDetailsPage({
             ? `/attendance/calendar?employee_id=${localEmployee.id}&year=${new Date().getFullYear()}`
             : undefined;
     const canCreateUser =
-        !isCreateMode &&
-        (can?.create_user ?? false) &&
-        linkedUser === null;
+        !isCreateMode && (can?.create_user ?? false) && linkedUser === null;
 
     const visitEmployeeProfile = useCallback(
         (employeeId: number) => {
             const listQuery = employee_navigation?.list_query ?? {};
-            const baseUrl = show.url({ employee: employeeId }, { query: listQuery });
+            const baseUrl = show.url(
+                { employee: employeeId },
+                { query: listQuery },
+            );
             const hash =
                 typeof window !== 'undefined' ? window.location.hash : '';
 
@@ -272,15 +274,21 @@ function EmployeeDetailsPage({
                             ? null
                             : vaccinations.length || null,
                     languages:
-                        languages === undefined ? null : languages.length || null,
+                        languages === undefined
+                            ? null
+                            : languages.length || null,
                     trainings:
-                        trainings === undefined ? null : trainings.length || null,
+                        trainings === undefined
+                            ? null
+                            : trainings.length || null,
                     sea_services:
                         sea_services === undefined
                             ? null
                             : sea_services.length || null,
                     documents:
-                        documents === undefined ? null : documents.length || null,
+                        documents === undefined
+                            ? null
+                            : documents.length || null,
                 },
             }),
         [
@@ -348,7 +356,8 @@ function EmployeeDetailsPage({
     );
 
     const changeProfileTemplate = (templateId: string) => {
-        const nextId = templateId === '' ? null : Number.parseInt(templateId, 10);
+        const nextId =
+            templateId === '' ? null : Number.parseInt(templateId, 10);
         setSelectedTemplateId(Number.isNaN(nextId as number) ? null : nextId);
 
         const search = new URLSearchParams();
@@ -438,13 +447,16 @@ function EmployeeDetailsPage({
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
-                                    <AlertDialogCancel className={actions.dialogSecondary}>
+                                    <AlertDialogCancel
+                                        className={actions.dialogSecondary}
+                                    >
                                         Stay
                                     </AlertDialogCancel>
                                     <AlertDialogAction
                                         className={actions.dialogSecondary}
                                         onClick={() => {
-                                            const nextEmployeeId = pendingEmployeeId;
+                                            const nextEmployeeId =
+                                                pendingEmployeeId;
 
                                             discardChanges();
 
@@ -453,7 +465,9 @@ function EmployeeDetailsPage({
                                             }
 
                                             if (nextEmployeeId !== null) {
-                                                visitEmployeeProfile(nextEmployeeId);
+                                                visitEmployeeProfile(
+                                                    nextEmployeeId,
+                                                );
                                             }
 
                                             setPendingTab(null);
@@ -466,7 +480,8 @@ function EmployeeDetailsPage({
                                     <AlertDialogAction
                                         className={actions.dialogPrimary}
                                         onClick={() => {
-                                            const nextEmployeeId = pendingEmployeeId;
+                                            const nextEmployeeId =
+                                                pendingEmployeeId;
 
                                             saveChanges(() => {
                                                 if (pendingTab) {
@@ -474,7 +489,9 @@ function EmployeeDetailsPage({
                                                 }
 
                                                 if (nextEmployeeId !== null) {
-                                                    visitEmployeeProfile(nextEmployeeId);
+                                                    visitEmployeeProfile(
+                                                        nextEmployeeId,
+                                                    );
                                                 }
 
                                                 setPendingTab(null);
@@ -496,8 +513,9 @@ function EmployeeDetailsPage({
                                         New employee
                                     </h1>
                                     <p className="text-sm text-muted-foreground">
-                                        Enter a name, then add details in any tab. The
-                                        employee record is created when you first save.
+                                        Enter a name, then add details in any
+                                        tab. The employee record is created when
+                                        you first save.
                                     </p>
                                 </div>
                                 <div className="flex w-full flex-col gap-3 md:w-auto md:min-w-[280px]">
@@ -511,20 +529,26 @@ function EmployeeDetailsPage({
                                                     ? String(selectedTemplateId)
                                                     : ''
                                             }
-                                            onValueChange={changeProfileTemplate}
+                                            onValueChange={
+                                                changeProfileTemplate
+                                            }
                                             placeholder="All tabs and fields (default)"
                                         >
                                             <AppSelectItem value="">
                                                 Default (show all)
                                             </AppSelectItem>
-                                            {profile_templates.map((template) => (
-                                                <AppSelectItem
-                                                    key={template.id}
-                                                    value={String(template.id)}
-                                                >
-                                                    {template.name}
-                                                </AppSelectItem>
-                                            ))}
+                                            {profile_templates.map(
+                                                (template) => (
+                                                    <AppSelectItem
+                                                        key={template.id}
+                                                        value={String(
+                                                            template.id,
+                                                        )}
+                                                    >
+                                                        {template.name}
+                                                    </AppSelectItem>
+                                                ),
+                                            )}
                                         </AppSelect>
                                     </div>
                                 </div>
@@ -546,14 +570,19 @@ function EmployeeDetailsPage({
                                 employeeNavigation={employee_navigation}
                                 onNavigateEmployee={handleNavigateEmployee}
                                 showDocumentsButton={
-                                    employee_tabs.documents && (can?.documents_view ?? false)
+                                    employee_tabs.documents &&
+                                    (can?.documents_view ?? false)
                                 }
                                 documentCount={
-                                    documents === undefined ? null : documents.length
+                                    documents === undefined
+                                        ? null
+                                        : documents.length
                                 }
-                                documentsBrowseUrl={employeeDocumentsBrowse.url({
-                                    employee: localEmployee.id as number,
-                                })}
+                                documentsBrowseUrl={employeeDocumentsBrowse.url(
+                                    {
+                                        employee: localEmployee.id as number,
+                                    },
+                                )}
                                 showCreateUserButton={canCreateUser}
                                 onCreateUser={() => setCreateUserOpen(true)}
                                 linkedUser={linkedUser}
@@ -562,7 +591,9 @@ function EmployeeDetailsPage({
                                     canViewLinkedUser &&
                                     linkedUser !== null
                                 }
-                                showAttendanceCalendarButton={showAttendanceCalendarButton}
+                                showAttendanceCalendarButton={
+                                    showAttendanceCalendarButton
+                                }
                                 attendanceCalendarUrl={attendanceCalendarUrl}
                             />
                         )}
@@ -579,7 +610,9 @@ function EmployeeDetailsPage({
 
                         <EmployeeHeaderCard
                             canUpdate={canUpdate}
-                            canAssignProfileTemplate={can?.assign_profile_template ?? false}
+                            canAssignProfileTemplate={
+                                can?.assign_profile_template ?? false
+                            }
                             profileTemplates={profile_templates}
                             employee={localEmployee}
                             departments={departments}
@@ -607,245 +640,266 @@ function EmployeeDetailsPage({
                             onTabChange={handleTabChange}
                             tabs={tabs}
                         >
-                                    {employee_tabs.personal && activeTab === 'personal' ? (
-                                        <EmployeePersonalTab
-                                            employee={localEmployee}
-                                            countries={countries}
-                                            approvalLocations={approval_locations}
-                                            sssaOptions={sssa_options}
-                                            canUpdate={canUpdate}
-                                            form={form}
-                                            activeField={activeField}
-                                            setActiveField={setActiveField}
-                                            beginEdit={beginEdit}
-                                            templateProfileFields={
-                                                employee_tabs.profile_fields
-                                            }
-                                            isMissingRequired={isMissingRequired}
-                                        />
-                                    ) : null}
-                                    {employee_tabs.contract && activeTab === 'contract' ? (
-                                        recordsLoading ? (
-                                            <EmployeeTabSkeleton />
-                                        ) : (
-                                            <EmployeeContractTab
-                                                employeeId={effectiveEmployeeId}
-                                                contracts={contracts ?? []}
-                                                canManage={can?.contracts_manage ?? false}
-                                                ensureEmployee={
-                                                    isCreateMode
-                                                        ? ensureEmployee
-                                                        : undefined
-                                                }
-                                                templateContractFields={
-                                                    resolveTemplateTableFields(
-                                                        employee_tabs.template_fields,
-                                                        resolved_template?.fields,
-                                                        'employee_contracts',
-                                                    )
-                                                }
-                                            />
-                                        )
-                                    ) : null}
-                                    {employee_tabs.bank && activeTab === 'bank' ? (
-                                        recordsLoading ? (
-                                            <EmployeeTabSkeleton />
-                                        ) : (
-                                            <EmployeeBankTab
-                                                employeeId={effectiveEmployeeId}
-                                                bank_accounts={bank_accounts ?? []}
-                                                banks={banks}
-                                                canManage={can?.bank_accounts_manage ?? false}
-                                                ensureEmployee={
-                                                    isCreateMode
-                                                        ? ensureEmployee
-                                                        : undefined
-                                                }
-                                                templateFields={resolveTemplateTableFields(
-                                                    employee_tabs.template_fields,
-                                                    resolved_template?.fields,
-                                                    'employee_bank_accounts',
-                                                )}
-                                            />
-                                        )
-                                    ) : null}
-                                    {employee_tabs.education !== false &&
-                                    activeTab === 'education' ? (
-                                        recordsLoading ? (
-                                            <EmployeeTabSkeleton />
-                                        ) : (
-                                            <EmployeeEducationTab
-                                                employeeId={effectiveEmployeeId}
-                                                education_qualifications={
-                                                    education_qualifications ?? []
-                                                }
-                                                countries={countries}
-                                                canManage={can?.education_manage ?? false}
-                                                ensureEmployee={
-                                                    isCreateMode
-                                                        ? ensureEmployee
-                                                        : undefined
-                                                }
-                                                templateFields={resolveTemplateTableFields(
-                                                    employee_tabs.template_fields,
-                                                    resolved_template?.fields,
-                                                    'employee_education_qualifications',
-                                                )}
-                                            />
-                                        )
-                                    ) : null}
-                                    {employee_tabs.work_experience !== false &&
-                                    activeTab === 'work_experience' ? (
-                                        recordsLoading ? (
-                                            <EmployeeTabSkeleton />
-                                        ) : (
-                                            <EmployeeWorkExperienceTab
-                                                employeeId={effectiveEmployeeId}
-                                                work_experiences={work_experiences ?? []}
-                                                canManage={
-                                                    can?.work_experience_manage ?? false
-                                                }
-                                                ensureEmployee={
-                                                    isCreateMode
-                                                        ? ensureEmployee
-                                                        : undefined
-                                                }
-                                                templateFields={resolveTemplateTableFields(
-                                                    employee_tabs.template_fields,
-                                                    resolved_template?.fields,
-                                                    'employee_work_experiences',
-                                                )}
-                                            />
-                                        )
-                                    ) : null}
-                                    {employee_tabs.vaccination &&
-                                    activeTab === 'vaccination' ? (
-                                        recordsLoading ? (
-                                            <EmployeeTabSkeleton />
-                                        ) : (
-                                            <EmployeeVaccinationTab
-                                                employeeId={effectiveEmployeeId}
-                                                vaccinations={vaccinations ?? []}
-                                                countries={countries}
-                                                canManage={can?.vaccination_manage ?? false}
-                                                ensureEmployee={
-                                                    isCreateMode
-                                                        ? ensureEmployee
-                                                        : undefined
-                                                }
-                                                templateFields={resolveTemplateTableFields(
-                                                    employee_tabs.template_fields,
-                                                    resolved_template?.fields,
-                                                    'employee_vaccinations',
-                                                )}
-                                            />
-                                        )
-                                    ) : null}
-                                    {employee_tabs.languages !== false &&
-                                    activeTab === 'languages' ? (
-                                        recordsLoading ? (
-                                            <EmployeeTabSkeleton />
-                                        ) : (
-                                            <EmployeeLanguagesTab
-                                                employeeId={effectiveEmployeeId}
-                                                languages={languages ?? []}
-                                                canManage={can?.languages_manage ?? false}
-                                                ensureEmployee={
-                                                    isCreateMode
-                                                        ? ensureEmployee
-                                                        : undefined
-                                                }
-                                                templateFields={resolveTemplateTableFields(
-                                                    employee_tabs.template_fields,
-                                                    resolved_template?.fields,
-                                                    'employee_languages',
-                                                )}
-                                            />
-                                        )
-                                    ) : null}
-                                    {employee_tabs.training && activeTab === 'training' ? (
-                                        recordsLoading ? (
-                                            <EmployeeTabSkeleton />
-                                        ) : (
-                                            <EmployeeTrainingTab
-                                                employeeId={effectiveEmployeeId}
-                                                employeeName={employee.name}
-                                                trainings={trainings ?? []}
-                                                courses={courses ?? []}
-                                                countries={countries}
-                                                canManage={can?.training_manage ?? false}
-                                                ensureEmployee={
-                                                    isCreateMode
-                                                        ? ensureEmployee
-                                                        : undefined
-                                                }
-                                                templateFields={resolveTemplateTableFields(
-                                                    employee_tabs.template_fields,
-                                                    resolved_template?.fields,
-                                                    'employee_trainings',
-                                                )}
-                                            />
-                                        )
-                                    ) : null}
-                                    {employee_tabs.sea_service &&
-                                    activeTab === 'sea_service' ? (
-                                        recordsLoading ? (
-                                            <EmployeeTabSkeleton />
-                                        ) : (
-                                            <EmployeeSeaServiceTab
-                                                employeeId={effectiveEmployeeId}
-                                                sea_services={sea_services ?? []}
-                                                vessel_types={vessel_types ?? []}
-                                                vessels={vessels ?? []}
-                                                ranks={ranks}
-                                                clients={clients ?? []}
-                                                employeeRankId={localEmployee.rank_id ?? null}
-                                                canManage={can?.sea_service_manage ?? false}
-                                                ensureEmployee={
-                                                    isCreateMode
-                                                        ? ensureEmployee
-                                                        : undefined
-                                                }
-                                                templateFields={resolveTemplateTableFields(
-                                                    employee_tabs.template_fields,
-                                                    resolved_template?.fields,
-                                                    'employee_sea_services',
-                                                )}
-                                            />
-                                        )
-                                    ) : null}
-                                    {employee_tabs.documents && activeTab === 'documents' ? (
-                                        recordsLoading ? (
-                                            <EmployeeTabSkeleton />
-                                        ) : (
-                                            <EmployeeDocumentsTab
-                                                employee={{
-                                                    id: localEmployee.id as number,
-                                                    name: localEmployee.name,
-                                                }}
-                                                documents={documents ?? []}
-                                                document_types={document_types ?? []}
-                                                can={{
-                                                    documents_upload:
-                                                        can?.documents_upload ?? false,
-                                                    documents_download:
-                                                        can?.documents_download ?? false,
-                                                    documents_delete:
-                                                        can?.documents_delete ?? false,
-                                                }}
-                                                ensureEmployee={
-                                                    isCreateMode
-                                                        ? ensureEmployee
-                                                        : undefined
-                                                }
-                                                templateFields={resolveTemplateTableFields(
-                                                    employee_tabs.template_fields,
-                                                    resolved_template?.fields,
-                                                    'employee_documents',
-                                                )}
-                                            />
-                                        )
-                                    ) : null}
+                            {employee_tabs.personal &&
+                            activeTab === 'personal' ? (
+                                <EmployeePersonalTab
+                                    employee={localEmployee}
+                                    countries={countries}
+                                    approvalLocations={approval_locations}
+                                    sssaOptions={sssa_options}
+                                    canUpdate={canUpdate}
+                                    form={form}
+                                    activeField={activeField}
+                                    setActiveField={setActiveField}
+                                    beginEdit={beginEdit}
+                                    templateProfileFields={
+                                        employee_tabs.profile_fields
+                                    }
+                                    isMissingRequired={isMissingRequired}
+                                />
+                            ) : null}
+                            {employee_tabs.contract &&
+                            activeTab === 'contract' ? (
+                                recordsLoading ? (
+                                    <EmployeeTabSkeleton />
+                                ) : (
+                                    <EmployeeContractTab
+                                        employeeId={effectiveEmployeeId}
+                                        contracts={contracts ?? []}
+                                        canManage={
+                                            can?.contracts_manage ?? false
+                                        }
+                                        ensureEmployee={
+                                            isCreateMode
+                                                ? ensureEmployee
+                                                : undefined
+                                        }
+                                        templateContractFields={resolveTemplateTableFields(
+                                            employee_tabs.template_fields,
+                                            resolved_template?.fields,
+                                            'employee_contracts',
+                                        )}
+                                    />
+                                )
+                            ) : null}
+                            {employee_tabs.bank && activeTab === 'bank' ? (
+                                recordsLoading ? (
+                                    <EmployeeTabSkeleton />
+                                ) : (
+                                    <EmployeeBankTab
+                                        employeeId={effectiveEmployeeId}
+                                        bank_accounts={bank_accounts ?? []}
+                                        banks={banks}
+                                        canManage={
+                                            can?.bank_accounts_manage ?? false
+                                        }
+                                        ensureEmployee={
+                                            isCreateMode
+                                                ? ensureEmployee
+                                                : undefined
+                                        }
+                                        templateFields={resolveTemplateTableFields(
+                                            employee_tabs.template_fields,
+                                            resolved_template?.fields,
+                                            'employee_bank_accounts',
+                                        )}
+                                    />
+                                )
+                            ) : null}
+                            {employee_tabs.education !== false &&
+                            activeTab === 'education' ? (
+                                recordsLoading ? (
+                                    <EmployeeTabSkeleton />
+                                ) : (
+                                    <EmployeeEducationTab
+                                        employeeId={effectiveEmployeeId}
+                                        education_qualifications={
+                                            education_qualifications ?? []
+                                        }
+                                        countries={countries}
+                                        canManage={
+                                            can?.education_manage ?? false
+                                        }
+                                        ensureEmployee={
+                                            isCreateMode
+                                                ? ensureEmployee
+                                                : undefined
+                                        }
+                                        templateFields={resolveTemplateTableFields(
+                                            employee_tabs.template_fields,
+                                            resolved_template?.fields,
+                                            'employee_education_qualifications',
+                                        )}
+                                    />
+                                )
+                            ) : null}
+                            {employee_tabs.work_experience !== false &&
+                            activeTab === 'work_experience' ? (
+                                recordsLoading ? (
+                                    <EmployeeTabSkeleton />
+                                ) : (
+                                    <EmployeeWorkExperienceTab
+                                        employeeId={effectiveEmployeeId}
+                                        work_experiences={
+                                            work_experiences ?? []
+                                        }
+                                        canManage={
+                                            can?.work_experience_manage ?? false
+                                        }
+                                        ensureEmployee={
+                                            isCreateMode
+                                                ? ensureEmployee
+                                                : undefined
+                                        }
+                                        templateFields={resolveTemplateTableFields(
+                                            employee_tabs.template_fields,
+                                            resolved_template?.fields,
+                                            'employee_work_experiences',
+                                        )}
+                                    />
+                                )
+                            ) : null}
+                            {employee_tabs.vaccination &&
+                            activeTab === 'vaccination' ? (
+                                recordsLoading ? (
+                                    <EmployeeTabSkeleton />
+                                ) : (
+                                    <EmployeeVaccinationTab
+                                        employeeId={effectiveEmployeeId}
+                                        vaccinations={vaccinations ?? []}
+                                        countries={countries}
+                                        canManage={
+                                            can?.vaccination_manage ?? false
+                                        }
+                                        ensureEmployee={
+                                            isCreateMode
+                                                ? ensureEmployee
+                                                : undefined
+                                        }
+                                        templateFields={resolveTemplateTableFields(
+                                            employee_tabs.template_fields,
+                                            resolved_template?.fields,
+                                            'employee_vaccinations',
+                                        )}
+                                    />
+                                )
+                            ) : null}
+                            {employee_tabs.languages !== false &&
+                            activeTab === 'languages' ? (
+                                recordsLoading ? (
+                                    <EmployeeTabSkeleton />
+                                ) : (
+                                    <EmployeeLanguagesTab
+                                        employeeId={effectiveEmployeeId}
+                                        languages={languages ?? []}
+                                        canManage={
+                                            can?.languages_manage ?? false
+                                        }
+                                        ensureEmployee={
+                                            isCreateMode
+                                                ? ensureEmployee
+                                                : undefined
+                                        }
+                                        templateFields={resolveTemplateTableFields(
+                                            employee_tabs.template_fields,
+                                            resolved_template?.fields,
+                                            'employee_languages',
+                                        )}
+                                    />
+                                )
+                            ) : null}
+                            {employee_tabs.training &&
+                            activeTab === 'training' ? (
+                                recordsLoading ? (
+                                    <EmployeeTabSkeleton />
+                                ) : (
+                                    <EmployeeTrainingTab
+                                        employeeId={effectiveEmployeeId}
+                                        employeeName={employee.name}
+                                        trainings={trainings ?? []}
+                                        courses={courses ?? []}
+                                        countries={countries}
+                                        canManage={
+                                            can?.training_manage ?? false
+                                        }
+                                        ensureEmployee={
+                                            isCreateMode
+                                                ? ensureEmployee
+                                                : undefined
+                                        }
+                                        templateFields={resolveTemplateTableFields(
+                                            employee_tabs.template_fields,
+                                            resolved_template?.fields,
+                                            'employee_trainings',
+                                        )}
+                                    />
+                                )
+                            ) : null}
+                            {employee_tabs.sea_service &&
+                            activeTab === 'sea_service' ? (
+                                recordsLoading ? (
+                                    <EmployeeTabSkeleton />
+                                ) : (
+                                    <EmployeeSeaServiceTab
+                                        employeeId={effectiveEmployeeId}
+                                        sea_services={sea_services ?? []}
+                                        vessel_types={vessel_types ?? []}
+                                        vessels={vessels ?? []}
+                                        ranks={ranks}
+                                        clients={clients ?? []}
+                                        employeeRankId={
+                                            localEmployee.rank_id ?? null
+                                        }
+                                        canManage={
+                                            can?.sea_service_manage ?? false
+                                        }
+                                        ensureEmployee={
+                                            isCreateMode
+                                                ? ensureEmployee
+                                                : undefined
+                                        }
+                                        templateFields={resolveTemplateTableFields(
+                                            employee_tabs.template_fields,
+                                            resolved_template?.fields,
+                                            'employee_sea_services',
+                                        )}
+                                    />
+                                )
+                            ) : null}
+                            {employee_tabs.documents &&
+                            activeTab === 'documents' ? (
+                                recordsLoading ? (
+                                    <EmployeeTabSkeleton />
+                                ) : (
+                                    <EmployeeDocumentsTab
+                                        employee={{
+                                            id: localEmployee.id as number,
+                                            name: localEmployee.name,
+                                        }}
+                                        documents={documents ?? []}
+                                        document_types={document_types ?? []}
+                                        can={{
+                                            documents_upload:
+                                                can?.documents_upload ?? false,
+                                            documents_download:
+                                                can?.documents_download ??
+                                                false,
+                                            documents_delete:
+                                                can?.documents_delete ?? false,
+                                        }}
+                                        ensureEmployee={
+                                            isCreateMode
+                                                ? ensureEmployee
+                                                : undefined
+                                        }
+                                        templateFields={resolveTemplateTableFields(
+                                            employee_tabs.template_fields,
+                                            resolved_template?.fields,
+                                            'employee_documents',
+                                        )}
+                                    />
+                                )
+                            ) : null}
                         </EmployeeProfileShell>
                     </div>
                 </div>

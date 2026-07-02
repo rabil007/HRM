@@ -38,9 +38,8 @@ export function calculateSeaServiceDuration(
     }
 
     const inclusiveDays =
-        Math.floor(
-            (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
-        ) + 1;
+        Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) +
+        1;
 
     return {
         months: years * 12 + months,
@@ -61,9 +60,9 @@ function parseIsoDate(value: string): Date | null {
     const date = new Date(year, month, day);
 
     if (
-        date.getFullYear() !== year
-        || date.getMonth() !== month
-        || date.getDate() !== day
+        date.getFullYear() !== year ||
+        date.getMonth() !== month ||
+        date.getDate() !== day
     ) {
         return null;
     }

@@ -1,11 +1,10 @@
 import { usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
-import {
-    creatableRegistry
-    
-    
+import { creatableRegistry } from '@/lib/master-data/creatable-registry';
+import type {
+    CreatableMasterDataContext,
+    CreatableMasterDataKey,
 } from '@/lib/master-data/creatable-registry';
-import type {CreatableMasterDataContext, CreatableMasterDataKey} from '@/lib/master-data/creatable-registry';
 import { postQuickCreate } from '@/lib/master-data/quick-create-post';
 
 export type QuickCreateResult = {

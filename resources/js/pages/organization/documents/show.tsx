@@ -46,13 +46,21 @@ type Props = {
     can_view_audit: boolean;
 };
 
-function MetadataField({ label, value }: { label: string; value: string }): ReactElement {
+function MetadataField({
+    label,
+    value,
+}: {
+    label: string;
+    value: string;
+}): ReactElement {
     return (
         <div className="flex items-start justify-between gap-4 border-b border-border/50 px-1 py-3 last:border-b-0">
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70">
+            <span className="text-[10px] font-bold tracking-[0.18em] text-muted-foreground/70 uppercase">
                 {label}
             </span>
-            <span className="max-w-[60%] text-right text-sm font-medium">{value}</span>
+            <span className="max-w-[60%] text-right text-sm font-medium">
+                {value}
+            </span>
         </div>
     );
 }
@@ -71,7 +79,8 @@ export default function DocumentShow({
     const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
     const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
 
-    const pageTitle = doc.title || doc.document_name || doc.document_type_label || 'Document';
+    const pageTitle =
+        doc.title || doc.document_name || doc.document_type_label || 'Document';
     const whatsappTemplates = can.whatsapp_templates ?? [];
 
     return (
@@ -84,7 +93,9 @@ export default function DocumentShow({
                         { title: 'Documents', href: documents.url() },
                         {
                             title: employee.name,
-                            href: documents.employee.url({ employee: employee.id }),
+                            href: documents.employee.url({
+                                employee: employee.id,
+                            }),
                         },
                         { title: pageTitle },
                     ]}
@@ -96,7 +107,9 @@ export default function DocumentShow({
                     description={
                         <span className="inline-flex flex-wrap items-center gap-2">
                             <Link
-                                href={employeeShow.url({ employee: employee.id })}
+                                href={employeeShow.url({
+                                    employee: employee.id,
+                                })}
                                 className="font-medium text-foreground hover:underline"
                             >
                                 {employee.name}
@@ -105,8 +118,13 @@ export default function DocumentShow({
                             <span>{employee.employee_no}</span>
                             {doc.current_version && doc.current_version > 1 ? (
                                 <>
-                                    <span className="text-muted-foreground">·</span>
-                                    <Badge variant="secondary" className="text-[10px] uppercase">
+                                    <span className="text-muted-foreground">
+                                        ·
+                                    </span>
+                                    <Badge
+                                        variant="secondary"
+                                        className="text-[10px] uppercase"
+                                    >
                                         v{doc.current_version}
                                     </Badge>
                                 </>
@@ -134,13 +152,16 @@ export default function DocumentShow({
                     <div className="min-w-0 space-y-6">
                         <Card className="border-border/80 dark:border-white/10">
                             <CardHeader className="pb-3">
-                                <CardTitle className="text-base">Preview</CardTitle>
+                                <CardTitle className="text-base">
+                                    Preview
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <DocumentPreviewPanel
                                     document={{
                                         title: doc.title,
-                                        document_type_label: doc.document_type_label,
+                                        document_type_label:
+                                            doc.document_type_label,
                                         file_url: doc.file_url,
                                         mime_type: doc.mime_type,
                                         can_preview: doc.can_preview,
@@ -154,7 +175,9 @@ export default function DocumentShow({
                             <CardHeader className="pb-3">
                                 <div className="flex items-center gap-2">
                                     <History className="h-4 w-4 text-muted-foreground" />
-                                    <CardTitle className="text-base">Version history</CardTitle>
+                                    <CardTitle className="text-base">
+                                        Version history
+                                    </CardTitle>
                                 </div>
                             </CardHeader>
                             <CardContent>
@@ -173,36 +196,63 @@ export default function DocumentShow({
                         <CardContent className="pt-0">
                             <MetadataField
                                 label="Type"
-                                value={doc.document_type_label ?? doc.document_type ?? '—'}
+                                value={
+                                    doc.document_type_label ??
+                                    doc.document_type ??
+                                    '—'
+                                }
                             />
-                            <MetadataField label="Title" value={doc.title?.trim() || '—'} />
+                            <MetadataField
+                                label="Title"
+                                value={doc.title?.trim() || '—'}
+                            />
                             <MetadataField
                                 label="Document no."
                                 value={doc.document_number?.trim() || '—'}
                             />
                             <MetadataField
                                 label="Issue date"
-                                value={doc.issue_date ? formatDisplayDate(doc.issue_date) : '—'}
+                                value={
+                                    doc.issue_date
+                                        ? formatDisplayDate(doc.issue_date)
+                                        : '—'
+                                }
                             />
                             <MetadataField
                                 label="Expiry date"
-                                value={doc.expiry_date ? formatDisplayDate(doc.expiry_date) : '—'}
+                                value={
+                                    doc.expiry_date
+                                        ? formatDisplayDate(doc.expiry_date)
+                                        : '—'
+                                }
                             />
                             <div className="flex items-start justify-between gap-4 border-b border-border/50 px-1 py-3">
-                                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70">
+                                <span className="text-[10px] font-bold tracking-[0.18em] text-muted-foreground/70 uppercase">
                                     Status
                                 </span>
-                                <DocumentExpiryStatusCell status={doc.expiry_status} />
+                                <DocumentExpiryStatusCell
+                                    status={doc.expiry_status}
+                                />
                             </div>
-                            <MetadataField label="File size" value={formatBytes(doc.size_bytes)} />
-                            <MetadataField label="Uploaded by" value={doc.uploaded_by || '—'} />
+                            <MetadataField
+                                label="File size"
+                                value={formatBytes(doc.size_bytes)}
+                            />
+                            <MetadataField
+                                label="Uploaded by"
+                                value={doc.uploaded_by || '—'}
+                            />
                             <MetadataField
                                 label="Uploaded"
-                                value={doc.created_at ? formatDisplayDate(doc.created_at) : '—'}
+                                value={
+                                    doc.created_at
+                                        ? formatDisplayDate(doc.created_at)
+                                        : '—'
+                                }
                             />
                             {doc.notes?.trim() ? (
                                 <div className="px-1 py-3">
-                                    <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70">
+                                    <div className="mb-2 text-[10px] font-bold tracking-[0.18em] text-muted-foreground/70 uppercase">
                                         Notes
                                     </div>
                                     <p className="text-sm leading-relaxed text-muted-foreground">

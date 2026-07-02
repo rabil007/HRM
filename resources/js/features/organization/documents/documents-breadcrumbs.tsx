@@ -15,7 +15,11 @@ export type DocumentsBreadcrumbItem = {
     href?: string;
 };
 
-export function DocumentsBreadcrumbs({ items }: { items: DocumentsBreadcrumbItem[] }) {
+export function DocumentsBreadcrumbs({
+    items,
+}: {
+    items: DocumentsBreadcrumbItem[];
+}) {
     if (items.length === 0) {
         return null;
     }
@@ -24,7 +28,10 @@ export function DocumentsBreadcrumbs({ items }: { items: DocumentsBreadcrumbItem
         <Breadcrumb className="mb-5">
             <BreadcrumbList>
                 <BreadcrumbItem>
-                    <Folder className="h-3.5 w-3.5 text-muted-foreground/70" aria-hidden />
+                    <Folder
+                        className="h-3.5 w-3.5 text-muted-foreground/70"
+                        aria-hidden
+                    />
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
                 {items.map((item, index) => {

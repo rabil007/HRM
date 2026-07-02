@@ -68,9 +68,13 @@ export default function DocumentsIndex({
     can,
 }: Props) {
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
-    const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(null);
+    const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(
+        null,
+    );
     const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
-    const [managementEmployeeId, setManagementEmployeeId] = useState<number | null>(null);
+    const [managementEmployeeId, setManagementEmployeeId] = useState<
+        number | null
+    >(null);
     const [isBulkDownloading, setIsBulkDownloading] = useState(false);
 
     const folderIds = useMemo(
@@ -102,22 +106,30 @@ export default function DocumentsIndex({
             });
             clearFolderSelection();
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Download failed.');
+            toast.error(
+                error instanceof Error ? error.message : 'Download failed.',
+            );
         } finally {
             setIsBulkDownloading(false);
         }
     };
 
     const resolvedSearchDocuments = searchDocuments ?? EMPTY_SEARCH_DOCUMENTS;
-    const searchPerPage = resolvedSearchDocuments.per_page ?? complianceDocuments?.per_page ?? 25;
+    const searchPerPage =
+        resolvedSearchDocuments.per_page ?? complianceDocuments?.per_page ?? 25;
 
-    const { searchInput, isSearching, onSearchChange, onExpiryChange, onPageChange } =
-        useDocumentsIndexFilters({
-            url: documents.url(),
-            initialSearch,
-            initialExpiry,
-            perPage: searchPerPage,
-        });
+    const {
+        searchInput,
+        isSearching,
+        onSearchChange,
+        onExpiryChange,
+        onPageChange,
+    } = useDocumentsIndexFilters({
+        url: documents.url(),
+        initialSearch,
+        initialExpiry,
+        perPage: searchPerPage,
+    });
 
     const isComplianceView = initialExpiry !== 'all';
     const hasSearchQuery = initialSearch.trim() !== '';
@@ -201,7 +213,7 @@ export default function DocumentsIndex({
                 onClearExpiry={() => onExpiryChange('all')}
             />
 
-            <div className="sticky top-0 z-20 -mx-1 mb-8 border-b border-border/80 dark:border-white/5 bg-background/95 px-1 pb-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
+            <div className="sticky top-0 z-20 -mx-1 mb-8 border-b border-border/80 bg-background/95 px-1 pb-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 dark:border-white/5">
                 <SearchBar
                     placeholder="Search employee, document no, file name..."
                     value={searchInput}
@@ -210,7 +222,10 @@ export default function DocumentsIndex({
                 />
                 {isSearching ? (
                     <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                        <Loader2
+                            className="h-3.5 w-3.5 animate-spin"
+                            aria-hidden
+                        />
                         Searching…
                     </p>
                 ) : null}
@@ -219,17 +234,34 @@ export default function DocumentsIndex({
             {isComplianceView ? (
                 complianceDocuments && complianceDocuments.data.length > 0 ? (
                     <>
-                        <OrganizationDataTable minWidth="min-w-[1080px]" compact>
+                        <OrganizationDataTable
+                            minWidth="min-w-[1080px]"
+                            compact
+                        >
                             <TableHeader>
                                 <DataTableHeaderRow>
                                     <DataTableHead>Employee</DataTableHead>
-                                    <DataTableHead className="min-w-[220px]">Document</DataTableHead>
-                                    <DataTableHead className="hidden sm:table-cell">Type</DataTableHead>
-                                    <DataTableHead className="hidden md:table-cell">Document no.</DataTableHead>
-                                    <DataTableHead className="hidden md:table-cell">Expiry</DataTableHead>
-                                    <DataTableHead className="hidden lg:table-cell">Remaining</DataTableHead>
-                                    <DataTableHead className="hidden sm:table-cell">Status</DataTableHead>
-                                    <DataTableHead className="text-right">Actions</DataTableHead>
+                                    <DataTableHead className="min-w-[220px]">
+                                        Document
+                                    </DataTableHead>
+                                    <DataTableHead className="hidden sm:table-cell">
+                                        Type
+                                    </DataTableHead>
+                                    <DataTableHead className="hidden md:table-cell">
+                                        Document no.
+                                    </DataTableHead>
+                                    <DataTableHead className="hidden md:table-cell">
+                                        Expiry
+                                    </DataTableHead>
+                                    <DataTableHead className="hidden lg:table-cell">
+                                        Remaining
+                                    </DataTableHead>
+                                    <DataTableHead className="hidden sm:table-cell">
+                                        Status
+                                    </DataTableHead>
+                                    <DataTableHead className="text-right">
+                                        Actions
+                                    </DataTableHead>
                                 </DataTableHeaderRow>
                             </TableHeader>
                             <TableBody>
@@ -263,7 +295,11 @@ export default function DocumentsIndex({
                     />
                 )
             ) : searchMode === 'empty' ? (
-                <DocumentsEmptyState context="index-search" expiryFilter={initialExpiry} hasSearch />
+                <DocumentsEmptyState
+                    context="index-search"
+                    expiryFilter={initialExpiry}
+                    hasSearch
+                />
             ) : searchMode === 'browse' ? (
                 employees.length === 0 ? (
                     <DocumentsEmptyState
@@ -272,7 +308,10 @@ export default function DocumentsIndex({
                         hasSearch={false}
                     />
                 ) : (
-                    <DocumentsIndexFolderGrid employees={employees} {...folderGridProps} />
+                    <DocumentsIndexFolderGrid
+                        employees={employees}
+                        {...folderGridProps}
+                    />
                 )
             ) : (
                 <DocumentsIndexSearchResults

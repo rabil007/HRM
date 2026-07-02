@@ -3,7 +3,10 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
         return fallback;
     }
 
-    const data = payload as { message?: string; errors?: Record<string, string[]> };
+    const data = payload as {
+        message?: string;
+        errors?: Record<string, string[]>;
+    };
 
     if (data.message && !data.errors) {
         return data.message;
@@ -19,7 +22,9 @@ export async function sendWhatsAppDocumentTemplate(
     payload: { whatsapp_number: string; template_slug?: string },
     errorFallback = 'Failed to send document via WhatsApp.',
 ): Promise<{ message: string; message_id?: string | null }> {
-    const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+    const csrf = document.querySelector<HTMLMetaElement>(
+        'meta[name="csrf-token"]',
+    )?.content;
 
     const response = await fetch(url, {
         method: 'POST',
@@ -40,5 +45,9 @@ export async function sendWhatsAppDocumentTemplate(
         throw new Error(extractErrorMessage(data, errorFallback));
     }
 
-    return (data as { message: string; message_id?: string | null }) ?? { message: 'Document sent via WhatsApp.' };
+    return (
+        (data as { message: string; message_id?: string | null }) ?? {
+            message: 'Document sent via WhatsApp.',
+        }
+    );
 }

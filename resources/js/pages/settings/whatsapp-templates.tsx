@@ -1,5 +1,12 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ExternalLink, FileText, Info, MessageCircle, Plus, SlidersHorizontal } from 'lucide-react';
+import {
+    ExternalLink,
+    FileText,
+    Info,
+    MessageCircle,
+    Plus,
+    SlidersHorizontal,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     MasterDataActiveToggle,
@@ -36,10 +43,9 @@ import {
     extractWhatsAppTemplateVariables,
     labelForWhatsAppVariable,
     renderWhatsAppTemplatePreviewBody,
-    
-    WhatsAppDocumentTemplatePreview
+    WhatsAppDocumentTemplatePreview,
 } from '@/features/settings/whatsapp-document-template-preview';
-import type {WhatsAppTemplateHeaderType} from '@/features/settings/whatsapp-document-template-preview';
+import type { WhatsAppTemplateHeaderType } from '@/features/settings/whatsapp-document-template-preview';
 import { toast } from '@/lib/toast';
 
 export type WhatsAppTemplateItem = {
@@ -89,7 +95,8 @@ const emptyForm = (category = 'document'): FormState => ({
     meta_name: '',
     meta_language: 'en',
     header_type: 'document',
-    body_preview: 'Hello {{name}}, Please find the attached document from Overseas Marine Services. Thank you.',
+    body_preview:
+        'Hello {{name}}, Please find the attached document from Overseas Marine Services. Thank you.',
     is_default: false,
     enabled: true,
     sort_order: 0,
@@ -106,7 +113,9 @@ export default function WhatsAppTemplatesSettings({
     const grouped = useMemo(() => {
         return categories.map((category) => ({
             ...category,
-            templates: templates.filter((template) => template.category === category.value),
+            templates: templates.filter(
+                (template) => template.category === category.value,
+            ),
         }));
     }, [categories, templates]);
 
@@ -114,9 +123,14 @@ export default function WhatsAppTemplatesSettings({
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [editing, setEditing] = useState<WhatsAppTemplateItem | null>(null);
     const [deleting, setDeleting] = useState<WhatsAppTemplateItem | null>(null);
-    const [previewVariables, setPreviewVariables] = useState<Record<string, string>>({});
-    const [previewHeaderText, setPreviewHeaderText] = useState('Document reminder');
-    const [previewFileName, setPreviewFileName] = useState('Employee Document.pdf');
+    const [previewVariables, setPreviewVariables] = useState<
+        Record<string, string>
+    >({});
+    const [previewHeaderText, setPreviewHeaderText] =
+        useState('Document reminder');
+    const [previewFileName, setPreviewFileName] = useState(
+        'Employee Document.pdf',
+    );
 
     const form = useForm<FormState>(emptyForm());
 
@@ -139,11 +153,16 @@ export default function WhatsAppTemplatesSettings({
     }, [detectedVariables, previewVariables]);
 
     const previewBody = useMemo(
-        () => renderWhatsAppTemplatePreviewBody(form.data.body_preview, effectivePreviewVariables),
+        () =>
+            renderWhatsAppTemplatePreviewBody(
+                form.data.body_preview,
+                effectivePreviewVariables,
+            ),
         [effectivePreviewVariables, form.data.body_preview],
     );
 
-    const previewHeaderType = form.data.header_type as WhatsAppTemplateHeaderType;
+    const previewHeaderType = form.data
+        .header_type as WhatsAppTemplateHeaderType;
 
     const openCreate = (category: string) => {
         setEditing(null);
@@ -182,13 +201,18 @@ export default function WhatsAppTemplatesSettings({
         const options = {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success(editing ? 'Template updated.' : 'Template created.');
+                toast.success(
+                    editing ? 'Template updated.' : 'Template created.',
+                );
                 setSheetOpen(false);
             },
         };
 
         if (editing) {
-            form.put(`/settings/application/whatsapp-templates/${editing.id}`, options);
+            form.put(
+                `/settings/application/whatsapp-templates/${editing.id}`,
+                options,
+            );
         } else {
             form.post('/settings/application/whatsapp-templates', options);
         }
@@ -199,14 +223,17 @@ export default function WhatsAppTemplatesSettings({
             return;
         }
 
-        router.delete(`/settings/application/whatsapp-templates/${deleting.id}`, {
-            preserveScroll: true,
-            onSuccess: () => {
-                toast.success('Template deleted.');
-                setDeleteOpen(false);
-                setDeleting(null);
+        router.delete(
+            `/settings/application/whatsapp-templates/${deleting.id}`,
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success('Template deleted.');
+                    setDeleteOpen(false);
+                    setDeleting(null);
+                },
             },
-        });
+        );
     };
 
     const requestDelete = (template: WhatsAppTemplateItem) => {
@@ -222,20 +249,27 @@ export default function WhatsAppTemplatesSettings({
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                            <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
-                            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
+                            <span className="flex h-2 w-2 animate-pulse rounded-full bg-primary" />
+                            <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/80 uppercase">
                                 Settings
                             </span>
                         </div>
-                        <h1 className="text-4xl font-extrabold tracking-tight">WhatsApp templates</h1>
+                        <h1 className="text-4xl font-extrabold tracking-tight">
+                            WhatsApp templates
+                        </h1>
                         <p className="max-w-2xl text-sm text-muted-foreground">
-                            Link each HRM template to an approved Meta template. WhatsApp sends the
-                            Meta-approved wording; HRM only passes the employee name and document.
+                            Link each HRM template to an approved Meta template.
+                            WhatsApp sends the Meta-approved wording; HRM only
+                            passes the employee name and document.
                         </p>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                        <Button asChild variant="outline" className="rounded-xl">
+                        <Button
+                            asChild
+                            variant="outline"
+                            className="rounded-xl"
+                        >
                             <a
                                 href={meta_template_manager_url}
                                 target="_blank"
@@ -245,7 +279,11 @@ export default function WhatsAppTemplatesSettings({
                                 Meta template manager
                             </a>
                         </Button>
-                        <Button asChild variant="outline" className="rounded-xl">
+                        <Button
+                            asChild
+                            variant="outline"
+                            className="rounded-xl"
+                        >
                             <Link href="/settings/application?tab=whatsapp">
                                 <SlidersHorizontal className="mr-2 h-4 w-4" />
                                 WhatsApp credentials
@@ -259,11 +297,13 @@ export default function WhatsAppTemplatesSettings({
                     <AlertTitle>Meta controls the message text</AlertTitle>
                     <AlertDescription>
                         <p>
-                            Editing preview text here does not change what employees receive on
-                            WhatsApp. To change the greeting, body, or footer, edit the template in
-                            Meta WhatsApp Manager and submit it for approval. Then update the Meta
-                            template name and language here if needed, and keep the preview text in
-                            sync for reference.
+                            Editing preview text here does not change what
+                            employees receive on WhatsApp. To change the
+                            greeting, body, or footer, edit the template in Meta
+                            WhatsApp Manager and submit it for approval. Then
+                            update the Meta template name and language here if
+                            needed, and keep the preview text in sync for
+                            reference.
                         </p>
                     </AlertDescription>
                 </Alert>
@@ -272,10 +312,14 @@ export default function WhatsAppTemplatesSettings({
                     <section key={group.value} className="space-y-4">
                         <div className="flex items-center justify-between gap-3">
                             <div>
-                                <h2 className="text-lg font-semibold">{group.label}</h2>
+                                <h2 className="text-lg font-semibold">
+                                    {group.label}
+                                </h2>
                                 <p className="text-sm text-muted-foreground">
                                     {group.templates.length}{' '}
-                                    {group.templates.length === 1 ? 'template' : 'templates'}
+                                    {group.templates.length === 1
+                                        ? 'template'
+                                        : 'templates'}
                                 </p>
                             </div>
                             {can.create ? (
@@ -293,21 +337,31 @@ export default function WhatsAppTemplatesSettings({
 
                         <div className="grid gap-4 lg:grid-cols-2">
                             {group.templates.map((template) => (
-                                <Card key={template.id} className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
+                                <Card
+                                    key={template.id}
+                                    className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5"
+                                >
                                     <CardContent className="space-y-4 p-5">
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="space-y-1">
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <h3 className="font-semibold">{template.label}</h3>
+                                                    <h3 className="font-semibold">
+                                                        {template.label}
+                                                    </h3>
                                                     {template.is_default ? (
-                                                        <Badge variant="secondary">Default</Badge>
+                                                        <Badge variant="secondary">
+                                                            Default
+                                                        </Badge>
                                                     ) : null}
                                                     {!template.enabled ? (
-                                                        <Badge variant="outline">Disabled</Badge>
+                                                        <Badge variant="outline">
+                                                            Disabled
+                                                        </Badge>
                                                     ) : null}
                                                 </div>
                                                 <p className="font-mono text-xs text-muted-foreground">
-                                                    {template.meta_name} · {template.meta_language}
+                                                    {template.meta_name} ·{' '}
+                                                    {template.meta_language}
                                                 </p>
                                             </div>
                                             <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10">
@@ -316,23 +370,27 @@ export default function WhatsAppTemplatesSettings({
                                         </div>
 
                                         <p className="line-clamp-3 text-sm text-muted-foreground">
-                                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                            <span className="text-[10px] font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                                 Preview ·{' '}
                                             </span>
-                                            {renderWhatsAppTemplatePreviewBody(template.body_preview, {
-                                                name: 'Employee Name',
-                                                '1': 'Passport',
-                                                '2': 'Employee Name',
-                                                '3': '04 May 2027',
-                                            })}
+                                            {renderWhatsAppTemplatePreviewBody(
+                                                template.body_preview,
+                                                {
+                                                    name: 'Employee Name',
+                                                    '1': 'Passport',
+                                                    '2': 'Employee Name',
+                                                    '3': '04 May 2027',
+                                                },
+                                            )}
                                         </p>
 
                                         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                            <span className="rounded-md bg-muted/60 dark:bg-white/5 px-2 py-1">
+                                            <span className="rounded-md bg-muted/60 px-2 py-1 dark:bg-white/5">
                                                 Slug: {template.slug}
                                             </span>
-                                            <span className="rounded-md bg-muted/60 dark:bg-white/5 px-2 py-1">
-                                                Header: {template.header_type_label}
+                                            <span className="rounded-md bg-muted/60 px-2 py-1 dark:bg-white/5">
+                                                Header:{' '}
+                                                {template.header_type_label}
                                             </span>
                                         </div>
 
@@ -344,7 +402,9 @@ export default function WhatsAppTemplatesSettings({
                                                         variant="outline"
                                                         size="sm"
                                                         className="rounded-xl"
-                                                        onClick={() => openEdit(template)}
+                                                        onClick={() =>
+                                                            openEdit(template)
+                                                        }
                                                     >
                                                         Edit
                                                     </Button>
@@ -355,7 +415,11 @@ export default function WhatsAppTemplatesSettings({
                                                         variant="destructive"
                                                         size="sm"
                                                         className="rounded-xl"
-                                                        onClick={() => requestDelete(template)}
+                                                        onClick={() =>
+                                                            requestDelete(
+                                                                template,
+                                                            )
+                                                        }
                                                     >
                                                         Delete
                                                     </Button>
@@ -367,11 +431,12 @@ export default function WhatsAppTemplatesSettings({
                             ))}
 
                             {group.templates.length === 0 ? (
-                                <Card className="border-dashed border-border/80 dark:border-white/10 bg-transparent lg:col-span-2">
+                                <Card className="border-dashed border-border/80 bg-transparent lg:col-span-2 dark:border-white/10">
                                     <CardContent className="flex flex-col items-center justify-center gap-3 p-10 text-center">
                                         <FileText className="h-8 w-8 text-muted-foreground" />
                                         <p className="text-sm text-muted-foreground">
-                                            No {group.label.toLowerCase()} templates yet.
+                                            No {group.label.toLowerCase()}{' '}
+                                            templates yet.
                                         </p>
                                     </CardContent>
                                 </Card>
@@ -385,7 +450,9 @@ export default function WhatsAppTemplatesSettings({
                 open={sheetOpen}
                 onOpenChange={setSheetOpen}
                 contentClassName="sm:max-w-lg"
-                title={editing ? 'Edit WhatsApp template' : 'New WhatsApp template'}
+                title={
+                    editing ? 'Edit WhatsApp template' : 'New WhatsApp template'
+                }
                 description="Map this record to the exact template name and language approved in Meta. Preview text is for HRM only."
                 footer={
                     canMutateForm ? (
@@ -393,12 +460,18 @@ export default function WhatsAppTemplatesSettings({
                             onCancel={() => setSheetOpen(false)}
                             onSubmit={submit}
                             processing={form.processing}
-                            submitLabel={editing ? 'Save changes' : 'Create template'}
+                            submitLabel={
+                                editing ? 'Save changes' : 'Create template'
+                            }
                         />
                     ) : null
                 }
             >
-                <MasterDataField id="label" label="Display label" error={form.errors.label}>
+                <MasterDataField
+                    id="label"
+                    label="Display label"
+                    error={form.errors.label}
+                >
                     <Input
                         id="label"
                         value={form.data.label}
@@ -409,28 +482,46 @@ export default function WhatsAppTemplatesSettings({
                 </MasterDataField>
 
                 <div className="grid gap-5 sm:grid-cols-2">
-                    <MasterDataField id="slug" label="Internal slug" error={form.errors.slug}>
+                    <MasterDataField
+                        id="slug"
+                        label="Internal slug"
+                        error={form.errors.slug}
+                    >
                         <Input
                             id="slug"
                             value={form.data.slug}
-                            onChange={(e) => form.setData('slug', e.target.value)}
+                            onChange={(e) =>
+                                form.setData('slug', e.target.value)
+                            }
                             disabled={!canMutateForm || editing !== null}
                             className={masterDataInputClass}
                         />
                     </MasterDataField>
 
-                    <MasterDataField id="category" label="Category" error={form.errors.category}>
+                    <MasterDataField
+                        id="category"
+                        label="Category"
+                        error={form.errors.category}
+                    >
                         <Select
                             value={form.data.category}
-                            onValueChange={(value) => form.setData('category', value)}
+                            onValueChange={(value) =>
+                                form.setData('category', value)
+                            }
                             disabled={!canMutateForm}
                         >
-                            <SelectTrigger id="category" className={masterDataInputClass}>
+                            <SelectTrigger
+                                id="category"
+                                className={masterDataInputClass}
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                                 {categories.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>
+                                    <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                    >
                                         {option.label}
                                     </SelectItem>
                                 ))}
@@ -448,7 +539,9 @@ export default function WhatsAppTemplatesSettings({
                         <Input
                             id="meta_name"
                             value={form.data.meta_name}
-                            onChange={(e) => form.setData('meta_name', e.target.value)}
+                            onChange={(e) =>
+                                form.setData('meta_name', e.target.value)
+                            }
                             disabled={!canMutateForm}
                             className={masterDataInputClass}
                         />
@@ -461,15 +554,23 @@ export default function WhatsAppTemplatesSettings({
                     >
                         <Select
                             value={form.data.meta_language}
-                            onValueChange={(value) => form.setData('meta_language', value)}
+                            onValueChange={(value) =>
+                                form.setData('meta_language', value)
+                            }
                             disabled={!canMutateForm}
                         >
-                            <SelectTrigger id="meta_language" className={masterDataInputClass}>
+                            <SelectTrigger
+                                id="meta_language"
+                                className={masterDataInputClass}
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                                 {language_options.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>
+                                    <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                    >
                                         {option.label}
                                     </SelectItem>
                                 ))}
@@ -478,18 +579,30 @@ export default function WhatsAppTemplatesSettings({
                     </MasterDataField>
                 </div>
 
-                <MasterDataField id="header_type" label="Header type" error={form.errors.header_type}>
+                <MasterDataField
+                    id="header_type"
+                    label="Header type"
+                    error={form.errors.header_type}
+                >
                     <Select
                         value={form.data.header_type}
-                        onValueChange={(value) => form.setData('header_type', value)}
+                        onValueChange={(value) =>
+                            form.setData('header_type', value)
+                        }
                         disabled={!canMutateForm}
                     >
-                        <SelectTrigger id="header_type" className={masterDataInputClass}>
+                        <SelectTrigger
+                            id="header_type"
+                            className={masterDataInputClass}
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                             {header_types.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
+                                <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                >
                                     {option.label}
                                 </SelectItem>
                             ))}
@@ -505,24 +618,28 @@ export default function WhatsAppTemplatesSettings({
                     <Textarea
                         id="body_preview"
                         value={form.data.body_preview}
-                        onChange={(e) => form.setData('body_preview', e.target.value)}
+                        onChange={(e) =>
+                            form.setData('body_preview', e.target.value)
+                        }
                         rows={4}
                         disabled={!canMutateForm}
                         className="min-h-[100px] rounded-xl border-border bg-card px-4 py-3 transition-all focus-visible:ring-primary/40"
                     />
                     <p className="text-xs text-muted-foreground/80">
-                        Copy the approved body from Meta. Use Meta placeholders {'{{1}}'},{' '}
-                        {'{{2}}'}, {'{{3}}'} in the same order as WhatsApp Manager, or friendly
-                        aliases like {'{{document_type}}'}, {'{{employee_name}}'},{' '}
-                        {'{{expiry_date}}'}. Sample values below only affect this preview — at
-                        send time, HRM fills each variable from the relevant feature (e.g. document
-                        type, employee name, expiry date).
+                        Copy the approved body from Meta. Use Meta placeholders{' '}
+                        {'{{1}}'}, {'{{2}}'}, {'{{3}}'} in the same order as
+                        WhatsApp Manager, or friendly aliases like{' '}
+                        {'{{document_type}}'}, {'{{employee_name}}'},{' '}
+                        {'{{expiry_date}}'}. Sample values below only affect
+                        this preview — at send time, HRM fills each variable
+                        from the relevant feature (e.g. document type, employee
+                        name, expiry date).
                     </p>
                 </MasterDataField>
 
                 {detectedVariables.length > 0 ? (
-                    <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 dark:border-white/10 dark:bg-white/[0.02] p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <div className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4 dark:border-white/10 dark:bg-white/[0.02]">
+                        <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                             Preview sample values
                         </p>
                         <div className="grid gap-4 sm:grid-cols-2">
@@ -530,15 +647,22 @@ export default function WhatsAppTemplatesSettings({
                                 <MasterDataField
                                     key={variableKey}
                                     id={`preview_var_${variableKey}`}
-                                    label={labelForWhatsAppVariable(variableKey)}
+                                    label={labelForWhatsAppVariable(
+                                        variableKey,
+                                    )}
                                 >
                                     <Input
                                         id={`preview_var_${variableKey}`}
-                                        value={effectivePreviewVariables[variableKey]}
+                                        value={
+                                            effectivePreviewVariables[
+                                                variableKey
+                                            ]
+                                        }
                                         onChange={(event) =>
                                             setPreviewVariables((previous) => ({
                                                 ...previous,
-                                                [variableKey]: event.target.value,
+                                                [variableKey]:
+                                                    event.target.value,
                                             }))
                                         }
                                         className={masterDataInputClass}
@@ -550,39 +674,57 @@ export default function WhatsAppTemplatesSettings({
                 ) : null}
 
                 {previewHeaderType === 'text' ? (
-                    <MasterDataField id="preview_header_text" label="Preview header text">
+                    <MasterDataField
+                        id="preview_header_text"
+                        label="Preview header text"
+                    >
                         <Input
                             id="preview_header_text"
                             value={previewHeaderText}
-                            onChange={(event) => setPreviewHeaderText(event.target.value)}
+                            onChange={(event) =>
+                                setPreviewHeaderText(event.target.value)
+                            }
                             className={masterDataInputClass}
                         />
                         <p className="text-xs text-muted-foreground/80">
-                            Only shown when Meta template has a text header. Your expire alert
-                            template has no header in Meta — set header type to None.
+                            Only shown when Meta template has a text header.
+                            Your expire alert template has no header in Meta —
+                            set header type to None.
                         </p>
                     </MasterDataField>
                 ) : null}
 
                 {previewHeaderType === 'document' ? (
-                    <MasterDataField id="preview_file_name" label="Preview file name">
+                    <MasterDataField
+                        id="preview_file_name"
+                        label="Preview file name"
+                    >
                         <Input
                             id="preview_file_name"
                             value={previewFileName}
-                            onChange={(event) => setPreviewFileName(event.target.value)}
+                            onChange={(event) =>
+                                setPreviewFileName(event.target.value)
+                            }
                             className={masterDataInputClass}
                         />
                     </MasterDataField>
                 ) : null}
 
-                <MasterDataField id="sort_order" label="Sort order" error={form.errors.sort_order}>
+                <MasterDataField
+                    id="sort_order"
+                    label="Sort order"
+                    error={form.errors.sort_order}
+                >
                     <Input
                         id="sort_order"
                         type="number"
                         min={0}
                         value={form.data.sort_order}
                         onChange={(e) =>
-                            form.setData('sort_order', Number(e.target.value) || 0)
+                            form.setData(
+                                'sort_order',
+                                Number(e.target.value) || 0,
+                            )
                         }
                         disabled={!canMutateForm}
                         className={masterDataInputClass}
@@ -600,14 +742,18 @@ export default function WhatsAppTemplatesSettings({
 
                 <MasterDataActiveToggle
                     checked={form.data.is_default}
-                    onCheckedChange={(checked) => form.setData('is_default', checked)}
+                    onCheckedChange={(checked) =>
+                        form.setData('is_default', checked)
+                    }
                     title="Default for category"
                     description="Used when a feature does not specify a template."
                 />
 
                 <MasterDataActiveToggle
                     checked={form.data.enabled}
-                    onCheckedChange={(checked) => form.setData('enabled', checked)}
+                    onCheckedChange={(checked) =>
+                        form.setData('enabled', checked)
+                    }
                     title="Enabled"
                     description="Disabled templates cannot be selected for sending."
                 />
@@ -625,7 +771,9 @@ export default function WhatsAppTemplatesSettings({
             >
                 <AlertDialogContent className="glass-card">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete WhatsApp template</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            Delete WhatsApp template
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                             {deleting
                                 ? `This will permanently delete “${deleting.label}”. Set another default in this category first if needed.`
@@ -633,10 +781,13 @@ export default function WhatsAppTemplatesSettings({
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel className="glass-card rounded-xl hover:bg-accent">
+                        <AlertDialogCancel className="rounded-xl glass-card hover:bg-accent">
                             Cancel
                         </AlertDialogCancel>
-                        <AlertDialogAction className="rounded-xl" onClick={confirmDelete}>
+                        <AlertDialogAction
+                            className="rounded-xl"
+                            onClick={confirmDelete}
+                        >
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>

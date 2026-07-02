@@ -11,9 +11,7 @@ export {
     employeeRecordsTableThClass,
 } from '@/features/organization/employees/profile/components/employee-records-panel';
 export { EmployeeTabSkeleton } from '@/features/organization/employees/profile/components/employee-tab-skeleton';
-export {
-    EditableCommandSelectCell,
-} from '@/features/organization/employees/profile/components/editable-command-select-cell';
+export { EditableCommandSelectCell } from '@/features/organization/employees/profile/components/editable-command-select-cell';
 export {
     EditableDetailField,
     EditableDetailTextField,

@@ -23,9 +23,19 @@ export type Company = {
     status: 'active' | 'suspended' | 'inactive' | null;
 };
 
-export type Currency = { id: number; code: string; name: string; symbol: string | null };
+export type Currency = {
+    id: number;
+    code: string;
+    name: string;
+    symbol: string | null;
+};
 
-export type Country = { id: number; code: string; name: string; dial_code: string | null };
+export type Country = {
+    id: number;
+    code: string;
+    name: string;
+    dial_code: string | null;
+};
 
 export type CompanyFormData = {
     logo: File | null;
@@ -49,4 +59,3 @@ export type CompanyFormData = {
     wps_employer_iban: string;
     status: 'active' | 'suspended' | 'inactive';
 };
-

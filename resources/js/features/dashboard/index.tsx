@@ -82,7 +82,12 @@ export function DashboardContent({
     attendance_analytics: attendanceAnalytics,
 }: DashboardProps): ReactElement {
     usePoll(60_000, {
-        only: ['document_compliance', 'employee_analytics', 'recent_hires', 'attendance_analytics'],
+        only: [
+            'document_compliance',
+            'employee_analytics',
+            'recent_hires',
+            'attendance_analytics',
+        ],
     });
 
     const placeholder = (key: string) =>
@@ -90,7 +95,9 @@ export function DashboardContent({
 
     const employeeActiveRate =
         employeeAnalytics.total > 0
-            ? Math.round((employeeAnalytics.active / employeeAnalytics.total) * 100)
+            ? Math.round(
+                  (employeeAnalytics.active / employeeAnalytics.total) * 100,
+              )
             : 0;
 
     const today = new Date().toLocaleDateString('en-US', {
@@ -110,11 +117,11 @@ export function DashboardContent({
                 <div className="space-y-2">
                     <div className="flex items-center gap-2">
                         <span className="flex h-2 w-2 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
+                        <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/60 uppercase">
                             Live · Real-time Intelligence
                         </span>
                     </div>
-                    <h1 className="text-4xl font-extrabold tracking-tight bg-linear-to-br from-foreground to-foreground/50 bg-clip-text text-transparent">
+                    <h1 className="bg-linear-to-br from-foreground to-foreground/50 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent">
                         HR Dashboard
                     </h1>
                     <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground/60">
@@ -133,7 +140,10 @@ export function DashboardContent({
                             Directory
                         </Link>
                     </Button>
-                    <Button className="rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/30" asChild>
+                    <Button
+                        className="rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/30"
+                        asChild
+                    >
                         <a href={placeholder('quick-actions.create-employee')}>
                             <Plus className="mr-2 h-4 w-4" />
                             Add Employee
@@ -146,19 +156,21 @@ export function DashboardContent({
             {hasUrgentItems && (
                 <Link
                     href={documents.url({ query: { expiry: 'expired' } })}
-                    className="group mb-8 flex items-center gap-3 rounded-2xl border border-red-500/25 bg-red-500/5 px-5 py-4 transition-all duration-300 hover:border-red-500/40 hover:bg-red-500/10 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(239,68,68,0.06)]"
+                    className="group mb-8 flex items-center gap-3 rounded-2xl border border-red-500/25 bg-red-500/5 px-5 py-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-red-500/40 hover:bg-red-500/10 hover:shadow-[0_8px_30px_rgba(239,68,68,0.06)]"
                 >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 group-hover:scale-105 transition-transform duration-300">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 transition-transform duration-300 group-hover:scale-105">
                         <AlertTriangle className="h-4.5 w-4.5 text-red-400" />
                     </div>
                     <div className="flex-1">
                         <p className="text-sm font-bold text-red-400">
                             Immediate attention required
                         </p>
-                        <p className="text-xs text-muted-foreground/75 mt-0.5">
+                        <p className="mt-0.5 text-xs text-muted-foreground/75">
                             {documentCompliance.expired > 0 &&
                                 `${documentCompliance.expired} expired document${documentCompliance.expired !== 1 ? 's' : ''}`}
-                            {documentCompliance.expired > 0 && documentCompliance.expiring_7 > 0 && ' · '}
+                            {documentCompliance.expired > 0 &&
+                                documentCompliance.expiring_7 > 0 &&
+                                ' · '}
                             {documentCompliance.expiring_7 > 0 &&
                                 `${documentCompliance.expiring_7} expiring within 7 days`}
                         </p>
@@ -262,10 +274,22 @@ export function DashboardContent({
                     value={documentCompliance.expired.toLocaleString()}
                     hint="Require immediate action"
                     icon={AlertTriangle}
-                    gradient={documentCompliance.expired > 0 ? 'from-red-500/15 to-rose-500/5' : 'from-muted/40 dark:from-white/5 to-transparent'}
+                    gradient={
+                        documentCompliance.expired > 0
+                            ? 'from-red-500/15 to-rose-500/5'
+                            : 'from-muted/40 dark:from-white/5 to-transparent'
+                    }
                     icon={FileText}
-                    iconBg={documentCompliance.expired > 0 ? 'bg-red-500/10 border-red-500/20' : 'bg-muted/60 border-border/80 dark:bg-white/5 dark:border-white/10'}
-                    accent={documentCompliance.expired > 0 ? 'border-red-500/25 hover:border-red-500/40 hover:shadow-red-500/5 hover:bg-red-500/[0.01]' : 'border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10'}
+                    iconBg={
+                        documentCompliance.expired > 0
+                            ? 'bg-red-500/10 border-red-500/20'
+                            : 'bg-muted/60 border-border/80 dark:bg-white/5 dark:border-white/10'
+                    }
+                    accent={
+                        documentCompliance.expired > 0
+                            ? 'border-red-500/25 hover:border-red-500/40 hover:shadow-red-500/5 hover:bg-red-500/[0.01]'
+                            : 'border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10'
+                    }
                     badgeVariant="destructive"
                     href={documents.url({ query: { expiry: 'expired' } })}
                 />
@@ -378,18 +402,19 @@ export function DashboardContent({
             </div>
 
             {/* ── Workforce trend — full width ───────────────────────── */}
-            <Card className="glass-card mb-6 overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
-                <CardHeader className="border-b border-border/60 dark:border-white/5 pb-4 bg-muted/5 dark:bg-white/[0.01]">
+            <Card className="mb-6 overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
+                <CardHeader className="border-b border-border/60 bg-muted/5 pb-4 dark:border-white/5 dark:bg-white/[0.01]">
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
                                 Workforce Trends
                             </CardTitle>
-                            <CardDescription className="mt-0.5 text-xs text-muted-foreground/60 font-medium">
-                                Headcount, hiring &amp; documents over the last 6 months
+                            <CardDescription className="mt-0.5 text-xs font-medium text-muted-foreground/60">
+                                Headcount, hiring &amp; documents over the last
+                                6 months
                             </CardDescription>
                         </div>
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
                             <BarChart3 className="h-4 w-4 text-primary" />
                         </div>
                     </div>
@@ -401,18 +426,19 @@ export function DashboardContent({
 
             {/* ── Charts row ────────────────────────────────────────── */}
             <div className="mb-6 grid gap-6 lg:grid-cols-3">
-                <Card className="glass-card overflow-hidden lg:col-span-2 dark:border-white/5 dark:bg-white/[0.02]">
-                    <CardHeader className="border-b border-border/60 dark:border-white/5 pb-4 bg-muted/5 dark:bg-white/[0.01]">
+                <Card className="overflow-hidden glass-card lg:col-span-2 dark:border-white/5 dark:bg-white/[0.02]">
+                    <CardHeader className="border-b border-border/60 bg-muted/5 pb-4 dark:border-white/5 dark:bg-white/[0.01]">
                         <div className="flex items-start justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
                                     Employees by Department
                                 </CardTitle>
-                                <CardDescription className="mt-0.5 text-xs text-muted-foreground/60 font-medium">
-                                    Distribution across your organization structure
+                                <CardDescription className="mt-0.5 text-xs font-medium text-muted-foreground/60">
+                                    Distribution across your organization
+                                    structure
                                 </CardDescription>
                             </div>
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
                                 <Layers className="h-4 w-4 text-primary" />
                             </div>
                         </div>
@@ -422,18 +448,18 @@ export function DashboardContent({
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
-                    <CardHeader className="border-b border-border/60 dark:border-white/5 pb-4 bg-muted/5 dark:bg-white/[0.01]">
+                <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
+                    <CardHeader className="border-b border-border/60 bg-muted/5 pb-4 dark:border-white/5 dark:bg-white/[0.01]">
                         <div className="flex items-start justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
                                     Document Health
                                 </CardTitle>
-                                <CardDescription className="mt-0.5 text-xs text-muted-foreground/60 font-medium">
+                                <CardDescription className="mt-0.5 text-xs font-medium text-muted-foreground/60">
                                     Expiry status breakdown
                                 </CardDescription>
                             </div>
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10">
                                 <ShieldCheck className="h-4 w-4 text-emerald-400" />
                             </div>
                         </div>
@@ -446,18 +472,18 @@ export function DashboardContent({
 
             {/* ── Branch + recent hires ─────────────────────────────── */}
             <div className="mb-6 grid gap-6 lg:grid-cols-2">
-                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
-                    <CardHeader className="border-b border-border/60 dark:border-white/5 pb-4 bg-muted/5 dark:bg-white/[0.01]">
+                <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
+                    <CardHeader className="border-b border-border/60 bg-muted/5 pb-4 dark:border-white/5 dark:bg-white/[0.01]">
                         <div className="flex items-start justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
                                     Employees by Branch
                                 </CardTitle>
-                                <CardDescription className="mt-0.5 text-xs text-muted-foreground/60 font-medium">
+                                <CardDescription className="mt-0.5 text-xs font-medium text-muted-foreground/60">
                                     Headcount per branch location
                                 </CardDescription>
                             </div>
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-500/10 border border-teal-500/20">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-teal-500/20 bg-teal-500/10">
                                 <Building2 className="h-4 w-4 text-teal-400" />
                             </div>
                         </div>
@@ -470,24 +496,27 @@ export function DashboardContent({
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
-                    <CardHeader className="border-b border-border/60 dark:border-white/5 pb-4 bg-muted/5 dark:bg-white/[0.01]">
+                <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
+                    <CardHeader className="border-b border-border/60 bg-muted/5 pb-4 dark:border-white/5 dark:bg-white/[0.01]">
                         <div className="flex items-center justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
                                     Recent Hires
                                 </CardTitle>
-                                <CardDescription className="mt-0.5 text-xs text-muted-foreground/60 font-medium">
+                                <CardDescription className="mt-0.5 text-xs font-medium text-muted-foreground/60">
                                     Latest employees added to the system
                                 </CardDescription>
                             </div>
                             <div className="flex items-center gap-2">
                                 {recentHires.length > 0 && (
-                                    <Badge variant="secondary" className="tabular-nums font-bold border border-border/80 bg-muted/60 dark:border-white/5 dark:bg-white/5 px-2">
+                                    <Badge
+                                        variant="secondary"
+                                        className="border border-border/80 bg-muted/60 px-2 font-bold tabular-nums dark:border-white/5 dark:bg-white/5"
+                                    >
                                         {recentHires.length}
                                     </Badge>
                                 )}
-                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/10 border border-accent/20">
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent/10">
                                     <Sparkles className="h-4 w-4 text-accent" />
                                 </div>
                             </div>
@@ -496,7 +525,7 @@ export function DashboardContent({
                     <CardContent className="space-y-2 pt-4">
                         {recentHires.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/20 border border-dashed border-border dark:bg-white/[0.02] dark:border-white/10">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 dark:border-white/10 dark:bg-white/[0.02]">
                                     <Users className="h-5 w-5 text-muted-foreground/30" />
                                 </div>
                                 <p className="text-sm font-medium text-muted-foreground/50">
@@ -510,10 +539,12 @@ export function DashboardContent({
                                 return (
                                     <Link
                                         key={hire.id}
-                                        href={showEmployee.url({ employee: hire.id })}
-                                        className="group flex items-center gap-3 rounded-xl border border-border/80 bg-muted/10 p-3 transition-all duration-300 hover:border-border hover:bg-muted/30 dark:border-white/5 dark:bg-white/[0.01] dark:hover:border-white/10 dark:hover:bg-white/[0.03] hover:-translate-y-0.5"
+                                        href={showEmployee.url({
+                                            employee: hire.id,
+                                        })}
+                                        className="group flex items-center gap-3 rounded-xl border border-border/80 bg-muted/10 p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:bg-muted/30 dark:border-white/5 dark:bg-white/[0.01] dark:hover:border-white/10 dark:hover:bg-white/[0.03]"
                                     >
-                                        <Avatar className="size-9 shrink-0 ring-2 ring-background shadow-md">
+                                        <Avatar className="size-9 shrink-0 shadow-md ring-2 ring-background">
                                             <AvatarFallback
                                                 className="text-xs font-bold text-white shadow-xs"
                                                 style={{
@@ -527,8 +558,9 @@ export function DashboardContent({
                                             <p className="truncate text-sm font-semibold text-foreground/80 transition-colors group-hover:text-primary">
                                                 {hire.name}
                                             </p>
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/45 mt-0.5">
-                                                {hire.employee_no} · {hire.hired_at}
+                                            <p className="mt-0.5 text-[10px] font-bold tracking-wider text-muted-foreground/45 uppercase">
+                                                {hire.employee_no} ·{' '}
+                                                {hire.hired_at}
                                             </p>
                                         </div>
                                         <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/45 opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100" />
@@ -542,39 +574,48 @@ export function DashboardContent({
 
             {/* ── Attendance detail ─────────────────────────────────── */}
             <div className="grid gap-6 lg:grid-cols-2">
-                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
-                    <CardHeader className="border-b border-border/60 dark:border-white/5 pb-4 bg-muted/5 dark:bg-white/[0.01]">
+                <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
+                    <CardHeader className="border-b border-border/60 bg-muted/5 pb-4 dark:border-white/5 dark:bg-white/[0.01]">
                         <div className="flex items-start justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
                                     Attendance Trends
                                 </CardTitle>
-                                <CardDescription className="mt-0.5 text-xs text-muted-foreground/60 font-medium">
-                                    Check-ins and check-outs over the last 7 days
+                                <CardDescription className="mt-0.5 text-xs font-medium text-muted-foreground/60">
+                                    Check-ins and check-outs over the last 7
+                                    days
                                 </CardDescription>
                             </div>
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10">
                                 <Radio className="h-4 w-4 text-cyan-400" />
                             </div>
                         </div>
                     </CardHeader>
                     <CardContent className="pt-5">
-                        <AttendanceTrendChart data={attendanceAnalytics.weekly_trends} />
+                        <AttendanceTrendChart
+                            data={attendanceAnalytics.weekly_trends}
+                        />
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
-                    <CardHeader className="border-b border-border/60 dark:border-white/5 pb-4 bg-muted/5 dark:bg-white/[0.01]">
+                <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
+                    <CardHeader className="border-b border-border/60 bg-muted/5 pb-4 dark:border-white/5 dark:bg-white/[0.01]">
                         <div className="flex items-center justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
                                     Recent Attendance
                                 </CardTitle>
-                                <CardDescription className="mt-0.5 text-xs text-muted-foreground/60 font-medium">
-                                    Latest check-ins and check-outs from employees
+                                <CardDescription className="mt-0.5 text-xs font-medium text-muted-foreground/60">
+                                    Latest check-ins and check-outs from
+                                    employees
                                 </CardDescription>
                             </div>
-                            <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" asChild>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 rounded-lg text-xs"
+                                asChild
+                            >
                                 <Link href="/attendance/records">View all</Link>
                             </Button>
                         </div>
@@ -582,7 +623,7 @@ export function DashboardContent({
                     <CardContent className="space-y-2 pt-4">
                         {attendanceAnalytics.recent_records.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/20 border border-dashed border-border dark:bg-white/[0.02] dark:border-white/10">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 dark:border-white/10 dark:bg-white/[0.02]">
                                     <Clock className="h-5 w-5 text-muted-foreground/30" />
                                 </div>
                                 <p className="text-sm font-medium text-muted-foreground/50">
@@ -591,38 +632,58 @@ export function DashboardContent({
                             </div>
                         ) : (
                             attendanceAnalytics.recent_records.map((record) => {
-                                const displayName = record.employee_name ?? 'Unknown';
+                                const displayName =
+                                    record.employee_name ?? 'Unknown';
 
-                                const formatTime = (isoString: string | null) => {
+                                const formatTime = (
+                                    isoString: string | null,
+                                ) => {
                                     if (!isoString) {
-return '—';
-}
+                                        return '—';
+                                    }
 
-                                    return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                    return new Date(
+                                        isoString,
+                                    ).toLocaleTimeString([], {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                    });
                                 };
 
                                 const clockInTime = formatTime(record.clock_in);
-                                const clockOutTime = formatTime(record.clock_out);
+                                const clockOutTime = formatTime(
+                                    record.clock_out,
+                                );
 
                                 const content = (
                                     <div className="group flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-muted/10 p-3 transition-all duration-300 hover:border-border hover:bg-muted/30 dark:border-white/5 dark:bg-white/[0.01] dark:hover:border-white/10 dark:hover:bg-white/[0.03]">
-                                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border bg-muted/60 border-border/80 text-muted-foreground dark:bg-white/5 dark:border-white/10">
+                                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-muted/60 text-muted-foreground dark:border-white/10 dark:bg-white/5">
                                                 <Clock className="h-4 w-4" />
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <p className="truncate text-sm font-semibold text-foreground/80">
                                                     {displayName}
                                                 </p>
-                                                <p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground/45">
-                                                    {record.date ? formatDisplayDate(record.date) : '—'}
-                                                    {record.clock_in ? ` · In: ${clockInTime}` : ''}
-                                                    {record.clock_out ? ` · Out: ${clockOutTime}` : ''}
+                                                <p className="mt-0.5 truncate text-[10px] font-bold tracking-wider text-muted-foreground/45 uppercase">
+                                                    {record.date
+                                                        ? formatDisplayDate(
+                                                              record.date,
+                                                          )
+                                                        : '—'}
+                                                    {record.clock_in
+                                                        ? ` · In: ${clockInTime}`
+                                                        : ''}
+                                                    {record.clock_out
+                                                        ? ` · Out: ${clockOutTime}`
+                                                        : ''}
                                                 </p>
                                             </div>
                                         </div>
                                         <div className="shrink-0">
-                                            <RecordStatusBadge status={record.status} />
+                                            <RecordStatusBadge
+                                                status={record.status}
+                                            />
                                         </div>
                                     </div>
                                 );
@@ -631,7 +692,9 @@ return '—';
                                     return (
                                         <Link
                                             key={record.id}
-                                            href={showEmployee.url({ employee: record.employee_id })}
+                                            href={showEmployee.url({
+                                                employee: record.employee_id,
+                                            })}
                                             className="block"
                                         >
                                             {content}
@@ -639,9 +702,7 @@ return '—';
                                     );
                                 }
 
-                                return (
-                                    <div key={record.id}>{content}</div>
-                                );
+                                return <div key={record.id}>{content}</div>;
                             })
                         )}
                     </CardContent>
@@ -665,7 +726,7 @@ function SectionLabel({
     return (
         <div className="mb-4 flex items-center gap-2 select-none">
             <Icon className="h-3.5 w-3.5 text-muted-foreground/50" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/50">
+            <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/50 uppercase">
                 {label}
             </span>
             <div className="h-px flex-1 bg-border/80 dark:bg-white/5" />
@@ -695,35 +756,59 @@ function MetricCard({
     gradient?: string;
     accent?: string;
     badge?: string;
-    badgeVariant?: 'default' | 'secondary' | 'info' | 'success' | 'warning' | 'destructive' | 'outline';
+    badgeVariant?:
+        | 'default'
+        | 'secondary'
+        | 'info'
+        | 'success'
+        | 'warning'
+        | 'destructive'
+        | 'outline';
     href?: string;
 }): ReactElement {
     const content = (
         <Card
             className={cn(
-                "group relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl glass-card p-0 gap-0",
+                'group relative gap-0 overflow-hidden glass-card p-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl',
                 accent,
-                href && "cursor-pointer"
+                href && 'cursor-pointer',
             )}
         >
             {/* Gradient accent */}
-            <div className={cn("absolute inset-x-0 top-0 h-20 bg-gradient-to-b opacity-15 group-hover:opacity-25 transition-opacity duration-300", gradient)} />
-            <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-1 pt-4 px-5">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/85 dark:text-muted-foreground/60 transition-colors group-hover:text-foreground/80">
+            <div
+                className={cn(
+                    'absolute inset-x-0 top-0 h-20 bg-gradient-to-b opacity-15 transition-opacity duration-300 group-hover:opacity-25',
+                    gradient,
+                )}
+            />
+            <CardHeader className="relative flex flex-row items-center justify-between space-y-0 px-5 pt-4 pb-1">
+                <CardTitle className="text-[10px] font-bold tracking-wider text-muted-foreground/85 uppercase transition-colors group-hover:text-foreground/80 dark:text-muted-foreground/60">
                     {title}
                 </CardTitle>
                 {Icon && (
-                    <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-300 group-hover:scale-110 group-hover:rotate-3", iconBg)}>
-                        <Icon className={cn("h-4.5 w-4.5", iconColor)} />
+                    <div
+                        className={cn(
+                            'flex h-9 w-9 items-center justify-center rounded-xl border transition-all duration-300 group-hover:scale-110 group-hover:rotate-3',
+                            iconBg,
+                        )}
+                    >
+                        <Icon className={cn('h-4.5 w-4.5', iconColor)} />
                     </div>
                 )}
             </CardHeader>
-            <CardContent className="relative pb-4 pt-0 px-5">
-                <div className="text-3xl font-black tracking-tight">{value}</div>
+            <CardContent className="relative px-5 pt-0 pb-4">
+                <div className="text-3xl font-black tracking-tight">
+                    {value}
+                </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <p className="text-xs text-muted-foreground/80 dark:text-muted-foreground/50">{hint}</p>
+                    <p className="text-xs text-muted-foreground/80 dark:text-muted-foreground/50">
+                        {hint}
+                    </p>
                     {badge && (
-                        <Badge variant={badgeVariant} className="text-[10px] font-bold px-2 py-0.5 border border-border/80 bg-muted/60 dark:border-white/5 dark:bg-white/5">
+                        <Badge
+                            variant={badgeVariant}
+                            className="border border-border/80 bg-muted/60 px-2 py-0.5 text-[10px] font-bold dark:border-white/5 dark:bg-white/5"
+                        >
                             {badge}
                         </Badge>
                     )}
@@ -759,22 +844,30 @@ function OrgSnapshotTile({
     return (
         <Link
             href={href}
-            className="group flex items-center gap-3 rounded-2xl border border-border/80 bg-muted/10 px-4 py-3.5 transition-all duration-300 hover:border-border hover:bg-muted/30 dark:border-white/5 dark:bg-white/[0.02] dark:hover:border-white/10 dark:hover:bg-white/[0.04] hover:-translate-y-0.5 hover:shadow-lg"
+            className="group flex items-center gap-3 rounded-2xl border border-border/80 bg-muted/10 px-4 py-3.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:bg-muted/30 hover:shadow-lg dark:border-white/5 dark:bg-white/[0.02] dark:hover:border-white/10 dark:hover:bg-white/[0.04]"
         >
-            <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-all duration-300 group-hover:scale-110 group-hover:rotate-3", iconBg)}>
-                <Icon className={cn("h-4.5 w-4.5", iconColor)} />
+            <div
+                className={cn(
+                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-all duration-300 group-hover:scale-110 group-hover:rotate-3',
+                    iconBg,
+                )}
+            >
+                <Icon className={cn('h-4.5 w-4.5', iconColor)} />
             </div>
             <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-muted-foreground/80 dark:text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/80">{label}</p>
-                <p className="text-xl font-black tracking-tight tabular-nums mt-0.5">
+                <p className="text-xs font-semibold text-muted-foreground/80 transition-colors group-hover:text-muted-foreground/80 dark:text-muted-foreground/50">
+                    {label}
+                </p>
+                <p className="mt-0.5 text-xl font-black tracking-tight tabular-nums">
                     {value.toLocaleString()}
                 </p>
                 {sub && (
-                    <p className="text-[10px] text-muted-foreground/85 dark:text-muted-foreground/55 mt-0.5">{sub}</p>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground/85 dark:text-muted-foreground/55">
+                        {sub}
+                    </p>
                 )}
             </div>
             <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground/30 opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100" />
         </Link>
     );
 }
-

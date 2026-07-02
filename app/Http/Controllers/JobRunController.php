@@ -139,6 +139,48 @@ class JobRunController extends Controller
         return back()->with('success', "All {$deleted} failed jobs removed.");
     }
 
+    public function destroyHistory(JobRun $jobRun): RedirectResponse
+    {
+        $jobRun->delete();
+
+        return back()->with('success', 'Job run history removed.');
+    }
+
+    public function destroyAllHistory(): RedirectResponse
+    {
+        $deleted = JobRun::query()->count();
+
+        if ($deleted === 0) {
+            return back()->with('error', 'No job run history to remove.');
+        }
+
+        JobRun::query()->delete();
+
+        return back()->with('success', "All {$deleted} job run history records removed.");
+    }
+
+    public function destroyPending(int $id): RedirectResponse
+    {
+        $deleted = DB::table('jobs')->where('id', $id)->delete();
+
+        if ($deleted === 0) {
+            return back()->with('error', 'Pending job not found.');
+        }
+
+        return back()->with('success', 'Pending job removed.');
+    }
+
+    public function destroyAllPending(): RedirectResponse
+    {
+        $deleted = DB::table('jobs')->delete();
+
+        if ($deleted === 0) {
+            return back()->with('error', 'No pending jobs to remove.');
+        }
+
+        return back()->with('success', "All {$deleted} pending jobs removed.");
+    }
+
     /**
      * @return list<array<string, mixed>>
      */

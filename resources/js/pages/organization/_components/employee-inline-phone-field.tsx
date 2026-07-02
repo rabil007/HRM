@@ -1,10 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 import { PhoneInputWithCountry } from '@/components/phone-input-with-country';
-import {
-    formatPhoneForDisplay
-    
-} from '@/lib/phone-with-dial-code';
-import type {PhoneCountryOption} from '@/lib/phone-with-dial-code';
+import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
+import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { cn } from '@/lib/utils';
 import {
     employeeFieldMissingHighlightClass,
@@ -80,7 +77,7 @@ export function EmployeeInlinePhoneField({
             <button
                 type="button"
                 className={cn(
-                    'min-w-0 text-left text-sm font-medium text-foreground hover:text-primary dark:hover:text-white disabled:cursor-default disabled:hover:text-foreground',
+                    'min-w-0 text-left text-sm font-medium text-foreground hover:text-primary disabled:cursor-default disabled:hover:text-foreground dark:hover:text-white',
                     highlightMissing && 'text-rose-600 dark:text-rose-300',
                 )}
                 onClick={() => beginEdit(fieldKey)}

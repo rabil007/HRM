@@ -25,7 +25,8 @@ export function EmployeeCard({
     showUrl: string;
     onDelete?: (employee: Employee) => void;
 }) {
-    const positionColor = POSITION_COLORS[employee.name.length % POSITION_COLORS.length];
+    const positionColor =
+        POSITION_COLORS[employee.name.length % POSITION_COLORS.length];
     const birthdayDisplay = formatDisplayDate(employee.date_of_birth);
     const birthday = birthdayDisplay !== '—' ? birthdayDisplay : null;
     const hireDateDisplay = formatDisplayDate(employee.hire_date);
@@ -49,12 +50,12 @@ export function EmployeeCard({
                 <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                         <div
-                            className="truncate text-sm font-bold uppercase tracking-wide text-foreground leading-tight"
+                            className="truncate text-sm leading-tight font-bold tracking-wide text-foreground uppercase"
                             title={employee.name}
                         >
                             {employee.name}
                         </div>
-                        <span className="mt-1 inline-block rounded-md bg-muted dark:bg-white/8 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground">
+                        <span className="mt-1 inline-block rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground dark:bg-white/8">
                             {employee.employee_no}
                         </span>
                     </div>
@@ -70,22 +71,26 @@ export function EmployeeCard({
 
                 {/* Contact rows */}
                 <div className="mt-2 flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+                    <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                         <Mail className="h-3 w-3 shrink-0 text-primary/60" />
-                        <span className="truncate">{employee.work_email ?? '—'}</span>
+                        <span className="truncate">
+                            {employee.work_email ?? '—'}
+                        </span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+                    <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                         <Phone className="h-3 w-3 shrink-0 text-primary/60" />
-                        <span className="truncate">{employee.phone ?? '—'}</span>
+                        <span className="truncate">
+                            {employee.phone ?? '—'}
+                        </span>
                     </div>
                     {hireDate ? (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+                        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                             <CalendarDays className="h-3 w-3 shrink-0 text-primary/60" />
                             <span>{hireDate}</span>
                         </div>
                     ) : null}
                     {birthday ? (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+                        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                             <Cake className="h-3 w-3 shrink-0 text-primary/60" />
                             <span>{birthday}</span>
                         </div>
@@ -97,7 +102,7 @@ export function EmployeeCard({
                     {employee.position?.title ? (
                         <span
                             className={cn(
-                                'inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold truncate',
+                                'inline-flex items-center truncate rounded-md border px-2 py-0.5 text-[10px] font-semibold',
                                 positionColor,
                             )}
                         >
@@ -113,7 +118,7 @@ export function EmployeeCard({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary text-muted-foreground/50 transition-colors"
+                            className="h-7 w-7 rounded-lg text-muted-foreground/50 transition-colors hover:bg-primary/10 hover:text-primary"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 router.visit(showUrl);
@@ -127,7 +132,7 @@ export function EmployeeCard({
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 rounded-lg hover:bg-destructive/10 hover:text-destructive text-muted-foreground/50 transition-colors"
+                                className="h-7 w-7 rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onDelete(employee);

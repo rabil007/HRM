@@ -21,10 +21,16 @@ import type {
     HikvisionPersonFormData,
 } from './types';
 
-function buildInitialForm(person?: HikvisionPerson | null): HikvisionPersonFormData {
+function buildInitialForm(
+    person?: HikvisionPerson | null,
+): HikvisionPersonFormData {
     return {
-        first_name: person?.first_name ?? person?.full_name?.split(' ')[0] ?? '',
-        last_name: person?.last_name ?? person?.full_name?.split(' ').slice(1).join(' ') ?? '',
+        first_name:
+            person?.first_name ?? person?.full_name?.split(' ')[0] ?? '',
+        last_name:
+            person?.last_name ??
+            person?.full_name?.split(' ').slice(1).join(' ') ??
+            '',
         group_id: person?.group_id != null ? String(person.group_id) : '',
         person_code: person?.person_code ?? '',
         email: person?.email ?? '',
@@ -125,7 +131,9 @@ export function HikvisionPersonFormDialog({
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>{isEdit ? 'Edit person' : 'Add person'}</DialogTitle>
+                    <DialogTitle>
+                        {isEdit ? 'Edit person' : 'Add person'}
+                    </DialogTitle>
                     <DialogDescription>
                         {isEdit
                             ? 'Update this person in Hik-Connect. Changes sync to the access control system.'
@@ -136,14 +144,23 @@ export function HikvisionPersonFormDialog({
                 <div className="space-y-4 py-2">
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
-                            <Label htmlFor="person-first-name">First name</Label>
+                            <Label htmlFor="person-first-name">
+                                First name
+                            </Label>
                             <Input
                                 id="person-first-name"
                                 value={form.data.first_name}
-                                onChange={(event) => form.setData('first_name', event.target.value)}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'first_name',
+                                        event.target.value,
+                                    )
+                                }
                             />
                             {form.errors.first_name ? (
-                                <p className="text-xs text-destructive">{form.errors.first_name}</p>
+                                <p className="text-xs text-destructive">
+                                    {form.errors.first_name}
+                                </p>
                             ) : null}
                         </div>
 
@@ -152,10 +169,17 @@ export function HikvisionPersonFormDialog({
                             <Input
                                 id="person-last-name"
                                 value={form.data.last_name}
-                                onChange={(event) => form.setData('last_name', event.target.value)}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'last_name',
+                                        event.target.value,
+                                    )
+                                }
                             />
                             {form.errors.last_name ? (
-                                <p className="text-xs text-destructive">{form.errors.last_name}</p>
+                                <p className="text-xs text-destructive">
+                                    {form.errors.last_name}
+                                </p>
                             ) : null}
                         </div>
                     </div>
@@ -164,19 +188,28 @@ export function HikvisionPersonFormDialog({
                         <Label htmlFor="person-group">Department</Label>
                         <AppSelect
                             value={form.data.group_id}
-                            onValueChange={(value) => form.setData('group_id', value)}
+                            onValueChange={(value) =>
+                                form.setData('group_id', value)
+                            }
                             variant="card"
                             placeholder="Select department"
                         >
-                            <AppSelectItem value="">No department</AppSelectItem>
+                            <AppSelectItem value="">
+                                No department
+                            </AppSelectItem>
                             {groupOptions.map((option) => (
-                                <AppSelectItem key={option.value} value={option.value}>
+                                <AppSelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                >
                                     {option.label}
                                 </AppSelectItem>
                             ))}
                         </AppSelect>
                         {form.errors.group_id ? (
-                            <p className="text-xs text-destructive">{form.errors.group_id}</p>
+                            <p className="text-xs text-destructive">
+                                {form.errors.group_id}
+                            </p>
                         ) : null}
                     </div>
 
@@ -185,17 +218,22 @@ export function HikvisionPersonFormDialog({
                         <Input
                             id="person-code"
                             value={form.data.person_code}
-                            onChange={(event) => form.setData('person_code', event.target.value)}
+                            onChange={(event) =>
+                                form.setData('person_code', event.target.value)
+                            }
                             readOnly={isEdit}
                             disabled={isEdit}
                         />
                         {isEdit ? (
                             <p className="text-xs text-muted-foreground">
-                                Employee number is managed in Hik-Connect and cannot be changed here.
+                                Employee number is managed in Hik-Connect and
+                                cannot be changed here.
                             </p>
                         ) : null}
                         {form.errors.person_code ? (
-                            <p className="text-xs text-destructive">{form.errors.person_code}</p>
+                            <p className="text-xs text-destructive">
+                                {form.errors.person_code}
+                            </p>
                         ) : null}
                     </div>
 
@@ -206,10 +244,14 @@ export function HikvisionPersonFormDialog({
                                 id="person-email"
                                 type="email"
                                 value={form.data.email}
-                                onChange={(event) => form.setData('email', event.target.value)}
+                                onChange={(event) =>
+                                    form.setData('email', event.target.value)
+                                }
                             />
                             {form.errors.email ? (
-                                <p className="text-xs text-destructive">{form.errors.email}</p>
+                                <p className="text-xs text-destructive">
+                                    {form.errors.email}
+                                </p>
                             ) : null}
                         </div>
 
@@ -218,16 +260,22 @@ export function HikvisionPersonFormDialog({
                             <Input
                                 id="person-phone"
                                 value={form.data.phone}
-                                onChange={(event) => form.setData('phone', event.target.value)}
+                                onChange={(event) =>
+                                    form.setData('phone', event.target.value)
+                                }
                             />
                             {form.errors.phone ? (
-                                <p className="text-xs text-destructive">{form.errors.phone}</p>
+                                <p className="text-xs text-destructive">
+                                    {form.errors.phone}
+                                </p>
                             ) : null}
                         </div>
                     </div>
 
                     {form.errors.person ? (
-                        <p className="text-xs text-destructive">{form.errors.person}</p>
+                        <p className="text-xs text-destructive">
+                            {form.errors.person}
+                        </p>
                     ) : null}
 
                     {isEdit && person ? (
@@ -242,7 +290,9 @@ export function HikvisionPersonFormDialog({
                                     />
                                 ) : (
                                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
-                                        {(person.full_name ?? '?').slice(0, 1).toUpperCase()}
+                                        {(person.full_name ?? '?')
+                                            .slice(0, 1)
+                                            .toUpperCase()}
                                     </div>
                                 )}
                                 <Input
@@ -266,7 +316,11 @@ export function HikvisionPersonFormDialog({
                     >
                         Cancel
                     </Button>
-                    <Button type="button" onClick={submit} disabled={form.processing}>
+                    <Button
+                        type="button"
+                        onClick={submit}
+                        disabled={form.processing}
+                    >
                         {form.processing ? <Spinner className="mr-2" /> : null}
                         {isEdit ? 'Save changes' : 'Create person'}
                     </Button>

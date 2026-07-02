@@ -26,13 +26,16 @@ export function PayrollCancelDialog({
                 <AlertDialogHeader>
                     <AlertDialogTitle>Cancel pay run?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will cancel the pay period and remove any generated payroll records.
-                        Timesheets will remain saved but the run cannot be processed further unless
-                        you create a new period.
+                        This will cancel the pay period and remove any generated
+                        payroll records. Timesheets will remain saved but the
+                        run cannot be processed further unless you create a new
+                        period.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl">Keep pay run</AlertDialogCancel>
+                    <AlertDialogCancel className="rounded-xl">
+                        Keep pay run
+                    </AlertDialogCancel>
                     <AlertDialogAction
                         className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         disabled={processing}

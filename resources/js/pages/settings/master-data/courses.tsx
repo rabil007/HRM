@@ -1,5 +1,12 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { AlertCircle, Download, FileSpreadsheet, Info, Loader2, Upload } from 'lucide-react';
+import {
+    AlertCircle,
+    Download,
+    FileSpreadsheet,
+    Info,
+    Loader2,
+    Upload,
+} from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
 import Heading from '@/components/heading';
@@ -25,10 +32,19 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
-import { firstValidationError, hasFlashSuccess } from '@/lib/first-validation-error';
+import {
+    firstValidationError,
+    hasFlashSuccess,
+} from '@/lib/first-validation-error';
 import { cn } from '@/lib/utils';
 
 type Course = {
@@ -239,7 +255,11 @@ export default function Courses({ courses }: { courses: Course[] }) {
             <Head title="Courses" />
 
             <div className="space-y-6">
-                <Heading variant="small" title="Courses" description="Manage course titles used across the system." />
+                <Heading
+                    variant="small"
+                    title="Courses"
+                    description="Manage course titles used across the system."
+                />
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
@@ -250,43 +270,75 @@ export default function Courses({ courses }: { courses: Course[] }) {
                         />
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                        <Button variant="outline" type="button" onClick={openImport}>
+                        <Button
+                            variant="outline"
+                            type="button"
+                            onClick={openImport}
+                        >
                             <Upload className="mr-2 h-4 w-4" />
                             Import CSV
                         </Button>
-                        {can.create ? <Button onClick={openCreate}>Add course</Button> : null}
+                        {can.create ? (
+                            <Button onClick={openCreate}>Add course</Button>
+                        ) : null}
                     </div>
                 </div>
 
-                <div className="rounded-xl border border-border/60 overflow-hidden">
+                <div className="overflow-hidden rounded-xl border border-border/60">
                     <div className="overflow-x-auto">
                         <div className="min-w-[640px]">
-                            <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30 whitespace-nowrap">
+                            <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
                                 <div className="col-span-7">Title</div>
                                 <div className="col-span-2">Active</div>
-                                <div className="col-span-3 text-right">Actions</div>
+                                <div className="col-span-3 text-right">
+                                    Actions
+                                </div>
                             </div>
 
                             {rows.map((c) => (
                                 <div
                                     key={c.id}
-                                    className="grid grid-cols-12 gap-2 px-4 py-3 border-t border-border/60 whitespace-nowrap"
+                                    className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
                                 >
-                                    <div className="col-span-7 text-sm truncate">{c.name}</div>
-                                    <div className="col-span-2 flex items-center">
-                                        <Switch disabled={!can.update} checked={c.is_active} onCheckedChange={() => toggleActive(c)} />
+                                    <div className="col-span-7 truncate text-sm">
+                                        {c.name}
                                     </div>
-                                    <div className="col-span-3 flex justify-end gap-2 flex-nowrap">
-                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
-                                        {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(c)}>
-                                            Delete
-                                        </Button> : null}
+                                    <div className="col-span-2 flex items-center">
+                                        <Switch
+                                            disabled={!can.update}
+                                            checked={c.is_active}
+                                            onCheckedChange={() =>
+                                                toggleActive(c)
+                                            }
+                                        />
+                                    </div>
+                                    <div className="col-span-3 flex flex-nowrap justify-end gap-2">
+                                        {can.update ? (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => openEdit(c)}
+                                            >
+                                                Edit
+                                            </Button>
+                                        ) : null}
+                                        {can.delete ? (
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => requestDelete(c)}
+                                            >
+                                                Delete
+                                            </Button>
+                                        ) : null}
                                     </div>
                                 </div>
                             ))}
 
                             {rows.length === 0 ? (
-                                <div className="px-4 py-10 text-sm text-muted-foreground">No courses found.</div>
+                                <div className="px-4 py-10 text-sm text-muted-foreground">
+                                    No courses found.
+                                </div>
                             ) : null}
                         </div>
                     </div>
@@ -319,9 +371,12 @@ export default function Courses({ courses }: { courses: Course[] }) {
                                 <Upload className="size-5" />
                             </div>
                             <div className="min-w-0 space-y-1.5 pt-0.5">
-                                <DialogTitle className="text-xl leading-tight">Import courses</DialogTitle>
+                                <DialogTitle className="text-xl leading-tight">
+                                    Import courses
+                                </DialogTitle>
                                 <DialogDescription>
-                                    Add or update rows in bulk. Existing titles are updated; new titles are created.
+                                    Add or update rows in bulk. Existing titles
+                                    are updated; new titles are created.
                                 </DialogDescription>
                             </div>
                         </div>
@@ -334,24 +389,41 @@ export default function Courses({ courses }: { courses: Course[] }) {
                                 <span className="sr-only">CSV format:</span>
                                 <ul className="list-inside list-disc space-y-1 text-muted-foreground">
                                     <li>
-                                        <span className="font-medium text-foreground">name</span> or{' '}
-                                        <span className="font-medium text-foreground">title</span> — required header and value on each row
+                                        <span className="font-medium text-foreground">
+                                            name
+                                        </span>{' '}
+                                        or{' '}
+                                        <span className="font-medium text-foreground">
+                                            title
+                                        </span>{' '}
+                                        — required header and value on each row
                                     </li>
                                     <li>
-                                        <span className="font-medium text-foreground">is_active</span> — optional; use yes, true, 1, or active for
-                                        enabled
+                                        <span className="font-medium text-foreground">
+                                            is_active
+                                        </span>{' '}
+                                        — optional; use yes, true, 1, or active
+                                        for enabled
                                     </li>
                                 </ul>
                             </AlertDescription>
                         </Alert>
 
                         <div className="space-y-2">
-                            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Step 1 — Template</p>
+                            <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                Step 1 — Template
+                            </p>
                             <div className="rounded-xl border border-border/80 bg-muted/20 p-4">
                                 <p className="text-sm text-muted-foreground">
-                                    Download a file with the correct column headers so your import validates cleanly.
+                                    Download a file with the correct column
+                                    headers so your import validates cleanly.
                                 </p>
-                                <Button variant="secondary" type="button" className="mt-3 w-full sm:w-auto" asChild>
+                                <Button
+                                    variant="secondary"
+                                    type="button"
+                                    className="mt-3 w-full sm:w-auto"
+                                    asChild
+                                >
                                     <a href="/settings/master-data/courses/import/template">
                                         <Download className="mr-2 size-4" />
                                         Download CSV template
@@ -361,7 +433,9 @@ export default function Courses({ courses }: { courses: Course[] }) {
                         </div>
 
                         <div className="space-y-2">
-                            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Step 2 — Upload</p>
+                            <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                Step 2 — Upload
+                            </p>
                             <input
                                 ref={fileInputRef}
                                 type="file"
@@ -379,12 +453,19 @@ export default function Courses({ courses }: { courses: Course[] }) {
                                 className={cn(
                                     'group relative rounded-xl border-2 border-dashed border-border bg-background/80 p-6 text-center transition-[color,background-color,border-color,box-shadow] outline-none',
                                     'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/35',
-                                    importDragActive && 'border-primary bg-primary/6 ring-2 ring-primary/25 ring-offset-2 ring-offset-background',
-                                    importFile && 'border-solid border-emerald-500/40 bg-emerald-500/7 hover:bg-emerald-500/9',
+                                    importDragActive &&
+                                        'border-primary bg-primary/6 ring-2 ring-primary/25 ring-offset-2 ring-offset-background',
+                                    importFile &&
+                                        'border-solid border-emerald-500/40 bg-emerald-500/7 hover:bg-emerald-500/9',
                                 )}
                                 onClick={() => fileInputRef.current?.click()}
-                                onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
-                                    if (event.key === 'Enter' || event.key === ' ') {
+                                onKeyDown={(
+                                    event: KeyboardEvent<HTMLDivElement>,
+                                ) => {
+                                    if (
+                                        event.key === 'Enter' ||
+                                        event.key === ' '
+                                    ) {
                                         event.preventDefault();
                                         fileInputRef.current?.click();
                                     }
@@ -404,8 +485,12 @@ export default function Courses({ courses }: { courses: Course[] }) {
                                                 <FileSpreadsheet className="size-5" />
                                             </div>
                                             <div className="min-w-0 pt-0.5">
-                                                <p className="truncate text-sm font-medium text-foreground">{importFile.name}</p>
-                                                <p className="text-xs text-muted-foreground">Ready to import</p>
+                                                <p className="truncate text-sm font-medium text-foreground">
+                                                    {importFile.name}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Ready to import
+                                                </p>
                                             </div>
                                         </div>
                                         <Button
@@ -427,9 +512,15 @@ export default function Courses({ courses }: { courses: Course[] }) {
                                             <Upload className="size-6" />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-foreground">Drop your CSV here</p>
+                                            <p className="text-sm font-medium text-foreground">
+                                                Drop your CSV here
+                                            </p>
                                             <p className="mt-0.5 text-xs text-muted-foreground">
-                                                or click to browse — <span className="text-foreground/80">.csv</span> files only
+                                                or click to browse —{' '}
+                                                <span className="text-foreground/80">
+                                                    .csv
+                                                </span>{' '}
+                                                files only
                                             </p>
                                         </div>
                                     </div>
@@ -438,15 +529,25 @@ export default function Courses({ courses }: { courses: Course[] }) {
                         </div>
 
                         {importMessage ? (
-                            <Alert variant="destructive" className="border-destructive/40">
+                            <Alert
+                                variant="destructive"
+                                className="border-destructive/40"
+                            >
                                 <AlertCircle aria-hidden />
-                                <AlertDescription>{importMessage}</AlertDescription>
+                                <AlertDescription>
+                                    {importMessage}
+                                </AlertDescription>
                             </Alert>
                         ) : null}
                     </div>
 
                     <DialogFooter className="gap-2 border-t border-border bg-muted/30 px-6 py-4 sm:justify-end">
-                        <Button type="button" variant="outline" disabled={importProcessing} onClick={() => setImportOpen(false)}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={importProcessing}
+                            onClick={() => setImportOpen(false)}
+                        >
                             Cancel
                         </Button>
                         <Button
@@ -458,12 +559,18 @@ export default function Courses({ courses }: { courses: Course[] }) {
                         >
                             {importProcessing ? (
                                 <>
-                                    <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+                                    <Loader2
+                                        className="mr-2 size-4 animate-spin"
+                                        aria-hidden
+                                    />
                                     Importing…
                                 </>
                             ) : (
                                 <>
-                                    <Upload className="mr-2 size-4" aria-hidden />
+                                    <Upload
+                                        className="mr-2 size-4"
+                                        aria-hidden
+                                    />
                                     Import
                                 </>
                             )}
@@ -475,51 +582,75 @@ export default function Courses({ courses }: { courses: Course[] }) {
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
                 <SheetContent
                     side="right"
-                    className="flex w-full flex-col rounded-none p-0 glass-card sm:max-w-md"
+                    className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-md"
                 >
-                    <SheetHeader className="p-8 pb-6 border-b border-border/60">
+                    <SheetHeader className="border-b border-border/60 p-8 pb-6">
                         <SheetTitle className="text-xl font-bold tracking-tight">
                             {current ? 'Edit course' : 'New course'}
                         </SheetTitle>
-                        <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
+                        <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
                             Enter the course title only.
                         </SheetDescription>
                     </SheetHeader>
 
-                    <div className="flex-1 overflow-y-auto p-8 space-y-5">
+                    <div className="flex-1 space-y-5 overflow-y-auto p-8">
                         <div className="space-y-2">
                             <Label
                                 htmlFor="title"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
                                 Title
                             </Label>
                             <Input
                                 id="title"
                                 value={form.data.name}
-                                onChange={(e) => form.setData('name', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('name', e.target.value)
+                                }
                                 placeholder="STCW Basic Safety"
-                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
                             />
                             {form.errors.name ? (
-                                <div className="text-xs font-medium text-destructive">{form.errors.name}</div>
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.name}
+                                </div>
                             ) : null}
                         </div>
 
                         <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
                             <div>
-                                <div className="text-sm font-semibold text-foreground">Active</div>
-                                <div className="text-xs text-muted-foreground/80">Disable to hide from selections.</div>
+                                <div className="text-sm font-semibold text-foreground">
+                                    Active
+                                </div>
+                                <div className="text-xs text-muted-foreground/80">
+                                    Disable to hide from selections.
+                                </div>
                             </div>
-                            <Switch disabled={!can.update} checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
+                            <Switch
+                                disabled={!can.update}
+                                checked={form.data.is_active}
+                                onCheckedChange={(v) =>
+                                    form.setData('is_active', v)
+                                }
+                            />
                         </div>
                     </div>
 
                     <div className="flex gap-3 border-t border-border/60 bg-background/40 p-6">
-                        <Button type="button" variant="ghost" className="h-11 flex-1 rounded-xl px-6 text-muted-foreground" onClick={() => setSheetOpen(false)}>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-11 flex-1 rounded-xl px-6 text-muted-foreground"
+                            onClick={() => setSheetOpen(false)}
+                        >
                             Cancel
                         </Button>
-                        <Button type="button" className="h-11 flex-1 rounded-xl px-6 font-semibold" onClick={submit} disabled={form.processing}>
+                        <Button
+                            type="button"
+                            className="h-11 flex-1 rounded-xl px-6 font-semibold"
+                            onClick={submit}
+                            disabled={form.processing}
+                        >
                             {form.processing ? 'Saving…' : 'Save'}
                         </Button>
                     </div>
@@ -537,8 +668,13 @@ export default function Courses({ courses }: { courses: Course[] }) {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel className="glass-card rounded-xl hover:bg-accent">Cancel</AlertDialogCancel>
-                        <AlertDialogAction className="rounded-xl" onClick={confirmDelete}>
+                        <AlertDialogCancel className="rounded-xl glass-card hover:bg-accent">
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className="rounded-xl"
+                            onClick={confirmDelete}
+                        >
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>

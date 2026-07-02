@@ -1,6 +1,11 @@
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 
 export function FiltersSheet({
     open,
@@ -23,25 +28,30 @@ export function FiltersSheet({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="right"
-                className="flex w-full flex-col gap-0 rounded-none border-border/60 p-0 glass-card sm:max-w-md"
+                className="flex w-full flex-col gap-0 rounded-none glass-card border-border/60 p-0 sm:max-w-md"
             >
-                <SheetHeader className="border-b border-border/60 p-8 pb-6 flex-shrink-0">
-                    <SheetTitle className="text-xl font-bold tracking-tight">{title}</SheetTitle>
+                <SheetHeader className="flex-shrink-0 border-b border-border/60 p-8 pb-6">
+                    <SheetTitle className="text-xl font-bold tracking-tight">
+                        {title}
+                    </SheetTitle>
                 </SheetHeader>
 
-                <div className="flex-1 overflow-y-auto p-8 space-y-6">
+                <div className="flex-1 space-y-6 overflow-y-auto p-8">
                     {children}
                 </div>
 
-                <div className="border-t border-border/60 p-8 pt-6 flex gap-3 flex-shrink-0">
+                <div className="flex flex-shrink-0 gap-3 border-t border-border/60 p-8 pt-6">
                     <Button
                         variant="ghost"
-                        className="rounded-xl h-11 px-6 text-muted-foreground flex-1"
+                        className="h-11 flex-1 rounded-xl px-6 text-muted-foreground"
                         onClick={onReset}
                     >
                         {resetText}
                     </Button>
-                    <Button className="rounded-xl h-11 px-6 flex-1 font-semibold" onClick={() => onOpenChange(false)}>
+                    <Button
+                        className="h-11 flex-1 rounded-xl px-6 font-semibold"
+                        onClick={() => onOpenChange(false)}
+                    >
                         {applyText}
                     </Button>
                 </div>
@@ -49,4 +59,3 @@ export function FiltersSheet({
         </Sheet>
     );
 }
-

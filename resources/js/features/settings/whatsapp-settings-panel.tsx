@@ -32,11 +32,12 @@ import {
     sendWhatsAppTestDocument,
     sendWhatsAppTestDocumentTemplate,
     sendWhatsAppTestTemplate,
-    sendWhatsAppTestText
-    
-    
+    sendWhatsAppTestText,
 } from '@/features/settings/send-whatsapp-test-message';
-import type {WhatsAppApiExchange, WhatsAppTestSendResult} from '@/features/settings/send-whatsapp-test-message';
+import type {
+    WhatsAppApiExchange,
+    WhatsAppTestSendResult,
+} from '@/features/settings/send-whatsapp-test-message';
 import { testWhatsAppConnection } from '@/features/settings/test-whatsapp-connection';
 import { useHasPermission } from '@/hooks/use-has-permission';
 import { toast } from '@/lib/toast';
@@ -74,11 +75,17 @@ export type WhatsAppSettingsPanelProps = {
     };
 };
 
-function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
+function FieldLabel({
+    htmlFor,
+    children,
+}: {
+    htmlFor?: string;
+    children: React.ReactNode;
+}) {
     return (
         <Label
             htmlFor={htmlFor}
-            className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold ml-0.5"
+            className="ml-0.5 text-[10px] font-bold tracking-widest text-muted-foreground/60 uppercase"
         >
             {children}
         </Label>
@@ -90,7 +97,7 @@ function FieldInput(props: React.ComponentProps<typeof Input>) {
         <Input
             {...props}
             className={cn(
-                'rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 focus-visible:ring-primary/40 h-11 px-4 transition-all',
+                'h-11 rounded-xl border-input bg-background/50 px-4 text-foreground transition-all focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5',
                 props.className,
             )}
         />
@@ -108,24 +115,33 @@ export function WhatsAppSettingsPanel({
     const canViewTemplateLibrary = useHasPermission(
         'settings.integrations.whatsapp-templates.view',
     );
-    const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
-    const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
+    const [connectionStatus, setConnectionStatus] =
+        useState<ConnectionStatus>('idle');
+    const [connectionMessage, setConnectionMessage] = useState<string | null>(
+        null,
+    );
     const [testing, setTesting] = useState(false);
     const [testPhone, setTestPhone] = useState('');
     const [testMessage, setTestMessage] = useState(default_test_message);
     const [testCaption, setTestCaption] = useState('');
     const [testFile, setTestFile] = useState<File | null>(null);
-    const [previewSampleName, setPreviewSampleName] = useState(default_preview_sample_name);
+    const [previewSampleName, setPreviewSampleName] = useState(
+        default_preview_sample_name,
+    );
     const [testTemplateSlug, setTestTemplateSlug] = useState(
-        () => document_templates.find((template) => template.is_default)?.slug
-            ?? document_templates[0]?.slug
-            ?? 'document_delivery',
+        () =>
+            document_templates.find((template) => template.is_default)?.slug ??
+            document_templates[0]?.slug ??
+            'document_delivery',
     );
     const [sendingText, setSendingText] = useState(false);
     const [sendingDocument, setSendingDocument] = useState(false);
     const [sendingTemplate, setSendingTemplate] = useState(false);
-    const [sendingDocumentTemplate, setSendingDocumentTemplate] = useState(false);
-    const [testResult, setTestResult] = useState<WhatsAppTestSendResult | null>(null);
+    const [sendingDocumentTemplate, setSendingDocumentTemplate] =
+        useState(false);
+    const [testResult, setTestResult] = useState<WhatsAppTestSendResult | null>(
+        null,
+    );
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const form = useForm({
@@ -139,8 +155,9 @@ export function WhatsAppSettingsPanel({
     });
 
     const selectedTestTemplate =
-        document_templates.find((template) => template.slug === testTemplateSlug)
-        ?? document_templates[0];
+        document_templates.find(
+            (template) => template.slug === testTemplateSlug,
+        ) ?? document_templates[0];
 
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
@@ -168,15 +185,18 @@ export function WhatsAppSettingsPanel({
         setConnectionMessage(null);
 
         try {
-            const result = await testWhatsAppConnection('/settings/application/whatsapp/test', {
-                business_account_id: form.data.business_account_id,
-                phone_number_id: form.data.phone_number_id,
-                access_token: form.data.access_token,
-                app_id: form.data.app_id,
-                app_secret: form.data.app_secret,
-                webhook_verify_token: form.data.webhook_verify_token,
-                enabled: form.data.enabled,
-            });
+            const result = await testWhatsAppConnection(
+                '/settings/application/whatsapp/test',
+                {
+                    business_account_id: form.data.business_account_id,
+                    phone_number_id: form.data.phone_number_id,
+                    access_token: form.data.access_token,
+                    app_id: form.data.app_id,
+                    app_secret: form.data.app_secret,
+                    webhook_verify_token: form.data.webhook_verify_token,
+                    enabled: form.data.enabled,
+                },
+            );
 
             if (result.success) {
                 setConnectionStatus('connected');
@@ -189,7 +209,9 @@ export function WhatsAppSettingsPanel({
             }
         } catch (error) {
             const message =
-                error instanceof Error ? error.message : 'WhatsApp connection test failed.';
+                error instanceof Error
+                    ? error.message
+                    : 'WhatsApp connection test failed.';
             setConnectionStatus('failed');
             setConnectionMessage(message);
             toast.error(message);
@@ -222,7 +244,9 @@ export function WhatsAppSettingsPanel({
               : 'bg-muted-foreground/40';
 
     const webhookStatusLabel =
-        settings.webhook_status === 'configured' ? 'Verify token set' : 'Not configured';
+        settings.webhook_status === 'configured'
+            ? 'Verify token set'
+            : 'Not configured';
 
     const canSendTests = settings.is_configured;
 
@@ -260,7 +284,9 @@ export function WhatsAppSettingsPanel({
             }
         } catch (error) {
             const message =
-                error instanceof Error ? error.message : 'Failed to send WhatsApp test message.';
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to send WhatsApp test message.';
             toast.error(message);
         } finally {
             setSendingText(false);
@@ -290,7 +316,11 @@ export function WhatsAppSettingsPanel({
         setTestResult(null);
 
         try {
-            const result = await sendWhatsAppTestDocument(phone, testFile, testCaption);
+            const result = await sendWhatsAppTestDocument(
+                phone,
+                testFile,
+                testCaption,
+            );
             setTestResult(result);
 
             if (result.success) {
@@ -300,7 +330,9 @@ export function WhatsAppSettingsPanel({
             }
         } catch (error) {
             const message =
-                error instanceof Error ? error.message : 'Failed to send WhatsApp test document.';
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to send WhatsApp test document.';
             toast.error(message);
         } finally {
             setSendingDocument(false);
@@ -334,7 +366,9 @@ export function WhatsAppSettingsPanel({
             }
         } catch (error) {
             const message =
-                error instanceof Error ? error.message : 'Failed to send WhatsApp test template.';
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to send WhatsApp test template.';
             toast.error(message);
         } finally {
             setSendingTemplate(false);
@@ -391,15 +425,18 @@ export function WhatsAppSettingsPanel({
     return (
         <div className="space-y-6">
             <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
-                <CardContent className="p-6 space-y-5">
+                <CardContent className="space-y-5 p-6">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-2xl border border-green-500/20 bg-green-500/10 flex items-center justify-center shrink-0">
-                            <PlugZap className="w-5 h-5 text-green-600" />
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10">
+                            <PlugZap className="h-5 w-5 text-green-600" />
                         </div>
                         <div>
-                            <h2 className="text-base font-bold tracking-tight">Connection status</h2>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                                Test your credentials after saving or updating values below.
+                            <h2 className="text-base font-bold tracking-tight">
+                                Connection status
+                            </h2>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                                Test your credentials after saving or updating
+                                values below.
                             </p>
                         </div>
                     </div>
@@ -407,22 +444,29 @@ export function WhatsAppSettingsPanel({
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         <StatusItem label="Connection status">
                             <span className="inline-flex items-center gap-2 text-sm font-medium">
-                                <span className={cn('h-2.5 w-2.5 rounded-full', statusDotClass)} />
+                                <span
+                                    className={cn(
+                                        'h-2.5 w-2.5 rounded-full',
+                                        statusDotClass,
+                                    )}
+                                />
                                 {statusLabel}
                             </span>
                         </StatusItem>
                         <StatusItem label="Business account ID">
-                            <span className="text-sm font-mono truncate">
+                            <span className="truncate font-mono text-sm">
                                 {form.data.business_account_id || '—'}
                             </span>
                         </StatusItem>
                         <StatusItem label="Phone number ID">
-                            <span className="text-sm font-mono truncate">
+                            <span className="truncate font-mono text-sm">
                                 {form.data.phone_number_id || '—'}
                             </span>
                         </StatusItem>
                         <StatusItem label="Webhook status">
-                            <span className="text-sm">{webhookStatusLabel}</span>
+                            <span className="text-sm">
+                                {webhookStatusLabel}
+                            </span>
                         </StatusItem>
                     </div>
 
@@ -448,73 +492,97 @@ export function WhatsAppSettingsPanel({
 
             {can.update ? (
                 <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
-                    <CardContent className="p-6 space-y-5">
+                    <CardContent className="space-y-5 p-6">
                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-2xl border border-green-500/20 bg-green-500/10 flex items-center justify-center shrink-0">
-                                <Send className="w-5 h-5 text-green-600" />
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10">
+                                <Send className="h-5 w-5 text-green-600" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold tracking-tight">Test messages</h2>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    Templates work anytime. Text and files only deliver inside the
-                                    24-hour customer service window.
+                                <h2 className="text-base font-bold tracking-tight">
+                                    Test messages
+                                </h2>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                    Templates work anytime. Text and files only
+                                    deliver inside the 24-hour customer service
+                                    window.
                                 </p>
                             </div>
                         </div>
 
                         <Alert className="border-amber-500/20 bg-amber-500/5 text-amber-700 dark:text-amber-400">
                             <Info className="h-4 w-4" />
-                            <AlertTitle>Why templates arrive but text does not</AlertTitle>
+                            <AlertTitle>
+                                Why templates arrive but text does not
+                            </AlertTitle>
                             <AlertDescription>
                                 <p>
-                                    Meta accepts text and file messages with HTTP 200 even when they
-                                    will not be delivered. Session messages require the recipient to
-                                    message your business WhatsApp number first (within 24 hours),
-                                    or to be on your Meta app test recipient list.
+                                    Meta accepts text and file messages with
+                                    HTTP 200 even when they will not be
+                                    delivered. Session messages require the
+                                    recipient to message your business WhatsApp
+                                    number first (within 24 hours), or to be on
+                                    your Meta app test recipient list.
                                 </p>
                                 <p className="mt-2">
-                                    Use &quot;Send hello_world template&quot; to verify delivery
-                                    outside the session window. For UAE numbers, use{' '}
-                                    <span className="font-mono">+971563769023</span> — not{' '}
-                                    <span className="font-mono">+9710563769023</span> (extra zero
-                                    after country code).
+                                    Use &quot;Send hello_world template&quot; to
+                                    verify delivery outside the session window.
+                                    For UAE numbers, use{' '}
+                                    <span className="font-mono">
+                                        +971563769023
+                                    </span>{' '}
+                                    — not{' '}
+                                    <span className="font-mono">
+                                        +9710563769023
+                                    </span>{' '}
+                                    (extra zero after country code).
                                 </p>
                             </AlertDescription>
                         </Alert>
 
                         <div className="grid gap-5 lg:grid-cols-2">
                             <div className="space-y-1.5">
-                                <FieldLabel htmlFor="test_phone">WhatsApp number</FieldLabel>
+                                <FieldLabel htmlFor="test_phone">
+                                    WhatsApp number
+                                </FieldLabel>
                                 <FieldInput
                                     id="test_phone"
                                     type="tel"
                                     value={testPhone}
-                                    onChange={(e) => setTestPhone(e.target.value)}
+                                    onChange={(e) =>
+                                        setTestPhone(e.target.value)
+                                    }
                                     placeholder="+971501234567"
                                     autoComplete="tel"
                                     disabled={!canSendTests}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    Include country code (e.g. +971563769023). Recipient must be on
-                                    your Meta test list or have messaged your business number within
-                                    24 hours for text/files.
+                                    Include country code (e.g. +971563769023).
+                                    Recipient must be on your Meta test list or
+                                    have messaged your business number within 24
+                                    hours for text/files.
                                 </p>
                             </div>
 
                             <div className="space-y-1.5">
-                                <FieldLabel htmlFor="test_message">Text message</FieldLabel>
+                                <FieldLabel htmlFor="test_message">
+                                    Text message
+                                </FieldLabel>
                                 <Textarea
                                     id="test_message"
                                     value={testMessage}
-                                    onChange={(e) => setTestMessage(e.target.value)}
+                                    onChange={(e) =>
+                                        setTestMessage(e.target.value)
+                                    }
                                     rows={4}
                                     disabled={!canSendTests}
-                                    className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 focus-visible:ring-primary/40"
+                                    className="rounded-xl border-input bg-background/50 text-foreground focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                                 />
                             </div>
 
                             <div className="space-y-1.5 lg:col-span-2">
-                                <FieldLabel htmlFor="test_file">Test file</FieldLabel>
+                                <FieldLabel htmlFor="test_file">
+                                    Test file
+                                </FieldLabel>
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                                     <input
                                         ref={fileInputRef}
@@ -523,13 +591,17 @@ export function WhatsAppSettingsPanel({
                                         accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx"
                                         disabled={!canSendTests}
                                         onChange={(event) => {
-                                            setTestFile(event.target.files?.[0] ?? null);
+                                            setTestFile(
+                                                event.target.files?.[0] ?? null,
+                                            );
                                         }}
-                                        className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-muted dark:file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80 dark:hover:file:bg-white/15"
+                                        className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-muted file:px-4 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80 dark:file:bg-white/10 dark:hover:file:bg-white/15"
                                     />
                                     {testFile ? (
                                         <span className="text-xs text-muted-foreground">
-                                            {testFile.name} ({Math.round(testFile.size / 1024)} KB)
+                                            {testFile.name} (
+                                            {Math.round(testFile.size / 1024)}{' '}
+                                            KB)
                                         </span>
                                     ) : null}
                                 </div>
@@ -542,7 +614,9 @@ export function WhatsAppSettingsPanel({
                                 <FieldInput
                                     id="test_caption"
                                     value={testCaption}
-                                    onChange={(e) => setTestCaption(e.target.value)}
+                                    onChange={(e) =>
+                                        setTestCaption(e.target.value)
+                                    }
                                     placeholder="Test document from Herd OMS"
                                     disabled={!canSendTests}
                                 />
@@ -554,69 +628,79 @@ export function WhatsAppSettingsPanel({
                                 type="button"
                                 variant="outline"
                                 className="rounded-xl"
-                                    disabled={
-                                        !canSendTests ||
-                                        sendingText ||
-                                        sendingDocument ||
-                                        sendingTemplate ||
-                                        sendingDocumentTemplate
-                                    }
-                                    onClick={handleSendTestTemplate}
+                                disabled={
+                                    !canSendTests ||
+                                    sendingText ||
+                                    sendingDocument ||
+                                    sendingTemplate ||
+                                    sendingDocumentTemplate
+                                }
+                                onClick={handleSendTestTemplate}
                             >
-                                {sendingTemplate ? <Spinner className="mr-2" /> : null}
+                                {sendingTemplate ? (
+                                    <Spinner className="mr-2" />
+                                ) : null}
                                 Send hello_world template
                             </Button>
                             <Button
                                 type="button"
                                 variant="outline"
                                 className="rounded-xl"
-                                    disabled={
-                                        !canSendTests ||
-                                        sendingText ||
-                                        sendingDocument ||
-                                        sendingTemplate ||
-                                        sendingDocumentTemplate
-                                    }
-                                    onClick={handleSendTestText}
+                                disabled={
+                                    !canSendTests ||
+                                    sendingText ||
+                                    sendingDocument ||
+                                    sendingTemplate ||
+                                    sendingDocumentTemplate
+                                }
+                                onClick={handleSendTestText}
                             >
-                                {sendingText ? <Spinner className="mr-2" /> : null}
+                                {sendingText ? (
+                                    <Spinner className="mr-2" />
+                                ) : null}
                                 Send text message
                             </Button>
                             <Button
                                 type="button"
                                 variant="outline"
                                 className="rounded-xl"
-                                    disabled={
-                                        !canSendTests ||
-                                        sendingText ||
-                                        sendingDocument ||
-                                        sendingTemplate ||
-                                        sendingDocumentTemplate ||
-                                        !testFile
-                                    }
-                                    onClick={handleSendTestDocument}
+                                disabled={
+                                    !canSendTests ||
+                                    sendingText ||
+                                    sendingDocument ||
+                                    sendingTemplate ||
+                                    sendingDocumentTemplate ||
+                                    !testFile
+                                }
+                                onClick={handleSendTestDocument}
                             >
-                                {sendingDocument ? <Spinner className="mr-2" /> : null}
-                                    <FileUp className="mr-2 h-4 w-4" />
-                                    Send file
-                                </Button>
-                                <Button
-                                    type="button"
-                                    className="rounded-xl"
-                                    disabled={
-                                        !canSendTests ||
-                                        sendingText ||
-                                        sendingDocument ||
-                                        sendingTemplate ||
-                                        sendingDocumentTemplate ||
-                                        !testFile
-                                    }
-                                    onClick={handleSendTestDocumentTemplate}
-                                >
-                                    {sendingDocumentTemplate ? <Spinner className="mr-2" /> : null}
-                                    Send {selectedTestTemplate?.meta_name ?? 'document template'}
-                                </Button>
-                            </div>
+                                {sendingDocument ? (
+                                    <Spinner className="mr-2" />
+                                ) : null}
+                                <FileUp className="mr-2 h-4 w-4" />
+                                Send file
+                            </Button>
+                            <Button
+                                type="button"
+                                className="rounded-xl"
+                                disabled={
+                                    !canSendTests ||
+                                    sendingText ||
+                                    sendingDocument ||
+                                    sendingTemplate ||
+                                    sendingDocumentTemplate ||
+                                    !testFile
+                                }
+                                onClick={handleSendTestDocumentTemplate}
+                            >
+                                {sendingDocumentTemplate ? (
+                                    <Spinner className="mr-2" />
+                                ) : null}
+                                Send{' '}
+                                {selectedTestTemplate?.meta_name ??
+                                    'document template'}
+                            </Button>
+                        </div>
 
                         {document_templates.length > 0 ? (
                             <div className="grid gap-5 sm:grid-cols-2">
@@ -631,16 +715,21 @@ export function WhatsAppSettingsPanel({
                                     >
                                         <SelectTrigger
                                             id="test_template_slug"
-                                            className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 h-11"
+                                            className="h-11 rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5"
                                         >
                                             <SelectValue placeholder="Select template" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {document_templates.map((template) => (
-                                                <SelectItem key={template.slug} value={template.slug}>
-                                                    {template.label}
-                                                </SelectItem>
-                                            ))}
+                                            {document_templates.map(
+                                                (template) => (
+                                                    <SelectItem
+                                                        key={template.slug}
+                                                        value={template.slug}
+                                                    >
+                                                        {template.label}
+                                                    </SelectItem>
+                                                ),
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -652,8 +741,12 @@ export function WhatsAppSettingsPanel({
                                     <FieldInput
                                         id="preview_sample_name"
                                         value={previewSampleName}
-                                        onChange={(e) => setPreviewSampleName(e.target.value)}
-                                        placeholder={default_preview_sample_name}
+                                        onChange={(e) =>
+                                            setPreviewSampleName(e.target.value)
+                                        }
+                                        placeholder={
+                                            default_preview_sample_name
+                                        }
                                     />
                                 </div>
                             </div>
@@ -661,12 +754,14 @@ export function WhatsAppSettingsPanel({
 
                         {!canSendTests ? (
                             <p className="text-xs text-muted-foreground">
-                                Save and enable WhatsApp settings with all credentials before
-                                sending test messages.
+                                Save and enable WhatsApp settings with all
+                                credentials before sending test messages.
                             </p>
                         ) : null}
 
-                        {testResult ? <WhatsAppTestResultPanel result={testResult} /> : null}
+                        {testResult ? (
+                            <WhatsAppTestResultPanel result={testResult} />
+                        ) : null}
                     </CardContent>
                 </Card>
             ) : null}
@@ -676,11 +771,16 @@ export function WhatsAppSettingsPanel({
                 <AlertTitle>WhatsApp templates</AlertTitle>
                 <AlertDescription className="space-y-3">
                     <p>
-                        Document and payroll message templates are managed separately from API
-                        credentials.
+                        Document and payroll message templates are managed
+                        separately from API credentials.
                     </p>
                     {canViewTemplateLibrary ? (
-                        <Button asChild variant="outline" size="sm" className="rounded-xl">
+                        <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl"
+                        >
                             <Link href="/settings/application/whatsapp-templates">
                                 Open template library
                             </Link>
@@ -691,16 +791,19 @@ export function WhatsAppSettingsPanel({
 
             <form onSubmit={submit} className="space-y-6">
                 <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
-                    <CardContent className="p-6 space-y-6">
+                    <CardContent className="space-y-6 p-6">
                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-2xl border border-green-500/20 bg-green-500/10 flex items-center justify-center shrink-0">
-                                <MessageCircle className="w-5 h-5 text-green-600" />
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-green-500/20 bg-green-500/10">
+                                <MessageCircle className="h-5 w-5 text-green-600" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold tracking-tight">API credentials</h2>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    Paste your Meta WhatsApp Business Cloud API values. Use a
-                                    permanent token from Meta Business Settings → System users.
+                                <h2 className="text-base font-bold tracking-tight">
+                                    API credentials
+                                </h2>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                    Paste your Meta WhatsApp Business Cloud API
+                                    values. Use a permanent token from Meta
+                                    Business Settings → System users.
                                 </p>
                             </div>
                         </div>
@@ -714,24 +817,38 @@ export function WhatsAppSettingsPanel({
                                     id="business_account_id"
                                     value={form.data.business_account_id}
                                     onChange={(e) =>
-                                        form.setData('business_account_id', e.target.value)
+                                        form.setData(
+                                            'business_account_id',
+                                            e.target.value,
+                                        )
                                     }
                                     disabled={!can.update}
                                     autoComplete="off"
                                 />
-                                <InputError message={form.errors.business_account_id} />
+                                <InputError
+                                    message={form.errors.business_account_id}
+                                />
                             </div>
 
                             <div className="space-y-1.5">
-                                <FieldLabel htmlFor="phone_number_id">Phone number ID</FieldLabel>
+                                <FieldLabel htmlFor="phone_number_id">
+                                    Phone number ID
+                                </FieldLabel>
                                 <FieldInput
                                     id="phone_number_id"
                                     value={form.data.phone_number_id}
-                                    onChange={(e) => form.setData('phone_number_id', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'phone_number_id',
+                                            e.target.value,
+                                        )
+                                    }
                                     disabled={!can.update}
                                     autoComplete="off"
                                 />
-                                <InputError message={form.errors.phone_number_id} />
+                                <InputError
+                                    message={form.errors.phone_number_id}
+                                />
                             </div>
 
                             <div className="space-y-1.5">
@@ -739,7 +856,9 @@ export function WhatsAppSettingsPanel({
                                 <FieldInput
                                     id="app_id"
                                     value={form.data.app_id}
-                                    onChange={(e) => form.setData('app_id', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData('app_id', e.target.value)
+                                    }
                                     disabled={!can.update}
                                     autoComplete="off"
                                 />
@@ -747,26 +866,40 @@ export function WhatsAppSettingsPanel({
                             </div>
 
                             <div className="space-y-1.5 sm:col-span-2">
-                                <FieldLabel htmlFor="access_token">Access token</FieldLabel>
+                                <FieldLabel htmlFor="access_token">
+                                    Access token
+                                </FieldLabel>
                                 <SettingsSecretInput
                                     id="access_token"
                                     value={form.data.access_token}
                                     onChange={(e) =>
-                                        form.setData('access_token', e.target.value)
+                                        form.setData(
+                                            'access_token',
+                                            e.target.value,
+                                        )
                                     }
                                     placeholder="Permanent access token"
                                     disabled={!can.update}
                                     autoComplete="new-password"
                                 />
-                                <InputError message={form.errors.access_token} />
+                                <InputError
+                                    message={form.errors.access_token}
+                                />
                             </div>
 
                             <div className="space-y-1.5 sm:col-span-2">
-                                <FieldLabel htmlFor="app_secret">App secret</FieldLabel>
+                                <FieldLabel htmlFor="app_secret">
+                                    App secret
+                                </FieldLabel>
                                 <SettingsSecretInput
                                     id="app_secret"
                                     value={form.data.app_secret}
-                                    onChange={(e) => form.setData('app_secret', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'app_secret',
+                                            e.target.value,
+                                        )
+                                    }
                                     placeholder="App secret"
                                     disabled={!can.update}
                                     autoComplete="new-password"
@@ -782,20 +915,27 @@ export function WhatsAppSettingsPanel({
                                     id="webhook_verify_token"
                                     value={form.data.webhook_verify_token}
                                     onChange={(e) =>
-                                        form.setData('webhook_verify_token', e.target.value)
+                                        form.setData(
+                                            'webhook_verify_token',
+                                            e.target.value,
+                                        )
                                     }
                                     placeholder="Webhook verify token"
                                     disabled={!can.update}
                                     autoComplete="off"
                                 />
-                                <InputError message={form.errors.webhook_verify_token} />
+                                <InputError
+                                    message={form.errors.webhook_verify_token}
+                                />
                             </div>
 
                             <div className="space-y-1.5 sm:col-span-2">
-                                <FieldLabel htmlFor="callback_url">Callback URL</FieldLabel>
+                                <FieldLabel htmlFor="callback_url">
+                                    Callback URL
+                                </FieldLabel>
                                 <div className="flex gap-2">
                                     <div className="relative flex-1">
-                                        <Link2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 pointer-events-none" />
+                                        <Link2 className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
                                         <FieldInput
                                             id="callback_url"
                                             value={callback_url}
@@ -814,21 +954,26 @@ export function WhatsAppSettingsPanel({
                                     </Button>
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    Register this URL in your Meta app webhook settings.
+                                    Register this URL in your Meta app webhook
+                                    settings.
                                 </p>
                             </div>
 
-                            <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 dark:border-white/10 dark:bg-white/5 px-4 py-3 sm:col-span-2">
+                            <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 px-4 py-3 sm:col-span-2 dark:border-white/10 dark:bg-white/5">
                                 <div>
-                                    <p className="text-sm font-medium">Enabled</p>
+                                    <p className="text-sm font-medium">
+                                        Enabled
+                                    </p>
                                     <p className="text-xs text-muted-foreground">
-                                        Allow modules to send WhatsApp messages using these
-                                        credentials.
+                                        Allow modules to send WhatsApp messages
+                                        using these credentials.
                                     </p>
                                 </div>
                                 <Switch
                                     checked={form.data.enabled}
-                                    onCheckedChange={(checked) => form.setData('enabled', checked)}
+                                    onCheckedChange={(checked) =>
+                                        form.setData('enabled', checked)
+                                    }
                                     disabled={!can.update}
                                 />
                             </div>
@@ -838,8 +983,14 @@ export function WhatsAppSettingsPanel({
 
                 {can.update ? (
                     <div className="flex flex-wrap items-center gap-3">
-                        <Button type="submit" disabled={form.processing} className="rounded-xl">
-                            {form.processing ? <Spinner className="mr-2" /> : null}
+                        <Button
+                            type="submit"
+                            disabled={form.processing}
+                            className="rounded-xl"
+                        >
+                            {form.processing ? (
+                                <Spinner className="mr-2" />
+                            ) : null}
                             Save settings
                         </Button>
                         <Button
@@ -867,8 +1018,8 @@ function StatusItem({
     children: React.ReactNode;
 }) {
     return (
-        <div className="rounded-xl border border-border/80 bg-muted/20 dark:border-white/10 dark:bg-white/5 px-4 py-3 space-y-1">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">
+        <div className="space-y-1 rounded-xl border border-border/80 bg-muted/20 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+            <p className="text-[10px] font-bold tracking-widest text-muted-foreground/60 uppercase">
                 {label}
             </p>
             {children}
@@ -876,11 +1027,15 @@ function StatusItem({
     );
 }
 
-function WhatsAppTestResultPanel({ result }: { result: WhatsAppTestSendResult }) {
+function WhatsAppTestResultPanel({
+    result,
+}: {
+    result: WhatsAppTestSendResult;
+}) {
     return (
         <div
             className={cn(
-                'rounded-xl border px-4 py-4 text-sm space-y-4',
+                'space-y-4 rounded-xl border px-4 py-4 text-sm',
                 result.success
                     ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600'
                     : 'border-destructive/20 bg-destructive/5 text-destructive',
@@ -894,24 +1049,39 @@ function WhatsAppTestResultPanel({ result }: { result: WhatsAppTestSendResult })
                     </p>
                 ) : null}
                 {result.delivery_note ? (
-                    <p className="text-xs text-current/80">{result.delivery_note}</p>
+                    <p className="text-xs text-current/80">
+                        {result.delivery_note}
+                    </p>
                 ) : null}
                 {result.message_id ? (
-                    <p className="font-mono text-xs break-all">Message ID: {result.message_id}</p>
+                    <p className="font-mono text-xs break-all">
+                        Message ID: {result.message_id}
+                    </p>
                 ) : null}
                 {result.media_id ? (
-                    <p className="font-mono text-xs break-all">Media ID: {result.media_id}</p>
+                    <p className="font-mono text-xs break-all">
+                        Media ID: {result.media_id}
+                    </p>
                 ) : null}
-                {result.http_status ? <p className="text-xs">HTTP {result.http_status}</p> : null}
+                {result.http_status ? (
+                    <p className="text-xs">HTTP {result.http_status}</p>
+                ) : null}
             </div>
 
             {result.media_api ? (
-                <WhatsAppApiExchangePanel title="Step 1 — Media upload" exchange={result.media_api} />
+                <WhatsAppApiExchangePanel
+                    title="Step 1 — Media upload"
+                    exchange={result.media_api}
+                />
             ) : null}
 
             {result.api ? (
                 <WhatsAppApiExchangePanel
-                    title={result.media_api ? 'Step 2 — Send message' : 'Meta Graph API'}
+                    title={
+                        result.media_api
+                            ? 'Step 2 — Send message'
+                            : 'Meta Graph API'
+                    }
                     exchange={result.api}
                 />
             ) : null}
@@ -928,27 +1098,27 @@ function WhatsAppApiExchangePanel({
 }) {
     return (
         <div className="space-y-3 rounded-lg border border-current/15 bg-black/10 p-3 text-foreground">
-            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            <p className="text-xs font-bold tracking-widest text-muted-foreground uppercase">
                 {title}
             </p>
 
             <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                <p className="text-[10px] font-bold tracking-widest text-muted-foreground/70 uppercase">
                     Request
                 </p>
                 <p className="font-mono text-xs break-all text-emerald-700 dark:text-emerald-400">
                     {exchange.request.method} {exchange.request.url}
                 </p>
-                <pre className="max-h-64 overflow-auto rounded-lg border border-border/80 bg-muted/10 dark:border-white/10 dark:bg-black/20 p-3 font-mono text-[11px] leading-relaxed text-foreground/90">
+                <pre className="max-h-64 overflow-auto rounded-lg border border-border/80 bg-muted/10 p-3 font-mono text-[11px] leading-relaxed text-foreground/90 dark:border-white/10 dark:bg-black/20">
                     {JSON.stringify(exchange.request.payload, null, 2)}
                 </pre>
             </div>
 
             <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                <p className="text-[10px] font-bold tracking-widest text-muted-foreground/70 uppercase">
                     Response — HTTP {exchange.response.http_status}
                 </p>
-                <pre className="max-h-64 overflow-auto rounded-lg border border-border/80 bg-muted/10 dark:border-white/10 dark:bg-black/20 p-3 font-mono text-[11px] leading-relaxed text-foreground/90">
+                <pre className="max-h-64 overflow-auto rounded-lg border border-border/80 bg-muted/10 p-3 font-mono text-[11px] leading-relaxed text-foreground/90 dark:border-white/10 dark:bg-black/20">
                     {JSON.stringify(exchange.response.body, null, 2)}
                 </pre>
             </div>

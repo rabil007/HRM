@@ -48,7 +48,10 @@ export function BrandingUploadField({
 
     return (
         <div className="space-y-2">
-            <Label htmlFor={inputId} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
+            <Label
+                htmlFor={inputId}
+                className="text-xs font-semibold tracking-wider text-muted-foreground/80 uppercase"
+            >
                 {label}
             </Label>
 
@@ -60,21 +63,37 @@ export function BrandingUploadField({
             >
                 <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-muted/40">
                     {displayUrl ? (
-                        <img src={displayUrl} alt={`${label} preview`} className="max-h-full max-w-full object-contain p-1" />
+                        <img
+                            src={displayUrl}
+                            alt={`${label} preview`}
+                            className="max-h-full max-w-full object-contain p-1"
+                        />
                     ) : (
                         <ImageIcon className="size-8 text-muted-foreground/40" />
                     )}
                 </div>
 
                 <div className="flex flex-1 flex-col gap-2">
-                    {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+                    {hint ? (
+                        <p className="text-xs text-muted-foreground">{hint}</p>
+                    ) : null}
                     <div className="flex flex-wrap gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => inputRef.current?.click()}
+                        >
                             <Upload className="size-3.5" />
                             {displayUrl ? 'Replace' : 'Upload'}
                         </Button>
-                        {currentUrl && ! preview ? (
-                            <Button type="button" variant="ghost" size="sm" onClick={removeImage}>
+                        {currentUrl && !preview ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={removeImage}
+                            >
                                 <Trash2 className="size-3.5" />
                                 Remove
                             </Button>
@@ -88,11 +107,15 @@ export function BrandingUploadField({
                     type="file"
                     accept={accept}
                     className="sr-only"
-                    onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
+                    onChange={(e) =>
+                        handleFileChange(e.target.files?.[0] ?? null)
+                    }
                 />
             </div>
 
-            {error ? <p className="text-xs font-medium text-destructive">{error}</p> : null}
+            {error ? (
+                <p className="text-xs font-medium text-destructive">{error}</p>
+            ) : null}
         </div>
     );
 }

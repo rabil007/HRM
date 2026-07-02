@@ -16,9 +16,10 @@ import { Spinner } from '@/components/ui/spinner';
 import type { EmployeeLinkOption, HikvisionPerson } from './types';
 
 function formatEmployeeLabel(option: EmployeeLinkOption): string {
-    const parts = [option.name?.trim(), option.employee_no ? `#${option.employee_no}` : null].filter(
-        Boolean,
-    );
+    const parts = [
+        option.name?.trim(),
+        option.employee_no ? `#${option.employee_no}` : null,
+    ].filter(Boolean);
 
     return parts.join(' · ') || `Employee #${option.id}`;
 }
@@ -29,7 +30,10 @@ function buildOptions(
 ): EmployeeLinkOption[] {
     const options = [...employeesForLinking];
 
-    if (person.linked_employee && !options.some((option) => option.id === person.linked_employee?.id)) {
+    if (
+        person.linked_employee &&
+        !options.some((option) => option.id === person.linked_employee?.id)
+    ) {
         options.unshift(person.linked_employee);
     }
 
@@ -48,7 +52,9 @@ export function LinkPersonEmployeeDialog({
     employeesForLinking: EmployeeLinkOption[];
 }): ReactElement | null {
     const form = useForm({
-        employee_id: person?.linked_employee?.id ? String(person.linked_employee.id) : '',
+        employee_id: person?.linked_employee?.id
+            ? String(person.linked_employee.id)
+            : '',
     });
 
     useEffect(() => {
@@ -75,7 +81,9 @@ export function LinkPersonEmployeeDialog({
             form.clearErrors();
             form.setData(
                 'employee_id',
-                person.linked_employee?.id ? String(person.linked_employee.id) : '',
+                person.linked_employee?.id
+                    ? String(person.linked_employee.id)
+                    : '',
             );
         }
 
@@ -110,8 +118,8 @@ export function LinkPersonEmployeeDialog({
                 <DialogHeader>
                     <DialogTitle>Link employee</DialogTitle>
                     <DialogDescription>
-                        Connect {person.full_name ?? 'this person'} to an employee record in your
-                        organization.
+                        Connect {person.full_name ?? 'this person'} to an
+                        employee record in your organization.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -120,19 +128,28 @@ export function LinkPersonEmployeeDialog({
                         <Label htmlFor="person-employee-link">Employee</Label>
                         <AppSelect
                             value={form.data.employee_id}
-                            onValueChange={(value) => form.setData('employee_id', value)}
+                            onValueChange={(value) =>
+                                form.setData('employee_id', value)
+                            }
                             variant="card"
                             placeholder="Select employee"
                         >
-                            <AppSelectItem value="">No linked employee</AppSelectItem>
+                            <AppSelectItem value="">
+                                No linked employee
+                            </AppSelectItem>
                             {options.map((option) => (
-                                <AppSelectItem key={option.id} value={String(option.id)}>
+                                <AppSelectItem
+                                    key={option.id}
+                                    value={String(option.id)}
+                                >
                                     {formatEmployeeLabel(option)}
                                 </AppSelectItem>
                             ))}
                         </AppSelect>
                         {form.errors.employee_id ? (
-                            <p className="text-xs text-destructive">{form.errors.employee_id}</p>
+                            <p className="text-xs text-destructive">
+                                {form.errors.employee_id}
+                            </p>
                         ) : null}
                     </div>
                 </div>
@@ -161,8 +178,14 @@ export function LinkPersonEmployeeDialog({
                         >
                             Cancel
                         </Button>
-                        <Button type="button" onClick={submit} disabled={form.processing}>
-                            {form.processing ? <Spinner className="mr-2" /> : null}
+                        <Button
+                            type="button"
+                            onClick={submit}
+                            disabled={form.processing}
+                        >
+                            {form.processing ? (
+                                <Spinner className="mr-2" />
+                            ) : null}
                             Save link
                         </Button>
                     </div>

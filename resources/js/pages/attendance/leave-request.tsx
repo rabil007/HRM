@@ -1,7 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { FileText } from 'lucide-react';
-import { useState  } from 'react';
-import type {ReactNode} from 'react';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
@@ -13,21 +13,22 @@ import { LeaveRequestFormSheet } from '@/features/attendance/leave-requests/comp
 import { LeaveRequestRejectDialog } from '@/features/attendance/leave-requests/components/leave-request-reject-dialog';
 import { LeaveRequestRowActions } from '@/features/attendance/leave-requests/components/leave-request-row-actions';
 import { LeaveRequestStatusBadge } from '@/features/attendance/leave-requests/components/leave-request-status-badge';
-import {
-    leaveRequestToFormData
-    
-    
-    
-    
+import { leaveRequestToFormData } from '@/features/attendance/leave-requests/types';
+import type {
+    LeaveRequest,
+    LeaveRequestEmployeeOption,
+    LeaveRequestPermissions,
+    LeaveRequestTypeOption,
 } from '@/features/attendance/leave-requests/types';
-import type {LeaveRequest, LeaveRequestEmployeeOption, LeaveRequestPermissions, LeaveRequestTypeOption} from '@/features/attendance/leave-requests/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 
 function Field({ label, value }: { label: string; value: ReactNode }) {
     return (
         <div className="flex items-center justify-between gap-3 px-6 py-4">
-            <div className="text-sm font-semibold text-muted-foreground/80">{label}</div>
+            <div className="text-sm font-semibold text-muted-foreground/80">
+                {label}
+            </div>
             <div className="text-right text-sm font-bold">{value}</div>
         </div>
     );
@@ -79,10 +80,17 @@ export default function LeaveRequestDetails({
     };
 
     const approve = () => {
-        router.put(`/attendance/leave-requests/${leave_request.id}/approve`, {}, {
-            preserveScroll: true,
-            onError: () => toast.error('Failed to approve leave request. Please try again.'),
-        });
+        router.put(
+            `/attendance/leave-requests/${leave_request.id}/approve`,
+            {},
+            {
+                preserveScroll: true,
+                onError: () =>
+                    toast.error(
+                        'Failed to approve leave request. Please try again.',
+                    ),
+            },
+        );
     };
 
     const reject = () => {
@@ -95,7 +103,9 @@ export default function LeaveRequestDetails({
 
     return (
         <Main>
-            <Head title={`Leave request • ${leave_request.employee?.name ?? 'Unknown'}`} />
+            <Head
+                title={`Leave request • ${leave_request.employee?.name ?? 'Unknown'}`}
+            />
 
             <DetailsHeader
                 kicker="Attendance"
@@ -121,15 +131,29 @@ export default function LeaveRequestDetails({
                 <Card className="glass-card border-border bg-card dark:border-white/5 dark:bg-white/5">
                     <CardHeader className="flex flex-row items-start justify-between gap-4">
                         <div className="space-y-1">
-                            <CardTitle className="text-xl font-bold tracking-tight">Request details</CardTitle>
-                            <div className="text-sm text-muted-foreground/80">Employee leave request information.</div>
+                            <CardTitle className="text-xl font-bold tracking-tight">
+                                Request details
+                            </CardTitle>
+                            <div className="text-sm text-muted-foreground/80">
+                                Employee leave request information.
+                            </div>
                         </div>
-                        <LeaveRequestStatusBadge status={leave_request.status} />
+                        <LeaveRequestStatusBadge
+                            status={leave_request.status}
+                        />
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="divide-y divide-border dark:divide-white/5">
-                            <Field label="Employee" value={leave_request.employee?.name ?? '—'} />
-                            <Field label="Employee no." value={leave_request.employee?.employee_no ?? '—'} />
+                            <Field
+                                label="Employee"
+                                value={leave_request.employee?.name ?? '—'}
+                            />
+                            <Field
+                                label="Employee no."
+                                value={
+                                    leave_request.employee?.employee_no ?? '—'
+                                }
+                            />
                             <Field
                                 label="Leave type"
                                 value={
@@ -137,40 +161,97 @@ export default function LeaveRequestDetails({
                                         <div className="flex items-center justify-end gap-2">
                                             <span
                                                 className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-black/10 dark:border-white/10"
-                                                style={{ backgroundColor: leave_request.leave_type.color ?? '#94a3b8' }}
+                                                style={{
+                                                    backgroundColor:
+                                                        leave_request.leave_type
+                                                            .color ?? '#94a3b8',
+                                                }}
                                             />
-                                            <span>{leave_request.leave_type.name}</span>
+                                            <span>
+                                                {leave_request.leave_type.name}
+                                            </span>
                                         </div>
                                     ) : (
                                         '—'
                                     )
                                 }
                             />
-                            <Field label="Start date" value={formatDisplayDate(leave_request.start_date)} />
-                            <Field label="End date" value={formatDisplayDate(leave_request.end_date)} />
-                            <Field label="Total days" value={String(leave_request.total_days)} />
-                            <Field label="Reason" value={leave_request.reason?.trim() ? leave_request.reason : '—'} />
+                            <Field
+                                label="Start date"
+                                value={formatDisplayDate(
+                                    leave_request.start_date,
+                                )}
+                            />
+                            <Field
+                                label="End date"
+                                value={formatDisplayDate(
+                                    leave_request.end_date,
+                                )}
+                            />
+                            <Field
+                                label="Total days"
+                                value={String(leave_request.total_days)}
+                            />
+                            <Field
+                                label="Reason"
+                                value={
+                                    leave_request.reason?.trim()
+                                        ? leave_request.reason
+                                        : '—'
+                                }
+                            />
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card className="glass-card border-border bg-card dark:border-white/5 dark:bg-white/5">
                     <CardHeader>
-                        <CardTitle className="text-xl font-bold tracking-tight">Decision</CardTitle>
+                        <CardTitle className="text-xl font-bold tracking-tight">
+                            Decision
+                        </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-0 p-0">
                         <div className="divide-y divide-border dark:divide-white/5">
-                            <Field label="Approver" value={leave_request.approver?.name ?? '—'} />
-                            <Field label="Decided at" value={leave_request.decided_at ? formatDisplayDate(leave_request.decided_at) : '—'} />
+                            <Field
+                                label="Approver"
+                                value={leave_request.approver?.name ?? '—'}
+                            />
+                            <Field
+                                label="Decided at"
+                                value={
+                                    leave_request.decided_at
+                                        ? formatDisplayDate(
+                                              leave_request.decided_at,
+                                          )
+                                        : '—'
+                                }
+                            />
                             <Field
                                 label="Rejection reason"
-                                value={leave_request.rejection_reason?.trim() ? leave_request.rejection_reason : '—'}
+                                value={
+                                    leave_request.rejection_reason?.trim()
+                                        ? leave_request.rejection_reason
+                                        : '—'
+                                }
                             />
                             <Field
                                 label="Cancellation reason"
-                                value={leave_request.cancellation_reason?.trim() ? leave_request.cancellation_reason : '—'}
+                                value={
+                                    leave_request.cancellation_reason?.trim()
+                                        ? leave_request.cancellation_reason
+                                        : '—'
+                                }
                             />
-                            <Field label="Created" value={leave_request.created_at ? formatDisplayDate(leave_request.created_at) : '—'} />
+                            <Field
+                                label="Created"
+                                value={
+                                    leave_request.created_at
+                                        ? formatDisplayDate(
+                                              leave_request.created_at,
+                                          )
+                                        : '—'
+                                }
+                            />
                         </div>
 
                         {leave_request.attachments[0] ? (
@@ -180,7 +261,9 @@ export default function LeaveRequestDetails({
                                     className="flex items-center gap-2 text-sm font-medium text-primary hover:underline"
                                 >
                                     <FileText className="size-4 shrink-0" />
-                                    <span className="truncate">{leave_request.attachments[0].name}</span>
+                                    <span className="truncate">
+                                        {leave_request.attachments[0].name}
+                                    </span>
                                 </a>
                             </div>
                         ) : null}
@@ -189,7 +272,10 @@ export default function LeaveRequestDetails({
             </div>
 
             {can_view_audit ? (
-                <RecentActivityCard items={recent_activity} description="Latest changes for this leave request." />
+                <RecentActivityCard
+                    items={recent_activity}
+                    description="Latest changes for this leave request."
+                />
             ) : null}
 
             {canModify ? (
@@ -211,9 +297,13 @@ export default function LeaveRequestDetails({
                 onOpenChange={setIsDeleteOpen}
                 leaveRequest={leave_request}
                 onConfirm={() => {
-                    router.delete(`/attendance/leave-requests/${leave_request.id}`, {
-                        onSuccess: () => router.visit('/attendance/leave-requests'),
-                    });
+                    router.delete(
+                        `/attendance/leave-requests/${leave_request.id}`,
+                        {
+                            onSuccess: () =>
+                                router.visit('/attendance/leave-requests'),
+                        },
+                    );
                 }}
             />
 

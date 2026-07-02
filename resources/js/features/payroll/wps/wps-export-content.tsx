@@ -31,7 +31,12 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { PayrollCategoryBadge } from '../components/payroll-category-badge';
@@ -63,7 +68,8 @@ export function WpsExportContent({
     const [skippedOpen, setSkippedOpen] = useState(true);
 
     const selectedPeriod = useMemo(
-        () => periods.find((period) => period.id === selected_period_id) ?? null,
+        () =>
+            periods.find((period) => period.id === selected_period_id) ?? null,
         [periods, selected_period_id],
     );
 
@@ -88,8 +94,7 @@ export function WpsExportContent({
         preview.skipped.length === 0 &&
         !companyConfigMissing;
 
-    const noEligible =
-        preview !== null && preview.eligible_count === 0;
+    const noEligible = preview !== null && preview.eligible_count === 0;
 
     return (
         <Main>
@@ -110,7 +115,7 @@ export function WpsExportContent({
 
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end">
                 <div className="min-w-0 flex-1 space-y-2">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Pay period
                     </label>
                     <AppSelect
@@ -128,9 +133,12 @@ export function WpsExportContent({
                                 keywords={periodSearchKeywords(period)}
                             >
                                 <span className="flex flex-col gap-0.5 text-left">
-                                    <span className="font-medium">{period.name}</span>
+                                    <span className="font-medium">
+                                        {period.name}
+                                    </span>
                                     <span className="text-xs text-muted-foreground">
-                                        {period.status_label} · {period.payroll_category_label} ·{' '}
+                                        {period.status_label} ·{' '}
+                                        {period.payroll_category_label} ·{' '}
                                         {formatPeriodDateRange(period)}
                                     </span>
                                 </span>
@@ -142,7 +150,9 @@ export function WpsExportContent({
 
             {!preview ? (
                 <EmptyState
-                    icon={<FileDown className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />}
+                    icon={
+                        <FileDown className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
+                    }
                     title="No period selected"
                     description="Choose a pay period above to preview eligible employees and export WPS files."
                 />
@@ -153,25 +163,36 @@ export function WpsExportContent({
                             <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="space-y-2">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <h2 className="text-lg font-semibold">{selectedPeriod.name}</h2>
+                                        <h2 className="text-lg font-semibold">
+                                            {selectedPeriod.name}
+                                        </h2>
                                         <PayrollPeriodStatusBadge
                                             status={selectedPeriod.status}
                                             label={selectedPeriod.status_label}
                                         />
                                         <PayrollCategoryBadge
-                                            category={selectedPeriod.payroll_category}
+                                            category={
+                                                selectedPeriod.payroll_category
+                                            }
                                         />
                                     </div>
                                     <p className="text-sm text-muted-foreground">
-                                        {formatPeriodDateRange(selectedPeriod)} · Payment period for WPS
-                                        export
+                                        {formatPeriodDateRange(selectedPeriod)}{' '}
+                                        · Payment period for WPS export
                                     </p>
                                 </div>
-                                <Button variant="outline" className="rounded-xl" asChild>
+                                <Button
+                                    variant="outline"
+                                    className="rounded-xl"
+                                    asChild
+                                >
                                     <Link
-                                        href={payrollShow.url(selectedPeriod.id, {
-                                            query: { tab: 'payroll' },
-                                        })}
+                                        href={payrollShow.url(
+                                            selectedPeriod.id,
+                                            {
+                                                query: { tab: 'payroll' },
+                                            },
+                                        )}
                                     >
                                         Open pay run
                                         <ChevronRight className="ml-2 h-4 w-4" />
@@ -184,10 +205,13 @@ export function WpsExportContent({
                     {companyConfigMissing ? (
                         <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
-                            <AlertTitle>Company WPS configuration incomplete</AlertTitle>
+                            <AlertTitle>
+                                Company WPS configuration incomplete
+                            </AlertTitle>
                             <AlertDescription>
-                                Set the WPS MOL UID and agent code on the company profile before
-                                exporting. Employees cannot be included until company WPS fields are
+                                Set the WPS MOL UID and agent code on the
+                                company profile before exporting. Employees
+                                cannot be included until company WPS fields are
                                 configured.
                             </AlertDescription>
                         </Alert>
@@ -199,8 +223,8 @@ export function WpsExportContent({
                             <AlertTitle>Ready to export</AlertTitle>
                             <AlertDescription>
                                 All {preview.eligible_count} payroll record
-                                {preview.eligible_count === 1 ? '' : 's'} in this period are eligible
-                                for WPS export.
+                                {preview.eligible_count === 1 ? '' : 's'} in
+                                this period are eligible for WPS export.
                             </AlertDescription>
                         </Alert>
                     ) : null}
@@ -210,9 +234,10 @@ export function WpsExportContent({
                             <AlertCircle className="h-4 w-4" />
                             <AlertTitle>No eligible records</AlertTitle>
                             <AlertDescription>
-                                No payroll records in this period meet WPS requirements. Review skipped
-                                employees below and fix missing contract IDs, bank accounts, or approval
-                                status.
+                                No payroll records in this period meet WPS
+                                requirements. Review skipped employees below and
+                                fix missing contract IDs, bank accounts, or
+                                approval status.
                             </AlertDescription>
                         </Alert>
                     ) : null}
@@ -268,20 +293,23 @@ export function WpsExportContent({
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 <div>
-                                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                                    <p className="mb-1 text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
                                         MOL UID
                                     </p>
                                     <Badge
                                         variant={
-                                            preview.company.wps_mol_uid ? 'outline' : 'destructive'
+                                            preview.company.wps_mol_uid
+                                                ? 'outline'
+                                                : 'destructive'
                                         }
                                         className="font-mono"
                                     >
-                                        {preview.company.wps_mol_uid ?? 'Not configured'}
+                                        {preview.company.wps_mol_uid ??
+                                            'Not configured'}
                                     </Badge>
                                 </div>
                                 <div>
-                                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                                    <p className="mb-1 text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
                                         Agent code
                                     </p>
                                     <Badge
@@ -292,11 +320,12 @@ export function WpsExportContent({
                                         }
                                         className="font-mono"
                                     >
-                                        {preview.company.wps_agent_code ?? 'Not configured'}
+                                        {preview.company.wps_agent_code ??
+                                            'Not configured'}
                                     </Badge>
                                 </div>
                                 <div>
-                                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                                    <p className="mb-1 text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
                                         Employer IBAN
                                     </p>
                                     <Badge
@@ -307,7 +336,8 @@ export function WpsExportContent({
                                         }
                                         className="max-w-full font-mono text-xs break-all"
                                     >
-                                        {preview.company.wps_employer_iban ?? 'Not configured'}
+                                        {preview.company.wps_employer_iban ??
+                                            'Not configured'}
                                     </Badge>
                                 </div>
                             </CardContent>
@@ -315,7 +345,10 @@ export function WpsExportContent({
                     </div>
 
                     {preview.skipped.length > 0 ? (
-                        <Collapsible open={skippedOpen} onOpenChange={setSkippedOpen}>
+                        <Collapsible
+                            open={skippedOpen}
+                            onOpenChange={setSkippedOpen}
+                        >
                             <Card className="glass-card border-amber-500/20">
                                 <CardHeader className="pb-3">
                                     <CollapsibleTrigger asChild>
@@ -325,11 +358,12 @@ export function WpsExportContent({
                                         >
                                             <div className="text-left">
                                                 <CardTitle className="text-base">
-                                                    Skipped employees ({preview.skipped.length})
+                                                    Skipped employees (
+                                                    {preview.skipped.length})
                                                 </CardTitle>
                                                 <p className="mt-1 text-sm font-normal text-muted-foreground">
-                                                    These records will not be included in the SIF
-                                                    file
+                                                    These records will not be
+                                                    included in the SIF file
                                                 </p>
                                             </div>
                                             <ChevronDown
@@ -349,24 +383,32 @@ export function WpsExportContent({
                                                     <DataTableHead className="pl-5">
                                                         Employee
                                                     </DataTableHead>
-                                                    <DataTableHead>Reason</DataTableHead>
+                                                    <DataTableHead>
+                                                        Reason
+                                                    </DataTableHead>
                                                 </DataTableHeaderRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {preview.skipped.map((row) => (
                                                     <TableRow
                                                         key={`${row.record_id}-${row.employee_no ?? 'company'}`}
-                                                        className={dataTableBodyRowClass(false)}
+                                                        className={dataTableBodyRowClass(
+                                                            false,
+                                                        )}
                                                     >
                                                         <TableCell
                                                             className={dataTableCellPrimaryClass()}
                                                         >
                                                             <div className="font-semibold">
-                                                                {row.employee_name}
+                                                                {
+                                                                    row.employee_name
+                                                                }
                                                             </div>
                                                             {row.employee_no ? (
                                                                 <div className="text-xs text-muted-foreground">
-                                                                    {row.employee_no}
+                                                                    {
+                                                                        row.employee_no
+                                                                    }
                                                                 </div>
                                                             ) : null}
                                                         </TableCell>

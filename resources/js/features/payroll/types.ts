@@ -291,7 +291,9 @@ export type SalaryInputFormData = {
     notes: string;
 };
 
-export type PayrollRecordListItem = CrewPayrollRecordListItem | OfficePayrollRecordListItem;
+export type PayrollRecordListItem =
+    | CrewPayrollRecordListItem
+    | OfficePayrollRecordListItem;
 
 export type PayrollGenerationSummary = {
     generated_count: number;
@@ -359,7 +361,9 @@ function formatAmount(value: string | null | undefined): string {
     });
 }
 
-export function formatTimesheetAmount(value: string | null | undefined): string {
+export function formatTimesheetAmount(
+    value: string | null | undefined,
+): string {
     return formatAmount(value);
 }
 
@@ -374,10 +378,14 @@ export function formatTimesheetDays(value: string | null | undefined): string {
     });
 }
 
-export function getPeriodProgressPercent(period: PayrollPeriodListItem): number {
+export function getPeriodProgressPercent(
+    period: PayrollPeriodListItem,
+): number {
     if (!period.supports_timesheets || period.employee_count === 0) {
         return 0;
     }
 
-    return Math.round((period.timesheets_filled_count / period.employee_count) * 100);
+    return Math.round(
+        (period.timesheets_filled_count / period.employee_count) * 100,
+    );
 }

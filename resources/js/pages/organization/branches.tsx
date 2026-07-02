@@ -13,7 +13,14 @@ export default function Branches({
     branches: Branch[];
     pagination: PaginationMeta;
     search: string;
-    filters: { country: string; status: string; city: string; headquartersOnly: boolean; hasEmail: boolean; hasPhone: boolean };
+    filters: {
+        country: string;
+        status: string;
+        city: string;
+        headquartersOnly: boolean;
+        hasEmail: boolean;
+        hasPhone: boolean;
+    };
     countries: Country[];
 }) {
     return (

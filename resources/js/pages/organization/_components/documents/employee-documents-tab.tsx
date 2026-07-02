@@ -9,7 +9,10 @@ import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/s
 import { DocumentListRowActions } from '@/features/organization/documents/shared/document-actions/document-list-row-actions';
 import { DocumentExpiryStatusCell } from '@/features/organization/documents/shared/document-expiry-display';
 import { buildDocumentShowUrl } from '@/features/organization/documents/shared/document-show-url';
-import type { DocumentProfileItem, DocumentTypeOption } from '@/features/organization/documents/shared/types';
+import type {
+    DocumentProfileItem,
+    DocumentTypeOption,
+} from '@/features/organization/documents/shared/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { EditDocumentDialog } from '@/pages/organization/_components/documents/edit-document-dialog';
@@ -70,7 +73,9 @@ export function EmployeeDocumentsTab({
     const [uploadOpen, setUploadOpen] = useState(false);
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
     const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
-    const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(null);
+    const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(
+        null,
+    );
 
     return (
         <TabsContent value="documents" className="mt-6">
@@ -99,7 +104,11 @@ export function EmployeeDocumentsTab({
                             </Button>
                         ) : null}
                         {can.documents_upload ? (
-                            <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setUploadOpen(true)}>
+                            <Button
+                                size="sm"
+                                className="h-8 gap-1.5 text-xs"
+                                onClick={() => setUploadOpen(true)}
+                            >
                                 + Upload Document
                             </Button>
                         ) : null}
@@ -110,22 +119,36 @@ export function EmployeeDocumentsTab({
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
                             {showField('document_type_id') ? (
-                                <th className={employeeRecordsTableThClass()}>Type</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Type
+                                </th>
                             ) : null}
                             {showField('title') ? (
-                                <th className={employeeRecordsTableThClass()}>Title</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Title
+                                </th>
                             ) : null}
                             {showField('document_number') ? (
-                                <th className={employeeRecordsTableThClass()}>Number</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Number
+                                </th>
                             ) : null}
                             {showField('issue_date') ? (
-                                <th className={employeeRecordsTableThClass()}>Issue</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Issue
+                                </th>
                             ) : null}
                             {showField('expiry_date') ? (
-                                <th className={employeeRecordsTableThClass()}>Expiry</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Expiry
+                                </th>
                             ) : null}
-                            <th className={employeeRecordsTableThClass()}>Status</th>
-                            <th className={employeeRecordsTableThClass()}>Uploaded by</th>
+                            <th className={employeeRecordsTableThClass()}>
+                                Status
+                            </th>
+                            <th className={employeeRecordsTableThClass()}>
+                                Uploaded by
+                            </th>
                             <EmployeeRecordsActionsHeader className="min-w-[13.5rem]" />
                         </tr>
                     </thead>
@@ -143,24 +166,37 @@ export function EmployeeDocumentsTab({
                                     }
 
                                     router.visit(
-                                        buildDocumentShowUrl(employeeId, doc.id, {
-                                            from: 'profile',
-                                        }),
+                                        buildDocumentShowUrl(
+                                            employeeId,
+                                            doc.id,
+                                            {
+                                                from: 'profile',
+                                            },
+                                        ),
                                     );
                                 }}
                             >
                                 {showField('document_type_id') ? (
-                                    <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'text-xs text-muted-foreground',
+                                        )}
+                                    >
                                         {doc.document_type_label ??
                                             document_types.find(
                                                 (t) =>
                                                     String(t.id) ===
-                                                    String(doc.document_type_id ?? doc.document_type),
+                                                    String(
+                                                        doc.document_type_id ??
+                                                            doc.document_type,
+                                                    ),
                                             )?.title ??
                                             doc.document_type ??
                                             doc.type ??
                                             '—'}
-                                        {doc.current_version && doc.current_version > 1 ? (
+                                        {doc.current_version &&
+                                        doc.current_version > 1 ? (
                                             <span className="ml-1 text-[10px] text-muted-foreground">
                                                 v{doc.current_version}
                                             </span>
@@ -168,22 +204,42 @@ export function EmployeeDocumentsTab({
                                     </td>
                                 ) : null}
                                 {showField('title') ? (
-                                    <td className={cn(employeeRecordsTableTdClass(), 'font-medium text-foreground')}>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'font-medium text-foreground',
+                                        )}
+                                    >
                                         {doc.title || '—'}
                                     </td>
                                 ) : null}
                                 {showField('document_number') ? (
-                                    <td className={cn(employeeRecordsTableTdClass(), 'font-mono text-xs text-muted-foreground')}>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'font-mono text-xs text-muted-foreground',
+                                        )}
+                                    >
                                         {doc.document_number || '—'}
                                     </td>
                                 ) : null}
                                 {showField('issue_date') ? (
-                                    <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'text-xs text-muted-foreground',
+                                        )}
+                                    >
                                         {formatDisplayDate(doc.issue_date)}
                                     </td>
                                 ) : null}
                                 {showField('expiry_date') ? (
-                                    <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'text-xs text-muted-foreground',
+                                        )}
+                                    >
                                         {formatDisplayDate(doc.expiry_date)}
                                     </td>
                                 ) : null}
@@ -193,24 +249,41 @@ export function EmployeeDocumentsTab({
                                         className="text-xs capitalize"
                                     />
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'text-xs text-muted-foreground',
+                                    )}
+                                >
                                     {doc.uploaded_by || '—'}
                                 </td>
-                                <td className={employeeRecordsActionsTdClass('min-w-[13.5rem]')}>
+                                <td
+                                    className={employeeRecordsActionsTdClass(
+                                        'min-w-[13.5rem]',
+                                    )}
+                                >
                                     {hasEmployeeId ? (
                                         <DocumentListRowActions
                                             documentId={doc.id}
                                             fileUrl={doc.file_url}
-                                            viewHref={buildDocumentShowUrl(employeeId, doc.id, {
-                                                from: 'profile',
-                                            })}
-                                            showDownload={can.documents_download}
+                                            viewHref={buildDocumentShowUrl(
+                                                employeeId,
+                                                doc.id,
+                                                {
+                                                    from: 'profile',
+                                                },
+                                            )}
+                                            showDownload={
+                                                can.documents_download
+                                            }
                                             showReplace={can.documents_upload}
                                             onReplace={() => setReplaceDoc(doc)}
                                             showEdit={can.documents_upload}
                                             onEdit={() => setEditDoc(doc)}
                                             showDelete={can.documents_delete}
-                                            onDelete={() => setDeleteDocId(doc.id)}
+                                            onDelete={() =>
+                                                setDeleteDocId(doc.id)
+                                            }
                                         />
                                     ) : null}
                                 </td>

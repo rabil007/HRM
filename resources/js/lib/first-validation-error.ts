@@ -23,8 +23,10 @@ export function firstValidationError(
 }
 
 export function hasFlashSuccess(page: { props?: unknown }): boolean {
-    const flash = (page.props as { flash?: { success?: string } } | undefined)?.flash;
-    const success = typeof flash?.success === 'string' ? flash.success.trim() : '';
+    const flash = (page.props as { flash?: { success?: string } } | undefined)
+        ?.flash;
+    const success =
+        typeof flash?.success === 'string' ? flash.success.trim() : '';
 
     return success !== '';
 }

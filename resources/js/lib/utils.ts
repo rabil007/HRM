@@ -11,7 +11,10 @@ export function toUrl(url: NonNullable<InertiaLinkProps['href']>): string {
     return typeof url === 'string' ? url : url.url;
 }
 
-export function formatBytes(bytes: number | null | undefined, decimals = 1): string {
+export function formatBytes(
+    bytes: number | null | undefined,
+    decimals = 1,
+): string {
     if (!bytes || bytes === 0) {
         return '—';
     }

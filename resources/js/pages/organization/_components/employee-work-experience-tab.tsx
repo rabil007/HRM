@@ -84,7 +84,8 @@ export function EmployeeWorkExperienceTab({
         validateRequired,
         syncMissingFromFormData,
     } = useTemplateRecordFields(templateFields, {
-        defaultRequiredFields: TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_work_experiences,
+        defaultRequiredFields:
+            TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_work_experiences,
     });
 
     const [workExperienceDialogOpen, setWorkExperienceDialogOpen] =
@@ -155,7 +156,11 @@ export function EmployeeWorkExperienceTab({
             return;
         }
 
-        if (!validateRequired(workExperienceForm.data as Record<string, unknown>)) {
+        if (
+            !validateRequired(
+                workExperienceForm.data as Record<string, unknown>,
+            )
+        ) {
             return;
         }
 
@@ -225,7 +230,9 @@ export function EmployeeWorkExperienceTab({
                                 className="h-8 gap-1.5 text-xs"
                                 type="button"
                                 disabled={!canImportRecords}
-                                onClick={() => setWorkExperienceImportOpen(true)}
+                                onClick={() =>
+                                    setWorkExperienceImportOpen(true)
+                                }
                             >
                                 Import CSV
                             </Button>
@@ -245,27 +252,44 @@ export function EmployeeWorkExperienceTab({
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
                             {showField('company_name') ? (
-                                <th className={employeeRecordsTableThClass()}>Company</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Company
+                                </th>
                             ) : null}
                             {showField('job_title') ? (
-                                <th className={employeeRecordsTableThClass()}>Job title</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Job title
+                                </th>
                             ) : null}
                             {showField('date_from') ? (
-                                <th className={employeeRecordsTableThClass()}>From</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    From
+                                </th>
                             ) : null}
                             {showField('date_to') ? (
-                                <th className={employeeRecordsTableThClass()}>To</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    To
+                                </th>
                             ) : null}
                             {showField('responsibility') ? (
-                                <th className={employeeRecordsTableThClass()}>Responsibility</th>
+                                <th className={employeeRecordsTableThClass()}>
+                                    Responsibility
+                                </th>
                             ) : null}
-                            <th className={employeeRecordsTableThClass()}>Added</th>
-                            {canManage ? <EmployeeRecordsActionsHeader /> : null}
+                            <th className={employeeRecordsTableThClass()}>
+                                Added
+                            </th>
+                            {canManage ? (
+                                <EmployeeRecordsActionsHeader />
+                            ) : null}
                         </tr>
                     </thead>
                     <tbody>
                         {work_experiences.map((row) => (
-                            <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                            <tr
+                                key={row.id}
+                                className={employeeRecordsTableRowClass()}
+                            >
                                 {showField('company_name') ? (
                                     <td
                                         className={cn(
@@ -292,7 +316,7 @@ export function EmployeeWorkExperienceTab({
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
-                                            'whitespace-nowrap text-xs text-muted-foreground',
+                                            'text-xs whitespace-nowrap text-muted-foreground',
                                         )}
                                     >
                                         {formatIsoDateDisplay(row.date_from)}
@@ -302,7 +326,7 @@ export function EmployeeWorkExperienceTab({
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
-                                            'whitespace-nowrap text-xs text-muted-foreground',
+                                            'text-xs whitespace-nowrap text-muted-foreground',
                                         )}
                                     >
                                         {formatIsoDateDisplay(row.date_to)}
@@ -316,22 +340,33 @@ export function EmployeeWorkExperienceTab({
                                         )}
                                         title={row.responsibility ?? ''}
                                     >
-                                        {row.responsibility?.trim() ? row.responsibility : '—'}
+                                        {row.responsibility?.trim()
+                                            ? row.responsibility
+                                            : '—'}
                                     </td>
                                 ) : null}
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'whitespace-nowrap text-xs text-muted-foreground',
+                                        'text-xs whitespace-nowrap text-muted-foreground',
                                     )}
                                 >
                                     {formatDisplayDate(row.created_at)}
                                 </td>
                                 {canManage ? (
-                                    <td className={cn(employeeRecordsTableTdClass(), 'text-right')}>
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'text-right',
+                                        )}
+                                    >
                                         <EmployeeRecordRowActions
                                             onEdit={() => openEditDialog(row)}
-                                            onDelete={() => setDeleteWorkExperienceId(row.id)}
+                                            onDelete={() =>
+                                                setDeleteWorkExperienceId(
+                                                    row.id,
+                                                )
+                                            }
                                         />
                                     </td>
                                 ) : null}
@@ -361,7 +396,8 @@ export function EmployeeWorkExperienceTab({
                                 : 'Add work experience'}
                         </DialogTitle>
                         <p className="text-xs text-muted-foreground">
-                            Add details about the employee's previous employment.
+                            Add details about the employee's previous
+                            employment.
                         </p>
                     </DialogHeader>
 
@@ -373,7 +409,7 @@ export function EmployeeWorkExperienceTab({
                     {showRoleSection ? (
                         <div className="space-y-4 py-1">
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Role details
                                 </span>
                                 <div className="h-px flex-1 bg-muted/50" />
@@ -382,24 +418,35 @@ export function EmployeeWorkExperienceTab({
                                 {showField('company_name') ? (
                                     <RecordFormField
                                         field="company_name"
-                                        highlightMissing={isMissingRequired('company_name')}
+                                        highlightMissing={isMissingRequired(
+                                            'company_name',
+                                        )}
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
-                                                isMissingRequired('company_name'),
+                                                isMissingRequired(
+                                                    'company_name',
+                                                ),
                                             )}
                                         >
                                             Company name
                                             <RequiredIndicator
-                                                show={isFieldRequired('company_name')}
+                                                show={isFieldRequired(
+                                                    'company_name',
+                                                )}
                                             />
                                         </Label>
                                         <Input
                                             className={recordFieldInputClass(
-                                                isMissingRequired('company_name'),
+                                                isMissingRequired(
+                                                    'company_name',
+                                                ),
                                             )}
                                             placeholder="e.g. Ocean Maritime LLC"
-                                            value={workExperienceForm.data.company_name}
+                                            value={
+                                                workExperienceForm.data
+                                                    .company_name
+                                            }
                                             onChange={(e) =>
                                                 workExperienceForm.setData(
                                                     'company_name',
@@ -407,14 +454,20 @@ export function EmployeeWorkExperienceTab({
                                                 )
                                             }
                                         />
-                                        {workExperienceForm.errors.company_name ? (
+                                        {workExperienceForm.errors
+                                            .company_name ? (
                                             <p className="text-xs text-destructive">
-                                                {workExperienceForm.errors.company_name}
+                                                {
+                                                    workExperienceForm.errors
+                                                        .company_name
+                                                }
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
                                                 The employer's name
-                                                {isFieldRequired('company_name') ? '' : ' (optional)'}
+                                                {isFieldRequired('company_name')
+                                                    ? ''
+                                                    : ' (optional)'}
                                             </p>
                                         )}
                                     </RecordFormField>
@@ -422,7 +475,9 @@ export function EmployeeWorkExperienceTab({
                                 {showField('job_title') ? (
                                     <RecordFormField
                                         field="job_title"
-                                        highlightMissing={isMissingRequired('job_title')}
+                                        highlightMissing={isMissingRequired(
+                                            'job_title',
+                                        )}
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
@@ -430,26 +485,41 @@ export function EmployeeWorkExperienceTab({
                                             )}
                                         >
                                             Job title
-                                            <RequiredIndicator show={isFieldRequired('job_title')} />
+                                            <RequiredIndicator
+                                                show={isFieldRequired(
+                                                    'job_title',
+                                                )}
+                                            />
                                         </Label>
                                         <Input
                                             className={recordFieldInputClass(
                                                 isMissingRequired('job_title'),
                                             )}
                                             placeholder="e.g. Chief Engineer"
-                                            value={workExperienceForm.data.job_title}
+                                            value={
+                                                workExperienceForm.data
+                                                    .job_title
+                                            }
                                             onChange={(e) =>
-                                                workExperienceForm.setData('job_title', e.target.value)
+                                                workExperienceForm.setData(
+                                                    'job_title',
+                                                    e.target.value,
+                                                )
                                             }
                                         />
                                         {workExperienceForm.errors.job_title ? (
                                             <p className="text-xs text-destructive">
-                                                {workExperienceForm.errors.job_title}
+                                                {
+                                                    workExperienceForm.errors
+                                                        .job_title
+                                                }
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
                                                 The held position or rank
-                                                {isFieldRequired('job_title') ? '' : ' (optional)'}
+                                                {isFieldRequired('job_title')
+                                                    ? ''
+                                                    : ' (optional)'}
                                             </p>
                                         )}
                                     </RecordFormField>
@@ -457,7 +527,9 @@ export function EmployeeWorkExperienceTab({
                                 {showField('date_from') ? (
                                     <RecordFormField
                                         field="date_from"
-                                        highlightMissing={isMissingRequired('date_from')}
+                                        highlightMissing={isMissingRequired(
+                                            'date_from',
+                                        )}
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
@@ -465,26 +537,41 @@ export function EmployeeWorkExperienceTab({
                                             )}
                                         >
                                             Start date
-                                            <RequiredIndicator show={isFieldRequired('date_from')} />
+                                            <RequiredIndicator
+                                                show={isFieldRequired(
+                                                    'date_from',
+                                                )}
+                                            />
                                         </Label>
                                         <Input
                                             type="date"
                                             className={recordFieldInputClass(
                                                 isMissingRequired('date_from'),
                                             )}
-                                            value={workExperienceForm.data.date_from}
+                                            value={
+                                                workExperienceForm.data
+                                                    .date_from
+                                            }
                                             onChange={(e) =>
-                                                workExperienceForm.setData('date_from', e.target.value)
+                                                workExperienceForm.setData(
+                                                    'date_from',
+                                                    e.target.value,
+                                                )
                                             }
                                         />
                                         {workExperienceForm.errors.date_from ? (
                                             <p className="text-xs text-destructive">
-                                                {workExperienceForm.errors.date_from}
+                                                {
+                                                    workExperienceForm.errors
+                                                        .date_from
+                                                }
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
                                                 When the employment started
-                                                {isFieldRequired('date_from') ? '' : ' (optional)'}
+                                                {isFieldRequired('date_from')
+                                                    ? ''
+                                                    : ' (optional)'}
                                             </p>
                                         )}
                                     </RecordFormField>
@@ -492,7 +579,9 @@ export function EmployeeWorkExperienceTab({
                                 {showField('date_to') ? (
                                     <RecordFormField
                                         field="date_to"
-                                        highlightMissing={isMissingRequired('date_to')}
+                                        highlightMissing={isMissingRequired(
+                                            'date_to',
+                                        )}
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
@@ -500,26 +589,41 @@ export function EmployeeWorkExperienceTab({
                                             )}
                                         >
                                             End date
-                                            <RequiredIndicator show={isFieldRequired('date_to')} />
+                                            <RequiredIndicator
+                                                show={isFieldRequired(
+                                                    'date_to',
+                                                )}
+                                            />
                                         </Label>
                                         <Input
                                             type="date"
                                             className={recordFieldInputClass(
                                                 isMissingRequired('date_to'),
                                             )}
-                                            value={workExperienceForm.data.date_to}
+                                            value={
+                                                workExperienceForm.data.date_to
+                                            }
                                             onChange={(e) =>
-                                                workExperienceForm.setData('date_to', e.target.value)
+                                                workExperienceForm.setData(
+                                                    'date_to',
+                                                    e.target.value,
+                                                )
                                             }
                                         />
                                         {workExperienceForm.errors.date_to ? (
                                             <p className="text-xs text-destructive">
-                                                {workExperienceForm.errors.date_to}
+                                                {
+                                                    workExperienceForm.errors
+                                                        .date_to
+                                                }
                                             </p>
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
-                                                Leave empty if currently employed
-                                                {isFieldRequired('date_to') ? '' : ' (optional)'}
+                                                Leave empty if currently
+                                                employed
+                                                {isFieldRequired('date_to')
+                                                    ? ''
+                                                    : ' (optional)'}
                                             </p>
                                         )}
                                     </RecordFormField>
@@ -531,14 +635,16 @@ export function EmployeeWorkExperienceTab({
                     {showResponsibilitySection ? (
                         <div className="space-y-4 pt-2">
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Responsibilities
                                 </span>
                                 <div className="h-px flex-1 bg-muted/50" />
                             </div>
                             <RecordFormField
                                 field="responsibility"
-                                highlightMissing={isMissingRequired('responsibility')}
+                                highlightMissing={isMissingRequired(
+                                    'responsibility',
+                                )}
                             >
                                 <Label
                                     className={recordFieldLabelClass(
@@ -546,16 +652,21 @@ export function EmployeeWorkExperienceTab({
                                     )}
                                 >
                                     Description
-                                    <RequiredIndicator show={isFieldRequired('responsibility')} />
+                                    <RequiredIndicator
+                                        show={isFieldRequired('responsibility')}
+                                    />
                                 </Label>
                                 <textarea
                                     rows={4}
                                     placeholder="Describe the main tasks, responsibilities, and achievements..."
                                     className={cn(
                                         'min-h-[88px] w-full resize-y rounded-xl border border-border bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary',
-                                        isMissingRequired('responsibility') && 'border-rose-500/50',
+                                        isMissingRequired('responsibility') &&
+                                            'border-rose-500/50',
                                     )}
-                                    value={workExperienceForm.data.responsibility}
+                                    value={
+                                        workExperienceForm.data.responsibility
+                                    }
                                     onChange={(e) =>
                                         workExperienceForm.setData(
                                             'responsibility',
@@ -565,12 +676,17 @@ export function EmployeeWorkExperienceTab({
                                 />
                                 {workExperienceForm.errors.responsibility ? (
                                     <p className="text-xs text-destructive">
-                                        {workExperienceForm.errors.responsibility}
+                                        {
+                                            workExperienceForm.errors
+                                                .responsibility
+                                        }
                                     </p>
                                 ) : (
                                     <p className="text-[11px] text-muted-foreground">
                                         Description of the role
-                                        {isFieldRequired('responsibility') ? '' : ' (optional)'}
+                                        {isFieldRequired('responsibility')
+                                            ? ''
+                                            : ' (optional)'}
                                     </p>
                                 )}
                             </RecordFormField>

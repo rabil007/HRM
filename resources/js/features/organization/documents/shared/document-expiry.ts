@@ -39,7 +39,9 @@ export const EXPIRY_STATUS_CLASSES: Record<string, string> = {
     none: 'bg-muted/40 text-muted-foreground border-white/10',
 };
 
-export function expiryRemainingClass(status: string | null | undefined): string {
+export function expiryRemainingClass(
+    status: string | null | undefined,
+): string {
     if (!status) {
         return 'text-muted-foreground';
     }

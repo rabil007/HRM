@@ -90,7 +90,9 @@ export default function Employees({
                 filters={filters}
                 department_tree={department_tree}
                 department_tree_selected_id={department_tree_selected_id}
-                department_tree_selected_position_id={department_tree_selected_position_id}
+                department_tree_selected_position_id={
+                    department_tree_selected_position_id
+                }
                 branches={branches}
                 positions={positions}
                 managers={managers}

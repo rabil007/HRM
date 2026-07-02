@@ -31,12 +31,17 @@ export function PositionFiltersSheet({
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Status
                     </Label>
                     <AppSelect
                         value={value.status}
-                        onValueChange={(v) => onChange({ ...value, status: v as PositionFilters['status'] })}
+                        onValueChange={(v) =>
+                            onChange({
+                                ...value,
+                                status: v as PositionFilters['status'],
+                            })
+                        }
                         variant="dark"
                         placeholder="All"
                     >
@@ -48,12 +53,14 @@ export function PositionFiltersSheet({
             </div>
 
             <div className="space-y-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                     Department
                 </Label>
                 <AppSelect
                     value={value.department_id}
-                    onValueChange={(v) => onChange({ ...value, department_id: v })}
+                    onValueChange={(v) =>
+                        onChange({ ...value, department_id: v })
+                    }
                     variant="dark"
                     placeholder="All"
                 >
@@ -67,15 +74,20 @@ export function PositionFiltersSheet({
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="filter-grade" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label
+                    htmlFor="filter-grade"
+                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                >
                     Grade
                 </Label>
                 <Input
                     id="filter-grade"
                     placeholder="e.g. G5"
-                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                    className="h-11 rounded-xl border-white/10 bg-white/5 transition-all focus-visible:ring-primary/40"
                     value={value.grade}
-                    onChange={(e) => onChange({ ...value, grade: e.target.value })}
+                    onChange={(e) =>
+                        onChange({ ...value, grade: e.target.value })
+                    }
                 />
             </div>
         </FiltersSheet>

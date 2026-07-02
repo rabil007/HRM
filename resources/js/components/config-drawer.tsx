@@ -51,7 +51,9 @@ export function ConfigDrawer() {
                 </Button>
             </SheetTrigger>
             <SheetContent className="flex flex-col">
-                <SheetTitle className="px-4 pt-4 text-start">Theme Settings</SheetTitle>
+                <SheetTitle className="px-4 pt-4 text-start">
+                    Theme Settings
+                </SheetTitle>
                 <SheetDescription className="px-4 pb-0 text-start">
                     Adjust the appearance and layout to suit your preferences.
                 </SheetDescription>

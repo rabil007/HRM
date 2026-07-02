@@ -3,11 +3,18 @@ import {
     download as downloadPayslip,
     show as showPayslip,
 } from '@/actions/App/Http/Controllers/Payroll/PayslipController';
-import { dataTableActionsCellClass, dataTableCellClass } from '@/components/data-table';
+import {
+    dataTableActionsCellClass,
+    dataTableCellClass,
+} from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell } from '@/components/ui/table';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type { PayrollRecordDeliveryFields } from '../types';
 
 type PayrollRecordPayslipCellsProps = PayrollRecordDeliveryFields & {
@@ -53,7 +60,12 @@ export function PayrollRecordPayslipActionButtons({
             {canView ? (
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button asChild variant="ghost" size="icon" className="size-8 rounded-lg">
+                        <Button
+                            asChild
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 rounded-lg"
+                        >
                             <a
                                 href={showPayslip.url(recordId)}
                                 target="_blank"
@@ -70,8 +82,16 @@ export function PayrollRecordPayslipActionButtons({
             {canDownload ? (
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button asChild variant="ghost" size="icon" className="size-8 rounded-lg">
-                            <a href={downloadPayslip.url(recordId)} aria-label="Download payslip">
+                        <Button
+                            asChild
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 rounded-lg"
+                        >
+                            <a
+                                href={downloadPayslip.url(recordId)}
+                                aria-label="Download payslip"
+                            >
                                 <Download className="h-4 w-4" />
                             </a>
                         </Button>

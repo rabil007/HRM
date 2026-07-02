@@ -19,7 +19,12 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
@@ -42,7 +47,14 @@ export function BranchesContent({
     branches: Branch[];
     pagination: PaginationMeta;
     search: string;
-    filters: { country: string; status: string; city: string; headquartersOnly: boolean; hasEmail: boolean; hasPhone: boolean };
+    filters: {
+        country: string;
+        status: string;
+        city: string;
+        headquartersOnly: boolean;
+        hasEmail: boolean;
+        hasPhone: boolean;
+    };
     countries: Country[];
 }) {
     const list = useServerPaginationFilters({
@@ -96,7 +108,10 @@ export function BranchesContent({
             code: '',
             address: '',
             city: '',
-            country: countries.find((c) => c.code === 'UAE')?.code ?? countries[0]?.code ?? '',
+            country:
+                countries.find((c) => c.code === 'UAE')?.code ??
+                countries[0]?.code ??
+                '',
             phone: '',
             email: '',
             is_headquarters: false,
@@ -130,8 +145,8 @@ export function BranchesContent({
 
     const confirmDelete = () => {
         if (!currentBranch) {
-return;
-}
+            return;
+        }
 
         router.delete(`/organization/branches/${currentBranch.id}`, {
             onFinish: () => {
@@ -147,7 +162,8 @@ return;
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onError: () => toast.error('Failed to update status. Please try again.'),
+                onError: () =>
+                    toast.error('Failed to update status. Please try again.'),
             },
         );
     };
@@ -157,7 +173,14 @@ return;
     };
 
     const resetFilters = () => {
-        handleFiltersChange({ country: '', status: '', city: '', headquartersOnly: false, hasEmail: false, hasPhone: false });
+        handleFiltersChange({
+            country: '',
+            status: '',
+            city: '',
+            headquartersOnly: false,
+            hasEmail: false,
+            hasPhone: false,
+        });
     };
 
     const submit = () => {
@@ -180,32 +203,32 @@ return;
         const params = new URLSearchParams();
 
         if (initialSearch) {
-params.set('search', initialSearch);
-}
+            params.set('search', initialSearch);
+        }
 
         if (initialFilters.country) {
-params.set('country', initialFilters.country);
-}
+            params.set('country', initialFilters.country);
+        }
 
         if (initialFilters.status) {
-params.set('status', initialFilters.status);
-}
+            params.set('status', initialFilters.status);
+        }
 
         if (initialFilters.city) {
-params.set('city', initialFilters.city);
-}
+            params.set('city', initialFilters.city);
+        }
 
         if (initialFilters.headquartersOnly) {
-params.set('headquartersOnly', '1');
-}
+            params.set('headquartersOnly', '1');
+        }
 
         if (initialFilters.hasEmail) {
-params.set('hasEmail', '1');
-}
+            params.set('hasEmail', '1');
+        }
 
         if (initialFilters.hasPhone) {
-params.set('hasPhone', '1');
-}
+            params.set('hasPhone', '1');
+        }
 
         params.set('format', format);
 
@@ -224,7 +247,10 @@ params.set('hasPhone', '1');
                             buttonVariant="secondary"
                             buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
                         />
-                        <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
+                        <Button
+                            onClick={handleAdd}
+                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                        >
                             <Plus className="mr-2 h-4 w-4" />
                             Add Branch
                         </Button>
@@ -242,7 +268,7 @@ params.set('hasPhone', '1');
                         <Button
                             type="button"
                             variant="secondary"
-                            className="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
                             onClick={() => setIsFiltersOpen(true)}
                         >
                             <Filter className="mr-2 h-4 w-4" />
@@ -271,64 +297,95 @@ params.set('hasPhone', '1');
                 </div>
             ) : (
                 <OrganizationDataTable minWidth="min-w-[980px]">
-                            <TableHeader>
-                                <DataTableHeaderRow>
-                                    <DataTableHead className="pl-5">Branch</DataTableHead>
-                                    <DataTableHead>Code</DataTableHead>
-                                    <DataTableHead>HQ</DataTableHead>
-                                    <DataTableHead>Location</DataTableHead>
-                                    <DataTableHead>Email</DataTableHead>
-                                    <DataTableHead>Phone</DataTableHead>
-                                    <DataTableHead>Status</DataTableHead>
-                                    <DataTableHead className="text-right">Actions</DataTableHead>
-                                </DataTableHeaderRow>
-                            </TableHeader>
-                            <TableBody>
-                                {branches.map((branch) => (
-                                    <TableRow
-                                        key={branch.id}
-                                        className={dataTableBodyRowClass()}
-                                        onClick={() => router.visit(`/organization/branches/${branch.id}`)}
+                    <TableHeader>
+                        <DataTableHeaderRow>
+                            <DataTableHead className="pl-5">
+                                Branch
+                            </DataTableHead>
+                            <DataTableHead>Code</DataTableHead>
+                            <DataTableHead>HQ</DataTableHead>
+                            <DataTableHead>Location</DataTableHead>
+                            <DataTableHead>Email</DataTableHead>
+                            <DataTableHead>Phone</DataTableHead>
+                            <DataTableHead>Status</DataTableHead>
+                            <DataTableHead className="text-right">
+                                Actions
+                            </DataTableHead>
+                        </DataTableHeaderRow>
+                    </TableHeader>
+                    <TableBody>
+                        {branches.map((branch) => (
+                            <TableRow
+                                key={branch.id}
+                                className={dataTableBodyRowClass()}
+                                onClick={() =>
+                                    router.visit(
+                                        `/organization/branches/${branch.id}`,
+                                    )
+                                }
+                            >
+                                <TableCell
+                                    className={dataTableCellPrimaryClass()}
+                                >
+                                    {branch.name}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {branch.code ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {branch.is_headquarters ? 'Yes' : '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {[branch.city, branch.country]
+                                        .filter(Boolean)
+                                        .join(', ') || '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {branch.email ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {branch.phone ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    <div
+                                        className="flex items-center gap-3"
+                                        onClick={(e) => e.stopPropagation()}
                                     >
-                                        <TableCell className={dataTableCellPrimaryClass()}>{branch.name}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>{branch.code ?? '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>{branch.is_headquarters ? 'Yes' : '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>
-                                            {[branch.city, branch.country].filter(Boolean).join(', ') || '—'}
-                                        </TableCell>
-                                        <TableCell className={dataTableCellClass()}>{branch.email ?? '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>{branch.phone ?? '—'}</TableCell>
-                                        <TableCell className={dataTableCellClass()}>
-                                            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                                                <Switch
-                                                    checked={branch.status === 'active'}
-                                                    onCheckedChange={(checked) => toggleStatus(branch, checked)}
-                                                />
-                                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                                    {branch.status ?? '—'}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className={dataTableActionsCellClass()}>
-                                            <ListTableCrudActions
-                                                viewHref={`/organization/branches/${branch.id}`}
-                                                onEdit={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEdit(branch);
-                                                }}
-                                                onDelete={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteClick(branch);
-                                                }}
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
+                                        <Switch
+                                            checked={branch.status === 'active'}
+                                            onCheckedChange={(checked) =>
+                                                toggleStatus(branch, checked)
+                                            }
+                                        />
+                                        <span className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                            {branch.status ?? '—'}
+                                        </span>
+                                    </div>
+                                </TableCell>
+                                <TableCell
+                                    className={dataTableActionsCellClass()}
+                                >
+                                    <ListTableCrudActions
+                                        viewHref={`/organization/branches/${branch.id}`}
+                                        onEdit={(e) => {
+                                            e.stopPropagation();
+                                            handleEdit(branch);
+                                        }}
+                                        onDelete={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteClick(branch);
+                                        }}
+                                    />
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
                 </OrganizationDataTable>
             )}
 
-            {branches.length === 0 ? <EmptyState title="No branches found." /> : null}
+            {branches.length === 0 ? (
+                <EmptyState title="No branches found." />
+            ) : null}
 
             <Pagination {...list.paginationProps} label="branches" />
 

@@ -90,7 +90,9 @@ function parseTrainingFieldErrors(
     const mapped: TrainingDraftFieldErrors = {};
 
     for (const [key, rawValue] of Object.entries(errors)) {
-        const message = Array.isArray(rawValue) ? (rawValue[0] ?? '') : rawValue;
+        const message = Array.isArray(rawValue)
+            ? (rawValue[0] ?? '')
+            : rawValue;
 
         if (!message) {
             continue;
@@ -139,7 +141,8 @@ export function AddTrainingDialog({
         validateRequired,
         syncMissingFromFormData,
     } = useTemplateRecordFields(templateFields, {
-        defaultRequiredFields: TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_trainings,
+        defaultRequiredFields:
+            TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_trainings,
     });
 
     const showCertificatePanel = showField(CERTIFICATE_TEMPLATE_FIELD);
@@ -157,14 +160,17 @@ export function AddTrainingDialog({
     const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
     const [standaloneMetadata, setStandaloneMetadata] =
         useState<TrainingDraftMetadata>(emptyTrainingMetadata);
-    const [fieldErrors, setFieldErrors] = useState<TrainingDraftFieldErrors>({});
+    const [fieldErrors, setFieldErrors] = useState<TrainingDraftFieldErrors>(
+        {},
+    );
     const [fieldErrorsByIndex, setFieldErrorsByIndex] = useState<
         Map<number, TrainingDraftFieldErrors>
     >(new Map());
     const [isDraggingFiles, setIsDraggingFiles] = useState(false);
     const [isCompressingFiles, setIsCompressingFiles] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState<DocumentUploadProgressState>(null);
+    const [uploadProgress, setUploadProgress] =
+        useState<DocumentUploadProgressState>(null);
     const [removeCertificate, setRemoveCertificate] = useState(false);
 
     const uploadProgressPhase = resolveDocumentUploadPhase({
@@ -246,7 +252,10 @@ export function AddTrainingDialog({
     }, [clearMissingRequired, editingTraining, isEdit, resetDialog]);
 
     const draftMeetsRequired = useCallback(
-        (metadata: TrainingDraftMetadata, certificate: File | null): boolean => {
+        (
+            metadata: TrainingDraftMetadata,
+            certificate: File | null,
+        ): boolean => {
             const data = trainingDraftToFormData(
                 metadata,
                 certificate,
@@ -267,15 +276,25 @@ export function AddTrainingDialog({
 
             return true;
         },
-        [editingTraining?.certificate_url, isEdit, removeCertificate, requiredFields, showField],
+        [
+            editingTraining?.certificate_url,
+            isEdit,
+            removeCertificate,
+            requiredFields,
+            showField,
+        ],
     );
 
     const addCertificateFiles = useCallback(
         async (files: File[]) => {
-            const supportedFiles = files.filter((file) => isSupportedUploadFile(file));
+            const supportedFiles = files.filter((file) =>
+                isSupportedUploadFile(file),
+            );
 
             if (supportedFiles.length !== files.length) {
-                toast.error('Only PDF, JPG, JPEG, and PNG files are supported.');
+                toast.error(
+                    'Only PDF, JPG, JPEG, and PNG files are supported.',
+                );
             }
 
             if (supportedFiles.length === 0) {
@@ -299,7 +318,10 @@ export function AddTrainingDialog({
                 let addedId: string | null = null;
 
                 for (const file of preparedFiles) {
-                    if (!isEdit && next.length >= MAX_TRAINING_CERTIFICATE_FILES) {
+                    if (
+                        !isEdit &&
+                        next.length >= MAX_TRAINING_CERTIFICATE_FILES
+                    ) {
                         toast.error(
                             `You can add up to ${MAX_TRAINING_CERTIFICATE_FILES} certificates at once.`,
                         );
@@ -369,7 +391,9 @@ export function AddTrainingDialog({
 
         setDrafts((current) =>
             current.map((draft) =>
-                draft.id === selectedDraft.id ? draft : { ...draft, ...metadata },
+                draft.id === selectedDraft.id
+                    ? draft
+                    : { ...draft, ...metadata },
             ),
         );
     }, [drafts.length, selectedDraft]);
@@ -389,7 +413,12 @@ export function AddTrainingDialog({
                         ? (editingTraining?.certificate_url ?? null)
                         : null,
             }),
-        [editingTraining?.certificate_url, isEdit, removeCertificate, templateFields],
+        [
+            editingTraining?.certificate_url,
+            isEdit,
+            removeCertificate,
+            templateFields,
+        ],
     );
 
     const canSaveCreate =
@@ -436,7 +465,10 @@ export function AddTrainingDialog({
         let resolvedEmployeeId: number;
 
         try {
-            resolvedEmployeeId = await resolveEmployeeIdForSave(employeeId, ensureEmployee);
+            resolvedEmployeeId = await resolveEmployeeIdForSave(
+                employeeId,
+                ensureEmployee,
+            );
         } catch {
             return;
         }
@@ -534,7 +566,9 @@ export function AddTrainingDialog({
                 trainingDraftToFormData(
                     standaloneMetadata,
                     selectedDraft?.file ?? null,
-                    !removeCertificate && editingTraining.certificate_url ? 'existing' : null,
+                    !removeCertificate && editingTraining.certificate_url
+                        ? 'existing'
+                        : null,
                 ),
             )
         ) {
@@ -544,7 +578,10 @@ export function AddTrainingDialog({
         let resolvedEmployeeId: number;
 
         try {
-            resolvedEmployeeId = await resolveEmployeeIdForSave(employeeId, ensureEmployee);
+            resolvedEmployeeId = await resolveEmployeeIdForSave(
+                employeeId,
+                ensureEmployee,
+            );
         } catch {
             return;
         }
@@ -602,7 +639,8 @@ export function AddTrainingDialog({
 
     const courseLabelForDraft = useCallback(
         (draft: TrainingDraft) =>
-            courses.find((course) => String(course.id) === draft.course_id)?.name,
+            courses.find((course) => String(course.id) === draft.course_id)
+                ?.name,
         [courses],
     );
 
@@ -616,7 +654,10 @@ export function AddTrainingDialog({
                 courses={courses}
                 countries={countries}
                 onChange={(patch) =>
-                    updateDraftMetadata(isEdit ? null : selectedDraft?.id ?? null, patch)
+                    updateDraftMetadata(
+                        isEdit ? null : (selectedDraft?.id ?? null),
+                        patch,
+                    )
                 }
                 fieldErrors={activeFieldErrors}
                 showApplyToAll={!isEdit && drafts.length > 1}
@@ -647,7 +688,8 @@ export function AddTrainingDialog({
             </div>
             <div className="text-sm font-semibold">Select a certificate</div>
             <p className="max-w-xs text-xs text-muted-foreground">
-                Choose a certificate from the list to enter its training details.
+                Choose a certificate from the list to enter its training
+                details.
             </p>
         </div>
     );
@@ -687,177 +729,211 @@ export function AddTrainingDialog({
                                     : null
                         }
                     />
-                <DialogHeader>
-                    <DialogTitle>{isEdit ? 'Edit training' : 'Add training'}</DialogTitle>
-                    <p className="text-sm text-muted-foreground">
-                        {isEdit
-                            ? `Update training details for ${employeeName}.`
-                            : showCertificatePanel
-                              ? `Add training records for ${employeeName}. Select a certificate on the left, then enter its details on the right.`
-                              : `Add a training record for ${employeeName}.`}
-                    </p>
-                </DialogHeader>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {isEdit ? 'Edit training' : 'Add training'}
+                        </DialogTitle>
+                        <p className="text-sm text-muted-foreground">
+                            {isEdit
+                                ? `Update training details for ${employeeName}.`
+                                : showCertificatePanel
+                                  ? `Add training records for ${employeeName}. Select a certificate on the left, then enter its details on the right.`
+                                  : `Add a training record for ${employeeName}.`}
+                        </p>
+                    </DialogHeader>
 
-                <EmployeeMissingRequiredFieldsAlert
-                    missingFields={missingRequiredFieldsList}
-                    onFocusField={focusMissingField}
-                />
+                    <EmployeeMissingRequiredFieldsAlert
+                        missingFields={missingRequiredFieldsList}
+                        onFocusField={focusMissingField}
+                    />
 
-                {showCertificatePanel ? (
-                    <div className="grid gap-5 py-2 lg:grid-cols-[1.1fr_0.9fr]">
-                        <div className="space-y-4">
-                            <div
-                                onDragOver={(event) => {
-                                    event.preventDefault();
-                                    setIsDraggingFiles(true);
-                                }}
-                                onDragLeave={() => setIsDraggingFiles(false)}
-                                onDrop={(event) => {
-                                    event.preventDefault();
-                                    setIsDraggingFiles(false);
-                                    void addCertificateFiles(
-                                        Array.from(event.dataTransfer.files),
-                                    );
-                                }}
-                                className={`rounded-2xl border border-dashed p-6 transition-colors ${
-                                    isDraggingFiles
-                                        ? 'border-primary bg-primary/10'
-                                        : 'border-border bg-muted/20 hover:bg-muted/30'
-                                }`}
-                            >
-                                <div className="flex flex-col items-center gap-3 text-center">
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                                        <UploadCloud className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <div className="text-sm font-semibold">
-                                            Drag and drop certificate files here
+                    {showCertificatePanel ? (
+                        <div className="grid gap-5 py-2 lg:grid-cols-[1.1fr_0.9fr]">
+                            <div className="space-y-4">
+                                <div
+                                    onDragOver={(event) => {
+                                        event.preventDefault();
+                                        setIsDraggingFiles(true);
+                                    }}
+                                    onDragLeave={() =>
+                                        setIsDraggingFiles(false)
+                                    }
+                                    onDrop={(event) => {
+                                        event.preventDefault();
+                                        setIsDraggingFiles(false);
+                                        void addCertificateFiles(
+                                            Array.from(
+                                                event.dataTransfer.files,
+                                            ),
+                                        );
+                                    }}
+                                    className={`rounded-2xl border border-dashed p-6 transition-colors ${
+                                        isDraggingFiles
+                                            ? 'border-primary bg-primary/10'
+                                            : 'border-border bg-muted/20 hover:bg-muted/30'
+                                    }`}
+                                >
+                                    <div className="flex flex-col items-center gap-3 text-center">
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                                            <UploadCloud className="h-6 w-6" />
                                         </div>
-                                        <div className="mt-1 text-xs text-muted-foreground">
-                                            Upload up to {MAX_TRAINING_CERTIFICATE_FILES} files.
-                                            Supported formats: PDF, JPG, JPEG, PNG. Images are
-                                            compressed in your browser. PDFs larger than{' '}
-                                            {PDF_COMPRESS_THRESHOLD_LABEL} are optimized on the
-                                            server.
+                                        <div>
+                                            <div className="text-sm font-semibold">
+                                                Drag and drop certificate files
+                                                here
+                                            </div>
+                                            <div className="mt-1 text-xs text-muted-foreground">
+                                                Upload up to{' '}
+                                                {MAX_TRAINING_CERTIFICATE_FILES}{' '}
+                                                files. Supported formats: PDF,
+                                                JPG, JPEG, PNG. Images are
+                                                compressed in your browser. PDFs
+                                                larger than{' '}
+                                                {PDF_COMPRESS_THRESHOLD_LABEL}{' '}
+                                                are optimized on the server.
+                                            </div>
                                         </div>
-                                    </div>
-                                    {isCompressingFiles && !isUploading ? (
-                                        <p className="text-xs text-muted-foreground">
-                                            Optimizing images…
-                                        </p>
-                                    ) : null}
-                                    <label className="inline-flex cursor-pointer items-center rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
-                                        Browse files
-                                        <input
-                                            type="file"
-                                            accept=".pdf,.jpg,.jpeg,.png"
-                                            multiple={!isEdit}
-                                            disabled={isBusy}
-                                            className="sr-only"
-                                            onChange={(event) => {
-                                                void addCertificateFiles(
-                                                    Array.from(event.target.files ?? []),
-                                                );
-                                                event.currentTarget.value = '';
-                                            }}
-                                        />
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div className="rounded-2xl border border-border bg-card/40">
-                                <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                                    <div>
-                                        <div className="text-sm font-semibold">
-                                            Selected certificates
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {drafts.length} file(s),{' '}
-                                            {formatUploadFileSize(uploadFileSize)} total
-                                        </div>
-                                    </div>
-                                    {drafts.length > 0 ? (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => {
-                                                setDrafts([]);
-                                                setSelectedDraftId(null);
-                                            }}
-                                        >
-                                            Clear
-                                        </Button>
-                                    ) : null}
-                                </div>
-                                <div className="max-h-56 space-y-2 overflow-y-auto p-3">
-                                    {drafts.length === 0 ? (
-                                        <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-                                            {isEdit
-                                                ? 'No replacement file selected. The current certificate is kept unless removed.'
-                                                : isFieldRequired(CERTIFICATE_TEMPLATE_FIELD)
-                                                  ? 'Add a certificate file to continue.'
-                                                  : 'No certificate selected yet (optional).'}
-                                        </div>
-                                    ) : (
-                                        drafts.map((draft, index) => (
-                                            <AddTrainingCertificateListItem
-                                                key={draft.id}
-                                                draft={draft}
-                                                index={index}
-                                                courseLabel={courseLabelForDraft(draft)}
-                                                selected={selectedDraftId === draft.id}
-                                                hasErrors={fieldErrorsByIndex.has(index)}
-                                                onSelect={() => setSelectedDraftId(draft.id)}
-                                                onRemove={() => removeDraft(draft.id)}
+                                        {isCompressingFiles && !isUploading ? (
+                                            <p className="text-xs text-muted-foreground">
+                                                Optimizing images…
+                                            </p>
+                                        ) : null}
+                                        <label className="inline-flex cursor-pointer items-center rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
+                                            Browse files
+                                            <input
+                                                type="file"
+                                                accept=".pdf,.jpg,.jpeg,.png"
+                                                multiple={!isEdit}
+                                                disabled={isBusy}
+                                                className="sr-only"
+                                                onChange={(event) => {
+                                                    void addCertificateFiles(
+                                                        Array.from(
+                                                            event.target
+                                                                .files ?? [],
+                                                        ),
+                                                    );
+                                                    event.currentTarget.value =
+                                                        '';
+                                                }}
                                             />
-                                        ))
-                                    )}
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-border bg-card/40">
+                                    <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                                        <div>
+                                            <div className="text-sm font-semibold">
+                                                Selected certificates
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {drafts.length} file(s),{' '}
+                                                {formatUploadFileSize(
+                                                    uploadFileSize,
+                                                )}{' '}
+                                                total
+                                            </div>
+                                        </div>
+                                        {drafts.length > 0 ? (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setDrafts([]);
+                                                    setSelectedDraftId(null);
+                                                }}
+                                            >
+                                                Clear
+                                            </Button>
+                                        ) : null}
+                                    </div>
+                                    <div className="max-h-56 space-y-2 overflow-y-auto p-3">
+                                        {drafts.length === 0 ? (
+                                            <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                                                {isEdit
+                                                    ? 'No replacement file selected. The current certificate is kept unless removed.'
+                                                    : isFieldRequired(
+                                                            CERTIFICATE_TEMPLATE_FIELD,
+                                                        )
+                                                      ? 'Add a certificate file to continue.'
+                                                      : 'No certificate selected yet (optional).'}
+                                            </div>
+                                        ) : (
+                                            drafts.map((draft, index) => (
+                                                <AddTrainingCertificateListItem
+                                                    key={draft.id}
+                                                    draft={draft}
+                                                    index={index}
+                                                    courseLabel={courseLabelForDraft(
+                                                        draft,
+                                                    )}
+                                                    selected={
+                                                        selectedDraftId ===
+                                                        draft.id
+                                                    }
+                                                    hasErrors={fieldErrorsByIndex.has(
+                                                        index,
+                                                    )}
+                                                    onSelect={() =>
+                                                        setSelectedDraftId(
+                                                            draft.id,
+                                                        )
+                                                    }
+                                                    onRemove={() =>
+                                                        removeDraft(draft.id)
+                                                    }
+                                                />
+                                            ))
+                                        )}
+                                    </div>
                                 </div>
                             </div>
+
+                            {showRightForm ? formPanel : emptySelectionPanel}
                         </div>
+                    ) : (
+                        formPanel
+                    )}
 
-                        {showRightForm ? formPanel : emptySelectionPanel}
-                    </div>
-                ) : (
-                    formPanel
-                )}
-
-                <DialogFooter className="items-center border-t border-border/60 pt-4 sm:justify-between">
-                    <div className="text-xs text-muted-foreground">
-                        {isEdit
-                            ? 'Save updates to this training record.'
-                            : drafts.length === 0
-                              ? 'Enter training details to create a record.'
-                              : drafts.length > 1
-                                ? 'Each certificate will create its own training record.'
-                                : 'One training record will be created.'}
-                    </div>
-                    <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className={actions.dialogSecondary}
-                            disabled={isBusy}
-                            onClick={() => onOpenChange(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            size="sm"
-                            className={actions.dialogPrimary}
-                            disabled={isEdit ? !canSaveEdit : !canSaveCreate}
-                            onClick={isEdit ? submitEdit : submitCreate}
-                        >
-                            {isBusy
-                                ? 'Saving…'
-                                : isEdit
-                                  ? 'Save'
+                    <DialogFooter className="items-center border-t border-border/60 pt-4 sm:justify-between">
+                        <div className="text-xs text-muted-foreground">
+                            {isEdit
+                                ? 'Save updates to this training record.'
+                                : drafts.length === 0
+                                  ? 'Enter training details to create a record.'
                                   : drafts.length > 1
-                                    ? `Add ${drafts.length} trainings`
-                                    : 'Add training'}
-                        </Button>
-                    </div>
-                </DialogFooter>
+                                    ? 'Each certificate will create its own training record.'
+                                    : 'One training record will be created.'}
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className={actions.dialogSecondary}
+                                disabled={isBusy}
+                                onClick={() => onOpenChange(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                size="sm"
+                                className={actions.dialogPrimary}
+                                disabled={
+                                    isEdit ? !canSaveEdit : !canSaveCreate
+                                }
+                                onClick={isEdit ? submitEdit : submitCreate}
+                            >
+                                {isBusy
+                                    ? 'Saving…'
+                                    : isEdit
+                                      ? 'Save'
+                                      : drafts.length > 1
+                                        ? `Add ${drafts.length} trainings`
+                                        : 'Add training'}
+                            </Button>
+                        </div>
+                    </DialogFooter>
                 </div>
             </DialogContent>
         </Dialog>

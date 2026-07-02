@@ -13,12 +13,18 @@ import {
 } from '@/components/data-table';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
-import { RecentActivityCard  } from '@/components/recent-activity-card';
-import type {RecentActivityItem} from '@/components/recent-activity-card';
+import { RecentActivityCard } from '@/components/recent-activity-card';
+import type { RecentActivityItem } from '@/components/recent-activity-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { actions } from '@/lib/design-system';
 import { formatDisplayValue } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -30,7 +36,10 @@ import type {
     VesselManningPagePermissions,
     VesselManningShowItem,
 } from './types';
-import { toVesselManningFormData, toVesselManningPayload } from './vessel-manning-form-utils';
+import {
+    toVesselManningFormData,
+    toVesselManningPayload,
+} from './vessel-manning-form-utils';
 
 function StatChip({
     label,
@@ -54,18 +63,22 @@ function StatChip({
         >
             <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1">
-                    <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70">
+                    <div className="text-[10px] font-bold tracking-[0.18em] text-muted-foreground/70 uppercase">
                         {label}
                     </div>
-                    <div className="text-xl font-extrabold tracking-tight tabular-nums text-foreground">{value}</div>
+                    <div className="text-xl font-extrabold tracking-tight text-foreground tabular-nums">
+                        {value}
+                    </div>
                 </div>
                 {Icon ? (
-                    <div className={cn(
-                        "flex size-9 items-center justify-center rounded-lg border",
-                        highlight 
-                            ? "border-primary/20 bg-primary/10 text-primary" 
-                            : "border-border/60 bg-muted/40 text-muted-foreground dark:border-white/8 dark:bg-white/5"
-                    )}>
+                    <div
+                        className={cn(
+                            'flex size-9 items-center justify-center rounded-lg border',
+                            highlight
+                                ? 'border-primary/20 bg-primary/10 text-primary'
+                                : 'border-border/60 bg-muted/40 text-muted-foreground dark:border-white/8 dark:bg-white/5',
+                        )}
+                    >
                         <Icon className="size-4" />
                     </div>
                 ) : null}
@@ -92,11 +105,18 @@ export function VesselManningShowContent({
     const [editOpen, setEditOpen] = useState(false);
 
     const backHref = useMemo(
-        () => vesselManningIndex.url(Object.keys(back_query).length > 0 ? { query: back_query } : undefined),
+        () =>
+            vesselManningIndex.url(
+                Object.keys(back_query).length > 0
+                    ? { query: back_query }
+                    : undefined,
+            ),
         [back_query],
     );
 
-    const form = useForm<VesselManningFormData>(toVesselManningFormData(vessel));
+    const form = useForm<VesselManningFormData>(
+        toVesselManningFormData(vessel),
+    );
 
     const openEdit = (): void => {
         form.clearErrors();
@@ -112,7 +132,9 @@ export function VesselManningShowContent({
         form.put(
             updateVesselManning.url(
                 { vessel: vessel.id },
-                Object.keys(back_query).length > 0 ? { query: back_query } : undefined,
+                Object.keys(back_query).length > 0
+                    ? { query: back_query }
+                    : undefined,
             ),
             {
                 preserveScroll: true,
@@ -131,7 +153,11 @@ export function VesselManningShowContent({
                 backLabel="Back to vessel manning"
                 actions={
                     vesselManningHasWriteActions(can) ? (
-                        <Button type="button" className={actions.primary} onClick={openEdit}>
+                        <Button
+                            type="button"
+                            className={actions.primary}
+                            onClick={openEdit}
+                        >
                             <Pencil className="mr-2 h-4 w-4" />
                             Edit manning
                         </Button>
@@ -140,7 +166,7 @@ export function VesselManningShowContent({
             />
 
             <div className="grid gap-6 lg:grid-cols-3">
-                <Card className="glass-card overflow-hidden lg:col-span-2 dark:border-white/5 dark:bg-white/5">
+                <Card className="overflow-hidden glass-card lg:col-span-2 dark:border-white/5 dark:bg-white/5">
                     <CardHeader className="border-b border-border pb-5 dark:border-white/5">
                         <div className="flex items-start gap-4">
                             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
@@ -148,20 +174,31 @@ export function VesselManningShowContent({
                             </div>
                             <div className="min-w-0 space-y-2">
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <Badge variant={vessel.is_active ? 'default' : 'secondary'}>
-                                        {vessel.is_active ? 'Active' : 'Inactive'}
+                                    <Badge
+                                        variant={
+                                            vessel.is_active
+                                                ? 'default'
+                                                : 'secondary'
+                                        }
+                                    >
+                                        {vessel.is_active
+                                            ? 'Active'
+                                            : 'Inactive'}
                                     </Badge>
                                     {vessel.vessel_type_name ? (
-                                        <Badge variant="outline">{vessel.vessel_type_name}</Badge>
+                                        <Badge variant="outline">
+                                            {vessel.vessel_type_name}
+                                        </Badge>
                                     ) : null}
                                 </div>
                                 <p className="text-sm text-muted-foreground">
-                                    Required crew mix configured for this vessel in your company.
+                                    Required crew mix configured for this vessel
+                                    in your company.
                                 </p>
                             </div>
                         </div>
                     </CardHeader>
-                    <CardContent className="p-6 space-y-6">
+                    <CardContent className="space-y-6 p-6">
                         <div className="grid gap-4 sm:grid-cols-3">
                             <StatChip
                                 label="Ranks configured"
@@ -170,30 +207,39 @@ export function VesselManningShowContent({
                             />
                             <StatChip
                                 label="Total required"
-                                value={vessel.total_required > 0 ? String(vessel.total_required) : '—'}
+                                value={
+                                    vessel.total_required > 0
+                                        ? String(vessel.total_required)
+                                        : '—'
+                                }
                                 highlight={vessel.total_required > 0}
                                 icon={Users}
                             />
                             <StatChip
                                 label="Vessel type"
-                                value={formatDisplayValue(vessel.vessel_type_name)}
+                                value={formatDisplayValue(
+                                    vessel.vessel_type_name,
+                                )}
                                 icon={Ship}
                             />
                         </div>
 
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/10 px-5 py-3.5 dark:border-white/10 dark:bg-white/1">
-                                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/75">
+                                <div className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/75 uppercase">
                                     GRT (Gross Tonnage)
                                 </div>
-                                <div className="text-sm font-bold text-foreground">{formatDisplayValue(vessel.grt)}</div>
+                                <div className="text-sm font-bold text-foreground">
+                                    {formatDisplayValue(vessel.grt)}
+                                </div>
                             </div>
                             <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/10 px-5 py-3.5 dark:border-white/10 dark:bg-white/1">
-                                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/75">
+                                <div className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/75 uppercase">
                                     BHP (Engine Power)
                                 </div>
                                 <div className="text-sm font-bold text-foreground">
-                                    {vessel.bhp !== null && vessel.bhp !== undefined
+                                    {vessel.bhp !== null &&
+                                    vessel.bhp !== undefined
                                         ? `${vessel.bhp} HP`
                                         : '—'}
                                 </div>
@@ -204,14 +250,17 @@ export function VesselManningShowContent({
 
                 <Card className="glass-card dark:border-white/5 dark:bg-white/5">
                     <CardHeader className="border-b border-border pb-4 dark:border-white/5">
-                        <CardTitle className="text-base font-bold">Summary</CardTitle>
+                        <CardTitle className="text-base font-bold">
+                            Summary
+                        </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4 pt-6">
                         <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 dark:border-white/10 dark:bg-white/3">
                             <Anchor className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                             <div className="text-sm text-muted-foreground">
-                                Vessel and rank master data are managed in Settings. This page only
-                                defines how many crew of each rank this vessel needs.
+                                Vessel and rank master data are managed in
+                                Settings. This page only defines how many crew
+                                of each rank this vessel needs.
                             </div>
                         </div>
                     </CardContent>
@@ -220,7 +269,9 @@ export function VesselManningShowContent({
 
             <Card className="mt-6 glass-card dark:border-white/5 dark:bg-white/5">
                 <CardHeader className="border-b border-border pb-4 dark:border-white/5">
-                    <CardTitle className="text-base font-bold">Rank requirements</CardTitle>
+                    <CardTitle className="text-base font-bold">
+                        Rank requirements
+                    </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                     {vessel.manning.length === 0 ? (
@@ -249,13 +300,25 @@ export function VesselManningShowContent({
                             </TableHeader>
                             <TableBody>
                                 {vessel.manning.map((line) => (
-                                    <TableRow key={line.id} className={dataTableBodyRowClass(false)}>
-                                        <TableCell className={dataTableCellClass()}>
-                                            <span className="font-semibold text-foreground/80">{line.rank_name}</span>
+                                    <TableRow
+                                        key={line.id}
+                                        className={dataTableBodyRowClass(false)}
+                                    >
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            <span className="font-semibold text-foreground/80">
+                                                {line.rank_name}
+                                            </span>
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass()}>
-                                            <Badge variant="outline" className="border-primary/20 bg-primary/5 text-foreground font-semibold px-3 py-1">
-                                                <Users className="mr-1.5 h-3 w-3 text-primary inline" />
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            <Badge
+                                                variant="outline"
+                                                className="border-primary/20 bg-primary/5 px-3 py-1 font-semibold text-foreground"
+                                            >
+                                                <Users className="mr-1.5 inline h-3 w-3 text-primary" />
                                                 {line.required_count}
                                             </Badge>
                                         </TableCell>

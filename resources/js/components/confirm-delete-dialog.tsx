@@ -41,13 +41,18 @@ export function ConfirmDeleteDialog({
             <AlertDialogContent className={contentClassName}>
                 <AlertDialogHeader>
                     <AlertDialogTitle>{title}</AlertDialogTitle>
-                    <AlertDialogDescription>{description}</AlertDialogDescription>
+                    <AlertDialogDescription>
+                        {description}
+                    </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter className={footerClassName}>
                     <AlertDialogCancel asChild>
                         <Button
                             variant="ghost"
-                            className={cancelButtonClassName ?? 'rounded-xl h-11 px-6 text-muted-foreground'}
+                            className={
+                                cancelButtonClassName ??
+                                'h-11 rounded-xl px-6 text-muted-foreground'
+                            }
                         >
                             {cancelText}
                         </Button>
@@ -55,7 +60,9 @@ export function ConfirmDeleteDialog({
                     <AlertDialogAction asChild>
                         <Button
                             variant="destructive"
-                            className={confirmButtonClassName ?? 'rounded-xl h-11 px-6'}
+                            className={
+                                confirmButtonClassName ?? 'h-11 rounded-xl px-6'
+                            }
                             onClick={onConfirm}
                         >
                             {confirmText}
@@ -66,4 +73,3 @@ export function ConfirmDeleteDialog({
         </AlertDialog>
     );
 }
-

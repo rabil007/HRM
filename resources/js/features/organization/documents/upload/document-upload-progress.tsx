@@ -3,7 +3,10 @@ import type { ReactElement } from 'react';
 import { formatUploadFileSize } from '@/features/organization/documents/upload/upload-draft';
 import { cn } from '@/lib/utils';
 
-export type DocumentUploadProgressPhase = 'preparing' | 'uploading' | 'processing';
+export type DocumentUploadProgressPhase =
+    | 'preparing'
+    | 'uploading'
+    | 'processing';
 
 export type DocumentUploadProgressState = {
     percentage: number;
@@ -25,7 +28,8 @@ const PHASE_COPY: Record<
     },
     processing: {
         title: 'Processing on server',
-        description: 'Saving files and optimizing large PDFs. This may take a moment.',
+        description:
+            'Saving files and optimizing large PDFs. This may take a moment.',
     },
 };
 
@@ -80,11 +84,16 @@ export function DocumentUploadProgressOverlay({
             <div className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-card p-5 shadow-lg">
                 <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                        <Loader2
+                            className="h-5 w-5 animate-spin"
+                            aria-hidden="true"
+                        />
                     </div>
                     <div className="min-w-0 space-y-1">
                         <p className="text-sm font-semibold">{copy.title}</p>
-                        <p className="text-xs text-muted-foreground">{copy.description}</p>
+                        <p className="text-xs text-muted-foreground">
+                            {copy.description}
+                        </p>
                         {fileLabel ? (
                             <p className="truncate text-xs font-medium text-foreground/80">
                                 {fileLabel}

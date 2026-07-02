@@ -18,16 +18,19 @@ export function CompanyDeleteDialog({
             open={open}
             onOpenChange={onOpenChange}
             title={
-                <span className="text-xl font-bold bg-destructive/10 text-destructive p-3 rounded-lg flex items-center gap-2 mb-2 w-fit">
+                <span className="mb-2 flex w-fit items-center gap-2 rounded-lg bg-destructive/10 p-3 text-xl font-bold text-destructive">
                     <Trash2 className="h-5 w-5" />
                     Delete Company
                 </span>
             }
             description={
-                <span className="text-base text-muted-foreground font-medium">
+                <span className="text-base font-medium text-muted-foreground">
                     Are you absolutely sure you want to delete{' '}
-                    <span className="text-foreground font-bold">{company?.name}</span>? This action cannot be undone
-                    and will remove all associated data.
+                    <span className="font-bold text-foreground">
+                        {company?.name}
+                    </span>
+                    ? This action cannot be undone and will remove all
+                    associated data.
                 </span>
             }
             confirmText="Confirm Delete"
@@ -39,4 +42,3 @@ export function CompanyDeleteDialog({
         />
     );
 }
-

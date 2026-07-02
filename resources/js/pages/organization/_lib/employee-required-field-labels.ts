@@ -81,7 +81,9 @@ const EMPLOYEE_REQUIRED_FIELD_LABELS: Record<string, string> = {
 export function employeeRequiredFieldLabel(fieldKey: string): string {
     return (
         EMPLOYEE_REQUIRED_FIELD_LABELS[fieldKey] ??
-        fieldKey.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+        fieldKey
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase())
     );
 }
 

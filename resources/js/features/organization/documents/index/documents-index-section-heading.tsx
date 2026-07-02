@@ -8,7 +8,9 @@ export function DocumentsIndexSectionHeading({
     return (
         <h2 className="text-base font-semibold tracking-tight text-foreground">
             {label}{' '}
-            <span className="font-normal tabular-nums text-muted-foreground">({count})</span>
+            <span className="font-normal text-muted-foreground tabular-nums">
+                ({count})
+            </span>
         </h2>
     );
 }

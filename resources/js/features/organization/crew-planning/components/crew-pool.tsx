@@ -1,8 +1,19 @@
 import { useDraggable } from '@dnd-kit/core';
-import { ChevronDown, ChevronRight, GripVertical, Search, Users, X } from 'lucide-react';
+import {
+    ChevronDown,
+    ChevronRight,
+    GripVertical,
+    Search,
+    Users,
+    X,
+} from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useMemo, useState } from 'react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { CrewDragData, PlanningPoolEmployee } from '../types';
@@ -18,7 +29,8 @@ function avatarColor(name: string): string {
         'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
         'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300',
     ];
-    const index = [...name].reduce((acc, c) => acc + c.charCodeAt(0), 0) % colors.length;
+    const index =
+        [...name].reduce((acc, c) => acc + c.charCodeAt(0), 0) % colors.length;
 
     return colors[index];
 }
@@ -31,7 +43,11 @@ function initials(name: string): string {
         .join('');
 }
 
-function DraggableCrewItem({ employee }: { employee: PlanningPoolEmployee }): ReactElement {
+function DraggableCrewItem({
+    employee,
+}: {
+    employee: PlanningPoolEmployee;
+}): ReactElement {
     const dragData: CrewDragData = {
         type: 'crew',
         employeeId: employee.id,
@@ -51,7 +67,7 @@ function DraggableCrewItem({ employee }: { employee: PlanningPoolEmployee }): Re
             {...listeners}
             {...attributes}
             className={cn(
-                'flex cursor-grab items-center gap-2.5 rounded-md px-2 py-1.5 text-xs transition-all hover:bg-muted/70 active:cursor-grabbing active:scale-95',
+                'flex cursor-grab items-center gap-2.5 rounded-md px-2 py-1.5 text-xs transition-all hover:bg-muted/70 active:scale-95 active:cursor-grabbing',
                 isDragging && 'opacity-40',
             )}
         >
@@ -64,8 +80,12 @@ function DraggableCrewItem({ employee }: { employee: PlanningPoolEmployee }): Re
                 {initials(employee.name)}
             </div>
             <div className="min-w-0 flex-1">
-                <div className="truncate font-medium leading-tight">{employee.name}</div>
-                <div className="truncate text-[10px] text-muted-foreground/70">{employee.rank_name}</div>
+                <div className="truncate leading-tight font-medium">
+                    {employee.name}
+                </div>
+                <div className="truncate text-[10px] text-muted-foreground/70">
+                    {employee.rank_name}
+                </div>
             </div>
             <GripVertical className="h-3 w-3 shrink-0 text-muted-foreground/30" />
         </div>
@@ -97,11 +117,13 @@ export function CrewPool({ employees }: Props): ReactElement {
     return (
         <Collapsible open={open} onOpenChange={setOpen}>
             <CollapsibleTrigger asChild>
-                <button className="flex w-full items-center gap-2 border-t px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted/40">
+                <button className="flex w-full items-center gap-2 border-t px-3 py-2.5 text-left text-xs font-semibold tracking-wider text-muted-foreground uppercase transition-colors hover:bg-muted/40">
                     <Users className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">Crew</span>
                     <span className="ml-auto shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary/70">
-                        {lowerSearch !== '' ? `${filteredEmployees.length}/${employees.length}` : employees.length}
+                        {lowerSearch !== ''
+                            ? `${filteredEmployees.length}/${employees.length}`
+                            : employees.length}
                     </span>
                     {open ? (
                         <ChevronDown className="h-3.5 w-3.5 shrink-0" />
@@ -142,7 +164,10 @@ export function CrewPool({ employees }: Props): ReactElement {
                             </p>
                         ) : (
                             filteredEmployees.map((employee) => (
-                                <DraggableCrewItem key={employee.id} employee={employee} />
+                                <DraggableCrewItem
+                                    key={employee.id}
+                                    employee={employee}
+                                />
                             ))
                         )}
                     </div>

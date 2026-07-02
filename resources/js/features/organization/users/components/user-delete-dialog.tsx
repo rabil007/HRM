@@ -17,9 +17,12 @@ export function UserDeleteDialog({
             open={open}
             onOpenChange={onOpenChange}
             title="Delete user"
-            description={user ? `This will permanently delete “${user.email}”.` : 'This will permanently delete this user.'}
+            description={
+                user
+                    ? `This will permanently delete “${user.email}”.`
+                    : 'This will permanently delete this user.'
+            }
             onConfirm={onConfirm}
         />
     );
 }
-

@@ -38,4 +38,3 @@ export type UserFormData = {
     role_id: number | '';
     status: 'active' | 'inactive' | 'suspended';
 };
-

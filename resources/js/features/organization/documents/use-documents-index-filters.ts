@@ -2,7 +2,9 @@ import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ExpiryFilter } from '@/features/organization/documents/document-expiry';
 
-function cleanParams(params: Record<string, string | number | null | undefined>): Record<string, string> {
+function cleanParams(
+    params: Record<string, string | number | null | undefined>,
+): Record<string, string> {
     const clean: Record<string, string> = {};
 
     Object.entries(params).forEach(([key, value]) => {
@@ -39,14 +41,22 @@ export function useDocumentsIndexFilters({
     }, []);
 
     const visit = useCallback(
-        (params: Record<string, string | number | null | undefined>, only?: string[]) => {
+        (
+            params: Record<string, string | number | null | undefined>,
+            only?: string[],
+        ) => {
             setIsSearching(true);
             router.get(url, cleanParams(params), {
                 preserveState: true,
                 replace: true,
-                only:
-                    only ??
-                    ['summary', 'expiry', 'search', 'employees', 'searchDocuments', 'complianceDocuments'],
+                only: only ?? [
+                    'summary',
+                    'expiry',
+                    'search',
+                    'employees',
+                    'searchDocuments',
+                    'complianceDocuments',
+                ],
                 onFinish: () => {
                     setIsSearching(false);
                     setDraftSearch(null);

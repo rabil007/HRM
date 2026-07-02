@@ -1,5 +1,11 @@
 import { Link } from '@inertiajs/react';
-import { AlertTriangle, ArrowUpRight, ChevronDown, ChevronUp, X } from 'lucide-react';
+import {
+    AlertTriangle,
+    ArrowUpRight,
+    ChevronDown,
+    ChevronUp,
+    X,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { PayrollCategory, PayrollGenerationSummary } from '../types';
@@ -14,7 +20,10 @@ export function PayrollSkippedBanner({
     const [isDismissed, setIsDismissed] = useState(false);
     const [errorsExpanded, setErrorsExpanded] = useState(true);
 
-    if (!summary || (summary.skipped_count === 0 && summary.errors.length === 0)) {
+    if (
+        !summary ||
+        (summary.skipped_count === 0 && summary.errors.length === 0)
+    ) {
         return null;
     }
 
@@ -31,7 +40,7 @@ export function PayrollSkippedBanner({
             <button
                 type="button"
                 onClick={() => setIsDismissed(true)}
-                className="absolute right-3 top-3 rounded-lg p-1 text-muted-foreground/60 hover:bg-amber-500/10 hover:text-foreground transition-colors"
+                className="absolute top-3 right-3 rounded-lg p-1 text-muted-foreground/60 transition-colors hover:bg-amber-500/10 hover:text-foreground"
                 aria-label="Dismiss banner"
             >
                 <X className="h-4 w-4" />
@@ -42,7 +51,8 @@ export function PayrollSkippedBanner({
                 <div className="min-w-0 flex-1 space-y-3 text-sm">
                     {summary.generated_count > 0 ? (
                         <p className="font-semibold text-foreground">
-                            Generated payroll for {summary.generated_count} employee
+                            Generated payroll for {summary.generated_count}{' '}
+                            employee
                             {summary.generated_count === 1 ? '' : 's'}.
                         </p>
                     ) : null}
@@ -50,13 +60,16 @@ export function PayrollSkippedBanner({
                         <div>
                             <p className="font-medium text-amber-700 dark:text-amber-200">
                                 {summary.skipped_count} employee
-                                {summary.skipped_count === 1 ? '' : 's'} {skipLabel}
+                                {summary.skipped_count === 1 ? '' : 's'}{' '}
+                                {skipLabel}
                             </p>
                             <ul className="mt-1 list-inside list-disc text-muted-foreground">
                                 {summary.skipped_employees.map((employee) => (
                                     <li key={employee.id}>
                                         {employee.name}
-                                        {employee.employee_no ? ` · ${employee.employee_no}` : ''}
+                                        {employee.employee_no
+                                            ? ` · ${employee.employee_no}`
+                                            : ''}
                                     </li>
                                 ))}
                             </ul>
@@ -65,7 +78,7 @@ export function PayrollSkippedBanner({
                     {summary.errors.length > 0 ? (
                         <div className="space-y-2">
                             <div className="flex items-center justify-between border-b border-destructive/10 pb-1.5">
-                                <p className="font-medium text-destructive flex items-center gap-1.5">
+                                <p className="flex items-center gap-1.5 font-medium text-destructive">
                                     Calculation errors
                                     <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs font-semibold text-destructive">
                                         {summary.errors.length}
@@ -73,16 +86,20 @@ export function PayrollSkippedBanner({
                                 </p>
                                 <button
                                     type="button"
-                                    onClick={() => setErrorsExpanded(!errorsExpanded)}
-                                    className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                                    onClick={() =>
+                                        setErrorsExpanded(!errorsExpanded)
+                                    }
+                                    className="flex items-center gap-1 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
                                 >
                                     {errorsExpanded ? (
                                         <>
-                                            Hide <ChevronUp className="h-3.5 w-3.5" />
+                                            Hide{' '}
+                                            <ChevronUp className="h-3.5 w-3.5" />
                                         </>
                                     ) : (
                                         <>
-                                            Show <ChevronDown className="h-3.5 w-3.5" />
+                                            Show{' '}
+                                            <ChevronDown className="h-3.5 w-3.5" />
                                         </>
                                     )}
                                 </button>
@@ -104,11 +121,14 @@ export function PayrollSkippedBanner({
                                                     ) : null}
                                                 </p>
                                                 {error.field_label ? (
-                                                    <p className="text-xs font-semibold uppercase tracking-wide text-destructive/80">
-                                                        Missing: {error.field_label}
+                                                    <p className="text-xs font-semibold tracking-wide text-destructive/80 uppercase">
+                                                        Missing:{' '}
+                                                        {error.field_label}
                                                     </p>
                                                 ) : null}
-                                                <p className="text-muted-foreground">{error.message}</p>
+                                                <p className="text-muted-foreground">
+                                                    {error.message}
+                                                </p>
                                             </div>
                                             <Button
                                                 asChild

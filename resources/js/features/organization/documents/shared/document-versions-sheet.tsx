@@ -2,12 +2,14 @@ import { useHttp } from '@inertiajs/react';
 import { History, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
-    DocumentVersionHistory
-    
-} from '@/features/organization/documents/shared/document-version-history';
-import type {DocumentVersionItem} from '@/features/organization/documents/shared/document-version-history';
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
+import { DocumentVersionHistory } from '@/features/organization/documents/shared/document-version-history';
+import type { DocumentVersionItem } from '@/features/organization/documents/shared/document-version-history';
 
 type Props = {
     open: boolean;
@@ -38,10 +40,18 @@ export function DocumentVersionsSheet({
         let cancelled = false;
         setLoading(true);
 
-        http.get(EmployeeDocumentController.versions.url({ employee: employeeId, document: documentId }))
+        http.get(
+            EmployeeDocumentController.versions.url({
+                employee: employeeId,
+                document: documentId,
+            }),
+        )
             .then((res) => {
                 if (!cancelled) {
-                    setVersions((res.data as { versions: DocumentVersionItem[] }).versions ?? []);
+                    setVersions(
+                        (res.data as { versions: DocumentVersionItem[] })
+                            .versions ?? [],
+                    );
                 }
             })
             .finally(() => {
@@ -62,10 +72,14 @@ export function DocumentVersionsSheet({
                 <SheetHeader className="mb-6">
                     <div className="flex items-center gap-2">
                         <History className="h-4 w-4 text-muted-foreground" />
-                        <SheetTitle className="text-base">Version history</SheetTitle>
+                        <SheetTitle className="text-base">
+                            Version history
+                        </SheetTitle>
                     </div>
                     {documentTitle ? (
-                        <p className="truncate text-sm text-muted-foreground">{documentTitle}</p>
+                        <p className="truncate text-sm text-muted-foreground">
+                            {documentTitle}
+                        </p>
                     ) : null}
                 </SheetHeader>
 
@@ -74,7 +88,10 @@ export function DocumentVersionsSheet({
                         <Loader2 className="h-5 w-5 animate-spin" />
                     </div>
                 ) : (
-                    <DocumentVersionHistory versions={versions} showDownload={showDownload} />
+                    <DocumentVersionHistory
+                        versions={versions}
+                        showDownload={showDownload}
+                    />
                 )}
             </SheetContent>
         </Sheet>

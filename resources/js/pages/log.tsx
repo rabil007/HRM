@@ -1,7 +1,17 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { AlertTriangle, FileText, Search, Terminal, Trash2, Download } from 'lucide-react';
+import {
+    AlertTriangle,
+    FileText,
+    Search,
+    Terminal,
+    Trash2,
+    Download,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { destroy as clearApplicationLogs, exportMethod as exportApplicationLogs } from '@/actions/App/Http/Controllers/ApplicationLogController';
+import {
+    destroy as clearApplicationLogs,
+    exportMethod as exportApplicationLogs,
+} from '@/actions/App/Http/Controllers/ApplicationLogController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { Main } from '@/components/layout/main';
@@ -9,7 +19,11 @@ import { Pagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { cn } from '@/lib/utils';
@@ -152,7 +166,8 @@ export default function ApplicationLogViewer({
     };
 
     const hasLogFiles = files.length > 0;
-    const selectedFileName = form.data.file || file_meta.name || files[0]?.name || '';
+    const selectedFileName =
+        form.data.file || file_meta.name || files[0]?.name || '';
 
     return (
         <>
@@ -171,7 +186,8 @@ export default function ApplicationLogViewer({
                             Application logs
                         </h1>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            Read Laravel log files without opening the server filesystem.
+                            Read Laravel log files without opening the server
+                            filesystem.
                         </p>
                     </div>
 
@@ -186,7 +202,14 @@ export default function ApplicationLogViewer({
                                         variant="outline"
                                         className="h-9 gap-1.5 border-border/60 hover:bg-muted/10"
                                     >
-                                        <a href={exportApplicationLogs.url({ query: { file: selectedFileName } })} download>
+                                        <a
+                                            href={exportApplicationLogs.url({
+                                                query: {
+                                                    file: selectedFileName,
+                                                },
+                                            })}
+                                            download
+                                        >
                                             <Download className="size-3.5" />
                                             Export
                                         </a>
@@ -235,13 +258,17 @@ export default function ApplicationLogViewer({
                                     {file_meta.name}
                                 </div>
                                 <div className="mt-1">
-                                    {formatBytes(file_meta.size_bytes)} · updated{' '}
-                                    {new Date(file_meta.modified_at).toLocaleString()}
+                                    {formatBytes(file_meta.size_bytes)} ·
+                                    updated{' '}
+                                    {new Date(
+                                        file_meta.modified_at,
+                                    ).toLocaleString()}
                                 </div>
                                 {file_meta.truncated ? (
                                     <div className="mt-2 flex items-center gap-1.5 text-amber-500">
                                         <AlertTriangle className="size-3.5" />
-                                        Showing the latest portion of this file only.
+                                        Showing the latest portion of this file
+                                        only.
                                     </div>
                                 ) : null}
                             </div>
@@ -257,12 +284,18 @@ export default function ApplicationLogViewer({
                             </label>
                             <AppSelect
                                 value={form.data.file}
-                                onValueChange={(value) => submitFilters({ file: value })}
+                                onValueChange={(value) =>
+                                    submitFilters({ file: value })
+                                }
                                 variant="dark"
                             >
                                 {files.map((file) => (
-                                    <AppSelectItem key={file.name} value={file.name}>
-                                        {file.name} ({formatBytes(file.size_bytes)})
+                                    <AppSelectItem
+                                        key={file.name}
+                                        value={file.name}
+                                    >
+                                        {file.name} (
+                                        {formatBytes(file.size_bytes)})
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
@@ -275,11 +308,15 @@ export default function ApplicationLogViewer({
                             <AppSelect
                                 value={form.data.level || 'all'}
                                 onValueChange={(value) =>
-                                    submitFilters({ level: value === 'all' ? '' : value })
+                                    submitFilters({
+                                        level: value === 'all' ? '' : value,
+                                    })
                                 }
                                 variant="dark"
                             >
-                                <AppSelectItem value="all">All levels</AppSelectItem>
+                                <AppSelectItem value="all">
+                                    All levels
+                                </AppSelectItem>
                                 {levels.map((level) => (
                                     <AppSelectItem key={level} value={level}>
                                         {level.toUpperCase()}
@@ -298,8 +335,13 @@ export default function ApplicationLogViewer({
                                     <Input
                                         value={form.data.q}
                                         onChange={(event) => {
-                                            form.setData('q', event.target.value);
-                                            list.onSearchChange(event.target.value);
+                                            form.setData(
+                                                'q',
+                                                event.target.value,
+                                            );
+                                            list.onSearchChange(
+                                                event.target.value,
+                                            );
                                         }}
                                         placeholder="Search message, context, or stack trace"
                                         className="h-10 rounded-xl border-border/60 bg-muted/50 pl-9"
@@ -310,8 +352,17 @@ export default function ApplicationLogViewer({
                                     variant="outline"
                                     className="h-10 rounded-xl"
                                     onClick={() => {
-                                        form.setData({ file: files[0]?.name ?? '', level: '', q: '' });
-                                        list.visit({ file: files[0]?.name ?? '', level: '', q: '', page: null });
+                                        form.setData({
+                                            file: files[0]?.name ?? '',
+                                            level: '',
+                                            q: '',
+                                        });
+                                        list.visit({
+                                            file: files[0]?.name ?? '',
+                                            level: '',
+                                            q: '',
+                                            page: null,
+                                        });
                                     }}
                                     disabled={activeFilterCount === 0}
                                 >
@@ -326,10 +377,12 @@ export default function ApplicationLogViewer({
                     <Card className="border-dashed border-border/60">
                         <CardContent className="flex flex-col items-center justify-center gap-2 py-16 text-center">
                             <Terminal className="size-10 text-muted-foreground/30" />
-                            <p className="text-sm font-medium text-foreground">No log entries found</p>
+                            <p className="text-sm font-medium text-foreground">
+                                No log entries found
+                            </p>
                             <p className="max-w-md text-xs text-muted-foreground">
-                                Try another file, clear filters, or generate activity in the app to
-                                populate the log.
+                                Try another file, clear filters, or generate
+                                activity in the app to populate the log.
                             </p>
                         </CardContent>
                     </Card>
@@ -339,7 +392,8 @@ export default function ApplicationLogViewer({
                             const isOpen = openId === entry.id;
                             const hasDetails =
                                 entry.context !== null ||
-                                (entry.stack !== null && entry.stack.trim() !== '');
+                                (entry.stack !== null &&
+                                    entry.stack.trim() !== '');
 
                             return (
                                 <Card
@@ -349,7 +403,11 @@ export default function ApplicationLogViewer({
                                     <CardContent className="p-0">
                                         <Collapsible
                                             open={isOpen}
-                                            onOpenChange={(open) => setOpenId(open ? entry.id : null)}
+                                            onOpenChange={(open) =>
+                                                setOpenId(
+                                                    open ? entry.id : null,
+                                                )
+                                            }
                                         >
                                             <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
                                                 <div className="min-w-0 flex-1 space-y-2">
@@ -358,7 +416,9 @@ export default function ApplicationLogViewer({
                                                             variant="outline"
                                                             className={cn(
                                                                 'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase',
-                                                                levelStyle(entry.level),
+                                                                levelStyle(
+                                                                    entry.level,
+                                                                ),
                                                             )}
                                                         >
                                                             {entry.level}
@@ -371,7 +431,8 @@ export default function ApplicationLogViewer({
                                                         </span>
                                                     </div>
                                                     <p className="font-mono text-sm wrap-break-word text-foreground">
-                                                        {entry.message || '(empty message)'}
+                                                        {entry.message ||
+                                                            '(empty message)'}
                                                     </p>
                                                 </div>
 
@@ -383,7 +444,9 @@ export default function ApplicationLogViewer({
                                                             size="sm"
                                                             className="h-8 shrink-0 rounded-lg text-xs"
                                                         >
-                                                            {isOpen ? 'Hide details' : 'View details'}
+                                                            {isOpen
+                                                                ? 'Hide details'
+                                                                : 'View details'}
                                                         </Button>
                                                     </CollapsibleTrigger>
                                                 ) : null}
@@ -398,17 +461,24 @@ export default function ApplicationLogViewer({
                                                                     Context
                                                                 </div>
                                                                 <pre className="overflow-x-auto rounded-xl border border-border/60 bg-background/80 p-3 font-mono text-xs text-foreground/90">
-                                                                    {JSON.stringify(entry.context, null, 2)}
+                                                                    {JSON.stringify(
+                                                                        entry.context,
+                                                                        null,
+                                                                        2,
+                                                                    )}
                                                                 </pre>
                                                             </div>
                                                         ) : null}
                                                         {entry.stack ? (
                                                             <div>
                                                                 <div className="mb-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
-                                                                    Stack / details
+                                                                    Stack /
+                                                                    details
                                                                 </div>
                                                                 <pre className="overflow-x-auto rounded-xl border border-border/60 bg-background/80 p-3 font-mono text-xs whitespace-pre-wrap text-foreground/90">
-                                                                    {entry.stack}
+                                                                    {
+                                                                        entry.stack
+                                                                    }
                                                                 </pre>
                                                             </div>
                                                         ) : null}

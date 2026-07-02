@@ -13,4 +13,3 @@ export type Role = {
 export type RoleFormData = {
     name: string;
 };
-

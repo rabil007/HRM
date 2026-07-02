@@ -15,7 +15,9 @@ export function PayrollRecordWpsSelectionHead({
     return (
         <DataTableHead className="w-12 pl-5">
             <Checkbox
-                checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                checked={
+                    allSelected ? true : someSelected ? 'indeterminate' : false
+                }
                 onCheckedChange={onToggleAll}
                 aria-label="Select all for WPS export"
             />

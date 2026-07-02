@@ -21,7 +21,9 @@ export function formatDisplayDate(value: string | null | undefined): string {
     return `${day}-${month}-${year}`;
 }
 
-export function formatDisplayDateTime(value: string | null | undefined): string {
+export function formatDisplayDateTime(
+    value: string | null | undefined,
+): string {
     if (value === null || value === undefined || value === '') {
         return '—';
     }
@@ -68,7 +70,9 @@ export function formatDisplayTime12h(value: string | null | undefined): string {
     return format12HourClock(parsed);
 }
 
-export function formatDisplayDateTime12h(value: string | null | undefined): string {
+export function formatDisplayDateTime12h(
+    value: string | null | undefined,
+): string {
     if (value === null || value === undefined || value === '') {
         return '—';
     }

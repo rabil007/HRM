@@ -15,7 +15,11 @@ import { Pagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
@@ -102,8 +106,10 @@ function CauserAvatar({ name }: { name: string }) {
         .toUpperCase();
 
     return (
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-            <span className="text-[9px] font-black text-primary">{initials}</span>
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-gradient-to-br from-primary/30 to-primary/10">
+            <span className="text-[9px] font-black text-primary">
+                {initials}
+            </span>
         </div>
     );
 }
@@ -118,7 +124,13 @@ export default function ActivityLogs({
 }: {
     logs: AuditLog[];
     pagination: PaginationMeta;
-    filters: { q: string; event: string; subject: string; date_from: string; date_to: string };
+    filters: {
+        q: string;
+        event: string;
+        subject: string;
+        date_from: string;
+        date_to: string;
+    };
     subject_types: string[];
 }) {
     const form = useForm({
@@ -151,7 +163,13 @@ export default function ActivityLogs({
     };
 
     const resetFilters = () => {
-        const data = { q: '', event: '', subject: '', date_from: '', date_to: '' };
+        const data = {
+            q: '',
+            event: '',
+            subject: '',
+            date_from: '',
+            date_to: '',
+        };
         form.setData(data);
         list.visit({ ...data, page: null });
     };
@@ -160,24 +178,24 @@ export default function ActivityLogs({
         let count = 0;
 
         if (form.data.q) {
-count++;
-}
+            count++;
+        }
 
         if (form.data.event) {
-count++;
-}
+            count++;
+        }
 
         if (form.data.subject) {
-count++;
-}
+            count++;
+        }
 
         if (form.data.date_from) {
-count++;
-}
+            count++;
+        }
 
         if (form.data.date_to) {
-count++;
-}
+            count++;
+        }
 
         return count;
     }, [form.data]);
@@ -188,46 +206,48 @@ count++;
 
             <Main>
                 {/* ── Page header ── */}
-                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+                <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                     <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
-                            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
+                        <div className="mb-1 flex items-center gap-2">
+                            <span className="flex h-2 w-2 animate-pulse rounded-full bg-primary" />
+                            <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/60 uppercase">
                                 Organization
                             </span>
                         </div>
-                        <h1 className="text-4xl font-extrabold tracking-tight bg-linear-to-br from-foreground to-foreground/50 bg-clip-text text-transparent">
+                        <h1 className="bg-linear-to-br from-foreground to-foreground/50 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent">
                             Activity logs
                         </h1>
-                        <p className="text-sm text-muted-foreground/70 font-medium mt-1">
+                        <p className="mt-1 text-sm font-medium text-muted-foreground/70">
                             Track every change across your organization data.
                         </p>
                     </div>
 
                     {/* Total counter */}
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-muted/30 shrink-0 dark:border-white/5 dark:bg-white/[0.03]">
-                        <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                            <Activity className="w-4 h-4" />
+                    <div className="flex shrink-0 items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 dark:border-white/5 dark:bg-white/[0.03]">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                            <Activity className="h-4 w-4" />
                         </div>
                         <div>
-                            <p className="text-[10px] text-muted-foreground/40 uppercase tracking-widest font-bold leading-none">
+                            <p className="text-[10px] leading-none font-bold tracking-widest text-muted-foreground/40 uppercase">
                                 Total events
                             </p>
-                            <p className="text-lg font-black text-foreground">{pagination.total.toLocaleString()}</p>
+                            <p className="text-lg font-black text-foreground">
+                                {pagination.total.toLocaleString()}
+                            </p>
                         </div>
                     </div>
                 </div>
 
                 {/* ── Filter bar ── */}
-                <Card className="border-border bg-card mb-6 dark:border-white/5 dark:bg-white/[0.03]">
+                <Card className="mb-6 border-border bg-card dark:border-white/5 dark:bg-white/[0.03]">
                     <CardContent className="p-5">
-                        <div className="flex items-center gap-3 mb-4">
-                            <Filter className="w-4 h-4 text-muted-foreground/50" />
-                            <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
+                        <div className="mb-4 flex items-center gap-3">
+                            <Filter className="h-4 w-4 text-muted-foreground/50" />
+                            <span className="text-xs font-bold tracking-widest text-muted-foreground/50 uppercase">
                                 Filters
                             </span>
                             {activeFilterCount > 0 ? (
-                                <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] font-bold px-2">
+                                <Badge className="border-primary/20 bg-primary/10 px-2 text-[10px] font-bold text-primary">
                                     {activeFilterCount} active
                                 </Badge>
                             ) : null}
@@ -235,9 +255,9 @@ count++;
                                 <button
                                     type="button"
                                     onClick={resetFilters}
-                                    className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors"
+                                    className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground/50 transition-colors hover:text-foreground"
                                 >
-                                    <X className="w-3 h-3" />
+                                    <X className="h-3 w-3" />
                                     Clear all
                                 </button>
                             ) : null}
@@ -245,14 +265,16 @@ count++;
 
                         <div className="flex flex-col gap-4">
                             {/* First row: main inputs */}
-                            <div className="flex flex-col lg:flex-row gap-3">
+                            <div className="flex flex-col gap-3 lg:flex-row">
                                 {/* Search */}
-                                <div className="relative flex-1 min-w-[240px]">
-                                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 pointer-events-none" />
+                                <div className="relative min-w-[240px] flex-1">
+                                    <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
                                     <Input
                                         id="q"
                                         value={form.data.q}
-                                        onChange={(e) => form.setData('q', e.target.value)}
+                                        onChange={(e) =>
+                                            form.setData('q', e.target.value)
+                                        }
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
                                                 e.preventDefault();
@@ -260,20 +282,24 @@ count++;
                                             }
                                         }}
                                         placeholder="Search subject, model, user…"
-                                        className="pl-10 rounded-xl border-border bg-muted/50 h-10 focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
+                                        className="h-10 rounded-xl border-border bg-muted/50 pl-10 focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                                     />
                                 </div>
 
                                 {/* Model */}
-                                <div className="w-full lg:w-48 shrink-0">
+                                <div className="w-full shrink-0 lg:w-48">
                                     <AppSelect
                                         value={form.data.subject || ''}
-                                        onValueChange={(v) => submit({ subject: v })}
+                                        onValueChange={(v) =>
+                                            submit({ subject: v })
+                                        }
                                         variant="dark"
                                         placeholder="All models"
                                         className="h-10"
                                     >
-                                        <AppSelectItem value="">All models</AppSelectItem>
+                                        <AppSelectItem value="">
+                                            All models
+                                        </AppSelectItem>
                                         {subject_types.map((t) => (
                                             <AppSelectItem key={t} value={t}>
                                                 {t.split('\\').slice(-1)[0]}
@@ -283,65 +309,83 @@ count++;
                                 </div>
 
                                 {/* Date Range */}
-                                <div className="flex items-center gap-2 w-full lg:w-auto shrink-0">
+                                <div className="flex w-full shrink-0 items-center gap-2 lg:w-auto">
                                     <div className="relative flex-1 lg:w-36">
-                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/40 pointer-events-none" />
+                                        <Calendar className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
                                         <Input
                                             id="date_from"
                                             type="date"
                                             value={form.data.date_from}
                                             onChange={(e) => {
-                                                form.setData('date_from', e.target.value);
-                                                submit({ date_from: e.target.value });
+                                                form.setData(
+                                                    'date_from',
+                                                    e.target.value,
+                                                );
+                                                submit({
+                                                    date_from: e.target.value,
+                                                });
                                             }}
-                                            className="pl-9 rounded-xl border-border bg-muted/50 h-10 focus-visible:ring-primary/40 text-sm dark:border-white/10 dark:bg-white/5"
+                                            className="h-10 rounded-xl border-border bg-muted/50 pl-9 text-sm focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                                         />
                                     </div>
-                                    <span className="text-muted-foreground/30 text-xs shrink-0 select-none">to</span>
+                                    <span className="shrink-0 text-xs text-muted-foreground/30 select-none">
+                                        to
+                                    </span>
                                     <div className="relative flex-1 lg:w-36">
-                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/40 pointer-events-none" />
+                                        <Calendar className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
                                         <Input
                                             id="date_to"
                                             type="date"
                                             value={form.data.date_to}
                                             onChange={(e) => {
-                                                form.setData('date_to', e.target.value);
-                                                submit({ date_to: e.target.value });
+                                                form.setData(
+                                                    'date_to',
+                                                    e.target.value,
+                                                );
+                                                submit({
+                                                    date_to: e.target.value,
+                                                });
                                             }}
-                                            className="pl-9 rounded-xl border-border bg-muted/50 h-10 focus-visible:ring-primary/40 text-sm dark:border-white/10 dark:bg-white/5"
+                                            className="h-10 rounded-xl border-border bg-muted/50 pl-9 text-sm focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                                         />
                                     </div>
                                 </div>
                             </div>
 
                             {/* Second row: event pills and action buttons */}
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-border dark:border-white/5">
+                            <div className="flex flex-col justify-between gap-4 border-t border-border pt-3 sm:flex-row sm:items-center dark:border-white/5">
                                 {/* Event filter pills */}
-                                <div className="flex flex-wrap gap-2 items-center">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 mr-1 select-none">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="mr-1 text-[10px] font-bold tracking-widest text-muted-foreground/40 uppercase select-none">
                                         Event:
                                     </span>
                                     {(['all', ...EVENTS] as const).map((e) => {
-                                        const isActive = (form.data.event || 'all') === e;
+                                        const isActive =
+                                            (form.data.event || 'all') === e;
 
                                         return (
                                             <button
                                                 key={e}
                                                 type="button"
                                                 onClick={() =>
-                                                    submit({ event: e === 'all' ? '' : e })
+                                                    submit({
+                                                        event:
+                                                            e === 'all'
+                                                                ? ''
+                                                                : e,
+                                                    })
                                                 }
                                                 className={cn(
-                                                    'h-7 px-3 rounded-full text-[11px] font-bold uppercase tracking-wider border transition-all',
+                                                    'h-7 rounded-full border px-3 text-[11px] font-bold tracking-wider uppercase transition-all',
                                                     isActive
                                                         ? e === 'all'
-                                                            ? 'bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/30'
+                                                            ? 'border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/30'
                                                             : e === 'created'
-                                                              ? 'bg-emerald-500/20 text-emerald-600 border-emerald-500/30 dark:text-emerald-400'
+                                                              ? 'border-emerald-500/30 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                                                               : e === 'deleted'
-                                                                ? 'bg-red-500/20 text-red-600 border-red-500/30 dark:text-red-400'
-                                                                : 'bg-sky-500/20 text-sky-600 border-sky-500/30 dark:text-sky-400'
-                                                        : 'bg-muted/30 text-muted-foreground/60 border-border hover:border-border hover:text-foreground dark:bg-white/[0.03] dark:border-white/5 dark:hover:border-white/10',
+                                                                ? 'border-red-500/30 bg-red-500/20 text-red-600 dark:text-red-400'
+                                                                : 'border-sky-500/30 bg-sky-500/20 text-sky-600 dark:text-sky-400'
+                                                        : 'border-border bg-muted/30 text-muted-foreground/60 hover:border-border hover:text-foreground dark:border-white/5 dark:bg-white/[0.03] dark:hover:border-white/10',
                                                 )}
                                             >
                                                 {e}
@@ -356,16 +400,16 @@ count++;
                                         <Button
                                             type="button"
                                             variant="ghost"
-                                            className="rounded-xl h-9 text-xs text-muted-foreground/50 hover:text-foreground"
+                                            className="h-9 rounded-xl text-xs text-muted-foreground/50 hover:text-foreground"
                                             onClick={resetFilters}
                                         >
-                                            <X className="w-3 h-3 mr-1" />
+                                            <X className="mr-1 h-3 w-3" />
                                             Clear filters
                                         </Button>
                                     )}
                                     <Button
                                         type="button"
-                                        className="rounded-xl h-9 px-5 text-xs font-semibold"
+                                        className="h-9 rounded-xl px-5 text-xs font-semibold"
                                         onClick={() => submit()}
                                     >
                                         Apply filters
@@ -377,11 +421,13 @@ count++;
                 </Card>
 
                 {/* ── Log list ── */}
-                <Card className="border-border bg-card overflow-hidden dark:border-white/5 dark:bg-white/[0.03]">
+                <Card className="overflow-hidden border-border bg-card dark:border-white/5 dark:bg-white/[0.03]">
                     {/* Table header */}
-                    <div className="px-6 py-4 border-b border-border bg-muted/20 flex items-center justify-between dark:border-white/5 dark:bg-white/[0.02]">
-                        <h2 className="text-sm font-bold text-foreground/80">Events</h2>
-                        <span className="text-[11px] text-muted-foreground/50 font-mono">
+                    <div className="flex items-center justify-between border-b border-border bg-muted/20 px-6 py-4 dark:border-white/5 dark:bg-white/[0.02]">
+                        <h2 className="text-sm font-bold text-foreground/80">
+                            Events
+                        </h2>
+                        <span className="font-mono text-[11px] text-muted-foreground/50">
                             {pagination.total.toLocaleString()} total
                         </span>
                     </div>
@@ -389,13 +435,13 @@ count++;
                     <CardContent className="p-0">
                         {logs.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-20 text-center">
-                                <div className="w-14 h-14 rounded-2xl bg-muted/30 border border-dashed border-border flex items-center justify-center mb-4 dark:bg-white/[0.03] dark:border-white/10">
-                                    <Activity className="w-6 h-6 text-muted-foreground/20" />
+                                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-dashed border-border bg-muted/30 dark:border-white/10 dark:bg-white/[0.03]">
+                                    <Activity className="h-6 w-6 text-muted-foreground/20" />
                                 </div>
                                 <p className="text-sm font-medium text-foreground/50">
                                     No activity found
                                 </p>
-                                <p className="text-xs text-muted-foreground/40 mt-1">
+                                <p className="mt-1 text-xs text-muted-foreground/40">
                                     Try adjusting your filters
                                 </p>
                             </div>
@@ -417,57 +463,70 @@ count++;
                                         <Collapsible
                                             key={log.id}
                                             open={isOpen}
-                                            onOpenChange={(v) => setOpenId(v ? log.id : null)}
+                                            onOpenChange={(v) =>
+                                                setOpenId(v ? log.id : null)
+                                            }
                                         >
                                             <CollapsibleTrigger asChild>
                                                 <button
                                                     type="button"
-                                                    className="w-full text-left px-6 py-4 hover:bg-muted/30 transition-colors group dark:hover:bg-white/[0.02]"
+                                                    className="group w-full px-6 py-4 text-left transition-colors hover:bg-muted/30 dark:hover:bg-white/[0.02]"
                                                 >
-                                                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center w-full">
+                                                    <div className="grid w-full grid-cols-1 items-center gap-4 md:grid-cols-12">
                                                         {/* Col 1: Event & Model */}
-                                                        <div className="md:col-span-4 flex items-center gap-3 min-w-0">
+                                                        <div className="flex min-w-0 items-center gap-3 md:col-span-4">
                                                             <div
                                                                 className={cn(
-                                                                    'w-2 h-2 rounded-full shrink-0',
+                                                                    'h-2 w-2 shrink-0 rounded-full',
                                                                     style.dot,
                                                                 )}
                                                             />
                                                             <Badge
                                                                 className={cn(
-                                                                    'text-[9px] uppercase font-bold tracking-wider border px-2 py-0.5 shrink-0',
+                                                                    'shrink-0 border px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase',
                                                                     style.badge,
                                                                 )}
                                                             >
                                                                 {log.event}
                                                             </Badge>
-                                                            <div className="truncate min-w-0">
-                                                                <span className="text-sm font-bold text-foreground/90 truncate block md:inline">
+                                                            <div className="min-w-0 truncate">
+                                                                <span className="block truncate text-sm font-bold text-foreground/90 md:inline">
                                                                     {modelName}
                                                                 </span>
-                                                                <span className="text-xs text-muted-foreground/40 font-mono ml-1.5 shrink-0">
-                                                                    #{log.subject_id ?? '—'}
+                                                                <span className="ml-1.5 shrink-0 font-mono text-xs text-muted-foreground/40">
+                                                                    #
+                                                                    {log.subject_id ??
+                                                                        '—'}
                                                                 </span>
                                                             </div>
                                                         </div>
 
                                                         {/* Col 2: Changed fields preview / Subject label */}
-                                                        <div className="md:col-span-3 min-w-0 flex flex-col gap-1">
+                                                        <div className="flex min-w-0 flex-col gap-1 md:col-span-3">
                                                             {log.subject_label ? (
-                                                                <span className="text-xs font-semibold text-foreground/75 truncate">
-                                                                    {log.subject_label}
+                                                                <span className="truncate text-xs font-semibold text-foreground/75">
+                                                                    {
+                                                                        log.subject_label
+                                                                    }
                                                                 </span>
                                                             ) : null}
-                                                            {previewKeys.length > 0 ? (
-                                                                <div className="flex flex-wrap gap-1 items-center">
-                                                                    {previewKeys.map((k) => (
-                                                                        <span
-                                                                            key={k}
-                                                                            className="inline-flex items-center rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[9px] text-muted-foreground/50 whitespace-nowrap dark:border-white/5 dark:bg-white/[0.02]"
-                                                                        >
-                                                                            {titleCaseKey(k)}
-                                                                        </span>
-                                                                    ))}
+                                                            {previewKeys.length >
+                                                            0 ? (
+                                                                <div className="flex flex-wrap items-center gap-1">
+                                                                    {previewKeys.map(
+                                                                        (k) => (
+                                                                            <span
+                                                                                key={
+                                                                                    k
+                                                                                }
+                                                                                className="inline-flex items-center rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[9px] whitespace-nowrap text-muted-foreground/50 dark:border-white/5 dark:bg-white/[0.02]"
+                                                                            >
+                                                                                {titleCaseKey(
+                                                                                    k,
+                                                                                )}
+                                                                            </span>
+                                                                        ),
+                                                                    )}
                                                                     {changedKeys.length >
                                                                     previewKeys.length ? (
                                                                         <span className="inline-flex items-center rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[9px] text-muted-foreground/35 dark:border-white/5 dark:bg-white/[0.02]">
@@ -481,19 +540,31 @@ count++;
                                                         </div>
 
                                                         {/* Col 3: Causer */}
-                                                        <div className="md:col-span-3 flex items-center gap-2.5 min-w-0 md:justify-end">
+                                                        <div className="flex min-w-0 items-center gap-2.5 md:col-span-3 md:justify-end">
                                                             {log.causer ? (
                                                                 <>
-                                                                    <div className="text-right hidden sm:block min-w-0">
-                                                                        <p className="text-xs font-semibold text-foreground/80 leading-none truncate">
-                                                                            {log.causer.name}
+                                                                    <div className="hidden min-w-0 text-right sm:block">
+                                                                        <p className="truncate text-xs leading-none font-semibold text-foreground/80">
+                                                                            {
+                                                                                log
+                                                                                    .causer
+                                                                                    .name
+                                                                            }
                                                                         </p>
-                                                                        <p className="text-[9px] text-muted-foreground/40 mt-1 truncate">
-                                                                            {log.causer.email}
+                                                                        <p className="mt-1 truncate text-[9px] text-muted-foreground/40">
+                                                                            {
+                                                                                log
+                                                                                    .causer
+                                                                                    .email
+                                                                            }
                                                                         </p>
                                                                     </div>
                                                                     <CauserAvatar
-                                                                        name={log.causer.name}
+                                                                        name={
+                                                                            log
+                                                                                .causer
+                                                                                .name
+                                                                        }
                                                                     />
                                                                 </>
                                                             ) : (
@@ -504,16 +575,16 @@ count++;
                                                         </div>
 
                                                         {/* Col 4: Time & Action */}
-                                                        <div className="md:col-span-2 flex items-center justify-end gap-3 shrink-0">
-                                                            <span className="text-[10px] text-muted-foreground/40 font-mono whitespace-nowrap">
+                                                        <div className="flex shrink-0 items-center justify-end gap-3 md:col-span-2">
+                                                            <span className="font-mono text-[10px] whitespace-nowrap text-muted-foreground/40">
                                                                 {formatDisplayDate(
                                                                     log.created_at,
                                                                 )}
                                                             </span>
                                                             {isOpen ? (
-                                                                <ChevronUp className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+                                                                <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
                                                             ) : (
-                                                                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-muted-foreground/60 transition-colors shrink-0" />
+                                                                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground/30 transition-colors group-hover:text-muted-foreground/60" />
                                                             )}
                                                         </div>
                                                     </div>
@@ -522,59 +593,79 @@ count++;
 
                                             {/* Expanded detail */}
                                             <CollapsibleContent>
-                                                <div className="px-6 pb-5 border-l-2 border-border ml-[2.125rem] dark:border-white/5">
+                                                <div className="ml-[2.125rem] border-l-2 border-border px-6 pb-5 dark:border-white/5">
                                                     {changedKeys.length > 0 ? (
-                                                        <div className="rounded-xl border border-border bg-muted/20 overflow-hidden mt-2 dark:border-white/5 dark:bg-white/[0.02]">
+                                                        <div className="mt-2 overflow-hidden rounded-xl border border-border bg-muted/20 dark:border-white/5 dark:bg-white/[0.02]">
                                                             <div className="overflow-x-auto">
                                                                 <table className="w-full border-collapse text-left text-xs">
                                                                     <thead>
-                                                                        <tr className="border-b border-border bg-muted/20 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-bold select-none dark:border-white/5 dark:bg-white/[0.02]">
-                                                                            <th className="py-2.5 px-4 w-1/3">Field</th>
-                                                                            <th className="py-2.5 px-4 w-1/3">Old Value</th>
-                                                                            <th className="py-2.5 px-4 w-1/3">New Value</th>
+                                                                        <tr className="border-b border-border bg-muted/20 text-[10px] font-bold tracking-wider text-muted-foreground/60 uppercase select-none dark:border-white/5 dark:bg-white/[0.02]">
+                                                                            <th className="w-1/3 px-4 py-2.5">
+                                                                                Field
+                                                                            </th>
+                                                                            <th className="w-1/3 px-4 py-2.5">
+                                                                                Old
+                                                                                Value
+                                                                            </th>
+                                                                            <th className="w-1/3 px-4 py-2.5">
+                                                                                New
+                                                                                Value
+                                                                            </th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody className="divide-y divide-border dark:divide-white/5">
-                                                                        {changedKeys.map((k) => (
-                                                                            <tr
-                                                                                key={k}
-                                                                                className="hover:bg-muted/20 transition-colors dark:hover:bg-white/[0.01]"
-                                                                            >
-                                                                                <td className="py-3 px-4 font-semibold text-muted-foreground/75 whitespace-nowrap">
-                                                                                    {titleCaseKey(k)}
-                                                                                </td>
-                                                                                <td className="py-3 px-4 text-muted-foreground/50 line-through break-all font-mono text-[11px]">
-                                                                                    {formatDisplayValue(
-                                                                                        log.old_values?.[
-                                                                                            k
-                                                                                        ],
-                                                                                    )}
-                                                                                </td>
-                                                                                <td className="py-3 px-4 text-foreground/80 font-semibold break-all font-mono text-[11px]">
-                                                                                    {formatDisplayValue(
-                                                                                        log.new_values?.[
-                                                                                            k
-                                                                                        ],
-                                                                                    )}
-                                                                                </td>
-                                                                            </tr>
-                                                                        ))}
+                                                                        {changedKeys.map(
+                                                                            (
+                                                                                k,
+                                                                            ) => (
+                                                                                <tr
+                                                                                    key={
+                                                                                        k
+                                                                                    }
+                                                                                    className="transition-colors hover:bg-muted/20 dark:hover:bg-white/[0.01]"
+                                                                                >
+                                                                                    <td className="px-4 py-3 font-semibold whitespace-nowrap text-muted-foreground/75">
+                                                                                        {titleCaseKey(
+                                                                                            k,
+                                                                                        )}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-3 font-mono text-[11px] break-all text-muted-foreground/50 line-through">
+                                                                                        {formatDisplayValue(
+                                                                                            log
+                                                                                                .old_values?.[
+                                                                                                k
+                                                                                            ],
+                                                                                        )}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-3 font-mono text-[11px] font-semibold break-all text-foreground/80">
+                                                                                        {formatDisplayValue(
+                                                                                            log
+                                                                                                .new_values?.[
+                                                                                                k
+                                                                                            ],
+                                                                                        )}
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ),
+                                                                        )}
                                                                     </tbody>
                                                                 </table>
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        <p className="text-xs text-muted-foreground/40 py-3 mt-1">
-                                                            No field-level diff available for this
+                                                        <p className="mt-1 py-3 text-xs text-muted-foreground/40">
+                                                            No field-level diff
+                                                            available for this
                                                             event.
                                                         </p>
                                                     )}
 
                                                     {/* Meta row */}
-                                                    {(log.ip ?? log.description) ? (
-                                                        <div className="flex flex-wrap gap-4 mt-3 pl-4">
+                                                    {(log.ip ??
+                                                    log.description) ? (
+                                                        <div className="mt-3 flex flex-wrap gap-4 pl-4">
                                                             {log.ip ? (
-                                                                <span className="text-[10px] text-muted-foreground/40 font-mono">
+                                                                <span className="font-mono text-[10px] text-muted-foreground/40">
                                                                     IP: {log.ip}
                                                                 </span>
                                                             ) : null}
@@ -586,7 +677,9 @@ count++;
                                                                     .trim()
                                                                     .toLowerCase() ? (
                                                                 <span className="text-[10px] text-muted-foreground/40">
-                                                                    {log.description}
+                                                                    {
+                                                                        log.description
+                                                                    }
                                                                 </span>
                                                             ) : null}
                                                         </div>

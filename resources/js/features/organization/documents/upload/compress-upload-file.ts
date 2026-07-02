@@ -12,7 +12,9 @@ function isCompressibleImage(file: File): boolean {
 }
 
 export function isSupportedUploadFile(file: File): boolean {
-    return (SUPPORTED_UPLOAD_MIME_TYPES as readonly string[]).includes(file.type);
+    return (SUPPORTED_UPLOAD_MIME_TYPES as readonly string[]).includes(
+        file.type,
+    );
 }
 
 export async function compressUploadFile(file: File): Promise<File> {

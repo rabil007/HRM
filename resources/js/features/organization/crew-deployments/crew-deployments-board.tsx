@@ -48,7 +48,8 @@ export function CrewDeploymentsBoard({
     onDelete,
     backQuery,
 }: Props): ReactElement {
-    const [draggingDeployment, setDraggingDeployment] = useState<DeploymentItem | null>(null);
+    const [draggingDeployment, setDraggingDeployment] =
+        useState<DeploymentItem | null>(null);
     const [pendingTransition, setPendingTransition] = useState<{
         deployment: DeploymentItem;
         targetStatus: string;
@@ -84,7 +85,9 @@ export function CrewDeploymentsBoard({
     }, [deployments]);
 
     const handleDragStart = ({ active }: DragStartEvent): void => {
-        const dep = active.data.current?.deployment as DeploymentItem | undefined;
+        const dep = active.data.current?.deployment as
+            | DeploymentItem
+            | undefined;
 
         if (dep) {
             setDraggingDeployment(dep);
@@ -98,7 +101,9 @@ export function CrewDeploymentsBoard({
             return;
         }
 
-        const dep = active.data.current?.deployment as DeploymentItem | undefined;
+        const dep = active.data.current?.deployment as
+            | DeploymentItem
+            | undefined;
         const targetStatus = over.id as string;
 
         if (!dep || dep.status === targetStatus) {
@@ -120,10 +125,10 @@ export function CrewDeploymentsBoard({
                     <div className="mb-5">
                         <div className="mb-2 flex items-center gap-2">
                             <span className="h-2 w-2 rounded-full bg-red-500" />
-                            <span className="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400">
+                            <span className="text-xs font-bold tracking-wider text-red-600 uppercase dark:text-red-400">
                                 Needs attention
                             </span>
-                            <span className="rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0 text-[10px] font-bold tabular-nums text-red-600 dark:text-red-400">
+                            <span className="rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0 text-[10px] font-bold text-red-600 tabular-nums dark:text-red-400">
                                 {unknownDeployments.length}
                             </span>
                             <span className="text-[11px] text-muted-foreground/60">
@@ -132,7 +137,10 @@ export function CrewDeploymentsBoard({
                         </div>
                         <div className="flex gap-3 overflow-x-auto pb-1">
                             {unknownDeployments.map((dep) => (
-                                <div key={dep.id} className="w-[300px] shrink-0">
+                                <div
+                                    key={dep.id}
+                                    className="w-[300px] shrink-0"
+                                >
                                     <DeploymentCard
                                         deployment={dep}
                                         can={can}
@@ -159,7 +167,9 @@ export function CrewDeploymentsBoard({
                                     status={column.status}
                                     label={column.label}
                                     count={summary[column.status] ?? 0}
-                                    deployments={deploymentsByStatus[column.status] ?? []}
+                                    deployments={
+                                        deploymentsByStatus[column.status] ?? []
+                                    }
                                     can={can}
                                     onEdit={onEdit}
                                     onDelete={onDelete}

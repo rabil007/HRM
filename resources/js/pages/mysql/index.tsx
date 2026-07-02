@@ -16,7 +16,7 @@ export default function Index({ tables, filters }: IndexProps) {
             router.get(
                 '/mysql',
                 { search },
-                { preserveState: true, replace: true }
+                { preserveState: true, replace: true },
             );
         }, 300);
 
@@ -24,14 +24,16 @@ export default function Index({ tables, filters }: IndexProps) {
     }, [search]);
 
     return (
-        <div className="p-6 max-w-7xl mx-auto w-full">
+        <div className="mx-auto w-full max-w-7xl p-6">
             <Head title="Database Tables" />
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
-                    <h1 className="text-3xl font-bold tracking-tight">Database Tables</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Database Tables
+                    </h1>
                     <Link
                         href="/mysql/query"
-                        className="px-4 py-2 bg-blue-600 text-white rounded shadow-sm hover:bg-blue-700 transition-colors font-medium text-sm"
+                        className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
                     >
                         SQL Playground
                     </Link>
@@ -42,25 +44,25 @@ export default function Index({ tables, filters }: IndexProps) {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search tables..."
-                        className="w-full px-4 py-2 border rounded shadow-sm focus:ring focus:ring-blue-200 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                        className="w-full rounded border px-4 py-2 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                     />
                 </div>
             </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {tables.map((table) => (
                     <Link
                         key={table}
                         href={`/mysql/${table}`}
-                        className="block p-4 bg-white border rounded shadow-sm hover:shadow-md transition-shadow hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
+                        className="block rounded border bg-white p-4 shadow-sm transition-shadow hover:bg-gray-50 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
                     >
-                        <div className="font-medium text-lg text-blue-600 dark:text-blue-400 break-all">
+                        <div className="text-lg font-medium break-all text-blue-600 dark:text-blue-400">
                             {table}
                         </div>
                     </Link>
                 ))}
                 {tables.length === 0 && (
-                    <div className="col-span-full py-12 text-center text-gray-500 bg-gray-50 rounded border border-dashed dark:bg-gray-800/50 dark:border-gray-700">
+                    <div className="col-span-full rounded border border-dashed bg-gray-50 py-12 text-center text-gray-500 dark:border-gray-700 dark:bg-gray-800/50">
                         No tables found matching your search.
                     </div>
                 )}

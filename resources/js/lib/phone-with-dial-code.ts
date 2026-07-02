@@ -83,7 +83,10 @@ export function formatPhoneForDisplay(
     }
 
     const countries = options.countries ?? [];
-    const { dialCode, nationalNumber } = parsePhoneWithDialCode(trimmed, countries);
+    const { dialCode, nationalNumber } = parsePhoneWithDialCode(
+        trimmed,
+        countries,
+    );
 
     const effectiveDialCode =
         dialCode ||
@@ -100,7 +103,9 @@ export function formatPhoneForDisplay(
         return nationalNumber ? `${dialCode} ${nationalNumber}` : dialCode;
     }
 
-    return nationalNumber ? `${effectiveDialCode} ${nationalNumber}` : effectiveDialCode;
+    return nationalNumber
+        ? `${effectiveDialCode} ${nationalNumber}`
+        : effectiveDialCode;
 }
 
 export function defaultDialCodeForPhoneField(

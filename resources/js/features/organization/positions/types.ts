@@ -12,8 +12,8 @@ export type DepartmentOption = {
 export type Position = {
     id: number;
     company: { id: number; name: string | null };
-    department: { 
-        id: number; 
+    department: {
+        id: number;
         name: string | null;
         parent?: { id: number; name: string | null } | null;
     } | null;
@@ -34,4 +34,3 @@ export type PositionFormData = {
     max_salary: string;
     status: 'active' | 'inactive';
 };
-

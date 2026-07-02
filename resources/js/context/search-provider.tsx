@@ -1,4 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import {
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useState,
+} from 'react';
 import { CommandMenu } from '@/components/command-menu';
 
 type SearchContextType = {
@@ -16,17 +22,20 @@ export function SearchProvider({ children }: SearchProviderProps) {
     const [open, setOpenState] = useState(false);
     const [commandMenuMounted, setCommandMenuMounted] = useState(false);
 
-    const setOpen: React.Dispatch<React.SetStateAction<boolean>> = useCallback((value) => {
-        setOpenState((prev) => {
-            const next = typeof value === 'function' ? value(prev) : value;
+    const setOpen: React.Dispatch<React.SetStateAction<boolean>> = useCallback(
+        (value) => {
+            setOpenState((prev) => {
+                const next = typeof value === 'function' ? value(prev) : value;
 
-            if (next) {
-                setCommandMenuMounted(true);
-            }
+                if (next) {
+                    setCommandMenuMounted(true);
+                }
 
-            return next;
-        });
-    }, []);
+                return next;
+            });
+        },
+        [],
+    );
 
     useEffect(() => {
         const down = (e: KeyboardEvent) => {

@@ -3,7 +3,10 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
         return fallback;
     }
 
-    const data = payload as { message?: string; errors?: Record<string, string[]> };
+    const data = payload as {
+        message?: string;
+        errors?: Record<string, string[]>;
+    };
 
     if (data.message) {
         return data.message;
@@ -19,7 +22,9 @@ export async function sendDocumentsEmail(
     payload: Record<string, unknown>,
     errorFallback = 'Failed to send email. Please try again.',
 ): Promise<string> {
-    const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+    const csrf = document.querySelector<HTMLMetaElement>(
+        'meta[name="csrf-token"]',
+    )?.content;
 
     const response = await fetch(url, {
         method: 'POST',
@@ -40,5 +45,8 @@ export async function sendDocumentsEmail(
         throw new Error(extractErrorMessage(data, errorFallback));
     }
 
-    return (data as { message?: string } | null)?.message ?? 'Email sent successfully.';
+    return (
+        (data as { message?: string } | null)?.message ??
+        'Email sent successfully.'
+    );
 }

@@ -12,7 +12,15 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
     };
 }
 
-function relativeLuminance({ r, g, b }: { r: number; g: number; b: number }): number {
+function relativeLuminance({
+    r,
+    g,
+    b,
+}: {
+    r: number;
+    g: number;
+    b: number;
+}): number {
     const channel = (value: number) => {
         const normalized = value / 255;
 
@@ -44,7 +52,10 @@ function mixWithAlpha(hex: string, alpha: number): string {
     return `rgb(${rgb.r} ${rgb.g} ${rgb.b} / ${alpha})`;
 }
 
-export function applyBrandTheme(primaryColor: string, accentColor: string): void {
+export function applyBrandTheme(
+    primaryColor: string,
+    accentColor: string,
+): void {
     if (typeof document === 'undefined') {
         return;
     }

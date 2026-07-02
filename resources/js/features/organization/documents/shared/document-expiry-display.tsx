@@ -13,7 +13,10 @@ export function DocumentExpiryDisplay({
     showLabel = true,
     className,
 }: {
-    doc: Pick<DocumentBrowseItem, 'expiry_date' | 'expiry_status' | 'expiry_label'>;
+    doc: Pick<
+        DocumentBrowseItem,
+        'expiry_date' | 'expiry_status' | 'expiry_label'
+    >;
     showLabel?: boolean;
     className?: string;
 }) {
@@ -21,7 +24,12 @@ export function DocumentExpiryDisplay({
         <div className={cn('flex flex-col gap-1', className)}>
             <span>{formatOptionalDate(doc.expiry_date)}</span>
             {showLabel && doc.expiry_date ? (
-                <span className={cn('text-xs', expiryRemainingClass(doc.expiry_status))}>
+                <span
+                    className={cn(
+                        'text-xs',
+                        expiryRemainingClass(doc.expiry_status),
+                    )}
+                >
                     {doc.expiry_label}
                 </span>
             ) : null}

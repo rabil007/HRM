@@ -1,5 +1,8 @@
 import type { ReactElement, ReactNode } from 'react';
-import { recordsTableTdClass, recordsTableThClass } from '@/components/data-table';
+import {
+    recordsTableTdClass,
+    recordsTableThClass,
+} from '@/components/data-table';
 import { EmptyState } from '@/components/design-system/empty-state';
 import { surfaces, typography } from '@/lib/design-system';
 import { cn } from '@/lib/utils';
@@ -35,7 +38,9 @@ export function EmployeeRecordsPanel({
                     </span>
                 </div>
                 {actions ? (
-                    <div className="flex shrink-0 items-center gap-2">{actions}</div>
+                    <div className="flex shrink-0 items-center gap-2">
+                        {actions}
+                    </div>
                 ) : null}
             </div>
 
@@ -58,7 +63,9 @@ export function EmployeeRecordsTable({
     className,
 }: EmployeeRecordsTableProps): ReactElement {
     return (
-        <table className={cn('w-full min-w-[640px] text-left text-sm', className)}>
+        <table
+            className={cn('w-full min-w-[640px] text-left text-sm', className)}
+        >
             {children}
         </table>
     );
@@ -80,7 +87,7 @@ export function EmployeeRecordsActionsHeader({
         <th
             className={cn(
                 recordsTableThClass(),
-                'whitespace-nowrap text-right',
+                'text-right whitespace-nowrap',
                 className,
             )}
         >
@@ -90,5 +97,5 @@ export function EmployeeRecordsActionsHeader({
 }
 
 export function employeeRecordsActionsTdClass(className?: string): string {
-    return cn(recordsTableTdClass(), 'whitespace-nowrap text-right', className);
+    return cn(recordsTableTdClass(), 'text-right whitespace-nowrap', className);
 }

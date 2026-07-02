@@ -55,8 +55,10 @@ export function AddTrainingDraftForm({
     onRemoveCertificateChange?: (remove: boolean) => void;
     certificateError?: string;
 }): ReactElement {
-    const { selectOptions: courseSelectOptions, appendOption: appendCourseOption } =
-        useMutableSelectOptions(courses);
+    const {
+        selectOptions: courseSelectOptions,
+        appendOption: appendCourseOption,
+    } = useMutableSelectOptions(courses);
     const { canCreate: canCreateCourse, createConfig: courseCreateConfig } =
         useCreatableMasterData('course');
 
@@ -71,7 +73,9 @@ export function AddTrainingDraftForm({
         <div className="space-y-4">
             <div className="flex items-start justify-between gap-2">
                 <div>
-                    <div className="text-sm font-semibold">Training information</div>
+                    <div className="text-sm font-semibold">
+                        Training information
+                    </div>
                     <p className="mt-1 text-xs text-muted-foreground">
                         Enter course completion details for this certificate.
                     </p>
@@ -108,11 +112,15 @@ export function AddTrainingDraftForm({
                                     )}
                                 >
                                     Course
-                                    <RequiredIndicator show={isFieldRequired('course_id')} />
+                                    <RequiredIndicator
+                                        show={isFieldRequired('course_id')}
+                                    />
                                 </Label>
                                 <CreatableSelect
                                     value={draft.course_id}
-                                    onValueChange={(value) => onChange({ course_id: value })}
+                                    onValueChange={(value) =>
+                                        onChange({ course_id: value })
+                                    }
                                     variant="card"
                                     placeholder="Select course…"
                                     options={courseSelectOptions}
@@ -121,7 +129,8 @@ export function AddTrainingDraftForm({
                                             (option) =>
                                                 !courseSelectOptions.some(
                                                     (existing) =>
-                                                        existing.value === option.value,
+                                                        existing.value ===
+                                                        option.value,
                                                 ),
                                         );
 
@@ -150,7 +159,9 @@ export function AddTrainingDraftForm({
                             {showField('issue_date') ? (
                                 <RecordFormField
                                     field="issue_date"
-                                    highlightMissing={isMissingRequired('issue_date')}
+                                    highlightMissing={isMissingRequired(
+                                        'issue_date',
+                                    )}
                                 >
                                     <div className="space-y-1.5">
                                         <Label
@@ -160,20 +171,27 @@ export function AddTrainingDraftForm({
                                         >
                                             Issue date
                                             <RequiredIndicator
-                                                show={isFieldRequired('issue_date')}
+                                                show={isFieldRequired(
+                                                    'issue_date',
+                                                )}
                                             />
                                         </Label>
                                         <Input
                                             type="date"
                                             className={cn(
                                                 recordFieldInputClass(
-                                                    isMissingRequired('issue_date'),
+                                                    isMissingRequired(
+                                                        'issue_date',
+                                                    ),
                                                 ),
                                                 'h-10 text-sm',
                                             )}
                                             value={draft.issue_date}
                                             onChange={(event) =>
-                                                onChange({ issue_date: event.target.value })
+                                                onChange({
+                                                    issue_date:
+                                                        event.target.value,
+                                                })
                                             }
                                         />
                                         {fieldErrors.issue_date ? (
@@ -187,30 +205,41 @@ export function AddTrainingDraftForm({
                             {showField('expiry_date') ? (
                                 <RecordFormField
                                     field="expiry_date"
-                                    highlightMissing={isMissingRequired('expiry_date')}
+                                    highlightMissing={isMissingRequired(
+                                        'expiry_date',
+                                    )}
                                 >
                                     <div className="space-y-1.5">
                                         <Label
                                             className={recordFieldLabelClass(
-                                                isMissingRequired('expiry_date'),
+                                                isMissingRequired(
+                                                    'expiry_date',
+                                                ),
                                             )}
                                         >
                                             Expiry date
                                             <RequiredIndicator
-                                                show={isFieldRequired('expiry_date')}
+                                                show={isFieldRequired(
+                                                    'expiry_date',
+                                                )}
                                             />
                                         </Label>
                                         <Input
                                             type="date"
                                             className={cn(
                                                 recordFieldInputClass(
-                                                    isMissingRequired('expiry_date'),
+                                                    isMissingRequired(
+                                                        'expiry_date',
+                                                    ),
                                                 ),
                                                 'h-10 text-sm',
                                             )}
                                             value={draft.expiry_date}
                                             onChange={(event) =>
-                                                onChange({ expiry_date: event.target.value })
+                                                onChange({
+                                                    expiry_date:
+                                                        event.target.value,
+                                                })
                                             }
                                         />
                                         {fieldErrors.expiry_date ? (
@@ -227,7 +256,9 @@ export function AddTrainingDraftForm({
                     {showField('institute_center') ? (
                         <RecordFormField
                             field="institute_center"
-                            highlightMissing={isMissingRequired('institute_center')}
+                            highlightMissing={isMissingRequired(
+                                'institute_center',
+                            )}
                         >
                             <div className="space-y-1.5">
                                 <Label
@@ -237,20 +268,27 @@ export function AddTrainingDraftForm({
                                 >
                                     Institute/Center
                                     <RequiredIndicator
-                                        show={isFieldRequired('institute_center')}
+                                        show={isFieldRequired(
+                                            'institute_center',
+                                        )}
                                     />
                                 </Label>
                                 <Input
                                     className={cn(
                                         recordFieldInputClass(
-                                            isMissingRequired('institute_center'),
+                                            isMissingRequired(
+                                                'institute_center',
+                                            ),
                                         ),
                                         'h-10 text-sm',
                                     )}
                                     placeholder="e.g. BINA SENA MTC"
                                     value={draft.institute_center}
                                     onChange={(event) =>
-                                        onChange({ institute_center: event.target.value })
+                                        onChange({
+                                            institute_center:
+                                                event.target.value,
+                                        })
                                     }
                                 />
                                 {fieldErrors.institute_center ? (
@@ -274,17 +312,26 @@ export function AddTrainingDraftForm({
                                     )}
                                 >
                                     Country
-                                    <RequiredIndicator show={isFieldRequired('country_id')} />
+                                    <RequiredIndicator
+                                        show={isFieldRequired('country_id')}
+                                    />
                                 </Label>
                                 <AppSelect
                                     value={draft.country_id}
-                                    onValueChange={(value) => onChange({ country_id: value })}
+                                    onValueChange={(value) =>
+                                        onChange({ country_id: value })
+                                    }
                                     variant="card"
                                     placeholder="Select country…"
                                 >
-                                    <AppSelectItem value="">Select country…</AppSelectItem>
+                                    <AppSelectItem value="">
+                                        Select country…
+                                    </AppSelectItem>
                                     {countries.map((country) => (
-                                        <AppSelectItem key={country.id} value={String(country.id)}>
+                                        <AppSelectItem
+                                            key={country.id}
+                                            value={String(country.id)}
+                                        >
                                             {country.name}
                                         </AppSelectItem>
                                     ))}
@@ -317,7 +364,9 @@ export function AddTrainingDraftForm({
                                 <Checkbox
                                     checked={removeCertificate}
                                     onCheckedChange={(checked) =>
-                                        onRemoveCertificateChange(checked === true)
+                                        onRemoveCertificateChange(
+                                            checked === true,
+                                        )
                                     }
                                 />
                                 Remove current certificate
@@ -326,7 +375,9 @@ export function AddTrainingDraftForm({
                     ) : null}
 
                     {certificateError ? (
-                        <p className="text-xs text-destructive">{certificateError}</p>
+                        <p className="text-xs text-destructive">
+                            {certificateError}
+                        </p>
                     ) : null}
                 </div>
             )}

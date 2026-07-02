@@ -1,5 +1,13 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { CheckCircle2, Clock, Eye, FileText, Mail, Plus, SlidersHorizontal } from 'lucide-react';
+import {
+    CheckCircle2,
+    Clock,
+    Eye,
+    FileText,
+    Mail,
+    Plus,
+    SlidersHorizontal,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     MasterDataActiveToggle,
@@ -31,11 +39,8 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import {
-    EmailTemplatePreviewDialog
-    
-} from '@/features/settings/email-template-preview-dialog';
-import type {EmailTemplatePreviewTarget} from '@/features/settings/email-template-preview-dialog';
+import { EmailTemplatePreviewDialog } from '@/features/settings/email-template-preview-dialog';
+import type { EmailTemplatePreviewTarget } from '@/features/settings/email-template-preview-dialog';
 import { toast } from '@/lib/toast';
 
 export type EmailTemplateItem = {
@@ -88,7 +93,8 @@ const emptyForm = (category = 'document'): FormState => ({
     cc_preset: '',
     dispatch_at: '08:00',
     subject: 'Documents from Overseas Marine Services',
-    body_html: 'Hello,\n\nPlease find the attached employee documents.\n\nThank you.',
+    body_html:
+        'Hello,\n\nPlease find the attached employee documents.\n\nThank you.',
     include_company_footer: true,
     is_default: false,
     enabled: true,
@@ -105,16 +111,21 @@ export default function EmailTemplatesSettings({
     const grouped = useMemo(() => {
         return categories.map((category) => ({
             ...category,
-            templates: templates.filter((template) => template.category === category.value),
+            templates: templates.filter(
+                (template) => template.category === category.value,
+            ),
         }));
     }, [categories, templates]);
 
-    const [activeCategory, setActiveCategory] = useState(categories[0]?.value || 'document');
+    const [activeCategory, setActiveCategory] = useState(
+        categories[0]?.value || 'document',
+    );
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [editing, setEditing] = useState<EmailTemplateItem | null>(null);
     const [deleting, setDeleting] = useState<EmailTemplateItem | null>(null);
-    const [previewTarget, setPreviewTarget] = useState<EmailTemplatePreviewTarget | null>(null);
+    const [previewTarget, setPreviewTarget] =
+        useState<EmailTemplatePreviewTarget | null>(null);
 
     const form = useForm<FormState>(emptyForm());
 
@@ -159,13 +170,18 @@ export default function EmailTemplatesSettings({
         const options = {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success(editing ? 'Template updated.' : 'Template created.');
+                toast.success(
+                    editing ? 'Template updated.' : 'Template created.',
+                );
                 setSheetOpen(false);
             },
         };
 
         if (editing) {
-            form.put(`/settings/application/email-templates/${editing.id}`, options);
+            form.put(
+                `/settings/application/email-templates/${editing.id}`,
+                options,
+            );
         } else {
             form.post('/settings/application/email-templates', options);
         }
@@ -216,28 +232,27 @@ export default function EmailTemplatesSettings({
         form.data.subject.trim() !== '' &&
         form.data.body_html.trim() !== '';
 
-    const previewButton =
-        canPreviewDraft ? (
-            <Button
-                type="button"
-                variant="outline"
-                className="h-11 w-full rounded-xl sm:w-auto"
-                onClick={openDraftPreview}
-            >
-                <Eye className="mr-2 h-4 w-4" />
-                Preview
-            </Button>
-        ) : editing !== null ? (
-            <Button
-                type="button"
-                variant="outline"
-                className="h-11 w-full rounded-xl sm:w-auto"
-                onClick={() => openSavedPreview(editing)}
-            >
-                <Eye className="mr-2 h-4 w-4" />
-                Preview
-            </Button>
-        ) : null;
+    const previewButton = canPreviewDraft ? (
+        <Button
+            type="button"
+            variant="outline"
+            className="h-11 w-full rounded-xl sm:w-auto"
+            onClick={openDraftPreview}
+        >
+            <Eye className="mr-2 h-4 w-4" />
+            Preview
+        </Button>
+    ) : editing !== null ? (
+        <Button
+            type="button"
+            variant="outline"
+            className="h-11 w-full rounded-xl sm:w-auto"
+            onClick={() => openSavedPreview(editing)}
+        >
+            <Eye className="mr-2 h-4 w-4" />
+            Preview
+        </Button>
+    ) : null;
 
     return (
         <>
@@ -248,20 +263,27 @@ export default function EmailTemplatesSettings({
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                            <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
-                            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
+                            <span className="flex h-2 w-2 animate-pulse rounded-full bg-primary" />
+                            <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/80 uppercase">
                                 Settings
                             </span>
                         </div>
-                        <h1 className="text-4xl font-extrabold tracking-tight">Email templates</h1>
-                        <p className="max-w-2xl text-sm text-muted-foreground leading-relaxed">
-                            Manage default subject and message text for outbound emails, grouped by
-                            category. What you save is what users see when they pick a template—they
-                            can still edit before sending.
+                        <h1 className="text-4xl font-extrabold tracking-tight">
+                            Email templates
+                        </h1>
+                        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                            Manage default subject and message text for outbound
+                            emails, grouped by category. What you save is what
+                            users see when they pick a template—they can still
+                            edit before sending.
                         </p>
                     </div>
 
-                    <Button asChild variant="outline" className="rounded-xl hover:bg-accent h-10 px-4 shrink-0">
+                    <Button
+                        asChild
+                        variant="outline"
+                        className="h-10 shrink-0 rounded-xl px-4 hover:bg-accent"
+                    >
                         <Link href="/settings/application">
                             <SlidersHorizontal className="mr-2 h-4 w-4" />
                             Application settings
@@ -271,30 +293,48 @@ export default function EmailTemplatesSettings({
 
                 {/* Dashboard Stats Panel */}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <Card className="border-border/60 bg-muted/25 dark:border-white/5 dark:bg-white/[0.02] shadow-xs">
+                    <Card className="border-border/60 bg-muted/25 shadow-xs dark:border-white/5 dark:bg-white/[0.02]">
                         <CardContent className="flex items-center gap-4 p-5">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
                                 <Mail className="h-5 w-5" />
                             </div>
                             <div>
-                                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Total Templates</p>
-                                <p className="text-2xl font-bold tracking-tight mt-0.5">{templates.length}</p>
+                                <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                    Total Templates
+                                </p>
+                                <p className="mt-0.5 text-2xl font-bold tracking-tight">
+                                    {templates.length}
+                                </p>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-border/60 bg-muted/25 dark:border-white/5 dark:bg-white/[0.02] shadow-xs">
+                    <Card className="border-border/60 bg-muted/25 shadow-xs dark:border-white/5 dark:bg-white/[0.02]">
                         <CardContent className="flex items-center gap-4 p-5">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                                 <CheckCircle2 className="h-5 w-5" />
                             </div>
                             <div>
-                                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Active Templates</p>
-                                <div className="flex items-baseline gap-2 mt-0.5">
-                                    <p className="text-2xl font-bold tracking-tight">{templates.filter((t) => t.enabled).length}</p>
-                                    {templates.filter((t) => !t.enabled).length > 0 && (
+                                <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                    Active Templates
+                                </p>
+                                <div className="mt-0.5 flex items-baseline gap-2">
+                                    <p className="text-2xl font-bold tracking-tight">
+                                        {
+                                            templates.filter((t) => t.enabled)
+                                                .length
+                                        }
+                                    </p>
+                                    {templates.filter((t) => !t.enabled)
+                                        .length > 0 && (
                                         <span className="text-[10px] text-muted-foreground">
-                                            ({templates.filter((t) => !t.enabled).length} disabled)
+                                            (
+                                            {
+                                                templates.filter(
+                                                    (t) => !t.enabled,
+                                                ).length
+                                            }{' '}
+                                            disabled)
                                         </span>
                                     )}
                                 </div>
@@ -302,15 +342,18 @@ export default function EmailTemplatesSettings({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-border/60 bg-muted/25 dark:border-white/5 dark:bg-white/[0.02] shadow-xs">
+                    <Card className="border-border/60 bg-muted/25 shadow-xs dark:border-white/5 dark:bg-white/[0.02]">
                         <CardContent className="flex items-center gap-4 p-5">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400">
                                 <Clock className="h-5 w-5" />
                             </div>
                             <div>
-                                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Daily Expiry Alert</p>
-                                <p className="text-sm font-semibold mt-1 truncate">
-                                    {expiryAlertTemplate && expiryAlertTemplate.enabled
+                                <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                    Daily Expiry Alert
+                                </p>
+                                <p className="mt-1 truncate text-sm font-semibold">
+                                    {expiryAlertTemplate &&
+                                    expiryAlertTemplate.enabled
                                         ? `${expiryAlertTemplate.dispatch_at || '08:00'} (${scheduler_timezone})`
                                         : 'Disabled'}
                                 </p>
@@ -320,20 +363,29 @@ export default function EmailTemplatesSettings({
                 </div>
 
                 {/* Tabs for Categories */}
-                <Tabs value={activeCategory} onValueChange={setActiveCategory} className="space-y-6">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/40 pb-4">
-                        <TabsList className="bg-muted/40 p-1 border border-border/40 rounded-xl h-11 self-start">
+                <Tabs
+                    value={activeCategory}
+                    onValueChange={setActiveCategory}
+                    className="space-y-6"
+                >
+                    <div className="flex flex-col gap-4 border-b border-border/40 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                        <TabsList className="h-11 self-start rounded-xl border border-border/40 bg-muted/40 p-1">
                             {categories.map((category) => {
-                                const count = templates.filter((t) => t.category === category.value).length;
+                                const count = templates.filter(
+                                    (t) => t.category === category.value,
+                                ).length;
 
                                 return (
                                     <TabsTrigger
                                         key={category.value}
                                         value={category.value}
-                                        className="rounded-lg px-4 py-1.5 text-xs font-semibold data-[state=active]:bg-background dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-foreground data-[state=active]:shadow-xs"
+                                        className="rounded-lg px-4 py-1.5 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-xs dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-foreground"
                                     >
                                         {category.label}
-                                        <Badge variant="secondary" className="ml-2 bg-muted-foreground/10 hover:bg-muted-foreground/15 text-[10px] px-1.5 py-0">
+                                        <Badge
+                                            variant="secondary"
+                                            className="ml-2 bg-muted-foreground/10 px-1.5 py-0 text-[10px] hover:bg-muted-foreground/15"
+                                        >
                                             {count}
                                         </Badge>
                                     </TabsTrigger>
@@ -345,7 +397,7 @@ export default function EmailTemplatesSettings({
                             <Button
                                 type="button"
                                 variant="default"
-                                className="rounded-xl h-10 px-5 shadow-xs self-start sm:self-auto"
+                                className="h-10 self-start rounded-xl px-5 shadow-xs sm:self-auto"
                                 onClick={() => openCreate(activeCategory)}
                             >
                                 <Plus className="mr-2 h-4 w-4" />
@@ -355,51 +407,69 @@ export default function EmailTemplatesSettings({
                     </div>
 
                     {grouped.map((group) => (
-                        <TabsContent key={group.value} value={group.value} className="space-y-6 outline-none">
+                        <TabsContent
+                            key={group.value}
+                            value={group.value}
+                            className="space-y-6 outline-none"
+                        >
                             <div className="grid gap-6 lg:grid-cols-2">
                                 {group.templates.map((template) => (
                                     <Card
                                         key={template.id}
-                                        className="group relative overflow-hidden border-border/60 bg-card hover:bg-muted/10 dark:border-white/5 dark:bg-white/[0.02] transition-all duration-300 hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5"
+                                        className="group relative overflow-hidden border-border/60 bg-card transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/20 hover:bg-muted/10 hover:shadow-md dark:border-white/5 dark:bg-white/[0.02]"
                                     >
                                         {template.is_default && (
-                                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-primary/80 to-blue-500/80" />
+                                            <div className="absolute top-0 right-0 left-0 h-[3px] bg-gradient-to-r from-primary/80 to-blue-500/80" />
                                         )}
 
                                         <CardContent className="space-y-5 p-6">
                                             {/* Card Top Title Row */}
                                             <div className="flex items-start justify-between gap-4">
-                                                <div className="space-y-1.5 flex-1 min-w-0">
+                                                <div className="min-w-0 flex-1 space-y-1.5">
                                                     <div className="flex flex-wrap items-center gap-2">
-                                                        <h3 className="font-semibold text-lg text-foreground tracking-tight group-hover:text-primary transition-colors truncate">
+                                                        <h3 className="truncate text-lg font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
                                                             {template.label}
                                                         </h3>
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {template.is_default && (
-                                                                <Badge variant="secondary" className="bg-primary/10 text-primary border-transparent text-[10px] px-2 py-0.5 rounded-md font-medium">
+                                                                <Badge
+                                                                    variant="secondary"
+                                                                    className="rounded-md border-transparent bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
+                                                                >
                                                                     Default
                                                                 </Badge>
                                                             )}
                                                             {!template.enabled && (
-                                                                <Badge variant="outline" className="text-muted-foreground/80 border-border text-[10px] px-2 py-0.5 rounded-md font-medium">
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="rounded-md border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground/80"
+                                                                >
                                                                     Disabled
                                                                 </Badge>
                                                             )}
                                                             {!template.include_company_footer && (
-                                                                <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-500/20 text-[10px] px-2 py-0.5 rounded-md font-medium">
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="rounded-md border-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400"
+                                                                >
                                                                     No Footer
                                                                 </Badge>
                                                             )}
                                                         </div>
                                                     </div>
 
-                                                    {template.slug === expiry_alert_template_slug ? (
-                                                        <p className="text-xs text-muted-foreground leading-relaxed">
-                                                            Automated daily summary email with an HTML table of expiring documents.
+                                                    {template.slug ===
+                                                    expiry_alert_template_slug ? (
+                                                        <p className="text-xs leading-relaxed text-muted-foreground">
+                                                            Automated daily
+                                                            summary email with
+                                                            an HTML table of
+                                                            expiring documents.
                                                         </p>
                                                     ) : (
-                                                        <p className="text-xs text-muted-foreground font-mono truncate bg-muted/40 dark:bg-black/20 px-2 py-1 rounded border border-border/20 w-fit">
-                                                            Subject: {template.subject}
+                                                        <p className="w-fit truncate rounded border border-border/20 bg-muted/40 px-2 py-1 font-mono text-xs text-muted-foreground dark:bg-black/20">
+                                                            Subject:{' '}
+                                                            {template.subject}
                                                         </p>
                                                     )}
                                                 </div>
@@ -411,53 +481,95 @@ export default function EmailTemplatesSettings({
 
                                             {/* Configs Row */}
                                             <div className="space-y-2.5 border-t border-border/40 pt-4">
-                                                {template.slug === expiry_alert_template_slug && template.dispatch_at && (
-                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                        <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-                                                        <span className="font-semibold text-foreground dark:text-zinc-300">Daily dispatch:</span>
-                                                        <span>{template.dispatch_at} ({scheduler_timezone})</span>
-                                                    </div>
-                                                )}
+                                                {template.slug ===
+                                                    expiry_alert_template_slug &&
+                                                    template.dispatch_at && (
+                                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                            <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
+                                                            <span className="font-semibold text-foreground dark:text-zinc-300">
+                                                                Daily dispatch:
+                                                            </span>
+                                                            <span>
+                                                                {
+                                                                    template.dispatch_at
+                                                                }{' '}
+                                                                (
+                                                                {
+                                                                    scheduler_timezone
+                                                                }
+                                                                )
+                                                            </span>
+                                                        </div>
+                                                    )}
 
                                                 {template.to_preset && (
                                                     <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                                                        <span className="font-semibold text-foreground dark:text-zinc-300 mt-0.5 min-w-[24px]">To:</span>
+                                                        <span className="mt-0.5 min-w-[24px] font-semibold text-foreground dark:text-zinc-300">
+                                                            To:
+                                                        </span>
                                                         <div className="flex flex-wrap gap-1">
-                                                            {template.to_preset.split(',').map((email, idx) => (
-                                                                <span key={idx} className="inline-flex items-center rounded-md bg-primary/5 px-2 py-0.5 font-mono text-[10px] text-primary border border-primary/10">
-                                                                    {email.trim()}
-                                                                </span>
-                                                            ))}
+                                                            {template.to_preset
+                                                                .split(',')
+                                                                .map(
+                                                                    (
+                                                                        email,
+                                                                        idx,
+                                                                    ) => (
+                                                                        <span
+                                                                            key={
+                                                                                idx
+                                                                            }
+                                                                            className="inline-flex items-center rounded-md border border-primary/10 bg-primary/5 px-2 py-0.5 font-mono text-[10px] text-primary"
+                                                                        >
+                                                                            {email.trim()}
+                                                                        </span>
+                                                                    ),
+                                                                )}
                                                         </div>
                                                     </div>
                                                 )}
 
                                                 {template.cc_preset && (
                                                     <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                                                        <span className="font-semibold text-foreground dark:text-zinc-300 mt-0.5 min-w-[24px]">CC:</span>
+                                                        <span className="mt-0.5 min-w-[24px] font-semibold text-foreground dark:text-zinc-300">
+                                                            CC:
+                                                        </span>
                                                         <div className="flex flex-wrap gap-1">
-                                                            {template.cc_preset.split(',').map((email, idx) => (
-                                                                <span key={idx} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground border border-border/40">
-                                                                    {email.trim()}
-                                                                </span>
-                                                            ))}
+                                                            {template.cc_preset
+                                                                .split(',')
+                                                                .map(
+                                                                    (
+                                                                        email,
+                                                                        idx,
+                                                                    ) => (
+                                                                        <span
+                                                                            key={
+                                                                                idx
+                                                                            }
+                                                                            className="inline-flex items-center rounded-md border border-border/40 bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
+                                                                        >
+                                                                            {email.trim()}
+                                                                        </span>
+                                                                    ),
+                                                                )}
                                                         </div>
                                                     </div>
                                                 )}
                                             </div>
 
                                             {/* Body HTML Frame */}
-                                            {template.slug !== expiry_alert_template_slug && (
-                                                <div className="relative rounded-xl border border-border/40 bg-muted/20 dark:bg-black/20 p-4">
+                                            {template.slug !==
+                                                expiry_alert_template_slug && (
+                                                <div className="relative rounded-xl border border-border/40 bg-muted/20 p-4 dark:bg-black/20">
                                                     <div className="absolute top-2.5 right-3 flex items-center gap-1">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
                                                     </div>
-                                                    <div className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-widest border-b border-border/20 pb-1.5 mb-2.5">
+                                                    <div className="mb-2.5 border-b border-border/20 pb-1.5 text-[9px] font-bold tracking-widest text-muted-foreground/50 uppercase">
                                                         Template Body
                                                     </div>
-                                                    <p className="line-clamp-4 whitespace-pre-wrap text-xs text-muted-foreground leading-relaxed">
+                                                    <p className="line-clamp-4 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
                                                         {template.body_html}
                                                     </p>
                                                 </div>
@@ -465,7 +577,7 @@ export default function EmailTemplatesSettings({
 
                                             {/* Bottom row */}
                                             <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-4">
-                                                <span className="text-[10px] font-mono text-muted-foreground/60 bg-muted/40 dark:bg-white/5 px-2 py-0.5 rounded border border-border/20">
+                                                <span className="rounded border border-border/20 bg-muted/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground/60 dark:bg-white/5">
                                                     Slug: {template.slug}
                                                 </span>
 
@@ -474,8 +586,12 @@ export default function EmailTemplatesSettings({
                                                         type="button"
                                                         variant="ghost"
                                                         size="sm"
-                                                        className="h-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors text-xs px-2.5 font-medium"
-                                                        onClick={() => openSavedPreview(template)}
+                                                        className="h-8 rounded-lg px-2.5 text-xs font-medium transition-colors hover:bg-primary/10 hover:text-primary"
+                                                        onClick={() =>
+                                                            openSavedPreview(
+                                                                template,
+                                                            )
+                                                        }
                                                     >
                                                         <Eye className="mr-1.5 h-3.5 w-3.5" />
                                                         Preview
@@ -485,23 +601,33 @@ export default function EmailTemplatesSettings({
                                                             type="button"
                                                             variant="ghost"
                                                             size="sm"
-                                                            className="h-8 rounded-lg hover:bg-muted/80 text-xs px-2.5 font-medium border border-transparent hover:border-border/60"
-                                                            onClick={() => openEdit(template)}
+                                                            className="h-8 rounded-lg border border-transparent px-2.5 text-xs font-medium hover:border-border/60 hover:bg-muted/80"
+                                                            onClick={() =>
+                                                                openEdit(
+                                                                    template,
+                                                                )
+                                                            }
                                                         >
                                                             Edit
                                                         </Button>
                                                     )}
-                                                    {can.delete && template.slug !== expiry_alert_template_slug && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive transition-colors text-xs px-2.5 font-medium"
-                                                            onClick={() => requestDelete(template)}
-                                                        >
-                                                            Delete
-                                                        </Button>
-                                                    )}
+                                                    {can.delete &&
+                                                        template.slug !==
+                                                            expiry_alert_template_slug && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 rounded-lg px-2.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                                                onClick={() =>
+                                                                    requestDelete(
+                                                                        template,
+                                                                    )
+                                                                }
+                                                            >
+                                                                Delete
+                                                            </Button>
+                                                        )}
                                                 </div>
                                             </div>
                                         </CardContent>
@@ -509,15 +635,20 @@ export default function EmailTemplatesSettings({
                                 ))}
 
                                 {group.templates.length === 0 && (
-                                    <Card className="border-dashed border-border/80 dark:border-white/10 bg-transparent lg:col-span-2 shadow-none">
+                                    <Card className="border-dashed border-border/80 bg-transparent shadow-none lg:col-span-2 dark:border-white/10">
                                         <CardContent className="flex flex-col items-center justify-center gap-3 p-12 text-center">
-                                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground/60 border border-border/40">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border/40 bg-muted text-muted-foreground/60">
                                                 <FileText className="h-6 w-6" />
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="font-semibold text-foreground">No templates yet</p>
-                                                <p className="text-xs text-muted-foreground max-w-xs">
-                                                    Create a new {group.label.toLowerCase()} template to get started with automated messaging presets.
+                                                <p className="font-semibold text-foreground">
+                                                    No templates yet
+                                                </p>
+                                                <p className="max-w-xs text-xs text-muted-foreground">
+                                                    Create a new{' '}
+                                                    {group.label.toLowerCase()}{' '}
+                                                    template to get started with
+                                                    automated messaging presets.
                                                 </p>
                                             </div>
                                         </CardContent>
@@ -542,14 +673,20 @@ export default function EmailTemplatesSettings({
                             onCancel={() => setSheetOpen(false)}
                             onSubmit={submit}
                             processing={form.processing}
-                            submitLabel={editing ? 'Save changes' : 'Create template'}
+                            submitLabel={
+                                editing ? 'Save changes' : 'Create template'
+                            }
                             cancelLabel={canMutateForm ? 'Cancel' : 'Close'}
                             showSubmit={canMutateForm}
                         />
                     ) : null
                 }
             >
-                <MasterDataField id="label" label="Display label" error={form.errors.label}>
+                <MasterDataField
+                    id="label"
+                    label="Display label"
+                    error={form.errors.label}
+                >
                     <Input
                         id="label"
                         value={form.data.label}
@@ -560,28 +697,46 @@ export default function EmailTemplatesSettings({
                 </MasterDataField>
 
                 <div className="grid gap-5 sm:grid-cols-2">
-                    <MasterDataField id="slug" label="Internal slug" error={form.errors.slug}>
+                    <MasterDataField
+                        id="slug"
+                        label="Internal slug"
+                        error={form.errors.slug}
+                    >
                         <Input
                             id="slug"
                             value={form.data.slug}
-                            onChange={(e) => form.setData('slug', e.target.value)}
+                            onChange={(e) =>
+                                form.setData('slug', e.target.value)
+                            }
                             disabled={!canMutateForm || editing !== null}
                             className={masterDataInputClass}
                         />
                     </MasterDataField>
 
-                    <MasterDataField id="category" label="Category" error={form.errors.category}>
+                    <MasterDataField
+                        id="category"
+                        label="Category"
+                        error={form.errors.category}
+                    >
                         <Select
                             value={form.data.category}
-                            onValueChange={(value) => form.setData('category', value)}
+                            onValueChange={(value) =>
+                                form.setData('category', value)
+                            }
                             disabled={!canMutateForm}
                         >
-                            <SelectTrigger id="category" className={masterDataInputClass}>
+                            <SelectTrigger
+                                id="category"
+                                className={masterDataInputClass}
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                                 {categories.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>
+                                    <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                    >
                                         {option.label}
                                     </SelectItem>
                                 ))}
@@ -599,14 +754,16 @@ export default function EmailTemplatesSettings({
                         id="to_preset"
                         type="text"
                         value={form.data.to_preset}
-                        onChange={(e) => form.setData('to_preset', e.target.value)}
+                        onChange={(e) =>
+                            form.setData('to_preset', e.target.value)
+                        }
                         placeholder="recipient@example.com, backup@example.com"
                         disabled={!canMutateForm}
                         className={masterDataInputClass}
                     />
                     <p className="text-xs text-muted-foreground/80">
-                        Comma-separated addresses. The first fills To in the send modal; any
-                        extra addresses are added to CC.
+                        Comma-separated addresses. The first fills To in the
+                        send modal; any extra addresses are added to CC.
                     </p>
                 </MasterDataField>
 
@@ -619,13 +776,16 @@ export default function EmailTemplatesSettings({
                         id="cc_preset"
                         type="text"
                         value={form.data.cc_preset}
-                        onChange={(e) => form.setData('cc_preset', e.target.value)}
+                        onChange={(e) =>
+                            form.setData('cc_preset', e.target.value)
+                        }
                         placeholder="cc1@example.com, cc2@example.com"
                         disabled={!canMutateForm}
                         className={masterDataInputClass}
                     />
                     <p className="text-xs text-muted-foreground/80">
-                        Comma-separated CC addresses prefilled when this template is chosen.
+                        Comma-separated CC addresses prefilled when this
+                        template is chosen.
                     </p>
                 </MasterDataField>
 
@@ -639,15 +799,20 @@ export default function EmailTemplatesSettings({
                             id="dispatch_at"
                             type="time"
                             value={form.data.dispatch_at}
-                            onChange={(e) => form.setData('dispatch_at', e.target.value)}
+                            onChange={(e) =>
+                                form.setData('dispatch_at', e.target.value)
+                            }
                             disabled={!canMutateForm}
                             className={masterDataInputClass}
                         />
                         <p className="text-xs text-muted-foreground/80">
-                            Runs once per day at this time using the timezone from Application
-                            settings → Regional defaults ({scheduler_timezone}). Cron must call{' '}
-                            <span className="font-mono text-muted-foreground">schedule:run</span> every
-                            minute.
+                            Runs once per day at this time using the timezone
+                            from Application settings → Regional defaults (
+                            {scheduler_timezone}). Cron must call{' '}
+                            <span className="font-mono text-muted-foreground">
+                                schedule:run
+                            </span>{' '}
+                            every minute.
                         </p>
                     </MasterDataField>
                 ) : null}
@@ -662,7 +827,9 @@ export default function EmailTemplatesSettings({
                             <Input
                                 id="subject"
                                 value={form.data.subject}
-                                onChange={(e) => form.setData('subject', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('subject', e.target.value)
+                                }
                                 disabled={!canMutateForm}
                                 className={masterDataInputClass}
                             />
@@ -676,21 +843,24 @@ export default function EmailTemplatesSettings({
                             <Textarea
                                 id="body_html"
                                 value={form.data.body_html}
-                                onChange={(e) => form.setData('body_html', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('body_html', e.target.value)
+                                }
                                 rows={10}
                                 disabled={!canMutateForm}
                                 className="min-h-[220px] resize-y rounded-xl border-border bg-card px-4 py-3 text-sm leading-relaxed transition-all focus-visible:ring-primary/40"
                             />
                             <p className="text-xs text-muted-foreground/80">
-                                Plain text only. Line breaks are preserved when the message is sent.
+                                Plain text only. Line breaks are preserved when
+                                the message is sent.
                             </p>
                         </MasterDataField>
                     </>
                 ) : (
-                    <p className="rounded-xl border border-border/80 bg-muted/20 dark:border-white/10 dark:bg-white/5 px-4 py-3 text-sm text-muted-foreground">
-                        The automated expiry email uses a fixed HTML table (employee, document,
-                        expiry date, days remaining). Configure recipients and daily dispatch time
-                        below.
+                    <p className="rounded-xl border border-border/80 bg-muted/20 px-4 py-3 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                        The automated expiry email uses a fixed HTML table
+                        (employee, document, expiry date, days remaining).
+                        Configure recipients and daily dispatch time below.
                     </p>
                 )}
 
@@ -703,14 +873,21 @@ export default function EmailTemplatesSettings({
                     description="Adds your company logo, contact details, and certification bar at the bottom of the email."
                 />
 
-                <MasterDataField id="sort_order" label="Sort order" error={form.errors.sort_order}>
+                <MasterDataField
+                    id="sort_order"
+                    label="Sort order"
+                    error={form.errors.sort_order}
+                >
                     <Input
                         id="sort_order"
                         type="number"
                         min={0}
                         value={form.data.sort_order}
                         onChange={(e) =>
-                            form.setData('sort_order', Number(e.target.value) || 0)
+                            form.setData(
+                                'sort_order',
+                                Number(e.target.value) || 0,
+                            )
                         }
                         disabled={!canMutateForm}
                         className={masterDataInputClass}
@@ -719,14 +896,18 @@ export default function EmailTemplatesSettings({
 
                 <MasterDataActiveToggle
                     checked={form.data.is_default}
-                    onCheckedChange={(checked) => form.setData('is_default', checked)}
+                    onCheckedChange={(checked) =>
+                        form.setData('is_default', checked)
+                    }
                     title="Default for category"
                     description="Used when a feature does not specify a template."
                 />
 
                 <MasterDataActiveToggle
                     checked={form.data.enabled}
-                    onCheckedChange={(checked) => form.setData('enabled', checked)}
+                    onCheckedChange={(checked) =>
+                        form.setData('enabled', checked)
+                    }
                     title="Enabled"
                     description="Disabled templates cannot be selected for sending."
                 />
@@ -744,7 +925,9 @@ export default function EmailTemplatesSettings({
             >
                 <AlertDialogContent className="glass-card">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete email template</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            Delete email template
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
                             {deleting
                                 ? `This will permanently delete “${deleting.label}”. Set another default in this category first if needed.`
@@ -752,10 +935,13 @@ export default function EmailTemplatesSettings({
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel className="glass-card rounded-xl hover:bg-accent">
+                        <AlertDialogCancel className="rounded-xl glass-card hover:bg-accent">
                             Cancel
                         </AlertDialogCancel>
-                        <AlertDialogAction className="rounded-xl" onClick={confirmDelete}>
+                        <AlertDialogAction
+                            className="rounded-xl"
+                            onClick={confirmDelete}
+                        >
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>
