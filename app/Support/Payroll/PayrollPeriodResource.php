@@ -23,8 +23,6 @@ final class PayrollPeriodResource
             ];
         }
 
-        $needsUpdate = app(PayrollPeriodNeedsUpdate::class)->forPeriod($period);
-
         return [
             'id' => $period->id,
             'name' => $period->name,
@@ -60,8 +58,6 @@ final class PayrollPeriodResource
             'payment_proof_url' => $proofs[0]['url'] ?? null,
             'payment_proofs' => $proofs,
             'created_at' => $period->created_at?->toDateTimeString(),
-            'needs_payroll_update' => $needsUpdate['needs_update'],
-            'needs_payroll_update_reasons' => $needsUpdate['reasons'],
         ];
     }
 }
