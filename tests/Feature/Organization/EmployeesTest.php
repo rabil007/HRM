@@ -1256,14 +1256,10 @@ test('authenticated users can preview and import an employees CSV', function () 
         ->where('employee_no', 'EMP-IMP-1')
         ->firstOrFail();
 
-    expect(
-        EmployeeContract::query()
-            ->where('company_id', $company->id)
-            ->where('employee_id', $importedEmployee->id)
-            ->where('contract_type', 'unlimited')
-            ->value('start_date')
-            ?->toDateString(),
-    )->toBe('2026-03-01');
+    $this->assertDatabaseMissing('employee_contracts', [
+        'company_id' => $company->id,
+        'employee_id' => $importedEmployee->id,
+    ]);
 });
 
 test('employee import rejects unsupported file types', function () {
@@ -1444,7 +1440,7 @@ test('employee import accepts manual column mapping', function () {
     ]);
 });
 
-test('employee import applies contract and start date defaults when omitted', function () {
+test('employee import does not create contracts when contract columns are omitted', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -1484,8 +1480,6 @@ test('employee import applies contract and start date defaults when omitted', fu
     $csv = "employee_no,name\n"
         ."EMP-DEF-1,No Contract Columns\n";
 
-    $expectedStart = today()->format('Y-m-d');
-
     $previewFile = UploadedFile::fake()->createWithContent('employees.csv', $csv);
 
     $preview = $this->withHeader('Accept', 'application/json')
@@ -1512,14 +1506,10 @@ test('employee import applies contract and start date defaults when omitted', fu
         ->where('employee_no', 'EMP-DEF-1')
         ->firstOrFail();
 
-    expect(
-        EmployeeContract::query()
-            ->where('company_id', $company->id)
-            ->where('employee_id', $employee->id)
-            ->where('contract_type', 'unlimited')
-            ->value('start_date')
-            ?->toDateString(),
-    )->toBe($expectedStart);
+    $this->assertDatabaseMissing('employee_contracts', [
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+    ]);
 });
 
 test('employee import ignores sensitive fields without extra import permissions', function () {
@@ -1600,10 +1590,9 @@ test('employee import ignores sensitive fields without extra import permissions'
         'employee_id' => $employee->id,
     ]);
 
-    $this->assertDatabaseHas('employee_contracts', [
+    $this->assertDatabaseMissing('employee_contracts', [
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'basic_salary' => null,
     ]);
 });
 
