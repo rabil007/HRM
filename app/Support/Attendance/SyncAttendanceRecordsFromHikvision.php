@@ -14,22 +14,81 @@ use Illuminate\Support\Collection;
 
 final class SyncAttendanceRecordsFromHikvision
 {
+    private float $syncStartedAt = 0;
+
     public function syncCompany(int $companyId, CarbonInterface $from, CarbonInterface $to): int
     {
+        $this->syncStartedAt = microtime(true);
+
+        // #region agent log
+        $this->debugLog('B', 'SyncAttendanceRecordsFromHikvision.php:syncCompany', 'syncCompany started', [
+            'company_id' => $companyId,
+            'from' => $from->toDateTimeString(),
+            'to' => $to->toDateTimeString(),
+        ]);
+        // #endregion
+
         $timezone = (string) config('app.timezone', 'UTC');
         $workingDays = $this->resolveWorkingDays($companyId);
         $synced = 0;
+
+        $rangeStart = $from->copy()->timezone($timezone)->startOfDay();
+        $rangeEnd = $to->copy()->timezone($timezone)->endOfDay();
 
         $employees = Employee::query()
             ->with('hikvisionPerson:id,person_id,full_name,person_code')
             ->where('company_id', $companyId)
             ->where('status', 'active')
             ->whereNotNull('hikvision_person_id')
+            ->orderBy('id')
             ->get();
 
+        // #region agent log
+        $this->debugLog('B', 'SyncAttendanceRecordsFromHikvision.php:syncCompany', 'employees loaded', [
+            'company_id' => $companyId,
+            'employee_count' => $employees->count(),
+        ]);
+        // #endregion
+
+        $eventsQueryStartedAt = microtime(true);
+        $companyEvents = $this->loadCompanyEventsForWindow($employees, $rangeStart, $rangeEnd);
+        $eventsQueryElapsedMs = (int) round((microtime(true) - $eventsQueryStartedAt) * 1000);
+
+        /** @var Collection<string, Collection<int, HikvisionAccessEvent>> $eventsByPersonId */
+        $eventsByPersonId = $companyEvents->groupBy(
+            fn (HikvisionAccessEvent $event): string => (string) ($event->person_hikvision_id ?? ''),
+        );
+
+        // #region agent log
+        $this->debugLog('D', 'SyncAttendanceRecordsFromHikvision.php:syncCompany', 'company events loaded', [
+            'company_id' => $companyId,
+            'events_count' => $companyEvents->count(),
+            'query_elapsed_ms' => $eventsQueryElapsedMs,
+            'distinct_person_ids' => $eventsByPersonId->keys()->filter(fn (string $key) => $key !== '')->count(),
+        ]);
+        // #endregion
+
         foreach ($employees as $employee) {
-            $synced += $this->syncEmployee($employee, $from, $to, $timezone, $workingDays);
+            $employeeEvents = $this->resolveEmployeeEvents($employee, $eventsByPersonId, $companyEvents);
+
+            $synced += $this->syncEmployee(
+                $employee,
+                $rangeStart,
+                $rangeEnd,
+                $timezone,
+                $workingDays,
+                $employeeEvents,
+            );
         }
+
+        // #region agent log
+        $this->debugLog('B', 'SyncAttendanceRecordsFromHikvision.php:syncCompany', 'syncCompany finished', [
+            'company_id' => $companyId,
+            'employee_count' => $employees->count(),
+            'synced_records' => $synced,
+            'elapsed_ms' => (int) round((microtime(true) - $this->syncStartedAt) * 1000),
+        ]);
+        // #endregion
 
         return $synced;
     }
@@ -51,29 +110,145 @@ final class SyncAttendanceRecordsFromHikvision
     }
 
     /**
+     * @param  Collection<int, Employee>  $employees
+     * @return Collection<int, HikvisionAccessEvent>
+     */
+    private function loadCompanyEventsForWindow(
+        Collection $employees,
+        CarbonInterface $rangeStart,
+        CarbonInterface $rangeEnd,
+    ): Collection {
+        $personIds = $employees
+            ->map(fn (Employee $employee): string => trim((string) ($employee->hikvisionPerson?->person_id ?? '')))
+            ->filter(fn (string $personId): bool => $personId !== '')
+            ->unique()
+            ->values();
+
+        $personCodes = $employees
+            ->map(fn (Employee $employee): string => trim((string) ($employee->hikvisionPerson?->person_code ?? '')))
+            ->filter(fn (string $personCode): bool => $personCode !== '')
+            ->unique()
+            ->values();
+
+        $nameAliases = $employees
+            ->flatMap(fn (Employee $employee): array => $this->employeeNameAliases($employee))
+            ->map(fn (string $alias): string => mb_strtolower($alias))
+            ->unique()
+            ->values();
+
+        $columns = [
+            'id',
+            'occurrence_time',
+            'attendance_status',
+            'transaction_source',
+            'person_name',
+            'person_hikvision_id',
+        ];
+
+        $linkedEvents = $personIds->isEmpty()
+            ? collect()
+            : HikvisionAccessEvent::query()
+                ->accessRecords()
+                ->whereBetween('occurrence_time', [$rangeStart, $rangeEnd])
+                ->whereIn('person_hikvision_id', $personIds)
+                ->orderBy('occurrence_time')
+                ->get($columns);
+
+        $unlinkedEvents = HikvisionAccessEvent::query()
+            ->accessRecords()
+            ->whereBetween('occurrence_time', [$rangeStart, $rangeEnd])
+            ->where(function (Builder $query): void {
+                $query->whereNull('person_hikvision_id')
+                    ->orWhere('person_hikvision_id', '');
+            })
+            ->where(function (Builder $query) use ($nameAliases, $personCodes): void {
+                $this->applyUnlinkedEventScope($query, $nameAliases, $personCodes);
+            })
+            ->orderBy('occurrence_time')
+            ->get([...$columns, 'raw_payload']);
+
+        return $linkedEvents
+            ->merge($unlinkedEvents)
+            ->unique('id')
+            ->values();
+    }
+
+    /**
+     * @param  Collection<string, Collection<int, HikvisionAccessEvent>>  $eventsByPersonId
+     * @param  Collection<int, HikvisionAccessEvent>  $companyEvents
+     * @return Collection<int, HikvisionAccessEvent>
+     */
+    private function resolveEmployeeEvents(
+        Employee $employee,
+        Collection $eventsByPersonId,
+        Collection $companyEvents,
+    ): Collection {
+        $personId = (string) ($employee->hikvisionPerson?->person_id ?? '');
+        $events = $personId !== ''
+            ? $eventsByPersonId->get($personId, collect())
+            : collect();
+
+        $aliases = array_map(
+            mb_strtolower(...),
+            $this->employeeNameAliases($employee),
+        );
+        $personCode = trim((string) ($employee->hikvisionPerson?->person_code ?? ''));
+
+        if ($aliases === [] && $personCode === '') {
+            return $events->values();
+        }
+
+        $unlinkedMatches = $companyEvents->filter(function (HikvisionAccessEvent $event) use ($aliases, $personCode): bool {
+            if (filled($event->person_hikvision_id)) {
+                return false;
+            }
+
+            $personName = mb_strtolower(trim((string) $event->person_name));
+
+            if ($personName !== '' && in_array($personName, $aliases, true)) {
+                return true;
+            }
+
+            if ($personCode === '' || $event->transaction_source !== HikvisionAccessEvent::TRANSACTION_MOBILE_APP) {
+                return false;
+            }
+
+            $payload = is_array($event->raw_payload) ? $event->raw_payload : [];
+
+            return trim((string) ($payload['personCode'] ?? '')) === $personCode;
+        });
+
+        return $events
+            ->merge($unlinkedMatches)
+            ->unique('id')
+            ->values();
+    }
+
+    /**
      * @param  list<int>  $workingDays
+     * @param  Collection<int, HikvisionAccessEvent>  $events
      */
     private function syncEmployee(
         Employee $employee,
-        CarbonInterface $from,
-        CarbonInterface $to,
+        CarbonInterface $rangeStart,
+        CarbonInterface $rangeEnd,
         string $timezone,
         array $workingDays,
+        Collection $events,
     ): int {
         $personId = (string) ($employee->hikvisionPerson?->person_id ?? '');
         $synced = 0;
 
-        $rangeStart = $from->copy()->timezone($timezone)->startOfDay();
-        $rangeEnd = $to->copy()->timezone($timezone)->endOfDay();
-
-        $events = HikvisionAccessEvent::query()
-            ->accessRecords()
-            ->whereBetween('occurrence_time', [$rangeStart, $rangeEnd])
-            ->where(function ($query) use ($employee, $personId): void {
-                $this->applyEmployeeEventScope($query, $employee, $personId);
-            })
-            ->orderBy('occurrence_time')
-            ->get(['id', 'occurrence_time', 'attendance_status', 'transaction_source', 'person_name', 'person_hikvision_id']);
+        // #region agent log
+        $this->debugLog('A', 'SyncAttendanceRecordsFromHikvision.php:syncEmployee', 'employee events resolved', [
+            'employee_id' => $employee->id,
+            'employee_name' => $employee->name,
+            'person_id' => $personId,
+            'events_count' => $events->count(),
+            'date_from' => $rangeStart->toDateString(),
+            'date_to' => $rangeEnd->toDateString(),
+        ]);
+        // #endregion
 
         /** @var Collection<string, Collection<int, HikvisionAccessEvent>> $eventsByDate */
         $eventsByDate = $events->groupBy(
@@ -185,59 +360,50 @@ final class SyncAttendanceRecordsFromHikvision
 
     /**
      * @param  Builder<HikvisionAccessEvent>  $query
+     * @param  Collection<int, string>  $nameAliases
+     * @param  Collection<int, string>  $personCodes
      */
-    private function applyEmployeeEventScope($query, Employee $employee, string $personId): void
+    private function applyUnlinkedEventScope(Builder $query, Collection $nameAliases, Collection $personCodes): void
     {
-        $aliases = $this->employeeMatchAliases($employee);
-        $personCode = trim((string) ($employee->hikvisionPerson?->person_code ?? ''));
+        $hasConstraint = false;
 
-        $query->where(function ($query) use ($personId, $aliases, $personCode): void {
-            $hasConstraint = false;
-
-            if ($personId !== '') {
-                $query->where('person_hikvision_id', $personId);
+        foreach ($nameAliases as $alias) {
+            if ($hasConstraint) {
+                $query->orWhereRaw('LOWER(person_name) = ?', [$alias]);
+            } else {
+                $query->whereRaw('LOWER(person_name) = ?', [$alias]);
                 $hasConstraint = true;
             }
+        }
 
-            foreach ($aliases as $alias) {
-                if ($hasConstraint) {
-                    $query->orWhereRaw('LOWER(person_name) = ?', [mb_strtolower($alias)]);
-                } else {
-                    $query->whereRaw('LOWER(person_name) = ?', [mb_strtolower($alias)]);
-                    $hasConstraint = true;
-                }
+        foreach ($personCodes as $personCode) {
+            $personCodeConstraint = function (Builder $mobileQuery) use ($personCode): void {
+                $mobileQuery
+                    ->where('transaction_source', HikvisionAccessEvent::TRANSACTION_MOBILE_APP)
+                    ->where('raw_payload->personCode', $personCode);
+            };
+
+            if ($hasConstraint) {
+                $query->orWhere($personCodeConstraint);
+            } else {
+                $query->where($personCodeConstraint);
+                $hasConstraint = true;
             }
+        }
 
-            if ($personCode !== '') {
-                $personCodeConstraint = function (Builder $mobileQuery) use ($personCode): void {
-                    $mobileQuery
-                        ->where('transaction_source', HikvisionAccessEvent::TRANSACTION_MOBILE_APP)
-                        ->where('raw_payload->personCode', $personCode);
-                };
-
-                if ($hasConstraint) {
-                    $query->orWhere($personCodeConstraint);
-                } else {
-                    $query->where($personCodeConstraint);
-                    $hasConstraint = true;
-                }
-            }
-
-            if (! $hasConstraint) {
-                $query->whereRaw('1 = 0');
-            }
-        });
+        if (! $hasConstraint) {
+            $query->whereRaw('1 = 0');
+        }
     }
 
     /**
      * @return list<string>
      */
-    private function employeeMatchAliases(Employee $employee): array
+    private function employeeNameAliases(Employee $employee): array
     {
         $aliases = [
             trim((string) $employee->name),
             trim((string) ($employee->hikvisionPerson?->full_name ?? '')),
-            trim((string) ($employee->hikvisionPerson?->person_code ?? '')),
         ];
 
         $fullName = trim((string) ($employee->hikvisionPerson?->full_name ?? ''));
@@ -266,20 +432,56 @@ final class SyncAttendanceRecordsFromHikvision
      */
     private function resolveClockTimesForDay(Collection $dayEvents): array
     {
-        $checkIns = $dayEvents
-            ->filter(fn (HikvisionAccessEvent $event): bool => $event->attendance_status === HikvisionAccessEvent::ATTENDANCE_CHECK_IN)
-            ->sortBy('occurrence_time')
-            ->values();
+        $dayEventCount = $dayEvents->count();
 
-        $clockIn = $checkIns->first()?->occurrence_time;
+        if ($dayEventCount > 100) {
+            // #region agent log
+            $this->debugLog('C', 'SyncAttendanceRecordsFromHikvision.php:resolveClockTimesForDay', 'large dayEvents collection', [
+                'day_events_count' => $dayEventCount,
+            ]);
+            // #endregion
+        }
 
-        $clockOut = $dayEvents
-            ->filter(fn (HikvisionAccessEvent $event): bool => $event->attendance_status === HikvisionAccessEvent::ATTENDANCE_CHECK_OUT)
-            ->sortByDesc('occurrence_time')
-            ->first()?->occurrence_time;
+        $clockIn = null;
+        $clockInTimestamp = null;
+        $clockOut = null;
+        $clockOutTimestamp = null;
+        $checkInCount = 0;
+        $lastCheckIn = null;
+        $lastCheckInTimestamp = null;
 
-        if ($clockOut === null && $checkIns->count() >= 2) {
-            $clockOut = $checkIns->last()?->occurrence_time;
+        foreach ($dayEvents as $event) {
+            $occurrenceTime = $event->occurrence_time;
+
+            if ($occurrenceTime === null) {
+                continue;
+            }
+
+            $timestamp = $occurrenceTime->getTimestamp();
+
+            if ($event->attendance_status === HikvisionAccessEvent::ATTENDANCE_CHECK_IN) {
+                $checkInCount++;
+
+                if ($lastCheckInTimestamp === null || $timestamp > $lastCheckInTimestamp) {
+                    $lastCheckInTimestamp = $timestamp;
+                    $lastCheckIn = $occurrenceTime;
+                }
+
+                if ($clockInTimestamp === null || $timestamp < $clockInTimestamp) {
+                    $clockInTimestamp = $timestamp;
+                    $clockIn = $occurrenceTime;
+                }
+            }
+
+            if ($event->attendance_status === HikvisionAccessEvent::ATTENDANCE_CHECK_OUT
+                && ($clockOutTimestamp === null || $timestamp > $clockOutTimestamp)) {
+                $clockOutTimestamp = $timestamp;
+                $clockOut = $occurrenceTime;
+            }
+        }
+
+        if ($clockOut === null && $checkInCount >= 2) {
+            $clockOut = $lastCheckIn;
         }
 
         return [
@@ -326,5 +528,27 @@ final class SyncAttendanceRecordsFromHikvision
         )
             ? AttendanceRecord::SOURCE_MOBILE
             : AttendanceRecord::SOURCE_BIOMETRIC;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function debugLog(string $hypothesisId, string $location, string $message, array $data = []): void
+    {
+        // #region agent log
+        file_put_contents(
+            '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-906348.log',
+            json_encode([
+                'sessionId' => '906348',
+                'hypothesisId' => $hypothesisId,
+                'location' => $location,
+                'message' => $message,
+                'data' => $data,
+                'timestamp' => (int) round(microtime(true) * 1000),
+                'runId' => 'post-fix',
+            ], JSON_THROW_ON_ERROR)."\n",
+            FILE_APPEND
+        );
+        // #endregion
     }
 }

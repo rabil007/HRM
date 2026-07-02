@@ -676,6 +676,26 @@ class HikvisionService
             ->distinct()
             ->pluck('company_id');
 
+        // #region agent log
+        file_put_contents(
+            '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-906348.log',
+            json_encode([
+                'sessionId' => '906348',
+                'hypothesisId' => 'B',
+                'location' => 'HikvisionService.php:syncAttendanceRecordsForWindow',
+                'message' => 'sync window started',
+                'data' => [
+                    'company_count' => $companyIds->count(),
+                    'start' => $startTime->toDateTimeString(),
+                    'end' => $endTime->toDateTimeString(),
+                ],
+                'timestamp' => (int) round(microtime(true) * 1000),
+                'runId' => 'pre-fix',
+            ], JSON_THROW_ON_ERROR)."\n",
+            FILE_APPEND
+        );
+        // #endregion
+
         $synced = 0;
 
         foreach ($companyIds as $companyId) {

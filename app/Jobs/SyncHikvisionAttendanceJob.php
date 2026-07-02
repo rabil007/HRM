@@ -20,6 +20,24 @@ class SyncHikvisionAttendanceJob implements ShouldQueue
 
     public function handle(HikvisionService $hikvision): void
     {
+        $jobStartedAt = microtime(true);
+
+        // #region agent log
+        file_put_contents(
+            '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-906348.log',
+            json_encode([
+                'sessionId' => '906348',
+                'hypothesisId' => 'B',
+                'location' => 'SyncHikvisionAttendanceJob.php:handle',
+                'message' => 'job started',
+                'data' => ['date' => $this->date],
+                'timestamp' => (int) round(microtime(true) * 1000),
+                'runId' => 'pre-fix',
+            ], JSON_THROW_ON_ERROR)."\n",
+            FILE_APPEND
+        );
+        // #endregion
+
         $timezone = (string) config('app.timezone', 'UTC');
         $synced = 0;
 
@@ -33,6 +51,26 @@ class SyncHikvisionAttendanceJob implements ShouldQueue
         } else {
             $synced += $hikvision->syncAttendanceForYesterday();
         }
+
+        // #region agent log
+        file_put_contents(
+            '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-906348.log',
+            json_encode([
+                'sessionId' => '906348',
+                'hypothesisId' => 'B',
+                'location' => 'SyncHikvisionAttendanceJob.php:handle',
+                'message' => 'job finished',
+                'data' => [
+                    'date' => $this->date,
+                    'synced' => $synced,
+                    'elapsed_ms' => (int) round((microtime(true) - $jobStartedAt) * 1000),
+                ],
+                'timestamp' => (int) round(microtime(true) * 1000),
+                'runId' => 'pre-fix',
+            ], JSON_THROW_ON_ERROR)."\n",
+            FILE_APPEND
+        );
+        // #endregion
 
         $jobId = $this->job ? $this->job->uuid() : null;
         if ($jobId) {
