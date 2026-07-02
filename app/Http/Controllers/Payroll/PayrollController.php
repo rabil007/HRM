@@ -20,6 +20,9 @@ use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
 use App\Models\SalaryInputType;
+use App\Support\Employees\BuildDepartmentEmployeeTree;
+use App\Support\Employees\EmployeeDirectoryFilters;
+use App\Support\Employees\EmployeeDirectoryQuery;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Payroll\Actions\ApprovePayrollPeriod;
 use App\Support\Payroll\Actions\CancelPayrollPeriod;
@@ -32,6 +35,7 @@ use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use App\Support\Payroll\CrewPayrollPagePermissions;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\PayrollHubSummary;
+use App\Support\Payroll\PayrollPeriodBoardFilters;
 use App\Support\Payroll\PayrollPeriodBoardQuery;
 use App\Support\Payroll\PayrollPeriodListResource;
 use App\Support\Payroll\PayrollPeriodRecordsSummary;
@@ -42,6 +46,7 @@ use App\Support\Payroll\ProvisionDefaultSalaryInputTypes;
 use App\Support\Payroll\SalaryInputResource;
 use App\Support\Payroll\Services\CrewTimesheetImportOrchestrator;
 use App\Support\Payroll\Wps\WpsExportPreview;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -135,6 +140,12 @@ class PayrollController extends Controller
         $perPage = $this->resolvePerPage($request);
         $search = trim((string) $request->query('search', ''));
         $tab = trim((string) $request->query('tab', ''));
+        $boardFilters = PayrollPeriodBoardFilters::fromRequest($request);
+        $directoryFilters = new EmployeeDirectoryFilters(
+            departmentId: $boardFilters->departmentId,
+            positionId: $boardFilters->positionId,
+        );
+        $payrollCategory = $payrollPeriod->payroll_category ?? PayrollCategory::Crew;
         $isFinalizedPeriod = in_array($payrollPeriod->status, [
             PayrollPeriodStatus::Approved,
             PayrollPeriodStatus::Paid,
@@ -150,7 +161,7 @@ class PayrollController extends Controller
                 $params['search'] = $search;
             }
 
-            foreach (['page', 'records_page', 'per_page'] as $key) {
+            foreach (['department_id', 'position_id', 'page', 'records_page', 'per_page'] as $key) {
                 if ($request->filled($key)) {
                     $params[$key] = $request->query($key);
                 }
@@ -164,6 +175,7 @@ class PayrollController extends Controller
             period: $payrollPeriod,
             search: $search !== '' ? $search : null,
             perPage: $perPage,
+            filters: $boardFilters,
         );
 
         $payrollRecords = [];
@@ -172,12 +184,29 @@ class PayrollController extends Controller
         $recordsQuery = PayrollRecord::query()
             ->where('company_id', $companyId)
             ->where('period_id', $payrollPeriod->id)
-            ->with(['employee.primaryBankAccount.bank:id,name']);
+            ->with([
+                'employee.primaryBankAccount.bank:id,name',
+                'employee.department.parent:id,name',
+                'employee.position:id,title',
+            ]);
 
         if ($search !== '') {
             $recordsQuery->whereHas('employee', function ($query) use ($search) {
                 $query->where('name', 'like', "%{$search}%")
                     ->orWhere('employee_no', 'like', "%{$search}%");
+            });
+        }
+
+        if ($boardFilters->isActive()) {
+            $recordsQuery->whereHas('employee', function (Builder $query) use ($companyId, $boardFilters): void {
+                EmployeeDirectoryQuery::applyAttributeFilters(
+                    $query,
+                    $companyId,
+                    new EmployeeDirectoryFilters(
+                        departmentId: $boardFilters->departmentId,
+                        positionId: $boardFilters->positionId,
+                    ),
+                );
             });
         }
 
@@ -249,7 +278,20 @@ class PayrollController extends Controller
                 ->all()
             : [];
 
-        $allCategoryEmployees = PayrollEmployeeQuery::activeQuery($companyId, $payrollPeriod->payroll_category)
+        $allCategoryEmployeesQuery = PayrollEmployeeQuery::activeQuery($companyId, $payrollCategory);
+
+        if ($boardFilters->isActive()) {
+            EmployeeDirectoryQuery::applyAttributeFilters(
+                $allCategoryEmployeesQuery,
+                $companyId,
+                new EmployeeDirectoryFilters(
+                    departmentId: $boardFilters->departmentId,
+                    positionId: $boardFilters->positionId,
+                ),
+            );
+        }
+
+        $allCategoryEmployees = $allCategoryEmployeesQuery
             ->with('primaryBankAccount')
             ->get(['id', 'salary_payment_method']);
         $totalCount = $allCategoryEmployees->count();
@@ -272,6 +314,13 @@ class PayrollController extends Controller
         ];
 
         $provisionDefaultSalaryInputTypes->handle($companyId);
+
+        $payrollEmployeeScope = function (Builder $query) use ($companyId, $payrollCategory): void {
+            $query->whereIn(
+                'employees.id',
+                PayrollEmployeeQuery::activeQuery($companyId, $payrollCategory)->select('employees.id'),
+            );
+        };
 
         return Inertia::render('payroll/show', [
             'period' => PayrollPeriodResource::toArray($payrollPeriod),
@@ -303,6 +352,21 @@ class PayrollController extends Controller
             'generation_summary' => $request->session()->get('payroll_generation')
                 ?? $request->session()->get('crew_payroll_generation'),
             'search' => $search,
+            'filters' => [
+                'department_id' => $boardFilters->departmentId,
+                'position_id' => $boardFilters->positionId,
+            ],
+            'department_tree' => BuildDepartmentEmployeeTree::for(
+                $companyId,
+                $directoryFilters,
+                $payrollEmployeeScope,
+            ),
+            'department_tree_selected_id' => $boardFilters->departmentId !== ''
+                ? (int) $boardFilters->departmentId
+                : null,
+            'department_tree_selected_position_id' => $boardFilters->positionId !== ''
+                ? (int) $boardFilters->positionId
+                : null,
             'permissions' => array_merge(CrewPayrollPagePermissions::for($request->user()), [
                 'import_timesheets' => ($request->user()?->can('payroll.crew_timesheets.import') ?? false)
                     || ($request->user()?->can('payroll.crew_timesheets.create') ?? false),

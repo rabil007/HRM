@@ -43,12 +43,7 @@ final class CrewTimesheetResource
         $contract = $employee->currentContract;
 
         return [
-            'employee' => [
-                'id' => $employee->id,
-                'name' => $employee->name,
-                'employee_no' => $employee->employee_no,
-                'image' => $employee->image,
-            ],
+            'employee' => PayrollEmployeeIdentityResource::forEmployee($employee),
             'period_id' => $periodId,
             'timesheet' => self::toArray($timesheet),
             'is_filled' => $timesheet !== null,
@@ -69,12 +64,7 @@ final class CrewTimesheetResource
     public static function toEmployeeRow(Employee $employee, int $periodId): array
     {
         return [
-            'employee' => [
-                'id' => $employee->id,
-                'name' => $employee->name,
-                'employee_no' => $employee->employee_no,
-                'image' => $employee->image,
-            ],
+            'employee' => PayrollEmployeeIdentityResource::forEmployee($employee),
             'period_id' => $periodId,
             'timesheet' => null,
             'is_filled' => false,

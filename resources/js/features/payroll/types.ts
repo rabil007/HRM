@@ -1,4 +1,10 @@
+import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import type { PaginationMeta } from '@/types/pagination';
+
+export type PayrollShowFilters = {
+    department_id: string;
+    position_id: string;
+};
 
 export type PayrollCategory = 'office' | 'crew';
 
@@ -121,13 +127,24 @@ export type OfficePrimaryAccount = {
     iban: string | null;
 };
 
-export type CrewPayrollRow = {
-    employee: {
+export type PayrollEmployeeIdentity = {
+    id: number;
+    name: string;
+    employee_no: string | null;
+    image?: string | null;
+    department?: {
         id: number;
-        name: string;
-        employee_no: string | null;
-        image?: string | null;
-    };
+        name: string | null;
+        parent?: { id: number; name: string | null } | null;
+    } | null;
+    position?: {
+        id: number;
+        title: string | null;
+    } | null;
+};
+
+export type CrewPayrollRow = {
+    employee: PayrollEmployeeIdentity;
     period_id: number;
     timesheet: CrewTimesheet | null;
     is_filled: boolean;
@@ -216,12 +233,7 @@ export type PayrollRecordDeliveryFields = {
 export type CrewPayrollRecordListItem = PayrollRecordDeliveryFields & {
     id: number;
     payroll_category: 'crew';
-    employee: {
-        id: number;
-        name: string;
-        employee_no: string | null;
-        image?: string | null;
-    };
+    employee: PayrollEmployeeIdentity;
     basic_salary: string;
     standby_days: number | null;
     onsite_days: number | null;
@@ -242,12 +254,7 @@ export type CrewPayrollRecordListItem = PayrollRecordDeliveryFields & {
 export type OfficePayrollRecordListItem = PayrollRecordDeliveryFields & {
     id: number;
     payroll_category: 'office';
-    employee: {
-        id: number;
-        name: string;
-        employee_no: string | null;
-        image?: string | null;
-    };
+    employee: PayrollEmployeeIdentity;
     basic_salary: string;
     housing_allowance: string;
     transport_allowance: string;
@@ -343,6 +350,10 @@ export type PayrollShowProps = {
     tab: 'timesheets' | 'employees' | 'payroll';
     generation_summary: PayrollGenerationSummary | null;
     search: string;
+    filters: PayrollShowFilters;
+    department_tree: DepartmentTreeNode[];
+    department_tree_selected_id: number | null;
+    department_tree_selected_position_id: number | null;
     permissions: CrewPayrollPermissions;
     payslip_summary: PayslipSummary;
     wps_preview: WpsPreview | null;

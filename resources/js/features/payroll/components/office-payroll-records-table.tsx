@@ -6,7 +6,6 @@ import {
     dataTableActionsCellClass,
     dataTableBodyRowClass,
     dataTableCellClass,
-    dataTableCellPrimaryClass,
 } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,6 +24,7 @@ import type { SalaryPaymentMethodValue } from '@/features/organization/employees
 import { cn } from '@/lib/utils';
 import type { OfficePayrollRecordListItem, SalaryInput } from '../types';
 import { formatTimesheetAmount } from '../types';
+import { PayrollEmployeeCell } from './payroll-employee-cell';
 import {
     PayrollRecordBankAccountCell,
     PayrollRecordPaymentMethodCell,
@@ -143,19 +143,10 @@ export function OfficePayrollRecordsTable({
                                     }
                                 />
                             ) : null}
-                            <TableCell
-                                className={cn(
-                                    dataTableCellPrimaryClass(),
-                                    !wpsSelection && 'pl-5',
-                                )}
-                            >
-                                <div className="font-semibold">
-                                    {record.employee.name}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                    {record.employee.employee_no ?? '—'}
-                                </div>
-                            </TableCell>
+                            <PayrollEmployeeCell
+                                employee={record.employee}
+                                className={!wpsSelection ? 'pl-5' : undefined}
+                            />
                             <PayrollRecordBankAccountCell
                                 primary_account={record.primary_account}
                                 salary_payment_method={

@@ -6,6 +6,8 @@ use App\Enums\PayrollCategory;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Support\Employees\EmployeeDirectoryFilters;
+use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -24,10 +26,17 @@ final class PayrollPeriodBoardQuery
         PayrollPeriod $period,
         ?string $search = null,
         int $perPage = 25,
+        ?PayrollPeriodBoardFilters $filters = null,
     ): LengthAwarePaginator {
         $payrollCategory = $period->payroll_category ?? PayrollCategory::Crew;
+        $filters ??= new PayrollPeriodBoardFilters;
 
         $query = PayrollEmployeeQuery::activeQuery($companyId, $payrollCategory);
+
+        $query->with([
+            'department.parent:id,name',
+            'position:id,title',
+        ]);
 
         if ($payrollCategory === PayrollCategory::Crew) {
             $query->with([
@@ -58,9 +67,10 @@ final class PayrollPeriodBoardQuery
         }
 
         $this->applySearch($query, $search);
+        $this->applyBoardFilters($query, $companyId, $filters);
 
         $leaveByEmployee = $payrollCategory === PayrollCategory::Office
-            ? $this->loadOfficeLeaveByEmployee($companyId, $period)
+            ? $this->loadOfficeLeaveByEmployee($companyId, $period, $filters)
             : Collection::make();
 
         return $query
@@ -87,9 +97,15 @@ final class PayrollPeriodBoardQuery
     /**
      * @return Collection<int, EmployeeLeavePeriodSummary>
      */
-    private function loadOfficeLeaveByEmployee(int $companyId, PayrollPeriod $period): Collection
-    {
-        $employeeIds = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Office)
+    private function loadOfficeLeaveByEmployee(
+        int $companyId,
+        PayrollPeriod $period,
+        PayrollPeriodBoardFilters $filters,
+    ): Collection {
+        $employeeIdsQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Office);
+        $this->applyBoardFilters($employeeIdsQuery, $companyId, $filters);
+
+        $employeeIds = $employeeIdsQuery
             ->pluck('employees.id')
             ->map(fn ($id) => (int) $id)
             ->all();
@@ -118,5 +134,29 @@ final class PayrollPeriodBoardQuery
                 ->whereRaw('LOWER(employees.employee_no) LIKE ?', [$term])
                 ->orWhereRaw('LOWER(employees.name) LIKE ?', [$term]);
         });
+    }
+
+    /**
+     * @param  Builder<Employee>  $query
+     */
+    private function applyBoardFilters(
+        Builder $query,
+        int $companyId,
+        PayrollPeriodBoardFilters $filters,
+    ): void {
+        if (! $filters->isActive()) {
+            return;
+        }
+
+        EmployeeDirectoryQuery::applyAttributeFilters(
+            $query,
+            $companyId,
+            new EmployeeDirectoryFilters(
+                departmentId: $filters->departmentId,
+                positionId: $filters->positionId,
+            ),
+            exceptDepartment: false,
+            exceptPosition: false,
+        );
     }
 }

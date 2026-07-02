@@ -13,7 +13,11 @@ final class PayrollRecordResource
      */
     public static function toArray(PayrollRecord $record, int $salaryInputsCount = 0): array
     {
-        $record->loadMissing('employee.primaryBankAccount.bank');
+        $record->loadMissing([
+            'employee.primaryBankAccount.bank',
+            'employee.department.parent:id,name',
+            'employee.position:id,title',
+        ]);
 
         $breakdown = $record->calculation_breakdown ?? [];
         $lines = is_array($breakdown['lines'] ?? null) ? $breakdown['lines'] : [];
@@ -25,12 +29,7 @@ final class PayrollRecordResource
         $base = [
             'id' => $record->id,
             'payroll_category' => $category->value,
-            'employee' => [
-                'id' => $record->employee_id,
-                'name' => $record->employee?->name ?? '—',
-                'employee_no' => $record->employee?->employee_no,
-                'image' => $record->employee?->image,
-            ],
+            'employee' => PayrollEmployeeIdentityResource::forEmployee($record->employee),
             'overtime_pay' => self::formatAmount($record->overtime_pay),
             'additional_amount' => self::formatAmount($record->bonus),
             'gross_salary' => self::formatAmount($record->gross_salary),

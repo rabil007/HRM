@@ -1,6 +1,4 @@
-import { Link } from '@inertiajs/react';
 import { CalendarDays, Plus, Trash2 } from 'lucide-react';
-import { show as showEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -8,7 +6,6 @@ import {
     dataTableActionsCellClass,
     dataTableBodyRowClass,
     dataTableCellClass,
-    dataTableCellPrimaryClass,
 } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,11 +20,11 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
 import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import { cn } from '@/lib/utils';
 import type { CrewPayrollRecordListItem, SalaryInput } from '../types';
 import { formatTimesheetAmount, formatTimesheetDays } from '../types';
+import { PayrollEmployeeCell } from './payroll-employee-cell';
 import {
     PayrollRecordBankAccountCell,
     PayrollRecordPaymentMethodCell,
@@ -177,49 +174,10 @@ export function PayrollRecordsTable({
                                 />
                             ) : null}
 
-                            {/* Employee */}
-                            <TableCell
-                                className={cn(
-                                    dataTableCellPrimaryClass(),
-                                    !wpsSelection && 'pl-5',
-                                )}
-                            >
-                                <Link
-                                    href={showEmployee.url(record.employee.id)}
-                                    className="group/link flex items-center gap-3"
-                                >
-                                    <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/25 text-xs font-bold text-primary shadow-sm transition-all duration-200 group-hover/link:scale-105">
-                                        {record.employee.image ? (
-                                            <img
-                                                src={
-                                                    resolveEmployeeImageUrl(
-                                                        record.employee.image,
-                                                    ) ?? undefined
-                                                }
-                                                alt=""
-                                                className="h-full w-full object-cover"
-                                            />
-                                        ) : (
-                                            record.employee.name
-                                                .split(' ')
-                                                .filter(Boolean)
-                                                .slice(0, 2)
-                                                .map((part) =>
-                                                    part[0]?.toUpperCase(),
-                                                )
-                                                .join('') || '—'
-                                        )}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <span className="block truncate leading-tight font-semibold transition-colors group-hover/link:text-primary">
-                                            {record.employee.name}
-                                        </span>
-                                        <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground/70">
-                                            {record.employee.employee_no ?? '—'}
-                                        </span>
-                                    </div>
-                                </Link>
-                            </TableCell>
+                            <PayrollEmployeeCell
+                                employee={record.employee}
+                                className={!wpsSelection ? 'pl-5' : undefined}
+                            />
 
                             {/* Bank account */}
                             <PayrollRecordBankAccountCell

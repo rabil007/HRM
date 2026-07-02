@@ -1,4 +1,4 @@
-import { Link, router } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import {
     Calculator,
     AlertCircle,
@@ -16,7 +16,6 @@ import {
     XCircle,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
-import { show as showEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import {
     approve,
     cancel,
@@ -34,7 +33,6 @@ import {
     DataTableHeaderRow,
     dataTableBodyRowClass,
     dataTableCellClass,
-    dataTableCellPrimaryClass,
 } from '@/components/data-table';
 import { DetailsHeader } from '@/components/details-header';
 import { EmptyState } from '@/components/empty-state';
@@ -57,7 +55,8 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
+import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
+
 import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -69,6 +68,7 @@ import { OfficeSalaryInputsSheet } from './components/office-salary-inputs-sheet
 import { PayrollApproveDialog } from './components/payroll-approve-dialog';
 import { PayrollCancelDialog } from './components/payroll-cancel-dialog';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
+import { PayrollEmployeeCell } from './components/payroll-employee-cell';
 import { PayrollGenerateDialog } from './components/payroll-generate-dialog';
 import { PayrollMarkPaidDialog } from './components/payroll-mark-paid-dialog';
 import { PayrollPeriodDeliveryPanel } from './components/payroll-period-delivery-panel';
@@ -90,6 +90,7 @@ import type {
     OfficePayrollRecordListItem,
     PayrollPeriod,
     PayrollRecordListItem,
+    PayrollShowFilters,
     PayrollShowProps,
     SalaryInput,
 } from './types';
@@ -107,6 +108,11 @@ export function PayrollShowContent({
     salary_input_type_options,
     generation_summary,
     search: initialSearch,
+    tab: initialTab,
+    filters: initialFilters,
+    department_tree,
+    department_tree_selected_id,
+    department_tree_selected_position_id,
     permissions,
     payslip_summary,
     wps_preview,
@@ -222,9 +228,65 @@ export function PayrollShowContent({
     const list = useServerPaginationFilters({
         url: show.url(period.id),
         search: initialSearch,
-        filters: {},
+        filters: {
+            tab: initialTab,
+            department_id: initialFilters.department_id,
+            position_id: initialFilters.position_id,
+        },
         pagination,
     });
+
+    const payrollFilters: PayrollShowFilters = {
+        department_id: initialFilters.department_id ?? '',
+        position_id: initialFilters.position_id ?? '',
+    };
+
+    const departmentTreeSelectionCount =
+        payrollFilters.department_id || payrollFilters.position_id ? 1 : 0;
+
+    const handleDepartmentSelect = (id: number | null) => {
+        list.applyFilters({
+            tab: initialTab,
+            department_id: id !== null ? String(id) : '',
+            position_id: '',
+        });
+    };
+
+    const handlePositionSelect = (
+        positionId: number,
+        departmentId: number,
+    ) => {
+        list.applyFilters({
+            tab: initialTab,
+            department_id: String(departmentId),
+            position_id: String(positionId),
+        });
+    };
+
+    const employeeSearchPlaceholder = `Search ${period.payroll_category_label.toLowerCase()} employees...`;
+
+    const renderListToolbar = (extra?: React.ReactNode) => (
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div className="min-w-0 flex-1">
+                <SearchBar
+                    value={list.searchInput}
+                    onChange={list.onSearchChange}
+                    placeholder={employeeSearchPlaceholder}
+                />
+            </div>
+            <DepartmentFilterControls
+                department_tree={department_tree}
+                department_tree_selected_id={department_tree_selected_id}
+                department_tree_selected_position_id={
+                    department_tree_selected_position_id
+                }
+                selectionCount={departmentTreeSelectionCount}
+                onSelectDepartment={handleDepartmentSelect}
+                onSelectPosition={handlePositionSelect}
+            />
+            {extra}
+        </div>
+    );
 
     const handleGeneratePayroll = () => {
         setIsGenerating(true);
@@ -567,35 +629,22 @@ export function PayrollShowContent({
                         <div className="h-px flex-1 bg-border/60" />
                     </div>
 
-                    {period.supports_timesheets ? (
-                        <div className="mb-4 flex flex-wrap items-center gap-3">
-                            <div className="min-w-0 flex-1">
-                                <SearchBar
-                                    value={list.searchInput}
-                                    onChange={list.onSearchChange}
-                                    placeholder={`Search ${period.payroll_category_label.toLowerCase()} employees...`}
-                                />
-                            </div>
-                            {permissions.import_timesheets ? (
-                                <Button
-                                    variant="outline"
-                                    className="h-12 rounded-xl px-6"
-                                    onClick={() => setIsImportDialogOpen(true)}
-                                >
-                                    <Upload className="mr-2 h-4 w-4" />
-                                    Import Excel
-                                </Button>
-                            ) : null}
-                        </div>
-                    ) : (
-                        <div className="mb-4">
-                            <SearchBar
-                                value={list.searchInput}
-                                onChange={list.onSearchChange}
-                                placeholder={`Search ${period.payroll_category_label.toLowerCase()} employees...`}
-                            />
-                        </div>
-                    )}
+                    {period.supports_timesheets
+                        ? renderListToolbar(
+                              permissions.import_timesheets ? (
+                                  <Button
+                                      variant="outline"
+                                      className="h-12 rounded-xl px-6"
+                                      onClick={() =>
+                                          setIsImportDialogOpen(true)
+                                      }
+                                  >
+                                      <Upload className="mr-2 h-4 w-4" />
+                                      Import Excel
+                                  </Button>
+                              ) : null,
+                          )
+                        : renderListToolbar()}
 
                     {period.supports_timesheets
                         ? renderTimesheetsTab()
@@ -613,11 +662,25 @@ export function PayrollShowContent({
                         </span>
                         <div className="h-px flex-1 bg-border/60" />
                     </div>
-                    <div className="mb-4">
-                        <SearchBar
-                            value={list.searchInput}
-                            onChange={list.onSearchChange}
-                            placeholder="Search payroll records..."
+                    <div className="mb-4 flex flex-wrap items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                            <SearchBar
+                                value={list.searchInput}
+                                onChange={list.onSearchChange}
+                                placeholder="Search payroll records..."
+                            />
+                        </div>
+                        <DepartmentFilterControls
+                            department_tree={department_tree}
+                            department_tree_selected_id={
+                                department_tree_selected_id
+                            }
+                            department_tree_selected_position_id={
+                                department_tree_selected_position_id
+                            }
+                            selectionCount={departmentTreeSelectionCount}
+                            onSelectDepartment={handleDepartmentSelect}
+                            onSelectPosition={handlePositionSelect}
                         />
                     </div>
                     <PayrollSkippedBanner
@@ -987,57 +1050,10 @@ export function PayrollShowContent({
                                         />
                                     </TableCell>
 
-                                    {/* Employee */}
-                                    <TableCell
-                                        className={dataTableCellPrimaryClass()}
-                                    >
-                                        <Link
-                                            href={showEmployee.url(
-                                                row.employee.id,
-                                            )}
-                                            className="group/link flex items-center gap-3"
-                                        >
-                                            <div
-                                                className={cn(
-                                                    'relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border text-xs font-bold shadow-sm transition-all duration-200 group-hover/link:scale-105',
-                                                    isExcluded
-                                                        ? 'border-border/40 bg-muted/50 text-muted-foreground'
-                                                        : 'border-primary/20 bg-gradient-to-br from-primary/10 to-primary/25 text-primary dark:border-primary/15',
-                                                )}
-                                            >
-                                                {row.employee.image ? (
-                                                    <img
-                                                        src={
-                                                            resolveEmployeeImageUrl(
-                                                                row.employee
-                                                                    .image,
-                                                            ) ?? undefined
-                                                        }
-                                                        alt=""
-                                                        className="h-full w-full object-cover"
-                                                    />
-                                                ) : (
-                                                    row.employee.name
-                                                        .split(' ')
-                                                        .filter(Boolean)
-                                                        .slice(0, 2)
-                                                        .map((part) =>
-                                                            part[0]?.toUpperCase(),
-                                                        )
-                                                        .join('') || '—'
-                                                )}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <span className="block truncate leading-tight font-semibold transition-colors group-hover/link:text-primary">
-                                                    {row.employee.name}
-                                                </span>
-                                                <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground/70">
-                                                    {row.employee.employee_no ??
-                                                        '—'}
-                                                </span>
-                                            </div>
-                                        </Link>
-                                    </TableCell>
+                                    <PayrollEmployeeCell
+                                        employee={row.employee}
+                                        isExcluded={isExcluded}
+                                    />
 
                                     {/* Bank account */}
                                     <PayrollRecordBankAccountCell
@@ -1926,63 +1942,10 @@ function OfficeEmployeesTabContent({
                                     />
                                 </TableCell>
 
-                                {/* Employee name + avatar — clickable link */}
-                                <TableCell
-                                    className={dataTableCellPrimaryClass()}
-                                >
-                                    <Link
-                                        href={showEmployee.url(row.employee.id)}
-                                        className="group/link flex items-center gap-3"
-                                    >
-                                        <div
-                                            className={cn(
-                                                'flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border text-xs font-bold shadow-inner transition-all duration-200',
-                                                isExcluded
-                                                    ? 'border-border/40 bg-muted/50 text-muted-foreground'
-                                                    : 'border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-primary group-hover/link:scale-105 dark:border-white/10',
-                                            )}
-                                        >
-                                            {row.employee.image ? (
-                                                <img
-                                                    src={
-                                                        resolveEmployeeImageUrl(
-                                                            row.employee.image,
-                                                        ) ?? undefined
-                                                    }
-                                                    alt=""
-                                                    className="h-full w-full object-cover"
-                                                />
-                                            ) : (
-                                                row.employee.name
-                                                    .split(' ')
-                                                    .filter(Boolean)
-                                                    .slice(0, 2)
-                                                    .map((part) =>
-                                                        part[0]?.toUpperCase(),
-                                                    )
-                                                    .join('') || '—'
-                                            )}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <span
-                                                className={cn(
-                                                    'block leading-tight font-semibold transition-colors group-hover/link:text-primary',
-                                                    isExcluded &&
-                                                        'line-through',
-                                                )}
-                                            >
-                                                {row.employee.name}
-                                            </span>
-                                            <span className="block font-mono text-xs text-muted-foreground">
-                                                {row.employee.employee_no ??
-                                                    '—'}
-                                            </span>
-                                            <span className="text-[11px] text-muted-foreground/60">
-                                                View profile →
-                                            </span>
-                                        </div>
-                                    </Link>
-                                </TableCell>
+                                <PayrollEmployeeCell
+                                    employee={row.employee}
+                                    isExcluded={isExcluded}
+                                />
 
                                 <PayrollRecordBankAccountCell
                                     primary_account={

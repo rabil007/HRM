@@ -19,15 +19,21 @@ final class BuildDepartmentEmployeeTree
      *     positions: list<array{id: int, name: string, count: int}>
      * }>
      */
-    public static function for(int $companyId, EmployeeDirectoryFilters $filters): array
-    {
+    /**
+     * @param  (callable(Builder<Employee>): void)|null  $employeeScope
+     */
+    public static function for(
+        int $companyId,
+        EmployeeDirectoryFilters $filters,
+        ?callable $employeeScope = null,
+    ): array {
         $departments = Department::query()
             ->where('company_id', $companyId)
             ->orderBy('name')
             ->get(['id', 'name', 'parent_id']);
 
         if ($departments->isEmpty()) {
-            $total = self::countEmployees($companyId, $filters);
+            $total = self::countEmployees($companyId, $filters, $employeeScope);
 
             return [
                 [
@@ -40,8 +46,8 @@ final class BuildDepartmentEmployeeTree
             ];
         }
 
-        $countsByDepartment = self::directCountsByDepartment($companyId, $filters);
-        $countsByDepartmentAndPosition = self::directCountsByDepartmentAndPosition($companyId, $filters);
+        $countsByDepartment = self::directCountsByDepartment($companyId, $filters, $employeeScope);
+        $countsByDepartmentAndPosition = self::directCountsByDepartmentAndPosition($companyId, $filters, $employeeScope);
         $positionsByDepartment = Position::query()
             ->where('company_id', $companyId)
             ->orderBy('title')
@@ -152,7 +158,7 @@ final class BuildDepartmentEmployeeTree
             [
                 'id' => null,
                 'name' => 'All',
-                'count' => self::countEmployees($companyId, $filters),
+                'count' => self::countEmployees($companyId, $filters, $employeeScope),
                 'children' => [],
                 'positions' => [],
             ],
@@ -163,13 +169,19 @@ final class BuildDepartmentEmployeeTree
     /**
      * @return array<int, int>
      */
-    private static function directCountsByDepartment(int $companyId, EmployeeDirectoryFilters $filters): array
-    {
+    /**
+     * @param  (callable(Builder<Employee>): void)|null  $employeeScope
+     */
+    private static function directCountsByDepartment(
+        int $companyId,
+        EmployeeDirectoryFilters $filters,
+        ?callable $employeeScope = null,
+    ): array {
         $query = Employee::query()
             ->where('company_id', $companyId)
             ->whereNotNull('department_id');
 
-        self::applyTreeCountFilters($query, $companyId, $filters);
+        self::applyTreeCountFilters($query, $companyId, $filters, $employeeScope);
 
         $rows = $query
             ->select('department_id', DB::raw('count(*) as aggregate'))
@@ -188,14 +200,20 @@ final class BuildDepartmentEmployeeTree
     /**
      * @return array<int, array<int, int>>
      */
-    private static function directCountsByDepartmentAndPosition(int $companyId, EmployeeDirectoryFilters $filters): array
-    {
+    /**
+     * @param  (callable(Builder<Employee>): void)|null  $employeeScope
+     */
+    private static function directCountsByDepartmentAndPosition(
+        int $companyId,
+        EmployeeDirectoryFilters $filters,
+        ?callable $employeeScope = null,
+    ): array {
         $query = Employee::query()
             ->where('company_id', $companyId)
             ->whereNotNull('department_id')
             ->whereNotNull('position_id');
 
-        self::applyTreeCountFilters($query, $companyId, $filters);
+        self::applyTreeCountFilters($query, $companyId, $filters, $employeeScope);
 
         $rows = $query
             ->select('department_id', 'position_id', DB::raw('count(*) as aggregate'))
@@ -213,19 +231,30 @@ final class BuildDepartmentEmployeeTree
         return $counts;
     }
 
-    private static function countEmployees(int $companyId, EmployeeDirectoryFilters $filters): int
-    {
+    /**
+     * @param  (callable(Builder<Employee>): void)|null  $employeeScope
+     */
+    private static function countEmployees(
+        int $companyId,
+        EmployeeDirectoryFilters $filters,
+        ?callable $employeeScope = null,
+    ): int {
         $query = Employee::query()->where('company_id', $companyId);
 
-        self::applyTreeCountFilters($query, $companyId, $filters);
+        self::applyTreeCountFilters($query, $companyId, $filters, $employeeScope);
 
         return $query->count();
     }
 
+    /**
+     * @param  Builder<Employee>  $query
+     * @param  (callable(Builder<Employee>): void)|null  $employeeScope
+     */
     private static function applyTreeCountFilters(
         Builder $query,
         int $companyId,
         EmployeeDirectoryFilters $filters,
+        ?callable $employeeScope = null,
     ): void {
         EmployeeDirectoryQuery::applyAttributeFilters(
             $query,
@@ -234,5 +263,9 @@ final class BuildDepartmentEmployeeTree
             exceptDepartment: true,
             exceptPosition: true,
         );
+
+        if ($employeeScope !== null) {
+            $employeeScope($query);
+        }
     }
 }

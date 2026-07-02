@@ -2,9 +2,11 @@
 
 use App\Enums\PayrollCategory;
 use App\Models\CrewTimesheet;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
+use App\Models\Position;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests cannot access crew payroll board', function () {
@@ -61,6 +63,128 @@ test('crew payroll board lists only employees with active crew contracts', funct
             ->where('rows.0.employee.id', $crewEmployee->id)
             ->where('rows.0.is_filled', false)
             ->where('period.id', $period->id));
+});
+
+test('payroll show can filter board rows by department', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    $operationsDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Operations',
+        'parent_id' => null,
+    ]);
+
+    $hrDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Human Resources',
+        'parent_id' => null,
+    ]);
+
+    $operationsEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'OPS-001',
+        'name' => 'Operations Crew',
+        'status' => 'active',
+        'department_id' => $operationsDepartment->id,
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $operationsEmployee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'active',
+    ]);
+
+    $hrEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'HR-001',
+        'name' => 'HR Crew',
+        'status' => 'active',
+        'department_id' => $hrDepartment->id,
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $hrEmployee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'active',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', [
+            'payrollPeriod' => $period,
+            'department_id' => $operationsDepartment->id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->has('rows', 1)
+            ->where('rows.0.employee.id', $operationsEmployee->id)
+            ->where('filters.department_id', (string) $operationsDepartment->id)
+            ->where('department_tree_selected_id', $operationsDepartment->id));
+});
+
+test('payroll show includes employee department parent and position on board rows', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    $parentDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine',
+        'parent_id' => null,
+    ]);
+
+    $childDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Deck',
+        'parent_id' => $parentDepartment->id,
+    ]);
+
+    $position = Position::query()->create([
+        'company_id' => $company->id,
+        'department_id' => $childDepartment->id,
+        'title' => 'Chief Officer',
+        'status' => 'active',
+    ]);
+
+    $crewEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'CREW-100',
+        'name' => 'Assigned Crew',
+        'status' => 'active',
+        'department_id' => $childDepartment->id,
+        'position_id' => $position->id,
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $crewEmployee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'active',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', $period))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('rows.0.employee.id', $crewEmployee->id)
+            ->where('rows.0.employee.department.id', $childDepartment->id)
+            ->where('rows.0.employee.department.name', 'Deck')
+            ->where('rows.0.employee.department.parent.id', $parentDepartment->id)
+            ->where('rows.0.employee.department.parent.name', 'Marine')
+            ->where('rows.0.employee.position.id', $position->id)
+            ->where('rows.0.employee.position.title', 'Chief Officer'));
 });
 
 test('authorized users can upsert crew timesheets for draft periods', function () {

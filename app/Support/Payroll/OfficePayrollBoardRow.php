@@ -16,12 +16,7 @@ final class OfficePayrollBoardRow
         $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
 
         return [
-            'employee' => [
-                'id' => $employee->id,
-                'name' => $employee->name,
-                'employee_no' => $employee->employee_no,
-                'image' => $employee->image,
-            ],
+            'employee' => PayrollEmployeeIdentityResource::forEmployee($employee),
             'period_id' => $periodId,
             'timesheet' => null,
             'is_filled' => $summary->hasLeaveUsage(),
