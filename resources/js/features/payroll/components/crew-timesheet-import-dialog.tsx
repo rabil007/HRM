@@ -228,8 +228,9 @@ export function CrewTimesheetImportDialog({
                 <DialogHeader>
                     <DialogTitle>Import crew timesheets</DialogTitle>
                     <DialogDescription>
-                        Download the template with your crew roster pre-filled,
-                        then fill in standby and onsite dates and days. Rows are
+                        Download the template with your crew roster pre-filled.
+                        Use Excel filters on Division or Department, then fill
+                        only the yellow Standby and Onsite columns. Rows are
                         matched by employee number.
                     </DialogDescription>
                 </DialogHeader>

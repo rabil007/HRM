@@ -64,12 +64,15 @@ test('crew timesheet template download includes roster with department and posit
 
     expect($sheet)->not->toBeNull()
         ->and($sheet->getCell('A1')->getValue())->toBe('Employee No')
-        ->and($sheet->getCell('J1')->getValue())->toBe('Onsite Days')
+        ->and($sheet->getCell('C1')->getValue())->toBe('Division')
+        ->and($sheet->getCell('K1')->getValue())->toBe('Onsite Days')
         ->and($sheet->getCell('A2')->getValue())->toBe('2057')
         ->and($sheet->getCell('B2')->getValue())->toBe('AHMED LATECH')
-        ->and($sheet->getCell('C2')->getValue())->toBe('Marine / Deck')
-        ->and($sheet->getCell('D2')->getValue())->toBe('Chief Officer')
-        ->and($sheet->getCell('E2')->getValue())->toBeNull();
+        ->and($sheet->getCell('C2')->getValue())->toBe('Marine')
+        ->and($sheet->getCell('D2')->getValue())->toBe('Deck')
+        ->and($sheet->getCell('E2')->getValue())->toBe('Chief Officer')
+        ->and($sheet->getCell('F2')->getValue())->toBeNull()
+        ->and($sheet->getAutoFilter()->getRange())->toBe('A1:K2');
 
     @unlink($result['path']);
 });
@@ -211,6 +214,7 @@ function makeCrewTimesheetImportFile(array $rows): UploadedFile
     $headers = [
         'Employee No',
         'Employee Name',
+        'Division',
         'Department',
         'Position',
         'Standby From',
@@ -230,14 +234,15 @@ function makeCrewTimesheetImportFile(array $rows): UploadedFile
     foreach ($rows as $row) {
         $sheet->setCellValue('A'.$rowNumber, $row['employee_no'] ?? '');
         $sheet->setCellValue('B'.$rowNumber, $row['name'] ?? '');
-        $sheet->setCellValue('C'.$rowNumber, $row['department'] ?? '');
-        $sheet->setCellValue('D'.$rowNumber, $row['position'] ?? '');
-        $sheet->setCellValue('E'.$rowNumber, $row['standby_from'] ?? '');
-        $sheet->setCellValue('F'.$rowNumber, $row['standby_to'] ?? '');
-        $sheet->setCellValue('G'.$rowNumber, $row['standby_days'] ?? 0);
-        $sheet->setCellValue('H'.$rowNumber, $row['onsite_from'] ?? '');
-        $sheet->setCellValue('I'.$rowNumber, $row['onsite_to'] ?? '');
-        $sheet->setCellValue('J'.$rowNumber, $row['onsite_days'] ?? 0);
+        $sheet->setCellValue('C'.$rowNumber, $row['division'] ?? '');
+        $sheet->setCellValue('D'.$rowNumber, $row['department'] ?? '');
+        $sheet->setCellValue('E'.$rowNumber, $row['position'] ?? '');
+        $sheet->setCellValue('F'.$rowNumber, $row['standby_from'] ?? '');
+        $sheet->setCellValue('G'.$rowNumber, $row['standby_to'] ?? '');
+        $sheet->setCellValue('H'.$rowNumber, $row['standby_days'] ?? 0);
+        $sheet->setCellValue('I'.$rowNumber, $row['onsite_from'] ?? '');
+        $sheet->setCellValue('J'.$rowNumber, $row['onsite_to'] ?? '');
+        $sheet->setCellValue('K'.$rowNumber, $row['onsite_days'] ?? 0);
         $rowNumber++;
     }
 

@@ -20,21 +20,23 @@ final class CrewTimesheetsImport
 
     private const COL_NAME = 'B';
 
-    private const COL_DEPARTMENT = 'C';
+    private const COL_DIVISION = 'C';
 
-    private const COL_POSITION = 'D';
+    private const COL_DEPARTMENT = 'D';
 
-    private const COL_STANDBY_FROM = 'E';
+    private const COL_POSITION = 'E';
 
-    private const COL_STANDBY_TO = 'F';
+    private const COL_STANDBY_FROM = 'F';
 
-    private const COL_STANDBY_DAYS = 'G';
+    private const COL_STANDBY_TO = 'G';
 
-    private const COL_ONSITE_FROM = 'H';
+    private const COL_STANDBY_DAYS = 'H';
 
-    private const COL_ONSITE_TO = 'I';
+    private const COL_ONSITE_FROM = 'I';
 
-    private const COL_ONSITE_DAYS = 'J';
+    private const COL_ONSITE_TO = 'J';
+
+    private const COL_ONSITE_DAYS = 'K';
 
     /**
      * @return list<array<string, mixed>>
@@ -58,7 +60,10 @@ final class CrewTimesheetsImport
                 'row' => $rowNumber,
                 'employee_no' => $employeeNo,
                 'name' => $this->stringValue($sheet, self::COL_NAME, $rowNumber),
-                'department' => $this->stringValue($sheet, self::COL_DEPARTMENT, $rowNumber),
+                'department' => $this->formatDepartmentLabel(
+                    $this->stringValue($sheet, self::COL_DIVISION, $rowNumber),
+                    $this->stringValue($sheet, self::COL_DEPARTMENT, $rowNumber),
+                ),
                 'position' => $this->stringValue($sheet, self::COL_POSITION, $rowNumber),
                 'standby_from' => $this->dateValue($sheet, self::COL_STANDBY_FROM, $rowNumber),
                 'standby_to' => $this->dateValue($sheet, self::COL_STANDBY_TO, $rowNumber),
@@ -96,6 +101,23 @@ final class CrewTimesheetsImport
     private function shouldStopAtRow(?string $employeeNo): bool
     {
         return $employeeNo === null || $employeeNo === '';
+    }
+
+    private function formatDepartmentLabel(?string $division, ?string $department): ?string
+    {
+        if (filled($division) && filled($department) && $department !== '—') {
+            return "{$division} / {$department}";
+        }
+
+        if (filled($division) && $division !== '—') {
+            return $division;
+        }
+
+        if (filled($department) && $department !== '—') {
+            return $department;
+        }
+
+        return null;
     }
 
     private function stringValue(Worksheet $sheet, string $column, int $row): ?string
