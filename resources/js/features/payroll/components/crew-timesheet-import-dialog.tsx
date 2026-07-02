@@ -1,7 +1,6 @@
 import { router } from '@inertiajs/react';
 import {
     AlertCircle,
-    AlertTriangle,
     Download,
     FileSpreadsheet,
     Loader2,
@@ -46,14 +45,10 @@ type ImportPreviewRow = {
     row: number;
     employee_no: string;
     name: string | null;
-    designation: string | null;
-    client: string | null;
-    project: string | null;
+    department: string | null;
+    position: string | null;
     standby_days: number | null;
     onsite_days: number | null;
-    overtime_amount: number;
-    additional_amount: number;
-    deduction_amount: number;
     errors: ImportRowError[];
     warnings: ImportRowError[];
 };
@@ -233,7 +228,8 @@ export function CrewTimesheetImportDialog({
                 <DialogHeader>
                     <DialogTitle>Import crew timesheets</DialogTitle>
                     <DialogDescription>
-                        Upload the monthly crew timesheet Excel file. Rows are
+                        Download the template with your crew roster pre-filled,
+                        then fill in standby and onsite dates and days. Rows are
                         matched by employee number.
                     </DialogDescription>
                 </DialogHeader>
@@ -283,7 +279,7 @@ export function CrewTimesheetImportDialog({
                                 : 'Drop your timesheet file here or click to browse'}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Salary Sheet worksheet · .xlsx, .xls, .csv
+                            Crew Timesheets worksheet · .xlsx, .xls, .csv
                         </p>
                     </div>
 
@@ -308,22 +304,7 @@ export function CrewTimesheetImportDialog({
                                         {preview.summary.invalid} invalid
                                     </Badge>
                                 ) : null}
-                                {preview.summary.warnings > 0 ? (
-                                    <Badge variant="outline">
-                                        {preview.summary.warnings} warnings
-                                    </Badge>
-                                ) : null}
                             </div>
-
-                            {preview.summary.warnings > 0 ? (
-                                <Alert>
-                                    <AlertTriangle className="h-4 w-4" />
-                                    <AlertDescription>
-                                        Some rows have contract rate mismatches.
-                                        Import will continue for valid rows.
-                                    </AlertDescription>
-                                </Alert>
-                            ) : null}
 
                             <div className="max-h-72 overflow-auto rounded-lg border">
                                 <Table>
@@ -334,7 +315,6 @@ export function CrewTimesheetImportDialog({
                                             <TableHead>Name</TableHead>
                                             <TableHead>Standby</TableHead>
                                             <TableHead>Onsite</TableHead>
-                                            <TableHead>OT</TableHead>
                                             <TableHead>Status</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -355,20 +335,12 @@ export function CrewTimesheetImportDialog({
                                                     {row.onsite_days ?? '—'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {row.overtime_amount}
-                                                </TableCell>
-                                                <TableCell>
                                                     {row.errors.length > 0 ? (
                                                         <span className="text-xs text-destructive">
                                                             {
                                                                 row.errors[0]
                                                                     ?.message
                                                             }
-                                                        </span>
-                                                    ) : row.warnings.length >
-                                                      0 ? (
-                                                        <span className="text-xs text-amber-600">
-                                                            Warning
                                                         </span>
                                                     ) : (
                                                         <span className="text-xs text-emerald-600">

@@ -12,43 +12,29 @@ final class CrewTimesheetsImport
 {
     public const MAX_ROWS = 500;
 
-    public const SHEET_NAME = 'Salary Sheet';
+    public const SHEET_NAME = 'Crew Timesheets';
 
-    public const DATA_START_ROW = 5;
+    public const DATA_START_ROW = 2;
 
-    private const COL_EMP_NO = 'B';
+    private const COL_EMP_NO = 'A';
 
-    private const COL_NAME = 'C';
+    private const COL_NAME = 'B';
 
-    private const COL_DESIGNATION = 'D';
+    private const COL_DEPARTMENT = 'C';
 
-    private const COL_CLIENT = 'E';
+    private const COL_POSITION = 'D';
 
-    private const COL_PROJECT = 'F';
+    private const COL_STANDBY_FROM = 'E';
 
-    private const COL_STANDBY_FROM = 'G';
+    private const COL_STANDBY_TO = 'F';
 
-    private const COL_STANDBY_TO = 'H';
+    private const COL_STANDBY_DAYS = 'G';
 
-    private const COL_STANDBY_DAYS = 'I';
+    private const COL_ONSITE_FROM = 'H';
 
-    private const COL_ONSITE_FROM = 'J';
+    private const COL_ONSITE_TO = 'I';
 
-    private const COL_ONSITE_TO = 'K';
-
-    private const COL_ONSITE_DAYS = 'L';
-
-    private const COL_BASIC_RATE = 'M';
-
-    private const COL_SUPPLEMENTARY_RATE = 'N';
-
-    private const COL_SITE_RATE = 'O';
-
-    private const COL_ADJUSTMENT = 'R';
-
-    private const COL_OVERTIME = 'S';
-
-    private const COL_PAYMENT_METHOD = 'U';
+    private const COL_ONSITE_DAYS = 'J';
 
     /**
      * @return list<array<string, mixed>>
@@ -64,32 +50,22 @@ final class CrewTimesheetsImport
         for ($rowNumber = self::DATA_START_ROW; $rowNumber <= $highestRow; $rowNumber++) {
             $employeeNo = $this->stringValue($sheet, self::COL_EMP_NO, $rowNumber);
 
-            if ($this->shouldStopAtRow($sheet, $rowNumber, $employeeNo)) {
+            if ($this->shouldStopAtRow($employeeNo)) {
                 break;
             }
-
-            $adjustment = $this->numericValue($sheet, self::COL_ADJUSTMENT, $rowNumber);
 
             $rows[] = [
                 'row' => $rowNumber,
                 'employee_no' => $employeeNo,
                 'name' => $this->stringValue($sheet, self::COL_NAME, $rowNumber),
-                'designation' => $this->stringValue($sheet, self::COL_DESIGNATION, $rowNumber),
-                'client' => $this->stringValue($sheet, self::COL_CLIENT, $rowNumber),
-                'project' => $this->stringValue($sheet, self::COL_PROJECT, $rowNumber),
+                'department' => $this->stringValue($sheet, self::COL_DEPARTMENT, $rowNumber),
+                'position' => $this->stringValue($sheet, self::COL_POSITION, $rowNumber),
                 'standby_from' => $this->dateValue($sheet, self::COL_STANDBY_FROM, $rowNumber),
                 'standby_to' => $this->dateValue($sheet, self::COL_STANDBY_TO, $rowNumber),
                 'standby_days' => $this->numericValue($sheet, self::COL_STANDBY_DAYS, $rowNumber),
                 'onsite_from' => $this->dateValue($sheet, self::COL_ONSITE_FROM, $rowNumber),
                 'onsite_to' => $this->dateValue($sheet, self::COL_ONSITE_TO, $rowNumber),
                 'onsite_days' => $this->numericValue($sheet, self::COL_ONSITE_DAYS, $rowNumber),
-                'file_basic_rate' => $this->numericValue($sheet, self::COL_BASIC_RATE, $rowNumber),
-                'file_supplementary_rate' => $this->numericValue($sheet, self::COL_SUPPLEMENTARY_RATE, $rowNumber),
-                'file_site_rate' => $this->numericValue($sheet, self::COL_SITE_RATE, $rowNumber),
-                'additional_amount' => $adjustment !== null && $adjustment > 0 ? $adjustment : 0.0,
-                'deduction_amount' => $adjustment !== null && $adjustment < 0 ? abs($adjustment) : 0.0,
-                'overtime_amount' => $this->numericValue($sheet, self::COL_OVERTIME, $rowNumber) ?? 0.0,
-                'payment_method' => $this->stringValue($sheet, self::COL_PAYMENT_METHOD, $rowNumber),
             ];
         }
 
@@ -102,7 +78,7 @@ final class CrewTimesheetsImport
         $sheet = $spreadsheet->getSheetByName(self::SHEET_NAME);
 
         if ($sheet === null) {
-            throw new \InvalidArgumentException('The uploaded file must contain a "Salary Sheet" worksheet.');
+            throw new \InvalidArgumentException('The uploaded file must contain a "'.self::SHEET_NAME.'" worksheet.');
         }
 
         return $sheet;
@@ -110,26 +86,16 @@ final class CrewTimesheetsImport
 
     private function assertValidTemplate(Worksheet $sheet): void
     {
-        $header = mb_strtoupper($this->stringValue($sheet, self::COL_EMP_NO, 2) ?? '');
+        $header = mb_strtolower(trim((string) ($this->stringValue($sheet, self::COL_EMP_NO, 1) ?? '')));
 
-        if (! str_contains($header, 'EMP')) {
-            throw new \InvalidArgumentException('The uploaded file does not match the crew monthly timesheet template.');
+        if ($header !== 'employee no') {
+            throw new \InvalidArgumentException('The uploaded file does not match the crew timesheet template.');
         }
     }
 
-    private function shouldStopAtRow(Worksheet $sheet, int $rowNumber, ?string $employeeNo): bool
+    private function shouldStopAtRow(?string $employeeNo): bool
     {
-        if ($employeeNo === null || $employeeNo === '') {
-            return true;
-        }
-
-        if (str_contains(mb_strtoupper($employeeNo), 'DATE')) {
-            return true;
-        }
-
-        $firstCell = mb_strtoupper($this->stringValue($sheet, 'A', $rowNumber) ?? '');
-
-        return str_contains($firstCell, 'DATE');
+        return $employeeNo === null || $employeeNo === '';
     }
 
     private function stringValue(Worksheet $sheet, string $column, int $row): ?string

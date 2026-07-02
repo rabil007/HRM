@@ -45,11 +45,11 @@ use App\Support\Payroll\PayslipSummary;
 use App\Support\Payroll\ProvisionDefaultSalaryInputTypes;
 use App\Support\Payroll\SalaryInputResource;
 use App\Support\Payroll\Services\CrewTimesheetImportOrchestrator;
+use App\Support\Payroll\Services\CrewTimesheetTemplateExporter;
 use App\Support\Payroll\Wps\WpsExportPreview;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -469,17 +469,19 @@ class PayrollController extends Controller
         return back();
     }
 
-    public function importTemplate(PayrollPeriod $payrollPeriod)
-    {
+    public function importTemplate(
+        PayrollPeriod $payrollPeriod,
+        CrewTimesheetTemplateExporter $exporter,
+    ) {
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
         abort_unless($payrollPeriod->isCrew(), 404);
 
-        $path = resource_path('templates/crew-monthly-timesheet.xlsx');
+        $result = $exporter->export($companyId, $payrollPeriod);
 
-        abort_unless(File::exists($path), 404);
-
-        return response()->download($path, 'crew-monthly-timesheet.xlsx');
+        return response()
+            ->download($result['path'], $result['filename'])
+            ->deleteFileAfterSend();
     }
 
     public function importPreview(

@@ -1,14 +1,78 @@
 <?php
 
 use App\Enums\PayrollCategory;
+use App\Imports\CrewTimesheetsImport;
 use App\Models\CrewTimesheet;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
+use App\Models\Position;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
+use App\Support\Payroll\Services\CrewTimesheetTemplateExporter;
 use Illuminate\Http\UploadedFile;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+
+test('crew timesheet template download includes roster with department and position', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.import',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'name' => 'June 2026 Crew',
+    ]);
+
+    $parentDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine',
+        'parent_id' => null,
+    ]);
+
+    $childDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Deck',
+        'parent_id' => $parentDepartment->id,
+    ]);
+
+    $position = Position::query()->create([
+        'company_id' => $company->id,
+        'department_id' => $childDepartment->id,
+        'title' => 'Chief Officer',
+        'status' => 'active',
+    ]);
+
+    $employee = createImportCrewEmployee($company, '2057', 50, 661, 611);
+    $employee->update([
+        'name' => 'AHMED LATECH',
+        'department_id' => $childDepartment->id,
+        'position_id' => $position->id,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.timesheets.import.template', $period))
+        ->assertOk()
+        ->assertDownload('crew-timesheet-june-2026-crew.xlsx');
+
+    $result = app(CrewTimesheetTemplateExporter::class)->export($company->id, $period->fresh());
+    $sheet = IOFactory::load($result['path'])->getSheetByName(CrewTimesheetsImport::SHEET_NAME);
+
+    expect($sheet)->not->toBeNull()
+        ->and($sheet->getCell('A1')->getValue())->toBe('Employee No')
+        ->and($sheet->getCell('J1')->getValue())->toBe('Onsite Days')
+        ->and($sheet->getCell('A2')->getValue())->toBe('2057')
+        ->and($sheet->getCell('B2')->getValue())->toBe('AHMED LATECH')
+        ->and($sheet->getCell('C2')->getValue())->toBe('Marine / Deck')
+        ->and($sheet->getCell('D2')->getValue())->toBe('Chief Officer')
+        ->and($sheet->getCell('E2')->getValue())->toBeNull();
+
+    @unlink($result['path']);
+});
 
 test('crew timesheet import preview rejects unknown employee numbers', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
@@ -60,10 +124,6 @@ test('crew timesheet import creates timesheets for valid rows', function () {
             'onsite_from' => '2026-01-01',
             'onsite_to' => '2026-01-15',
             'onsite_days' => 15,
-            'basic_rate' => 50,
-            'supplementary_rate' => 611,
-            'site_rate' => 661,
-            'overtime' => 0,
         ],
     ]);
 
@@ -83,7 +143,8 @@ test('crew timesheet import creates timesheets for valid rows', function () {
         ->and($timesheet->standby_days)->toBe('2.00')
         ->and($timesheet->onsite_days)->toBe('15.00')
         ->and($timesheet->standby_from?->toDateString())->toBe('2026-01-16')
-        ->and($timesheet->onsite_from?->toDateString())->toBe('2026-01-01');
+        ->and($timesheet->onsite_from?->toDateString())->toBe('2026-01-01')
+        ->and($timesheet->overtime_amount)->toBe('0.00');
 });
 
 test('crew timesheet import cannot run on approved periods', function () {
@@ -111,7 +172,7 @@ test('crew timesheet import cannot run on approved periods', function () {
         ->assertSessionHasErrors('period_id');
 });
 
-test('crew timesheet import preview warns when file rates differ from contract', function () {
+test('crew timesheet import preview rejects invalid template headers', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
@@ -123,26 +184,19 @@ test('crew timesheet import preview warns when file rates differ from contract',
         'payroll_category' => PayrollCategory::Crew,
     ]);
 
-    createImportCrewEmployee($company, '2057', 50, 661, 611);
-
-    $file = makeCrewTimesheetImportFile([
-        [
-            'employee_no' => '2057',
-            'name' => 'AHMED LATECH',
-            'onsite_days' => 10,
-            'basic_rate' => 99,
-            'supplementary_rate' => 611,
-            'site_rate' => 661,
-        ],
-    ]);
+    $spreadsheet = new Spreadsheet;
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->setTitle(CrewTimesheetsImport::SHEET_NAME);
+    $sheet->setCellValue('A1', 'Wrong Header');
+    $path = tempnam(sys_get_temp_dir(), 'crew-import-bad-').'.xlsx';
+    (new Xlsx($spreadsheet))->save($path);
+    $file = new UploadedFile($path, 'bad.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.timesheets.import.preview', $period), [
             'file' => $file,
         ])
-        ->assertOk()
-        ->assertJsonPath('summary.warnings', 1)
-        ->assertJsonPath('summary.valid', 1);
+        ->assertSessionHasErrors('file');
 });
 
 /**
@@ -152,34 +206,38 @@ function makeCrewTimesheetImportFile(array $rows): UploadedFile
 {
     $spreadsheet = new Spreadsheet;
     $sheet = $spreadsheet->getActiveSheet();
-    $sheet->setTitle('Salary Sheet');
+    $sheet->setTitle(CrewTimesheetsImport::SHEET_NAME);
 
-    $sheet->setCellValue('A1', 'PAYROLL SUMMARY FOR TEST');
-    $sheet->setCellValue('B2', 'EMP.NO.');
-    $sheet->setCellValue('G3', 'STAND BY');
-    $sheet->setCellValue('J3', 'ON SITE');
-    $sheet->setCellValue('G4', 'FROM');
-    $sheet->setCellValue('H4', 'TO');
-    $sheet->setCellValue('I4', 'NO. OF DAYS');
-    $sheet->setCellValue('J4', 'FROM');
-    $sheet->setCellValue('K4', 'TO');
-    $sheet->setCellValue('L4', 'NO. OF DAYS');
+    $headers = [
+        'Employee No',
+        'Employee Name',
+        'Department',
+        'Position',
+        'Standby From',
+        'Standby To',
+        'Standby Days',
+        'Onsite From',
+        'Onsite To',
+        'Onsite Days',
+    ];
 
-    $rowNumber = 5;
+    foreach ($headers as $columnIndex => $header) {
+        $sheet->setCellValueByColumnAndRow($columnIndex + 1, 1, $header);
+    }
+
+    $rowNumber = CrewTimesheetsImport::DATA_START_ROW;
 
     foreach ($rows as $row) {
-        $sheet->setCellValue('B'.$rowNumber, $row['employee_no'] ?? '');
-        $sheet->setCellValue('C'.$rowNumber, $row['name'] ?? '');
-        $sheet->setCellValue('G'.$rowNumber, $row['standby_from'] ?? '-');
-        $sheet->setCellValue('H'.$rowNumber, $row['standby_to'] ?? '-');
-        $sheet->setCellValue('I'.$rowNumber, $row['standby_days'] ?? 0);
-        $sheet->setCellValue('J'.$rowNumber, $row['onsite_from'] ?? '-');
-        $sheet->setCellValue('K'.$rowNumber, $row['onsite_to'] ?? '-');
-        $sheet->setCellValue('L'.$rowNumber, $row['onsite_days'] ?? 0);
-        $sheet->setCellValue('M'.$rowNumber, $row['basic_rate'] ?? 0);
-        $sheet->setCellValue('N'.$rowNumber, $row['supplementary_rate'] ?? 0);
-        $sheet->setCellValue('O'.$rowNumber, $row['site_rate'] ?? 0);
-        $sheet->setCellValue('S'.$rowNumber, $row['overtime'] ?? 0);
+        $sheet->setCellValue('A'.$rowNumber, $row['employee_no'] ?? '');
+        $sheet->setCellValue('B'.$rowNumber, $row['name'] ?? '');
+        $sheet->setCellValue('C'.$rowNumber, $row['department'] ?? '');
+        $sheet->setCellValue('D'.$rowNumber, $row['position'] ?? '');
+        $sheet->setCellValue('E'.$rowNumber, $row['standby_from'] ?? '');
+        $sheet->setCellValue('F'.$rowNumber, $row['standby_to'] ?? '');
+        $sheet->setCellValue('G'.$rowNumber, $row['standby_days'] ?? 0);
+        $sheet->setCellValue('H'.$rowNumber, $row['onsite_from'] ?? '');
+        $sheet->setCellValue('I'.$rowNumber, $row['onsite_to'] ?? '');
+        $sheet->setCellValue('J'.$rowNumber, $row['onsite_days'] ?? 0);
         $rowNumber++;
     }
 

@@ -3,8 +3,6 @@
 namespace App\Support\Payroll\Services;
 
 use App\Enums\PayrollCategory;
-use App\Enums\SalaryComponentCode;
-use App\Enums\SalaryComponentStatus;
 use App\Imports\CrewTimesheetsImport;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
@@ -16,8 +14,6 @@ use Illuminate\Validation\ValidationException;
 
 final class CrewTimesheetImportOrchestrator
 {
-    private const RATE_TOLERANCE = 0.01;
-
     public function __construct(
         private readonly CrewTimesheetsImport $import,
         private readonly UpsertCrewTimesheet $upsertCrewTimesheet,
@@ -111,13 +107,11 @@ final class CrewTimesheetImportOrchestrator
         $seenEmployeeNumbers = [];
         $rows = [];
         $errors = [];
-        $warnings = [];
 
         foreach ($parsedRows as $parsedRow) {
             $rowNumber = (int) $parsedRow['row'];
             $employeeNo = (string) $parsedRow['employee_no'];
             $rowErrors = [];
-            $rowWarnings = [];
 
             if (isset($seenEmployeeNumbers[$employeeNo])) {
                 $rowErrors[] = [
@@ -158,34 +152,22 @@ final class CrewTimesheetImportOrchestrator
                 }
             }
 
-            if ($employee !== null && $employee->currentContract !== null) {
-                $rowWarnings = array_merge(
-                    $rowWarnings,
-                    $this->rateMismatchWarnings($rowNumber, $parsedRow, $employee),
-                );
-            }
-
             $rowResult = [
                 'row' => $rowNumber,
                 'employee_no' => $employeeNo,
                 'name' => $parsedRow['name'],
-                'designation' => $parsedRow['designation'],
-                'client' => $parsedRow['client'],
-                'project' => $parsedRow['project'],
+                'department' => $parsedRow['department'],
+                'position' => $parsedRow['position'],
                 'standby_days' => $timesheetData['standby_days'],
                 'onsite_days' => $timesheetData['onsite_days'],
-                'overtime_amount' => $timesheetData['overtime_amount'],
-                'additional_amount' => $timesheetData['additional_amount'],
-                'deduction_amount' => $timesheetData['deduction_amount'],
                 'errors' => $rowErrors,
-                'warnings' => $rowWarnings,
+                'warnings' => [],
                 'employee' => $employee,
                 'timesheet_data' => $timesheetData,
             ];
 
             $rows[] = $rowResult;
             $errors = array_merge($errors, $rowErrors);
-            $warnings = array_merge($warnings, $rowWarnings);
         }
 
         $invalidRows = collect($rows)->filter(fn (array $row) => ! empty($row['errors']))->count();
@@ -193,12 +175,12 @@ final class CrewTimesheetImportOrchestrator
         return [
             'rows' => $rows,
             'errors' => $errors,
-            'warnings' => $warnings,
+            'warnings' => [],
             'summary' => [
                 'total' => count($rows),
                 'valid' => count($rows) - $invalidRows,
                 'invalid' => $invalidRows,
-                'warnings' => count($warnings),
+                'warnings' => 0,
             ],
         ];
     }
@@ -210,7 +192,7 @@ final class CrewTimesheetImportOrchestrator
     {
         return Employee::query()
             ->where('company_id', $companyId)
-            ->with(['currentContract.salaryComponents'])
+            ->with(['currentContract'])
             ->get()
             ->filter(fn (Employee $employee) => filled($employee->employee_no))
             ->keyBy(fn (Employee $employee) => (string) $employee->employee_no);
@@ -222,12 +204,6 @@ final class CrewTimesheetImportOrchestrator
      */
     private function buildTimesheetData(array $parsedRow): array
     {
-        $remarks = collect([
-            filled($parsedRow['client'] ?? null) ? 'Client: '.$parsedRow['client'] : null,
-            filled($parsedRow['project'] ?? null) ? 'Project: '.$parsedRow['project'] : null,
-            filled($parsedRow['payment_method'] ?? null) ? 'Payment: '.$parsedRow['payment_method'] : null,
-        ])->filter()->implode(' | ');
-
         return [
             'standby_from' => $parsedRow['standby_from'],
             'standby_to' => $parsedRow['standby_to'],
@@ -235,10 +211,10 @@ final class CrewTimesheetImportOrchestrator
             'onsite_from' => $parsedRow['onsite_from'],
             'onsite_to' => $parsedRow['onsite_to'],
             'onsite_days' => $parsedRow['onsite_days'],
-            'overtime_amount' => $parsedRow['overtime_amount'] ?? 0,
-            'additional_amount' => $parsedRow['additional_amount'] ?? 0,
-            'deduction_amount' => $parsedRow['deduction_amount'] ?? 0,
-            'remarks' => $remarks !== '' ? $remarks : null,
+            'overtime_amount' => 0,
+            'additional_amount' => 0,
+            'deduction_amount' => 0,
+            'remarks' => null,
         ];
     }
 
@@ -259,49 +235,6 @@ final class CrewTimesheetImportOrchestrator
             'deduction_amount' => ['nullable', 'numeric', 'min:0'],
             'remarks' => ['nullable', 'string'],
         ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $parsedRow
-     * @return list<array{row: int, field: string, message: string}>
-     */
-    private function rateMismatchWarnings(int $rowNumber, array $parsedRow, Employee $employee): array
-    {
-        $warnings = [];
-        $components = $employee->currentContract?->salaryComponents
-            ->where('status', SalaryComponentStatus::Active) ?? collect();
-
-        $comparisons = [
-            'file_basic_rate' => SalaryComponentCode::Basic,
-            'file_supplementary_rate' => SalaryComponentCode::SupplementaryAllowance,
-            'file_site_rate' => SalaryComponentCode::SiteAllowance,
-        ];
-
-        foreach ($comparisons as $fileField => $code) {
-            $fileRate = $parsedRow[$fileField] ?? null;
-
-            if ($fileRate === null) {
-                continue;
-            }
-
-            $contractRate = $components
-                ->firstWhere('component_code', $code)
-                ?->amount;
-
-            if ($contractRate === null) {
-                continue;
-            }
-
-            if (abs((float) $fileRate - (float) $contractRate) > self::RATE_TOLERANCE) {
-                $warnings[] = [
-                    'row' => $rowNumber,
-                    'field' => $fileField,
-                    'message' => "File {$code->label()} rate ({$fileRate}) differs from contract rate ({$contractRate}).",
-                ];
-            }
-        }
-
-        return $warnings;
     }
 
     private function assertImportablePeriod(PayrollPeriod $period): void
