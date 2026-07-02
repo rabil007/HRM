@@ -235,6 +235,32 @@ function canViewCrewOperationsOverview(permissions: string[]): boolean {
     );
 }
 
+function canViewCrewOperations(permissions: string[]): boolean {
+    return (
+        canViewCrewOperationsOverview(permissions) ||
+        has(permissions, 'crew_operations.vessel_manning.view') ||
+        has(permissions, 'crew_operations.planning.view')
+    );
+}
+
+function canViewPayroll(permissions: string[]): boolean {
+    return (
+        has(permissions, 'payroll.periods.view') ||
+        has(permissions, 'payroll.crew_timesheets.view') ||
+        has(permissions, 'payroll.records.view') ||
+        has(permissions, 'payroll.salary_inputs.view') ||
+        has(permissions, 'payroll.payslips.view') ||
+        has(permissions, 'payroll.wps.view')
+    );
+}
+
+export {
+    canViewCrewOperations,
+    canViewCrewOperationsOverview,
+    canViewPayroll,
+    has,
+};
+
 export function getSidebarData(permissions: string[]): SidebarData {
     const groups = baseSidebarData.navGroups
         .map((group) => {
