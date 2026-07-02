@@ -161,7 +161,7 @@ class PayrollController extends Controller
                 $params['search'] = $search;
             }
 
-            foreach (['department_id', 'position_id', 'page', 'records_page', 'per_page'] as $key) {
+            foreach (['department_id', 'position_id', 'employee_group', 'page', 'records_page', 'per_page'] as $key) {
                 if ($request->filled($key)) {
                     $params[$key] = $request->query($key);
                 }
@@ -365,6 +365,7 @@ class PayrollController extends Controller
             'filters' => [
                 'department_id' => $boardFilters->departmentId,
                 'position_id' => $boardFilters->positionId,
+                'employee_group' => $boardFilters->employeeGroup->value,
             ],
             'department_tree' => BuildDepartmentEmployeeTree::for(
                 $companyId,

@@ -2,7 +2,9 @@
 
 namespace App\Support\Payroll;
 
+use App\Enums\PayrollBoardEmployeeGroup;
 use App\Enums\PayrollCategory;
+use App\Enums\SalaryPaymentMethod;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
@@ -67,7 +69,8 @@ final class PayrollPeriodBoardQuery
         }
 
         $this->applySearch($query, $search);
-        $this->applyBoardFilters($query, $companyId, $filters);
+        $this->applyDepartmentFilters($query, $companyId, $filters);
+        $this->applyEmployeeGroupFilter($query, $filters->employeeGroup);
 
         $leaveByEmployee = $payrollCategory === PayrollCategory::Office
             ? $this->loadOfficeLeaveByEmployee($companyId, $period, $filters)
@@ -109,7 +112,8 @@ final class PayrollPeriodBoardQuery
         $query = PayrollEmployeeQuery::activeQuery($companyId, $payrollCategory);
 
         $this->applySearch($query, $search);
-        $this->applyBoardFilters($query, $companyId, $filters);
+        $this->applyDepartmentFilters($query, $companyId, $filters);
+        $this->applyEmployeeGroupFilter($query, $filters->employeeGroup);
 
         return $query
             ->orderBy('employees.name')
@@ -128,7 +132,8 @@ final class PayrollPeriodBoardQuery
         PayrollPeriodBoardFilters $filters,
     ): Collection {
         $employeeIdsQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Office);
-        $this->applyBoardFilters($employeeIdsQuery, $companyId, $filters);
+        $this->applyDepartmentFilters($employeeIdsQuery, $companyId, $filters);
+        $this->applyEmployeeGroupFilter($employeeIdsQuery, $filters->employeeGroup);
 
         $employeeIds = $employeeIdsQuery
             ->pluck('employees.id')
@@ -164,7 +169,7 @@ final class PayrollPeriodBoardQuery
     /**
      * @param  Builder<Employee>  $query
      */
-    private function applyBoardFilters(
+    private function applyDepartmentFilters(
         Builder $query,
         int $companyId,
         PayrollPeriodBoardFilters $filters,
@@ -183,5 +188,30 @@ final class PayrollPeriodBoardQuery
             exceptDepartment: false,
             exceptPosition: false,
         );
+    }
+
+    /**
+     * @param  Builder<Employee>  $query
+     */
+    private function applyEmployeeGroupFilter(
+        Builder $query,
+        PayrollBoardEmployeeGroup $employeeGroup,
+    ): void {
+        match ($employeeGroup) {
+            PayrollBoardEmployeeGroup::WithBankAccount => $query->whereHas('primaryBankAccount'),
+            PayrollBoardEmployeeGroup::CashPayment => $query->whereIn('salary_payment_method', [
+                SalaryPaymentMethod::CashC3->value,
+                SalaryPaymentMethod::CashAnsari->value,
+                SalaryPaymentMethod::CashOther->value,
+            ]),
+            PayrollBoardEmployeeGroup::MissingBankAccount => $query
+                ->whereDoesntHave('primaryBankAccount')
+                ->where(function (Builder $builder): void {
+                    $builder
+                        ->where('salary_payment_method', SalaryPaymentMethod::BankTransfer->value)
+                        ->orWhereNull('salary_payment_method');
+                }),
+            PayrollBoardEmployeeGroup::Total => null,
+        };
     }
 }

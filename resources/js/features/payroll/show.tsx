@@ -243,6 +243,7 @@ export function PayrollShowContent({
             tab: initialTab,
             department_id: initialFilters.department_id,
             position_id: initialFilters.position_id,
+            employee_group: initialFilters.employee_group ?? '',
         },
         pagination,
     });
@@ -250,6 +251,21 @@ export function PayrollShowContent({
     const payrollFilters: PayrollShowFilters = {
         department_id: initialFilters.department_id ?? '',
         position_id: initialFilters.position_id ?? '',
+        employee_group: initialFilters.employee_group ?? '',
+    };
+
+    const activeEmployeeGroup = payrollFilters.employee_group;
+
+    const handleEmployeeGroupSelect = (
+        employeeGroup: PayrollShowFilters['employee_group'],
+    ) => {
+        list.applyFilters({
+            tab: initialTab,
+            department_id: payrollFilters.department_id,
+            position_id: payrollFilters.position_id,
+            employee_group: employeeGroup,
+            page: null,
+        });
     };
 
     const departmentTreeSelectionCount =
@@ -260,6 +276,7 @@ export function PayrollShowContent({
             tab: initialTab,
             department_id: id !== null ? String(id) : '',
             position_id: '',
+            employee_group: activeEmployeeGroup,
         });
     };
 
@@ -271,6 +288,7 @@ export function PayrollShowContent({
             tab: initialTab,
             department_id: String(departmentId),
             position_id: String(positionId),
+            employee_group: activeEmployeeGroup,
         });
     };
 
@@ -799,15 +817,6 @@ export function PayrollShowContent({
     );
 
     function renderTimesheetsTab() {
-        if (rows.length === 0) {
-            return (
-                <EmptyState
-                    title={`No ${period.payroll_category_label.toLowerCase()} employees`}
-                    description={`Only employees with an active ${period.payroll_category_label.toLowerCase()} contract appear on this pay run.`}
-                />
-            );
-        }
-
         const allIds = all_board_employee_ids;
         const selection = getPayrollBoardSelectionSummary({
             pagination,
@@ -842,59 +851,31 @@ export function PayrollShowContent({
         };
 
         const includedCount = selection.includedCount;
+        const hasPayRunEmployees = (employee_stats?.total ?? 0) > 0;
+        const hasVisibleRows = rows.length > 0;
 
         return (
             <div className="space-y-6">
-                {/* Analytics Cards */}
                 {employee_stats !== null && (
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <EmployeeAnalyticsCard
-                            title="Total Employees"
-                            value={employee_stats.total}
-                            subtitle="Active on this pay run"
-                            icon={Users}
-                            variant="total"
-                        />
-                        <EmployeeAnalyticsCard
-                            title="Bank Account Set"
-                            value={employee_stats.with_bank_account}
-                            subtitle="Ready for salary transfer"
-                            icon={CreditCard}
-                            variant="success"
-                        />
-                        <EmployeeAnalyticsCard
-                            title="Cash Payment"
-                            value={employee_stats.cash_payment_count}
-                            subtitle="Paid by C3, Ansari, or cash"
-                            icon={Building2}
-                            variant={
-                                employee_stats.cash_payment_count > 0
-                                    ? 'warning'
-                                    : 'success'
-                            }
-                        />
-                        <EmployeeAnalyticsCard
-                            title="Missing Bank Account"
-                            value={employee_stats.missing_bank_account}
-                            subtitle={
-                                employee_stats.missing_bank_account > 0
-                                    ? 'Bank-transfer employees only — action required before WPS'
-                                    : 'All bank-transfer employees configured'
-                            }
-                            icon={
-                                employee_stats.missing_bank_account > 0
-                                    ? AlertCircle
-                                    : Building2
-                            }
-                            variant={
-                                employee_stats.missing_bank_account > 0
-                                    ? 'warning'
-                                    : 'success'
-                            }
-                        />
-                    </div>
+                    <EmployeeAnalyticsCardsGrid
+                        employee_stats={employee_stats}
+                        activeEmployeeGroup={activeEmployeeGroup}
+                        onEmployeeGroupSelect={handleEmployeeGroupSelect}
+                    />
                 )}
 
+                {!hasPayRunEmployees ? (
+                    <EmptyState
+                        title={`No ${period.payroll_category_label.toLowerCase()} employees`}
+                        description={`Only employees with an active ${period.payroll_category_label.toLowerCase()} contract appear on this pay run.`}
+                    />
+                ) : !hasVisibleRows ? (
+                    <PayrollBoardFilteredEmptyState
+                        activeEmployeeGroup={activeEmployeeGroup}
+                        onShowAll={() => handleEmployeeGroupSelect('')}
+                    />
+                ) : (
+                    <>
                 {/* Selection info bar */}
                 <div className="flex items-center justify-between rounded-xl border border-border/40 bg-muted/30 px-4 py-2.5 backdrop-blur-sm">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -1319,6 +1300,8 @@ export function PayrollShowContent({
                 </OrganizationDataTable>
 
                 <Pagination {...list.paginationProps} label="employees" />
+                    </>
+                )}
             </div>
         );
     }
@@ -1410,15 +1393,6 @@ export function PayrollShowContent({
     }
 
     function renderOfficeEmployeesTab() {
-        if (rows.length === 0) {
-            return (
-                <EmptyState
-                    title={`No ${period.payroll_category_label.toLowerCase()} employees`}
-                    description={`Only employees with an active ${period.payroll_category_label.toLowerCase()} contract appear on this pay run.`}
-                />
-            );
-        }
-
         return (
             <OfficeEmployeesTabContent
                 period={period}
@@ -1426,6 +1400,8 @@ export function PayrollShowContent({
                 paginationProps={list.paginationProps}
                 allBoardEmployeeIds={all_board_employee_ids}
                 employee_stats={employee_stats}
+                activeEmployeeGroup={activeEmployeeGroup}
+                onEmployeeGroupSelect={handleEmployeeGroupSelect}
                 excludedIds={excludedIds}
                 setExcludedIds={setExcludedIds}
                 rowDates={rowDates}
@@ -1591,7 +1567,115 @@ function PayrollStatusTimeline({
     );
 }
 
-// ─── Analytics Card ────────────────────────────────────────────────────────────
+// ─── Analytics Cards ────────────────────────────────────────────────────────────
+
+const employeeGroupLabels: Record<
+    Exclude<PayrollShowFilters['employee_group'], ''>,
+    string
+> = {
+    with_bank_account: 'Bank Account Set',
+    cash_payment: 'Cash Payment',
+    missing_bank_account: 'Missing Bank Account',
+};
+
+function PayrollBoardFilteredEmptyState({
+    activeEmployeeGroup,
+    onShowAll,
+}: {
+    activeEmployeeGroup: PayrollShowFilters['employee_group'];
+    onShowAll: () => void;
+}) {
+    const filterLabel =
+        activeEmployeeGroup !== ''
+            ? employeeGroupLabels[activeEmployeeGroup]
+            : 'this filter';
+
+    return (
+        <EmptyState
+            title="No employees in this group"
+            description={`No employees match "${filterLabel}". Select Total Employees or try another category.`}
+            action={
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={onShowAll}
+                >
+                    Show all employees
+                </Button>
+            }
+        />
+    );
+}
+
+function EmployeeAnalyticsCardsGrid({
+    employee_stats,
+    activeEmployeeGroup,
+    onEmployeeGroupSelect,
+}: {
+    employee_stats: EmployeeStats;
+    activeEmployeeGroup: PayrollShowFilters['employee_group'];
+    onEmployeeGroupSelect: (
+        employeeGroup: PayrollShowFilters['employee_group'],
+    ) => void;
+}) {
+    return (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <EmployeeAnalyticsCard
+                title="Total Employees"
+                value={employee_stats.total}
+                subtitle="Active on this pay run"
+                icon={Users}
+                variant="total"
+                isSelected={activeEmployeeGroup === ''}
+                onClick={() => onEmployeeGroupSelect('')}
+            />
+            <EmployeeAnalyticsCard
+                title="Bank Account Set"
+                value={employee_stats.with_bank_account}
+                subtitle="Ready for salary transfer"
+                icon={CreditCard}
+                variant="success"
+                isSelected={activeEmployeeGroup === 'with_bank_account'}
+                onClick={() => onEmployeeGroupSelect('with_bank_account')}
+            />
+            <EmployeeAnalyticsCard
+                title="Cash Payment"
+                value={employee_stats.cash_payment_count}
+                subtitle="Paid by C3, Ansari, or cash"
+                icon={Building2}
+                variant={
+                    employee_stats.cash_payment_count > 0
+                        ? 'warning'
+                        : 'success'
+                }
+                isSelected={activeEmployeeGroup === 'cash_payment'}
+                onClick={() => onEmployeeGroupSelect('cash_payment')}
+            />
+            <EmployeeAnalyticsCard
+                title="Missing Bank Account"
+                value={employee_stats.missing_bank_account}
+                subtitle={
+                    employee_stats.missing_bank_account > 0
+                        ? 'Bank-transfer employees only — action required before WPS'
+                        : 'All bank-transfer employees configured'
+                }
+                icon={
+                    employee_stats.missing_bank_account > 0
+                        ? AlertCircle
+                        : Building2
+                }
+                variant={
+                    employee_stats.missing_bank_account > 0
+                        ? 'warning'
+                        : 'success'
+                }
+                isSelected={activeEmployeeGroup === 'missing_bank_account'}
+                onClick={() => onEmployeeGroupSelect('missing_bank_account')}
+            />
+        </div>
+    );
+}
 
 function EmployeeAnalyticsCard({
     title,
@@ -1599,12 +1683,16 @@ function EmployeeAnalyticsCard({
     subtitle,
     icon: Icon,
     variant,
+    isSelected = false,
+    onClick,
 }: {
     title: string;
     value: number;
     subtitle: string;
     icon: React.ElementType;
     variant: 'total' | 'success' | 'warning';
+    isSelected?: boolean;
+    onClick?: () => void;
 }) {
     const styles = {
         total: {
@@ -1628,10 +1716,13 @@ function EmployeeAnalyticsCard({
     }[variant];
 
     return (
-        <div
+        <button
+            type="button"
+            onClick={onClick}
             className={cn(
-                'group relative overflow-hidden rounded-2xl border p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl',
+                'group relative w-full overflow-hidden rounded-2xl border p-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none',
                 styles.card,
+                isSelected && 'ring-2 ring-primary/50 shadow-lg',
             )}
         >
             {/* Subtle background glow */}
@@ -1669,7 +1760,7 @@ function EmployeeAnalyticsCard({
                     <Icon className="h-5 w-5" />
                 </div>
             </div>
-        </div>
+        </button>
     );
 }
 
@@ -1696,6 +1787,8 @@ function OfficeEmployeesTabContent({
     paginationProps,
     allBoardEmployeeIds,
     employee_stats,
+    activeEmployeeGroup,
+    onEmployeeGroupSelect,
     excludedIds,
     setExcludedIds,
     rowDates,
@@ -1715,6 +1808,10 @@ function OfficeEmployeesTabContent({
     };
     allBoardEmployeeIds: number[];
     employee_stats: EmployeeStats | null;
+    activeEmployeeGroup: PayrollShowFilters['employee_group'];
+    onEmployeeGroupSelect: (
+        employeeGroup: PayrollShowFilters['employee_group'],
+    ) => void;
     excludedIds: Set<number>;
     setExcludedIds: React.Dispatch<React.SetStateAction<Set<number>>>;
     rowDates: Record<number, { start: string; end: string }>;
@@ -1782,59 +1879,31 @@ function OfficeEmployeesTabContent({
     };
 
     const includedCount = selection.includedCount;
+    const hasPayRunEmployees = (employee_stats?.total ?? 0) > 0;
+    const hasVisibleRows = rows.length > 0;
 
     return (
         <div className="space-y-6">
-            {/* Analytics Cards */}
             {employee_stats !== null && (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <EmployeeAnalyticsCard
-                        title="Total Employees"
-                        value={employee_stats.total}
-                        subtitle="Active on this pay run"
-                        icon={Users}
-                        variant="total"
-                    />
-                    <EmployeeAnalyticsCard
-                        title="Bank Account Set"
-                        value={employee_stats.with_bank_account}
-                        subtitle="Ready for salary transfer"
-                        icon={CreditCard}
-                        variant="success"
-                    />
-                    <EmployeeAnalyticsCard
-                        title="Cash Payment"
-                        value={employee_stats.cash_payment_count}
-                        subtitle="Paid by C3, Ansari, or cash"
-                        icon={Building2}
-                        variant={
-                            employee_stats.cash_payment_count > 0
-                                ? 'warning'
-                                : 'success'
-                        }
-                    />
-                    <EmployeeAnalyticsCard
-                        title="Missing Bank Account"
-                        value={employee_stats.missing_bank_account}
-                        subtitle={
-                            employee_stats.missing_bank_account > 0
-                                ? 'Bank-transfer employees only — action required before WPS'
-                                : 'All bank-transfer employees configured'
-                        }
-                        icon={
-                            employee_stats.missing_bank_account > 0
-                                ? AlertCircle
-                                : Building2
-                        }
-                        variant={
-                            employee_stats.missing_bank_account > 0
-                                ? 'warning'
-                                : 'success'
-                        }
-                    />
-                </div>
+                <EmployeeAnalyticsCardsGrid
+                    employee_stats={employee_stats}
+                    activeEmployeeGroup={activeEmployeeGroup}
+                    onEmployeeGroupSelect={onEmployeeGroupSelect}
+                />
             )}
 
+            {!hasPayRunEmployees ? (
+                <EmptyState
+                    title={`No ${period.payroll_category_label.toLowerCase()} employees`}
+                    description={`Only employees with an active ${period.payroll_category_label.toLowerCase()} contract appear on this pay run.`}
+                />
+            ) : !hasVisibleRows ? (
+                <PayrollBoardFilteredEmptyState
+                    activeEmployeeGroup={activeEmployeeGroup}
+                    onShowAll={() => onEmployeeGroupSelect('')}
+                />
+            ) : (
+                <>
             {/* Selection info bar */}
             <div className="flex items-center justify-between rounded-xl border border-border/40 bg-muted/30 px-4 py-2.5 backdrop-blur-sm">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -2080,6 +2149,8 @@ function OfficeEmployeesTabContent({
             </OrganizationDataTable>
 
             <Pagination {...paginationProps} label="employees" />
+                </>
+            )}
         </div>
     );
 }

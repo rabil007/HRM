@@ -1,9 +1,16 @@
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import type { PaginationMeta } from '@/types/pagination';
 
+export type PayrollBoardEmployeeGroup =
+    | ''
+    | 'with_bank_account'
+    | 'cash_payment'
+    | 'missing_bank_account';
+
 export type PayrollShowFilters = {
     department_id: string;
     position_id: string;
+    employee_group: PayrollBoardEmployeeGroup;
 };
 
 export type PayrollCategory = 'office' | 'crew';

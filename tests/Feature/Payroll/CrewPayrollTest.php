@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\PayrollCategory;
+use App\Enums\SalaryPaymentMethod;
 use App\Models\CrewTimesheet;
 use App\Models\Department;
 use App\Models\Employee;
@@ -164,6 +165,77 @@ test('payroll show can filter board rows by department', function () {
             ->where('rows.0.employee.id', $operationsEmployee->id)
             ->where('filters.department_id', (string) $operationsDepartment->id)
             ->where('department_tree_selected_id', $operationsDepartment->id));
+});
+
+test('payroll show can filter board rows by employee analytics group', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    $cashEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'CASH-001',
+        'name' => 'Cash Crew',
+        'status' => 'active',
+        'salary_payment_method' => SalaryPaymentMethod::CashC3,
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $cashEmployee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'active',
+    ]);
+
+    $missingBankEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'BANK-001',
+        'name' => 'Missing Bank Crew',
+        'status' => 'active',
+        'salary_payment_method' => SalaryPaymentMethod::BankTransfer,
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $missingBankEmployee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'active',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', [
+            'payrollPeriod' => $period,
+            'employee_group' => 'cash_payment',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->has('rows', 1)
+            ->where('rows.0.employee.id', $cashEmployee->id)
+            ->where('filters.employee_group', 'cash_payment'));
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', [
+            'payrollPeriod' => $period,
+            'employee_group' => 'missing_bank_account',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->has('rows', 1)
+            ->where('rows.0.employee.id', $missingBankEmployee->id)
+            ->where('filters.employee_group', 'missing_bank_account'));
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->has('rows', 2)
+            ->where('filters.employee_group', ''));
 });
 
 test('payroll show includes employee department parent and position on board rows', function () {
