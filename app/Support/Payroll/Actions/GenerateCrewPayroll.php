@@ -23,7 +23,7 @@ final class GenerateCrewPayroll
         private readonly RecalculateCrewPayroll $recalculateCrewPayroll,
     ) {}
 
-    public function handle(PayrollPeriod $period): GeneratePayrollResult
+    public function handle(PayrollPeriod $period, array $excludedEmployeeIds = []): GeneratePayrollResult
     {
         abort_unless($period->isCrew(), 404);
 
@@ -33,7 +33,18 @@ final class GenerateCrewPayroll
             ]);
         }
 
-        $employees = PayrollEmployeeQuery::activeQuery($period->company_id, PayrollCategory::Crew)
+        $excludedEmployeeIds = array_values(array_unique(array_map(
+            intval(...),
+            array_merge($period->excluded_employee_ids ?? [], $excludedEmployeeIds),
+        )));
+
+        $employeesQuery = PayrollEmployeeQuery::activeQuery($period->company_id, PayrollCategory::Crew);
+
+        if ($excludedEmployeeIds !== []) {
+            $employeesQuery->whereNotIn('employees.id', $excludedEmployeeIds);
+        }
+
+        $employees = $employeesQuery
             ->with([
                 'currentContract.salaryComponents',
                 'primaryBankAccount',
@@ -41,11 +52,6 @@ final class GenerateCrewPayroll
             ])
             ->orderBy('employees.name')
             ->get();
-
-        $excludedEmployeeIds = array_values(array_unique(array_map(
-            intval(...),
-            $period->excluded_employee_ids ?? [],
-        )));
 
         $generatedCount = 0;
         $skippedEmployees = [];
@@ -60,9 +66,6 @@ final class GenerateCrewPayroll
             }
 
             foreach ($employees as $employee) {
-                if (in_array((int) $employee->id, $excludedEmployeeIds, true)) {
-                    continue;
-                }
                 /** @var Employee $employee */
                 $timesheet = $employee->crewTimesheets->first();
 
@@ -133,11 +136,15 @@ final class GenerateCrewPayroll
                 $generatedCount++;
             }
 
+            $periodUpdates = [
+                'excluded_employee_ids' => $excludedEmployeeIds,
+            ];
+
             if ($generatedCount > 0 && $period->status === PayrollPeriodStatus::Draft) {
-                $period->update([
-                    'status' => PayrollPeriodStatus::Processing,
-                ]);
+                $periodUpdates['status'] = PayrollPeriodStatus::Processing;
             }
+
+            $period->update($periodUpdates);
 
             if ($generatedCount > 0) {
                 $this->recalculateCrewPayroll->handle($period->fresh());

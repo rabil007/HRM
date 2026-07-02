@@ -541,7 +541,10 @@ class PayrollController extends Controller
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
 
         $result = $payrollPeriod->isCrew()
-            ? $generateCrewPayroll->handle($payrollPeriod)
+            ? $generateCrewPayroll->handle(
+                $payrollPeriod,
+                $request->input('excluded_employee_ids', []),
+            )
             : $generateOfficePayroll->handle(
                 $payrollPeriod,
                 $request->input('excluded_employee_ids', []),

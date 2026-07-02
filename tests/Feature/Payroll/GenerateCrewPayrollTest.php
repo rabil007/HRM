@@ -279,6 +279,98 @@ test('crew payroll generation snapshots contract and bank account linkage', func
         ->and($record->employee_bank_account_id)->toBe($bankAccount->id);
 });
 
+test('crew payroll generation from draft only includes selected employees and moves period to processing', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Draft,
+    ]);
+
+    $includedEmployee = createCrewEmployeeWithContract($company, 'CREW-IN', 150, 50, 75);
+    $excludedEmployee = createCrewEmployeeWithContract($company, 'CREW-OUT', 150, 50, 75);
+
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $includedEmployee->id,
+        'period_id' => $period->id,
+        'standby_days' => 5,
+        'onsite_days' => 10,
+    ]);
+
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $excludedEmployee->id,
+        'period_id' => $period->id,
+        'standby_days' => 5,
+        'onsite_days' => 10,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period), [
+            'excluded_employee_ids' => [$excludedEmployee->id],
+        ])
+        ->assertRedirect();
+
+    $period->refresh();
+
+    expect($period->status)->toBe(PayrollPeriodStatus::Processing)
+        ->and($period->excluded_employee_ids)->toBe([$excludedEmployee->id])
+        ->and(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(1)
+        ->and(PayrollRecord::query()
+            ->where('period_id', $period->id)
+            ->where('employee_id', $includedEmployee->id)
+            ->exists())->toBeTrue()
+        ->and(PayrollRecord::query()
+            ->where('period_id', $period->id)
+            ->where('employee_id', $excludedEmployee->id)
+            ->exists())->toBeFalse();
+});
+
+test('crew payroll generation from draft stays draft when all employees are excluded', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Draft,
+    ]);
+
+    $firstEmployee = createCrewEmployeeWithContract($company, 'CREW-A', 150, 50, 75);
+    $secondEmployee = createCrewEmployeeWithContract($company, 'CREW-B', 150, 50, 75);
+
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $firstEmployee->id,
+        'period_id' => $period->id,
+        'standby_days' => 2,
+        'onsite_days' => 8,
+    ]);
+
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $secondEmployee->id,
+        'period_id' => $period->id,
+        'standby_days' => 2,
+        'onsite_days' => 8,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period), [
+            'excluded_employee_ids' => [$firstEmployee->id, $secondEmployee->id],
+        ])
+        ->assertRedirect();
+
+    $period->refresh();
+
+    expect($period->status)->toBe(PayrollPeriodStatus::Draft)
+        ->and($period->excluded_employee_ids)->toBe([$firstEmployee->id, $secondEmployee->id])
+        ->and(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0);
+});
+
 function createCrewEmployeeWithContract(
     $company,
     string $employeeNo,

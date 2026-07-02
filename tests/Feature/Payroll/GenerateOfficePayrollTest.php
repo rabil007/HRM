@@ -112,6 +112,69 @@ test('office payroll generation snapshots contract and bank account linkage', fu
         ->and($record->employee_bank_account_id)->toBe($bankAccount->id);
 });
 
+test('office payroll generation from draft only includes selected employees and moves period to processing', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-05',
+        'status' => PayrollPeriodStatus::Draft,
+    ]);
+
+    $includedEmployee = createOfficeEmployeeWithContract($company, 'OFF-IN', 10000, 0, 0, 0);
+    $excludedEmployee = createOfficeEmployeeWithContract($company, 'OFF-OUT', 8000, 0, 0, 0);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period), [
+            'excluded_employee_ids' => [$excludedEmployee->id],
+        ])
+        ->assertRedirect();
+
+    $period->refresh();
+
+    expect($period->status)->toBe(PayrollPeriodStatus::Processing)
+        ->and($period->excluded_employee_ids)->toBe([$excludedEmployee->id])
+        ->and(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(1)
+        ->and(PayrollRecord::query()
+            ->where('period_id', $period->id)
+            ->where('employee_id', $includedEmployee->id)
+            ->exists())->toBeTrue()
+        ->and(PayrollRecord::query()
+            ->where('period_id', $period->id)
+            ->where('employee_id', $excludedEmployee->id)
+            ->exists())->toBeFalse();
+});
+
+test('office payroll generation from draft stays draft when all employees are excluded', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-05',
+        'status' => PayrollPeriodStatus::Draft,
+    ]);
+
+    $firstEmployee = createOfficeEmployeeWithContract($company, 'OFF-A', 10000, 0, 0, 0);
+    $secondEmployee = createOfficeEmployeeWithContract($company, 'OFF-B', 8000, 0, 0, 0);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period), [
+            'excluded_employee_ids' => [$firstEmployee->id, $secondEmployee->id],
+        ])
+        ->assertRedirect();
+
+    $period->refresh();
+
+    expect($period->status)->toBe(PayrollPeriodStatus::Draft)
+        ->and(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0);
+});
+
 test('office payroll generation stores leave days from approved requests in period', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
