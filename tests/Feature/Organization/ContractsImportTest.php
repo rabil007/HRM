@@ -38,7 +38,7 @@ test('office contracts template excludes crew-only employees', function () {
     $employeeNumbers = [];
 
     for ($row = ContractsImport::DATA_START_ROW; $row <= $sheet->getHighestDataRow(); $row++) {
-        $employeeNumbers[] = (string) $sheet->getCell('B'.$row)->getValue();
+        $employeeNumbers[] = (string) $sheet->getCell('A'.$row)->getValue();
     }
 
     expect($employeeNumbers)->not->toContain($crewEmployee->employee_no);
@@ -57,7 +57,7 @@ test('crew contracts template excludes office-only employees', function () {
     $employeeNumbers = [];
 
     for ($row = ContractsImport::DATA_START_ROW; $row <= $sheet->getHighestDataRow(); $row++) {
-        $employeeNumbers[] = (string) $sheet->getCell('B'.$row)->getValue();
+        $employeeNumbers[] = (string) $sheet->getCell('A'.$row)->getValue();
     }
 
     expect($employeeNumbers)->not->toContain($officeEmployee->employee_no);
@@ -66,7 +66,7 @@ test('crew contracts template excludes office-only employees', function () {
 });
 
 test('office contracts template lists active employees and prefills matching office contracts', function () {
-    ['user' => $user, 'company' => $company, 'officeEmployee' => $officeEmployee, 'blankEmployee' => $blankEmployee, 'officeContract' => $officeContract] = makeContractsImportFixtures();
+    ['user' => $user, 'company' => $company, 'officeEmployee' => $officeEmployee, 'blankEmployee' => $blankEmployee] = makeContractsImportFixtures();
 
     grantCompanyPermissions($user, $company, ['contracts.view', 'contracts.import']);
 
@@ -87,16 +87,13 @@ test('office contracts template lists active employees and prefills matching off
     $rowsByEmployeeNo = [];
 
     for ($row = ContractsImport::DATA_START_ROW; $row <= $sheet->getHighestDataRow(); $row++) {
-        $rowsByEmployeeNo[(string) $sheet->getCell('B'.$row)->getValue()] = [
-            'contract_id' => $sheet->getCell('A'.$row)->getValue(),
-            'contract_type' => $sheet->getCell('D'.$row)->getValue(),
+        $rowsByEmployeeNo[(string) $sheet->getCell('A'.$row)->getValue()] = [
+            'contract_type' => $sheet->getCell('C'.$row)->getValue(),
         ];
     }
 
     expect($rowsByEmployeeNo[$blankEmployee->employee_no]['contract_type'])->toBeNull()
-        ->and($rowsByEmployeeNo[$officeEmployee->employee_no]['contract_type'])->toBe('limited')
-        ->and((string) $rowsByEmployeeNo[$officeEmployee->employee_no]['contract_id'])
-        ->toBe((string) $officeContract->id);
+        ->and($rowsByEmployeeNo[$officeEmployee->employee_no]['contract_type'])->toBe('limited');
 
     @unlink($result['path']);
 });
@@ -110,8 +107,8 @@ test('crew contracts template includes crew allowance columns', function () {
     $sheet = IOFactory::load($result['path'])->getSheetByName('Crew Contracts');
 
     expect($sheet)->not->toBeNull()
-        ->and($sheet->getCell('J1')->getValue())->toBe('Supplementary Allowance')
-        ->and($sheet->getCell('K1')->getValue())->toBe('Site Allowance');
+        ->and($sheet->getCell('I1')->getValue())->toBe('Supplementary Allowance')
+        ->and($sheet->getCell('J1')->getValue())->toBe('Site Allowance');
 
     @unlink($result['path']);
 });
@@ -209,14 +206,13 @@ test('contracts import creates new contracts and skips empty rows', function () 
         ->and((string) $created->basic_salary)->toBe('7500.00');
 });
 
-test('contracts import updates existing contracts by contract id', function () {
+test('contracts import updates existing contracts by employee number', function () {
     ['user' => $user, 'company' => $company, 'officeEmployee' => $officeEmployee, 'officeContract' => $officeContract] = makeContractsImportFixtures();
 
     grantCompanyPermissions($user, $company, ['contracts.view', 'contracts.import']);
 
     $file = makeContractsImportFile(PayrollCategory::Office, [
         [
-            'contract_id' => $officeContract->id,
             'employee_no' => $officeEmployee->employee_no,
             'name' => $officeEmployee->name,
             'contract_type' => 'unlimited',
@@ -255,7 +251,6 @@ test('contracts import ends other active contracts when importing an active cont
 
     $file = makeContractsImportFile(PayrollCategory::Office, [
         [
-            'contract_id' => $officeContract->id,
             'employee_no' => $officeEmployee->employee_no,
             'name' => $officeEmployee->name,
             'contract_type' => 'limited',
@@ -378,25 +373,24 @@ function makeContractsImportFile(PayrollCategory $payrollCategory, array $rows):
     $rowNumber = ContractsImport::DATA_START_ROW;
 
     foreach ($rows as $row) {
-        $sheet->setCellValueByColumnAndRow(1, $rowNumber, $row['contract_id'] ?? null);
-        $sheet->setCellValueByColumnAndRow(2, $rowNumber, $row['employee_no'] ?? null);
-        $sheet->setCellValueByColumnAndRow(3, $rowNumber, $row['name'] ?? null);
-        $sheet->setCellValueByColumnAndRow(4, $rowNumber, $row['contract_type'] ?? null);
-        $sheet->setCellValueByColumnAndRow(5, $rowNumber, $row['start_date'] ?? null);
-        $sheet->setCellValueByColumnAndRow(6, $rowNumber, $row['end_date'] ?? null);
-        $sheet->setCellValueByColumnAndRow(7, $rowNumber, $row['labor_contract_id'] ?? null);
-        $sheet->setCellValueByColumnAndRow(8, $rowNumber, $row['status'] ?? null);
-        $sheet->setCellValueByColumnAndRow(9, $rowNumber, $row['basic_salary'] ?? null);
+        $sheet->setCellValueByColumnAndRow(1, $rowNumber, $row['employee_no'] ?? null);
+        $sheet->setCellValueByColumnAndRow(2, $rowNumber, $row['name'] ?? null);
+        $sheet->setCellValueByColumnAndRow(3, $rowNumber, $row['contract_type'] ?? null);
+        $sheet->setCellValueByColumnAndRow(4, $rowNumber, $row['start_date'] ?? null);
+        $sheet->setCellValueByColumnAndRow(5, $rowNumber, $row['end_date'] ?? null);
+        $sheet->setCellValueByColumnAndRow(6, $rowNumber, $row['labor_contract_id'] ?? null);
+        $sheet->setCellValueByColumnAndRow(7, $rowNumber, $row['status'] ?? null);
+        $sheet->setCellValueByColumnAndRow(8, $rowNumber, $row['basic_salary'] ?? null);
 
         if ($payrollCategory === PayrollCategory::Office) {
-            $sheet->setCellValueByColumnAndRow(10, $rowNumber, $row['housing_allowance'] ?? null);
-            $sheet->setCellValueByColumnAndRow(11, $rowNumber, $row['transport_allowance'] ?? null);
-            $sheet->setCellValueByColumnAndRow(12, $rowNumber, $row['other_allowances'] ?? null);
-            $sheet->setCellValueByColumnAndRow(13, $rowNumber, $row['note'] ?? null);
-        } else {
-            $sheet->setCellValueByColumnAndRow(10, $rowNumber, $row['supplementary_allowance'] ?? null);
-            $sheet->setCellValueByColumnAndRow(11, $rowNumber, $row['site_allowance'] ?? null);
+            $sheet->setCellValueByColumnAndRow(9, $rowNumber, $row['housing_allowance'] ?? null);
+            $sheet->setCellValueByColumnAndRow(10, $rowNumber, $row['transport_allowance'] ?? null);
+            $sheet->setCellValueByColumnAndRow(11, $rowNumber, $row['other_allowances'] ?? null);
             $sheet->setCellValueByColumnAndRow(12, $rowNumber, $row['note'] ?? null);
+        } else {
+            $sheet->setCellValueByColumnAndRow(9, $rowNumber, $row['supplementary_allowance'] ?? null);
+            $sheet->setCellValueByColumnAndRow(10, $rowNumber, $row['site_allowance'] ?? null);
+            $sheet->setCellValueByColumnAndRow(11, $rowNumber, $row['note'] ?? null);
         }
 
         $rowNumber++;

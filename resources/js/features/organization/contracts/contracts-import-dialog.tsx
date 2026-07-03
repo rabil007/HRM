@@ -48,7 +48,6 @@ type ImportPreviewRow = {
     row: number;
     employee_no: string;
     name: string | null;
-    contract_id: number | null;
     action: 'create' | 'update' | 'skip';
     contract_type: string | null;
     start_date: string | null;

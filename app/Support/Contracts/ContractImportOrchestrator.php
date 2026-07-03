@@ -171,20 +171,7 @@ final class ContractImportOrchestrator
                 }
 
                 if ($employee !== null && empty($rowErrors)) {
-                    $existingContract = $this->resolveExistingContract(
-                        $employee,
-                        $payrollCategory,
-                        $parsedRow['contract_id'] ?? null,
-                    );
-
-                    if ($parsedRow['contract_id'] !== null && $existingContract === null) {
-                        $rowErrors[] = [
-                            'row' => $rowNumber,
-                            'field' => 'contract_id',
-                            'message' => 'Contract ID does not belong to this employee.',
-                        ];
-                    }
-
+                    $existingContract = $this->resolveExistingContract($employee, $payrollCategory);
                     $action = $existingContract === null ? 'create' : 'update';
                 }
             }
@@ -193,7 +180,6 @@ final class ContractImportOrchestrator
                 'row' => $rowNumber,
                 'employee_no' => $employeeNo,
                 'name' => $parsedRow['name'],
-                'contract_id' => $parsedRow['contract_id'] ?? null,
                 'action' => $action,
                 'contract_type' => $contractAttributes['contract_type'] ?? null,
                 'start_date' => $contractAttributes['start_date'] ?? null,
@@ -322,15 +308,7 @@ final class ContractImportOrchestrator
     private function resolveExistingContract(
         Employee $employee,
         PayrollCategory $payrollCategory,
-        ?int $contractId,
     ): ?EmployeeContract {
-        if ($contractId !== null) {
-            return EmployeeContract::query()
-                ->where('employee_id', $employee->id)
-                ->whereKey($contractId)
-                ->first();
-        }
-
         return EmployeeContract::query()
             ->where('employee_id', $employee->id)
             ->where('status', 'active')

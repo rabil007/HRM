@@ -15,37 +15,35 @@ final class ContractsImport
 
     public const DATA_START_ROW = 2;
 
-    private const COL_CONTRACT_ID = 'A';
+    private const COL_EMP_NO = 'A';
 
-    private const COL_EMP_NO = 'B';
+    private const COL_NAME = 'B';
 
-    private const COL_NAME = 'C';
+    private const COL_CONTRACT_TYPE = 'C';
 
-    private const COL_CONTRACT_TYPE = 'D';
+    private const COL_START_DATE = 'D';
 
-    private const COL_START_DATE = 'E';
+    private const COL_END_DATE = 'E';
 
-    private const COL_END_DATE = 'F';
+    private const COL_LABOR_CONTRACT_ID = 'F';
 
-    private const COL_LABOR_CONTRACT_ID = 'G';
+    private const COL_STATUS = 'G';
 
-    private const COL_STATUS = 'H';
+    private const COL_BASIC_SALARY = 'H';
 
-    private const COL_BASIC_SALARY = 'I';
+    private const COL_OFFICE_HOUSING = 'I';
 
-    private const COL_OFFICE_HOUSING = 'J';
+    private const COL_OFFICE_TRANSPORT = 'J';
 
-    private const COL_OFFICE_TRANSPORT = 'K';
+    private const COL_OFFICE_OTHER = 'K';
 
-    private const COL_OFFICE_OTHER = 'L';
+    private const COL_CREW_SUPPLEMENTARY = 'I';
 
-    private const COL_CREW_SUPPLEMENTARY = 'J';
+    private const COL_CREW_SITE = 'J';
 
-    private const COL_CREW_SITE = 'K';
+    private const COL_OFFICE_NOTE = 'L';
 
-    private const COL_OFFICE_NOTE = 'M';
-
-    private const COL_CREW_NOTE = 'L';
+    private const COL_CREW_NOTE = 'K';
 
     /**
      * @return list<array<string, mixed>>
@@ -67,7 +65,6 @@ final class ContractsImport
 
             $row = [
                 'row' => $rowNumber,
-                'contract_id' => $this->integerValue($sheet, self::COL_CONTRACT_ID, $rowNumber),
                 'employee_no' => $employeeNo,
                 'name' => $this->stringValue($sheet, self::COL_NAME, $rowNumber),
                 'contract_type' => $this->stringValue($sheet, self::COL_CONTRACT_TYPE, $rowNumber),
@@ -116,7 +113,6 @@ final class ContractsImport
     public function headers(PayrollCategory $payrollCategory): array
     {
         $shared = [
-            'Contract ID',
             'Employee No',
             'Employee Name',
             'Contract Type',
@@ -195,17 +191,6 @@ final class ContractsImport
         }
 
         return $string;
-    }
-
-    private function integerValue(Worksheet $sheet, string $column, int $row): ?int
-    {
-        $value = $this->stringValue($sheet, $column, $row);
-
-        if ($value === null || ! is_numeric($value)) {
-            return null;
-        }
-
-        return (int) $value;
     }
 
     private function numericValue(Worksheet $sheet, string $column, int $row): ?string

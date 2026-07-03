@@ -36,43 +36,9 @@ final class ContractImportTemplateExporter
                 'contracts' => fn ($query) => $query
                     ->where('status', 'active')
                     ->where('payroll_category', $payrollCategory->value),
-                'currentContract',
             ])
             ->orderBy('name')
             ->get();
-
-        // #region agent log
-        $withMatchingContract = $employees->filter(fn (Employee $employee) => $employee->contracts->isNotEmpty())->count();
-        $withCrewOnlyActive = $employees->filter(
-            fn (Employee $employee) => $employee->contracts->isEmpty()
-                && $employee->currentContract?->payroll_category?->value === PayrollCategory::Crew->value,
-        )->count();
-        $withOfficeOnlyActive = $employees->filter(
-            fn (Employee $employee) => $employee->contracts->isEmpty()
-                && $employee->currentContract?->payroll_category?->value === PayrollCategory::Office->value,
-        )->count();
-        $withNoActiveContract = $employees->filter(fn (Employee $employee) => $employee->currentContract === null)->count();
-        @file_put_contents(
-            '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-c45cae.log',
-            json_encode([
-                'sessionId' => 'c45cae',
-                'hypothesisId' => 'H1-H2',
-                'location' => 'ContractImportTemplateExporter.php:export',
-                'message' => 'template employee breakdown',
-                'data' => [
-                    'payrollCategory' => $payrollCategory->value,
-                    'companyId' => $companyId,
-                    'totalActiveEmployees' => $employees->count(),
-                    'withMatchingCategoryContract' => $withMatchingContract,
-                    'withOppositeCategoryOnly' => $payrollCategory === PayrollCategory::Office ? $withCrewOnlyActive : $withOfficeOnlyActive,
-                    'withNoActiveContract' => $withNoActiveContract,
-                ],
-                'runId' => 'post-fix',
-                'timestamp' => (int) round(microtime(true) * 1000),
-            ]).PHP_EOL,
-            FILE_APPEND,
-        );
-        // #endregion
 
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
@@ -88,36 +54,35 @@ final class ContractImportTemplateExporter
             /** @var Employee $employee */
             $contract = $employee->contracts->first();
 
-            $this->setStringCell($sheet, 1, $rowNumber, $contract?->id !== null ? (string) $contract->id : null);
-            $this->setStringCell($sheet, 2, $rowNumber, (string) ($employee->employee_no ?? ''));
-            $sheet->setCellValueByColumnAndRow(3, $rowNumber, $employee->name);
-            $sheet->setCellValueByColumnAndRow(4, $rowNumber, $contract?->contract_type);
-            $this->setStringCell($sheet, 5, $rowNumber, $contract?->start_date?->toDateString());
-            $this->setStringCell($sheet, 6, $rowNumber, $contract?->end_date?->toDateString());
-            $this->setStringCell($sheet, 7, $rowNumber, $contract?->labor_contract_id);
-            $sheet->setCellValueByColumnAndRow(8, $rowNumber, $contract?->status);
-            $sheet->setCellValueByColumnAndRow(9, $rowNumber, $contract?->basic_salary);
+            $this->setStringCell($sheet, 1, $rowNumber, (string) ($employee->employee_no ?? ''));
+            $sheet->setCellValueByColumnAndRow(2, $rowNumber, $employee->name);
+            $sheet->setCellValueByColumnAndRow(3, $rowNumber, $contract?->contract_type);
+            $this->setStringCell($sheet, 4, $rowNumber, $contract?->start_date?->toDateString());
+            $this->setStringCell($sheet, 5, $rowNumber, $contract?->end_date?->toDateString());
+            $this->setStringCell($sheet, 6, $rowNumber, $contract?->labor_contract_id);
+            $sheet->setCellValueByColumnAndRow(7, $rowNumber, $contract?->status);
+            $sheet->setCellValueByColumnAndRow(8, $rowNumber, $contract?->basic_salary);
 
             if ($payrollCategory === PayrollCategory::Office) {
-                $sheet->setCellValueByColumnAndRow(10, $rowNumber, $contract?->housing_allowance);
-                $sheet->setCellValueByColumnAndRow(11, $rowNumber, $contract?->transport_allowance);
-                $sheet->setCellValueByColumnAndRow(12, $rowNumber, $contract?->other_allowances);
-                $sheet->setCellValueByColumnAndRow(13, $rowNumber, $contract?->note);
-            } else {
-                $sheet->setCellValueByColumnAndRow(10, $rowNumber, $contract?->supplementary_allowance);
-                $sheet->setCellValueByColumnAndRow(11, $rowNumber, $contract?->site_allowance);
+                $sheet->setCellValueByColumnAndRow(9, $rowNumber, $contract?->housing_allowance);
+                $sheet->setCellValueByColumnAndRow(10, $rowNumber, $contract?->transport_allowance);
+                $sheet->setCellValueByColumnAndRow(11, $rowNumber, $contract?->other_allowances);
                 $sheet->setCellValueByColumnAndRow(12, $rowNumber, $contract?->note);
+            } else {
+                $sheet->setCellValueByColumnAndRow(9, $rowNumber, $contract?->supplementary_allowance);
+                $sheet->setCellValueByColumnAndRow(10, $rowNumber, $contract?->site_allowance);
+                $sheet->setCellValueByColumnAndRow(11, $rowNumber, $contract?->note);
             }
 
             $rowNumber++;
         }
 
-        $lastColumn = $payrollCategory === PayrollCategory::Office ? 'M' : 'L';
+        $lastColumn = $payrollCategory === PayrollCategory::Office ? 'L' : 'K';
         $lastDataRow = max($rowNumber - 1, ContractsImport::DATA_START_ROW);
         $sheet->setAutoFilter("A1:{$lastColumn}{$lastDataRow}");
         $sheet->freezePane('A2');
 
-        foreach (['E', 'F'] as $column) {
+        foreach (['D', 'E'] as $column) {
             $sheet->getStyle("{$column}2:{$column}{$lastDataRow}")
                 ->getNumberFormat()
                 ->setFormatCode(self::DATE_FORMAT);
