@@ -204,6 +204,7 @@ export type CrewPayrollPermissions = {
     payslips_email: boolean;
     wps_view: boolean;
     wps_export: boolean;
+    export_crew_payroll: boolean;
 };
 
 export type PayslipSummary = {

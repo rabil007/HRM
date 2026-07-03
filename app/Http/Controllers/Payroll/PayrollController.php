@@ -44,6 +44,7 @@ use App\Support\Payroll\PayrollRecordResource;
 use App\Support\Payroll\PayslipSummary;
 use App\Support\Payroll\ProvisionDefaultSalaryInputTypes;
 use App\Support\Payroll\SalaryInputResource;
+use App\Support\Payroll\Services\CrewPayrollSalarySheetExporter;
 use App\Support\Payroll\Services\CrewTimesheetImportOrchestrator;
 use App\Support\Payroll\Services\CrewTimesheetTemplateExporter;
 use App\Support\Payroll\Wps\WpsExportPreview;
@@ -394,6 +395,10 @@ class PayrollController extends Controller
                 'payslips_email' => $request->user()?->can('payroll.payslips.email') ?? false,
                 'wps_view' => $request->user()?->can('payroll.wps.view') ?? false,
                 'wps_export' => $request->user()?->can('payroll.wps.export') ?? false,
+                'export_crew_payroll' => ($request->user()?->can('payroll.crew_timesheets.view') ?? false)
+                    && $payrollPeriod->isCrew()
+                    && $payrollPeriod->status === PayrollPeriodStatus::Approved
+                    && $payrollPeriod->payroll_records_count > 0,
             ]),
             'payslip_summary' => $payslipSummary,
             'wps_preview' => $wpsPreview,
@@ -476,6 +481,26 @@ class PayrollController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
         abort_unless($payrollPeriod->isCrew(), 404);
+
+        $result = $exporter->export($companyId, $payrollPeriod);
+
+        return response()
+            ->download($result['path'], $result['filename'])
+            ->deleteFileAfterSend();
+    }
+
+    public function exportCrewPayroll(
+        PayrollPeriod $payrollPeriod,
+        CrewPayrollSalarySheetExporter $exporter,
+    ) {
+        $companyId = (int) request()->attributes->get('current_company_id');
+        abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+        abort_unless($payrollPeriod->isCrew(), 404);
+        abort_unless($payrollPeriod->status === PayrollPeriodStatus::Approved, 403);
+
+        $payrollPeriod->loadCount('payrollRecords');
+
+        abort_unless($payrollPeriod->payroll_records_count > 0, 422);
 
         $result = $exporter->export($companyId, $payrollPeriod);
 

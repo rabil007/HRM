@@ -9,6 +9,7 @@ import {
     CheckCircle2,
     CheckSquare,
     CreditCard,
+    Download,
     Paperclip,
     RotateCcw,
     Upload,
@@ -20,6 +21,7 @@ import {
     approve,
     cancel,
     destroyPayrollRecord,
+    exportCrewPayroll,
     generatePayroll,
     index as payrollIndex,
     markPaid,
@@ -574,6 +576,7 @@ export function PayrollShowContent({
         canApprove ||
         canMarkPaid ||
         canCancelPeriod ||
+        permissions.export_crew_payroll ||
         Boolean(period.has_payment_proof);
 
     const recordsPagination = payroll_records_pagination;
@@ -695,6 +698,18 @@ export function PayrollShowContent({
                                 >
                                     <CheckCircle2 className="mr-2 h-4 w-4" />
                                     Approve pay run
+                                </Button>
+                            ) : null}
+                            {permissions.export_crew_payroll ? (
+                                <Button
+                                    asChild
+                                    variant="outline"
+                                    className={headerSecondaryActionClass}
+                                >
+                                    <a href={exportCrewPayroll.url(period.id)}>
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Export Excel
+                                    </a>
                                 </Button>
                             ) : null}
                         </div>

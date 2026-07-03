@@ -90,3 +90,30 @@ function salaryInputTypeId(Company $company, string $code): int
         ->where('code', $code)
         ->value('id');
 }
+
+function createCrewEmployeeWithContract(
+    Company $company,
+    string $employeeNo,
+    float $basicRate,
+    float $siteRate,
+    float $supplementaryRate,
+): Employee {
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => $employeeNo,
+        'status' => 'active',
+    ]);
+
+    $contract = EmployeeContract::factory()->create([
+        'employee_id' => $employee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'active',
+        'basic_salary' => $basicRate,
+        'site_allowance' => $siteRate,
+        'supplementary_allowance' => $supplementaryRate,
+    ]);
+
+    (new SyncContractSalaryComponentsFromContract)->handle($contract);
+
+    return $employee;
+}
