@@ -358,7 +358,9 @@ export function MonthMiniCalendar({
                                         date={cell.date}
                                         day={cell.day}
                                         inMonth={cell.inMonth}
-                                        isToday={cell.date === today}
+                                        isToday={
+                                            cell.inMonth && cell.date === today
+                                        }
                                         isWeekend={
                                             dayOfWeek === 0 || dayOfWeek === 6
                                         }
