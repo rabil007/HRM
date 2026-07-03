@@ -423,9 +423,10 @@ export default function EmployeeImport({
                                 </div>
                                 <p className="mb-4 text-xs text-muted-foreground">
                                     Choose the template every imported employee
-                                    will use. Download the matching import file
-                                    below — columns match that template (plus
-                                    employee no and name).
+                                    will use. Download the Excel (.xlsx) import
+                                    file below — lookup columns include
+                                    dropdowns from your database (branch,
+                                    department, gender, and more).
                                 </p>
                                 {templates.length === 0 ? (
                                     <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-500">
@@ -478,6 +479,7 @@ export default function EmployeeImport({
                                                 <a href={templateDownloadUrl}>
                                                     <Download className="mr-2 h-4 w-4" />
                                                     Download import template
+                                                    (.xlsx)
                                                 </a>
                                             </Button>
                                         ) : (
@@ -491,7 +493,7 @@ export default function EmployeeImport({
                                                         >
                                                             <Download className="mr-2 h-4 w-4" />
                                                             Download import
-                                                            template
+                                                            template (.xlsx)
                                                         </Button>
                                                     </span>
                                                 </TooltipTrigger>

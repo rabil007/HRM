@@ -20,9 +20,11 @@ use App\Models\SssaOption;
 use App\Models\User;
 use App\Models\VisaType;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
+use App\Support\Employees\EmployeeImportTemplateExporter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -1132,7 +1134,10 @@ test('authenticated users with permission can download the import template', fun
 
     $response = $this->get('/organization/employees/import/template');
     $response->assertOk();
-    expect($response->headers->get('Content-Type'))->toContain('text/csv');
+    expect($response->headers->get('Content-Type'))
+        ->toContain('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    expect($response->headers->get('content-disposition'))
+        ->toContain('employees-import-template.xlsx');
 });
 
 test('authenticated users with permission can open the import page', function () {
@@ -1774,9 +1779,7 @@ test('employee import template download only includes fields from selected profi
     $response = $this->get("/organization/employees/import/template?template_id={$template->id}");
 
     $response->assertOk();
-    $csv = $response->streamedContent();
-    $lines = array_values(array_filter(explode("\n", trim($csv))));
-    $headers = str_getcsv($lines[0]);
+    $headers = employeeImportTemplateHeaders($response);
 
     expect($headers)->toContain('employee_no', 'name', 'work_email')
         ->and($headers)->not->toContain('bank', 'iban', 'account_name', 'contract_type', 'start_date', 'status');
@@ -1825,11 +1828,132 @@ test('employee import template download includes visible personal fields such as
     $response = $this->get("/organization/employees/import/template?template_id={$template->id}");
 
     $response->assertOk();
-    $lines = array_values(array_filter(explode("\n", trim($response->streamedContent()))));
-    $headers = str_getcsv($lines[0]);
+    $headers = employeeImportTemplateHeaders($response);
 
     expect($headers)->toContain('address', 'nearest_airport')
         ->and($headers)->not->toContain('work_email', 'phone');
+});
+
+test('employee import template applies dropdown validation for lookup columns', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'ITD',
+        'name' => 'Import Dropdown Land',
+        'dial_code' => '+986',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'ITD',
+        'name' => 'Import Dropdown Currency',
+        'symbol' => 'D$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Import Dropdown Co',
+        'slug' => 'import-dropdown-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    Branch::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Main Office',
+        'code' => 'MAIN',
+        'status' => 'active',
+        'is_headquarters' => true,
+    ]);
+
+    Gender::query()->create([
+        'name' => 'Male',
+        'is_active' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.import']);
+
+    $response = $this->get('/organization/employees/import/template');
+    $response->assertOk();
+
+    $spreadsheet = employeeImportTemplateSpreadsheet($response);
+    $importSheet = $spreadsheet->getSheetByName(EmployeeImportTemplateExporter::IMPORT_SHEET_NAME);
+    $optionsSheet = $spreadsheet->getSheetByName(EmployeeImportTemplateExporter::OPTIONS_SHEET_NAME);
+
+    $headers = employeeImportTemplateHeaders($response);
+    $branchColumnIndex = array_search('branch', $headers, true);
+    $genderColumnIndex = array_search('gender', $headers, true);
+    $maritalStatusColumnIndex = array_search('marital_status', $headers, true);
+
+    expect($branchColumnIndex)->not->toBeFalse()
+        ->and($genderColumnIndex)->not->toBeFalse()
+        ->and($maritalStatusColumnIndex)->not->toBeFalse();
+
+    $branchValidation = $importSheet->getCellByColumnAndRow($branchColumnIndex + 1, 2)->getDataValidation();
+    $genderValidation = $importSheet->getCellByColumnAndRow($genderColumnIndex + 1, 2)->getDataValidation();
+    $maritalStatusValidation = $importSheet->getCellByColumnAndRow($maritalStatusColumnIndex + 1, 2)->getDataValidation();
+
+    expect($branchValidation->getType())->toBe(DataValidation::TYPE_LIST)
+        ->and($branchValidation->getFormula1())->toContain(EmployeeImportTemplateExporter::OPTIONS_SHEET_NAME)
+        ->and($genderValidation->getType())->toBe(DataValidation::TYPE_LIST)
+        ->and($maritalStatusValidation->getType())->toBe(DataValidation::TYPE_LIST)
+        ->and($maritalStatusValidation->getFormula1())->toBe('"single,married,divorced,widowed"')
+        ->and($optionsSheet->getCell('A2')->getValue())->toBe('Main Office')
+        ->and($optionsSheet->getSheetState())->toBe('hidden');
+});
+
+test('employee import template with minimal columns does not apply lookup dropdown validation', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'ITM',
+        'name' => 'Import Minimal Template',
+        'dial_code' => '+985',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'ITM',
+        'name' => 'Import Minimal Template Currency',
+        'symbol' => 'M$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Import Minimal Template Co',
+        'slug' => 'import-minimal-template-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $configuration = employeeProfileTemplateWithVisibleEmployeeFields([
+        'employee_no',
+        'name',
+    ]);
+
+    $template = createEmployeeProfileTemplate($company, 'Name Only Import', $configuration);
+
+    grantCompanyPermissions($user, $company, ['employees.import']);
+
+    $response = $this->get("/organization/employees/import/template?template_id={$template->id}");
+    $response->assertOk();
+
+    $spreadsheet = employeeImportTemplateSpreadsheet($response);
+    $importSheet = $spreadsheet->getSheetByName(EmployeeImportTemplateExporter::IMPORT_SHEET_NAME);
+
+    expect(employeeImportTemplateHeaders($response))->toBe(['employee_no', 'name'])
+        ->and($importSheet->getCell('A2')->getDataValidation()->getType())->toBe(DataValidation::TYPE_NONE)
+        ->and($importSheet->getCell('B2')->getDataValidation()->getType())->toBe(DataValidation::TYPE_NONE);
 });
 
 test('employee import preview enforces template required work email', function () {

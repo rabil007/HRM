@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Imports\EmployeesImport;
 use App\Models\EmployeeProfileTemplate;
+use App\Support\Employees\EmployeeImportTemplateExporter;
 use App\Support\Employees\Services\EmployeeImportOrchestrator;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -13,40 +14,20 @@ class EmployeeImportController extends Controller
 {
     public function __construct(
         private readonly EmployeeImportOrchestrator $importOrchestrator,
+        private readonly EmployeeImportTemplateExporter $templateExporter,
     ) {}
 
     public function importTemplate(Request $request)
     {
+        $companyId = (int) $request->attributes->get('current_company_id');
         $headers = $this->importOrchestrator->importColumnsForRequest($request);
+        $template = $this->importOrchestrator->resolveProfileTemplateForImport($request);
 
-        $sampleRow = array_fill(0, count($headers), '');
-        $sampleMap = [
-            'employee_no' => 'EMP-001',
-            'name' => 'John Doe',
-            'work_email' => 'john.doe@example.com',
-            'phone' => '+971500000000',
-            'date_of_birth' => '1990-01-15',
-            'hire_date' => now()->format('Y-m-d'),
-            'marital_status' => 'single',
-            'status' => 'active',
-        ];
+        $result = $this->templateExporter->export($companyId, $headers, $template);
 
-        foreach ($headers as $i => $header) {
-            if (isset($sampleMap[$header])) {
-                $sampleRow[$i] = $sampleMap[$header];
-            }
-        }
-
-        $callback = function () use ($headers, $sampleRow) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, $headers);
-            fputcsv($out, $sampleRow);
-            fclose($out);
-        };
-
-        return response()->streamDownload($callback, 'employees-import-template.csv', [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        return response()->download($result['path'], $result['filename'], [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend();
     }
 
     public function importPage()
