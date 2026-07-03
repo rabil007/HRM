@@ -7,6 +7,7 @@ use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 
 final class ContractDirectoryQuery
 {
@@ -37,8 +38,17 @@ final class ContractDirectoryQuery
      */
     private function baseQuery(): Builder
     {
+        $totalContractsSubquery = fn (QueryBuilder $sub): QueryBuilder => $sub
+            ->selectRaw('count(*)')
+            ->from('employee_contracts as ec_count')
+            ->whereColumn('ec_count.employee_id', 'employee_contracts.employee_id')
+            ->where('ec_count.company_id', $this->companyId)
+            ->whereNull('ec_count.deleted_at');
+
         return EmployeeContract::query()
             ->where('employee_contracts.company_id', $this->companyId)
+            ->addSelect('employee_contracts.*')
+            ->selectSub($totalContractsSubquery, 'total_contracts')
             ->with([
                 'employee:id,name,employee_no,image,company_id,branch_id,department_id,employee_profile_template_id',
                 'employee.employeeProfileTemplate:id,name',

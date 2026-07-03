@@ -106,6 +106,8 @@ test('contracts index returns paginated contracts with summary', function () {
             ->where('summary.ended', 1)
             ->has('contracts', 2)
             ->where('contracts.0.employee_name', 'Contract Employee')
+            ->where('contracts.0.total_contracts', 2)
+            ->where('contracts.1.total_contracts', 2)
             ->where('can.view', true)
             ->where('can.create', false)
             ->where('can.update', false)

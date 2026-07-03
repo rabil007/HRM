@@ -24,6 +24,7 @@ export type ContractListItem = EmployeeContractDetails & {
     employee_no: string;
     employee_image: string | null;
     profile_template_name: string | null;
+    total_contracts: number;
 };
 
 export type ContractEmployeeSummary = {

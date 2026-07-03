@@ -107,6 +107,11 @@ export function ContractsTableRow({
                 </div>
             </TableCell>
             <TableCell className={dataTableCellClass()}>
+                <span className="tabular-nums text-sm text-muted-foreground">
+                    {contract.total_contracts}
+                </span>
+            </TableCell>
+            <TableCell className={dataTableCellClass()}>
                 {formatContractType(contract.contract_type)}
             </TableCell>
             <TableCell className={dataTableCellClass()}>

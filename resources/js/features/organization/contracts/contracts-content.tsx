@@ -163,6 +163,7 @@ export function ContractsContent({
                         <TableHeader>
                             <DataTableHeaderRow>
                                 <DataTableHead>Employee</DataTableHead>
+                                <DataTableHead># Contracts</DataTableHead>
                                 <DataTableHead>Type</DataTableHead>
                                 <DataTableHead>Payroll category</DataTableHead>
                                 <DataTableHead>Status</DataTableHead>

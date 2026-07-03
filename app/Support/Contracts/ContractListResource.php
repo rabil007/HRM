@@ -22,6 +22,7 @@ final class ContractListResource
             'employee_no' => $employee?->employee_no ?? '',
             'employee_image' => $employee?->image,
             'profile_template_name' => $employee?->employeeProfileTemplate?->name,
+            'total_contracts' => (int) $contract->total_contracts,
         ];
     }
 }
