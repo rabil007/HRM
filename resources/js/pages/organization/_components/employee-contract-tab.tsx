@@ -69,7 +69,6 @@ const CONTRACT_TYPE_LABELS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
     active: 'Active',
     ended: 'Ended',
-    draft: 'Draft',
 };
 
 const PAYROLL_CATEGORY_LABELS: Record<string, string> = {
@@ -941,9 +940,6 @@ export function EmployeeContractTab({
                                             </AppSelectItem>
                                             <AppSelectItem value="ended">
                                                 Ended
-                                            </AppSelectItem>
-                                            <AppSelectItem value="draft">
-                                                Draft
                                             </AppSelectItem>
                                         </AppSelect>
                                         <p className="text-[11px] text-muted-foreground">

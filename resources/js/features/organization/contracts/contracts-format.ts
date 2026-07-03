@@ -9,7 +9,6 @@ export const LIFECYCLE_FILTER_LABELS: Record<
     ending_60: 'Ending in 60 days',
     ending_90: 'Ending in 90 days',
     ended: 'Ended',
-    draft: 'Draft',
 };
 
 export const CONTRACT_TYPE_LABELS: Record<string, string> = {
@@ -22,7 +21,6 @@ export const CONTRACT_TYPE_LABELS: Record<string, string> = {
 export const CONTRACT_STATUS_LABELS: Record<string, string> = {
     active: 'Active',
     ended: 'Ended',
-    draft: 'Draft',
 };
 
 export const PAYROLL_CATEGORY_LABELS: Record<string, string> = {

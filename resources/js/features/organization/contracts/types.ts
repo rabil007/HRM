@@ -7,8 +7,7 @@ export type ContractLifecycleFilter =
     | 'ending_30'
     | 'ending_60'
     | 'ending_90'
-    | 'ended'
-    | 'draft';
+    | 'ended';
 
 export type ContractSummary = {
     total_contracts: number;
@@ -17,7 +16,6 @@ export type ContractSummary = {
     ending_60: number;
     ending_90: number;
     ended: number;
-    draft: number;
 };
 
 export type ContractListItem = EmployeeContractDetails & {

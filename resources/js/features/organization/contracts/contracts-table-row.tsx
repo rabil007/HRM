@@ -23,8 +23,6 @@ function statusBadgeClass(status: string | null | undefined): string {
             return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400';
         case 'ended':
             return 'border-red-500/30 bg-red-500/10 text-red-400';
-        case 'draft':
-            return 'border-violet-500/30 bg-violet-500/10 text-violet-400';
         default:
             return 'border-border dark:border-white/10';
     }

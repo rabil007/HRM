@@ -27,3 +27,8 @@ Schedule::command('hikvision:fetch-todays-access-events')
     ->when(fn () => HikvisionEveningAccessEventsFetchSchedule::isEnabled())
     ->name('hikvision-evening-access-events')
     ->withoutOverlapping();
+
+Schedule::command('contracts:expire')
+    ->dailyAt('01:00')
+    ->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping();

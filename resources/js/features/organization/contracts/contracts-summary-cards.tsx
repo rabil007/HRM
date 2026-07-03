@@ -2,7 +2,6 @@ import {
     CheckCircle2,
     Clock,
     FileText,
-    FilePen,
     XCircle,
     type LucideIcon,
 } from 'lucide-react';
@@ -85,16 +84,6 @@ const SUMMARY_ITEMS: {
         valueClass: 'text-red-400',
         iconClass: 'text-red-500/60',
     },
-    {
-        key: 'draft',
-        lifecycle: 'draft',
-        icon: FilePen,
-        cardClass:
-            'border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30',
-        activeClass: 'border-violet-500/40 ring-1 ring-violet-500/25',
-        valueClass: 'text-violet-400',
-        iconClass: 'text-violet-500/60',
-    },
 ];
 
 export function ContractsSummaryCards({
@@ -107,7 +96,7 @@ export function ContractsSummaryCards({
     onSelect: (lifecycle: ContractLifecycleFilter) => void;
 }) {
     return (
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7">
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             {SUMMARY_ITEMS.map((item) => {
                 const isActive = item.lifecycle === activeLifecycle;
                 const label =

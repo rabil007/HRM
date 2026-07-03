@@ -31,10 +31,10 @@ export function useContractsIndexFilters({
     initialPayrollCategory: string;
     perPage?: number;
 }) {
-    const [draftSearch, setDraftSearch] = useState<string | null>(null);
+    const [pendingSearch, setPendingSearch] = useState<string | null>(null);
     const [isSearching, setIsSearching] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const searchInput = draftSearch ?? initialSearch;
+    const searchInput = pendingSearch ?? initialSearch;
 
     useEffect(() => {
         return () => {
@@ -82,7 +82,7 @@ export function useContractsIndexFilters({
                 ],
                 onFinish: () => {
                     setIsSearching(false);
-                    setDraftSearch(null);
+                    setPendingSearch(null);
                 },
             });
         },
@@ -91,7 +91,7 @@ export function useContractsIndexFilters({
 
     const onSearchChange = useCallback(
         (value: string) => {
-            setDraftSearch(value);
+            setPendingSearch(value);
 
             if (debounceRef.current) {
                 clearTimeout(debounceRef.current);

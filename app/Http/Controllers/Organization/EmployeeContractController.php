@@ -109,7 +109,7 @@ class EmployeeContractController extends Controller
             'start_date' => ['required', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'labor_contract_id' => ['nullable', 'string', 'max:100'],
-            'status' => ['required', 'in:active,ended,draft'],
+            'status' => ['required', 'in:active,ended'],
             'payroll_category' => ['nullable', 'in:'.implode(',', PayrollCategory::values())],
             'basic_salary' => ['nullable', 'numeric', 'min:0'],
             'housing_allowance' => ['nullable', 'numeric', 'min:0'],

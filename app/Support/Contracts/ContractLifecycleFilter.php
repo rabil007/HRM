@@ -19,8 +19,6 @@ final class ContractLifecycleFilter
 
     public const ENDED = 'ended';
 
-    public const DRAFT = 'draft';
-
     /**
      * @return list<string>
      */
@@ -33,7 +31,6 @@ final class ContractLifecycleFilter
             self::ENDING_60,
             self::ENDING_90,
             self::ENDED,
-            self::DRAFT,
         ];
     }
 
@@ -54,7 +51,6 @@ final class ContractLifecycleFilter
         match ($filter) {
             self::ACTIVE => $query->where('status', 'active'),
             self::ENDED => $query->where('status', 'ended'),
-            self::DRAFT => $query->where('status', 'draft'),
             self::ENDING_30 => self::applyEndingWithin($query, 30),
             self::ENDING_60 => self::applyEndingWithin($query, 60),
             self::ENDING_90 => self::applyEndingWithin($query, 90),
