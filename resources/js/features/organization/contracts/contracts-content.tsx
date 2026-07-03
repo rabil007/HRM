@@ -1,5 +1,5 @@
-import { Loader2 } from 'lucide-react';
-import { useMemo } from 'react';
+import { Loader2, Upload } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -13,6 +13,7 @@ import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
 import { buildContractEmployeeUrl } from '@/features/organization/contracts/build-contract-employee-url';
+import { ContractsImportDialog } from '@/features/organization/contracts/contracts-import-dialog';
 import { ContractsSummaryCards } from '@/features/organization/contracts/contracts-summary-cards';
 import { ContractsTableRow } from '@/features/organization/contracts/contracts-table-row';
 import type { ContractsIndexProps } from '@/features/organization/contracts/types';
@@ -28,7 +29,9 @@ export function ContractsContent({
     payroll_category: initialPayrollCategory,
     contracts: contractRows,
     pagination,
+    can,
 }: ContractsIndexProps) {
+    const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
     const {
         searchInput,
         isSearching,
@@ -80,7 +83,21 @@ export function ContractsContent({
 
     return (
         <Main>
-            <PageHeader title="Contracts" />
+            <PageHeader
+                title="Contracts"
+                right={
+                    can.import ? (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsImportDialogOpen(true)}
+                        >
+                            <Upload className="mr-2 h-4 w-4" />
+                            Import
+                        </Button>
+                    ) : null
+                }
+            />
 
             <ContractsSummaryCards
                 summary={summary}
@@ -204,6 +221,11 @@ export function ContractsContent({
                     ) : null}
                 </div>
             )}
+
+            <ContractsImportDialog
+                open={isImportDialogOpen}
+                onOpenChange={setIsImportDialogOpen}
+            />
         </Main>
     );
 }

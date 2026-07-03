@@ -6,14 +6,18 @@ use App\Enums\PayrollCategory;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
+use App\Support\Contracts\Actions\UpsertEmployeeContract;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
-use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
 use App\Support\Payroll\PayrollRecordLinkage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class EmployeeContractController extends Controller
 {
+    public function __construct(
+        private readonly UpsertEmployeeContract $upsertEmployeeContract,
+    ) {}
+
     public function store(Request $request, Employee $employee): RedirectResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
@@ -30,17 +34,7 @@ class EmployeeContractController extends Controller
             'Enter at least one contract field before saving.',
         );
 
-        if (($attributes['status'] ?? 'active') === 'active') {
-            $this->deactivateOtherContracts($companyId, $employee->id);
-        }
-
-        $contract = EmployeeContract::query()->create([
-            'company_id' => $companyId,
-            'employee_id' => $employee->id,
-            ...$attributes,
-        ]);
-
-        (new SyncContractSalaryComponentsFromContract)->handle($contract);
+        $this->upsertEmployeeContract->handle($companyId, $employee, $attributes);
 
         return back()->with('success', 'Contract added.');
     }
@@ -66,13 +60,12 @@ class EmployeeContractController extends Controller
             'Enter at least one contract field before saving.',
         );
 
-        if (($attributes['status'] ?? $employeeContract->status) === 'active') {
-            $this->deactivateOtherContracts($companyId, $employee->id, $employeeContract->id);
-        }
-
-        $employeeContract->update($attributes);
-
-        (new SyncContractSalaryComponentsFromContract)->handle($employeeContract->fresh());
+        $this->upsertEmployeeContract->handle(
+            $companyId,
+            $employee,
+            $attributes,
+            $employeeContract,
+        );
 
         return back()->with('success', 'Contract updated.');
     }
@@ -180,15 +173,5 @@ class EmployeeContractController extends Controller
                     : null)
                 : $existing?->note,
         ];
-    }
-
-    private function deactivateOtherContracts(int $companyId, int $employeeId, ?int $exceptId = null): void
-    {
-        EmployeeContract::query()
-            ->where('company_id', $companyId)
-            ->where('employee_id', $employeeId)
-            ->where('status', 'active')
-            ->when($exceptId !== null, fn ($query) => $query->where('id', '!=', $exceptId))
-            ->update(['status' => 'ended']);
     }
 }

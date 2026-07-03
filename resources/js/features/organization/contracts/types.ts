@@ -42,6 +42,7 @@ export type ContractPageCan = {
     create: boolean;
     update: boolean;
     delete: boolean;
+    import: boolean;
 };
 
 export type ContractsIndexProps = {

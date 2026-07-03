@@ -14,6 +14,7 @@ use App\Http\Controllers\Organization\ActivityLogController;
 use App\Http\Controllers\Organization\BranchController;
 use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\CompanySwitchController;
+use App\Http\Controllers\Organization\ContractsImportController;
 use App\Http\Controllers\Organization\ContractsIndexController;
 use App\Http\Controllers\Organization\CrewDeploymentController;
 use App\Http\Controllers\Organization\CrewOperationsDashboardController;
@@ -278,6 +279,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('can:contracts.view')->group(function () {
         Route::get('organization/contracts', ContractsIndexController::class)->name('organization.contracts');
         Route::get('organization/contracts/employees/{employee}', EmployeeContractsBrowseController::class)->name('organization.contracts.employee');
+        Route::get('organization/contracts/import/template', [ContractsImportController::class, 'importTemplate'])
+            ->middleware('can:contracts.import')
+            ->name('organization.contracts.import.template');
+        Route::post('organization/contracts/import/preview', [ContractsImportController::class, 'importPreview'])
+            ->middleware('can:contracts.import')
+            ->name('organization.contracts.import.preview');
+        Route::post('organization/contracts/import', [ContractsImportController::class, 'import'])
+            ->middleware('can:contracts.import')
+            ->name('organization.contracts.import');
     });
 
     Route::post('organization/employees/{employee}/contracts', [EmployeeContractController::class, 'store'])->middleware('can:contracts.create')->name('organization.employees.contracts.store');

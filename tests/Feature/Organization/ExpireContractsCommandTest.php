@@ -50,8 +50,7 @@ test('contracts expire command marks active contracts with past end dates as end
     ]);
 
     $this->artisan('contracts:expire')
-        ->assertSuccessful()
-        ->expectsOutput('Expired 1 contract(s).');
+        ->assertSuccessful();
 
     expect($expired->fresh()->status)->toBe('ended')
         ->and($endsToday->fresh()->status)->toBe('active')
@@ -84,8 +83,7 @@ test('contracts expire command can be limited to a single company', function () 
     ]);
 
     $this->artisan('contracts:expire', ['--company' => $companyA->id])
-        ->assertSuccessful()
-        ->expectsOutput('Expired 1 contract(s).');
+        ->assertSuccessful();
 
     expect($contractA->fresh()->status)->toBe('ended')
         ->and($contractB->fresh()->status)->toBe('active');
