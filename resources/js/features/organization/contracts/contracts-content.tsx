@@ -1,0 +1,205 @@
+import { Loader2 } from 'lucide-react';
+import { useMemo } from 'react';
+import {
+    OrganizationDataTable,
+    DataTableHead,
+    DataTableHeaderRow,
+} from '@/components/data-table';
+import { EmptyState } from '@/components/empty-state';
+import { Main } from '@/components/layout/main';
+import { PageHeader } from '@/components/page-header';
+import { Pagination } from '@/components/pagination';
+import { SearchBar } from '@/components/search-bar';
+import { Button } from '@/components/ui/button';
+import { TableBody, TableHeader } from '@/components/ui/table';
+import { buildContractEmployeeUrl } from '@/features/organization/contracts/build-contract-employee-url';
+import { ContractsSummaryCards } from '@/features/organization/contracts/contracts-summary-cards';
+import { ContractsTableRow } from '@/features/organization/contracts/contracts-table-row';
+import type { ContractsIndexProps } from '@/features/organization/contracts/types';
+import { useContractsIndexFilters } from '@/features/organization/contracts/use-contracts-index-filters';
+import { contracts } from '@/routes/organization';
+import { cn } from '@/lib/utils';
+
+export function ContractsContent({
+    summary,
+    lifecycle: initialLifecycle,
+    search: initialSearch,
+    status: initialStatus,
+    payroll_category: initialPayrollCategory,
+    contracts: contractRows,
+    pagination,
+}: ContractsIndexProps) {
+    const {
+        searchInput,
+        isSearching,
+        onSearchChange,
+        onLifecycleChange,
+        onPayrollCategoryChange,
+        onPageChange,
+    } = useContractsIndexFilters({
+        url: contracts.url(),
+        initialSearch,
+        initialLifecycle,
+        initialStatus,
+        initialPayrollCategory,
+        perPage: pagination.per_page,
+    });
+
+    const showOfficeColumns = initialPayrollCategory === 'office';
+    const showCrewColumns = initialPayrollCategory === 'crew';
+
+    const minWidth = useMemo(() => {
+        if (showOfficeColumns) {
+            return 'min-w-[1680px]';
+        }
+
+        if (showCrewColumns) {
+            return 'min-w-[1520px]';
+        }
+
+        return 'min-w-[1280px]';
+    }, [showCrewColumns, showOfficeColumns]);
+
+    const backContext = useMemo(
+        () => ({
+            from: 'index' as const,
+            search: initialSearch,
+            lifecycle: initialLifecycle,
+            status: initialStatus,
+            payroll_category: initialPayrollCategory,
+            page: pagination.current_page,
+        }),
+        [
+            initialLifecycle,
+            initialPayrollCategory,
+            initialSearch,
+            initialStatus,
+            pagination.current_page,
+        ],
+    );
+
+    return (
+        <Main>
+            <PageHeader title="Contracts" />
+
+            <ContractsSummaryCards
+                summary={summary}
+                activeLifecycle={initialLifecycle}
+                onSelect={onLifecycleChange}
+            />
+
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <SearchBar
+                    value={searchInput}
+                    onChange={onSearchChange}
+                    placeholder="Search employee or labor contract ID..."
+                    className="max-w-md"
+                />
+
+                <div className="flex flex-wrap items-center gap-2">
+                    {isSearching ? (
+                        <Loader2
+                            className="size-4 animate-spin text-muted-foreground"
+                            aria-hidden
+                        />
+                    ) : null}
+                    {(['', 'office', 'crew'] as const).map((value) => {
+                        const label =
+                            value === ''
+                                ? 'All categories'
+                                : value === 'office'
+                                  ? 'Office'
+                                  : 'Crew';
+                        const isActive = initialPayrollCategory === value;
+
+                        return (
+                            <Button
+                                key={value || 'all'}
+                                type="button"
+                                size="sm"
+                                variant={isActive ? 'default' : 'outline'}
+                                className={cn(
+                                    'h-8',
+                                    !isActive && 'bg-transparent',
+                                )}
+                                onClick={() => onPayrollCategoryChange(value)}
+                            >
+                                {label}
+                            </Button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {contractRows.length === 0 ? (
+                <EmptyState
+                    title="No contracts found"
+                    description="Try adjusting your search or lifecycle filters."
+                />
+            ) : (
+                <div className="space-y-4">
+                    <OrganizationDataTable minWidth={minWidth} compact>
+                        <TableHeader>
+                            <DataTableHeaderRow>
+                                <DataTableHead>Employee</DataTableHead>
+                                <DataTableHead>Type</DataTableHead>
+                                <DataTableHead>Payroll category</DataTableHead>
+                                <DataTableHead>Status</DataTableHead>
+                                <DataTableHead>Start</DataTableHead>
+                                <DataTableHead>End</DataTableHead>
+                                <DataTableHead>Basic salary</DataTableHead>
+                                {showOfficeColumns ? (
+                                    <>
+                                        <DataTableHead>Housing</DataTableHead>
+                                        <DataTableHead>Transport</DataTableHead>
+                                        <DataTableHead>
+                                            Other allowances
+                                        </DataTableHead>
+                                    </>
+                                ) : null}
+                                {showCrewColumns ? (
+                                    <>
+                                        <DataTableHead>
+                                            Supplementary
+                                        </DataTableHead>
+                                        <DataTableHead>
+                                            Site allowance
+                                        </DataTableHead>
+                                    </>
+                                ) : null}
+                                <DataTableHead>Profile template</DataTableHead>
+                            </DataTableHeaderRow>
+                        </TableHeader>
+                        <TableBody>
+                            {contractRows.map((contract) => (
+                                <ContractsTableRow
+                                    key={contract.id}
+                                    contract={contract}
+                                    browseHref={buildContractEmployeeUrl(
+                                        contract.employee_id,
+                                        backContext,
+                                    )}
+                                    showOfficeColumns={showOfficeColumns}
+                                    showCrewColumns={showCrewColumns}
+                                />
+                            ))}
+                        </TableBody>
+                    </OrganizationDataTable>
+
+                    {pagination.last_page > 1 ? (
+                        <Pagination
+                            currentPage={pagination.current_page}
+                            lastPage={pagination.last_page}
+                            from={pagination.from}
+                            to={pagination.to}
+                            total={pagination.total}
+                            perPage={pagination.per_page}
+                            onPageChange={onPageChange}
+                            label="contracts"
+                        />
+                    ) : null}
+                </div>
+            )}
+        </Main>
+    );
+}

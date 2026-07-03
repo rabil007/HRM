@@ -35,7 +35,7 @@ test('contracts linked to pay runs cannot be deleted', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
-    grantCompanyPermissions($user, $company, ['employees.contracts.manage']);
+    grantCompanyPermissions($user, $company, ['contracts.delete']);
 
     $employee = Employee::factory()->forCompany($company)->create();
     $contract = EmployeeContract::factory()->create([

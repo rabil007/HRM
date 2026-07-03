@@ -27,7 +27,6 @@ import { actions } from '@/lib/design-system';
 import { CreateEmployeeUserDialog } from '@/pages/organization/_components/create-employee-user-dialog';
 import { EmployeeDocumentsTab } from '@/pages/organization/_components/documents/employee-documents-tab';
 import { EmployeeBankTab } from '@/pages/organization/_components/employee-bank-tab';
-import { EmployeeContractTab } from '@/pages/organization/_components/employee-contract-tab';
 import { EmployeeEducationTab } from '@/pages/organization/_components/employee-education-tab';
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
 import { EmployeeLanguagesTab } from '@/pages/organization/_components/employee-languages-tab';
@@ -47,6 +46,7 @@ import type {
     EmployeeTab,
 } from '@/pages/organization/employee-page.types';
 import { employee as employeeDocumentsBrowse } from '@/routes/organization/documents';
+import { employee as employeeContractsBrowse } from '@/routes/organization/contracts';
 
 const EMPLOYEE_PAGE_TAB_HASH_KEYS: Partial<Record<string, EmployeeTab>> = {
     '#documents': 'documents',
@@ -78,7 +78,7 @@ function EmployeeDetailsPage({
     profile_templates = [],
     selected_profile_template_id = null,
     employee,
-    contracts,
+    contract_count,
     documents,
     education_qualifications,
     work_experiences,
@@ -162,7 +162,7 @@ function EmployeeDetailsPage({
     const canUpdate = isCreateMode
         ? true
         : (auth?.permissions ?? []).includes('employees.update');
-    const recordsLoading = !isCreateMode && contracts === undefined;
+    const recordsLoading = !isCreateMode && documents === undefined;
 
     void branches;
     void departments;
@@ -252,10 +252,6 @@ function EmployeeDetailsPage({
             buildEmployeeProfileTabs({
                 employee_tabs,
                 counts: {
-                    contracts:
-                        contracts === undefined
-                            ? null
-                            : contracts.length || null,
                     bank_accounts:
                         bank_accounts === undefined
                             ? null
@@ -294,7 +290,6 @@ function EmployeeDetailsPage({
             }),
         [
             employee_tabs,
-            contracts,
             documents,
             education_qualifications,
             bank_accounts,
@@ -584,6 +579,19 @@ function EmployeeDetailsPage({
                                         employee: localEmployee.id as number,
                                     },
                                 )}
+                                showContractsButton={
+                                    (can?.contracts_view ?? false) &&
+                                    !isCreateMode &&
+                                    localEmployee.id !== null
+                                }
+                                contractCount={contract_count ?? null}
+                                contractsBrowseUrl={
+                                    localEmployee.id
+                                        ? employeeContractsBrowse.url({
+                                              employee: localEmployee.id,
+                                          })
+                                        : undefined
+                                }
                                 showCreateUserButton={canCreateUser}
                                 onCreateUser={() => setCreateUserOpen(true)}
                                 linkedUser={linkedUser}
@@ -659,30 +667,6 @@ function EmployeeDetailsPage({
                                     }
                                     isMissingRequired={isMissingRequired}
                                 />
-                            ) : null}
-                            {employee_tabs.contract &&
-                            activeTab === 'contract' ? (
-                                recordsLoading ? (
-                                    <EmployeeTabSkeleton />
-                                ) : (
-                                    <EmployeeContractTab
-                                        employeeId={effectiveEmployeeId}
-                                        contracts={contracts ?? []}
-                                        canManage={
-                                            can?.contracts_manage ?? false
-                                        }
-                                        ensureEmployee={
-                                            isCreateMode
-                                                ? ensureEmployee
-                                                : undefined
-                                        }
-                                        templateContractFields={resolveTemplateTableFields(
-                                            employee_tabs.template_fields,
-                                            resolved_template?.fields,
-                                            'employee_contracts',
-                                        )}
-                                    />
-                                )
                             ) : null}
                             {employee_tabs.bank && activeTab === 'bank' ? (
                                 recordsLoading ? (

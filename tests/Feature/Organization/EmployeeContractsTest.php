@@ -67,7 +67,7 @@ test('users without permission cannot manage employee contracts', function () {
     ])->assertForbidden();
 });
 
-test('employee show page includes contracts', function () {
+test('employee show page includes contract count but not contracts tab data', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -96,13 +96,12 @@ test('employee show page includes contracts', function () {
         'status' => 'active',
     ]);
 
-    $employee = Employee::factory()
-        ->forCompany($company)
-        ->create([
-            'employee_no' => 'EMP-C02',
-            'name' => 'Show Contracts',
-            'status' => 'active',
-        ]);
+    $employee = Employee::query()->create([
+        'company_id' => $company->id,
+        'employee_no' => 'EMP-C02',
+        'name' => 'Show Contracts',
+        'status' => 'active',
+    ]);
 
     EmployeeContract::query()->create([
         'company_id' => $company->id,
@@ -115,23 +114,16 @@ test('employee show page includes contracts', function () {
         'status' => 'ended',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'contracts.view']);
 
     $this->get(route('organization.employees.show', $employee))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => assertEmployeeProfileRecords(
-            $page->component('organization/employee'),
-            fn (Assert $page) => $page
-                ->has('contracts')
-                ->where(
-                    'contracts',
-                    fn ($contracts) => collect($contracts)->contains(
-                        fn ($row) => $row['contract_type'] === 'limited'
-                            && $row['status'] === 'ended'
-                            && $row['payroll_category'] === 'crew',
-                    ),
-                ),
-        ));
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employee')
+            ->where('contract_count', 1)
+            ->where('employee_tabs.contract', false)
+            ->missing('contracts')
+            ->where('can.contracts_view', true));
 });
 
 test('users with permission can add update and delete contracts', function () {
@@ -171,7 +163,12 @@ test('users with permission can add update and delete contracts', function () {
             'status' => 'active',
         ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.contracts.manage']);
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'contracts.create',
+        'contracts.update',
+        'contracts.delete',
+    ]);
 
     $this->post(route('organization.employees.contracts.store', $employee), [
         'contract_type' => 'unlimited',
@@ -268,7 +265,7 @@ test('activating a contract ends other active contracts for the employee', funct
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.contracts.manage']);
+    grantCompanyPermissions($user, $company, ['contracts.create']);
 
     $this->post(route('organization.employees.contracts.store', $employee), [
         'contract_type' => 'limited',
@@ -316,7 +313,7 @@ test('contract store rejects invalid salary and end date with validation errors'
             'status' => 'active',
         ]);
 
-    grantCompanyPermissions($user, $company, ['employees.contracts.manage']);
+    grantCompanyPermissions($user, $company, ['contracts.create']);
 
     $this->from(route('organization.employees.show', $employee))
         ->post(route('organization.employees.contracts.store', $employee), [
@@ -366,7 +363,7 @@ test('contract store persists supplementary and site allowances', function () {
             'status' => 'active',
         ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.contracts.manage']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'contracts.create']);
 
     $this->post(route('organization.employees.contracts.store', $employee), [
         'contract_type' => 'unlimited',
@@ -427,7 +424,7 @@ test('contract store persists payroll_category correctly')
             'status' => 'active',
         ]);
 
-        grantCompanyPermissions($user, $company, ['employees.view', 'employees.contracts.manage']);
+        grantCompanyPermissions($user, $company, ['employees.view', 'contracts.create']);
 
         $this->post(route('organization.employees.contracts.store', $employee), [
             'contract_type' => 'unlimited',
@@ -481,7 +478,7 @@ test('contract store syncs salary components from legacy columns', function () {
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.contracts.manage']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'contracts.create']);
 
     $this->post(route('organization.employees.contracts.store', $employee), [
         'contract_type' => 'unlimited',

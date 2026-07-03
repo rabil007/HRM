@@ -25,7 +25,6 @@ use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
 use App\Support\Employees\ResolveEmployeeNavigation;
-use App\Support\Employees\Resources\EmployeeContractResource;
 use App\Support\Employees\Resources\EmployeeDetailResource;
 use App\Support\Employees\Resources\EmployeeDocumentResource;
 use Illuminate\Http\Request;
@@ -107,8 +106,8 @@ final class EmployeeProfilePageData
                 'documents_download' => $authUser?->can('documents.download'),
                 'documents_upload' => $authUser?->can('documents.upload'),
                 'documents_delete' => $authUser?->can('documents.delete'),
+                'contracts_view' => $authUser?->can('contracts.view'),
                 'education_manage' => $authUser?->can('employees.education.manage'),
-                'contracts_manage' => $authUser?->can('employees.contracts.manage'),
                 'work_experience_manage' => $authUser?->can('employees.work_experience.manage'),
                 'vaccination_manage' => $authUser?->can('employees.vaccination.manage'),
                 'languages_manage' => $authUser?->can('employees.languages.manage'),
@@ -131,10 +130,7 @@ final class EmployeeProfilePageData
             'ranks' => $profileLookups['ranks'],
             'projects' => $profileLookups['projects'],
             'employee_tabs' => $employeeTabsPayload,
-            'contracts' => Inertia::defer(
-                fn () => self::contracts($companyId, $employee->id),
-                self::DEFER_GROUP,
-            ),
+            'contract_count' => self::contractCount($companyId, $employee->id),
             'documents' => Inertia::defer(
                 fn () => self::documents($companyId, $employee->id),
                 self::DEFER_GROUP,
@@ -202,7 +198,7 @@ final class EmployeeProfilePageData
                 ? EmployeeProfileTemplateResolver::resolve($employee->employeeProfileTemplate)
                 : EmployeeProfileTemplateResolver::defaults());
 
-        $employeeTabsPayload = self::applyDocumentsPermission($resolved['employee_tabs'], $authUser);
+        $employeeTabsPayload = self::applyModuleTabPermissions($resolved['employee_tabs'], $authUser);
 
         $profileTemplates = self::activeProfileTemplates($companyId);
 
@@ -246,7 +242,7 @@ final class EmployeeProfilePageData
             'ranks' => $profileLookups['ranks'],
             'projects' => $profileLookups['projects'],
             'employee_tabs' => $employeeTabsPayload,
-            'contracts' => $employeeId ? self::contracts($companyId, $employeeId) : [],
+            'contract_count' => $employeeId ? self::contractCount($companyId, $employeeId) : 0,
             'documents' => $employeeId ? self::documents($companyId, $employeeId) : [],
             'education_qualifications' => $employeeId ? self::educationQualifications($companyId, $employeeId) : [],
             'work_experiences' => $employeeId ? self::workExperiences($companyId, $employeeId) : [],
@@ -315,7 +311,7 @@ final class EmployeeProfilePageData
             'documents_upload' => $authUser?->can('documents.upload') ?? false,
             'documents_delete' => $authUser?->can('documents.delete') ?? false,
             'education_manage' => $authUser?->can('employees.education.manage') ?? false,
-            'contracts_manage' => $authUser?->can('employees.contracts.manage') ?? false,
+            'contracts_view' => $authUser?->can('contracts.view') ?? false,
             'work_experience_manage' => $authUser?->can('employees.work_experience.manage') ?? false,
             'vaccination_manage' => $authUser?->can('employees.vaccination.manage') ?? false,
             'languages_manage' => $authUser?->can('employees.languages.manage') ?? false,
@@ -341,10 +337,11 @@ final class EmployeeProfilePageData
      * @param  array<string, mixed>  $employeeTabsPayload
      * @return array<string, mixed>
      */
-    private static function applyDocumentsPermission(array $employeeTabsPayload, ?User $authUser): array
+    private static function applyModuleTabPermissions(array $employeeTabsPayload, ?User $authUser): array
     {
         $employeeTabsPayload['documents'] = ($employeeTabsPayload['documents'] ?? false)
             && ($authUser?->can('documents.view') ?? false);
+        $employeeTabsPayload['contract'] = false;
 
         return $employeeTabsPayload;
     }
@@ -356,22 +353,15 @@ final class EmployeeProfilePageData
     {
         $resolved = EmployeeProfileTemplateResolver::resolve($employee->employeeProfileTemplate);
 
-        return self::applyDocumentsPermission($resolved['employee_tabs'], $authUser);
+        return self::applyModuleTabPermissions($resolved['employee_tabs'], $authUser);
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private static function contracts(int $companyId, int $employeeId): array
+    private static function contractCount(int $companyId, int $employeeId): int
     {
         return EmployeeContract::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employeeId)
-            ->orderByDesc('start_date')
-            ->orderByDesc('id')
-            ->get()
-            ->map(fn (EmployeeContract $row) => EmployeeContractResource::toArray($row))
-            ->all();
+            ->count();
     }
 
     /**

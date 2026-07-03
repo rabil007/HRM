@@ -4,6 +4,7 @@ import {
     CalendarDays,
     ChevronLeft,
     ChevronRight,
+    FileSignature,
     FileText,
     Printer,
     ScrollText,
@@ -185,6 +186,9 @@ export function EmployeeProfileActionBar({
     showDocumentsButton = false,
     documentCount,
     documentsBrowseUrl,
+    showContractsButton = false,
+    contractCount,
+    contractsBrowseUrl,
     showCreateUserButton = false,
     onCreateUser,
     linkedUser = null,
@@ -200,6 +204,9 @@ export function EmployeeProfileActionBar({
     showDocumentsButton?: boolean;
     documentCount?: number | null;
     documentsBrowseUrl?: string;
+    showContractsButton?: boolean;
+    contractCount?: number | null;
+    contractsBrowseUrl?: string;
     showCreateUserButton?: boolean;
     onCreateUser?: () => void;
     linkedUser?: {
@@ -270,6 +277,25 @@ export function EmployeeProfileActionBar({
                             href={documentsBrowseUrl}
                             iconColor="text-sky-500"
                             iconBg="bg-sky-500/10"
+                        />
+                    </>
+                ) : null}
+
+                {showContractsButton && contractsBrowseUrl ? (
+                    <>
+                        <div className="h-5 w-px bg-border/60" />
+                        <SmartButton
+                            icon={FileSignature}
+                            label="Contracts"
+                            stat={
+                                contractCount === null ||
+                                contractCount === undefined
+                                    ? null
+                                    : contractCount
+                            }
+                            href={contractsBrowseUrl}
+                            iconColor="text-indigo-500"
+                            iconBg="bg-indigo-500/10"
                         />
                     </>
                 ) : null}

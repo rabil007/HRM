@@ -13,6 +13,7 @@ import {
     Settings,
     BriefcaseBusiness,
     FileText,
+    FileSignature,
     IdCard,
     BadgeCheck,
     Activity,
@@ -29,7 +30,7 @@ import {
 } from 'lucide-react';
 import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import { dashboard } from '@/routes';
-import { documents } from '@/routes/organization';
+import { contracts, documents } from '@/routes/organization';
 import type { SidebarData } from '../types';
 
 const placeholder = (key: string) =>
@@ -109,6 +110,7 @@ const baseSidebarData: SidebarData = {
                     icon: Users,
                 },
                 { title: 'Documents', url: documents.url(), icon: FileText },
+                { title: 'Contracts', url: contracts.url(), icon: FileSignature },
             ],
         },
         {
@@ -364,6 +366,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 : null;
                         case documents.url():
                             return has(permissions, 'documents.view')
+                                ? item
+                                : null;
+                        case contracts.url():
+                            return has(permissions, 'contracts.view')
                                 ? item
                                 : null;
                         case '/organization/roles':

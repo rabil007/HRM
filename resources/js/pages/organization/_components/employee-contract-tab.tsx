@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { TabsContent } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
@@ -122,7 +121,9 @@ function RequiredIndicator({ show }: { show: boolean }): ReactElement | null {
 export type EmployeeContractTabProps = {
     employeeId: number | null;
     contracts: EmployeeContractDetails[];
-    canManage: boolean;
+    canCreate: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
     ensureEmployee?: () => Promise<number>;
     templateContractFields?: Record<string, TemplateFieldConfig> | null;
 };
@@ -230,10 +231,13 @@ function contractStatusClass(status: string | null | undefined): string {
 export function EmployeeContractTab({
     employeeId,
     contracts,
-    canManage,
+    canCreate,
+    canUpdate,
+    canDelete,
     ensureEmployee,
     templateContractFields = null,
 }: EmployeeContractTabProps): ReactElement {
+    const canMutateContracts = canCreate || canUpdate || canDelete;
     const showField = useMemo(
         () => createTemplateFieldVisibility(templateContractFields),
         [templateContractFields],
@@ -480,14 +484,14 @@ export function EmployeeContractTab({
     };
 
     return (
-        <TabsContent value="contract" className="mt-6">
+        <div>
             <EmployeeRecordsPanel
                 title="Contracts"
                 count={contracts.length}
                 isEmpty={contracts.length === 0}
                 emptyMessage="No contracts recorded yet."
                 actions={
-                    canManage ? (
+                    canCreate ? (
                         <Button
                             size="sm"
                             className="h-8 gap-1.5 text-xs"
@@ -568,7 +572,7 @@ export function EmployeeContractTab({
                                     Note
                                 </th>
                             ) : null}
-                            {canManage ? (
+                            {canMutateContracts ? (
                                 <EmployeeRecordsActionsHeader />
                             ) : null}
                         </tr>
@@ -729,7 +733,7 @@ export function EmployeeContractTab({
                                         </span>
                                     </td>
                                 ) : null}
-                                {canManage ? (
+                                {canMutateContracts ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
@@ -737,9 +741,18 @@ export function EmployeeContractTab({
                                         )}
                                     >
                                         <EmployeeRecordRowActions
-                                            onEdit={() => openEditDialog(row)}
-                                            onDelete={() =>
-                                                setDeleteContractId(row.id)
+                                            onEdit={
+                                                canUpdate
+                                                    ? () => openEditDialog(row)
+                                                    : undefined
+                                            }
+                                            onDelete={
+                                                canDelete
+                                                    ? () =>
+                                                          setDeleteContractId(
+                                                              row.id,
+                                                          )
+                                                    : undefined
                                             }
                                         />
                                     </td>
@@ -1541,6 +1554,6 @@ export function EmployeeContractTab({
                 }
                 reloadOptions={CONTRACTS_RELOAD}
             />
-        </TabsContent>
+        </div>
     );
 }
