@@ -67,7 +67,7 @@ test('users without permission cannot manage employee contracts', function () {
     ])->assertForbidden();
 });
 
-test('employee show page includes contract count but not contracts tab data', function () {
+test('employee show page includes contracts tab data when user can view contracts', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -121,9 +121,12 @@ test('employee show page includes contract count but not contracts tab data', fu
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/employee')
             ->where('contract_count', 1)
-            ->where('employee_tabs.contract', false)
-            ->missing('contracts')
-            ->where('can.contracts_view', true));
+            ->where('employee_tabs.contract', true)
+            ->where('can.contracts_view', true)
+            ->tap(fn (Assert $page) => assertEmployeeProfileRecords(
+                $page,
+                fn (Assert $deferred) => $deferred->has('contracts', 1),
+            )));
 });
 
 test('users with permission can add update and delete contracts', function () {

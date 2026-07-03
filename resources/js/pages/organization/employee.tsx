@@ -27,6 +27,7 @@ import { actions } from '@/lib/design-system';
 import { CreateEmployeeUserDialog } from '@/pages/organization/_components/create-employee-user-dialog';
 import { EmployeeDocumentsTab } from '@/pages/organization/_components/documents/employee-documents-tab';
 import { EmployeeBankTab } from '@/pages/organization/_components/employee-bank-tab';
+import { EmployeeContractTab } from '@/pages/organization/_components/employee-contract-tab';
 import { EmployeeEducationTab } from '@/pages/organization/_components/employee-education-tab';
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
 import { EmployeeLanguagesTab } from '@/pages/organization/_components/employee-languages-tab';
@@ -49,6 +50,7 @@ import { employee as employeeDocumentsBrowse } from '@/routes/organization/docum
 import { employee as employeeContractsBrowse } from '@/routes/organization/contracts';
 
 const EMPLOYEE_PAGE_TAB_HASH_KEYS: Partial<Record<string, EmployeeTab>> = {
+    '#contract': 'contract',
     '#documents': 'documents',
     '#education': 'education',
     '#work-experience': 'work_experience',
@@ -79,6 +81,7 @@ function EmployeeDetailsPage({
     selected_profile_template_id = null,
     employee,
     contract_count,
+    contracts,
     documents,
     education_qualifications,
     work_experiences,
@@ -162,7 +165,7 @@ function EmployeeDetailsPage({
     const canUpdate = isCreateMode
         ? true
         : (auth?.permissions ?? []).includes('employees.update');
-    const recordsLoading = !isCreateMode && documents === undefined;
+    const recordsLoading = !isCreateMode && contracts === undefined;
 
     void branches;
     void departments;
@@ -247,11 +250,14 @@ function EmployeeDetailsPage({
 
     const effectiveEmployeeId = localEmployee.id ?? null;
 
-    const tabs = useMemo(
-        () =>
-            buildEmployeeProfileTabs({
+    const tabs = useMemo(() => {
+        const builtTabs = buildEmployeeProfileTabs({
                 employee_tabs,
                 counts: {
+                    contracts:
+                        contracts === undefined
+                            ? null
+                            : contracts.length || null,
                     bank_accounts:
                         bank_accounts === undefined
                             ? null
@@ -287,21 +293,56 @@ function EmployeeDetailsPage({
                             ? null
                             : documents.length || null,
                 },
-            }),
-        [
-            employee_tabs,
-            documents,
-            education_qualifications,
-            bank_accounts,
-            localEmployee.bank_id,
-            localEmployee.iban,
-            languages,
-            trainings,
-            sea_services,
-            vaccinations,
-            work_experiences,
-        ],
-    );
+            });
+
+        // #region agent log
+        fetch(
+            'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Debug-Session-Id': '400853',
+                },
+                body: JSON.stringify({
+                    sessionId: '400853',
+                    runId: 'post-fix',
+                    hypothesisId: 'H2',
+                    location: 'employee.tsx:tabs',
+                    message: 'Employee profile tabs built',
+                    data: {
+                        tab_ids: builtTabs.map((tab) => tab.id),
+                        employee_tabs_contract: employee_tabs.contract,
+                        contracts_view: can?.contracts_view ?? false,
+                        has_contract_tab: builtTabs.some(
+                            (tab) => tab.id === 'contract',
+                        ),
+                    },
+                    timestamp: Date.now(),
+                }),
+            },
+        ).catch(() => {});
+        // #endregion
+
+        return builtTabs;
+    }, [
+        employee_tabs,
+        contracts,
+        documents,
+        education_qualifications,
+        bank_accounts,
+        localEmployee.bank_id,
+        localEmployee.iban,
+        localEmployee.id,
+        languages,
+        trainings,
+        sea_services,
+        vaccinations,
+        work_experiences,
+        can?.contracts_view,
+        contract_count,
+        isCreateMode,
+    ]);
 
     const activeTab = useMemo((): EmployeeTab => {
         if (tabs.some((t) => t.id === tabValue)) {
@@ -667,6 +708,36 @@ function EmployeeDetailsPage({
                                     }
                                     isMissingRequired={isMissingRequired}
                                 />
+                            ) : null}
+                            {employee_tabs.contract &&
+                            activeTab === 'contract' ? (
+                                recordsLoading ? (
+                                    <EmployeeTabSkeleton />
+                                ) : (
+                                    <EmployeeContractTab
+                                        employeeId={effectiveEmployeeId}
+                                        contracts={contracts ?? []}
+                                        canCreate={
+                                            can?.contracts_create ?? false
+                                        }
+                                        canUpdate={
+                                            can?.contracts_update ?? false
+                                        }
+                                        canDelete={
+                                            can?.contracts_delete ?? false
+                                        }
+                                        ensureEmployee={
+                                            isCreateMode
+                                                ? ensureEmployee
+                                                : undefined
+                                        }
+                                        templateContractFields={resolveTemplateTableFields(
+                                            employee_tabs.template_fields,
+                                            resolved_template?.fields,
+                                            'employee_contracts',
+                                        )}
+                                    />
+                                )
                             ) : null}
                             {employee_tabs.bank && activeTab === 'bank' ? (
                                 recordsLoading ? (

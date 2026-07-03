@@ -25,6 +25,7 @@ use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
 use App\Support\Employees\ResolveEmployeeNavigation;
+use App\Support\Employees\Resources\EmployeeContractResource;
 use App\Support\Employees\Resources\EmployeeDetailResource;
 use App\Support\Employees\Resources\EmployeeDocumentResource;
 use Illuminate\Http\Request;
@@ -107,6 +108,9 @@ final class EmployeeProfilePageData
                 'documents_upload' => $authUser?->can('documents.upload'),
                 'documents_delete' => $authUser?->can('documents.delete'),
                 'contracts_view' => $authUser?->can('contracts.view'),
+                'contracts_create' => $authUser?->can('contracts.create'),
+                'contracts_update' => $authUser?->can('contracts.update'),
+                'contracts_delete' => $authUser?->can('contracts.delete'),
                 'education_manage' => $authUser?->can('employees.education.manage'),
                 'work_experience_manage' => $authUser?->can('employees.work_experience.manage'),
                 'vaccination_manage' => $authUser?->can('employees.vaccination.manage'),
@@ -131,6 +135,10 @@ final class EmployeeProfilePageData
             'projects' => $profileLookups['projects'],
             'employee_tabs' => $employeeTabsPayload,
             'contract_count' => self::contractCount($companyId, $employee->id),
+            'contracts' => Inertia::defer(
+                fn () => self::contracts($companyId, $employee->id),
+                self::DEFER_GROUP,
+            ),
             'documents' => Inertia::defer(
                 fn () => self::documents($companyId, $employee->id),
                 self::DEFER_GROUP,
@@ -243,6 +251,7 @@ final class EmployeeProfilePageData
             'projects' => $profileLookups['projects'],
             'employee_tabs' => $employeeTabsPayload,
             'contract_count' => $employeeId ? self::contractCount($companyId, $employeeId) : 0,
+            'contracts' => $employeeId ? self::contracts($companyId, $employeeId) : [],
             'documents' => $employeeId ? self::documents($companyId, $employeeId) : [],
             'education_qualifications' => $employeeId ? self::educationQualifications($companyId, $employeeId) : [],
             'work_experiences' => $employeeId ? self::workExperiences($companyId, $employeeId) : [],
@@ -312,6 +321,9 @@ final class EmployeeProfilePageData
             'documents_delete' => $authUser?->can('documents.delete') ?? false,
             'education_manage' => $authUser?->can('employees.education.manage') ?? false,
             'contracts_view' => $authUser?->can('contracts.view') ?? false,
+            'contracts_create' => $authUser?->can('contracts.create') ?? false,
+            'contracts_update' => $authUser?->can('contracts.update') ?? false,
+            'contracts_delete' => $authUser?->can('contracts.delete') ?? false,
             'work_experience_manage' => $authUser?->can('employees.work_experience.manage') ?? false,
             'vaccination_manage' => $authUser?->can('employees.vaccination.manage') ?? false,
             'languages_manage' => $authUser?->can('employees.languages.manage') ?? false,
@@ -339,9 +351,35 @@ final class EmployeeProfilePageData
      */
     private static function applyModuleTabPermissions(array $employeeTabsPayload, ?User $authUser): array
     {
+        // #region agent log
+        $templateContractTab = $employeeTabsPayload['contract'] ?? null;
+        // #endregion
+
         $employeeTabsPayload['documents'] = ($employeeTabsPayload['documents'] ?? false)
             && ($authUser?->can('documents.view') ?? false);
-        $employeeTabsPayload['contract'] = false;
+        $employeeTabsPayload['contract'] = ($employeeTabsPayload['contract'] ?? false)
+            && ($authUser?->can('contracts.view') ?? false);
+
+        // #region agent log
+        file_put_contents(
+            base_path('.cursor/debug-400853.log'),
+            json_encode([
+                'sessionId' => '400853',
+                'runId' => 'post-fix',
+                'hypothesisId' => 'H1',
+                'location' => 'EmployeeProfilePageData.php:applyModuleTabPermissions',
+                'message' => 'Contract tab visibility resolved',
+                'data' => [
+                    'template_contract_tab' => $templateContractTab,
+                    'final_contract_tab' => $employeeTabsPayload['contract'],
+                    'contracts_view' => $authUser?->can('contracts.view') ?? false,
+                    'documents_view' => $authUser?->can('documents.view') ?? false,
+                ],
+                'timestamp' => (int) round(microtime(true) * 1000),
+            ]).PHP_EOL,
+            FILE_APPEND
+        );
+        // #endregion
 
         return $employeeTabsPayload;
     }
@@ -362,6 +400,21 @@ final class EmployeeProfilePageData
             ->where('company_id', $companyId)
             ->where('employee_id', $employeeId)
             ->count();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function contracts(int $companyId, int $employeeId): array
+    {
+        return EmployeeContract::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employeeId)
+            ->orderByDesc('start_date')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (EmployeeContract $row) => EmployeeContractResource::toArray($row))
+            ->all();
     }
 
     /**

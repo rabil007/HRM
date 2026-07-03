@@ -316,6 +316,7 @@ export type EmployeePageProps = {
     selected_profile_template_id?: number | null;
     employee: EmployeeDetails;
     contract_count?: number;
+    contracts?: EmployeeContractDetails[];
     documents?: EmployeeDocumentItem[];
     education_qualifications?: EducationQualificationItem[];
     work_experiences?: WorkExperienceItem[];
@@ -336,6 +337,9 @@ export type EmployeePageProps = {
         documents_delete: boolean;
         education_manage: boolean;
         contracts_view: boolean;
+        contracts_create: boolean;
+        contracts_update: boolean;
+        contracts_delete: boolean;
         work_experience_manage: boolean;
         vaccination_manage: boolean;
         languages_manage: boolean;
