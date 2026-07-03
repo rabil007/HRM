@@ -30,6 +30,49 @@ function statusBadgeClass(status: string | null | undefined): string {
     }
 }
 
+function getDaysRemaining(endDate: string | null): number | null {
+    if (!endDate) {
+        return null;
+    }
+    const end = new Date(endDate);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return diff;
+}
+
+function DaysRemainingBadge({ endDate, status }: { endDate: string | null; status: string | null }) {
+    if (status !== 'active' || !endDate) {
+        return null;
+    }
+    const days = getDaysRemaining(endDate);
+    if (days === null || days > 90) {
+        return null;
+    }
+
+    let className: string;
+    let label: string;
+    if (days <= 0) {
+        return null;
+    } else if (days <= 30) {
+        className = 'border-sky-500/30 bg-sky-500/10 text-sky-400';
+        label = `${days}d left`;
+    } else if (days <= 60) {
+        className = 'border-amber-500/30 bg-amber-500/10 text-amber-400';
+        label = `${days}d left`;
+    } else {
+        className = 'border-orange-500/30 bg-orange-500/10 text-orange-400';
+        label = `${days}d left`;
+    }
+
+    return (
+        <Badge variant="outline" className={cn('ml-1.5 font-normal text-[10px] px-1.5 py-0', className)}>
+            {label}
+        </Badge>
+    );
+}
+
 export function ContractsTableRow({
     contract,
     browseHref,
@@ -72,15 +115,21 @@ export function ContractsTableRow({
                 {formatPayrollCategory(contract.payroll_category)}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
-                <Badge
-                    variant="outline"
-                    className={cn(
-                        'font-normal',
-                        statusBadgeClass(contract.status),
-                    )}
-                >
-                    {formatContractStatus(contract.status)}
-                </Badge>
+                <div className="flex items-center">
+                    <Badge
+                        variant="outline"
+                        className={cn(
+                            'font-normal',
+                            statusBadgeClass(contract.status),
+                        )}
+                    >
+                        {formatContractStatus(contract.status)}
+                    </Badge>
+                    <DaysRemainingBadge
+                        endDate={contract.end_date}
+                        status={contract.status}
+                    />
+                </div>
             </TableCell>
             <TableCell className={dataTableCellClass()}>
                 {formatDisplayDate(contract.start_date)}

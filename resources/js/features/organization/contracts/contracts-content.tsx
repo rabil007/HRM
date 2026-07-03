@@ -96,38 +96,42 @@ export function ContractsContent({
                     className="max-w-md"
                 />
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-3">
                     {isSearching ? (
                         <Loader2
                             className="size-4 animate-spin text-muted-foreground"
                             aria-hidden
                         />
                     ) : null}
-                    {(['', 'office', 'crew'] as const).map((value) => {
-                        const label =
-                            value === ''
-                                ? 'All categories'
-                                : value === 'office'
-                                  ? 'Office'
-                                  : 'Crew';
-                        const isActive = initialPayrollCategory === value;
+                    <div className="flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
+                        {(['', 'office', 'crew'] as const).map((value) => {
+                            const label =
+                                value === ''
+                                    ? 'All'
+                                    : value === 'office'
+                                      ? 'Office'
+                                      : 'Crew';
+                            const isActive = initialPayrollCategory === value;
 
-                        return (
-                            <Button
-                                key={value || 'all'}
-                                type="button"
-                                size="sm"
-                                variant={isActive ? 'default' : 'outline'}
-                                className={cn(
-                                    'h-8',
-                                    !isActive && 'bg-transparent',
-                                )}
-                                onClick={() => onPayrollCategoryChange(value)}
-                            >
-                                {label}
-                            </Button>
-                        );
-                    })}
+                            return (
+                                <Button
+                                    key={value || 'all'}
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className={cn(
+                                        'h-7 px-3 text-xs font-medium transition-all',
+                                        isActive
+                                            ? 'bg-background text-foreground shadow-sm hover:bg-background'
+                                            : 'text-muted-foreground hover:text-foreground hover:bg-transparent',
+                                    )}
+                                    onClick={() => onPayrollCategoryChange(value)}
+                                >
+                                    {label}
+                                </Button>
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
 
