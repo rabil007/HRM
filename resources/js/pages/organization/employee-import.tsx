@@ -82,8 +82,6 @@ const PRIORITY_FIELDS = [
     'department',
     'position',
     'project',
-    'contract_type',
-    'start_date',
 ];
 
 export default function EmployeeImport({
@@ -706,10 +704,7 @@ export default function EmployeeImport({
                                                       .join(', ')
                                                 : 'employee no, name'}
                                         </strong>
-                                        . If you leave Contract type or Start
-                                        date as &quot;Do not import&quot;, new
-                                        employees get unlimited contract and
-                                        start date today.
+                                        .
                                     </span>
                                     <span className="block text-muted-foreground">
                                         Use exact column names for the cleanest
@@ -952,12 +947,6 @@ export default function EmployeeImport({
                                                         Date of hire
                                                     </th>
                                                     <th className="px-3 py-2">
-                                                        Contract
-                                                    </th>
-                                                    <th className="px-3 py-2">
-                                                        Start date
-                                                    </th>
-                                                    <th className="px-3 py-2">
                                                         Status
                                                     </th>
                                                 </tr>
@@ -998,19 +987,6 @@ export default function EmployeeImport({
                                                                     {formatDisplayDate(
                                                                         stringy(
                                                                             row.hire_date,
-                                                                        ) ||
-                                                                            null,
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-3 py-2 text-muted-foreground">
-                                                                    {stringy(
-                                                                        row.contract_type,
-                                                                    ) || '—'}
-                                                                </td>
-                                                                <td className="px-3 py-2 text-muted-foreground">
-                                                                    {formatDisplayDate(
-                                                                        stringy(
-                                                                            row.start_date,
                                                                         ) ||
                                                                             null,
                                                                     )}

@@ -2,19 +2,16 @@
 
 namespace App\Imports;
 
-use App\Models\Bank;
 use App\Models\Branch;
 use App\Models\Country;
 use App\Models\Department;
 use App\Models\Employee;
-use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeProfileTemplate;
 use App\Models\Gender;
 use App\Models\Position;
 use App\Models\Project;
 use App\Models\Religion;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
-use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -51,23 +48,6 @@ class EmployeesImport
         'passport_number' => ['passport_number', 'passport no', 'passport number', 'passport'],
         'emirates_id' => ['emirates_id', 'emirates id', 'eid'],
         'labor_card_number' => ['labor_card_number', 'labor card', 'labor card number', 'labour card'],
-        'labor_contract_id' => ['labor_contract_id', 'labor contract id', 'labour contract id'],
-        'iban' => ['iban', 'iban number'],
-        'basic_salary' => ['basic_salary', 'basic salary', 'salary'],
-        'housing_allowance' => ['housing_allowance', 'housing allowance', 'housing'],
-        'transport_allowance' => ['transport_allowance', 'transport allowance', 'transport'],
-        'other_allowances' => ['other_allowances', 'other allowances', 'allowances'],
-        'supplementary_allowance' => [
-            'supplementary_allowance',
-            'supplementary allowance',
-            'supplimentary allowance',
-            'supplimentry allowance',
-        ],
-        'site_allowance' => ['site_allowance', 'site allowance'],
-        'note' => ['note', 'contract note', 'contract reason', 'contract change reason'],
-        'start_date' => ['start_date', 'start date', 'joining date', 'date of joining', 'doj', 'contract start'],
-        'end_date' => ['end_date', 'end date', 'termination date'],
-        'contract_type' => ['contract_type', 'contract type', 'contract'],
         'status' => ['status'],
         'branch' => ['branch', 'branch name'],
         'department' => ['department', 'department name', 'dept'],
@@ -76,21 +56,9 @@ class EmployeesImport
         'gender' => ['gender'],
         'religion' => ['religion'],
         'nationality' => ['nationality', 'country'],
-        'bank' => ['bank', 'bank name'],
-        'account_name' => ['account_name', 'account name', 'account holder'],
     ];
 
     public const REQUIRED_FIELDS = ['employee_no', 'name'];
-
-    /**
-     * Import fields that may be omitted from the file; execute() applies defaults.
-     *
-     * @var list<string>
-     */
-    public const IMPORT_DEFAULTABLE_FIELDS = [
-        'contract_type',
-        'start_date',
-    ];
 
     /**
      * Import column => [template table, template field key].
@@ -126,20 +94,6 @@ class EmployeesImport
             'religion' => ['employees', 'religion_id'],
             'nationality' => ['employees', 'nationality_id'],
             'status' => ['employees', 'status'],
-            'contract_type' => ['employee_contracts', 'contract_type'],
-            'start_date' => ['employee_contracts', 'start_date'],
-            'end_date' => ['employee_contracts', 'end_date'],
-            'labor_contract_id' => ['employee_contracts', 'labor_contract_id'],
-            'basic_salary' => ['employee_contracts', 'basic_salary'],
-            'housing_allowance' => ['employee_contracts', 'housing_allowance'],
-            'transport_allowance' => ['employee_contracts', 'transport_allowance'],
-            'other_allowances' => ['employee_contracts', 'other_allowances'],
-            'supplementary_allowance' => ['employee_contracts', 'supplementary_allowance'],
-            'site_allowance' => ['employee_contracts', 'site_allowance'],
-            'note' => ['employee_contracts', 'note'],
-            'bank' => ['employee_bank_accounts', 'bank_id'],
-            'iban' => ['employee_bank_accounts', 'iban'],
-            'account_name' => ['employee_bank_accounts', 'account_name'],
         ];
     }
 
@@ -147,16 +101,6 @@ class EmployeesImport
         'passport_number' => 'employees.identity.import',
         'emirates_id' => 'employees.identity.import',
         'labor_card_number' => 'employees.identity.import',
-        'labor_contract_id' => 'employees.identity.import',
-        'basic_salary' => 'employees.contracts.import',
-        'housing_allowance' => 'employees.contracts.import',
-        'transport_allowance' => 'employees.contracts.import',
-        'other_allowances' => 'employees.contracts.import',
-        'supplementary_allowance' => 'employees.contracts.import',
-        'site_allowance' => 'employees.contracts.import',
-        'bank' => 'employees.bank_accounts.import',
-        'iban' => 'employees.bank_accounts.import',
-        'account_name' => 'employees.bank_accounts.import',
     ];
 
     public const IMPORT_MIME_TYPES = [
@@ -170,19 +114,6 @@ class EmployeesImport
     private const IMPORT_DATE_FIELDS = [
         'date_of_birth',
         'hire_date',
-        'start_date',
-        'end_date',
-    ];
-
-    private const IMPORT_NUMERIC_FIELDS = [
-        'basic_salary',
-        'housing_allowance',
-        'transport_allowance',
-        'other_allowances',
-        'supplementary_allowance',
-        'site_allowance',
-        'supplementary_allowance',
-        'site_allowance',
     ];
 
     public const TEMPLATE_HEADERS = [
@@ -211,20 +142,6 @@ class EmployeesImport
         'gender',
         'religion',
         'nationality',
-        'contract_type',
-        'start_date',
-        'end_date',
-        'labor_contract_id',
-        'basic_salary',
-        'housing_allowance',
-        'transport_allowance',
-        'other_allowances',
-        'supplementary_allowance',
-        'site_allowance',
-        'note',
-        'bank',
-        'iban',
-        'account_name',
         'status',
     ];
 
@@ -262,11 +179,6 @@ class EmployeesImport
      * @var array<string, int>|null
      */
     private ?array $projectMap = null;
-
-    /**
-     * @var array<string, int>|null
-     */
-    private ?array $bankMap = null;
 
     public function __construct(public int $companyId, public int $actorId) {}
 
@@ -507,7 +419,7 @@ class EmployeesImport
     }
 
     /**
-     * Persist employees and optional bank account.
+     * Persist employees from import rows.
      *
      * @param  array<int, array<string, mixed>>  $rows
      * @return array{created: int, failed: array<int, array{row: int, message: string}>}
@@ -520,15 +432,7 @@ class EmployeesImport
         $created = 0;
         $failed = [];
 
-        $importTemplate = $onboardingTemplateId !== null
-            ? EmployeeProfileTemplate::query()->find($onboardingTemplateId)
-            : null;
-        $importTabs = $importTemplate !== null
-            ? EmployeeProfileTemplateResolver::resolve($importTemplate)['tabs']
-            : null;
-        $bankTabVisible = $importTabs === null || (bool) ($importTabs['bank']['visible'] ?? true);
-
-        DB::transaction(function () use ($rows, $existingNos, $onboardingTemplateId, $bankTabVisible, &$created, &$failed) {
+        DB::transaction(function () use ($rows, $existingNos, $onboardingTemplateId, &$created, &$failed) {
             foreach ($rows as $index => $row) {
                 $rowNumber = $index + 2;
                 $no = (string) ($row['employee_no'] ?? '');
@@ -575,21 +479,6 @@ class EmployeesImport
                         'nationality_id' => $resolved['nationality_id'] ?? null,
                         'status' => $row['status'] ?: 'active',
                     ]);
-
-                    $bankId = $resolved['bank_id'] ?? null;
-                    $iban = $row['iban'] ?? null;
-                    $accountName = $row['account_name'] ?? null;
-
-                    if ($bankTabVisible && ($bankId || $iban || $accountName)) {
-                        EmployeeBankAccount::query()->create([
-                            'company_id' => $this->companyId,
-                            'employee_id' => $employee->id,
-                            'bank_id' => $bankId,
-                            'iban' => $iban,
-                            'account_name' => $accountName,
-                            'is_primary' => true,
-                        ]);
-                    }
 
                     $existingNos[] = strtolower($no);
                     $created++;
@@ -643,20 +532,7 @@ class EmployeesImport
             'passport_number' => ['nullable', 'string', 'max:50'],
             'emirates_id' => ['nullable', 'string', 'max:30'],
             'labor_card_number' => ['nullable', 'string', 'max:100'],
-            'start_date' => ['nullable', 'date'],
-            'end_date' => ['nullable', 'date'],
-            'contract_type' => ['nullable', 'in:limited,unlimited,part_time,contract'],
-            'labor_contract_id' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', 'in:active,inactive,on_leave,terminated'],
-            'basic_salary' => ['nullable', 'numeric', 'min:0'],
-            'housing_allowance' => ['nullable', 'numeric', 'min:0'],
-            'transport_allowance' => ['nullable', 'numeric', 'min:0'],
-            'other_allowances' => ['nullable', 'numeric', 'min:0'],
-            'supplementary_allowance' => ['nullable', 'numeric', 'min:0'],
-            'site_allowance' => ['nullable', 'numeric', 'min:0'],
-            'note' => ['nullable', 'string', 'max:2000'],
-            'iban' => ['nullable', 'string', 'max:50'],
-            'account_name' => ['nullable', 'string', 'max:200'],
         ];
 
         if ($template === null) {
@@ -680,33 +556,7 @@ class EmployeesImport
             $rules[$importField] = $adjusted[$fieldKey];
         }
 
-        foreach (self::IMPORT_DEFAULTABLE_FIELDS as $field) {
-            if (($mapping[$field] ?? null) !== null || ! isset($rules[$field])) {
-                continue;
-            }
-
-            $rules[$field] = $this->importRulesAsOptional($rules[$field]);
-        }
-
         return $rules;
-    }
-
-    /**
-     * @param  list<mixed>  $rules
-     * @return list<mixed>
-     */
-    private function importRulesAsOptional(array $rules): array
-    {
-        $filtered = array_values(array_filter(
-            $rules,
-            static fn (mixed $rule): bool => $rule !== 'required',
-        ));
-
-        if (! in_array('nullable', $filtered, true)) {
-            array_unshift($filtered, 'nullable');
-        }
-
-        return $filtered;
     }
 
     private function shapeRow(array $row, array $mapping): array
@@ -725,14 +575,6 @@ class EmployeesImport
                         $value = null;
                     }
                 }
-            } elseif (in_array($field, self::IMPORT_NUMERIC_FIELDS, true)) {
-                if (is_string($value)) {
-                    $value = trim($value);
-
-                    if ($value === '') {
-                        $value = null;
-                    }
-                }
             } else {
                 $value = self::coerceStringCell($value);
             }
@@ -743,8 +585,6 @@ class EmployeesImport
         $shaped = $this->normaliseDateFields($shaped, [
             'date_of_birth',
             'hire_date',
-            'start_date',
-            'end_date',
         ]);
 
         if (isset($shaped['marital_status']) && is_string($shaped['marital_status'])) {
@@ -753,10 +593,6 @@ class EmployeesImport
 
         if (isset($shaped['status']) && is_string($shaped['status'])) {
             $shaped['status'] = strtolower($shaped['status']);
-        }
-
-        if (isset($shaped['contract_type']) && is_string($shaped['contract_type'])) {
-            $shaped['contract_type'] = strtolower(str_replace([' ', '-'], '_', $shaped['contract_type']));
         }
 
         return $shaped;
@@ -781,7 +617,7 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => $this->genderMap, 'religion' => $this->religionMap, 'nationality' => $this->countryMap, 'bank' => $this->bankMap, 'project' => $this->projectMap] as $key => $map) {
+        foreach (['gender' => $this->genderMap, 'religion' => $this->religionMap, 'nationality' => $this->countryMap, 'project' => $this->projectMap] as $key => $map) {
             if (! empty($row[$key])) {
                 $name = self::normalize((string) $row[$key]);
 
@@ -808,7 +644,6 @@ class EmployeesImport
             'gender_id' => null,
             'religion_id' => null,
             'nationality_id' => null,
-            'bank_id' => null,
         ];
 
         foreach (['branch' => 'branch_id', 'department' => 'department_id', 'position' => 'position_id'] as $key => $field) {
@@ -819,14 +654,13 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'bank' => 'bank_id', 'project' => 'project_id'] as $key => $field) {
+        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id'] as $key => $field) {
             if (! empty($row[$key])) {
                 $name = self::normalize((string) $row[$key]);
                 $map = match ($key) {
                     'gender' => $this->genderMap,
                     'religion' => $this->religionMap,
                     'nationality' => $this->countryMap,
-                    'bank' => $this->bankMap,
                     'project' => $this->projectMap,
                     default => [],
                 };
@@ -888,10 +722,6 @@ class EmployeesImport
                 return $carry;
             }, []);
 
-        $this->bankMap = Bank::query()
-            ->pluck('id', 'name')
-            ->mapWithKeys(fn ($id, $name) => [self::normalize((string) $name) => (int) $id])
-            ->all();
     }
 
     /**

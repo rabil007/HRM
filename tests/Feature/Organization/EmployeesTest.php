@@ -1222,10 +1222,10 @@ test('authenticated users can preview and import an employees CSV', function () 
 
     grantCompanyPermissions($user, $company, ['employees.view', 'employees.import']);
 
-    $csv = "employee_no,name,branch,contract_type,start_date\n"
-        ."EMP-IMP-1,Alice Imported,Main Office,unlimited,2026-03-01\n"
-        ."EMP-IMP-2,Bob Imported,Unknown Branch,unlimited,2026-03-02\n"
-        ."EMP-IMP-3,,Main Office,unlimited,2026-03-03\n";
+    $csv = "employee_no,name,branch\n"
+        ."EMP-IMP-1,Alice Imported,Main Office\n"
+        ."EMP-IMP-2,Bob Imported,Unknown Branch\n"
+        ."EMP-IMP-3,,Main Office\n";
 
     $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
 
@@ -1313,8 +1313,8 @@ test('employee import resolves project name when project_id is enabled in templa
 
     grantCompanyPermissions($user, $company, ['employees.view', 'employees.import']);
 
-    $csv = "employee_no,name,project,contract_type,start_date\n"
-        ."EMP-PRJ-1,Project Employee,North Field,unlimited,2026-03-01\n";
+    $csv = "employee_no,name,project\n"
+        ."EMP-PRJ-1,Project Employee,North Field\n";
 
     $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
 
@@ -1416,10 +1416,10 @@ test('employee import rejects files over the row limit', function () {
 
     grantCompanyPermissions($user, $company, ['employees.import']);
 
-    $csv = "employee_no,name,contract_type,start_date\n";
+    $csv = "employee_no,name\n";
 
     foreach (range(1, 1001) as $index) {
-        $csv .= "EMP-LIMIT-{$index},Limit Row,unlimited,2026-03-01\n";
+        $csv .= "EMP-LIMIT-{$index},Limit Row\n";
     }
 
     $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
@@ -1470,14 +1470,13 @@ test('employee import accepts manual column mapping', function () {
 
     grantCompanyPermissions($user, $company, ['employees.import']);
 
-    $csv = "Code,Full Name,Agreement,Join\n"
-        ."EMP-MAP-1,Manual Mapped,unlimited,2026-03-01\n";
+    $csv = "Code,Full Name,Work Email\n"
+        ."EMP-MAP-1,Manual Mapped,john@example.com\n";
 
     $mapping = [
         'employee_no' => 'Code',
         'name' => 'Full Name',
-        'contract_type' => 'Agreement',
-        'start_date' => 'Join',
+        'work_email' => 'Work Email',
     ];
 
     $previewFile = UploadedFile::fake()->createWithContent('employees.csv', $csv);
@@ -1506,6 +1505,7 @@ test('employee import accepts manual column mapping', function () {
         'company_id' => $company->id,
         'employee_no' => 'EMP-MAP-1',
         'name' => 'Manual Mapped',
+        'work_email' => 'john@example.com',
     ]);
 });
 
@@ -1618,8 +1618,8 @@ test('employee import ignores sensitive fields without extra import permissions'
 
     grantCompanyPermissions($user, $company, ['employees.import']);
 
-    $csv = "employee_no,name,contract_type,start_date,iban,account_name,basic_salary,passport_number\n"
-        ."EMP-SEC-1,Secure Import,unlimited,2026-03-01,AE070331234567890123456,Secure Import,12000,P1234567\n";
+    $csv = "employee_no,name,passport_number\n"
+        ."EMP-SEC-1,Secure Import,P1234567\n";
 
     $previewFile = UploadedFile::fake()->createWithContent('employees.csv', $csv);
 
@@ -1630,9 +1630,7 @@ test('employee import ignores sensitive fields without extra import permissions'
         ]);
 
     $preview->assertOk();
-    expect($preview->json('mapping.iban'))->toBeNull()
-        ->and($preview->json('mapping.basic_salary'))->toBeNull()
-        ->and($preview->json('mapping.passport_number'))->toBeNull();
+    expect($preview->json('mapping.passport_number'))->toBeNull();
 
     $importFile = UploadedFile::fake()->createWithContent('employees.csv', $csv);
 
@@ -1766,7 +1764,7 @@ test('employee import template download only includes fields from selected profi
     ]);
     $configuration['fields']['employee_contracts']['start_date']['visible'] = true;
     foreach (array_keys($configuration['fields']['employee_bank_accounts']) as $bankField) {
-        $configuration['fields']['employee_bank_accounts'][$bankField]['visible'] = false;
+        $configuration['fields']['employee_bank_accounts'][$bankField]['visible'] = true;
     }
 
     $template = createEmployeeProfileTemplate($company, 'Minimal Import', $configuration);
@@ -1780,8 +1778,8 @@ test('employee import template download only includes fields from selected profi
     $lines = array_values(array_filter(explode("\n", trim($csv))));
     $headers = str_getcsv($lines[0]);
 
-    expect($headers)->toContain('employee_no', 'name', 'work_email', 'start_date', 'status')
-        ->and($headers)->not->toContain('bank', 'iban', 'account_name', 'contract_type');
+    expect($headers)->toContain('employee_no', 'name', 'work_email')
+        ->and($headers)->not->toContain('bank', 'iban', 'account_name', 'contract_type', 'start_date', 'status');
 });
 
 test('employee import template download includes visible personal fields such as address', function () {

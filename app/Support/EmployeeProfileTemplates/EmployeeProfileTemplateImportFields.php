@@ -42,13 +42,6 @@ final class EmployeeProfileTemplateImportFields
         'status' => 'status',
     ];
 
-    /** @var array<string, string> */
-    private const BANK_FIELD_TO_IMPORT = [
-        'bank_id' => 'bank',
-        'iban' => 'iban',
-        'account_name' => 'account_name',
-    ];
-
     /**
      * @return list<string>
      */
@@ -73,24 +66,6 @@ final class EmployeeProfileTemplateImportFields
             }
         }
 
-        foreach ($resolved['fields']['employee_contracts'] ?? [] as $key => $field) {
-            if (($field['visible'] ?? false) === true && ! in_array($key, $columns, true)) {
-                $columns[] = $key;
-            }
-        }
-
-        foreach ($resolved['fields']['employee_bank_accounts'] ?? [] as $key => $field) {
-            if (($field['visible'] ?? false) !== true) {
-                continue;
-            }
-
-            $importKey = self::BANK_FIELD_TO_IMPORT[$key] ?? null;
-
-            if ($importKey !== null && ! in_array($importKey, $columns, true)) {
-                $columns[] = $importKey;
-            }
-        }
-
         return array_values(array_unique($columns));
     }
 
@@ -109,10 +84,6 @@ final class EmployeeProfileTemplateImportFields
         $required = [];
 
         foreach (EmployeesImport::importFieldTemplateMap() as $importField => [$table, $fieldKey]) {
-            if (in_array($importField, EmployeesImport::IMPORT_DEFAULTABLE_FIELDS, true)) {
-                continue;
-            }
-
             if (EmployeeProfileTemplateRequestRules::isFieldRequired($employee, $table, $fieldKey)) {
                 $required[] = $importField;
             }

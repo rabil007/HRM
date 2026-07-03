@@ -28,8 +28,6 @@ class EmployeeImportController extends Controller
             'date_of_birth' => '1990-01-15',
             'hire_date' => now()->format('Y-m-d'),
             'marital_status' => 'single',
-            'contract_type' => 'unlimited',
-            'start_date' => now()->format('Y-m-d'),
             'status' => 'active',
         ];
 

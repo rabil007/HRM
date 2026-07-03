@@ -72,8 +72,6 @@ const PRIORITY_FIELDS = [
     'department',
     'position',
     'hire_date',
-    'contract_type',
-    'start_date',
 ];
 
 export function EmployeeImportDialog({
@@ -458,9 +456,7 @@ function UploadStep({
                 <ul className="list-inside list-disc space-y-0.5">
                     <li>
                         <strong>employee_no</strong> and <strong>name</strong>{' '}
-                        are required. If you skip <strong>contract_type</strong>{' '}
-                        or <strong>start_date</strong>, the import uses
-                        unlimited contract and today&apos;s date.
+                        are required.
                     </li>
                     <li>
                         Branch / Department / Position / Manager are matched by
@@ -642,12 +638,6 @@ function PreviewStep({
                                     Date of hire
                                 </th>
                                 <th className="px-3 py-2 font-medium">
-                                    Contract
-                                </th>
-                                <th className="px-3 py-2 font-medium">
-                                    Start date
-                                </th>
-                                <th className="px-3 py-2 font-medium">
                                     Status
                                 </th>
                             </tr>
@@ -656,7 +646,7 @@ function PreviewStep({
                             {preview.rows.length === 0 ? (
                                 <tr>
                                     <td
-                                        colSpan={7}
+                                        colSpan={5}
                                         className="px-3 py-6 text-center text-muted-foreground/70"
                                     >
                                         No rows found in the file.
@@ -689,16 +679,6 @@ function PreviewStep({
                                             <td className="px-3 py-2 text-muted-foreground/80">
                                                 {formatDisplayDate(
                                                     stringy(row.hire_date) ||
-                                                        null,
-                                                )}
-                                            </td>
-                                            <td className="px-3 py-2 text-muted-foreground/80">
-                                                {stringy(row.contract_type) ||
-                                                    '—'}
-                                            </td>
-                                            <td className="px-3 py-2 text-muted-foreground/80">
-                                                {formatDisplayDate(
-                                                    stringy(row.start_date) ||
                                                         null,
                                                 )}
                                             </td>
