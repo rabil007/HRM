@@ -7,7 +7,8 @@ import {
     Upload,
 } from 'lucide-react';
 import type { DragEvent, ReactElement } from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { SearchBar } from '@/components/search-bar';
 import {
     importPreview,
     importTemplate,
@@ -95,12 +96,44 @@ export function CrewTimesheetImportDialog({
     const [isImporting, setIsImporting] = useState(false);
     const [dragActive, setDragActive] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const filteredRows = useMemo(() => {
+        if (!preview) {
+            return [];
+        }
+
+        const query = searchQuery.trim().toLowerCase();
+
+        if (query === '') {
+            return preview.rows;
+        }
+
+        return preview.rows.filter((row) => {
+            const searchable = [
+                String(row.row),
+                row.employee_no,
+                row.name,
+                row.department,
+                row.position,
+                row.standby_days?.toString(),
+                row.onsite_days?.toString(),
+                row.errors[0]?.message,
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+            return searchable.includes(query);
+        });
+    }, [preview, searchQuery]);
 
     const resetState = () => {
         setFile(null);
         setPreview(null);
         setMessage(null);
+        setSearchQuery('');
         setDragActive(false);
 
         if (fileInputRef.current) {
@@ -309,6 +342,22 @@ export function CrewTimesheetImportDialog({
                                 ) : null}
                             </div>
 
+                            <SearchBar
+                                value={searchQuery}
+                                onChange={setSearchQuery}
+                                placeholder="Search by employee no., name, department, or status…"
+                                className="mb-0"
+                                inputClassName="py-2 text-sm"
+                            />
+
+                            {searchQuery.trim() !== '' &&
+                            filteredRows.length !== preview.rows.length ? (
+                                <p className="text-xs text-muted-foreground">
+                                    Showing {filteredRows.length} of{' '}
+                                    {preview.rows.length} rows
+                                </p>
+                            ) : null}
+
                             <div className="max-h-72 overflow-auto rounded-lg border">
                                 <Table>
                                     <TableHeader>
@@ -322,37 +371,54 @@ export function CrewTimesheetImportDialog({
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {preview.rows.map((row) => (
-                                            <TableRow key={row.row}>
-                                                <TableCell>{row.row}</TableCell>
-                                                <TableCell>
-                                                    {row.employee_no}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {row.name ?? '—'}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {row.standby_days ?? '—'}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {row.onsite_days ?? '—'}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {row.errors.length > 0 ? (
-                                                        <span className="text-xs text-destructive">
-                                                            {
-                                                                row.errors[0]
-                                                                    ?.message
-                                                            }
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-xs text-emerald-600">
-                                                            Ready
-                                                        </span>
-                                                    )}
+                                        {filteredRows.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell
+                                                    colSpan={6}
+                                                    className="py-8 text-center text-sm text-muted-foreground"
+                                                >
+                                                    No rows match your search.
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
+                                        ) : (
+                                            filteredRows.map((row) => (
+                                                <TableRow key={row.row}>
+                                                    <TableCell>
+                                                        {row.row}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {row.employee_no}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {row.name ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {row.standby_days ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {row.onsite_days ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {row.errors.length >
+                                                        0 ? (
+                                                            <span className="text-xs text-destructive">
+                                                                {
+                                                                    row
+                                                                        .errors[0]
+                                                                        ?.message
+                                                                }
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs text-emerald-600">
+                                                                Ready
+                                                            </span>
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
                                     </TableBody>
                                 </Table>
                             </div>
