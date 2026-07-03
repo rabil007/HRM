@@ -295,35 +295,6 @@ function EmployeeDetailsPage({
                 },
             });
 
-        // #region agent log
-        fetch(
-            'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Debug-Session-Id': '400853',
-                },
-                body: JSON.stringify({
-                    sessionId: '400853',
-                    runId: 'post-fix',
-                    hypothesisId: 'H2',
-                    location: 'employee.tsx:tabs',
-                    message: 'Employee profile tabs built',
-                    data: {
-                        tab_ids: builtTabs.map((tab) => tab.id),
-                        employee_tabs_contract: employee_tabs.contract,
-                        contracts_view: can?.contracts_view ?? false,
-                        has_contract_tab: builtTabs.some(
-                            (tab) => tab.id === 'contract',
-                        ),
-                    },
-                    timestamp: Date.now(),
-                }),
-            },
-        ).catch(() => {});
-        // #endregion
-
         return builtTabs;
     }, [
         employee_tabs,
@@ -333,15 +304,11 @@ function EmployeeDetailsPage({
         bank_accounts,
         localEmployee.bank_id,
         localEmployee.iban,
-        localEmployee.id,
         languages,
         trainings,
         sea_services,
         vaccinations,
         work_experiences,
-        can?.contracts_view,
-        contract_count,
-        isCreateMode,
     ]);
 
     const activeTab = useMemo((): EmployeeTab => {

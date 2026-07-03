@@ -20,6 +20,7 @@ final class ContractListResource
             'employee_id' => $employee?->id ?? $contract->employee_id,
             'employee_name' => $employee?->name ?? '',
             'employee_no' => $employee?->employee_no ?? '',
+            'employee_image' => $employee?->image,
             'profile_template_name' => $employee?->employeeProfileTemplate?->name,
         ];
     }

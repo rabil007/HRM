@@ -112,6 +112,32 @@ test('contracts index returns paginated contracts with summary', function () {
             ->where('can.delete', false));
 });
 
+test('contracts index returns employee image with each contract row', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee] = makeContractFixtures();
+
+    $employee->update(['image' => 'employees/photos/contract-employee.jpg']);
+
+    grantCompanyPermissions($user, $company, ['contracts.view']);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'payroll_category' => PayrollCategory::Office->value,
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+    ]);
+
+    $this->get(route('organization.contracts'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('contracts', 1)
+            ->where('contracts.0.employee_image', 'employees/photos/contract-employee.jpg'));
+});
+
 test('contracts index filters by lifecycle and payroll category', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

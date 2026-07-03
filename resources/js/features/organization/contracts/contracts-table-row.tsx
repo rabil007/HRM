@@ -2,9 +2,11 @@ import { router } from '@inertiajs/react';
 import {
     dataTableBodyRowClass,
     dataTableCellClass,
+    dataTableCellPrimaryClass,
 } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
+import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import {
     formatContractMoney,
     formatContractStatus,
@@ -44,14 +46,23 @@ export function ContractsTableRow({
             className={cn(dataTableBodyRowClass(false), 'cursor-pointer')}
             onClick={() => router.visit(browseHref)}
         >
-            <TableCell className={cn(dataTableCellClass(), 'min-w-[140px]')}>
-                <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">
-                        {contract.employee_name}
-                    </p>
-                    <p className="truncate font-mono text-[11px] text-muted-foreground/75">
-                        {contract.employee_no}
-                    </p>
+            <TableCell
+                className={cn(dataTableCellPrimaryClass(), 'min-w-[180px]')}
+            >
+                <div className="flex min-w-0 items-center gap-3">
+                    <EmployeeAvatar
+                        name={contract.employee_name}
+                        image={contract.employee_image}
+                        size="sm"
+                    />
+                    <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">
+                            {contract.employee_name}
+                        </p>
+                        <p className="truncate font-mono text-[11px] text-muted-foreground/75">
+                            {contract.employee_no}
+                        </p>
+                    </div>
                 </div>
             </TableCell>
             <TableCell className={dataTableCellClass()}>

@@ -351,35 +351,10 @@ final class EmployeeProfilePageData
      */
     private static function applyModuleTabPermissions(array $employeeTabsPayload, ?User $authUser): array
     {
-        // #region agent log
-        $templateContractTab = $employeeTabsPayload['contract'] ?? null;
-        // #endregion
-
         $employeeTabsPayload['documents'] = ($employeeTabsPayload['documents'] ?? false)
             && ($authUser?->can('documents.view') ?? false);
         $employeeTabsPayload['contract'] = ($employeeTabsPayload['contract'] ?? false)
             && ($authUser?->can('contracts.view') ?? false);
-
-        // #region agent log
-        file_put_contents(
-            base_path('.cursor/debug-400853.log'),
-            json_encode([
-                'sessionId' => '400853',
-                'runId' => 'post-fix',
-                'hypothesisId' => 'H1',
-                'location' => 'EmployeeProfilePageData.php:applyModuleTabPermissions',
-                'message' => 'Contract tab visibility resolved',
-                'data' => [
-                    'template_contract_tab' => $templateContractTab,
-                    'final_contract_tab' => $employeeTabsPayload['contract'],
-                    'contracts_view' => $authUser?->can('contracts.view') ?? false,
-                    'documents_view' => $authUser?->can('documents.view') ?? false,
-                ],
-                'timestamp' => (int) round(microtime(true) * 1000),
-            ]).PHP_EOL,
-            FILE_APPEND
-        );
-        // #endregion
 
         return $employeeTabsPayload;
     }

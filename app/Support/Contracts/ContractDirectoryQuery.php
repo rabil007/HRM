@@ -40,7 +40,7 @@ final class ContractDirectoryQuery
         return EmployeeContract::query()
             ->where('employee_contracts.company_id', $this->companyId)
             ->with([
-                'employee:id,name,employee_no,company_id,branch_id,department_id,employee_profile_template_id',
+                'employee:id,name,employee_no,image,company_id,branch_id,department_id,employee_profile_template_id',
                 'employee.employeeProfileTemplate:id,name',
             ]);
     }
