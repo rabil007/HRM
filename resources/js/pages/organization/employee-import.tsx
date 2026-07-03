@@ -362,22 +362,6 @@ export default function EmployeeImport({
                                 </Link>
                             </Button>
                             <Button
-                                variant="secondary"
-                                className="h-11 rounded-xl glass-card px-4 hover:bg-accent"
-                                asChild
-                            >
-                                <a
-                                    href={
-                                        selectedTemplateId
-                                            ? templateDownloadUrl
-                                            : template_url
-                                    }
-                                >
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Template
-                                </a>
-                            </Button>
-                            <Button
                                 className="h-11 rounded-xl px-5 shadow-lg shadow-primary/20"
                                 disabled={
                                     !selectedTemplateId ||
@@ -430,56 +414,95 @@ export default function EmployeeImport({
                         <Card className="glass-card">
                             <CardContent className="p-5">
                                 <div className="mb-1 flex items-center gap-2">
-                                    <label
-                                        htmlFor="profile-template"
-                                        className="text-sm font-semibold text-foreground"
-                                    >
-                                        Onboarding Template
-                                    </label>
+                                    <span className="text-sm font-semibold text-foreground">
+                                        Onboarding template
+                                    </span>
                                     <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
                                         Required
                                     </span>
                                 </div>
-                                <p className="mb-3 text-xs text-muted-foreground">
-                                    All imported employees will be assigned this
-                                    template. The downloadable import template
-                                    and column mapping only include fields
-                                    configured on that template (plus employee
-                                    no and name).
+                                <p className="mb-4 text-xs text-muted-foreground">
+                                    Choose the template every imported employee
+                                    will use. Download the matching import file
+                                    below — columns match that template (plus
+                                    employee no and name).
                                 </p>
                                 {templates.length === 0 ? (
                                     <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-500">
-                                        No profile templates found. Optional —
-                                        import uses all columns when none is
-                                        selected.
+                                        No onboarding templates found. Create one
+                                        in settings before importing employees.
                                     </div>
                                 ) : (
-                                    <AppSelect
-                                        value={String(selectedTemplateId ?? '')}
-                                        onValueChange={(v) =>
-                                            setSelectedTemplateId(
-                                                v ? Number(v) : null,
-                                            )
-                                        }
-                                        variant="card"
-                                        placeholder="Select a template…"
-                                        className="max-w-sm"
-                                    >
-                                        <AppSelectItem value="">
-                                            Select a template…
-                                        </AppSelectItem>
-                                        {templates.map((t) => (
-                                            <AppSelectItem
-                                                key={t.id}
-                                                value={String(t.id)}
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                                        <div className="min-w-0 flex-1 space-y-1.5">
+                                            <label
+                                                htmlFor="profile-template"
+                                                className="text-xs font-medium text-muted-foreground"
                                             >
-                                                {t.name}
-                                                {t.is_default
-                                                    ? ' (Default)'
-                                                    : ''}
-                                            </AppSelectItem>
-                                        ))}
-                                    </AppSelect>
+                                                Template
+                                            </label>
+                                            <AppSelect
+                                                value={String(
+                                                    selectedTemplateId ?? '',
+                                                )}
+                                                onValueChange={(v) =>
+                                                    setSelectedTemplateId(
+                                                        v ? Number(v) : null,
+                                                    )
+                                                }
+                                                variant="card"
+                                                placeholder="Select a template…"
+                                            >
+                                                <AppSelectItem value="">
+                                                    Select a template…
+                                                </AppSelectItem>
+                                                {templates.map((t) => (
+                                                    <AppSelectItem
+                                                        key={t.id}
+                                                        value={String(t.id)}
+                                                    >
+                                                        {t.name}
+                                                        {t.is_default
+                                                            ? ' (Default)'
+                                                            : ''}
+                                                    </AppSelectItem>
+                                                ))}
+                                            </AppSelect>
+                                        </div>
+                                        {selectedTemplateId ? (
+                                            <Button
+                                                variant="secondary"
+                                                className="h-10 shrink-0 rounded-xl glass-card px-4 hover:bg-accent"
+                                                asChild
+                                            >
+                                                <a href={templateDownloadUrl}>
+                                                    <Download className="mr-2 h-4 w-4" />
+                                                    Download import template
+                                                </a>
+                                            </Button>
+                                        ) : (
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <span className="inline-flex shrink-0">
+                                                        <Button
+                                                            variant="secondary"
+                                                            className="h-10 rounded-xl glass-card px-4"
+                                                            disabled
+                                                        >
+                                                            <Download className="mr-2 h-4 w-4" />
+                                                            Download import
+                                                            template
+                                                        </Button>
+                                                    </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    Select an onboarding template
+                                                    first to download the matching
+                                                    import file.
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        )}
+                                    </div>
                                 )}
                             </CardContent>
                         </Card>
@@ -503,7 +526,7 @@ export default function EmployeeImport({
                                             );
                                         } else {
                                             toast.error(
-                                                'Template selection is optional for import.',
+                                                'Select an onboarding template first.',
                                             );
                                         }
                                     }}
@@ -532,12 +555,14 @@ export default function EmployeeImport({
                                             )}
                                         </div>
                                         <h1 className="text-xl font-bold text-foreground">
-                                            Drop or upload a file to import
+                                            {selectedTemplateId
+                                                ? 'Drop or upload a file to import'
+                                                : 'Select a template to continue'}
                                         </h1>
                                         <p className="mt-3 max-w-md text-sm text-muted-foreground">
-                                            Excel files are recommended because
-                                            formatting is automatic. CSV files
-                                            are also supported.
+                                            {selectedTemplateId
+                                                ? 'Excel files are recommended because formatting is automatic. CSV files are also supported.'
+                                                : 'Choose an onboarding template above, download the import file if needed, then upload your data here.'}
                                         </p>
                                         {selectedTemplateId ? (
                                             <p className="mt-2 text-xs text-muted-foreground/70">
@@ -548,30 +573,17 @@ export default function EmployeeImport({
                                     </button>
 
                                     {selectedTemplateId ? (
-                                        <div className="mt-5 flex flex-wrap justify-center gap-2">
-                                            <Button
-                                                variant="secondary"
-                                                className="rounded-xl"
-                                                asChild
-                                            >
-                                                <a href={templateDownloadUrl}>
-                                                    <Download className="mr-2 h-4 w-4" />
-                                                    Import Template for
-                                                    Employees
-                                                </a>
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                className="rounded-xl border-input bg-background/50 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
-                                                onClick={() =>
-                                                    inputRef.current?.click()
-                                                }
-                                            >
-                                                <Upload className="mr-2 h-4 w-4" />
-                                                Upload Data File
-                                            </Button>
-                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="mt-5 rounded-xl border-input bg-background/50 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
+                                            onClick={() =>
+                                                inputRef.current?.click()
+                                            }
+                                        >
+                                            <Upload className="mr-2 h-4 w-4" />
+                                            Choose file
+                                        </Button>
                                     ) : null}
 
                                     <input
