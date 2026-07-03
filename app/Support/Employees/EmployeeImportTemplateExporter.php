@@ -302,9 +302,10 @@ final class EmployeeImportTemplateExporter
             [''],
             ['1. Open the "'.self::IMPORT_SHEET_NAME.'" tab and fill employee rows below the sample row.'],
             ['2. Use dropdowns or paste copied data into lookup columns. Red cells contain values not found in your master data — fix them before upload.'],
-            ['3. Required columns depend on your onboarding template; employee no and name are always required.'],
-            ['4. Dates use YYYY-MM-DD (for example 1990-01-15).'],
-            ['5. Save this file as .xlsx and upload it on the import page.'],
+            ['3. For existing employees (matched by employee no), only filled-in columns are updated — empty cells are ignored.'],
+            ['4. Required columns depend on your onboarding template; employee no and name are always required for new employees.'],
+            ['5. Dates use YYYY-MM-DD (for example 1990-01-15).'],
+            ['6. Save this file as .xlsx and upload it on the import page.'],
         ];
 
         if ($template !== null) {
@@ -326,7 +327,7 @@ final class EmployeeImportTemplateExporter
 
         $instructions->getColumnDimension('A')->setWidth(80);
         $instructions->getStyle('A1')->getFont()->setBold(true)->setSize(13);
-        $instructions->getStyle('A3:A7')->getFont()->setSize(11);
+        $instructions->getStyle('A3:A8')->getFont()->setSize(11);
     }
 
     /**

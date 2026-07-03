@@ -35,6 +35,8 @@ type PreviewSummary = {
     total: number;
     valid: number;
     invalid: number;
+    create: number;
+    update: number;
 };
 
 type PreviewResponse = {
@@ -43,6 +45,7 @@ type PreviewResponse = {
     rows: Record<string, unknown>[];
     errors: RowError[];
     summary: PreviewSummary;
+    row_actions: Record<number, 'create' | 'update'>;
     field_options: ImportFieldOption[];
     max_rows: number;
 };
@@ -102,6 +105,7 @@ export default function EmployeeImport({
     const [isImporting, setIsImporting] = useState(false);
     const [result, setResult] = useState<{
         created: number;
+        updated: number;
         skipped: number;
         failed: number;
     } | null>(null);
@@ -299,6 +303,7 @@ export default function EmployeeImport({
 
             const data = (await response.json().catch(() => null)) as {
                 created?: number;
+                updated?: number;
                 skipped?: number[];
                 failed?: unknown[];
                 message?: string;
@@ -311,7 +316,8 @@ export default function EmployeeImport({
             }
 
             setResult({
-                created: data?.created ?? preview.summary.valid,
+                created: data?.created ?? 0,
+                updated: data?.updated ?? 0,
                 skipped: data?.skipped?.length ?? preview.summary.invalid,
                 failed: data?.failed?.length ?? 0,
             });
@@ -349,7 +355,7 @@ export default function EmployeeImport({
             <Main>
                 <PageHeader
                     title="Import employees"
-                    description="Upload a CSV or Excel file, review the detected mapping, then import valid employee rows."
+                    description="Upload a CSV or Excel file to create new employees or update existing ones matched by employee number."
                     right={
                         <div className="flex flex-wrap items-center gap-2">
                             <Button
@@ -378,7 +384,7 @@ export default function EmployeeImport({
                                 )}
                                 Import
                                 {preview && preview.summary.valid > 0
-                                    ? ` ${preview.summary.valid} ${preview.summary.valid === 1 ? 'row' : 'rows'}`
+                                    ? formatImportSummaryLabel(preview.summary)
                                     : ''}
                             </Button>
                         </div>
@@ -634,17 +640,40 @@ export default function EmployeeImport({
                                             </button>
                                         </div>
                                         <div className="mt-3 space-y-2 border-t border-border/80 pt-3 dark:border-white/10">
-                                            <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
-                                                <div className="text-2xl font-bold text-emerald-500 tabular-nums">
-                                                    {preview.summary.valid}
+                                            {preview.summary.create > 0 ? (
+                                                <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
+                                                    <div className="text-2xl font-bold text-emerald-500 tabular-nums">
+                                                        {
+                                                            preview.summary
+                                                                .create
+                                                        }
+                                                    </div>
+                                                    <div className="text-muted-foreground">
+                                                        {preview.summary
+                                                            .create === 1
+                                                            ? 'Employee'
+                                                            : 'Employees'}{' '}
+                                                        will be created
+                                                    </div>
                                                 </div>
-                                                <div className="text-muted-foreground">
-                                                    {preview.summary.valid === 1
-                                                        ? 'Employee'
-                                                        : 'Employees'}{' '}
-                                                    will be created
+                                            ) : null}
+                                            {preview.summary.update > 0 ? (
+                                                <div className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2.5">
+                                                    <div className="text-2xl font-bold text-primary tabular-nums">
+                                                        {
+                                                            preview.summary
+                                                                .update
+                                                        }
+                                                    </div>
+                                                    <div className="text-muted-foreground">
+                                                        {preview.summary
+                                                            .update === 1
+                                                            ? 'Employee'
+                                                            : 'Employees'}{' '}
+                                                        will be updated
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            ) : null}
                                             {preview.summary.invalid > 0 ? (
                                                 <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2">
                                                     <div className="text-lg font-semibold text-destructive tabular-nums">
@@ -921,9 +950,18 @@ export default function EmployeeImport({
                             <Card className="glass-card">
                                 <CardContent className="p-4">
                                     <div className="mb-3 flex flex-wrap items-center gap-2">
-                                        <Badge className="border-primary/30 bg-primary/15 font-semibold text-primary">
-                                            Will create {preview.summary.valid}
-                                        </Badge>
+                                        {preview.summary.create > 0 ? (
+                                            <Badge className="border-emerald-500/20 bg-emerald-500/10 font-semibold text-emerald-500">
+                                                Will create{' '}
+                                                {preview.summary.create}
+                                            </Badge>
+                                        ) : null}
+                                        {preview.summary.update > 0 ? (
+                                            <Badge className="border-primary/30 bg-primary/15 font-semibold text-primary">
+                                                Will update{' '}
+                                                {preview.summary.update}
+                                            </Badge>
+                                        ) : null}
                                         <Badge className="border-border bg-muted/60 text-foreground dark:border-white/10 dark:bg-white/5">
                                             {preview.summary.total} total
                                         </Badge>
@@ -974,6 +1012,11 @@ export default function EmployeeImport({
                                                             errorsByRow.get(
                                                                 rowNumber,
                                                             );
+                                                        const rowAction =
+                                                            preview
+                                                                .row_actions?.[
+                                                                rowNumber
+                                                            ];
 
                                                         return (
                                                             <tr
@@ -1058,7 +1101,10 @@ export default function EmployeeImport({
                                                                     ) : (
                                                                         <span className="inline-flex items-center gap-1 text-emerald-500">
                                                                             <CheckCircle2 className="h-3.5 w-3.5" />
-                                                                            Ready
+                                                                            {rowAction ===
+                                                                            'update'
+                                                                                ? 'Update'
+                                                                                : 'Create'}
                                                                         </span>
                                                                     )}
                                                                 </td>
@@ -1086,8 +1132,12 @@ export default function EmployeeImport({
                                     Import finished
                                 </div>
                                 <div className="mt-1 text-sm text-muted-foreground">
-                                    Created {result.created} employee
-                                    {result.created === 1 ? '' : 's'}.
+                                    {result.created > 0
+                                        ? `Created ${result.created} employee${result.created === 1 ? '' : 's'}.`
+                                        : ''}
+                                    {result.updated > 0
+                                        ? ` Updated ${result.updated} employee${result.updated === 1 ? '' : 's'}.`
+                                        : ''}
                                     {result.skipped
                                         ? ` Skipped ${result.skipped} invalid row${result.skipped === 1 ? '' : 's'}.`
                                         : ''}
@@ -1099,6 +1149,28 @@ export default function EmployeeImport({
             </Main>
         </>
     );
+}
+
+function formatImportSummaryLabel(summary: PreviewSummary): string {
+    const parts: string[] = [];
+
+    if (summary.create > 0) {
+        parts.push(
+            `${summary.create} create`,
+        );
+    }
+
+    if (summary.update > 0) {
+        parts.push(
+            `${summary.update} update`,
+        );
+    }
+
+    if (parts.length === 0) {
+        return ` ${summary.valid} ${summary.valid === 1 ? 'row' : 'rows'}`;
+    }
+
+    return ` (${parts.join(', ')})`;
 }
 
 function stringy(value: unknown): string {

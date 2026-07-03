@@ -1338,6 +1338,302 @@ test('employee import resolves project name when project_id is enabled in templa
     ]);
 });
 
+test('employee import updates existing employees when employee number matches', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'UPS',
+        'name' => 'Upsert Land',
+        'dial_code' => '+983',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'UPS',
+        'name' => 'Upsert Currency',
+        'symbol' => 'U$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Upsert Co',
+        'slug' => 'upsert-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $project = Project::query()->create([
+        'title' => 'CREWING',
+        'is_active' => true,
+    ]);
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Upsert Template',
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => '2025',
+        'name' => 'VINOD MENON',
+        'project_id' => null,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.import', 'employees.update']);
+
+    $csv = "employee_no,project\n2025,CREWING\n";
+
+    $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $preview = $this->post('/organization/employees/import/preview', [
+        'file' => $file,
+        'employee_profile_template_id' => $template->id,
+    ]);
+
+    $preview->assertOk();
+    expect($preview->json('summary.update'))->toBe(1)
+        ->and($preview->json('summary.create'))->toBe(0);
+
+    $importFile = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $this->post('/organization/employees/import', [
+        'file' => $importFile,
+        'employee_profile_template_id' => $template->id,
+    ])->assertRedirect('/organization/employees');
+
+    expect($employee->fresh())
+        ->name->toBe('VINOD MENON')
+        ->project_id->toBe($project->id);
+});
+
+test('employee import update rows require employees.update permission', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'UPP',
+        'name' => 'Upsert Permission Land',
+        'dial_code' => '+982',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'UPP',
+        'name' => 'Upsert Permission Currency',
+        'symbol' => 'P$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Upsert Permission Co',
+        'slug' => 'upsert-permission-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Upsert Permission Template',
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
+    ]);
+
+    Project::query()->create([
+        'title' => 'CREWING',
+        'is_active' => true,
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'employee_no' => '2025',
+        'name' => 'Existing Employee',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.import']);
+
+    $csv = "employee_no,project\n2025,CREWING\n";
+    $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $preview = $this->post('/organization/employees/import/preview', [
+        'file' => $file,
+        'employee_profile_template_id' => $template->id,
+    ]);
+
+    $preview->assertOk();
+    expect(collect($preview->json('errors'))->pluck('message'))
+        ->toContain('You do not have permission to update existing employees.');
+});
+
+test('employee import still requires name when creating a new employee', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'UPN',
+        'name' => 'Upsert Name Land',
+        'dial_code' => '+981',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'UPN',
+        'name' => 'Upsert Name Currency',
+        'symbol' => 'N$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Upsert Name Co',
+        'slug' => 'upsert-name-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Upsert Name Template',
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.import', 'employees.update']);
+
+    $csv = "employee_no,name\nEMP-NEW-1,\n";
+    $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $preview = $this->post('/organization/employees/import/preview', [
+        'file' => $file,
+        'employee_profile_template_id' => $template->id,
+    ]);
+
+    $preview->assertOk();
+    expect(collect($preview->json('errors'))->pluck('field'))->toContain('name');
+});
+
+test('employee import update rejects unknown project values', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'UPB',
+        'name' => 'Upsert Bad Project Land',
+        'dial_code' => '+980',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'UPB',
+        'name' => 'Upsert Bad Project Currency',
+        'symbol' => 'B$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Upsert Bad Project Co',
+        'slug' => 'upsert-bad-project-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Upsert Bad Project Template',
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'employee_no' => '2025',
+        'name' => 'Existing Employee',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.import', 'employees.update']);
+
+    $csv = "employee_no,project\n2025,Unknown Project\n";
+    $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $preview = $this->post('/organization/employees/import/preview', [
+        'file' => $file,
+        'employee_profile_template_id' => $template->id,
+    ]);
+
+    $preview->assertOk();
+    expect(collect($preview->json('errors'))->pluck('field'))->toContain('project');
+});
+
+test('employee import rejects duplicate employee numbers in the same file during upsert', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'UPD',
+        'name' => 'Upsert Duplicate Land',
+        'dial_code' => '+979',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'UPD',
+        'name' => 'Upsert Duplicate Currency',
+        'symbol' => 'D$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Upsert Duplicate Co',
+        'slug' => 'upsert-duplicate-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Upsert Duplicate Template',
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
+    ]);
+
+    Project::query()->create([
+        'title' => 'CREWING',
+        'is_active' => true,
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'employee_no' => '2025',
+        'name' => 'Existing Employee',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.import', 'employees.update']);
+
+    $csv = "employee_no,project\n2025,CREWING\n2025,CREWING\n";
+    $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $preview = $this->post('/organization/employees/import/preview', [
+        'file' => $file,
+        'employee_profile_template_id' => $template->id,
+    ]);
+
+    $preview->assertOk();
+    expect(collect($preview->json('errors'))->pluck('message')->join(' '))
+        ->toContain('Duplicate of row');
+});
+
 test('employee import rejects unsupported file types', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

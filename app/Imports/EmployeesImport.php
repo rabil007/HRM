@@ -339,22 +339,34 @@ class EmployeesImport
      *
      * @param  array<int, array<string, mixed>>  $rows
      * @param  array<string, string|null>  $mapping
-     * @return array{rows: array<int, array<string, mixed>>, errors: array<int, array{row: int, field: string, message: string}>, summary: array{total: int, valid: int, invalid: int}}
+     * @return array{rows: array<int, array<string, mixed>>, errors: array<int, array{row: int, field: string, message: string}>, summary: array{total: int, valid: int, invalid: int, create: int, update: int}, row_actions: array<int, string>}
      */
-    public function validateRows(array $rows, array $mapping, ?EmployeeProfileTemplate $template = null): array
-    {
+    public function validateRows(
+        array $rows,
+        array $mapping,
+        ?EmployeeProfileTemplate $template = null,
+        bool $canUpdateEmployees = false,
+    ): array {
         $this->primeLookups();
 
         $validRows = [];
         $errors = [];
+        $rowActions = [];
 
         $duplicateNos = [];
-        $existingNos = $this->existingEmployeeNos();
-        $rules = $this->validationRulesForTemplate($template, $mapping);
+        $existingEmployees = $this->existingEmployeesByNo();
+        $createRules = $this->validationRulesForTemplate($template, $mapping);
 
         foreach ($rows as $index => $row) {
             $rowNumber = $index + 2;
             $shaped = $this->shapeRow($row, $mapping);
+            $no = $shaped['employee_no'] ?? null;
+            $action = $this->resolveRowAction($no, $existingEmployees);
+            $rowActions[$rowNumber] = $action;
+
+            $rules = $action === 'update'
+                ? $this->validationRulesForUpdateRow($createRules, $shaped)
+                : $createRules;
 
             $validator = Validator::make($shaped, $rules);
 
@@ -370,8 +382,6 @@ class EmployeesImport
                 }
             }
 
-            $no = $shaped['employee_no'] ?? null;
-
             if ($no) {
                 if (isset($duplicateNos[$no])) {
                     $errors[] = [
@@ -383,11 +393,11 @@ class EmployeesImport
                     $duplicateNos[$no] = $rowNumber;
                 }
 
-                if (in_array(strtolower($no), $existingNos, true)) {
+                if ($action === 'update' && ! $canUpdateEmployees) {
                     $errors[] = [
                         'row' => $rowNumber,
                         'field' => 'employee_no',
-                        'message' => 'Employee number already exists in this company.',
+                        'message' => 'You do not have permission to update existing employees.',
                     ];
                 }
             }
@@ -405,15 +415,29 @@ class EmployeesImport
             $validRows[] = $shaped;
         }
 
-        $invalidRows = collect($errors)->pluck('row')->unique()->count();
+        $invalidRowNumbers = collect($errors)->pluck('row')->unique();
+        $validRowNumbers = collect($rowActions)
+            ->keys()
+            ->reject(fn (int $rowNumber) => $invalidRowNumbers->contains($rowNumber));
+
+        $createCount = $validRowNumbers
+            ->filter(fn (int $rowNumber) => ($rowActions[$rowNumber] ?? 'create') === 'create')
+            ->count();
+
+        $updateCount = $validRowNumbers
+            ->filter(fn (int $rowNumber) => ($rowActions[$rowNumber] ?? 'create') === 'update')
+            ->count();
 
         return [
             'rows' => $validRows,
             'errors' => $errors,
+            'row_actions' => $rowActions,
             'summary' => [
                 'total' => count($validRows),
-                'valid' => max(0, count($validRows) - $invalidRows),
-                'invalid' => $invalidRows,
+                'valid' => max(0, count($validRows) - $invalidRowNumbers->count()),
+                'invalid' => $invalidRowNumbers->count(),
+                'create' => $createCount,
+                'update' => $updateCount,
             ],
         ];
     }
@@ -422,26 +446,71 @@ class EmployeesImport
      * Persist employees from import rows.
      *
      * @param  array<int, array<string, mixed>>  $rows
-     * @return array{created: int, failed: array<int, array{row: int, message: string}>}
+     * @return array{created: int, updated: int, failed: array<int, array{row: int, message: string}>}
      */
-    public function execute(array $rows, ?int $onboardingTemplateId = null): array
-    {
+    public function execute(
+        array $rows,
+        ?int $onboardingTemplateId = null,
+        bool $canUpdateEmployees = false,
+    ): array {
         $this->primeLookups();
-        $existingNos = $this->existingEmployeeNos();
+        $existingEmployees = $this->existingEmployeesByNo();
 
         $created = 0;
+        $updated = 0;
         $failed = [];
 
-        DB::transaction(function () use ($rows, $existingNos, $onboardingTemplateId, &$created, &$failed) {
+        DB::transaction(function () use ($rows, $existingEmployees, $onboardingTemplateId, $canUpdateEmployees, &$created, &$updated, &$failed) {
             foreach ($rows as $index => $row) {
                 $rowNumber = $index + 2;
                 $no = (string) ($row['employee_no'] ?? '');
 
-                if ($no === '' || in_array(strtolower($no), $existingNos, true)) {
+                if ($no === '') {
                     $failed[] = [
                         'row' => $rowNumber,
-                        'message' => $no === '' ? 'Missing employee number.' : 'Employee number already exists.',
+                        'message' => 'Missing employee number.',
                     ];
+
+                    continue;
+                }
+
+                $action = $this->resolveRowAction($no, $existingEmployees);
+
+                if ($action === 'update') {
+                    if (! $canUpdateEmployees) {
+                        $failed[] = [
+                            'row' => $rowNumber,
+                            'message' => 'You do not have permission to update existing employees.',
+                        ];
+
+                        continue;
+                    }
+
+                    $employee = $existingEmployees[strtolower($no)] ?? null;
+
+                    if ($employee === null) {
+                        $failed[] = [
+                            'row' => $rowNumber,
+                            'message' => 'Employee not found for update.',
+                        ];
+
+                        continue;
+                    }
+
+                    try {
+                        $payload = $this->buildPartialUpdatePayload($row);
+
+                        if ($payload !== []) {
+                            $employee->update($payload);
+                        }
+
+                        $updated++;
+                    } catch (\Throwable $e) {
+                        $failed[] = [
+                            'row' => $rowNumber,
+                            'message' => $e->getMessage(),
+                        ];
+                    }
 
                     continue;
                 }
@@ -449,7 +518,7 @@ class EmployeesImport
                 try {
                     $resolved = $this->resolveIdsForInsert($row);
 
-                    $employee = Employee::create([
+                    Employee::create([
                         'company_id' => $this->companyId,
                         'employee_profile_template_id' => $onboardingTemplateId,
                         'employee_no' => $no,
@@ -480,7 +549,10 @@ class EmployeesImport
                         'status' => $row['status'] ?: 'active',
                     ]);
 
-                    $existingNos[] = strtolower($no);
+                    $existingEmployees[strtolower($no)] = Employee::query()
+                        ->where('company_id', $this->companyId)
+                        ->whereRaw('LOWER(employee_no) = ?', [strtolower($no)])
+                        ->first();
                     $created++;
                 } catch (\Throwable $e) {
                     $failed[] = [
@@ -493,6 +565,7 @@ class EmployeesImport
 
         return [
             'created' => $created,
+            'updated' => $updated,
             'failed' => $failed,
         ];
     }
@@ -557,6 +630,111 @@ class EmployeesImport
         }
 
         return $rules;
+    }
+
+    /**
+     * @param  array<string, list<string|object>>  $baseRules
+     * @param  array<string, mixed>  $shaped
+     * @return array<string, list<string|object>>
+     */
+    private function validationRulesForUpdateRow(array $baseRules, array $shaped): array
+    {
+        $rules = [
+            'employee_no' => ['required', 'string', 'max:50'],
+        ];
+
+        foreach ($baseRules as $field => $fieldRules) {
+            if ($field === 'employee_no' || ! $this->fieldHasValue($shaped, $field)) {
+                continue;
+            }
+
+            if ($field === 'name') {
+                $rules[$field] = ['string', 'max:200'];
+
+                continue;
+            }
+
+            $rules[$field] = $fieldRules;
+        }
+
+        return $rules;
+    }
+
+    /**
+     * @param  array<string, mixed>  $shaped
+     */
+    private function fieldHasValue(array $shaped, string $field): bool
+    {
+        if (! array_key_exists($field, $shaped)) {
+            return false;
+        }
+
+        $value = $shaped[$field];
+
+        return $value !== null && $value !== '';
+    }
+
+    /**
+     * @param  array<string, Employee>  $existingEmployees
+     */
+    private function resolveRowAction(?string $employeeNo, array $existingEmployees): string
+    {
+        if ($employeeNo === null || $employeeNo === '') {
+            return 'create';
+        }
+
+        return isset($existingEmployees[strtolower($employeeNo)]) ? 'update' : 'create';
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function buildPartialUpdatePayload(array $row): array
+    {
+        $payload = [];
+        $resolved = $this->resolveIdsForInsert($row);
+
+        $directFields = [
+            'name',
+            'work_email',
+            'personal_email',
+            'phone',
+            'phone_home_country',
+            'date_of_birth',
+            'hire_date',
+            'place_of_birth',
+            'marital_status',
+            'spouse_name',
+            'address',
+            'nearest_airport',
+            'emergency_contact',
+            'emergency_phone',
+            'passport_number',
+            'emirates_id',
+            'labor_card_number',
+            'status',
+        ];
+
+        foreach ($directFields as $field) {
+            if ($this->fieldHasValue($row, $field)) {
+                $payload[$field] = $row[$field];
+            }
+        }
+
+        foreach (['branch' => 'branch_id', 'department' => 'department_id', 'position' => 'position_id'] as $key => $field) {
+            if ($this->fieldHasValue($row, $key)) {
+                $payload[$field] = $resolved[$field];
+            }
+        }
+
+        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id'] as $key => $field) {
+            if ($this->fieldHasValue($row, $key)) {
+                $payload[$field] = $resolved[$field];
+            }
+        }
+
+        return $payload;
     }
 
     private function shapeRow(array $row, array $mapping): array
@@ -722,6 +900,18 @@ class EmployeesImport
                 return $carry;
             }, []);
 
+    }
+
+    /**
+     * @return array<string, Employee>
+     */
+    private function existingEmployeesByNo(): array
+    {
+        return Employee::query()
+            ->where('company_id', $this->companyId)
+            ->get()
+            ->keyBy(fn (Employee $employee) => strtolower((string) $employee->employee_no))
+            ->all();
     }
 
     /**

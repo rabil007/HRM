@@ -72,7 +72,8 @@ class EmployeeImportController extends Controller
         $mapping = $importer->sanitizeMapping($headers, $validated['mapping'] ?? null, $this->importOrchestrator->allowedImportFields($request));
         $rows = $this->importOrchestrator->readImportRows($importer, $file);
         $template = $this->importOrchestrator->resolveProfileTemplateForImport($request);
-        $result = $importer->validateRows($rows, $mapping, $template);
+        $canUpdateEmployees = $request->user()?->can('employees.update') ?? false;
+        $result = $importer->validateRows($rows, $mapping, $template, $canUpdateEmployees);
 
         return response()->json([
             'headers' => $headers,
@@ -80,6 +81,7 @@ class EmployeeImportController extends Controller
             'rows' => $result['rows'],
             'errors' => $result['errors'],
             'summary' => $result['summary'],
+            'row_actions' => $result['row_actions'],
             'field_options' => $this->importOrchestrator->importFieldOptions($request),
             'max_rows' => EmployeesImport::MAX_ROWS,
             'token' => null,
@@ -98,7 +100,8 @@ class EmployeeImportController extends Controller
         $mapping = $importer->sanitizeMapping($headers, $validated['mapping'] ?? null, $this->importOrchestrator->allowedImportFields($request));
         $rows = $this->importOrchestrator->readImportRows($importer, $file);
         $template = $this->importOrchestrator->resolveProfileTemplateForImport($request);
-        $validation = $importer->validateRows($rows, $mapping, $template);
+        $canUpdateEmployees = $request->user()?->can('employees.update') ?? false;
+        $validation = $importer->validateRows($rows, $mapping, $template, $canUpdateEmployees);
 
         $invalidRowNumbers = collect($validation['errors'])->pluck('row')->unique()->all();
         $importable = collect($validation['rows'])
@@ -108,9 +111,15 @@ class EmployeeImportController extends Controller
 
         $templateId = $validated['employee_profile_template_id'] ?? null;
 
-        $result = $importer->execute($importable, $templateId !== null ? (int) $templateId : null);
+        $result = $importer->execute(
+            $importable,
+            $templateId !== null ? (int) $templateId : null,
+            $canUpdateEmployees,
+        );
 
-        if ($result['created'] === 0) {
+        $importedCount = $result['created'] + $result['updated'];
+
+        if ($importedCount === 0) {
             $message = count($validation['errors']) > 0
                 ? 'No employees were imported. Fix the validation errors shown in the preview and try again.'
                 : 'No employees were imported. The file contained no valid rows.';
@@ -120,6 +129,7 @@ class EmployeeImportController extends Controller
                     'message' => $message,
                     'errors' => $validation['errors'],
                     'created' => 0,
+                    'updated' => 0,
                     'skipped' => $invalidRowNumbers,
                     'failed' => $result['failed'],
                 ], 422);
@@ -129,9 +139,11 @@ class EmployeeImportController extends Controller
         }
 
         $message = sprintf(
-            'Imported %d employee%s. %d row%s skipped.',
+            'Created %d employee%s, updated %d employee%s. %d row%s skipped.',
             $result['created'],
             $result['created'] === 1 ? '' : 's',
+            $result['updated'],
+            $result['updated'] === 1 ? '' : 's',
             count($invalidRowNumbers) + count($result['failed']),
             count($invalidRowNumbers) + count($result['failed']) === 1 ? '' : 's',
         );
@@ -139,6 +151,7 @@ class EmployeeImportController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'created' => $result['created'],
+                'updated' => $result['updated'],
                 'skipped' => $invalidRowNumbers,
                 'failed' => $result['failed'],
                 'errors' => $validation['errors'],
