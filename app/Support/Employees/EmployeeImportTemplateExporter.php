@@ -8,6 +8,7 @@ use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Conditional;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -23,6 +24,21 @@ final class EmployeeImportTemplateExporter
     private const DATA_START_ROW = 2;
 
     private const DATA_END_ROW = 501;
+
+    /**
+     * @var list<string>
+     */
+    private const LOOKUP_HEADERS = [
+        'branch',
+        'department',
+        'position',
+        'project',
+        'gender',
+        'religion',
+        'nationality',
+        'marital_status',
+        'status',
+    ];
 
     /**
      * @param  list<string>  $headers
@@ -51,6 +67,7 @@ final class EmployeeImportTemplateExporter
 
         $optionRanges = $this->writeOptionsSheet($optionsSheet, $headers, $options);
         $this->applyListValidations($importSheet, $headers, $optionRanges);
+        $this->applyInvalidValueHighlighting($importSheet, $headers, $optionRanges);
         $this->applyImportSheetFormatting($importSheet, count($headers));
 
         $emptyOptionNotes = $this->emptyOptionNotes($headers, $options);
@@ -109,9 +126,13 @@ final class EmployeeImportTemplateExporter
         $ranges = [];
 
         foreach ($headers as $header) {
+            if (! $this->isLookupHeader($header)) {
+                continue;
+            }
+
             $values = $options[$header] ?? [];
 
-            if ($values === [] || $this->usesInlineList($header)) {
+            if ($values === []) {
                 continue;
             }
 
@@ -155,12 +176,13 @@ final class EmployeeImportTemplateExporter
             for ($row = self::DATA_START_ROW; $row <= self::DATA_END_ROW; $row++) {
                 $validation = new DataValidation;
                 $validation->setType(DataValidation::TYPE_LIST);
-                $validation->setErrorStyle(DataValidation::STYLE_STOP);
+                $validation->setErrorStyle(DataValidation::STYLE_INFORMATION);
                 $validation->setAllowBlank(true);
                 $validation->setShowDropDown(true);
-                $validation->setShowErrorMessage(true);
-                $validation->setErrorTitle('Invalid value');
-                $validation->setError('Choose a value from the dropdown list for this column.');
+                $validation->setShowInputMessage(true);
+                $validation->setPromptTitle('Lookup column');
+                $validation->setPrompt('Pick from the list or paste values. Invalid values are highlighted in red.');
+                $validation->setShowErrorMessage(false);
                 $validation->setFormula1($formula);
 
                 $sheet->getCell("{$columnLetter}{$row}")->setDataValidation($validation);
@@ -169,26 +191,59 @@ final class EmployeeImportTemplateExporter
     }
 
     /**
+     * @param  list<string>  $headers
+     * @param  array<string, string>  $optionRanges
+     */
+    private function applyInvalidValueHighlighting(Worksheet $sheet, array $headers, array $optionRanges): void
+    {
+        foreach ($headers as $columnIndex => $header) {
+            $optionRange = $optionRanges[$header] ?? null;
+
+            if ($optionRange === null) {
+                continue;
+            }
+
+            $columnLetter = Coordinate::stringFromColumnIndex($columnIndex + 1);
+            $cellRange = sprintf(
+                '%s%d:%s%d',
+                $columnLetter,
+                self::DATA_START_ROW,
+                $columnLetter,
+                self::DATA_END_ROW,
+            );
+            $topLeftCell = "{$columnLetter}".self::DATA_START_ROW;
+
+            $conditional = new Conditional;
+            $conditional->setConditionType(Conditional::CONDITION_EXPRESSION);
+            $conditional->addCondition(sprintf(
+                '=AND(%s<>"",COUNTIF(%s,%s)=0)',
+                $topLeftCell,
+                $optionRange,
+                $topLeftCell,
+            ));
+            $conditional->getStyle()->getFill()
+                ->setFillType(Fill::FILL_SOLID)
+                ->getStartColor()
+                ->setRGB('FFC7CE');
+            $conditional->getStyle()->getFont()
+                ->getColor()
+                ->setRGB('9C0006');
+
+            $sheet->getStyle($cellRange)->setConditionalStyles([$conditional]);
+        }
+    }
+
+    /**
      * @param  array<string, string>  $optionRanges
      */
     private function validationFormula(string $header, array $optionRanges): ?string
     {
-        if ($this->usesInlineList($header)) {
-            $inline = match ($header) {
-                'marital_status' => '"single,married,divorced,widowed"',
-                'status' => '"active,inactive,on_leave,terminated"',
-                default => null,
-            };
-
-            return $inline;
-        }
-
         return $optionRanges[$header] ?? null;
     }
 
-    private function usesInlineList(string $header): bool
+    private function isLookupHeader(string $header): bool
     {
-        return in_array($header, ['marital_status', 'status'], true);
+        return in_array($header, self::LOOKUP_HEADERS, true);
     }
 
     private function applyImportSheetFormatting(Worksheet $sheet, int $columnCount): void
@@ -246,7 +301,7 @@ final class EmployeeImportTemplateExporter
             ['Employee import — quick guide'],
             [''],
             ['1. Open the "'.self::IMPORT_SHEET_NAME.'" tab and fill employee rows below the sample row.'],
-            ['2. Use the dropdown arrows on lookup columns (branch, department, gender, etc.) — do not type free text.'],
+            ['2. Use dropdowns or paste copied data into lookup columns. Red cells contain values not found in your master data — fix them before upload.'],
             ['3. Required columns depend on your onboarding template; employee no and name are always required.'],
             ['4. Dates use YYYY-MM-DD (for example 1990-01-15).'],
             ['5. Save this file as .xlsx and upload it on the import page.'],

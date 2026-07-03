@@ -24,7 +24,9 @@ use App\Support\Employees\EmployeeImportTemplateExporter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
+use PhpOffice\PhpSpreadsheet\Style\Conditional;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -1899,12 +1901,88 @@ test('employee import template applies dropdown validation for lookup columns', 
     $maritalStatusValidation = $importSheet->getCellByColumnAndRow($maritalStatusColumnIndex + 1, 2)->getDataValidation();
 
     expect($branchValidation->getType())->toBe(DataValidation::TYPE_LIST)
+        ->and($branchValidation->getErrorStyle())->toBe(DataValidation::STYLE_INFORMATION)
         ->and($branchValidation->getFormula1())->toContain(EmployeeImportTemplateExporter::OPTIONS_SHEET_NAME)
         ->and($genderValidation->getType())->toBe(DataValidation::TYPE_LIST)
+        ->and($genderValidation->getErrorStyle())->toBe(DataValidation::STYLE_INFORMATION)
         ->and($maritalStatusValidation->getType())->toBe(DataValidation::TYPE_LIST)
-        ->and($maritalStatusValidation->getFormula1())->toBe('"single,married,divorced,widowed"')
-        ->and($optionsSheet->getCell('A2')->getValue())->toBe('Main Office')
+        ->and($maritalStatusValidation->getFormula1())->toContain(EmployeeImportTemplateExporter::OPTIONS_SHEET_NAME);
+
+    $branchOptionsColumn = null;
+    for ($column = 1; $column <= 20; $column++) {
+        $columnLetter = Coordinate::stringFromColumnIndex($column);
+        if ($optionsSheet->getCell("{$columnLetter}1")->getValue() === 'branch') {
+            $branchOptionsColumn = $columnLetter;
+            break;
+        }
+    }
+
+    expect($branchOptionsColumn)->not->toBeNull()
+        ->and($optionsSheet->getCell("{$branchOptionsColumn}2")->getValue())->toBe('Main Office')
         ->and($optionsSheet->getSheetState())->toBe('hidden');
+});
+
+test('employee import template highlights invalid lookup values with conditional formatting', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'ITH',
+        'name' => 'Import Highlight Land',
+        'dial_code' => '+984',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'ITH',
+        'name' => 'Import Highlight Currency',
+        'symbol' => 'H$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Import Highlight Co',
+        'slug' => 'import-highlight-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    Branch::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Main Office',
+        'code' => 'MAIN',
+        'status' => 'active',
+        'is_headquarters' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.import']);
+
+    $response = $this->get('/organization/employees/import/template');
+    $response->assertOk();
+
+    $spreadsheet = employeeImportTemplateSpreadsheet($response);
+    $importSheet = $spreadsheet->getSheetByName(EmployeeImportTemplateExporter::IMPORT_SHEET_NAME);
+    $headers = employeeImportTemplateHeaders($response);
+    $branchColumnIndex = array_search('branch', $headers, true);
+
+    expect($branchColumnIndex)->not->toBeFalse();
+
+    $branchColumnLetter = Coordinate::stringFromColumnIndex($branchColumnIndex + 1);
+    $branchRange = "{$branchColumnLetter}2:{$branchColumnLetter}501";
+    $conditionalStyles = $importSheet->getStyle($branchRange)->getConditionalStyles();
+
+    expect($conditionalStyles)->not->toBeEmpty();
+
+    $expression = $conditionalStyles[0];
+
+    expect($expression)->toBeInstanceOf(Conditional::class)
+        ->and($expression->getConditionType())->toBe(Conditional::CONDITION_EXPRESSION)
+        ->and($expression->getConditions()[0])->toContain('COUNTIF')
+        ->and($expression->getConditions()[0])->toContain(EmployeeImportTemplateExporter::OPTIONS_SHEET_NAME);
 });
 
 test('employee import template with minimal columns does not apply lookup dropdown validation', function () {
