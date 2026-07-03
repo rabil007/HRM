@@ -9,31 +9,17 @@ use App\Models\Employee;
 use App\Models\EmployeeDeployment;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
-use Carbon\CarbonInterface;
+use App\Support\Payroll\Services\Concerns\SpreadsheetPayrollExportFormatting;
 use Illuminate\Support\Collection;
-use PhpOffice\PhpSpreadsheet\Cell\DataType;
-use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 final class CrewPayrollSalarySheetExporter
 {
+    use SpreadsheetPayrollExportFormatting;
+
     public const SHEET_NAME = 'Salary Sheet';
-
-    private const HEADER_ROW = 2;
-
-    private const DATA_START_ROW = 3;
-
-    private const MISSING_FILL = 'FF0000';
-
-    private const HEADER_FILL = 'DAE3F3';
-
-    private const DATE_FORMAT = '[$-10000]d\ mmm\ yyyy;@';
 
     /**
      * @return array{path: string, filename: string}
@@ -114,23 +100,7 @@ final class CrewPayrollSalarySheetExporter
         $this->applyWorksheetFormatting($sheet, $lastDataRow);
         $this->applyMissingHighlights($sheet, $missingCoordinates);
 
-        $tempPath = tempnam(sys_get_temp_dir(), 'crew-payroll-export-');
-
-        if ($tempPath === false) {
-            throw new \RuntimeException('Unable to create temporary crew payroll export file.');
-        }
-
-        $xlsxPath = $tempPath.'.xlsx';
-        rename($tempPath, $xlsxPath);
-
-        (new Xlsx($spreadsheet))->save($xlsxPath);
-
-        $slug = str($period->name ?? 'period-'.$period->id)->slug();
-
-        return [
-            'path' => $xlsxPath,
-            'filename' => "crew-payroll-{$slug}.xlsx",
-        ];
+        return $this->saveSpreadsheet($spreadsheet, 'crew-payroll-', $period);
     }
 
     private function writeSummaryRow(Worksheet $sheet): void
@@ -244,139 +214,10 @@ final class CrewPayrollSalarySheetExporter
         return $missingCoordinates;
     }
 
-    /**
-     * @return array{value: mixed, missing: bool, is_date: bool}
-     */
-    private function presentValue(mixed $value, bool $missing): array
-    {
-        return [
-            'value' => $missing ? null : $value,
-            'missing' => $missing,
-            'is_date' => false,
-        ];
-    }
-
-    /**
-     * @return array{value: mixed, missing: bool, is_date: bool}
-     */
-    private function presentDate(?CarbonInterface $date): array
-    {
-        if ($date === null) {
-            return [
-                'value' => '-',
-                'missing' => true,
-                'is_date' => false,
-            ];
-        }
-
-        return [
-            'value' => ExcelDate::PHPToExcel($date),
-            'missing' => false,
-            'is_date' => true,
-        ];
-    }
-
-    /**
-     * @return array{value: mixed, missing: bool, is_date: bool}
-     */
-    private function presentNumeric(mixed $value, bool $missingWhenNull = true): array
-    {
-        if ($value === null || $value === '') {
-            return [
-                'value' => $missingWhenNull ? null : 0,
-                'missing' => $missingWhenNull,
-                'is_date' => false,
-            ];
-        }
-
-        return [
-            'value' => round((float) $value, 2),
-            'missing' => false,
-            'is_date' => false,
-        ];
-    }
-
-    /**
-     * @return array{value: mixed, missing: bool, is_date: bool}
-     */
-    private function presentAdjustment(float $netAdjustment): array
-    {
-        if ($netAdjustment === 0.0) {
-            return [
-                'value' => null,
-                'missing' => false,
-                'is_date' => false,
-            ];
-        }
-
-        return [
-            'value' => $netAdjustment,
-            'missing' => false,
-            'is_date' => false,
-        ];
-    }
-
-    /**
-     * @param  array{value: mixed, missing: bool, is_date: bool}  $cell
-     */
-    private function writeCell(Worksheet $sheet, string $coordinate, array $cell, bool $isDateColumn): void
-    {
-        $value = $cell['value'];
-
-        if ($value === null) {
-            $sheet->setCellValue($coordinate, null);
-        } elseif ($cell['is_date']) {
-            $sheet->setCellValue($coordinate, $value);
-            $sheet->getStyle($coordinate)->getNumberFormat()->setFormatCode(self::DATE_FORMAT);
-        } elseif ($coordinate[0] === 'B' && is_scalar($value)) {
-            $sheet->setCellValueExplicit($coordinate, (string) $value, DataType::TYPE_STRING);
-        } else {
-            $sheet->setCellValue($coordinate, $value);
-        }
-
-        if ($isDateColumn && ! $cell['is_date'] && $value === '-') {
-            $sheet->setCellValue($coordinate, '-');
-        }
-    }
-
-    /**
-     * @param  list<string>  $coordinates
-     */
-    private function applyMissingHighlights(Worksheet $sheet, array $coordinates): void
-    {
-        foreach ($coordinates as $coordinate) {
-            $sheet->getStyle($coordinate)->getFill()
-                ->setFillType(Fill::FILL_SOLID)
-                ->getStartColor()
-                ->setRGB(self::MISSING_FILL);
-        }
-    }
-
     private function applyWorksheetFormatting(Worksheet $sheet, int $lastDataRow): void
     {
-        $headerStyle = [
-            'font' => ['bold' => true, 'size' => 11],
-            'alignment' => [
-                'horizontal' => Alignment::HORIZONTAL_CENTER,
-                'vertical' => Alignment::VERTICAL_CENTER,
-                'wrapText' => true,
-            ],
-            'fill' => [
-                'fillType' => Fill::FILL_SOLID,
-                'startColor' => ['rgb' => self::HEADER_FILL],
-            ],
-            'borders' => [
-                'allBorders' => [
-                    'borderStyle' => Border::BORDER_THIN,
-                    'color' => ['rgb' => 'CBD5E1'],
-                ],
-            ],
-        ];
-
-        $sheet->getStyle('A'.self::HEADER_ROW.':T'.self::HEADER_ROW)->applyFromArray($headerStyle);
-        $sheet->getRowDimension(self::HEADER_ROW)->setRowHeight(28);
-
-        $columnWidths = [
+        $this->applyHeaderStyle($sheet, 'T');
+        $this->applyColumnWidths($sheet, [
             'A' => 8,
             'B' => 12,
             'C' => 28,
@@ -397,27 +238,12 @@ final class CrewPayrollSalarySheetExporter
             'R' => 12,
             'S' => 14,
             'T' => 18,
-        ];
-
-        foreach ($columnWidths as $column => $width) {
-            $sheet->getColumnDimension($column)->setWidth($width);
-        }
+        ]);
+        $this->applyDataBorderStyle($sheet, 'T', $lastDataRow);
 
         if ($lastDataRow < self::DATA_START_ROW) {
             return;
         }
-
-        $dataRange = 'A'.self::DATA_START_ROW.":T{$lastDataRow}";
-
-        $sheet->getStyle($dataRange)->applyFromArray([
-            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
-            'borders' => [
-                'allBorders' => [
-                    'borderStyle' => Border::BORDER_THIN,
-                    'color' => ['rgb' => 'E2E8F0'],
-                ],
-            ],
-        ]);
 
         $sheet->getStyle('I'.self::DATA_START_ROW.":I{$lastDataRow}")->applyFromArray([
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9D9D9']],
@@ -435,23 +261,7 @@ final class CrewPayrollSalarySheetExporter
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9D9D9']],
         ]);
 
-        foreach (['G', 'H', 'J', 'K'] as $dateColumn) {
-            $sheet->getStyle("{$dateColumn}".self::DATA_START_ROW.":{$dateColumn}{$lastDataRow}")
-                ->getNumberFormat()
-                ->setFormatCode(self::DATE_FORMAT);
-        }
-
-        $sheet->getStyle('M'.self::DATA_START_ROW.":S{$lastDataRow}")
-            ->getNumberFormat()
-            ->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
-    }
-
-    private function toFloat(mixed $value): float
-    {
-        if ($value === null || $value === '') {
-            return 0.0;
-        }
-
-        return (float) $value;
+        $this->applyDateFormatRange($sheet, 'G'.self::DATA_START_ROW.':K'.$lastDataRow);
+        $this->applyMoneyFormat($sheet, 'M'.self::DATA_START_ROW.':S'.$lastDataRow);
     }
 }

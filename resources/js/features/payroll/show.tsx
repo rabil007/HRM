@@ -21,7 +21,7 @@ import {
     approve,
     cancel,
     destroyPayrollRecord,
-    exportCrewPayroll,
+    exportPayroll,
     generatePayroll,
     index as payrollIndex,
     markPaid,
@@ -576,7 +576,7 @@ export function PayrollShowContent({
         canApprove ||
         canMarkPaid ||
         canCancelPeriod ||
-        permissions.export_crew_payroll ||
+        permissions.export_payroll ||
         Boolean(period.has_payment_proof);
 
     const recordsPagination = payroll_records_pagination;
@@ -700,13 +700,13 @@ export function PayrollShowContent({
                                     Approve pay run
                                 </Button>
                             ) : null}
-                            {permissions.export_crew_payroll ? (
+                            {permissions.export_payroll ? (
                                 <Button
                                     asChild
                                     variant="outline"
                                     className={headerSecondaryActionClass}
                                 >
-                                    <a href={exportCrewPayroll.url(period.id)}>
+                                    <a href={exportPayroll.url(period.id)}>
                                         <Download className="mr-2 h-4 w-4" />
                                         Export Excel
                                     </a>

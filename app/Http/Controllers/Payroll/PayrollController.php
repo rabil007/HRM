@@ -47,6 +47,7 @@ use App\Support\Payroll\SalaryInputResource;
 use App\Support\Payroll\Services\CrewPayrollSalarySheetExporter;
 use App\Support\Payroll\Services\CrewTimesheetImportOrchestrator;
 use App\Support\Payroll\Services\CrewTimesheetTemplateExporter;
+use App\Support\Payroll\Services\OfficePayrollSalarySheetExporter;
 use App\Support\Payroll\Wps\WpsExportPreview;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -395,10 +396,15 @@ class PayrollController extends Controller
                 'payslips_email' => $request->user()?->can('payroll.payslips.email') ?? false,
                 'wps_view' => $request->user()?->can('payroll.wps.view') ?? false,
                 'wps_export' => $request->user()?->can('payroll.wps.export') ?? false,
-                'export_crew_payroll' => ($request->user()?->can('payroll.crew_timesheets.view') ?? false)
-                    && $payrollPeriod->isCrew()
-                    && $payrollPeriod->status === PayrollPeriodStatus::Approved
-                    && $payrollPeriod->payroll_records_count > 0,
+                'export_payroll' => in_array($payrollPeriod->status, [
+                    PayrollPeriodStatus::Approved,
+                    PayrollPeriodStatus::Paid,
+                ], true)
+                    && $payrollPeriod->payroll_records_count > 0
+                    && (
+                        ($payrollPeriod->isCrew() && ($request->user()?->can('payroll.crew_timesheets.view') ?? false))
+                        || ($payrollPeriod->isOffice() && ($request->user()?->can('payroll.periods.view') ?? false))
+                    ),
             ]),
             'payslip_summary' => $payslipSummary,
             'wps_preview' => $wpsPreview,
@@ -489,20 +495,36 @@ class PayrollController extends Controller
             ->deleteFileAfterSend();
     }
 
-    public function exportCrewPayroll(
+    public function exportPayroll(
         PayrollPeriod $payrollPeriod,
-        CrewPayrollSalarySheetExporter $exporter,
+        CrewPayrollSalarySheetExporter $crewExporter,
+        OfficePayrollSalarySheetExporter $officeExporter,
     ) {
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
-        abort_unless($payrollPeriod->isCrew(), 404);
-        abort_unless($payrollPeriod->status === PayrollPeriodStatus::Approved, 403);
+        abort_unless(in_array($payrollPeriod->status, [
+            PayrollPeriodStatus::Approved,
+            PayrollPeriodStatus::Paid,
+        ], true), 403);
 
         $payrollPeriod->loadCount('payrollRecords');
 
         abort_unless($payrollPeriod->payroll_records_count > 0, 422);
 
-        $result = $exporter->export($companyId, $payrollPeriod);
+        if ($payrollPeriod->isCrew()) {
+            abort_unless(request()->user()?->can('payroll.crew_timesheets.view'), 403);
+
+            $result = $crewExporter->export($companyId, $payrollPeriod);
+
+            return response()
+                ->download($result['path'], $result['filename'])
+                ->deleteFileAfterSend();
+        }
+
+        abort_unless($payrollPeriod->isOffice(), 404);
+        abort_unless(request()->user()?->can('payroll.periods.view'), 403);
+
+        $result = $officeExporter->export($companyId, $payrollPeriod);
 
         return response()
             ->download($result['path'], $result['filename'])

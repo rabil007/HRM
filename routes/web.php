@@ -195,8 +195,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('payroll/{payrollPeriod}/timesheets/import/template', [PayrollController::class, 'importTemplate'])->name('payroll.timesheets.import.template');
     Route::post('payroll/{payrollPeriod}/timesheets/import/preview', [PayrollController::class, 'importPreview'])->name('payroll.timesheets.import.preview');
     Route::post('payroll/{payrollPeriod}/timesheets/import', [PayrollController::class, 'importTimesheets'])->name('payroll.timesheets.import');
-    Route::get('payroll/{payrollPeriod}/export', [PayrollController::class, 'exportCrewPayroll'])
-        ->middleware('can:payroll.crew_timesheets.view')
+    Route::get('payroll/{payrollPeriod}/export', [PayrollController::class, 'exportPayroll'])
         ->name('payroll.export');
     Route::post('payroll/{payrollPeriod}/generate', [PayrollController::class, 'generatePayroll'])->middleware('can:payroll.periods.update')->name('payroll.generate');
     Route::delete('payroll/{payrollPeriod}/records/{payrollRecord}', [PayrollController::class, 'destroyPayrollRecord'])->middleware('can:payroll.periods.update')->name('payroll.records.destroy');

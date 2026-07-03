@@ -28,7 +28,7 @@ test('users without crew timesheet view permission cannot export approved crew p
         ->assertForbidden();
 });
 
-test('crew payroll export is only available for approved periods', function (PayrollPeriodStatus $status) {
+test('crew payroll export is only available for approved or paid periods', function (PayrollPeriodStatus $status) {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
@@ -43,20 +43,34 @@ test('crew payroll export is only available for approved periods', function (Pay
 })->with([
     'draft' => PayrollPeriodStatus::Draft,
     'processing' => PayrollPeriodStatus::Processing,
-    'paid' => PayrollPeriodStatus::Paid,
 ]);
 
-test('crew payroll export is not available for office periods', function () {
+test('paid crew payroll export downloads salary sheet workbook', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
 
-    $period = PayrollPeriod::factory()->for($company)->office()->approved()->create();
+    [$period] = createApprovedCrewExportFixture($company);
+    $period->update(['status' => PayrollPeriodStatus::Paid]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.export', $period->fresh()))
+        ->assertOk()
+        ->assertDownload('crew-payroll-june-2026-crew.xlsx');
+});
+
+test('users with only crew timesheet permission cannot export approved office payroll', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
+
+    [$period] = createApprovedOfficeExportFixture($company);
 
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('payroll.export', $period))
-        ->assertNotFound();
+        ->assertForbidden();
 });
 
 test('approved crew payroll export downloads salary sheet workbook', function () {
@@ -144,7 +158,27 @@ test('approved crew payroll show page exposes export permission flag', function 
         ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('permissions.export_crew_payroll', true)
+            ->where('permissions.export_payroll', true)
+        );
+});
+
+test('paid crew payroll show page exposes export permission flag', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
+        'payroll.crew_timesheets.view',
+    ]);
+
+    [$period] = createApprovedCrewExportFixture($company);
+    $period->update(['status' => PayrollPeriodStatus::Paid]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', ['payrollPeriod' => $period->fresh(), 'tab' => 'payroll']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('permissions.export_payroll', true)
         );
 });
 
