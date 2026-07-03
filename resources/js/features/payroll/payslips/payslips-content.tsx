@@ -202,7 +202,7 @@ export function PayslipsContent({
                                         dataTableBodyRowClass(false),
                                         'group transition-colors duration-200 hover:bg-muted/40',
                                         selectedIds.includes(record.id) &&
-                                            'bg-primary/5',
+                                            '[&>td]:bg-primary/5',
                                     )}
                                 >
                                     <TableCell className="w-12 pl-5">

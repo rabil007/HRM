@@ -172,7 +172,7 @@ export function PayrollRecordsTable({
                             className={cn(
                                 dataTableBodyRowClass(false),
                                 'group transition-all duration-150',
-                                isSelected && 'bg-primary/5',
+                                isSelected && '[&>td]:bg-primary/5',
                                 !isSelected && 'hover:bg-muted/30',
                             )}
                         >
@@ -208,7 +208,8 @@ export function PayrollRecordsTable({
                             <TableCell
                                 className={cn(
                                     dataTableCellClass(),
-                                    'border-l border-primary/8 bg-primary/2',
+                                    'border-l border-primary/8',
+                                    !isSelected && 'bg-primary/2',
                                 )}
                             >
                                 <CrewPayColumnCell
@@ -224,7 +225,8 @@ export function PayrollRecordsTable({
                             <TableCell
                                 className={cn(
                                     dataTableCellClass(),
-                                    'border-x border-primary/8 bg-primary/2',
+                                    'border-x border-primary/8',
+                                    !isSelected && 'bg-primary/2',
                                 )}
                             >
                                 <CrewPayColumnCell

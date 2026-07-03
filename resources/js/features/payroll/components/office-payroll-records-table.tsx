@@ -131,7 +131,7 @@ export function OfficePayrollRecordsTable({
                             key={record.id}
                             className={cn(
                                 dataTableBodyRowClass(false),
-                                isSelected && 'bg-primary/5',
+                                isSelected && '[&>td]:bg-primary/5',
                             )}
                         >
                             {wpsSelection ? (

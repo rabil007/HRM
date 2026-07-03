@@ -1,7 +1,6 @@
 import { DataTableHead } from '@/components/data-table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TableCell } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 
 export function PayrollRecordWpsSelectionHead({
     allSelected,
@@ -35,7 +34,7 @@ export function PayrollRecordWpsSelectionCell({
     onToggle: () => void;
 }) {
     return (
-        <TableCell className={cn('w-12 pl-5', checked && 'bg-primary/5')}>
+        <TableCell className="w-12 pl-5">
             <Checkbox
                 checked={checked}
                 onCheckedChange={onToggle}
