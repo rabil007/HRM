@@ -8,6 +8,7 @@ use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
+use App\Models\Position;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -297,4 +298,49 @@ test('contracts index scopes data to current company', function () {
     $this->get(route('organization.contracts'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('contracts', 1));
+});
+
+test('users can view employees without contracts on no-contract page with position and department loaded', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'branch' => $branch] = makeContractFixtures();
+
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'name' => 'Engineering',
+        'code' => 'ENG',
+        'status' => 'active',
+    ]);
+
+    $position = Position::query()->create([
+        'company_id' => $company->id,
+        'department_id' => $department->id,
+        'title' => 'Software Engineer',
+        'status' => 'active',
+    ]);
+
+    $employeeWithoutContract = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'department_id' => $department->id,
+        'position_id' => $position->id,
+        'employee_no' => 'NOC001',
+        'name' => 'No Contract Employee',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['contracts.view']);
+
+    $this->get(route('organization.contracts.no-contract'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/contracts/no-contract')
+            ->has('employees', 2)
+            ->where('employees.1.id', $employeeWithoutContract->id)
+            ->where('employees.1.name', 'No Contract Employee')
+            ->where('employees.1.department', 'Engineering')
+            ->where('employees.1.position', 'Software Engineer')
+        );
 });

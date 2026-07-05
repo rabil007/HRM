@@ -29,7 +29,7 @@ final class NoContractEmployeesQuery
                         ->orWhere('employee_no', 'like', "%{$search}%");
                 });
             })
-            ->with(['department:id,name', 'position:id,name'])
+            ->with(['department:id,name', 'position:id,title'])
             ->orderBy('name')
             ->paginate($perPage)
             ->through(fn (Employee $employee) => [
@@ -38,7 +38,7 @@ final class NoContractEmployeesQuery
                 'employee_no' => $employee->employee_no,
                 'image' => $employee->image,
                 'department' => $employee->department?->name,
-                'position' => $employee->position?->name,
+                'position' => $employee->position?->title,
                 'hire_date' => $employee->hire_date?->toDateString(),
             ]);
     }
