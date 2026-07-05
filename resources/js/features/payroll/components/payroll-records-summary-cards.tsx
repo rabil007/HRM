@@ -1,4 +1,5 @@
 import {
+    Clock,
     MinusCircle,
     PlusCircle,
     TrendingUp,
@@ -65,7 +66,7 @@ export function PayrollRecordsSummaryCards({
     summary: PayrollRecordsSummary;
 }) {
     return (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <SummaryCard
                 title="Total Employees"
                 value={summary.employee_count.toLocaleString()}
@@ -88,6 +89,14 @@ export function PayrollRecordsSummaryCards({
                 icon={MinusCircle}
                 iconClassName="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300"
                 accentClassName="hover:border-amber-500/25"
+            />
+            <SummaryCard
+                title="Total Overtime"
+                value={formatTimesheetAmount(summary.total_overtime_pay)}
+                hint={`${Number(summary.total_overtime_hours).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} hours · salary ÷ 365 × 1.25`}
+                icon={Clock}
+                iconClassName="border-orange-500/20 bg-orange-500/10 text-orange-600 dark:text-orange-300"
+                accentClassName="hover:border-orange-500/25"
             />
             <SummaryCard
                 title="Total Gross"

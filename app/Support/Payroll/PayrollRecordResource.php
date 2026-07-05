@@ -43,6 +43,7 @@ final class PayrollRecordResource
 
         if ($category === PayrollCategory::Crew) {
             $rates = is_array($breakdown['rates'] ?? null) ? $breakdown['rates'] : [];
+            $overtime = is_array($breakdown['overtime'] ?? null) ? $breakdown['overtime'] : [];
 
             return array_merge($base, [
                 'basic_salary' => self::formatAmount($record->basic_salary),
@@ -53,6 +54,14 @@ final class PayrollRecordResource
                 'onsite_pay' => self::formatAmount($lines['onsite_pay'] ?? null),
                 'site_allowance' => self::formatAmount($lines['site_allowance'] ?? null),
                 'supplementary_allowance' => self::formatAmount($lines['supplementary_allowance'] ?? null),
+                'overtime_hours' => self::formatAmount($record->overtime_hours),
+                'overtime' => [
+                    'hours' => self::formatAmount($overtime['hours'] ?? $record->overtime_hours),
+                    'monthly_salary' => self::formatAmount($overtime['monthly_salary'] ?? null),
+                    'hour_rate' => self::formatAmount($overtime['hour_rate'] ?? null),
+                    'overtime_hourly_rate' => self::formatAmount($overtime['overtime_hourly_rate'] ?? null),
+                    'overtime_pay' => self::formatAmount($overtime['overtime_pay'] ?? $record->overtime_pay),
+                ],
                 'rates' => [
                     'basic_daily' => self::formatAmount($rates['basic_daily'] ?? null),
                     'site_allowance_daily' => self::formatAmount($rates['site_allowance_daily'] ?? null),

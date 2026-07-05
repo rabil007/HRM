@@ -15,6 +15,8 @@ final class PayrollPeriodRecordsSummary
      *     total_net: string,
      *     total_additions: string,
      *     total_deductions: string,
+     *     total_overtime_pay: string,
+     *     total_overtime_hours: string,
      * }
      */
     public static function forPeriod(PayrollPeriod $period): array
@@ -22,7 +24,7 @@ final class PayrollPeriodRecordsSummary
         $row = PayrollRecord::query()
             ->where('company_id', $period->company_id)
             ->where('period_id', $period->id)
-            ->selectRaw('COUNT(*) as employee_count, COALESCE(SUM(gross_salary), 0) as total_gross, COALESCE(SUM(net_salary), 0) as total_net, COALESCE(SUM(total_deductions), 0) as total_deductions')
+            ->selectRaw('COUNT(*) as employee_count, COALESCE(SUM(gross_salary), 0) as total_gross, COALESCE(SUM(net_salary), 0) as total_net, COALESCE(SUM(total_deductions), 0) as total_deductions, COALESCE(SUM(overtime_pay), 0) as total_overtime_pay, COALESCE(SUM(overtime_hours), 0) as total_overtime_hours')
             ->first();
 
         $totalAdditions = SalaryInput::query()
@@ -37,6 +39,8 @@ final class PayrollPeriodRecordsSummary
             'total_net' => number_format((float) ($row->total_net ?? 0), 2, '.', ''),
             'total_additions' => number_format((float) $totalAdditions, 2, '.', ''),
             'total_deductions' => number_format((float) ($row->total_deductions ?? 0), 2, '.', ''),
+            'total_overtime_pay' => number_format((float) ($row->total_overtime_pay ?? 0), 2, '.', ''),
+            'total_overtime_hours' => number_format((float) ($row->total_overtime_hours ?? 0), 2, '.', ''),
         ];
     }
 }

@@ -23,7 +23,10 @@ import type { SalaryPaymentMethodValue } from '@/features/organization/employees
 import { cn } from '@/lib/utils';
 import type { CrewPayrollRecordListItem, SalaryInput } from '../types';
 import { formatTimesheetAmount } from '../types';
-import { CrewPayColumnCell } from './crew-rate-allowance-cell';
+import {
+    CrewOvertimeColumnCell,
+    CrewPayColumnCell,
+} from './crew-rate-allowance-cell';
 import { PayrollEmployeeCell } from './payroll-employee-cell';
 import {
     PayrollRecordBankAccountCell,
@@ -75,7 +78,7 @@ export function PayrollRecordsTable({
 
     return (
         <OrganizationDataTable
-            minWidth={wpsSelection ? 'min-w-[1400px]' : 'min-w-[1340px]'}
+            minWidth={wpsSelection ? 'min-w-[1520px]' : 'min-w-[1460px]'}
         >
             <TableHeader>
                 {/* Group label row */}
@@ -89,7 +92,7 @@ export function PayrollRecordsTable({
                     ))}
                     {/* Crew salary breakdown */}
                     <th
-                        colSpan={2}
+                        colSpan={3}
                         className="h-7 border-x border-b border-primary/15 bg-primary/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-primary/50 uppercase"
                     >
                         Salary breakdown
@@ -124,6 +127,9 @@ export function PayrollRecordsTable({
                     </DataTableHead>
                     <DataTableHead className="border-x border-primary/10 bg-primary/3">
                         On Site
+                    </DataTableHead>
+                    <DataTableHead className="border-r border-primary/10 bg-primary/3">
+                        Overtime
                     </DataTableHead>
                     {showSalaryInputsColumn ? (
                         <DataTableHead>Salary inputs</DataTableHead>
@@ -165,6 +171,14 @@ export function PayrollRecordsTable({
                         Number(record.onsite_pay ?? 0) +
                         Number(record.site_allowance ?? 0) +
                         Number(record.supplementary_allowance ?? 0);
+
+                    const overtimeHours = Number(record.overtime?.hours ?? record.overtime_hours ?? 0);
+                    const overtimeHourlyRate = Number(
+                        record.overtime?.overtime_hourly_rate ?? 0,
+                    );
+                    const overtimeAmount = Number(
+                        record.overtime?.overtime_pay ?? record.overtime_pay ?? 0,
+                    );
 
                     return (
                         <TableRow
@@ -236,6 +250,21 @@ export function PayrollRecordsTable({
                                     dailySite={siteDaily}
                                     totalAmount={onsiteAmount}
                                     variant="onsite"
+                                />
+                            </TableCell>
+
+                            {/* Overtime */}
+                            <TableCell
+                                className={cn(
+                                    dataTableCellClass(),
+                                    'border-r border-primary/8',
+                                    !isSelected && 'bg-primary/2',
+                                )}
+                            >
+                                <CrewOvertimeColumnCell
+                                    hours={overtimeHours}
+                                    overtimeHourlyRate={overtimeHourlyRate}
+                                    totalAmount={overtimeAmount}
                                 />
                             </TableCell>
 

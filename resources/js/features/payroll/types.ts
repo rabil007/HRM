@@ -265,6 +265,14 @@ export type CrewPayrollDailyRates = {
     supplementary_allowance_daily: string;
 };
 
+export type CrewOvertimeBreakdown = {
+    hours: string;
+    monthly_salary: string;
+    hour_rate: string;
+    overtime_hourly_rate: string;
+    overtime_pay: string;
+};
+
 export type CrewPayrollRecordListItem = PayrollRecordDeliveryFields & {
     id: number;
     payroll_category: 'crew';
@@ -277,6 +285,8 @@ export type CrewPayrollRecordListItem = PayrollRecordDeliveryFields & {
     site_allowance: string;
     supplementary_allowance: string;
     rates: CrewPayrollDailyRates;
+    overtime_hours: string;
+    overtime: CrewOvertimeBreakdown;
     overtime_pay: string;
     additional_amount: string;
     deduction_amount: string;
@@ -370,6 +380,8 @@ export type PayrollRecordsSummary = {
     total_net: string;
     total_additions: string;
     total_deductions: string;
+    total_overtime_pay: string;
+    total_overtime_hours: string;
 };
 
 export type PayrollShowProps = {

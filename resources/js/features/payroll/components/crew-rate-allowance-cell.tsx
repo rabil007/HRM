@@ -103,6 +103,51 @@ export function CrewPayColumnCell({
     );
 }
 
+export function CrewOvertimeColumnCell({
+    hours,
+    overtimeHourlyRate,
+    totalAmount,
+    className,
+}: {
+    hours: number;
+    overtimeHourlyRate: number;
+    totalAmount: number;
+    className?: string;
+}) {
+    const hasHours = hours > 0;
+    const hasAmount = totalAmount > 0;
+    const calcLine =
+        hasHours && overtimeHourlyRate > 0
+            ? `${formatNum(hours)} × ${formatNum(overtimeHourlyRate)}`
+            : null;
+
+    return (
+        <div className={cn('flex flex-col gap-0.5', className)}>
+            {hasHours ? (
+                <span className="inline-flex w-fit items-center rounded-md border border-orange-500/20 bg-orange-500/10 px-2 py-0.5 text-[11px] font-bold text-orange-700 tabular-nums dark:text-orange-300">
+                    {formatNum(hours)} hrs
+                </span>
+            ) : (
+                <span className="inline-flex w-fit rounded-md border border-border/40 px-2 py-0.5 text-[11px] text-muted-foreground/40">
+                    — hrs
+                </span>
+            )}
+            {calcLine ? (
+                <span className="font-mono text-[10px] text-muted-foreground/60">
+                    {calcLine}
+                </span>
+            ) : null}
+            {hasAmount ? (
+                <span className="text-sm font-semibold tabular-nums">
+                    {formatTimesheetAmount(String(totalAmount))}
+                </span>
+            ) : (
+                <span className="text-xs text-muted-foreground/40">—</span>
+            )}
+        </div>
+    );
+}
+
 function buildRateFormula(
     basic: number,
     supplementary: number,
