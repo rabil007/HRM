@@ -64,21 +64,16 @@ final class PayslipData
         ];
 
         if ($category === PayrollCategory::Crew) {
+            $overtime = is_array($breakdown['overtime'] ?? null) ? $breakdown['overtime'] : [];
+
             return array_merge($base, [
-                'earnings' => [
-                    ['label' => 'Standby pay', 'amount' => self::formatAmount($lines['standby_pay'] ?? 0)],
-                    ['label' => 'Onsite pay', 'amount' => self::formatAmount($lines['onsite_pay'] ?? 0)],
-                    ['label' => 'Site allowance', 'amount' => self::formatAmount($lines['site_allowance'] ?? 0)],
-                    ['label' => 'Supplementary allowance', 'amount' => self::formatAmount($lines['supplementary_allowance'] ?? 0)],
-                    ['label' => 'Overtime', 'amount' => self::formatAmount($record->overtime_pay)],
-                    ['label' => 'Additional amount', 'amount' => self::formatAmount($record->bonus)],
+                'earnings' => self::crewEarnings($record, $lines),
+                'deductions' => self::crewDeductions($record, $breakdown),
+                'crew_summary' => [
+                    'standby_days' => self::formatDayCount($breakdown['standby_days'] ?? null),
+                    'onsite_days' => self::formatDayCount($breakdown['onsite_days'] ?? null),
                 ],
-                'deductions' => [
-                    ['label' => 'Deductions', 'amount' => self::formatAmount($record->total_deductions)],
-                ],
-                'standby_days' => $breakdown['standby_days'] ?? null,
-                'onsite_days' => $breakdown['onsite_days'] ?? null,
-                'overtime_hours' => self::formatAmount($record->overtime_hours),
+                'overtime' => self::crewOvertimeBreakdown($record, $overtime),
             ]);
         }
 
@@ -185,6 +180,129 @@ final class PayslipData
         ];
 
         return self::filterPositiveLines($rows);
+    }
+
+    /**
+     * @param  array<string, mixed>  $lines
+     * @return list<array{label: string, amount: string}>
+     */
+    private static function crewEarnings(PayrollRecord $record, array $lines): array
+    {
+        $overtimeHours = (float) ($record->overtime_hours ?? 0);
+        $overtimeLabel = $overtimeHours > 0
+            ? sprintf('Overtime (%s hrs)', self::formatDayCount($overtimeHours))
+            : 'Overtime';
+
+        $rows = [
+            ['label' => 'Standby pay', 'amount' => self::formatAmount($lines['standby_pay'] ?? 0)],
+            ['label' => 'Onsite pay', 'amount' => self::formatAmount($lines['onsite_pay'] ?? 0)],
+            ['label' => 'Site allowance', 'amount' => self::formatAmount($lines['site_allowance'] ?? 0)],
+            ['label' => 'Supplementary allowance', 'amount' => self::formatAmount($lines['supplementary_allowance'] ?? 0)],
+            ['label' => $overtimeLabel, 'amount' => self::formatAmount($record->overtime_pay)],
+            ['label' => 'Additional amount', 'amount' => self::formatAmount($record->bonus)],
+        ];
+
+        $breakdown = is_array($record->calculation_breakdown) ? $record->calculation_breakdown : [];
+        $salaryInputs = is_array($breakdown['salary_inputs'] ?? null) ? $breakdown['salary_inputs'] : [];
+
+        foreach ($salaryInputs as $input) {
+            if (! ($input['is_addition'] ?? false)) {
+                continue;
+            }
+
+            $rows[] = [
+                'label' => (string) ($input['type_label'] ?? $input['type'] ?? 'Addition'),
+                'amount' => self::formatAmount($input['amount'] ?? 0),
+            ];
+        }
+
+        return self::filterPositiveLines($rows);
+    }
+
+    /**
+     * @param  array<string, mixed>  $breakdown
+     * @return list<array{label: string, amount: string}>
+     */
+    private static function crewDeductions(PayrollRecord $record, array $breakdown): array
+    {
+        $salaryInputs = is_array($breakdown['salary_inputs'] ?? null) ? $breakdown['salary_inputs'] : [];
+
+        if ($salaryInputs !== []) {
+            $rows = [];
+
+            foreach ($salaryInputs as $input) {
+                if ($input['is_addition'] ?? false) {
+                    continue;
+                }
+
+                $rows[] = [
+                    'label' => (string) ($input['type_label'] ?? $input['type'] ?? 'Deduction'),
+                    'amount' => self::formatAmount($input['amount'] ?? 0),
+                ];
+            }
+
+            return self::filterPositiveLines($rows);
+        }
+
+        return self::filterPositiveLines([
+            ['label' => 'Deductions', 'amount' => self::formatAmount($record->total_deductions)],
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overtime
+     * @return array<string, mixed>|null
+     */
+    private static function crewOvertimeBreakdown(PayrollRecord $record, array $overtime): ?array
+    {
+        $hours = (float) ($record->overtime_hours ?? 0);
+        $overtimePay = (float) ($record->overtime_pay ?? 0);
+
+        if ($hours <= 0 && $overtimePay <= 0) {
+            return null;
+        }
+
+        $periodDays = (int) ($overtime['period_days'] ?? 0);
+        $dailyOnsiteRate = self::formatAmount($overtime['daily_onsite_rate'] ?? 0);
+        $monthlySalary = self::formatAmount($overtime['monthly_salary'] ?? 0);
+        $hourRate = self::formatAmount($overtime['hour_rate'] ?? 0);
+        $overtimeHourlyRate = self::formatAmount($overtime['overtime_hourly_rate'] ?? 0);
+        $overtimePayFormatted = self::formatAmount($overtimePay);
+
+        $monthlyBaseFormula = $periodDays > 0 && (float) $dailyOnsiteRate > 0
+            ? sprintf('%d × %s', $periodDays, $dailyOnsiteRate)
+            : null;
+
+        $overtimeFormula = $hours > 0 && (float) $overtimeHourlyRate > 0
+            ? sprintf('%s × %s', self::formatDayCount($hours), $overtimeHourlyRate)
+            : null;
+
+        return [
+            'hours' => self::formatDayCount($hours),
+            'period_days' => $periodDays > 0 ? (string) $periodDays : null,
+            'daily_onsite_rate' => $dailyOnsiteRate,
+            'monthly_salary' => $monthlySalary,
+            'monthly_base_formula' => $monthlyBaseFormula,
+            'hour_rate' => $hourRate,
+            'overtime_hourly_rate' => $overtimeHourlyRate,
+            'overtime_pay' => $overtimePayFormatted,
+            'overtime_formula' => $overtimeFormula,
+        ];
+    }
+
+    private static function formatDayCount(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '0';
+        }
+
+        $number = (float) $value;
+
+        if (fmod($number, 1.0) === 0.0) {
+            return (string) (int) $number;
+        }
+
+        return number_format($number, 2, '.', '');
     }
 
     /**

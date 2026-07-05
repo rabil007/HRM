@@ -277,3 +277,63 @@ test('office payslip earnings always include core salary components even when ze
             '0.00',
         ]);
 });
+
+test('crew payslip includes overtime calculation breakdown', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'CREW-OT']);
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'overtime_hours' => 98,
+        'overtime_pay' => 3523.97,
+        'gross_salary' => 14082.60,
+        'net_salary' => 14082.60,
+        'status' => 'approved',
+        'calculation_breakdown' => [
+            'standby_days' => 30,
+            'onsite_days' => 33.5,
+            'lines' => [
+                'standby_pay' => 0,
+                'onsite_pay' => 0,
+                'site_allowance' => 0,
+                'supplementary_allowance' => 0,
+                'overtime' => 3523.97,
+            ],
+            'overtime' => [
+                'hours' => 98,
+                'period_days' => 30,
+                'daily_onsite_rate' => 350,
+                'monthly_salary' => 10500,
+                'hour_rate' => 28.77,
+                'overtime_hourly_rate' => 35.96,
+                'overtime_pay' => 3523.97,
+            ],
+        ],
+    ]);
+
+    $data = PayslipData::for($record, $company->id);
+
+    expect($data['overtime'])->not->toBeNull()
+        ->and($data['overtime']['hours'])->toBe('98')
+        ->and($data['overtime']['monthly_salary'])->toBe('10500.00')
+        ->and($data['overtime']['monthly_base_formula'])->toBe('30 × 350.00')
+        ->and($data['overtime']['overtime_formula'])->toBe('98 × 35.96')
+        ->and($data['overtime']['overtime_pay'])->toBe('3523.97')
+        ->and(collect($data['earnings'])->firstWhere('label', 'Overtime (98 hrs)'))->not->toBeNull();
+
+    $html = view('payroll.payslip', $data)->render();
+
+    expect($html)
+        ->toContain('Overtime Calculation')
+        ->toContain('30 × 350.00 = 10500.00')
+        ->toContain('98 × 35.96')
+        ->toContain('3523.97')
+        ->toContain('Crew Attendance');
+});

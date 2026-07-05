@@ -188,6 +188,85 @@
             </tr>
         </table>
 
+        @if(($payroll_category ?? '') === 'crew' && ! empty($crew_summary))
+            <div class="section-header">
+                <table>
+                    <tr>
+                        <td>Crew Attendance</td>
+                    </tr>
+                </table>
+            </div>
+
+            <table class="info-grid">
+                <tr>
+                    <td style="padding-right: 20px;">
+                        <table class="info-table">
+                            <tr><td class="info-label">Standby days:</td><td>{{ $crew_summary['standby_days'] ?? '0' }}</td></tr>
+                            <tr><td class="info-label">Onsite days:</td><td>{{ $crew_summary['onsite_days'] ?? '0' }}</td></tr>
+                        </table>
+                    </td>
+                    <td></td>
+                </tr>
+            </table>
+        @endif
+
+        @if(!empty($overtime))
+            <div class="section-header">
+                <table>
+                    <tr>
+                        <td>Overtime Calculation</td>
+                    </tr>
+                </table>
+            </div>
+
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th class="amount">Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Overtime hours</td>
+                        <td class="amount">{{ $overtime['hours'] }}</td>
+                    </tr>
+                    @if(!empty($overtime['monthly_base_formula']))
+                        <tr>
+                            <td>Monthly base (days × daily onsite rate)</td>
+                            <td class="amount">{{ $overtime['monthly_base_formula'] }} = {{ $overtime['monthly_salary'] }}</td>
+                        </tr>
+                    @elseif((float) ($overtime['monthly_salary'] ?? 0) > 0)
+                        <tr>
+                            <td>Monthly base</td>
+                            <td class="amount">{{ $overtime['monthly_salary'] }}</td>
+                        </tr>
+                    @endif
+                    @if((float) ($overtime['hour_rate'] ?? 0) > 0)
+                        <tr>
+                            <td>Hour rate (monthly base ÷ 365)</td>
+                            <td class="amount">{{ $overtime['hour_rate'] }}</td>
+                        </tr>
+                    @endif
+                    @if((float) ($overtime['overtime_hourly_rate'] ?? 0) > 0)
+                        <tr>
+                            <td>Overtime hourly rate (hour rate × 1.25)</td>
+                            <td class="amount">{{ $overtime['overtime_hourly_rate'] }}</td>
+                        </tr>
+                    @endif
+                    <tr class="total-row">
+                        <td>
+                            Overtime pay
+                            @if(!empty($overtime['overtime_formula']))
+                                ({{ $overtime['overtime_formula'] }})
+                            @endif
+                        </td>
+                        <td class="amount">{{ $overtime['overtime_pay'] }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        @endif
+
     @if(!empty($earnings) && count($earnings) > 0)
     <table class="data-table">
         <thead>
