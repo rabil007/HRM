@@ -16,6 +16,7 @@ export type ContractSummary = {
     ending_60: number;
     ending_90: number;
     ended: number;
+    no_contract_employees: number;
 };
 
 export type ContractListItem = EmployeeContractDetails & {

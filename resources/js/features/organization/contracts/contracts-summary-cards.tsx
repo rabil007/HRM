@@ -2,6 +2,7 @@ import {
     CheckCircle2,
     Clock,
     FileText,
+    UserX,
     XCircle,
     type LucideIcon,
 } from 'lucide-react';
@@ -96,7 +97,7 @@ export function ContractsSummaryCards({
     onSelect: (lifecycle: ContractLifecycleFilter) => void;
 }) {
     return (
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
             {SUMMARY_ITEMS.map((item) => {
                 const isActive = item.lifecycle === activeLifecycle;
                 const label =
@@ -142,6 +143,22 @@ export function ContractsSummaryCards({
                     </button>
                 );
             })}
+            <Card className="border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30 transition-all duration-150">
+                <CardContent className="p-4">
+                    <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-medium text-muted-foreground leading-tight">
+                            No contract
+                        </p>
+                        <UserX
+                            className="size-3.5 shrink-0 text-violet-500/60"
+                            aria-hidden
+                        />
+                    </div>
+                    <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-violet-400">
+                        {summary.no_contract_employees}
+                    </p>
+                </CardContent>
+            </Card>
         </div>
     );
 }

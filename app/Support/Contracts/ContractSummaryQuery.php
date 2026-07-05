@@ -2,6 +2,7 @@
 
 namespace App\Support\Contracts;
 
+use App\Models\Employee;
 use App\Models\EmployeeContract;
 
 final class ContractSummaryQuery
@@ -13,7 +14,8 @@ final class ContractSummaryQuery
      *     ending_30: int,
      *     ending_60: int,
      *     ending_90: int,
-     *     ended: int
+     *     ended: int,
+     *     no_contract_employees: int
      * }
      */
     public function forCompany(int $companyId): array
@@ -42,6 +44,11 @@ final class ContractSummaryQuery
             )
             ->first();
 
+        $noContractCount = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereDoesntHave('contracts')
+            ->count();
+
         return [
             'total_contracts' => (int) ($row->total_contracts ?? 0),
             'active' => (int) ($row->active ?? 0),
@@ -49,6 +56,7 @@ final class ContractSummaryQuery
             'ending_60' => (int) ($row->ending_60 ?? 0),
             'ending_90' => (int) ($row->ending_90 ?? 0),
             'ended' => (int) ($row->ended ?? 0),
+            'no_contract_employees' => $noContractCount,
         ];
     }
 }
