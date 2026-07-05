@@ -5,6 +5,7 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\User;
@@ -140,17 +141,49 @@ test('contracts index returns employee image with each contract row', function (
             ->where('contracts.0.employee_image', 'employees/photos/contract-employee.jpg'));
 });
 
-test('contracts index filters by lifecycle and payroll category', function () {
+test('contracts index filters by lifecycle and workforce department scope', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'employee' => $employee] = makeContractFixtures();
+    ['company' => $company, 'branch' => $branch] = makeContractFixtures();
 
     grantCompanyPermissions($user, $company, ['contracts.view']);
 
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF',
+        'status' => 'active',
+    ]);
+
+    $marineDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine',
+        'code' => 'MAR',
+        'status' => 'active',
+    ]);
+
+    $officeEmployee = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'department_id' => $officeDepartment->id,
+        'employee_no' => 'CTR-OFF-01',
+        'name' => 'Office Contract Employee',
+        'status' => 'active',
+    ]);
+
+    $crewEmployee = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'department_id' => $marineDepartment->id,
+        'employee_no' => 'CTR-CREW-02',
+        'name' => 'Crew Contract Employee',
+        'status' => 'active',
+    ]);
+
     EmployeeContract::query()->create([
         'company_id' => $company->id,
-        'employee_id' => $employee->id,
+        'employee_id' => $officeEmployee->id,
         'contract_type' => 'unlimited',
         'payroll_category' => PayrollCategory::Office->value,
         'start_date' => '2026-01-01',
@@ -159,7 +192,7 @@ test('contracts index filters by lifecycle and payroll category', function () {
 
     EmployeeContract::query()->create([
         'company_id' => $company->id,
-        'employee_id' => $employee->id,
+        'employee_id' => $crewEmployee->id,
         'contract_type' => 'limited',
         'payroll_category' => PayrollCategory::Crew->value,
         'start_date' => '2024-01-01',

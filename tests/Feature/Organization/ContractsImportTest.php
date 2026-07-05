@@ -5,6 +5,7 @@ use App\Imports\ContractsImport;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\User;
@@ -65,8 +66,27 @@ test('crew contracts template excludes office-only employees', function () {
     @unlink($result['path']);
 });
 
+test('office contracts template includes office department employees without contracts', function () {
+    ['user' => $user, 'company' => $company, 'blankEmployee' => $blankEmployee] = makeContractsImportFixtures();
+
+    grantCompanyPermissions($user, $company, ['contracts.view', 'contracts.import']);
+
+    $result = app(ContractImportTemplateExporter::class)->export($company->id, PayrollCategory::Office);
+    $sheet = IOFactory::load($result['path'])->getSheetByName('Office Contracts');
+
+    $employeeNumbers = [];
+
+    for ($row = ContractsImport::DATA_START_ROW; $row <= $sheet->getHighestDataRow(); $row++) {
+        $employeeNumbers[] = (string) $sheet->getCell('A'.$row)->getValue();
+    }
+
+    expect($employeeNumbers)->toContain($blankEmployee->employee_no);
+
+    @unlink($result['path']);
+});
+
 test('office contracts template lists active employees and prefills matching office contracts', function () {
-    ['user' => $user, 'company' => $company, 'officeEmployee' => $officeEmployee, 'blankEmployee' => $blankEmployee] = makeContractsImportFixtures();
+    ['user' => $user, 'company' => $company, 'officeEmployee' => $officeEmployee] = makeContractsImportFixtures();
 
     grantCompanyPermissions($user, $company, ['contracts.view', 'contracts.import']);
 
@@ -92,8 +112,7 @@ test('office contracts template lists active employees and prefills matching off
         ];
     }
 
-    expect($rowsByEmployeeNo[$blankEmployee->employee_no]['contract_type'])->toBeNull()
-        ->and($rowsByEmployeeNo[$officeEmployee->employee_no]['contract_type'])->toBe('limited');
+    expect($rowsByEmployeeNo[$officeEmployee->employee_no]['contract_type'])->toBe('limited');
 
     @unlink($result['path']);
 });
@@ -311,9 +330,24 @@ function makeContractsImportFixtures(): array
         'status' => 'active',
     ]);
 
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF',
+        'status' => 'active',
+    ]);
+
+    $marineDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine',
+        'code' => 'MAR',
+        'status' => 'active',
+    ]);
+
     $officeEmployee = Employee::factory()->forCompany($company)->create([
         'employee_no' => 'EMP-OFF-01',
         'name' => 'Office Worker',
+        'department_id' => $officeDepartment->id,
         'status' => 'active',
     ]);
     EmployeeContract::query()->where('employee_id', $officeEmployee->id)->delete();
@@ -321,6 +355,7 @@ function makeContractsImportFixtures(): array
     $blankEmployee = Employee::factory()->forCompany($company)->create([
         'employee_no' => 'EMP-BLANK-02',
         'name' => 'Blank Worker',
+        'department_id' => $officeDepartment->id,
         'status' => 'active',
     ]);
     EmployeeContract::query()->where('employee_id', $blankEmployee->id)->delete();
@@ -339,6 +374,7 @@ function makeContractsImportFixtures(): array
     $crewEmployee = Employee::factory()->forCompany($company)->create([
         'employee_no' => 'EMP-CREW-03',
         'name' => 'Crew Worker',
+        'department_id' => $marineDepartment->id,
         'status' => 'active',
     ]);
     EmployeeContract::query()->where('employee_id', $crewEmployee->id)->delete();

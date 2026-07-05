@@ -5,7 +5,6 @@ namespace App\Support\Contracts;
 use App\Enums\PayrollCategory;
 use App\Imports\ContractsImport;
 use App\Models\Employee;
-use Illuminate\Database\Eloquent\Builder;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
@@ -26,18 +25,19 @@ final class ContractImportTemplateExporter
     public function export(int $companyId, PayrollCategory $payrollCategory): array
     {
         $employees = Employee::query()
-            ->where('company_id', $companyId)
-            ->where('status', 'active')
-            ->where(function (Builder $query) use ($payrollCategory) {
-                $query->whereDoesntHave('contracts', fn (Builder $contractQuery) => $contractQuery->where('status', 'active'))
-                    ->orWhereHas('currentContract', fn (Builder $contractQuery) => $contractQuery->where('payroll_category', $payrollCategory->value));
-            })
+            ->where('employees.company_id', $companyId)
+            ->where('employees.status', 'active')
+            ->tap(fn ($query) => ContractWorkforceDepartmentScope::apply(
+                $query,
+                $companyId,
+                $payrollCategory->value,
+            ))
             ->with([
                 'contracts' => fn ($query) => $query
                     ->where('status', 'active')
                     ->where('payroll_category', $payrollCategory->value),
             ])
-            ->orderBy('name')
+            ->orderBy('employees.name')
             ->get();
 
         $spreadsheet = new Spreadsheet;

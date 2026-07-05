@@ -64,7 +64,6 @@ final class ContractDirectoryQuery
 
         $query
             ->when($this->filters->status !== '', fn (Builder $inner) => $inner->where('employee_contracts.status', $this->filters->status))
-            ->when($this->filters->payrollCategory !== '', fn (Builder $inner) => $inner->where('employee_contracts.payroll_category', $this->filters->payrollCategory))
             ->when($this->filters->search !== '', function (Builder $inner): void {
                 $search = $this->filters->search;
                 $like = '%'.$search.'%';
@@ -92,6 +91,15 @@ final class ContractDirectoryQuery
                     exceptDepartment: false,
                     exceptPosition: true,
                 );
+
+                if ($this->filters->payrollCategory !== ''
+                    && ContractWorkforceDepartmentScope::isValid($this->filters->payrollCategory)) {
+                    ContractWorkforceDepartmentScope::apply(
+                        $employeeQuery,
+                        $this->companyId,
+                        $this->filters->payrollCategory,
+                    );
+                }
             });
     }
 }
