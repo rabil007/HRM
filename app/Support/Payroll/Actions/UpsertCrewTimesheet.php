@@ -50,7 +50,7 @@ final class UpsertCrewTimesheet
                 'onsite_from' => $data['onsite_from'] ?? null,
                 'onsite_to' => $data['onsite_to'] ?? null,
                 'onsite_days' => $data['onsite_days'] ?? null,
-                'overtime_amount' => $data['overtime_amount'] ?? 0,
+                'overtime_hours' => $data['overtime_hours'] ?? 0,
                 'additional_amount' => $data['additional_amount'] ?? 0,
                 'deduction_amount' => $data['deduction_amount'] ?? 0,
                 'remarks' => $data['remarks'] ?? null,

@@ -251,24 +251,24 @@ export function CrewTimesheetFormSheet({
                         <div className="grid grid-cols-3 gap-4">
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                    Overtime
+                                    Overtime (hrs)
                                 </Label>
                                 <Input
                                     type="number"
                                     min="0"
                                     step="0.01"
                                     className="h-11 rounded-xl border-border bg-card"
-                                    value={form.data.overtime_amount}
+                                    value={form.data.overtime_hours}
                                     onChange={(e) =>
                                         form.setData(
-                                            'overtime_amount',
+                                            'overtime_hours',
                                             e.target.value,
                                         )
                                     }
                                     disabled={!canSave}
                                 />
                                 <InputError
-                                    message={errors.overtime_amount}
+                                    message={errors.overtime_hours}
                                     className="text-xs"
                                 />
                             </div>

@@ -50,6 +50,7 @@ type ImportPreviewRow = {
     position: string | null;
     standby_days: number | null;
     onsite_days: number | null;
+    overtime_hours: number | string | null;
     errors: ImportRowError[];
     warnings: ImportRowError[];
 };
@@ -119,6 +120,7 @@ export function CrewTimesheetImportDialog({
                 row.position,
                 row.standby_days?.toString(),
                 row.onsite_days?.toString(),
+                row.overtime_hours?.toString(),
                 row.errors[0]?.message,
             ]
                 .filter(Boolean)
@@ -263,10 +265,10 @@ export function CrewTimesheetImportDialog({
                     <DialogDescription>
                         Download the template with your crew roster pre-filled.
                         Use Excel filters on Division or Department, then fill
-                        only the yellow date columns as DD-MM-YYYY text (e.g.
-                        01-07-2026). Do not use the Excel date picker. Days are
-                        calculated automatically. Rows are matched by employee
-                        number.
+                        the yellow date columns as DD-MM-YYYY text (e.g.
+                        01-07-2026) and the orange Overtime Hours column when
+                        applicable. Do not use the Excel date picker. Days and
+                        overtime pay are calculated when you generate payroll.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -367,6 +369,7 @@ export function CrewTimesheetImportDialog({
                                             <TableHead>Name</TableHead>
                                             <TableHead>Standby</TableHead>
                                             <TableHead>Onsite</TableHead>
+                                            <TableHead>Overtime</TableHead>
                                             <TableHead>Status</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -374,7 +377,7 @@ export function CrewTimesheetImportDialog({
                                         {filteredRows.length === 0 ? (
                                             <TableRow>
                                                 <TableCell
-                                                    colSpan={6}
+                                                    colSpan={7}
                                                     className="py-8 text-center text-sm text-muted-foreground"
                                                 >
                                                     No rows match your search.
@@ -398,6 +401,10 @@ export function CrewTimesheetImportDialog({
                                                     </TableCell>
                                                     <TableCell>
                                                         {row.onsite_days ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {row.overtime_hours ??
                                                             '—'}
                                                     </TableCell>
                                                     <TableCell>

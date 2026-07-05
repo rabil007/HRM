@@ -433,7 +433,7 @@ class PayrollController extends Controller
             'onsite_from' => $request->old('onsite_from'),
             'onsite_to' => $request->old('onsite_to'),
             'onsite_days' => $request->old('onsite_days'),
-            'overtime_amount' => $request->old('overtime_amount'),
+            'overtime_hours' => $request->old('overtime_hours'),
             'additional_amount' => $request->old('additional_amount'),
             'deduction_amount' => $request->old('deduction_amount'),
             'remarks' => $request->old('remarks'),

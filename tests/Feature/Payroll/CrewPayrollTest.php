@@ -322,7 +322,7 @@ test('authorized users can upsert crew timesheets for draft periods', function (
         'employee_id' => $crewEmployee->id,
         'standby_days' => 10,
         'onsite_days' => 15,
-        'overtime_amount' => 250.50,
+        'overtime_hours' => 250.50,
         'additional_amount' => 100,
         'deduction_amount' => 50,
         'remarks' => 'May payroll',
@@ -345,7 +345,7 @@ test('authorized users can upsert crew timesheets for draft periods', function (
         'period_id' => $period->id,
         'standby_days' => 10,
         'onsite_days' => 15,
-        'overtime_amount' => 250.50,
+        'overtime_hours' => 250.50,
         'remarks' => 'May payroll',
     ]);
 

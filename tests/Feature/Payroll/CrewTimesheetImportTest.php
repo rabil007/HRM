@@ -66,13 +66,14 @@ test('crew timesheet template download includes roster with department and posit
         ->and($sheet->getCell('A1')->getValue())->toBe('Employee No')
         ->and($sheet->getCell('C1')->getValue())->toBe('Division')
         ->and($sheet->getCell('I1')->getValue())->toBe('Onsite To')
+        ->and($sheet->getCell('J1')->getValue())->toBe('Overtime Hours')
         ->and($sheet->getCell('A2')->getValue())->toBe('2057')
         ->and($sheet->getCell('B2')->getValue())->toBe('AHMED LATECH')
         ->and($sheet->getCell('C2')->getValue())->toBe('Marine')
         ->and($sheet->getCell('D2')->getValue())->toBe('Deck')
         ->and($sheet->getCell('E2')->getValue())->toBe('Chief Officer')
         ->and($sheet->getCell('F2')->getValue())->toBeNull()
-        ->and($sheet->getAutoFilter()->getRange())->toBe('A1:I2')
+        ->and($sheet->getAutoFilter()->getRange())->toBe('A1:J2')
         ->and($sheet->getStyle('F2')->getNumberFormat()->getFormatCode())->toBe(CrewTimesheetTemplateExporter::DATE_FORMAT);
 
     @unlink($result['path']);
@@ -182,7 +183,56 @@ test('crew timesheet import creates timesheets for valid rows', function () {
         ->and($timesheet->onsite_days)->toBe('15.00')
         ->and($timesheet->standby_from?->toDateString())->toBe('2026-01-16')
         ->and($timesheet->onsite_from?->toDateString())->toBe('2026-01-01')
-        ->and($timesheet->overtime_amount)->toBe('0.00');
+        ->and($timesheet->overtime_hours)->toBe('0.00');
+});
+
+test('crew timesheet import stores overtime hours from excel', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.import',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    $employee = createImportCrewEmployee($company, '2057', 50, 661, 611);
+
+    $file = makeCrewTimesheetImportFile([
+        [
+            'employee_no' => '2057',
+            'name' => 'AHMED LATECH',
+            'standby_from' => '2026-01-16',
+            'standby_to' => '2026-01-17',
+            'onsite_from' => '2026-01-01',
+            'onsite_to' => '2026-01-15',
+            'overtime_hours' => 76,
+        ],
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.timesheets.import.preview', $period), [
+            'file' => $file,
+        ])
+        ->assertOk()
+        ->assertJsonPath('rows.0.overtime_hours', 76);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.timesheets.import', $period), [
+            'file' => $file,
+        ])
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']))
+        ->assertSessionHas('success');
+
+    $timesheet = CrewTimesheet::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    expect($timesheet)->not->toBeNull()
+        ->and($timesheet->overtime_hours)->toBe('76.00');
 });
 
 test('crew timesheet import cannot run on approved periods', function () {
@@ -256,6 +306,7 @@ function makeCrewTimesheetImportFile(array $rows): UploadedFile
         'Standby To',
         'Onsite From',
         'Onsite To',
+        'Overtime Hours',
     ];
 
     foreach ($headers as $columnIndex => $header) {
@@ -274,6 +325,7 @@ function makeCrewTimesheetImportFile(array $rows): UploadedFile
         $sheet->setCellValue('G'.$rowNumber, $row['standby_to'] ?? '');
         $sheet->setCellValue('H'.$rowNumber, $row['onsite_from'] ?? '');
         $sheet->setCellValue('I'.$rowNumber, $row['onsite_to'] ?? '');
+        $sheet->setCellValue('J'.$rowNumber, $row['overtime_hours'] ?? '');
         $rowNumber++;
     }
 

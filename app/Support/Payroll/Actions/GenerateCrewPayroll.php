@@ -95,6 +95,9 @@ final class GenerateCrewPayroll
                     $calculated = $this->calculator->calculate(
                         $timesheet,
                         $contract->salaryComponents,
+                        $contract->overtime_monthly_salary !== null
+                            ? (float) $contract->overtime_monthly_salary
+                            : null,
                     );
                 } catch (ValidationException $exception) {
                     $errors[] = PayrollGenerationError::fromValidationException($employee, $exception);
@@ -128,6 +131,7 @@ final class GenerateCrewPayroll
                         'total_deductions' => $calculated['total_deductions'],
                         'gross_salary' => $calculated['gross_salary'],
                         'net_salary' => $calculated['net_salary'],
+                        'overtime_hours' => $calculated['overtime_hours'],
                         'calculation_breakdown' => $breakdown,
                         'status' => 'draft',
                     ],

@@ -27,6 +27,7 @@ final class CrewTimesheetResource
             'onsite_from' => $timesheet->onsite_from?->toDateString(),
             'onsite_to' => $timesheet->onsite_to?->toDateString(),
             'onsite_days' => $timesheet->onsite_days,
+            'overtime_hours' => $timesheet->overtime_hours,
             'overtime_amount' => $timesheet->overtime_amount,
             'additional_amount' => $timesheet->additional_amount,
             'deduction_amount' => $timesheet->deduction_amount,
@@ -54,6 +55,7 @@ final class CrewTimesheetResource
                 'basic_salary' => $contract->basic_salary,
                 'supplementary_allowance' => $contract->supplementary_allowance,
                 'site_allowance' => $contract->site_allowance,
+                'overtime_monthly_salary' => $contract->overtime_monthly_salary,
             ] : null,
         ];
     }

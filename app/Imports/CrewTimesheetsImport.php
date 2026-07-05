@@ -34,6 +34,8 @@ final class CrewTimesheetsImport
 
     private const COL_ONSITE_TO = 'I';
 
+    private const COL_OVERTIME = 'J';
+
     /**
      * @return list<array<string, mixed>>
      */
@@ -65,6 +67,7 @@ final class CrewTimesheetsImport
                 'standby_to' => $this->dateValue($sheet, self::COL_STANDBY_TO, $rowNumber),
                 'onsite_from' => $this->dateValue($sheet, self::COL_ONSITE_FROM, $rowNumber),
                 'onsite_to' => $this->dateValue($sheet, self::COL_ONSITE_TO, $rowNumber),
+                'overtime_hours' => $this->numericValue($sheet, self::COL_OVERTIME, $rowNumber),
             ];
         }
 
@@ -162,5 +165,20 @@ final class CrewTimesheetsImport
         }
 
         return null;
+    }
+
+    private function numericValue(Worksheet $sheet, string $column, int $row): float|string|null
+    {
+        $value = $sheet->getCell($column.$row)->getCalculatedValue();
+
+        if ($value === null || $value === '' || $value === '-') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            return round((float) $value, 2);
+        }
+
+        return trim((string) $value);
     }
 }

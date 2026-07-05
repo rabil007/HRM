@@ -37,7 +37,7 @@ test('crew payroll generation creates records for employees with timesheets and 
         'period_id' => $period->id,
         'standby_days' => 5,
         'onsite_days' => 10,
-        'overtime_amount' => 200,
+        'overtime_hours' => 0,
         'additional_amount' => 100,
         'deduction_amount' => 50,
     ]);
@@ -58,8 +58,8 @@ test('crew payroll generation creates records for employees with timesheets and 
 
     expect($record)->not->toBeNull()
         ->and($record->payroll_category)->toBe(PayrollCategory::Crew)
-        ->and($record->gross_salary)->toBe('4175.00')
-        ->and($record->net_salary)->toBe('4125.00')
+        ->and($record->gross_salary)->toBe('3975.00')
+        ->and($record->net_salary)->toBe('3925.00')
         ->and($record->calculation_breakdown['lines']['standby_pay'])->toEqual(1125);
 
     expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(1);
@@ -68,6 +68,42 @@ test('crew payroll generation creates records for employees with timesheets and 
     expect($summary['generated_count'])->toBe(1)
         ->and($summary['skipped_count'])->toBe(1)
         ->and($summary['skipped_employees'][0]['id'])->toBe($crewWithoutTimesheet->id);
+});
+
+test('crew payroll generation calculates overtime pay from hours and contract monthly salary', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    $employee = createCrewEmployeeWithContract($company, 'CREW-OT', 150, 50, 75, 8040);
+
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'standby_days' => 0,
+        'onsite_days' => 0,
+        'overtime_hours' => 76,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect();
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->overtime_pay)->toBe('2092.60')
+        ->and($record->overtime_hours)->toBe('76.00')
+        ->and($record->calculation_breakdown['overtime']['monthly_salary'])->toEqual(8040);
 });
 
 test('crew payroll generation upserts existing payroll records on re-generate', function () {

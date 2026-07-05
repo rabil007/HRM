@@ -78,6 +78,7 @@ final class PayslipData
                 ],
                 'standby_days' => $breakdown['standby_days'] ?? null,
                 'onsite_days' => $breakdown['onsite_days'] ?? null,
+                'overtime_hours' => self::formatAmount($record->overtime_hours),
             ]);
         }
 

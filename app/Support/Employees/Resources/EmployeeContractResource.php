@@ -25,6 +25,7 @@ final class EmployeeContractResource
             'other_allowances' => $contract->other_allowances,
             'supplementary_allowance' => $contract->supplementary_allowance,
             'site_allowance' => $contract->site_allowance,
+            'overtime_monthly_salary' => $contract->overtime_monthly_salary,
             'note' => $contract->note,
             'created_at' => $contract->created_at?->toDateTimeString(),
         ];

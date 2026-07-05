@@ -23,6 +23,7 @@ class CrewTimesheet extends Model
             'onsite_from' => 'date',
             'onsite_to' => 'date',
             'onsite_days' => 'decimal:2',
+            'overtime_hours' => 'decimal:2',
             'overtime_amount' => 'decimal:2',
             'additional_amount' => 'decimal:2',
             'deduction_amount' => 'decimal:2',

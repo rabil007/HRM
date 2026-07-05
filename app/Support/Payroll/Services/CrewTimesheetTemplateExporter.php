@@ -53,6 +53,7 @@ final class CrewTimesheetTemplateExporter
             'Standby To',
             'Onsite From',
             'Onsite To',
+            'Overtime Hours',
         ];
 
         foreach ($headers as $columnIndex => $header) {
@@ -103,7 +104,7 @@ final class CrewTimesheetTemplateExporter
     private function applyWorksheetFormatting(Worksheet $sheet, int $lastDataRow): void
     {
         $sheet->freezePane('F2');
-        $sheet->setAutoFilter("A1:I{$lastDataRow}");
+        $sheet->setAutoFilter("A1:J{$lastDataRow}");
 
         $columnWidths = [
             'A' => 14,
@@ -115,6 +116,7 @@ final class CrewTimesheetTemplateExporter
             'G' => 16,
             'H' => 16,
             'I' => 16,
+            'J' => 16,
         ];
 
         foreach ($columnWidths as $column => $width) {
@@ -163,11 +165,18 @@ final class CrewTimesheetTemplateExporter
             ],
         ]));
 
+        $sheet->getStyle('J1')->applyFromArray(array_merge($headerStyle, [
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'B45309'],
+            ],
+        ]));
+
         if ($lastDataRow < CrewTimesheetsImport::DATA_START_ROW) {
             return;
         }
 
-        $dataRange = 'A'.CrewTimesheetsImport::DATA_START_ROW.":I{$lastDataRow}";
+        $dataRange = 'A'.CrewTimesheetsImport::DATA_START_ROW.":J{$lastDataRow}";
 
         $sheet->getStyle($dataRange)->applyFromArray([
             'alignment' => [
@@ -195,11 +204,22 @@ final class CrewTimesheetTemplateExporter
             ],
         ]);
 
+        $sheet->getStyle('J'.CrewTimesheetsImport::DATA_START_ROW.":J{$lastDataRow}")->applyFromArray([
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'FFF7ED'],
+            ],
+        ]);
+
         foreach (['F', 'G', 'H', 'I'] as $dateColumn) {
             $sheet->getStyle("{$dateColumn}".CrewTimesheetsImport::DATA_START_ROW.":{$dateColumn}{$lastDataRow}")
                 ->getNumberFormat()
                 ->setFormatCode(self::DATE_FORMAT);
         }
+
+        $sheet->getStyle('J'.CrewTimesheetsImport::DATA_START_ROW.":J{$lastDataRow}")
+            ->getNumberFormat()
+            ->setFormatCode(NumberFormat::FORMAT_NUMBER_00);
 
         $sheet->getStyle('A'.CrewTimesheetsImport::DATA_START_ROW.":A{$lastDataRow}")
             ->getAlignment()
@@ -237,11 +257,12 @@ final class CrewTimesheetTemplateExporter
             [''],
             ['1. Open the "'.CrewTimesheetsImport::SHEET_NAME.'" tab.'],
             ['2. Use the header filters (▼) to narrow by Division or Department.'],
-            ['3. Only fill the yellow date columns — days are calculated automatically on import.'],
-            ['4. Gray columns are pre-filled — do not change Employee No.'],
-            ['5. Type dates as DD-MM-YYYY text (e.g. 01-07-2026 = 1 July 2026). Do not use the date picker — Excel may swap day and month.'],
-            ['6. Leave a row blank if the employee had no standby or onsite days.'],
-            ['7. Save and upload this file back to payroll.'],
+            ['3. Fill the yellow date columns — days are calculated automatically on import.'],
+            ['4. Fill the orange Overtime Hours column when the employee worked overtime. Leave blank when there is no OT.'],
+            ['5. Gray columns are pre-filled — do not change Employee No.'],
+            ['6. Type dates as DD-MM-YYYY text (e.g. 01-07-2026 = 1 July 2026). Do not use the date picker — Excel may swap day and month.'],
+            ['7. Leave a row blank if the employee had no standby or onsite days.'],
+            ['8. Save and upload this file back to payroll.'],
             [''],
             ['Period: '.($period->name ?? 'Payroll period #'.$period->id)],
         ];
@@ -252,8 +273,8 @@ final class CrewTimesheetTemplateExporter
 
         $instructions->getColumnDimension('A')->setWidth(72);
         $instructions->getStyle('A1')->getFont()->setBold(true)->setSize(13);
-        $instructions->getStyle('A3:A9')->getFont()->setSize(11);
-        $instructions->getStyle('A11')->getFont()->setItalic(true)->setSize(10);
+        $instructions->getStyle('A3:A10')->getFont()->setSize(11);
+        $instructions->getStyle('A12')->getFont()->setItalic(true)->setSize(10);
     }
 
     private function divisionName(Employee $employee): string

@@ -107,7 +107,7 @@ export type CrewTimesheet = {
     onsite_from: string | null;
     onsite_to: string | null;
     onsite_days: string | null;
-    overtime_amount: string;
+    overtime_hours: string;
     additional_amount: string;
     deduction_amount: string;
     remarks: string | null;
@@ -167,6 +167,7 @@ export type CrewPayrollRow = {
         other_allowances?: string | null;
         supplementary_allowance?: string | null;
         site_allowance?: string | null;
+        overtime_monthly_salary?: string | null;
     } | null;
 };
 
@@ -179,11 +180,31 @@ export type CrewTimesheetFormData = {
     onsite_from: string;
     onsite_to: string;
     onsite_days: string;
-    overtime_amount: string;
+    overtime_hours: string;
     additional_amount: string;
     deduction_amount: string;
     remarks: string;
 };
+
+export type CrewTimesheetDraft = {
+    standby_from: string;
+    standby_to: string;
+    onsite_from: string;
+    onsite_to: string;
+    overtime_hours: string;
+};
+
+export function buildCrewTimesheetDraft(
+    timesheet: CrewTimesheet | null | undefined,
+): CrewTimesheetDraft {
+    return {
+        standby_from: timesheet?.standby_from ?? '',
+        standby_to: timesheet?.standby_to ?? '',
+        onsite_from: timesheet?.onsite_from ?? '',
+        onsite_to: timesheet?.onsite_to ?? '',
+        overtime_hours: timesheet?.overtime_hours ?? '',
+    };
+}
 
 export type CrewPayrollPermissions = {
     create: boolean;

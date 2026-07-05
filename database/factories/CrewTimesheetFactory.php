@@ -26,7 +26,7 @@ class CrewTimesheetFactory extends Factory
             },
             'standby_days' => $this->faker->randomFloat(2, 0, 15),
             'onsite_days' => $this->faker->randomFloat(2, 0, 15),
-            'overtime_amount' => $this->faker->randomFloat(2, 0, 500),
+            'overtime_hours' => 0,
             'additional_amount' => 0,
             'deduction_amount' => 0,
             'remarks' => null,

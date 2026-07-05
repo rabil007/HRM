@@ -91,6 +91,7 @@ import {
 import type {
     CrewPayrollRecordListItem,
     CrewPayrollRow,
+    CrewTimesheetDraft,
     EmployeeStats,
     OfficePayrollRecordListItem,
     PayrollPeriod,
@@ -99,7 +100,7 @@ import type {
     PayrollShowProps,
     SalaryInput,
 } from './types';
-import { formatTimesheetDays } from './types';
+import { buildCrewTimesheetDraft, formatTimesheetDays } from './types';
 
 export function PayrollShowContent({
     period,
@@ -149,25 +150,17 @@ export function PayrollShowContent({
     const [rowDates, setRowDates] = useState<
         Record<number, { start: string; end: string }>
     >({});
-    const [crewDates, setCrewDates] = useState<
-        Record<
-            number,
-            {
-                standby_from: string;
-                standby_to: string;
-                onsite_from: string;
-                onsite_to: string;
-            }
-        >
+    const [crewTimesheetDrafts, setCrewTimesheetDrafts] = useState<
+        Record<number, CrewTimesheetDraft>
     >({});
-    const crewDatesRef = useRef(crewDates);
+    const crewTimesheetDraftsRef = useRef(crewTimesheetDrafts);
     const crewSaveTimersRef = useRef<
         Record<number, ReturnType<typeof setTimeout>>
     >({});
 
     useEffect(() => {
-        crewDatesRef.current = crewDates;
-    }, [crewDates]);
+        crewTimesheetDraftsRef.current = crewTimesheetDrafts;
+    }, [crewTimesheetDrafts]);
 
     useEffect(() => {
         const timers = crewSaveTimersRef.current;
@@ -179,19 +172,15 @@ export function PayrollShowContent({
         };
     }, []);
 
-    const handleCrewDateChange = (
+    const handleCrewTimesheetChange = (
         employeeId: number,
-        field: 'standby_from' | 'standby_to' | 'onsite_from' | 'onsite_to',
+        field: keyof CrewTimesheetDraft,
         val: string,
         initialTimesheet: CrewPayrollRow['timesheet'],
     ) => {
-        setCrewDates((prev) => {
-            const existing = prev[employeeId] ?? {
-                standby_from: initialTimesheet?.standby_from ?? '',
-                standby_to: initialTimesheet?.standby_to ?? '',
-                onsite_from: initialTimesheet?.onsite_from ?? '',
-                onsite_to: initialTimesheet?.onsite_to ?? '',
-            };
+        setCrewTimesheetDrafts((prev) => {
+            const existing =
+                prev[employeeId] ?? buildCrewTimesheetDraft(initialTimesheet);
 
             const next = {
                 ...prev,
@@ -201,7 +190,7 @@ export function PayrollShowContent({
                 },
             };
 
-            crewDatesRef.current = next;
+            crewTimesheetDraftsRef.current = next;
 
             return next;
         });
@@ -211,7 +200,7 @@ export function PayrollShowContent({
 
     const saveCrewTimesheet = useCallback(
         (employeeId: number, initialTimesheet: CrewPayrollRow['timesheet']) => {
-            const current = crewDatesRef.current[employeeId];
+            const current = crewTimesheetDraftsRef.current[employeeId];
 
             if (!current) {
                 return;
@@ -237,7 +226,7 @@ export function PayrollShowContent({
                     onsite_from: current.onsite_from || null,
                     onsite_to: current.onsite_to || null,
                     onsite_days: onsite_days ? Number(onsite_days) : null,
-                    overtime_amount: initialTimesheet?.overtime_amount ?? 0,
+                    overtime_hours: current.overtime_hours || 0,
                     additional_amount:
                         initialTimesheet?.additional_amount ?? 0,
                     deduction_amount: initialTimesheet?.deduction_amount ?? 0,
@@ -248,14 +237,14 @@ export function PayrollShowContent({
                     preserveState: true,
                     only: ['rows'],
                     onSuccess: () => {
-                        setCrewDates((prev) => {
+                        setCrewTimesheetDrafts((prev) => {
                             if (!prev[employeeId]) {
                                 return prev;
                             }
 
                             const next = { ...prev };
                             delete next[employeeId];
-                            crewDatesRef.current = next;
+                            crewTimesheetDraftsRef.current = next;
 
                             return next;
                         });
@@ -514,6 +503,10 @@ export function PayrollShowContent({
 
     const canGenerate =
         period.can_generate_payroll && permissions.generate_payroll;
+
+    const canEditTimesheets =
+        period.status === 'draft' &&
+        (permissions.create || permissions.update);
 
     const canRevertToDraft =
         period.can_revert_to_draft && permissions.revert_to_draft;
@@ -1007,6 +1000,12 @@ export function PayrollShowContent({
                                 Days
                             </th>
                             <th
+                                colSpan={1}
+                                className="h-7 border-x border-b border-amber-500/15 bg-amber-500/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-amber-600/60 uppercase dark:text-amber-400/60"
+                            >
+                                Overtime
+                            </th>
+                            <th
                                 colSpan={2}
                                 className="h-7 border-b border-border/30"
                             />
@@ -1038,6 +1037,9 @@ export function PayrollShowContent({
                             <DataTableHead className="border-r border-blue-500/10 bg-blue-500/3">
                                 Onsite
                             </DataTableHead>
+                            <DataTableHead className="border-x border-amber-500/10 bg-amber-500/3 text-right">
+                                Hours
+                            </DataTableHead>
                             <DataTableHead>Payment</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
                         </DataTableHeaderRow>
@@ -1049,37 +1051,41 @@ export function PayrollShowContent({
                                 'bank_transfer') as SalaryPaymentMethodValue;
                             const contract = row.contract ?? null;
 
-                            const currentCrewDates = crewDates[row.employee.id];
+                            const currentDraft = crewTimesheetDrafts[row.employee.id];
                             const standbyFrom =
-                                currentCrewDates?.standby_from ??
+                                currentDraft?.standby_from ??
                                 row.timesheet?.standby_from ??
                                 '';
                             const standbyTo =
-                                currentCrewDates?.standby_to ??
+                                currentDraft?.standby_to ??
                                 row.timesheet?.standby_to ??
                                 '';
                             const onsiteFrom =
-                                currentCrewDates?.onsite_from ??
+                                currentDraft?.onsite_from ??
                                 row.timesheet?.onsite_from ??
                                 '';
                             const onsiteTo =
-                                currentCrewDates?.onsite_to ??
+                                currentDraft?.onsite_to ??
                                 row.timesheet?.onsite_to ??
                                 '';
+                            const overtimeHours =
+                                currentDraft?.overtime_hours ??
+                                row.timesheet?.overtime_hours ??
+                                '';
 
-                            const standbyDays = currentCrewDates
+                            const standbyDays = currentDraft
                                 ? calculateInclusiveDays(standbyFrom, standbyTo)
                                 : (row.timesheet?.standby_days ??
                                   calculateInclusiveDays(
                                       standbyFrom,
                                       standbyTo,
                                   ));
-                            const onsiteDays = currentCrewDates
+                            const onsiteDays = currentDraft
                                 ? calculateInclusiveDays(onsiteFrom, onsiteTo)
                                 : (row.timesheet?.onsite_days ??
                                   calculateInclusiveDays(onsiteFrom, onsiteTo));
 
-                            const isDirty = !!crewDates[row.employee.id];
+                            const isDirty = !!crewTimesheetDrafts[row.employee.id];
 
                             return (
                                 <TableRow
@@ -1180,14 +1186,15 @@ export function PayrollShowContent({
                                                     type="date"
                                                     value={standbyFrom}
                                                     onChange={(e) =>
-                                                        handleCrewDateChange(
+                                                        handleCrewTimesheetChange(
                                                             row.employee.id,
                                                             'standby_from',
                                                             e.target.value,
                                                             row.timesheet,
                                                         )
                                                     }
-                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    disabled={!canEditTimesheets}
                                                 />
                                                 <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
                                                     →
@@ -1196,14 +1203,15 @@ export function PayrollShowContent({
                                                     type="date"
                                                     value={standbyTo}
                                                     onChange={(e) =>
-                                                        handleCrewDateChange(
+                                                        handleCrewTimesheetChange(
                                                             row.employee.id,
                                                             'standby_to',
                                                             e.target.value,
                                                             row.timesheet,
                                                         )
                                                     }
-                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    disabled={!canEditTimesheets}
                                                 />
                                             </div>
                                             <Badge
@@ -1244,14 +1252,15 @@ export function PayrollShowContent({
                                                     type="date"
                                                     value={onsiteFrom}
                                                     onChange={(e) =>
-                                                        handleCrewDateChange(
+                                                        handleCrewTimesheetChange(
                                                             row.employee.id,
                                                             'onsite_from',
                                                             e.target.value,
                                                             row.timesheet,
                                                         )
                                                     }
-                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    disabled={!canEditTimesheets}
                                                 />
                                                 <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
                                                     →
@@ -1260,14 +1269,15 @@ export function PayrollShowContent({
                                                     type="date"
                                                     value={onsiteTo}
                                                     onChange={(e) =>
-                                                        handleCrewDateChange(
+                                                        handleCrewTimesheetChange(
                                                             row.employee.id,
                                                             'onsite_to',
                                                             e.target.value,
                                                             row.timesheet,
                                                         )
                                                     }
-                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    disabled={!canEditTimesheets}
                                                 />
                                             </div>
                                             <Badge
@@ -1293,6 +1303,34 @@ export function PayrollShowContent({
                                                 )}
                                             </Badge>
                                         </div>
+                                    </TableCell>
+
+                                    {/* Overtime hours */}
+                                    <TableCell
+                                        className={cn(
+                                            dataTableCellClass(),
+                                            'border-x border-amber-500/8 bg-amber-500/2',
+                                        )}
+                                    >
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            inputMode="decimal"
+                                            placeholder="0"
+                                            value={overtimeHours}
+                                            onChange={(e) =>
+                                                handleCrewTimesheetChange(
+                                                    row.employee.id,
+                                                    'overtime_hours',
+                                                    e.target.value,
+                                                    row.timesheet,
+                                                )
+                                            }
+                                            disabled={!canEditTimesheets}
+                                            className="h-8 w-[110px] rounded-md border-border/50 bg-background/60 px-2 font-mono text-[11px] tabular-nums shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50"
+                                            aria-label={`Overtime hours for ${row.employee.name}`}
+                                        />
                                     </TableCell>
 
                                     {/* Payment method */}

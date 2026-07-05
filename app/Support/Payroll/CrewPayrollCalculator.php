@@ -11,12 +11,17 @@ use Illuminate\Validation\ValidationException;
 
 final class CrewPayrollCalculator
 {
+    public function __construct(
+        private readonly CrewOvertimePay $overtimePay,
+    ) {}
+
     /**
      * @param  Collection<int, ContractSalaryComponent>  $components
      * @return array{
      *     basic_salary: string,
      *     other_allowances: string,
      *     overtime_pay: string,
+     *     overtime_hours: float,
      *     bonus: string,
      *     other_deductions: string,
      *     total_deductions: string,
@@ -25,8 +30,11 @@ final class CrewPayrollCalculator
      *     calculation_breakdown: array<string, mixed>
      * }
      */
-    public function calculate(CrewTimesheet $timesheet, Collection $components): array
-    {
+    public function calculate(
+        CrewTimesheet $timesheet,
+        Collection $components,
+        ?float $overtimeMonthlySalary = null,
+    ): array {
         $basicRate = $this->activeAmount($components, SalaryComponentCode::Basic);
         $siteRate = $this->activeAmount($components, SalaryComponentCode::SiteAllowance);
         $supplementaryRate = $this->activeAmount($components, SalaryComponentCode::SupplementaryAllowance);
@@ -43,7 +51,11 @@ final class CrewPayrollCalculator
         $onsitePay = round($onsiteDays * $basicRate, 2);
         $siteAllowancePay = round($onsiteDays * ($siteRate ?? 0), 2);
         $supplementaryPay = round($onsiteDays * ($supplementaryRate ?? 0), 2);
-        $overtimePay = round((float) ($timesheet->overtime_amount ?? 0), 2);
+
+        $overtimeHours = (float) ($timesheet->overtime_hours ?? 0);
+        $overtimeBreakdown = $this->resolveOvertimePay($overtimeHours, $overtimeMonthlySalary);
+        $overtimePay = $overtimeBreakdown['overtime_pay'];
+
         $additionalAmount = round((float) ($timesheet->additional_amount ?? 0), 2);
         $deductionAmount = round((float) ($timesheet->deduction_amount ?? 0), 2);
 
@@ -57,6 +69,7 @@ final class CrewPayrollCalculator
             'basic_salary' => $this->formatMoney($standbyPay + $onsitePay),
             'other_allowances' => $this->formatMoney($siteAllowancePay + $supplementaryPay),
             'overtime_pay' => $this->formatMoney($overtimePay),
+            'overtime_hours' => $overtimeHours,
             'bonus' => $this->formatMoney($additionalAmount),
             'other_deductions' => $this->formatMoney($deductionAmount),
             'total_deductions' => $this->formatMoney($deductionAmount),
@@ -70,6 +83,7 @@ final class CrewPayrollCalculator
                     'site_allowance_daily' => $siteRate ?? 0,
                     'supplementary_allowance_daily' => $supplementaryRate ?? 0,
                 ],
+                'overtime' => $overtimeBreakdown,
                 'lines' => [
                     'standby_pay' => $standbyPay,
                     'onsite_pay' => $onsitePay,
@@ -83,6 +97,36 @@ final class CrewPayrollCalculator
                 'net_salary' => $netSalary,
             ],
         ];
+    }
+
+    /**
+     * @return array{
+     *     hours: float,
+     *     monthly_salary: float,
+     *     hour_rate: float,
+     *     overtime_hourly_rate: float,
+     *     overtime_pay: float
+     * }
+     */
+    private function resolveOvertimePay(float $overtimeHours, ?float $overtimeMonthlySalary): array
+    {
+        if ($overtimeHours <= 0) {
+            return [
+                'hours' => 0.0,
+                'monthly_salary' => 0.0,
+                'hour_rate' => 0.0,
+                'overtime_hourly_rate' => 0.0,
+                'overtime_pay' => 0.0,
+            ];
+        }
+
+        if ($overtimeMonthlySalary === null || $overtimeMonthlySalary <= 0) {
+            throw ValidationException::withMessages([
+                'employee_id' => 'Overtime monthly salary is required on the crew contract when overtime hours are entered.',
+            ]);
+        }
+
+        return $this->overtimePay->calculate($overtimeHours, $overtimeMonthlySalary);
     }
 
     /**

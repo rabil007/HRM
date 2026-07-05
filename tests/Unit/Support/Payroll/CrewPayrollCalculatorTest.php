@@ -4,6 +4,7 @@ use App\Enums\SalaryComponentCode;
 use App\Enums\SalaryComponentStatus;
 use App\Models\ContractSalaryComponent;
 use App\Models\CrewTimesheet;
+use App\Support\Payroll\CrewOvertimePay;
 use App\Support\Payroll\CrewPayrollCalculator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -12,7 +13,7 @@ test('crew payroll calculator applies standby onsite allowance and adjustment fo
     $timesheet = new CrewTimesheet([
         'standby_days' => 5,
         'onsite_days' => 10,
-        'overtime_amount' => 200,
+        'overtime_hours' => 0,
         'additional_amount' => 100,
         'deduction_amount' => 50,
     ]);
@@ -23,25 +24,67 @@ test('crew payroll calculator applies standby onsite allowance and adjustment fo
         makeCalculatorComponent(SalaryComponentCode::SupplementaryAllowance, 75),
     ]);
 
-    $result = (new CrewPayrollCalculator)->calculate($timesheet, $components);
+    $result = (new CrewPayrollCalculator(new CrewOvertimePay))->calculate(
+        $timesheet,
+        $components,
+        8040,
+    );
 
     expect($result['calculation_breakdown']['lines'])->toMatchArray([
         'standby_pay' => 1125.0,
         'onsite_pay' => 1500.0,
         'site_allowance' => 500.0,
         'supplementary_allowance' => 750.0,
-        'overtime' => 200.0,
+        'overtime' => 0.0,
         'additional' => 100.0,
         'deduction' => 50.0,
     ])
-        ->and($result['gross_salary'])->toBe('4175.00')
-        ->and($result['net_salary'])->toBe('4125.00')
-        ->and($result['basic_salary'])->toBe('2625.00')
-        ->and($result['other_allowances'])->toBe('1250.00')
-        ->and($result['overtime_pay'])->toBe('200.00')
-        ->and($result['bonus'])->toBe('100.00')
-        ->and($result['other_deductions'])->toBe('50.00');
+        ->and($result['gross_salary'])->toBe('3975.00')
+        ->and($result['net_salary'])->toBe('3925.00')
+        ->and($result['overtime_pay'])->toBe('0.00');
 });
+
+test('crew payroll calculator calculates overtime pay from hours at processing time', function () {
+    $timesheet = new CrewTimesheet([
+        'standby_days' => 0,
+        'onsite_days' => 10,
+        'overtime_hours' => 76,
+        'additional_amount' => 0,
+        'deduction_amount' => 0,
+    ]);
+
+    $components = Collection::make([
+        makeCalculatorComponent(SalaryComponentCode::Basic, 150),
+    ]);
+
+    $result = (new CrewPayrollCalculator(new CrewOvertimePay))->calculate(
+        $timesheet,
+        $components,
+        8040,
+    );
+
+    expect($result['overtime_pay'])->toBe('2092.60')
+        ->and($result['overtime_hours'])->toBe(76.0)
+        ->and($result['calculation_breakdown']['overtime']['overtime_pay'])->toBe(2092.60);
+});
+
+test('crew payroll calculator requires overtime monthly salary when hours are entered', function () {
+    $timesheet = new CrewTimesheet([
+        'standby_days' => 0,
+        'onsite_days' => 0,
+        'overtime_hours' => 10,
+    ]);
+
+    $components = Collection::make([
+        makeCalculatorComponent(SalaryComponentCode::Basic, 150),
+    ]);
+
+    (new CrewPayrollCalculator(new CrewOvertimePay))->calculate(
+        $timesheet,
+        $components,
+        null,
+    );
+})->throws(ValidationException::class);
 
 test('crew payroll calculator requires an active basic daily rate', function () {
     $timesheet = new CrewTimesheet([
@@ -53,7 +96,7 @@ test('crew payroll calculator requires an active basic daily rate', function () 
         makeCalculatorComponent(SalaryComponentCode::SiteAllowance, 50),
     ]);
 
-    (new CrewPayrollCalculator)->calculate($timesheet, $components);
+    (new CrewPayrollCalculator(new CrewOvertimePay))->calculate($timesheet, $components);
 })->throws(ValidationException::class);
 
 test('crew payroll calculator includes supplementary allowance on standby days', function () {
@@ -68,7 +111,7 @@ test('crew payroll calculator includes supplementary allowance on standby days',
         makeCalculatorComponent(SalaryComponentCode::SupplementaryAllowance, 611),
     ]);
 
-    $result = (new CrewPayrollCalculator)->calculate($timesheet, $components);
+    $result = (new CrewPayrollCalculator(new CrewOvertimePay))->calculate($timesheet, $components);
 
     expect($result['calculation_breakdown']['lines'])->toMatchArray([
         'standby_pay' => 1322.0,
