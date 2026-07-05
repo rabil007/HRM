@@ -33,7 +33,7 @@ final class CrewPayrollCalculator
     public function calculate(
         CrewTimesheet $timesheet,
         Collection $components,
-        ?float $overtimeMonthlySalary = null,
+        int $periodDays,
     ): array {
         $basicRate = $this->activeAmount($components, SalaryComponentCode::Basic);
         $siteRate = $this->activeAmount($components, SalaryComponentCode::SiteAllowance);
@@ -53,7 +53,13 @@ final class CrewPayrollCalculator
         $supplementaryPay = round($onsiteDays * ($supplementaryRate ?? 0), 2);
 
         $overtimeHours = (float) ($timesheet->overtime_hours ?? 0);
-        $overtimeBreakdown = $this->resolveOvertimePay($overtimeHours, $overtimeMonthlySalary);
+        $overtimeBreakdown = $this->resolveOvertimePay(
+            $overtimeHours,
+            $periodDays,
+            $basicRate,
+            $siteRate ?? 0.0,
+            $supplementaryRate ?? 0.0,
+        );
         $overtimePay = $overtimeBreakdown['overtime_pay'];
 
         $additionalAmount = round((float) ($timesheet->additional_amount ?? 0), 2);
@@ -102,17 +108,26 @@ final class CrewPayrollCalculator
     /**
      * @return array{
      *     hours: float,
+     *     period_days: int,
+     *     daily_onsite_rate: float,
      *     monthly_salary: float,
      *     hour_rate: float,
      *     overtime_hourly_rate: float,
      *     overtime_pay: float
      * }
      */
-    private function resolveOvertimePay(float $overtimeHours, ?float $overtimeMonthlySalary): array
-    {
+    private function resolveOvertimePay(
+        float $overtimeHours,
+        int $periodDays,
+        float $basicDaily,
+        float $siteDaily,
+        float $supplementaryDaily,
+    ): array {
         if ($overtimeHours <= 0) {
             return [
                 'hours' => 0.0,
+                'period_days' => $periodDays,
+                'daily_onsite_rate' => 0.0,
                 'monthly_salary' => 0.0,
                 'hour_rate' => 0.0,
                 'overtime_hourly_rate' => 0.0,
@@ -120,13 +135,27 @@ final class CrewPayrollCalculator
             ];
         }
 
-        if ($overtimeMonthlySalary === null || $overtimeMonthlySalary <= 0) {
+        $dailyOnsiteRate = round($basicDaily + $siteDaily + $supplementaryDaily, 2);
+        $overtimeMonthlySalary = CrewOvertimeMonthlySalary::fromDailyRates(
+            $periodDays,
+            $basicDaily,
+            $siteDaily,
+            $supplementaryDaily,
+        );
+
+        if ($periodDays <= 0 || $overtimeMonthlySalary <= 0) {
             throw ValidationException::withMessages([
-                'employee_id' => 'Overtime monthly salary is required on the crew contract when overtime hours are entered.',
+                'employee_id' => 'Pay period days and active crew daily rates are required when overtime hours are entered.',
             ]);
         }
 
-        return $this->overtimePay->calculate($overtimeHours, $overtimeMonthlySalary);
+        return array_merge(
+            $this->overtimePay->calculate($overtimeHours, $overtimeMonthlySalary),
+            [
+                'period_days' => $periodDays,
+                'daily_onsite_rate' => $dailyOnsiteRate,
+            ],
+        );
     }
 
     /**

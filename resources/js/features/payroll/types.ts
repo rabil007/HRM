@@ -167,7 +167,6 @@ export type CrewPayrollRow = {
         other_allowances?: string | null;
         supplementary_allowance?: string | null;
         site_allowance?: string | null;
-        overtime_monthly_salary?: string | null;
     } | null;
 };
 
@@ -267,6 +266,8 @@ export type CrewPayrollDailyRates = {
 
 export type CrewOvertimeBreakdown = {
     hours: string;
+    period_days?: string | number | null;
+    daily_onsite_rate?: string;
     monthly_salary: string;
     hour_rate: string;
     overtime_hourly_rate: string;

@@ -70,7 +70,7 @@ test('crew payroll generation creates records for employees with timesheets and 
         ->and($summary['skipped_employees'][0]['id'])->toBe($crewWithoutTimesheet->id);
 });
 
-test('crew payroll generation calculates overtime pay from hours and contract monthly salary', function () {
+test('crew payroll generation calculates overtime pay from hours and period daily rates', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
@@ -78,9 +78,11 @@ test('crew payroll generation calculates overtime pay from hours and contract mo
 
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
     ]);
 
-    $employee = createCrewEmployeeWithContract($company, 'CREW-OT', 150, 50, 75, 8040);
+    $employee = createCrewEmployeeWithContract($company, 'CREW-OT', 33.5, 250, 66.5);
 
     CrewTimesheet::factory()->create([
         'company_id' => $company->id,
@@ -88,7 +90,7 @@ test('crew payroll generation calculates overtime pay from hours and contract mo
         'period_id' => $period->id,
         'standby_days' => 0,
         'onsite_days' => 0,
-        'overtime_hours' => 76,
+        'overtime_hours' => 98,
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
@@ -101,9 +103,11 @@ test('crew payroll generation calculates overtime pay from hours and contract mo
         ->first();
 
     expect($record)->not->toBeNull()
-        ->and($record->overtime_pay)->toBe('2092.60')
-        ->and($record->overtime_hours)->toBe('76.00')
-        ->and($record->calculation_breakdown['overtime']['monthly_salary'])->toEqual(8040);
+        ->and($record->overtime_pay)->toBe('3523.97')
+        ->and($record->overtime_hours)->toBe('98.00')
+        ->and($record->calculation_breakdown['overtime']['monthly_salary'])->toEqual(10500)
+        ->and($record->calculation_breakdown['overtime']['period_days'])->toBe(30)
+        ->and($record->calculation_breakdown['overtime']['daily_onsite_rate'])->toEqual(350);
 });
 
 test('crew payroll generation upserts existing payroll records on re-generate', function () {

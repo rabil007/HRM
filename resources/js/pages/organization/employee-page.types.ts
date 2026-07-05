@@ -153,7 +153,6 @@ export type EmployeeContractDetails = {
     other_allowances: number | null;
     supplementary_allowance: number | null;
     site_allowance: number | null;
-    overtime_monthly_salary: number | null;
     note: string | null;
     created_at: string;
     updated_at: string;

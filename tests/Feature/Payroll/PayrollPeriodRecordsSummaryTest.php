@@ -74,8 +74,8 @@ test('pay run page includes crew overtime totals in payroll records summary', fu
         'status' => PayrollPeriodStatus::Processing,
     ]);
 
-    $firstEmployee = createCrewEmployeeWithContract($company, 'CREW-100', 500, 200, 300, 10000);
-    $secondEmployee = createCrewEmployeeWithContract($company, 'CREW-200', 500, 200, 300, 8000);
+    $firstEmployee = createCrewEmployeeWithContract($company, 'CREW-100', 500, 200, 300);
+    $secondEmployee = createCrewEmployeeWithContract($company, 'CREW-200', 500, 200, 300);
 
     PayrollRecord::factory()->for($company)->for($period, 'period')->for($firstEmployee)->create([
         'payroll_category' => PayrollCategory::Crew,

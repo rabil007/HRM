@@ -119,6 +119,18 @@ class PayrollPeriod extends Model
         return ($this->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Office;
     }
 
+    public function calendarDayCount(): int
+    {
+        $startDate = $this->start_date;
+        $endDate = $this->end_date;
+
+        if ($startDate === null || $endDate === null) {
+            return 0;
+        }
+
+        return (int) $startDate->diffInDays($endDate) + 1;
+    }
+
     private function hasPayrollRecords(): bool
     {
         if (isset($this->payroll_records_count)) {

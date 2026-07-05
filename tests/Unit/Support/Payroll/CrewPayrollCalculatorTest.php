@@ -27,7 +27,7 @@ test('crew payroll calculator applies standby onsite allowance and adjustment fo
     $result = (new CrewPayrollCalculator(new CrewOvertimePay))->calculate(
         $timesheet,
         $components,
-        8040,
+        30,
     );
 
     expect($result['calculation_breakdown']['lines'])->toMatchArray([
@@ -44,31 +44,35 @@ test('crew payroll calculator applies standby onsite allowance and adjustment fo
         ->and($result['overtime_pay'])->toBe('0.00');
 });
 
-test('crew payroll calculator calculates overtime pay from hours at processing time', function () {
+test('crew payroll calculator calculates overtime pay from hours and period daily rates', function () {
     $timesheet = new CrewTimesheet([
         'standby_days' => 0,
-        'onsite_days' => 10,
-        'overtime_hours' => 76,
+        'onsite_days' => 0,
+        'overtime_hours' => 98,
         'additional_amount' => 0,
         'deduction_amount' => 0,
     ]);
 
     $components = Collection::make([
-        makeCalculatorComponent(SalaryComponentCode::Basic, 150),
+        makeCalculatorComponent(SalaryComponentCode::Basic, 33.5),
+        makeCalculatorComponent(SalaryComponentCode::SiteAllowance, 250),
+        makeCalculatorComponent(SalaryComponentCode::SupplementaryAllowance, 66.5),
     ]);
 
     $result = (new CrewPayrollCalculator(new CrewOvertimePay))->calculate(
         $timesheet,
         $components,
-        8040,
+        30,
     );
 
-    expect($result['overtime_pay'])->toBe('2092.60')
-        ->and($result['overtime_hours'])->toBe(76.0)
-        ->and($result['calculation_breakdown']['overtime']['overtime_pay'])->toBe(2092.60);
+    expect($result['overtime_pay'])->toBe('3523.97')
+        ->and($result['overtime_hours'])->toBe(98.0)
+        ->and($result['calculation_breakdown']['overtime']['monthly_salary'])->toBe(10500.0)
+        ->and($result['calculation_breakdown']['overtime']['period_days'])->toBe(30)
+        ->and($result['calculation_breakdown']['overtime']['daily_onsite_rate'])->toBe(350.0);
 });
 
-test('crew payroll calculator requires overtime monthly salary when hours are entered', function () {
+test('crew payroll calculator requires pay period days when overtime hours are entered', function () {
     $timesheet = new CrewTimesheet([
         'standby_days' => 0,
         'onsite_days' => 0,
@@ -82,7 +86,7 @@ test('crew payroll calculator requires overtime monthly salary when hours are en
     (new CrewPayrollCalculator(new CrewOvertimePay))->calculate(
         $timesheet,
         $components,
-        null,
+        0,
     );
 })->throws(ValidationException::class);
 
@@ -96,7 +100,7 @@ test('crew payroll calculator requires an active basic daily rate', function () 
         makeCalculatorComponent(SalaryComponentCode::SiteAllowance, 50),
     ]);
 
-    (new CrewPayrollCalculator(new CrewOvertimePay))->calculate($timesheet, $components);
+    (new CrewPayrollCalculator(new CrewOvertimePay))->calculate($timesheet, $components, 30);
 })->throws(ValidationException::class);
 
 test('crew payroll calculator includes supplementary allowance on standby days', function () {
@@ -111,7 +115,7 @@ test('crew payroll calculator includes supplementary allowance on standby days',
         makeCalculatorComponent(SalaryComponentCode::SupplementaryAllowance, 611),
     ]);
 
-    $result = (new CrewPayrollCalculator(new CrewOvertimePay))->calculate($timesheet, $components);
+    $result = (new CrewPayrollCalculator(new CrewOvertimePay))->calculate($timesheet, $components, 30);
 
     expect($result['calculation_breakdown']['lines'])->toMatchArray([
         'standby_pay' => 1322.0,

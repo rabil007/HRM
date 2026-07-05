@@ -97,7 +97,6 @@ function createCrewEmployeeWithContract(
     float $basicRate,
     float $siteRate,
     float $supplementaryRate,
-    ?float $overtimeMonthlySalary = null,
 ): Employee {
     $employee = Employee::factory()->forCompany($company)->create([
         'employee_no' => $employeeNo,
@@ -112,7 +111,6 @@ function createCrewEmployeeWithContract(
         'basic_salary' => $basicRate,
         'site_allowance' => $siteRate,
         'supplementary_allowance' => $supplementaryRate,
-        'overtime_monthly_salary' => $overtimeMonthlySalary,
     ]);
 
     (new SyncContractSalaryComponentsFromContract)->handle($contract);

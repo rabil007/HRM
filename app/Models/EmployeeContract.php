@@ -29,7 +29,6 @@ class EmployeeContract extends Model
             'housing_allowance' => 'decimal:2',
             'transport_allowance' => 'decimal:2',
             'other_allowances' => 'decimal:2',
-            'overtime_monthly_salary' => 'decimal:2',
             'supplementary_allowance' => 'decimal:2',
             'site_allowance' => 'decimal:2',
         ];

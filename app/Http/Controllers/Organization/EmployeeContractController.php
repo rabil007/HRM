@@ -30,7 +30,7 @@ class EmployeeContractController extends Controller
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
-            ['contract_type', 'start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'overtime_monthly_salary', 'note'],
+            ['contract_type', 'start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
             'Enter at least one contract field before saving.',
         );
 
@@ -56,7 +56,7 @@ class EmployeeContractController extends Controller
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
-            ['contract_type', 'start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'overtime_monthly_salary', 'note'],
+            ['contract_type', 'start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
             'Enter at least one contract field before saving.',
         );
 
@@ -110,7 +110,6 @@ class EmployeeContractController extends Controller
             'other_allowances' => ['nullable', 'numeric', 'min:0'],
             'supplementary_allowance' => ['nullable', 'numeric', 'min:0'],
             'site_allowance' => ['nullable', 'numeric', 'min:0'],
-            'overtime_monthly_salary' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],
         ]);
     }
@@ -168,9 +167,6 @@ class EmployeeContractController extends Controller
             'site_allowance' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'site_allowance')
                 ? ($validated['site_allowance'] ?? null)
                 : $existing?->site_allowance,
-            'overtime_monthly_salary' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'overtime_monthly_salary')
-                ? ($validated['overtime_monthly_salary'] ?? null)
-                : $existing?->overtime_monthly_salary,
             'note' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'note')
                 ? (isset($validated['note']) && trim((string) $validated['note']) !== ''
                     ? trim((string) $validated['note'])

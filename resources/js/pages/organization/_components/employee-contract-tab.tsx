@@ -182,7 +182,6 @@ function buildContractPayload(
         other_allowances: string;
         supplementary_allowance: string;
         site_allowance: string;
-        overtime_monthly_salary: string;
         note: string;
     },
     templateFields: Record<string, TemplateFieldConfig> | null | undefined,
@@ -210,9 +209,6 @@ function buildContractPayload(
                 data.supplementary_allowance,
             ),
             site_allowance: normalizeDecimalFieldValue(data.site_allowance),
-            overtime_monthly_salary: normalizeDecimalFieldValue(
-                data.overtime_monthly_salary,
-            ),
             note: data.note.trim() === '' ? null : data.note.trim(),
         },
         templateFields,
@@ -320,7 +316,6 @@ export function EmployeeContractTab({
         other_allowances: '',
         supplementary_allowance: '',
         site_allowance: '',
-        overtime_monthly_salary: '',
         note: '',
     });
 
@@ -365,7 +360,6 @@ export function EmployeeContractTab({
             other_allowances: '',
             supplementary_allowance: '',
             site_allowance: '',
-            overtime_monthly_salary: '',
             note: '',
         });
         setEditingContract(null);
@@ -410,11 +404,6 @@ export function EmployeeContractTab({
                 row.site_allowance === null || row.site_allowance === undefined
                     ? ''
                     : String(row.site_allowance),
-            overtime_monthly_salary:
-                row.overtime_monthly_salary === null ||
-                row.overtime_monthly_salary === undefined
-                    ? ''
-                    : String(row.overtime_monthly_salary),
             note: row.note ?? '',
         });
         setEditingContract(row);
@@ -577,9 +566,6 @@ export function EmployeeContractTab({
                                     Site allowance
                                 </th>
                             ) : null}
-                            <th className={employeeRecordsTableThClass()}>
-                                OT monthly
-                            </th>
                             {showField('note') ? (
                                 <th className={employeeRecordsTableThClass()}>
                                     Note
@@ -733,16 +719,6 @@ export function EmployeeContractTab({
                                         {formatMoney(row.site_allowance)}
                                     </td>
                                 ) : null}
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'text-muted-foreground tabular-nums',
-                                    )}
-                                >
-                                    {row.payroll_category === 'crew'
-                                        ? formatMoney(row.overtime_monthly_salary)
-                                        : '—'}
-                                </td>
                                 {showField('note') ? (
                                     <td
                                         className={cn(
@@ -1467,58 +1443,6 @@ export function EmployeeContractTab({
                                             {isFieldRequired('site_allowance')
                                                 ? ''
                                                 : ' (optional)'}
-                                        </p>
-                                    </ContractFormField>
-                                ) : null}
-                                {contractForm.data.payroll_category ===
-                                'crew' ? (
-                                    <ContractFormField
-                                        field="overtime_monthly_salary"
-                                        highlightMissing={isMissingRequired(
-                                            'overtime_monthly_salary',
-                                        )}
-                                    >
-                                        <Label
-                                            htmlFor="contract_overtime_monthly_salary"
-                                            className={cn(
-                                                'text-xs',
-                                                isMissingRequired(
-                                                    'overtime_monthly_salary',
-                                                ) &&
-                                                    employeeFieldMissingLabelClass,
-                                            )}
-                                        >
-                                            Overtime monthly salary
-                                            <RequiredIndicator
-                                                show={isFieldRequired(
-                                                    'overtime_monthly_salary',
-                                                )}
-                                            />
-                                        </Label>
-                                        <Input
-                                            id="contract_overtime_monthly_salary"
-                                            inputMode="decimal"
-                                            placeholder="e.g. 8040.00"
-                                            className={cn(
-                                                'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
-                                                isMissingRequired(
-                                                    'overtime_monthly_salary',
-                                                ) && 'border-rose-500/50',
-                                            )}
-                                            value={
-                                                contractForm.data
-                                                    .overtime_monthly_salary
-                                            }
-                                            onChange={(e) =>
-                                                contractForm.setData(
-                                                    'overtime_monthly_salary',
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Monthly salary used to calculate
-                                            overtime pay (÷ 365 × 1.25 × hours)
                                         </p>
                                     </ContractFormField>
                                 ) : null}

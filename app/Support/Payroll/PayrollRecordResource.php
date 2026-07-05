@@ -57,6 +57,8 @@ final class PayrollRecordResource
                 'overtime_hours' => self::formatAmount($record->overtime_hours),
                 'overtime' => [
                     'hours' => self::formatAmount($overtime['hours'] ?? $record->overtime_hours),
+                    'period_days' => $overtime['period_days'] ?? null,
+                    'daily_onsite_rate' => self::formatAmount($overtime['daily_onsite_rate'] ?? null),
                     'monthly_salary' => self::formatAmount($overtime['monthly_salary'] ?? null),
                     'hour_rate' => self::formatAmount($overtime['hour_rate'] ?? null),
                     'overtime_hourly_rate' => self::formatAmount($overtime['overtime_hourly_rate'] ?? null),

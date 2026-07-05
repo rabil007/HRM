@@ -55,7 +55,6 @@ final class CrewTimesheetResource
                 'basic_salary' => $contract->basic_salary,
                 'supplementary_allowance' => $contract->supplementary_allowance,
                 'site_allowance' => $contract->site_allowance,
-                'overtime_monthly_salary' => $contract->overtime_monthly_salary,
             ] : null,
         ];
     }

@@ -105,17 +105,28 @@ export function CrewPayColumnCell({
 
 export function CrewOvertimeColumnCell({
     hours,
+    periodDays,
+    dailyOnsiteRate,
     overtimeHourlyRate,
     totalAmount,
     className,
 }: {
     hours: number;
+    periodDays?: number;
+    dailyOnsiteRate?: number;
     overtimeHourlyRate: number;
     totalAmount: number;
     className?: string;
 }) {
     const hasHours = hours > 0;
     const hasAmount = totalAmount > 0;
+    const monthlyBaseLine =
+        periodDays !== undefined &&
+        periodDays > 0 &&
+        dailyOnsiteRate !== undefined &&
+        dailyOnsiteRate > 0
+            ? `${formatNum(periodDays)} × ${formatNum(dailyOnsiteRate)}`
+            : null;
     const calcLine =
         hasHours && overtimeHourlyRate > 0
             ? `${formatNum(hours)} × ${formatNum(overtimeHourlyRate)}`
@@ -132,6 +143,11 @@ export function CrewOvertimeColumnCell({
                     — hrs
                 </span>
             )}
+            {monthlyBaseLine ? (
+                <span className="font-mono text-[10px] text-muted-foreground/50">
+                    {monthlyBaseLine}
+                </span>
+            ) : null}
             {calcLine ? (
                 <span className="font-mono text-[10px] text-muted-foreground/60">
                     {calcLine}
