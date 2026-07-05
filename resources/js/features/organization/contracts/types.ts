@@ -60,6 +60,23 @@ export type ContractsIndexProps = {
     can: ContractPageCan;
 };
 
+export type NoContractEmployee = {
+    id: number;
+    name: string;
+    employee_no: string;
+    image: string | null;
+    department: string | null;
+    position: string | null;
+    hire_date: string | null;
+};
+
+export type NoContractIndexProps = {
+    employees: NoContractEmployee[];
+    pagination: PaginationMeta;
+    search: string;
+    can: ContractPageCan;
+};
+
 export type ContractEmployeeBrowseProps = {
     employee: ContractEmployeeSummary;
     contracts: EmployeeContractDetails[];

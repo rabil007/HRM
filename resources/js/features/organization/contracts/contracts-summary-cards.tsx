@@ -6,6 +6,7 @@ import {
     XCircle,
     type LucideIcon,
 } from 'lucide-react';
+import { Link } from '@inertiajs/react';
 import { Card, CardContent } from '@/components/ui/card';
 import { LIFECYCLE_FILTER_LABELS } from '@/features/organization/contracts/contracts-format';
 import type {
@@ -13,6 +14,7 @@ import type {
     ContractSummary,
 } from '@/features/organization/contracts/types';
 import { cn } from '@/lib/utils';
+import { noContract } from '@/routes/organization/contracts';
 
 type SummaryKey = keyof ContractSummary;
 
@@ -143,22 +145,27 @@ export function ContractsSummaryCards({
                     </button>
                 );
             })}
-            <Card className="border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30 transition-all duration-150">
-                <CardContent className="p-4">
-                    <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-medium text-muted-foreground leading-tight">
-                            No contract
+            <Link
+                href={noContract.url()}
+                className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl block"
+            >
+                <Card className="border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30 cursor-pointer transition-all duration-150">
+                    <CardContent className="p-4">
+                        <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-medium text-muted-foreground leading-tight">
+                                No contract
+                            </p>
+                            <UserX
+                                className="size-3.5 shrink-0 text-violet-500/60"
+                                aria-hidden
+                            />
+                        </div>
+                        <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-violet-400">
+                            {summary.no_contract_employees}
                         </p>
-                        <UserX
-                            className="size-3.5 shrink-0 text-violet-500/60"
-                            aria-hidden
-                        />
-                    </div>
-                    <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-violet-400">
-                        {summary.no_contract_employees}
-                    </p>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            </Link>
         </div>
     );
 }
