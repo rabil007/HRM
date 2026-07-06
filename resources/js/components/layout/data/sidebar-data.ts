@@ -7,11 +7,9 @@ import {
     Landmark,
     Layers,
     MapPin,
-    NotebookTabs,
     Users,
     Wallet,
     Settings,
-    BriefcaseBusiness,
     FileText,
     FileSignature,
     IdCard,
@@ -33,9 +31,6 @@ import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import { dashboard } from '@/routes';
 import { bankAccounts, contracts, documents } from '@/routes/organization';
 import type { SidebarData } from '../types';
-
-const placeholder = (key: string) =>
-    `${dashboard.url()}?module=${encodeURIComponent(key)}`;
 
 const baseSidebarData: SidebarData = {
     teams: [
@@ -180,31 +175,6 @@ const baseSidebarData: SidebarData = {
                     icon: CalendarCheck2,
                 },
                 { title: 'Types', url: '/attendance/types', icon: IdCard },
-            ],
-        },
-        {
-            title: 'Recruitment',
-            items: [
-                {
-                    title: 'Job postings',
-                    url: placeholder('recruitment.job-postings'),
-                    icon: BriefcaseBusiness,
-                },
-                {
-                    title: 'Candidates',
-                    url: placeholder('recruitment.candidates'),
-                    icon: Users,
-                },
-                {
-                    title: 'Interviews',
-                    url: placeholder('recruitment.interviews'),
-                    icon: NotebookTabs,
-                },
-                {
-                    title: 'Offers',
-                    url: placeholder('recruitment.offers'),
-                    icon: ClipboardList,
-                },
             ],
         },
         {

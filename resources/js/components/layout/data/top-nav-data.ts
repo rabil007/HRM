@@ -13,9 +13,6 @@ export type TopNavLink = {
     disabled?: boolean;
 };
 
-const placeholder = (key: string) =>
-    `${dashboard.url()}?module=${encodeURIComponent(key)}`;
-
 function crewOperationsHref(permissions: string[]): string {
     if (has(permissions, 'crew_operations.deployments.view')) {
         return '/organization/crew-deployments';
@@ -90,16 +87,6 @@ export function getTopNavLinks(
                 url.startsWith('/organization/vessel-manning') ||
                 url.startsWith('/organization/crew-planning') ||
                 url.startsWith('/organization/crew-operations'),
-        });
-    }
-
-    if (permissions.some((permission) => permission.startsWith('recruitment.'))) {
-        links.push({
-            title: 'Recruitment',
-            href: placeholder('recruitment.job-postings'),
-            isActive:
-                url.includes('module=recruitment') ||
-                url.includes('recruitment'),
         });
     }
 
