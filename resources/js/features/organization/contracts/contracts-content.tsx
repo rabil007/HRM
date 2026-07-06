@@ -53,14 +53,14 @@ export function ContractsContent({
 
     const minWidth = useMemo(() => {
         if (showOfficeColumns) {
-            return 'min-w-[1680px]';
+            return 'min-w-[1830px]';
         }
 
         if (showCrewColumns) {
-            return 'min-w-[1520px]';
+            return 'min-w-[1670px]';
         }
 
-        return 'min-w-[1280px]';
+        return 'min-w-[1430px]';
     }, [showCrewColumns, showOfficeColumns]);
 
     const backContext = useMemo(
@@ -110,13 +110,7 @@ export function ContractsContent({
                 value={searchInput}
                 onChange={onSearchChange}
                 right={
-                    <div className="flex items-center gap-3">
-                        {isSearching ? (
-                            <Loader2
-                                className="size-4 animate-spin text-muted-foreground"
-                                aria-hidden
-                            />
-                        ) : null}
+                    <div className="flex flex-wrap items-center gap-2">
                         <div className="flex items-center rounded-xl glass-card p-1">
                             {(['', 'office', 'crew'] as const).map((value) => {
                                 const label =
@@ -146,6 +140,12 @@ export function ContractsContent({
                                 );
                             })}
                         </div>
+                        {isSearching ? (
+                            <Loader2
+                                className="size-4 animate-spin text-muted-foreground"
+                                aria-hidden
+                            />
+                        ) : null}
                     </div>
                 }
             />
@@ -161,6 +161,7 @@ export function ContractsContent({
                         <TableHeader>
                             <DataTableHeaderRow>
                                 <DataTableHead>Employee</DataTableHead>
+                                <DataTableHead>Labor contract ID</DataTableHead>
                                 <DataTableHead># Contracts</DataTableHead>
                                 <DataTableHead>Payroll category</DataTableHead>
                                 <DataTableHead>Status</DataTableHead>
