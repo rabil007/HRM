@@ -47,7 +47,6 @@ final class CreateEmployee
         }
 
         $contract = [
-            'contract_type' => $data['contract_type'],
             'start_date' => $data['start_date'],
             'end_date' => $data['end_date'] ?? null,
             'labor_contract_id' => $data['labor_contract_id'] ?? null,
@@ -64,7 +63,6 @@ final class CreateEmployee
         ];
 
         unset(
-            $data['contract_type'],
             $data['start_date'],
             $data['end_date'],
             $data['labor_contract_id'],

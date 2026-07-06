@@ -68,7 +68,6 @@ test('users without permission cannot manage training records', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -135,7 +134,6 @@ test('authorized users can store update and destroy training with certificate', 
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -236,7 +234,6 @@ test('authorized users can bulk store multiple training certificates', function 
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -334,7 +331,6 @@ test('bulk store validation errors use indexed keys', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -413,7 +409,6 @@ test('storing a training certificate invokes the document upload optimizer', fun
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -488,7 +483,6 @@ test('csv import appends training rows for the employee', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -566,7 +560,6 @@ test('employee show page includes deferred trainings and courses', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -718,7 +711,6 @@ test('training csv import respects template visible fields', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,

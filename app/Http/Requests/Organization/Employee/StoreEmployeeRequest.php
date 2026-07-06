@@ -69,7 +69,6 @@ class StoreEmployeeRequest extends FormRequest
             'emergency_phone' => ['nullable', 'string', 'max:30'],
             'address' => ['nullable', 'string'],
             'start_date' => ['required', 'date'],
-            'contract_type' => ['required', 'in:limited,unlimited,part_time,contract'],
             'end_date' => ['nullable', 'date'],
             'labor_contract_id' => ['nullable', 'string', 'max:100'],
             'basic_salary' => ['nullable', 'numeric', 'min:0'],

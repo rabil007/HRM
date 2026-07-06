@@ -34,9 +34,9 @@ test('template can hide bank tab and fields', function () {
         ->and($resolved['employee_tabs']['bank'])->toBeFalse();
 });
 
-test('template fields reflect hidden contract_type on employee contracts', function () {
+test('template fields reflect hidden end_date on employee contracts', function () {
     $configuration = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
-    $configuration['fields']['employee_contracts']['contract_type']['visible'] = false;
+    $configuration['fields']['employee_contracts']['end_date']['visible'] = false;
 
     $template = new EmployeeProfileTemplate([
         'configuration_json' => $configuration,
@@ -44,7 +44,7 @@ test('template fields reflect hidden contract_type on employee contracts', funct
 
     $resolved = EmployeeProfileTemplateResolver::resolve($template);
 
-    expect($resolved['employee_tabs']['template_fields']['employee_contracts']['contract_type']['visible'])
+    expect($resolved['employee_tabs']['template_fields']['employee_contracts']['end_date']['visible'])
         ->toBeFalse()
         ->and($resolved['employee_tabs']['template_fields']['employee_contracts']['start_date']['visible'])
         ->toBeTrue();

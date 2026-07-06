@@ -62,7 +62,6 @@ test('users without permission cannot manage work experience', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -130,7 +129,6 @@ test('employee show page includes work experience rows', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -203,7 +201,6 @@ test('users with permission can create update and delete work experience', funct
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -284,7 +281,6 @@ test('csv import appends rows for the employee', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
     ]);
@@ -352,7 +348,6 @@ test('work experience import returns an error when no rows can be imported', fun
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
     ]);
@@ -423,7 +418,6 @@ test('another employee cannot mutate work experience rows', function () {
         EmployeeContract::query()->create([
             'company_id' => $company->id,
             'employee_id' => $row->id,
-            'contract_type' => 'unlimited',
             'start_date' => '2026-01-01',
             'status' => 'active',
         ]);

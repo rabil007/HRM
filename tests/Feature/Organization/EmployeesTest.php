@@ -109,7 +109,6 @@ test('authenticated users can view an employee details page', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -363,7 +362,6 @@ test('employee can be created and updated with visa_type_id', function () {
         'employee_no' => 'EMP-VISA',
         'name' => 'Visa Holder',
         'start_date' => '2026-01-01',
-        'contract_type' => 'unlimited',
         'status' => 'active',
         'visa_type_id' => $visaType->id,
     ])->assertRedirect('/organization/employees');
@@ -491,7 +489,6 @@ test('employee can be created and updated with hire_date on the employee record'
         'name' => 'Hired Employee',
         'hire_date' => '2024-03-15',
         'start_date' => '2024-04-01',
-        'contract_type' => 'unlimited',
         'status' => 'active',
     ])->assertRedirect('/organization/employees');
 
@@ -571,7 +568,6 @@ test('employee can be created and updated with company_visa_type_id', function (
         'employee_no' => 'EMP-CVISA',
         'name' => 'Company Visa Holder',
         'start_date' => '2026-01-01',
-        'contract_type' => 'unlimited',
         'status' => 'active',
         'company_visa_type_id' => $companyVisaType->id,
     ])->assertRedirect('/organization/employees');
@@ -927,7 +923,6 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'name' => 'Jane Smith',
         'image' => UploadedFile::fake()->image('avatar.jpg', 300, 300),
         'start_date' => '2026-02-01',
-        'contract_type' => 'unlimited',
         'status' => 'active',
         'branch_id' => $branch->id,
         'department_id' => $department->id,
@@ -991,7 +986,6 @@ test('authenticated users can create, update, toggle status, and delete an emplo
     $this->assertDatabaseHas('employee_contracts', [
         'employee_id' => $employeeId,
         'status' => 'active',
-        'contract_type' => 'unlimited',
     ]);
 
     $activity = Activity::query()
@@ -3047,7 +3041,6 @@ test('employee without profile template can assign one', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,

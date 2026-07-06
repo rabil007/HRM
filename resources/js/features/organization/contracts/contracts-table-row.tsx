@@ -9,7 +9,6 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import {
     formatContractMoney,
     formatContractStatus,
-    formatContractType,
     formatPayrollCategory,
 } from '@/features/organization/contracts/contracts-format';
 import type { ContractListItem } from '@/features/organization/contracts/types';
@@ -115,9 +114,6 @@ export function ContractsTableRow({
                 <span className="tabular-nums text-sm text-muted-foreground">
                     {contract.total_contracts}
                 </span>
-            </TableCell>
-            <TableCell className={dataTableCellClass()}>
-                {formatContractType(contract.contract_type)}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
                 {formatPayrollCategory(contract.payroll_category)}

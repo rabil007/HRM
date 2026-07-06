@@ -74,7 +74,6 @@ test('users without permission cannot manage sea services', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -133,7 +132,6 @@ test('employee show page includes sea services', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -230,7 +228,6 @@ test('users with permission can add update delete and reorder sea services', fun
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -380,7 +377,6 @@ test('store requires vessel id and rejects inactive vessel type', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -480,7 +476,6 @@ test('reorder rejects partial order lists', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -537,7 +532,6 @@ test('csv import appends sea service rows for the employee', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
     ]);
@@ -637,7 +631,6 @@ test('csv import accepts day-first date formats for multiple rows', function () 
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
     ]);

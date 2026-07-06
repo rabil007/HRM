@@ -57,7 +57,6 @@ test('users without permission cannot manage education qualifications', function
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -112,7 +111,6 @@ test('employee show page includes education qualifications', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -182,7 +180,6 @@ test('users with permission can create education qualifications', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -247,7 +244,6 @@ test('creating education qualification requires certificate', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
     ]);
@@ -307,7 +303,6 @@ test('education qualification rejects inactive countries', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
     ]);
@@ -360,7 +355,6 @@ test('users can update and delete their education qualifications', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
     ]);
@@ -440,7 +434,6 @@ test('education qualification routes reject mismatched employee', function () {
         EmployeeContract::query()->create([
             'company_id' => $company->id,
             'employee_id' => $e->id,
-            'contract_type' => 'unlimited',
             'start_date' => '2026-01-01',
             'status' => 'active',
         ]);

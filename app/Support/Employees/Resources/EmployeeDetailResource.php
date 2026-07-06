@@ -107,7 +107,6 @@ final class EmployeeDetailResource
             'emergency_phone' => $employee->emergency_phone,
             'address' => $employee->address,
             'start_date' => $employee->currentContract?->start_date,
-            'contract_type' => $employee->currentContract?->contract_type,
             'end_date' => $employee->currentContract?->end_date,
             'labor_contract_id' => $employee->currentContract?->labor_contract_id,
             'basic_salary' => $employee->currentContract?->basic_salary,

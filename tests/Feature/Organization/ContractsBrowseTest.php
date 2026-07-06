@@ -51,7 +51,6 @@ test('employee contracts browse page loads contracts and template fields', funct
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'payroll_category' => PayrollCategory::Office->value,
         'start_date' => '2026-01-01',
         'status' => 'active',
@@ -66,7 +65,7 @@ test('employee contracts browse page loads contracts and template fields', funct
             ->where('employee.name', 'Contract Employee')
             ->has('contracts', 1)
             ->where('contracts.0.basic_salary', '7500.00')
-            ->has('template_contract_fields.contract_type')
+            ->has('template_contract_fields.start_date')
             ->where('can.view', true)
             ->where('can.create', true)
             ->where('can.update', true)

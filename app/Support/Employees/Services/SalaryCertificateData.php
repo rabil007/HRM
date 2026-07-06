@@ -57,7 +57,7 @@ final class SalaryCertificateData
             ),
             'issued_on' => $issuedOn->format('M d, Y'),
             'company_name' => $companyName,
-            'employment_basis' => self::employmentBasisLabel($contract?->contract_type),
+            'employment_basis' => 'Full-Time',
             'employee_name' => strtoupper((string) $employee->name),
             'emirates_id' => (string) ($employee->emirates_id ?? ''),
             'passport_number' => (string) ($employee->passport_number ?? ''),
@@ -69,15 +69,6 @@ final class SalaryCertificateData
             'currency_code' => $currencyCode,
             'hr_email' => $hrEmail,
         ];
-    }
-
-    private static function employmentBasisLabel(?string $contractType): string
-    {
-        return match ($contractType) {
-            'part_time' => 'Part-Time',
-            'contract' => 'Contract',
-            default => 'Full-Time',
-        };
     }
 
     private static function totalSalaryAmount(?EmployeeContract $contract): float

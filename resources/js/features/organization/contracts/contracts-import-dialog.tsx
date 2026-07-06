@@ -49,7 +49,6 @@ type ImportPreviewRow = {
     employee_no: string;
     name: string | null;
     action: 'create' | 'update' | 'skip';
-    contract_type: string | null;
     start_date: string | null;
     end_date: string | null;
     status: string | null;
@@ -128,7 +127,6 @@ export function ContractsImportDialog({
                 String(row.row),
                 row.employee_no,
                 row.name,
-                row.contract_type,
                 row.status,
                 row.action,
                 row.errors[0]?.message,
@@ -422,7 +420,6 @@ export function ContractsImportDialog({
                                             <TableHead>Row</TableHead>
                                             <TableHead>Emp no.</TableHead>
                                             <TableHead>Name</TableHead>
-                                            <TableHead>Type</TableHead>
                                             <TableHead>Start</TableHead>
                                             <TableHead>Status</TableHead>
                                             <TableHead>Action</TableHead>
@@ -432,7 +429,7 @@ export function ContractsImportDialog({
                                         {filteredRows.length === 0 ? (
                                             <TableRow>
                                                 <TableCell
-                                                    colSpan={7}
+                                                    colSpan={6}
                                                     className="py-8 text-center text-sm text-muted-foreground"
                                                 >
                                                     No rows match your search.
@@ -449,10 +446,6 @@ export function ContractsImportDialog({
                                                     </TableCell>
                                                     <TableCell>
                                                         {row.name ?? '—'}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {row.contract_type ??
-                                                            '—'}
                                                     </TableCell>
                                                     <TableCell>
                                                         {row.start_date ??

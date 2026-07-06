@@ -116,7 +116,6 @@ export type EmployeeDetails = {
     phone: string | null;
     start_date?: string | null;
     end_date?: string | null;
-    contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
     crew_status?: EmployeeCrewStatus | null;
     salary_payment_method?: SalaryPaymentMethodValue;
@@ -141,7 +140,6 @@ export type ActivityItem = {
 
 export type EmployeeContractDetails = {
     id: number;
-    contract_type: string | null;
     payroll_category: 'office' | 'crew' | null;
     start_date: string | null;
     end_date: string | null;

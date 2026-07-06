@@ -15,7 +15,6 @@ test('guests cannot manage employee contracts', function () {
     $employee = Employee::factory()->create();
 
     $this->post(route('organization.employees.contracts.store', $employee), [
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
     ])->assertRedirect(route('login'));
@@ -61,7 +60,6 @@ test('users without permission cannot manage employee contracts', function () {
     grantCompanyPermissions($user, $company, ['employees.view']);
 
     $this->post(route('organization.employees.contracts.store', $employee), [
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
     ])->assertForbidden();
@@ -106,7 +104,6 @@ test('employee show page includes contracts tab data when user can view contract
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'limited',
         'payroll_category' => PayrollCategory::Crew->value,
         'start_date' => '2025-01-01',
         'end_date' => '2025-12-31',
@@ -174,7 +171,6 @@ test('users with permission can add update and delete contracts', function () {
     ]);
 
     $this->post(route('organization.employees.contracts.store', $employee), [
-        'contract_type' => 'unlimited',
         'start_date' => '2024-06-01',
         'status' => 'ended',
         'basic_salary' => 5000,
@@ -188,7 +184,6 @@ test('users with permission can add update and delete contracts', function () {
     expect($ended)->not->toBeNull();
 
     $this->post(route('organization.employees.contracts.store', $employee), [
-        'contract_type' => 'limited',
         'start_date' => '2026-01-01',
         'end_date' => '2027-01-01',
         'status' => 'active',
@@ -202,11 +197,9 @@ test('users with permission can add update and delete contracts', function () {
         ->first();
 
     expect($active)->not->toBeNull()
-        ->and($active->contract_type)->toBe('limited')
         ->and($active->note)->toBe('Renewal after probation completion.');
 
     $this->put(route('organization.employees.contracts.update', [$employee, $active]), [
-        'contract_type' => 'limited',
         'start_date' => '2026-01-01',
         'end_date' => '2028-01-01',
         'status' => 'active',
@@ -263,7 +256,6 @@ test('activating a contract ends other active contracts for the employee', funct
     $first = EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2025-01-01',
         'status' => 'active',
     ]);
@@ -271,7 +263,6 @@ test('activating a contract ends other active contracts for the employee', funct
     grantCompanyPermissions($user, $company, ['contracts.create']);
 
     $this->post(route('organization.employees.contracts.store', $employee), [
-        'contract_type' => 'limited',
         'start_date' => '2026-05-01',
         'status' => 'active',
     ])->assertRedirect();
@@ -320,7 +311,6 @@ test('contract store rejects invalid salary and end date with validation errors'
 
     $this->from(route('organization.employees.show', $employee))
         ->post(route('organization.employees.contracts.store', $employee), [
-            'contract_type' => 'limited',
             'start_date' => '2026-06-01',
             'end_date' => '2026-01-01',
             'status' => 'active',
@@ -369,7 +359,6 @@ test('contract store persists supplementary and site allowances', function () {
     grantCompanyPermissions($user, $company, ['employees.view', 'contracts.create']);
 
     $this->post(route('organization.employees.contracts.store', $employee), [
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
         'basic_salary' => 50,
@@ -430,7 +419,6 @@ test('contract store persists payroll_category correctly')
         grantCompanyPermissions($user, $company, ['employees.view', 'contracts.create']);
 
         $this->post(route('organization.employees.contracts.store', $employee), [
-            'contract_type' => 'unlimited',
             'start_date' => '2026-01-01',
             'status' => 'active',
             'payroll_category' => $category->value,
@@ -484,7 +472,6 @@ test('contract store syncs salary components from legacy columns', function () {
     grantCompanyPermissions($user, $company, ['employees.view', 'contracts.create']);
 
     $this->post(route('organization.employees.contracts.store', $employee), [
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
         'payroll_category' => PayrollCategory::Office->value,

@@ -154,7 +154,6 @@ export type Employee = {
     } | null;
     start_date?: string | null;
     end_date?: string | null;
-    contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';
     created_at: string;
 };
 
@@ -193,7 +192,6 @@ export type EmployeeFormData = {
     site_allowance: string;
     start_date: string;
     end_date: string;
-    contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';
     labor_contract_id: string;
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
 };

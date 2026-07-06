@@ -30,7 +30,7 @@ class EmployeeContractController extends Controller
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
-            ['contract_type', 'start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
+            ['start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
             'Enter at least one contract field before saving.',
         );
 
@@ -56,7 +56,7 @@ class EmployeeContractController extends Controller
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
-            ['contract_type', 'start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
+            ['start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
             'Enter at least one contract field before saving.',
         );
 
@@ -98,7 +98,6 @@ class EmployeeContractController extends Controller
     private function validateContract(Request $request, Employee $employee): array
     {
         return EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_contracts', [
-            'contract_type' => ['required', 'in:limited,unlimited,part_time,contract'],
             'start_date' => ['required', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'labor_contract_id' => ['nullable', 'string', 'max:100'],
@@ -121,11 +120,6 @@ class EmployeeContractController extends Controller
     private function contractAttributes(array $validated, ?EmployeeContract $existing): array
     {
         return [
-            'contract_type' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
-                $validated,
-                'contract_type',
-                $existing?->contract_type ?? 'unlimited',
-            ),
             'start_date' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
                 $validated,
                 'start_date',

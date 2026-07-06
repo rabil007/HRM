@@ -73,7 +73,6 @@ final class EmployeeListResource
             'status' => $employee->status,
             'iban' => $employee->primaryBankAccount?->iban,
             'start_date' => $employee->currentContract?->start_date,
-            'contract_type' => $employee->currentContract?->contract_type,
             'end_date' => $employee->currentContract?->end_date,
             'labor_contract_id' => $employee->currentContract?->labor_contract_id,
             'created_at' => $employee->created_at,

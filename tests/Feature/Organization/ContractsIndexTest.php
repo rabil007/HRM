@@ -80,7 +80,6 @@ test('contracts index returns paginated contracts with summary', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'payroll_category' => PayrollCategory::Office->value,
         'start_date' => '2026-01-01',
         'end_date' => null,
@@ -91,7 +90,6 @@ test('contracts index returns paginated contracts with summary', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'limited',
         'payroll_category' => PayrollCategory::Crew->value,
         'start_date' => '2024-01-01',
         'end_date' => '2024-12-31',
@@ -129,7 +127,6 @@ test('contracts index returns employee image with each contract row', function (
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'payroll_category' => PayrollCategory::Office->value,
         'start_date' => '2026-01-01',
         'status' => 'active',
@@ -185,7 +182,6 @@ test('contracts index filters by lifecycle and workforce department scope', func
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $officeEmployee->id,
-        'contract_type' => 'unlimited',
         'payroll_category' => PayrollCategory::Office->value,
         'start_date' => '2026-01-01',
         'status' => 'active',
@@ -194,7 +190,6 @@ test('contracts index filters by lifecycle and workforce department scope', func
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $crewEmployee->id,
-        'contract_type' => 'limited',
         'payroll_category' => PayrollCategory::Crew->value,
         'start_date' => '2024-01-01',
         'end_date' => '2024-12-31',
@@ -227,7 +222,6 @@ test('contracts index supports search by employee name and labor contract id', f
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
         'labor_contract_id' => 'LAB-9001',
@@ -282,7 +276,6 @@ test('contracts index scopes data to current company', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
     ]);
@@ -290,7 +283,6 @@ test('contracts index scopes data to current company', function () {
     EmployeeContract::query()->create([
         'company_id' => $otherCompany->id,
         'employee_id' => $otherEmployee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
     ]);

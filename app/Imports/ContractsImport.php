@@ -19,31 +19,29 @@ final class ContractsImport
 
     private const COL_NAME = 'B';
 
-    private const COL_CONTRACT_TYPE = 'C';
+    private const COL_START_DATE = 'C';
 
-    private const COL_START_DATE = 'D';
+    private const COL_END_DATE = 'D';
 
-    private const COL_END_DATE = 'E';
+    private const COL_LABOR_CONTRACT_ID = 'E';
 
-    private const COL_LABOR_CONTRACT_ID = 'F';
+    private const COL_STATUS = 'F';
 
-    private const COL_STATUS = 'G';
+    private const COL_BASIC_SALARY = 'G';
 
-    private const COL_BASIC_SALARY = 'H';
+    private const COL_OFFICE_HOUSING = 'H';
 
-    private const COL_OFFICE_HOUSING = 'I';
+    private const COL_OFFICE_TRANSPORT = 'I';
 
-    private const COL_OFFICE_TRANSPORT = 'J';
+    private const COL_OFFICE_OTHER = 'J';
 
-    private const COL_OFFICE_OTHER = 'K';
+    private const COL_CREW_SUPPLEMENTARY = 'H';
 
-    private const COL_CREW_SUPPLEMENTARY = 'I';
+    private const COL_CREW_SITE = 'I';
 
-    private const COL_CREW_SITE = 'J';
+    private const COL_OFFICE_NOTE = 'K';
 
-    private const COL_OFFICE_NOTE = 'L';
-
-    private const COL_CREW_NOTE = 'K';
+    private const COL_CREW_NOTE = 'J';
 
     /**
      * @return list<array<string, mixed>>
@@ -67,7 +65,6 @@ final class ContractsImport
                 'row' => $rowNumber,
                 'employee_no' => $employeeNo,
                 'name' => $this->stringValue($sheet, self::COL_NAME, $rowNumber),
-                'contract_type' => $this->stringValue($sheet, self::COL_CONTRACT_TYPE, $rowNumber),
                 'start_date' => $this->dateValue($sheet, self::COL_START_DATE, $rowNumber),
                 'end_date' => $this->dateValue($sheet, self::COL_END_DATE, $rowNumber),
                 'labor_contract_id' => $this->stringValue($sheet, self::COL_LABOR_CONTRACT_ID, $rowNumber),
@@ -115,7 +112,6 @@ final class ContractsImport
         $shared = [
             'Employee No',
             'Employee Name',
-            'Contract Type',
             'Start Date',
             'End Date',
             'Labor Contract ID',

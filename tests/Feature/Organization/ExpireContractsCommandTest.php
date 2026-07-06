@@ -102,7 +102,6 @@ test('users cannot save employee contracts with draft status', function () {
     ]);
 
     $this->post(route('organization.employees.contracts.store', $employee), [
-        'contract_type' => 'limited',
         'start_date' => '2026-01-01',
         'end_date' => '2026-12-31',
         'status' => 'draft',

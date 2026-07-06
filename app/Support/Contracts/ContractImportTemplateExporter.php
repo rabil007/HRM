@@ -56,33 +56,32 @@ final class ContractImportTemplateExporter
 
             $this->setStringCell($sheet, 1, $rowNumber, (string) ($employee->employee_no ?? ''));
             $sheet->setCellValueByColumnAndRow(2, $rowNumber, $employee->name);
-            $sheet->setCellValueByColumnAndRow(3, $rowNumber, $contract?->contract_type);
-            $this->setStringCell($sheet, 4, $rowNumber, $contract?->start_date?->toDateString());
-            $this->setStringCell($sheet, 5, $rowNumber, $contract?->end_date?->toDateString());
-            $this->setStringCell($sheet, 6, $rowNumber, $contract?->labor_contract_id);
-            $sheet->setCellValueByColumnAndRow(7, $rowNumber, $contract?->status);
-            $sheet->setCellValueByColumnAndRow(8, $rowNumber, $contract?->basic_salary);
+            $this->setStringCell($sheet, 3, $rowNumber, $contract?->start_date?->toDateString());
+            $this->setStringCell($sheet, 4, $rowNumber, $contract?->end_date?->toDateString());
+            $this->setStringCell($sheet, 5, $rowNumber, $contract?->labor_contract_id);
+            $sheet->setCellValueByColumnAndRow(6, $rowNumber, $contract?->status);
+            $sheet->setCellValueByColumnAndRow(7, $rowNumber, $contract?->basic_salary);
 
             if ($payrollCategory === PayrollCategory::Office) {
-                $sheet->setCellValueByColumnAndRow(9, $rowNumber, $contract?->housing_allowance);
-                $sheet->setCellValueByColumnAndRow(10, $rowNumber, $contract?->transport_allowance);
-                $sheet->setCellValueByColumnAndRow(11, $rowNumber, $contract?->other_allowances);
-                $sheet->setCellValueByColumnAndRow(12, $rowNumber, $contract?->note);
-            } else {
-                $sheet->setCellValueByColumnAndRow(9, $rowNumber, $contract?->supplementary_allowance);
-                $sheet->setCellValueByColumnAndRow(10, $rowNumber, $contract?->site_allowance);
+                $sheet->setCellValueByColumnAndRow(8, $rowNumber, $contract?->housing_allowance);
+                $sheet->setCellValueByColumnAndRow(9, $rowNumber, $contract?->transport_allowance);
+                $sheet->setCellValueByColumnAndRow(10, $rowNumber, $contract?->other_allowances);
                 $sheet->setCellValueByColumnAndRow(11, $rowNumber, $contract?->note);
+            } else {
+                $sheet->setCellValueByColumnAndRow(8, $rowNumber, $contract?->supplementary_allowance);
+                $sheet->setCellValueByColumnAndRow(9, $rowNumber, $contract?->site_allowance);
+                $sheet->setCellValueByColumnAndRow(10, $rowNumber, $contract?->note);
             }
 
             $rowNumber++;
         }
 
-        $lastColumn = $payrollCategory === PayrollCategory::Office ? 'L' : 'K';
+        $lastColumn = $payrollCategory === PayrollCategory::Office ? 'K' : 'J';
         $lastDataRow = max($rowNumber - 1, ContractsImport::DATA_START_ROW);
         $sheet->setAutoFilter("A1:{$lastColumn}{$lastDataRow}");
         $sheet->freezePane('A2');
 
-        foreach (['D', 'E'] as $column) {
+        foreach (['C', 'D'] as $column) {
             $sheet->getStyle("{$column}2:{$column}{$lastDataRow}")
                 ->getNumberFormat()
                 ->setFormatCode(self::DATE_FORMAT);

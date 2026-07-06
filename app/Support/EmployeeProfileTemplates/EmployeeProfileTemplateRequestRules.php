@@ -11,7 +11,7 @@ final class EmployeeProfileTemplateRequestRules
     /** @var array<string, list<string>> */
     public const DEFAULT_REQUIRED_BY_TABLE = [
         'employees' => ['employee_no', 'name'],
-        'employee_contracts' => ['contract_type', 'start_date', 'status'],
+        'employee_contracts' => ['start_date', 'status'],
         'employee_bank_accounts' => [],
         'employee_education_qualifications' => ['certificate'],
         'employee_work_experiences' => ['company_name', 'job_title', 'date_from'],

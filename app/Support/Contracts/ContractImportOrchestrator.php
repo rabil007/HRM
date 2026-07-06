@@ -181,7 +181,6 @@ final class ContractImportOrchestrator
                 'employee_no' => $employeeNo,
                 'name' => $parsedRow['name'],
                 'action' => $action,
-                'contract_type' => $contractAttributes['contract_type'] ?? null,
                 'start_date' => $contractAttributes['start_date'] ?? null,
                 'end_date' => $contractAttributes['end_date'] ?? null,
                 'labor_contract_id' => $contractAttributes['labor_contract_id'] ?? null,
@@ -239,7 +238,6 @@ final class ContractImportOrchestrator
     private function hasContractData(array $parsedRow): bool
     {
         foreach ([
-            'contract_type',
             'start_date',
             'end_date',
             'labor_contract_id',
@@ -267,7 +265,6 @@ final class ContractImportOrchestrator
     private function buildContractAttributes(array $parsedRow, PayrollCategory $payrollCategory): array
     {
         return [
-            'contract_type' => $parsedRow['contract_type'],
             'start_date' => $parsedRow['start_date'],
             'end_date' => $parsedRow['end_date'],
             'labor_contract_id' => $parsedRow['labor_contract_id'],
@@ -289,7 +286,6 @@ final class ContractImportOrchestrator
     private function contractRules(): array
     {
         return [
-            'contract_type' => ['required', 'in:limited,unlimited,part_time,contract'],
             'start_date' => ['required', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'labor_contract_id' => ['nullable', 'string', 'max:100'],

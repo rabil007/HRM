@@ -20,7 +20,6 @@ test('sync creates office salary components from legacy contract columns', funct
     $contract = EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'payroll_category' => PayrollCategory::Office->value,
         'start_date' => '2026-01-01',
         'status' => 'active',
@@ -53,7 +52,6 @@ test('sync creates crew salary components from legacy contract columns', functio
     $contract = EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'payroll_category' => PayrollCategory::Crew->value,
         'start_date' => '2026-01-01',
         'status' => 'active',
@@ -84,7 +82,6 @@ test('sync deactivates obsolete standby rate when crew contract uses basic', fun
     $contract = EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'payroll_category' => PayrollCategory::Crew->value,
         'start_date' => '2026-01-01',
         'status' => 'active',
@@ -128,7 +125,6 @@ test('sync deactivates obsolete ot rate component for crew contracts', function 
     $contract = EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'payroll_category' => PayrollCategory::Crew->value,
         'start_date' => '2026-01-01',
         'status' => 'active',
@@ -165,7 +161,6 @@ test('sync deactivates components when legacy amount is cleared', function () {
     $contract = EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'payroll_category' => PayrollCategory::Office->value,
         'start_date' => '2026-01-01',
         'status' => 'active',

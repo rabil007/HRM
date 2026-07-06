@@ -86,7 +86,6 @@ test('authenticated users can open printable salary certificate', function () {
     EmployeeContract::factory()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-02-02',
         'status' => 'active',
         'basic_salary' => 50,

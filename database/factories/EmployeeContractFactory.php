@@ -23,7 +23,6 @@ class EmployeeContractFactory extends Factory
         return [
             'employee_id' => fn () => Employee::factory()->create()->id,
             'company_id' => fn (array $attributes) => Employee::query()->whereKey($attributes['employee_id'])->value('company_id'),
-            'contract_type' => $this->faker->randomElement(['limited', 'unlimited', 'part_time', 'contract']),
             'start_date' => $start->format('Y-m-d'),
             'end_date' => $this->faker->optional()->dateTimeBetween($start, '+2 years')?->format('Y-m-d'),
             'labor_contract_id' => $this->faker->optional()->bothify('LCID-########'),

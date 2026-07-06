@@ -11,13 +11,6 @@ export const LIFECYCLE_FILTER_LABELS: Record<
     ended: 'Ended',
 };
 
-export const CONTRACT_TYPE_LABELS: Record<string, string> = {
-    limited: 'Limited',
-    unlimited: 'Unlimited',
-    part_time: 'Part time',
-    contract: 'Contract',
-};
-
 export const CONTRACT_STATUS_LABELS: Record<string, string> = {
     active: 'Active',
     ended: 'Ended',
@@ -27,14 +20,6 @@ export const PAYROLL_CATEGORY_LABELS: Record<string, string> = {
     office: 'Office',
     crew: 'Crew',
 };
-
-export function formatContractType(value: string | null | undefined): string {
-    if (!value) {
-        return '—';
-    }
-
-    return CONTRACT_TYPE_LABELS[value] ?? value;
-}
 
 export function formatContractStatus(value: string | null | undefined): string {
     if (!value) {

@@ -60,7 +60,6 @@ test('users without permission cannot manage vaccinations', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -117,7 +116,6 @@ test('employee show page includes vaccinations', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'labor_contract_id' => null,
@@ -186,7 +184,6 @@ test('users with permission can create update and delete vaccinations', function
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
     ]);
@@ -272,7 +269,6 @@ test('csv import appends vaccination rows', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
     ]);
@@ -338,7 +334,6 @@ test('vaccination import returns an error when no rows can be imported', functio
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'status' => 'active',
     ]);
@@ -409,7 +404,6 @@ test('another employee cannot mutate vaccination rows', function () {
         EmployeeContract::query()->create([
             'company_id' => $company->id,
             'employee_id' => $e->id,
-            'contract_type' => 'unlimited',
             'start_date' => '2026-01-01',
             'status' => 'active',
         ]);

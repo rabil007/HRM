@@ -105,12 +105,10 @@ class EmployeeFactory extends Factory
     {
         return $this->afterCreating(function (Employee $employee) {
             $start = fake()->dateTimeBetween('-2 years', 'now');
-            $contractType = fake()->randomElement(['limited', 'unlimited', 'part_time', 'contract']);
 
             EmployeeContract::query()->create([
                 'company_id' => $employee->company_id,
                 'employee_id' => $employee->id,
-                'contract_type' => $contractType,
                 'start_date' => $start->format('Y-m-d'),
                 'end_date' => fake()->optional()->dateTimeBetween($start, '+2 years')?->format('Y-m-d'),
                 'labor_contract_id' => fake()->optional()->bothify('LCID-########'),
