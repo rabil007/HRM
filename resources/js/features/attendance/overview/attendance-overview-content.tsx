@@ -39,10 +39,9 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { overview as attendanceOverview } from '@/routes/attendance';
-import { index as recordsIndex } from '@/routes/attendance/records';
-import { index as leaveRequestsIndex } from '@/routes/attendance/leave-requests';
 import { index as calendarIndex } from '@/routes/attendance/calendar';
+import { index as leaveRequestsIndex } from '@/routes/attendance/leave-requests';
+import { index as recordsIndex } from '@/routes/attendance/records';
 
 /* ─────────────────────── types ─────────────────────── */
 
