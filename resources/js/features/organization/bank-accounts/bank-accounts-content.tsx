@@ -119,11 +119,11 @@ export function BankAccountsContent({
                     </Select>
 
                     <div className="flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
-                        {(['', '1', '0'] as const).map((value) => {
+                        {(['', 'primary', 'secondary'] as const).map((value) => {
                             const label =
                                 value === ''
                                     ? 'All'
-                                    : value === '1'
+                                    : value === 'primary'
                                       ? 'Primary'
                                       : 'Secondary';
                             const isActive = initialIsPrimary === value;

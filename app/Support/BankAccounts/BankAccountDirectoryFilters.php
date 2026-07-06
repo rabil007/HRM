@@ -18,7 +18,11 @@ final class BankAccountDirectoryFilters
     {
         $isPrimary = (string) $request->query('is_primary', '');
 
-        if (! in_array($isPrimary, ['', 'primary', 'secondary'], true)) {
+        if (in_array($isPrimary, ['1', 'true', 'primary'], true)) {
+            $isPrimary = 'primary';
+        } elseif (in_array($isPrimary, ['0', 'false', 'secondary'], true)) {
+            $isPrimary = 'secondary';
+        } else {
             $isPrimary = '';
         }
 

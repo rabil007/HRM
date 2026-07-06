@@ -105,3 +105,67 @@ test('bank accounts index returns paginated bank accounts with summary', functio
             ->where('can.update', false)
             ->where('can.delete', false));
 });
+
+test('bank accounts index filters by primary and secondary status', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee] = makeBankAccountIndexFixtures();
+
+    grantCompanyPermissions($user, $company, ['bank_accounts.view']);
+
+    $bank = Bank::query()->create([
+        'name' => 'Filter Bank',
+        'is_active' => true,
+    ]);
+
+    EmployeeBankAccount::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'bank_id' => $bank->id,
+        'iban' => 'AE1111111111',
+        'account_name' => 'Primary Account',
+        'is_primary' => true,
+    ]);
+
+    EmployeeBankAccount::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'bank_id' => $bank->id,
+        'iban' => 'AE2222222222',
+        'account_name' => 'Secondary Account',
+        'is_primary' => false,
+    ]);
+
+    $this->get(route('organization.bank-accounts', ['is_primary' => 'primary']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/bank-accounts/index')
+            ->where('is_primary', 'primary')
+            ->has('bank_accounts', 1)
+            ->where('bank_accounts.0.iban', 'AE1111111111'));
+
+    $this->get(route('organization.bank-accounts', ['is_primary' => 'secondary']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/bank-accounts/index')
+            ->where('is_primary', 'secondary')
+            ->has('bank_accounts', 1)
+            ->where('bank_accounts.0.iban', 'AE2222222222'));
+
+    $this->get(route('organization.bank-accounts', ['is_primary' => '1']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/bank-accounts/index')
+            ->where('is_primary', 'primary')
+            ->has('bank_accounts', 1)
+            ->where('bank_accounts.0.iban', 'AE1111111111'));
+
+    $this->get(route('organization.bank-accounts', ['is_primary' => '0']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/bank-accounts/index')
+            ->where('is_primary', 'secondary')
+            ->has('bank_accounts', 1)
+            ->where('bank_accounts.0.iban', 'AE2222222222'));
+});

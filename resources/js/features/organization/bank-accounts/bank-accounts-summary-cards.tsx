@@ -37,7 +37,7 @@ const SUMMARY_ITEMS: {
     },
     {
         key: 'primary_accounts',
-        isPrimaryFilter: '1',
+        isPrimaryFilter: 'primary',
         label: 'Primary accounts',
         icon: CheckCircle2,
         cardClass:
@@ -48,7 +48,7 @@ const SUMMARY_ITEMS: {
     },
     {
         key: 'secondary_accounts',
-        isPrimaryFilter: '0',
+        isPrimaryFilter: 'secondary',
         label: 'Secondary accounts',
         icon: Wallet,
         cardClass:
