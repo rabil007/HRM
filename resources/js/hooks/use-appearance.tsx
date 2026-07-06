@@ -77,16 +77,9 @@ export function initializeTheme(): void {
         return;
     }
 
-    if (!localStorage.getItem('appearance')) {
-        localStorage.setItem('appearance', 'system');
-        setCookie('appearance', 'system');
-    }
-
-    currentAppearance = getStoredAppearance();
-    applyTheme(currentAppearance);
-
-    // Set up system theme change listener
-    mediaQuery()?.addEventListener('change', handleSystemThemeChange);
+    // Theme is locked to dark mode.
+    currentAppearance = 'dark';
+    applyTheme('dark');
 }
 
 export function useAppearance(): UseAppearanceReturn {
@@ -100,18 +93,8 @@ export function useAppearance(): UseAppearanceReturn {
         ? 'dark'
         : 'light';
 
-    const updateAppearance = (mode: Appearance): void => {
-        currentAppearance = mode;
-
-        // Store in localStorage for client-side persistence...
-        localStorage.setItem('appearance', mode);
-
-        // Store in cookie for SSR...
-        setCookie('appearance', mode);
-
-        applyTheme(mode);
-        notify();
-    };
+    // Theme is locked to dark mode; switching is disabled.
+    const updateAppearance = (_mode: Appearance): void => {};
 
     return { appearance, resolvedAppearance, updateAppearance } as const;
 }

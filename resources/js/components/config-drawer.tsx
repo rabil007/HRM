@@ -7,9 +7,6 @@ import { IconLayoutFull } from '@/assets/custom/icon-layout-full';
 import { IconSidebarFloating } from '@/assets/custom/icon-sidebar-floating';
 import { IconSidebarInset } from '@/assets/custom/icon-sidebar-inset';
 import { IconSidebarSidebar } from '@/assets/custom/icon-sidebar-sidebar';
-import { IconThemeDark } from '@/assets/custom/icon-theme-dark';
-import { IconThemeLight } from '@/assets/custom/icon-theme-light';
-import { IconThemeSystem } from '@/assets/custom/icon-theme-system';
 import { Button } from '@/components/ui/button';
 import {
     Sheet,
@@ -23,18 +20,14 @@ import {
 import { useSidebar } from '@/components/ui/sidebar';
 import { useLayout } from '@/context/layout-provider';
 import type { Collapsible } from '@/context/layout-provider';
-import { useAppearance } from '@/hooks/use-appearance';
-import type { Appearance } from '@/hooks/use-appearance';
 import { cn } from '@/lib/utils';
 
 export function ConfigDrawer() {
     const { setOpen } = useSidebar();
-    const { updateAppearance } = useAppearance();
     const { resetLayout } = useLayout();
 
     const handleReset = () => {
         setOpen(true);
-        updateAppearance('system');
         resetLayout();
     };
 
@@ -58,7 +51,6 @@ export function ConfigDrawer() {
                     Adjust the appearance and layout to suit your preferences.
                 </SheetDescription>
                 <div className="space-y-6 overflow-y-auto px-4">
-                    <ThemeConfig />
                     <SidebarConfig />
                     <LayoutConfig />
                 </div>
@@ -161,51 +153,6 @@ function RadioGroupItem({
             </div>
             <div className="mt-1 text-xs">{item.label}</div>
         </Item>
-    );
-}
-
-function ThemeConfig() {
-    const { appearance, updateAppearance } = useAppearance();
-    const defaultTheme: Appearance = 'system';
-
-    return (
-        <div>
-            <SectionTitle
-                title="Theme"
-                showReset={appearance !== defaultTheme}
-                onReset={() => updateAppearance(defaultTheme)}
-            />
-            <Radio
-                value={appearance}
-                onValueChange={(v) => updateAppearance(v as Appearance)}
-                className="grid w-full max-w-md grid-cols-3 gap-4"
-                aria-label="Select theme preference"
-                aria-describedby="theme-description"
-            >
-                {[
-                    {
-                        value: 'system',
-                        label: 'System',
-                        icon: IconThemeSystem,
-                    },
-                    {
-                        value: 'light',
-                        label: 'Light',
-                        icon: IconThemeLight,
-                    },
-                    {
-                        value: 'dark',
-                        label: 'Dark',
-                        icon: IconThemeDark,
-                    },
-                ].map((item) => (
-                    <RadioGroupItem key={item.value} item={item} isTheme />
-                ))}
-            </Radio>
-            <div id="theme-description" className="sr-only">
-                Choose between system preference, light mode, or dark mode
-            </div>
-        </div>
     );
 }
 

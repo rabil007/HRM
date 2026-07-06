@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { usePage } from '@inertiajs/react';
-import { ArrowRight, ChevronRight, Laptop, Moon, Sun } from 'lucide-react';
+import { ArrowRight, ChevronRight } from 'lucide-react';
 import React from 'react';
 import { getSidebarData } from '@/components/layout/data/sidebar-data';
 import {
@@ -14,10 +14,8 @@ import {
 } from '@/components/ui/command';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSearch } from '@/context/search-provider';
-import { useAppearance } from '@/hooks/use-appearance';
 
 export function CommandMenu() {
-    const { updateAppearance } = useAppearance();
     const { open, setOpen } = useSearch();
     const { auth } = usePage().props as unknown as {
         auth?: { permissions?: string[] };
@@ -85,32 +83,6 @@ export function CommandMenu() {
                             })}
                         </CommandGroup>
                     ))}
-                    <CommandSeparator />
-                    <CommandGroup heading="Theme">
-                        <CommandItem
-                            onSelect={() =>
-                                runCommand(() => updateAppearance('light'))
-                            }
-                        >
-                            <Sun /> <span>Light</span>
-                        </CommandItem>
-                        <CommandItem
-                            onSelect={() =>
-                                runCommand(() => updateAppearance('dark'))
-                            }
-                        >
-                            <Moon className="scale-90" />
-                            <span>Dark</span>
-                        </CommandItem>
-                        <CommandItem
-                            onSelect={() =>
-                                runCommand(() => updateAppearance('system'))
-                            }
-                        >
-                            <Laptop />
-                            <span>System</span>
-                        </CommandItem>
-                    </CommandGroup>
                 </ScrollArea>
             </CommandList>
         </CommandDialog>
