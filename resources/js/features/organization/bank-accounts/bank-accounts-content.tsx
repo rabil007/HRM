@@ -1,5 +1,5 @@
-import { Loader2 } from 'lucide-react';
-import { useMemo } from 'react';
+import { Loader2, Upload } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -10,6 +10,7 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
+import { Button } from '@/components/ui/button';
 import {
     Select,
     SelectContent,
@@ -18,6 +19,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { TableBody, TableHeader } from '@/components/ui/table';
+import { BankAccountsImportDialog } from '@/features/organization/bank-accounts/bank-accounts-import-dialog';
 import { BankAccountsSummaryCards } from '@/features/organization/bank-accounts/bank-accounts-summary-cards';
 import { BankAccountsTableRow } from '@/features/organization/bank-accounts/bank-accounts-table-row';
 import { buildBankAccountEmployeeUrl } from '@/features/organization/bank-accounts/build-bank-account-employee-url';
@@ -35,7 +37,9 @@ export function BankAccountsContent({
     bank_accounts: bankAccountRows,
     banks,
     pagination,
+    can,
 }: BankAccountsIndexProps) {
+    const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
     const {
         searchInput,
         isSearching,
@@ -75,7 +79,21 @@ export function BankAccountsContent({
 
     return (
         <Main>
-            <PageHeader title="Bank Accounts" />
+            <PageHeader
+                title="Bank Accounts"
+                right={
+                    can.import ? (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsImportDialogOpen(true)}
+                        >
+                            <Upload className="mr-2 h-4 w-4" />
+                            Import
+                        </Button>
+                    ) : null
+                }
+            />
 
             <BankAccountsSummaryCards
                 summary={summary}
@@ -190,6 +208,11 @@ export function BankAccountsContent({
                     ) : null}
                 </>
             )}
+
+            <BankAccountsImportDialog
+                open={isImportDialogOpen}
+                onOpenChange={setIsImportDialogOpen}
+            />
         </Main>
     );
 }

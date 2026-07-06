@@ -199,7 +199,7 @@ class EmployeeBankAccountController extends Controller
         return back()->with('success', 'Bank account removed.');
     }
 
-    private static function reconcilePrimaryAccounts(int $companyId, int $employeeId): void
+    public static function reconcilePrimaryAccounts(int $companyId, int $employeeId): void
     {
         $rows = EmployeeBankAccount::query()
             ->where('company_id', $companyId)

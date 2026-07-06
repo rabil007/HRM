@@ -12,6 +12,7 @@ use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
 use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\JobRunController;
 use App\Http\Controllers\Organization\ActivityLogController;
+use App\Http\Controllers\Organization\BankAccountsImportController;
 use App\Http\Controllers\Organization\BankAccountsIndexController;
 use App\Http\Controllers\Organization\BankAccountsNoAccountController;
 use App\Http\Controllers\Organization\BranchController;
@@ -300,6 +301,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('organization/bank-accounts', BankAccountsIndexController::class)->name('organization.bank-accounts');
         Route::get('organization/bank-accounts/no-account', BankAccountsNoAccountController::class)->name('organization.bank-accounts.no-account');
         Route::get('organization/bank-accounts/employees/{employee}', EmployeeBankAccountsBrowseController::class)->name('organization.bank-accounts.employee');
+        Route::get('organization/bank-accounts/import/template', [BankAccountsImportController::class, 'importTemplate'])
+            ->middleware('can:bank_accounts.import')
+            ->name('organization.bank-accounts.import.template');
+        Route::post('organization/bank-accounts/import/preview', [BankAccountsImportController::class, 'importPreview'])
+            ->middleware('can:bank_accounts.import')
+            ->name('organization.bank-accounts.import.preview');
+        Route::post('organization/bank-accounts/import', [BankAccountsImportController::class, 'import'])
+            ->middleware('can:bank_accounts.import')
+            ->name('organization.bank-accounts.import');
     });
 
     Route::post('organization/employees/{employee}/contracts', [EmployeeContractController::class, 'store'])->middleware('can:contracts.create')->name('organization.employees.contracts.store');
