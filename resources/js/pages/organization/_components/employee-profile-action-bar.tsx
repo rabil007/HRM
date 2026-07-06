@@ -4,6 +4,7 @@ import {
     CalendarDays,
     ChevronLeft,
     ChevronRight,
+    FileCheck2,
     FileSignature,
     FileText,
     Printer,
@@ -181,6 +182,7 @@ export function EmployeeProfileActionBar({
     printCvUrl,
     printOffshoreCvUrl,
     printSalaryCertificateUrl,
+    printSalaryDeclarationUrl,
     employeeNavigation,
     onNavigateEmployee,
     showDocumentsButton = false,
@@ -199,6 +201,7 @@ export function EmployeeProfileActionBar({
     printCvUrl: string;
     printOffshoreCvUrl: string;
     printSalaryCertificateUrl: string;
+    printSalaryDeclarationUrl: string;
     employeeNavigation?: EmployeeNavigation | null;
     onNavigateEmployee?: (employeeId: number) => void;
     showDocumentsButton?: boolean;
@@ -247,6 +250,15 @@ export function EmployeeProfileActionBar({
                     target="_blank"
                     iconColor="text-amber-600 dark:text-amber-400"
                     iconBg="bg-amber-500/10"
+                />
+
+                <SmartButton
+                    icon={FileCheck2}
+                    label="Salary Declaration"
+                    href={printSalaryDeclarationUrl}
+                    target="_blank"
+                    iconColor="text-rose-600 dark:text-rose-400"
+                    iconBg="bg-rose-500/10"
                 />
 
                 {showAttendanceCalendarButton && attendanceCalendarUrl ? (

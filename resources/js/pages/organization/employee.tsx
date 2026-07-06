@@ -5,6 +5,7 @@ import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeContro
 import printEmployeeCv from '@/actions/App/Http/Controllers/Organization/EmployeeCvPrintController';
 import printEmployeeOffshoreCv from '@/actions/App/Http/Controllers/Organization/EmployeeOffshoreCvPrintController';
 import printEmployeeSalaryCertificate from '@/actions/App/Http/Controllers/Organization/EmployeeSalaryCertificatePrintController';
+import printEmployeeSalaryDeclaration from '@/actions/App/Http/Controllers/Organization/EmployeeSalaryDeclarationPrintController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Main } from '@/components/layout/main';
 import {
@@ -570,6 +571,9 @@ function EmployeeDetailsPage({
                                 printSalaryCertificateUrl={printEmployeeSalaryCertificate.url(
                                     { employee: localEmployee.id as number },
                                     { query: { format: 'pdf', inline: 1 } },
+                                )}
+                                printSalaryDeclarationUrl={printEmployeeSalaryDeclaration.url(
+                                    { employee: localEmployee.id as number },
                                 )}
                                 employeeNavigation={employee_navigation}
                                 onNavigateEmployee={handleNavigateEmployee}
