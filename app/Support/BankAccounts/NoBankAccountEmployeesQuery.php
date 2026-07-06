@@ -32,6 +32,8 @@ final class NoBankAccountEmployeesQuery
                 'department' => $employee->department?->name,
                 'position' => $employee->position?->title,
                 'hire_date' => $employee->hire_date?->toDateString(),
+                'salary_payment_method' => $employee->salary_payment_method?->value ?? 'bank_transfer',
+                'salary_payment_method_label' => $employee->salary_payment_method?->label() ?? 'Bank transfer',
             ]);
     }
 }

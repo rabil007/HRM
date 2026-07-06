@@ -100,6 +100,8 @@ test('bank accounts index returns paginated bank accounts with summary', functio
             ->has('bank_accounts', 1)
             ->where('bank_accounts.0.employee_name', 'Index Employee')
             ->where('bank_accounts.0.bank_name', 'Index Bank')
+            ->where('bank_accounts.0.salary_payment_method', 'bank_transfer')
+            ->where('bank_accounts.0.salary_payment_method_label', 'Bank transfer')
             ->where('can.view', true)
             ->where('can.create', false)
             ->where('can.update', false)

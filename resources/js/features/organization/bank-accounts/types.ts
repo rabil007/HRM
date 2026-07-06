@@ -1,3 +1,4 @@
+import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import type { EmployeeBankAccountItem } from '@/pages/organization/employee-page.types';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -14,6 +15,8 @@ export type BankAccountListItem = EmployeeBankAccountItem & {
     employee_no: string;
     employee_image: string | null;
     profile_template_name: string | null;
+    salary_payment_method?: SalaryPaymentMethodValue;
+    salary_payment_method_label?: string;
     total_bank_accounts: number;
 };
 
@@ -62,6 +65,8 @@ export type NoBankAccountEmployee = {
     department: string | null;
     position: string | null;
     hire_date: string | null;
+    salary_payment_method?: SalaryPaymentMethodValue;
+    salary_payment_method_label?: string;
 };
 
 export type NoBankAccountIndexProps = {

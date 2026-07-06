@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
 import type { BankAccountListItem } from '@/features/organization/bank-accounts/types';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
+import { cashPaymentBadgeLabel } from '@/features/organization/employees/salary-payment-method';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +19,10 @@ export function BankAccountsTableRow({
     bankAccount: BankAccountListItem;
     browseHref: string;
 }) {
+    const cashBadge = bankAccount.salary_payment_method
+        ? cashPaymentBadgeLabel(bankAccount.salary_payment_method)
+        : null;
+
     return (
         <TableRow
             className={cn(dataTableBodyRowClass(false), 'cursor-pointer')}
@@ -41,6 +46,20 @@ export function BankAccountsTableRow({
                         </p>
                     </div>
                 </div>
+            </TableCell>
+            <TableCell className={dataTableCellClass()}>
+                {cashBadge ? (
+                    <Badge
+                        variant="outline"
+                        className="border-amber-500/30 bg-amber-500/10 text-xs font-semibold text-amber-800 dark:text-amber-200"
+                    >
+                        {cashBadge}
+                    </Badge>
+                ) : (
+                    <span className="text-sm text-muted-foreground">
+                        {bankAccount.salary_payment_method_label || 'Bank transfer'}
+                    </span>
+                )}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
                 <span className="tabular-nums text-sm text-muted-foreground">

@@ -147,13 +147,16 @@ export function BankAccountsContent({
             ) : (
                 <>
                     <OrganizationDataTable
-                        minWidth="min-w-[1100px]"
+                        minWidth="min-w-[1240px]"
                         tableClassName="table-fixed"
                     >
                         <TableHeader>
                             <DataTableHeaderRow>
                                 <DataTableHead className="w-[240px]">
                                     Employee
+                                </DataTableHead>
+                                <DataTableHead className="w-[140px]">
+                                    Payment Type
                                 </DataTableHead>
                                 <DataTableHead className="w-[130px]">
                                     Total Accounts

@@ -103,5 +103,7 @@ test('no-account index lists active employees without any bank accounts', functi
             ->component('organization/bank-accounts/no-account')
             ->has('employees', 1)
             ->where('employees.0.id', $employeeNoAccount->id)
-            ->where('employees.0.name', 'No Account Employee'));
+            ->where('employees.0.name', 'No Account Employee')
+            ->where('employees.0.salary_payment_method', 'bank_transfer')
+            ->where('employees.0.salary_payment_method_label', 'Bank transfer'));
 });

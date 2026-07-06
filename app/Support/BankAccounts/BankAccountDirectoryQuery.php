@@ -51,7 +51,7 @@ final class BankAccountDirectoryQuery
             ->selectSub($totalAccountsSubquery, 'total_bank_accounts')
             ->with([
                 'bank:id,name',
-                'employee:id,name,employee_no,image,company_id,branch_id,department_id,employee_profile_template_id',
+                'employee:id,name,employee_no,image,company_id,branch_id,department_id,employee_profile_template_id,salary_payment_method',
                 'employee.employeeProfileTemplate:id,name',
             ]);
     }

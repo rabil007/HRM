@@ -27,6 +27,8 @@ final class BankAccountListResource
             'employee_no' => $employee?->employee_no ?? '',
             'employee_image' => $employee?->image,
             'profile_template_name' => $employee?->employeeProfileTemplate?->name,
+            'salary_payment_method' => $employee?->salary_payment_method?->value ?? 'bank_transfer',
+            'salary_payment_method_label' => $employee?->salary_payment_method?->label() ?? 'Bank transfer',
             'total_bank_accounts' => (int) ($account->total_bank_accounts ?? 1),
         ];
     }
