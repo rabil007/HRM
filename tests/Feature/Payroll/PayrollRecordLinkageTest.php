@@ -99,7 +99,7 @@ test('employee bank accounts linked to pay runs cannot be deleted', function () 
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
-    grantCompanyPermissions($user, $company, ['employees.bank_accounts.manage']);
+    grantCompanyPermissions($user, $company, ['employees.bank_accounts.manage', 'bank_accounts.delete']);
 
     $employee = Employee::factory()->forCompany($company)->create();
     $bank = Bank::query()->create([

@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { useState } from 'react';
 import {
     destroy as destroyBankAccount,
@@ -68,7 +68,27 @@ export type EmployeeBankTabProps = {
     canManage: boolean;
     ensureEmployee?: () => Promise<number>;
     templateFields?: Record<string, TemplateFieldConfig> | null;
+    /** Render outside the employee profile tab shell (e.g. bank accounts browse page). */
+    standalone?: boolean;
 };
+
+function EmployeeBankTabShell({
+    standalone,
+    children,
+}: {
+    standalone?: boolean;
+    children: ReactNode;
+}): ReactElement {
+    if (standalone) {
+        return <div className="mt-6">{children}</div>;
+    }
+
+    return (
+        <TabsContent value="bank" className="mt-6">
+            {children}
+        </TabsContent>
+    );
+}
 
 export function EmployeeBankTab({
     employeeId,
@@ -77,6 +97,7 @@ export function EmployeeBankTab({
     canManage,
     ensureEmployee,
     templateFields = null,
+    standalone = false,
 }: EmployeeBankTabProps): ReactElement {
     const {
         showField,
@@ -202,7 +223,7 @@ export function EmployeeBankTab({
     const showSettingsSection = showField('is_primary');
 
     return (
-        <TabsContent value="bank" className="mt-6">
+        <EmployeeBankTabShell standalone={standalone}>
             <EmployeeRecordsPanel
                 title="Bank accounts"
                 count={bank_accounts.length}
@@ -632,6 +653,6 @@ export function EmployeeBankTab({
                 }
                 reloadOptions={BANK_ACCOUNTS_RELOAD}
             />
-        </TabsContent>
+        </EmployeeBankTabShell>
     );
 }

@@ -70,7 +70,7 @@ test('bank account store rejects hidden iban field from template', function () {
         'is_active' => true,
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.bank_accounts.manage']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.bank_accounts.manage', 'bank_accounts.create']);
 
     $this->actingAs($user)
         ->post(route('organization.employees.bank-accounts.store', $employee), [

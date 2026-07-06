@@ -25,12 +25,13 @@ import {
     Receipt,
     Radio,
     Contact,
+    CreditCard,
     Ship,
     Anchor,
 } from 'lucide-react';
 import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import { dashboard } from '@/routes';
-import { contracts, documents } from '@/routes/organization';
+import { bankAccounts, contracts, documents } from '@/routes/organization';
 import type { SidebarData } from '../types';
 
 const placeholder = (key: string) =>
@@ -111,6 +112,7 @@ const baseSidebarData: SidebarData = {
                 },
                 { title: 'Documents', url: documents.url(), icon: FileText },
                 { title: 'Contracts', url: contracts.url(), icon: FileSignature },
+                { title: 'Bank Accounts', url: bankAccounts.url(), icon: CreditCard },
             ],
         },
         {
@@ -370,6 +372,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 : null;
                         case contracts.url():
                             return has(permissions, 'contracts.view')
+                                ? item
+                                : null;
+                        case bankAccounts.url():
+                            return has(permissions, 'bank_accounts.view')
                                 ? item
                                 : null;
                         case '/organization/roles':

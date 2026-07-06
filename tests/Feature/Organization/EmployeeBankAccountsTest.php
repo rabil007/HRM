@@ -207,7 +207,7 @@ test('users with permission can add update and delete bank accounts', function (
     $bankA = Bank::query()->create(['name' => 'Bank A', 'is_active' => true]);
     $bankB = Bank::query()->create(['name' => 'Bank B', 'is_active' => true]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.bank_accounts.manage']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.bank_accounts.manage', 'bank_accounts.create', 'bank_accounts.update', 'bank_accounts.delete']);
 
     $this->post(route('organization.employees.bank-accounts.store', $employee), [
         'bank_id' => $bankA->id,

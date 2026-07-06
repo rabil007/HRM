@@ -183,7 +183,6 @@ class PermissionsSeeder extends Seeder
             'employees.export',
             'employees.import',
             'employees.identity.import',
-            'employees.bank_accounts.import',
             'employees.education.manage',
 
             'documents.view',
@@ -196,10 +195,14 @@ class PermissionsSeeder extends Seeder
             'contracts.update',
             'contracts.delete',
             'contracts.import',
+            'bank_accounts.view',
+            'bank_accounts.create',
+            'bank_accounts.update',
+            'bank_accounts.delete',
+            'bank_accounts.import',
             'employees.work_experience.manage',
             'employees.vaccination.manage',
             'employees.languages.manage',
-            'employees.bank_accounts.manage',
             'employees.sea_service.manage',
             'employees.training.manage',
 

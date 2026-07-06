@@ -343,6 +343,10 @@ export type EmployeePageProps = {
         work_experience_manage: boolean;
         vaccination_manage: boolean;
         languages_manage: boolean;
+        bank_accounts_view?: boolean;
+        bank_accounts_create?: boolean;
+        bank_accounts_update?: boolean;
+        bank_accounts_delete?: boolean;
         bank_accounts_manage: boolean;
         sea_service_manage: boolean;
         training_manage: boolean;

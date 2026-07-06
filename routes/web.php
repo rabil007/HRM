@@ -11,6 +11,8 @@ use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
 use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\JobRunController;
 use App\Http\Controllers\Organization\ActivityLogController;
+use App\Http\Controllers\Organization\BankAccountsIndexController;
+use App\Http\Controllers\Organization\BankAccountsNoAccountController;
 use App\Http\Controllers\Organization\BranchController;
 use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\CompanySwitchController;
@@ -36,6 +38,7 @@ use App\Http\Controllers\Organization\DocumentFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
 use App\Http\Controllers\Organization\DocumentShareController;
 use App\Http\Controllers\Organization\EmployeeBankAccountController;
+use App\Http\Controllers\Organization\EmployeeBankAccountsBrowseController;
 use App\Http\Controllers\Organization\EmployeeContractController;
 use App\Http\Controllers\Organization\EmployeeContractsBrowseController;
 use App\Http\Controllers\Organization\EmployeeController;
@@ -292,6 +295,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('organization.contracts.import');
     });
 
+    Route::middleware('can:bank_accounts.view')->group(function () {
+        Route::get('organization/bank-accounts', BankAccountsIndexController::class)->name('organization.bank-accounts');
+        Route::get('organization/bank-accounts/no-account', BankAccountsNoAccountController::class)->name('organization.bank-accounts.no-account');
+        Route::get('organization/bank-accounts/employees/{employee}', EmployeeBankAccountsBrowseController::class)->name('organization.bank-accounts.employee');
+    });
+
     Route::post('organization/employees/{employee}/contracts', [EmployeeContractController::class, 'store'])->middleware('can:contracts.create')->name('organization.employees.contracts.store');
     Route::put('organization/employees/{employee}/contracts/{employeeContract}', [EmployeeContractController::class, 'update'])->middleware('can:contracts.update')->name('organization.employees.contracts.update');
     Route::delete('organization/employees/{employee}/contracts/{employeeContract}', [EmployeeContractController::class, 'destroy'])->middleware('can:contracts.delete')->name('organization.employees.contracts.destroy');
@@ -324,9 +333,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('organization/employees/{employee}/training/bulk', [EmployeeTrainingController::class, 'bulkDestroy'])->middleware('can:employees.training.manage')->name('organization.employees.training.bulk-destroy');
     Route::delete('organization/employees/{employee}/training/{training}', [EmployeeTrainingController::class, 'destroy'])->middleware('can:employees.training.manage')->name('organization.employees.training.destroy');
 
-    Route::post('organization/employees/{employee}/bank-accounts', [EmployeeBankAccountController::class, 'store'])->middleware('can:employees.bank_accounts.manage')->name('organization.employees.bank-accounts.store');
-    Route::put('organization/employees/{employee}/bank-accounts/{bankAccount}', [EmployeeBankAccountController::class, 'update'])->middleware('can:employees.bank_accounts.manage')->name('organization.employees.bank-accounts.update');
-    Route::delete('organization/employees/{employee}/bank-accounts/{bankAccount}', [EmployeeBankAccountController::class, 'destroy'])->middleware('can:employees.bank_accounts.manage')->name('organization.employees.bank-accounts.destroy');
+    Route::post('organization/employees/{employee}/bank-accounts', [EmployeeBankAccountController::class, 'store'])->middleware('can:bank_accounts.create')->name('organization.employees.bank-accounts.store');
+    Route::put('organization/employees/{employee}/bank-accounts/{bankAccount}', [EmployeeBankAccountController::class, 'update'])->middleware('can:bank_accounts.update')->name('organization.employees.bank-accounts.update');
+    Route::delete('organization/employees/{employee}/bank-accounts/{bankAccount}', [EmployeeBankAccountController::class, 'destroy'])->middleware('can:bank_accounts.delete')->name('organization.employees.bank-accounts.destroy');
 
     Route::get('organization/employees/{employee}/sea-services/import/template', [EmployeeSeaServiceController::class, 'importTemplate'])->middleware('can:employees.sea_service.manage')->name('organization.employees.sea-services.import.template');
     Route::post('organization/employees/{employee}/sea-services/import', [EmployeeSeaServiceController::class, 'import'])->middleware('can:employees.sea_service.manage')->name('organization.employees.sea-services.import');
