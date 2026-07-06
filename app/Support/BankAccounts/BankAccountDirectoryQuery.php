@@ -70,6 +70,11 @@ final class BankAccountDirectoryQuery
                     $inner->where('employee_bank_accounts.is_primary', false);
                 }
             })
+            ->when($this->filters->paymentMethod !== '', function (Builder $inner): void {
+                $inner->whereHas('employee', function (Builder $employeeQuery): void {
+                    $employeeQuery->where('salary_payment_method', $this->filters->paymentMethod);
+                });
+            })
             ->when($this->filters->search !== '', function (Builder $inner): void {
                 $search = $this->filters->search;
                 $like = '%'.$search.'%';

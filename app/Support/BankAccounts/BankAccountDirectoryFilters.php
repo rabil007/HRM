@@ -12,6 +12,7 @@ final class BankAccountDirectoryFilters
         public readonly string $isPrimary = '',
         public readonly string $branchId = '',
         public readonly string $departmentId = '',
+        public readonly string $paymentMethod = '',
     ) {}
 
     public static function fromRequest(Request $request): self
@@ -32,6 +33,7 @@ final class BankAccountDirectoryFilters
             isPrimary: $isPrimary,
             branchId: (string) $request->query('branch_id', ''),
             departmentId: (string) $request->query('department_id', ''),
+            paymentMethod: (string) $request->query('payment_method', ''),
         );
     }
 
@@ -60,6 +62,10 @@ final class BankAccountDirectoryFilters
 
         if ($this->departmentId !== '') {
             $query['department_id'] = $this->departmentId;
+        }
+
+        if ($this->paymentMethod !== '') {
+            $query['payment_method'] = $this->paymentMethod;
         }
 
         return $query;

@@ -22,7 +22,7 @@ final class BankAccountShowBackNavigation
 
         $query = [];
 
-        foreach (['search', 'bank_id', 'is_primary', 'branch_id', 'department_id', 'page'] as $key) {
+        foreach (['search', 'bank_id', 'is_primary', 'payment_method', 'branch_id', 'department_id', 'page'] as $key) {
             $value = $request->query($key);
 
             if ($value !== null && $value !== '') {

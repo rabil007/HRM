@@ -96,6 +96,7 @@ test('bank accounts index returns paginated bank accounts with summary', functio
             ->where('summary.total_bank_accounts', 1)
             ->where('summary.primary_accounts', 1)
             ->where('summary.secondary_accounts', 0)
+            ->where('summary.ansari_accounts', 0)
             ->where('summary.no_account_employees', 0)
             ->has('bank_accounts', 1)
             ->where('bank_accounts.0.employee_name', 'Index Employee')
@@ -170,4 +171,50 @@ test('bank accounts index filters by primary and secondary status', function () 
             ->where('is_primary', 'secondary')
             ->has('bank_accounts', 1)
             ->where('bank_accounts.0.iban', 'AE2222222222'));
+});
+
+test('bank accounts index filters by payment method ansari', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'branch' => $branch, 'employee' => $employee] = makeBankAccountIndexFixtures();
+
+    grantCompanyPermissions($user, $company, ['bank_accounts.view']);
+
+    $ansariEmployee = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'employee_no' => 'BNK003',
+        'name' => 'Ansari Employee',
+        'status' => 'active',
+        'salary_payment_method' => 'cash_ansari',
+    ]);
+
+    $bank = Bank::query()->create([
+        'name' => 'Ansari Bank',
+        'is_active' => true,
+    ]);
+
+    EmployeeBankAccount::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $ansariEmployee->id,
+        'bank_id' => $bank->id,
+        'iban' => 'AE3333333333',
+        'account_name' => 'Ansari Account',
+        'is_primary' => true,
+    ]);
+
+    $this->get(route('organization.bank-accounts'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/bank-accounts/index')
+            ->where('summary.ansari_accounts', 1));
+
+    $this->get(route('organization.bank-accounts', ['payment_method' => 'cash_ansari']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/bank-accounts/index')
+            ->where('payment_method', 'cash_ansari')
+            ->has('bank_accounts', 1)
+            ->where('bank_accounts.0.iban', 'AE3333333333'));
 });

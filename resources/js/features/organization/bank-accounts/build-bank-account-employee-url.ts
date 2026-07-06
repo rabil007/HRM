@@ -5,6 +5,7 @@ export type BankAccountEmployeeBackContext = {
     search?: string;
     bank_id?: string;
     is_primary?: string;
+    payment_method?: string;
     branch_id?: string;
     department_id?: string;
     page?: number;
@@ -28,6 +29,10 @@ export function buildBankAccountEmployeeUrl(
 
     if (back.is_primary?.trim()) {
         query.is_primary = back.is_primary.trim();
+    }
+
+    if (back.payment_method?.trim()) {
+        query.payment_method = back.payment_method.trim();
     }
 
     if (back.branch_id?.trim()) {

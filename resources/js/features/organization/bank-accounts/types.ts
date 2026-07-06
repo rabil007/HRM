@@ -6,6 +6,7 @@ export type BankAccountSummary = {
     total_bank_accounts: number;
     primary_accounts: number;
     secondary_accounts: number;
+    ansari_accounts: number;
     no_account_employees: number;
 };
 
@@ -49,6 +50,7 @@ export type BankAccountsIndexProps = {
     search: string;
     bank_id: string;
     is_primary: string;
+    payment_method: string;
     branch_id: string;
     department_id: string;
     bank_accounts: BankAccountListItem[];

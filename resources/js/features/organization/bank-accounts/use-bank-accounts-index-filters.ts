@@ -20,6 +20,7 @@ export function useBankAccountsIndexFilters({
     initialSearch,
     initialBankId,
     initialIsPrimary,
+    initialPaymentMethod,
     initialBranchId,
     initialDepartmentId,
     perPage = 25,
@@ -28,6 +29,7 @@ export function useBankAccountsIndexFilters({
     initialSearch: string;
     initialBankId: string;
     initialIsPrimary: string;
+    initialPaymentMethod: string;
     initialBranchId: string;
     initialDepartmentId: string;
     perPage?: number;
@@ -50,6 +52,7 @@ export function useBankAccountsIndexFilters({
             search: initialSearch || undefined,
             bank_id: initialBankId || undefined,
             is_primary: initialIsPrimary || undefined,
+            payment_method: initialPaymentMethod || undefined,
             branch_id: initialBranchId || undefined,
             department_id: initialDepartmentId || undefined,
             per_page: perPage,
@@ -58,6 +61,7 @@ export function useBankAccountsIndexFilters({
             initialSearch,
             initialBankId,
             initialIsPrimary,
+            initialPaymentMethod,
             initialBranchId,
             initialDepartmentId,
             perPage,
@@ -78,6 +82,7 @@ export function useBankAccountsIndexFilters({
                     'search',
                     'bank_id',
                     'is_primary',
+                    'payment_method',
                     'branch_id',
                     'department_id',
                     'bank_accounts',
@@ -123,12 +128,22 @@ export function useBankAccountsIndexFilters({
     );
 
     const onIsPrimaryChange = useCallback(
-        (isPrimary: string) => {
-            visit({
-                ...baseParams(),
-                is_primary: isPrimary || undefined,
-                page: null,
-            });
+        (filterKey: string) => {
+            if (filterKey === 'ansari') {
+                visit({
+                    ...baseParams(),
+                    is_primary: undefined,
+                    payment_method: 'cash_ansari',
+                    page: null,
+                });
+            } else {
+                visit({
+                    ...baseParams(),
+                    is_primary: filterKey || undefined,
+                    payment_method: undefined,
+                    page: null,
+                });
+            }
         },
         [baseParams, visit],
     );

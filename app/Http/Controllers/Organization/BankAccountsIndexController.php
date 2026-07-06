@@ -34,6 +34,7 @@ class BankAccountsIndexController extends Controller
             'search' => $filters->search,
             'bank_id' => $filters->bankId,
             'is_primary' => $filters->isPrimary,
+            'payment_method' => $filters->paymentMethod,
             'branch_id' => $filters->branchId,
             'department_id' => $filters->departmentId,
             'bank_accounts' => $paginator->items(),

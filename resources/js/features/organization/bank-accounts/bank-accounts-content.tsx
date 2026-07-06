@@ -32,6 +32,7 @@ export function BankAccountsContent({
     search: initialSearch,
     bank_id: initialBankId,
     is_primary: initialIsPrimary,
+    payment_method: initialPaymentMethod,
     branch_id: initialBranchId,
     department_id: initialDepartmentId,
     bank_accounts: bankAccountRows,
@@ -52,6 +53,7 @@ export function BankAccountsContent({
         initialSearch,
         initialBankId,
         initialIsPrimary,
+        initialPaymentMethod,
         initialBranchId,
         initialDepartmentId,
         perPage: pagination.per_page,
@@ -63,6 +65,7 @@ export function BankAccountsContent({
             search: initialSearch,
             bank_id: initialBankId,
             is_primary: initialIsPrimary,
+            payment_method: initialPaymentMethod,
             branch_id: initialBranchId,
             department_id: initialDepartmentId,
             page: pagination.current_page,
@@ -71,6 +74,7 @@ export function BankAccountsContent({
             initialSearch,
             initialBankId,
             initialIsPrimary,
+            initialPaymentMethod,
             initialBranchId,
             initialDepartmentId,
             pagination.current_page,
@@ -97,7 +101,7 @@ export function BankAccountsContent({
 
             <BankAccountsSummaryCards
                 summary={summary}
-                activeIsPrimary={initialIsPrimary}
+                activeIsPrimary={initialPaymentMethod === 'cash_ansari' ? 'ansari' : initialIsPrimary}
                 onSelect={onIsPrimaryChange}
             />
 

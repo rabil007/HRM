@@ -12,7 +12,7 @@ import type { BankAccountSummary } from '@/features/organization/bank-accounts/t
 import { cn } from '@/lib/utils';
 import { noAccount } from '@/routes/organization/bank-accounts';
 
-type SummaryKey = 'total_bank_accounts' | 'primary_accounts' | 'secondary_accounts';
+type SummaryKey = 'total_bank_accounts' | 'primary_accounts' | 'secondary_accounts' | 'ansari_accounts';
 
 const SUMMARY_ITEMS: {
     key: SummaryKey;
@@ -58,6 +58,17 @@ const SUMMARY_ITEMS: {
         valueClass: 'text-sky-400',
         iconClass: 'text-sky-500/60',
     },
+    {
+        key: 'ansari_accounts',
+        isPrimaryFilter: 'ansari',
+        label: 'Ansari',
+        icon: Wallet,
+        cardClass:
+            'border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30',
+        activeClass: 'border-amber-500/40 ring-1 ring-amber-500/25',
+        valueClass: 'text-amber-400',
+        iconClass: 'text-amber-500/60',
+    },
 ];
 
 export function BankAccountsSummaryCards({
@@ -70,7 +81,7 @@ export function BankAccountsSummaryCards({
     onSelect: (isPrimary: string) => void;
 }) {
     return (
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
             {SUMMARY_ITEMS.map((item) => {
                 const isActive = item.isPrimaryFilter === activeIsPrimary;
                 const Icon = item.icon;
