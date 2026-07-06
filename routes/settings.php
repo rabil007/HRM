@@ -48,9 +48,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:settings.application.update')
         ->name('application.general.update');
 
-    Route::post('settings/application/bulk-documents/salary-declarations', BulkDocumentController::class)
-        ->middleware('can:settings.application.bulk-documents')
+    Route::post('settings/application/bulk-documents/salary-declarations', [BulkDocumentController::class, 'store'])
         ->name('application.bulk-documents.salary-declarations');
+
+    Route::delete('settings/application/bulk-documents/salary-declarations', [BulkDocumentController::class, 'destroy'])
+        ->name('application.bulk-documents.salary-declarations.clear');
+
+    Route::post('settings/application/bulk-documents/salary-declarations/download', [BulkDocumentController::class, 'download'])
+        ->name('application.bulk-documents.salary-declarations.download');
 
     Route::post('settings/application/branding', [ApplicationSettingsController::class, 'updateBranding'])
         ->middleware('can:settings.application.update')

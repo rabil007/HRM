@@ -2,6 +2,7 @@
 
 namespace App\Support\EmployeeDocuments;
 
+use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use Illuminate\Database\Eloquent\Collection;
@@ -131,6 +132,59 @@ class DocumentDownloadService
                 return $this->addDocumentsToArchive($zip, $documents, $companyId, $usedNames);
             },
             $downloadName,
+        );
+    }
+
+    public function streamSalaryDeclarationsZip(int $companyId): StreamedResponse
+    {
+        $documentType = DocumentType::query()
+            ->where('title', 'Salary Declaration')
+            ->first();
+
+        abort_if($documentType === null, 404, 'No salary declaration documents found.');
+
+        $documents = EmployeeDocument::query()
+            ->forCompany($companyId)
+            ->where('document_type_id', $documentType->id)
+            ->with('employee:id,name,employee_no')
+            ->orderBy('employee_id')
+            ->orderBy('id')
+            ->get([
+                'id',
+                'company_id',
+                'employee_id',
+                'file_path',
+                'original_filename',
+                'mime_type',
+                'title',
+                'document_type',
+            ]);
+
+        abort_if($documents->isEmpty(), 404, 'No salary declaration documents found.');
+
+        return $this->buildAndStreamZip(
+            function (ZipArchive $zip) use ($documents, $companyId): int {
+                $added = 0;
+
+                foreach ($documents->groupBy('employee_id') as $employeeDocuments) {
+                    $employee = $employeeDocuments->first()?->employee;
+                    $prefix = $employee instanceof Employee
+                        ? $this->employeeArchiveFolderName($employee).'/'
+                        : '';
+                    $usedNames = [];
+
+                    $added += $this->addDocumentsToArchive(
+                        $zip,
+                        $employeeDocuments,
+                        $companyId,
+                        $usedNames,
+                        $prefix,
+                    );
+                }
+
+                return $added;
+            },
+            'salary_declarations.zip',
         );
     }
 

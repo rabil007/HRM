@@ -32,7 +32,6 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { BulkDocumentsPanel } from '@/features/settings/bulk-documents-panel';
-import type { BulkDocumentsPanelProps } from '@/features/settings/bulk-documents-panel';
 import { HikvisionSettingsPanel } from '@/features/settings/hikvision-settings-panel';
 import type { HikvisionSettingsPanelProps } from '@/features/settings/hikvision-settings-panel';
 import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
@@ -91,7 +90,6 @@ type Props = {
     };
     whatsapp: WhatsAppSettingsPanelProps | null;
     hikvision: HikvisionSettingsPanelProps | null;
-    can: BulkDocumentsPanelProps['can'];
 };
 
 const ALL_NAV_ITEMS = [
@@ -135,7 +133,7 @@ const ALL_NAV_ITEMS = [
         label: 'Bulk Documents',
         icon: FileCheck2,
         description: 'Mass document generation',
-        permission: 'settings.application.bulk-documents',
+        permission: 'settings.application.view',
     },
     {
         id: 'preferences',
@@ -256,7 +254,6 @@ export default function ApplicationSettings({
     smtp,
     whatsapp,
     hikvision,
-    can,
 }: Props) {
     const auth = usePage().props.auth;
     const authUser = auth?.user as { email?: string } | undefined;
@@ -1290,9 +1287,7 @@ export default function ApplicationSettings({
                         <HikvisionSettingsPanel {...hikvision} />
                     ) : null}
 
-                    {tab === 'bulk-documents' ? (
-                        <BulkDocumentsPanel can={can} />
-                    ) : null}
+                    {tab === 'bulk-documents' ? <BulkDocumentsPanel /> : null}
 
                     {/* ══ PREFERENCES ══ */}
                     {tab === 'preferences' && (

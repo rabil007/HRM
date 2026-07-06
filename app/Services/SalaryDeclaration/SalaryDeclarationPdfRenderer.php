@@ -15,6 +15,10 @@ final class SalaryDeclarationPdfRenderer implements RendersSalaryDeclarationPdf
 
         $html = view('employees.salary-declaration', $data)->render();
 
+        $nodeBinary = config('services.browsershot.node_binary');
+        $npmBinary = config('services.browsershot.npm_binary');
+        $chromePath = config('services.browsershot.chrome_path');
+
         $shot = Browsershot::html($html)
             ->showBackground()
             ->format('A4')
@@ -23,16 +27,16 @@ final class SalaryDeclarationPdfRenderer implements RendersSalaryDeclarationPdf
             ->setNodeModulePath(base_path('node_modules'))
             ->noSandbox();
 
-        $nodeBinary = config('services.browsershot.node_binary');
-
         if (is_string($nodeBinary) && $nodeBinary !== '') {
             $shot->setNodeBinary($nodeBinary);
         }
 
-        $npmBinary = config('services.browsershot.npm_binary');
-
         if (is_string($npmBinary) && $npmBinary !== '') {
             $shot->setNpmBinary($npmBinary);
+        }
+
+        if (is_string($chromePath) && $chromePath !== '') {
+            $shot->setChromePath($chromePath);
         }
 
         return $shot->pdf();

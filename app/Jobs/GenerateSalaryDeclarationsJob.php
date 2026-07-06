@@ -19,13 +19,19 @@ class GenerateSalaryDeclarationsJob implements ShouldQueue
 {
     use Queueable;
 
+    private const EMPLOYEES_PER_CHUNK = 12;
+
     public int $tries = 1;
 
-    public int $timeout = 3600;
+    public int $timeout = 90;
 
     public function __construct(
         public int $companyId,
         public int $userId,
+        public ?int $afterEmployeeId = null,
+        public ?string $batchCorrelationId = null,
+        public int $cumulativeGenerated = 0,
+        public int $cumulativeSkipped = 0,
     ) {}
 
     public function handle(
@@ -40,72 +46,104 @@ class GenerateSalaryDeclarationsJob implements ShouldQueue
             ['is_active' => true],
         );
 
+        $batchCorrelationId = $this->batchCorrelationId
+            ?? ($this->job ? $this->job->uuid() : (string) Str::uuid());
+
         $generated = 0;
         $skipped = 0;
+        $lastProcessedEmployeeId = $this->afterEmployeeId;
 
-        Employee::query()
+        $employees = Employee::query()
             ->where('company_id', $this->companyId)
             ->where('status', 'active')
+            ->when($this->afterEmployeeId !== null, function ($query): void {
+                $query->where('id', '>', $this->afterEmployeeId);
+            })
             ->orderBy('id')
-            ->chunkById(25, function ($employees) use (
-                $documentType,
-                $renderer,
-                $store,
-                &$generated,
-                &$skipped,
-            ): void {
-                foreach ($employees as $employee) {
-                    if ($this->employeeAlreadyHasDeclaration($employee, $documentType->id)) {
-                        $skipped++;
+            ->limit(self::EMPLOYEES_PER_CHUNK)
+            ->get();
 
-                        continue;
-                    }
+        foreach ($employees as $employee) {
+            $lastProcessedEmployeeId = $employee->id;
 
-                    $pdfBytes = $renderer->render($employee, $this->companyId);
-                    $filename = 'salary-declaration-'.Str::slug($employee->employee_no ?: (string) $employee->id).'.pdf';
+            if ($this->employeeAlreadyHasDeclaration($employee, $documentType->id)) {
+                $skipped++;
 
-                    $tempPath = tempnam(sys_get_temp_dir(), 'salary-decl-');
-                    file_put_contents($tempPath, $pdfBytes);
+                continue;
+            }
 
-                    try {
-                        $uploadedFile = new UploadedFile(
-                            $tempPath,
-                            $filename,
-                            'application/pdf',
-                            null,
-                            true,
-                        );
+            $pdfBytes = $renderer->render($employee, $this->companyId);
+            $filename = 'salary-declaration-'.Str::slug($employee->employee_no ?: (string) $employee->id).'.pdf';
 
-                        $store->create(
-                            $employee,
-                            $documentType,
-                            $uploadedFile,
-                            ['title' => $documentType->title],
-                            $this->companyId,
-                            $this->userId,
-                        );
+            $tempPath = tempnam(sys_get_temp_dir(), 'salary-decl-');
+            file_put_contents($tempPath, $pdfBytes);
 
-                        $generated++;
-                    } finally {
-                        if (is_file($tempPath)) {
-                            @unlink($tempPath);
-                        }
-                    }
+            try {
+                $uploadedFile = new UploadedFile(
+                    $tempPath,
+                    $filename,
+                    'application/pdf',
+                    null,
+                    true,
+                );
+
+                $store->create(
+                    $employee,
+                    $documentType,
+                    $uploadedFile,
+                    ['title' => $documentType->title],
+                    $this->companyId,
+                    $this->userId,
+                );
+
+                $generated++;
+            } finally {
+                if (is_file($tempPath)) {
+                    @unlink($tempPath);
                 }
-            });
+            }
+        }
 
-        $jobId = $this->job ? $this->job->uuid() : null;
+        $totalGenerated = $this->cumulativeGenerated + $generated;
+        $totalSkipped = $this->cumulativeSkipped + $skipped;
 
-        if ($jobId) {
-            JobRun::query()->where('correlation_id', $jobId)->update([
-                'message' => "Generated {$generated} salary declaration(s) for {$companyName}. Skipped {$skipped} employee(s) with existing documents.",
-                'context' => [
-                    'company_id' => $this->companyId,
-                    'company_name' => $companyName,
-                    'generated' => $generated,
-                    'skipped' => $skipped,
-                ],
-            ]);
+        $hasMore = $employees->count() === self::EMPLOYEES_PER_CHUNK
+            && $lastProcessedEmployeeId !== null
+            && Employee::query()
+                ->where('company_id', $this->companyId)
+                ->where('status', 'active')
+                ->where('id', '>', $lastProcessedEmployeeId)
+                ->exists();
+
+        if ($hasMore && $lastProcessedEmployeeId !== null) {
+            self::dispatch(
+                $this->companyId,
+                $this->userId,
+                $lastProcessedEmployeeId,
+                $batchCorrelationId,
+                $totalGenerated,
+                $totalSkipped,
+            );
+
+            $this->updateBatchJobRun(
+                $batchCorrelationId,
+                "Generated {$totalGenerated} salary declaration(s) for {$companyName} so far. Processing continues...",
+                $companyName,
+                $totalGenerated,
+                $totalSkipped,
+            );
+
+            return;
+        }
+
+        if ($batchCorrelationId !== '') {
+            $this->updateBatchJobRun(
+                $batchCorrelationId,
+                "Generated {$totalGenerated} salary declaration(s) for {$companyName}. Skipped {$totalSkipped} employee(s) with existing documents.",
+                $companyName,
+                $totalGenerated,
+                $totalSkipped,
+            );
         }
     }
 
@@ -121,5 +159,23 @@ class GenerateSalaryDeclarationsJob implements ShouldQueue
             ->where('employee_id', $employee->id)
             ->where('document_type_id', $documentTypeId)
             ->exists();
+    }
+
+    private function updateBatchJobRun(
+        string $batchCorrelationId,
+        string $message,
+        string $companyName,
+        int $generated,
+        int $skipped,
+    ): void {
+        JobRun::query()->where('correlation_id', $batchCorrelationId)->update([
+            'message' => $message,
+            'context' => [
+                'company_id' => $this->companyId,
+                'company_name' => $companyName,
+                'generated' => $generated,
+                'skipped' => $skipped,
+            ],
+        ]);
     }
 }

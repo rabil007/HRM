@@ -75,7 +75,7 @@ final class JobRegistry
                     'companyId' => 'Integer company ID to generate documents for.',
                     'userId' => 'Integer user ID recorded as uploader.',
                 ],
-                'details' => 'Skips active employees who already have a Salary Declaration document. Uses Browsershot for Arabic/RTL rendering.',
+                'details' => 'Skips active employees who already have a Salary Declaration document. Uses Browsershot for Arabic/RTL rendering. Processes employees in chunks so the default queue worker timeout is sufficient. Supports zip download and bulk clear from Application Settings.',
                 'code_snippet' => 'dispatch(new \\App\\Jobs\\GenerateSalaryDeclarationsJob($companyId, $userId));',
             ],
             [

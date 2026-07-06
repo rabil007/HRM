@@ -10,7 +10,8 @@
         "format:check": "prettier --check resources/",
         "lint": "eslint . --fix",
         "lint:check": "eslint .",
-        "types:check": "tsc --noEmit"
+        "types:check": "tsc --noEmit",
+        "postinstall": "puppeteer browsers install chrome-headless-shell"
     },
     "devDependencies": {
         "@eslint/js": "^9.19.0",

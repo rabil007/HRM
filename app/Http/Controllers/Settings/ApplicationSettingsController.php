@@ -76,9 +76,6 @@ class ApplicationSettingsController extends Controller
             'smtp' => $this->mailSettings->forSettingsPage(),
             'whatsapp' => WhatsAppIntegrationController::pageProps($user),
             'hikvision' => HikvisionIntegrationController::pageProps($user),
-            'can' => [
-                'bulk_documents' => $user?->can('settings.application.bulk-documents') ?? false,
-            ],
         ]);
     }
 

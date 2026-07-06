@@ -20,23 +20,13 @@ beforeEach(function () {
     Storage::fake('public');
 });
 
-test('users without permission cannot bulk generate salary declarations', function () {
-    $user = User::factory()->create();
-    $this->actingAs($user);
-
-    setupCompanyWithSettingsPermissions($user, ['settings.application.view']);
-
-    $this->post(route('application.bulk-documents.salary-declarations'))
-        ->assertForbidden();
-});
-
-test('authorized users can dispatch salary declaration bulk generation job', function () {
+test('authenticated users can dispatch salary declaration bulk generation job', function () {
     Queue::fake();
 
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    setupCompanyWithSettingsPermissions($user, ['settings.application.bulk-documents']);
+    setupCompanyWithSettingsPermissions($user, ['settings.application.view']);
 
     $this->from(route('application.edit'))
         ->post(route('application.bulk-documents.salary-declarations'))
@@ -46,6 +36,224 @@ test('authorized users can dispatch salary declaration bulk generation job', fun
     Queue::assertPushed(GenerateSalaryDeclarationsJob::class, function (GenerateSalaryDeclarationsJob $job) use ($user) {
         return $job->userId === $user->id;
     });
+});
+
+test('authenticated users can clear all salary declaration documents', function () {
+    $country = Country::query()->create([
+        'code' => 'CL1',
+        'name' => 'Clear Decl Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'CL1',
+        'name' => 'Clear Decl Currency',
+        'symbol' => 'AED',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Clear Decl Co',
+        'slug' => 'clear-decl-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $branch = Branch::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HQ',
+        'code' => 'HQ',
+        'status' => 'active',
+        'is_headquarters' => true,
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'branch_id' => $branch->id,
+        'employee_no' => 'EMP-CL-01',
+        'status' => 'active',
+    ]);
+
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Decl Co',
+        'slug' => 'other-decl-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $otherEmployee = Employee::factory()->forCompany($otherCompany)->create([
+        'branch_id' => Branch::query()->create([
+            'company_id' => $otherCompany->id,
+            'name' => 'Other HQ',
+            'code' => 'OHQ',
+            'status' => 'active',
+            'is_headquarters' => true,
+        ])->id,
+        'employee_no' => 'EMP-CL-02',
+        'status' => 'active',
+    ]);
+
+    $documentType = DocumentType::query()->firstOrCreate(
+        ['title' => 'Salary Declaration'],
+        ['is_active' => true],
+    );
+
+    createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $documentType->id,
+        "employee-documents/{$company->id}/{$employee->id}/clear-me.pdf",
+        'clear-me.pdf',
+    );
+
+    createEmployeePdfDocument(
+        $otherCompany->id,
+        $otherEmployee->id,
+        $documentType->id,
+        "employee-documents/{$otherCompany->id}/{$otherEmployee->id}/keep-me.pdf",
+        'keep-me.pdf',
+    );
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['settings.application.view']);
+
+    $this->from(route('application.edit'))
+        ->delete(route('application.bulk-documents.salary-declarations.clear'))
+        ->assertRedirect(route('application.edit'))
+        ->assertSessionHas('success');
+
+    expect(EmployeeDocument::query()
+        ->where('company_id', $company->id)
+        ->where('document_type_id', $documentType->id)
+        ->count())->toBe(0);
+
+    expect(EmployeeDocument::query()
+        ->where('company_id', $otherCompany->id)
+        ->where('document_type_id', $documentType->id)
+        ->count())->toBe(1);
+
+    Storage::disk('public')->assertMissing("employee-documents/{$company->id}/{$employee->id}/clear-me.pdf");
+    Storage::disk('public')->assertExists("employee-documents/{$otherCompany->id}/{$otherEmployee->id}/keep-me.pdf");
+});
+
+test('authenticated users can download all salary declaration documents as zip', function () {
+    $country = Country::query()->create([
+        'code' => 'DL1',
+        'name' => 'Download Decl Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'DL1',
+        'name' => 'Download Decl Currency',
+        'symbol' => 'AED',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Download Decl Co',
+        'slug' => 'download-decl-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $branch = Branch::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HQ',
+        'code' => 'HQ',
+        'status' => 'active',
+        'is_headquarters' => true,
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'branch_id' => $branch->id,
+        'employee_no' => 'EMP-DL-01',
+        'name' => 'Download Employee',
+        'status' => 'active',
+    ]);
+
+    $documentType = DocumentType::query()->firstOrCreate(
+        ['title' => 'Salary Declaration'],
+        ['is_active' => true],
+    );
+
+    createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $documentType->id,
+        "employee-documents/{$company->id}/{$employee->id}/salary-declaration.pdf",
+        'salary-declaration.pdf',
+    );
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['settings.application.view']);
+
+    $response = $this->post(route('application.bulk-documents.salary-declarations.download'));
+
+    $response->assertOk();
+    $response->assertDownload('salary_declarations.zip');
+
+    $tmpPath = tempnam(sys_get_temp_dir(), 'salary_decl_zip_');
+    file_put_contents($tmpPath, $response->streamedContent());
+
+    $zip = new ZipArchive;
+    expect($zip->open($tmpPath))->toBeTrue();
+    expect($zip->numFiles)->toBeGreaterThan(0);
+    $zip->close();
+
+    @unlink($tmpPath);
+});
+
+test('download salary declarations returns not found when none exist', function () {
+    $country = Country::query()->create([
+        'code' => 'DL2',
+        'name' => 'Download Decl Land 2',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'DL2',
+        'name' => 'Download Decl Currency 2',
+        'symbol' => 'AED',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Download Decl Co 2',
+        'slug' => 'download-decl-co-2',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['settings.application.view']);
+
+    $this->post(route('application.bulk-documents.salary-declarations.download'))
+        ->assertNotFound();
 });
 
 test('bulk generation job creates documents for active employees and skips existing', function () {
@@ -157,4 +365,68 @@ test('bulk generation job creates documents for active employees and skips exist
     expect($createdDocument?->title)->toBe('Salary Declaration');
     expect($createdDocument?->mime_type)->toBe('application/pdf');
     Storage::disk('public')->assertExists((string) $createdDocument?->file_path);
+});
+
+test('bulk generation job chains chunks for large employee sets', function () {
+    Queue::fake();
+
+    $country = Country::query()->create([
+        'code' => 'BD2',
+        'name' => 'Bulk Decl Land 2',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'BD2',
+        'name' => 'Bulk Decl Currency 2',
+        'symbol' => 'AED',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Bulk Decl Co 2',
+        'slug' => 'bulk-decl-co-2',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $branch = Branch::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HQ',
+        'code' => 'HQ2',
+        'status' => 'active',
+        'is_headquarters' => true,
+    ]);
+
+    Employee::factory()
+        ->count(13)
+        ->forCompany($company)
+        ->create([
+            'branch_id' => $branch->id,
+            'status' => 'active',
+        ]);
+
+    $user = User::factory()->create();
+
+    $this->mock(RendersSalaryDeclarationPdf::class, function ($mock): void {
+        $mock->shouldReceive('render')
+            ->andReturn(minimalPdfBytes());
+    });
+
+    (new GenerateSalaryDeclarationsJob($company->id, $user->id))->handle(
+        app(RendersSalaryDeclarationPdf::class),
+        app(StoresEmployeeDocument::class),
+    );
+
+    Queue::assertPushed(GenerateSalaryDeclarationsJob::class, function (GenerateSalaryDeclarationsJob $job) use ($company, $user) {
+        return $job->companyId === $company->id
+            && $job->userId === $user->id
+            && $job->afterEmployeeId !== null
+            && $job->batchCorrelationId !== null;
+    });
 });
