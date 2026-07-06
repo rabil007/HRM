@@ -111,9 +111,10 @@
         .sign-block { margin-top: 26px; }
 
         @media print {
-            body { background: #fff; }
+            html, body { background: #fff; }
             .toolbar { display: none !important; }
             .page { margin: 0; box-shadow: none; width: auto; min-height: auto; padding: 0; }
+            .sheet { min-height: auto; }
             @page { size: A4; margin: 14mm; }
         }
     </style>

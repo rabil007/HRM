@@ -24,6 +24,8 @@ test('salary declaration pdf renderer view includes embedded font styles', funct
 
     expect($html)
         ->toContain('pdf-embedded-fonts')
+        ->toContain('html, body { background: #fff; }')
+        ->toContain('.sheet { min-height: auto; }')
         ->toContain('DejaVu Serif')
         ->toContain('DejaVu Sans')
         ->toContain('Employee Declaration and Acknowledgment')
