@@ -31,8 +31,7 @@ export function PayrollSkippedBanner({
         return null;
     }
 
-    const skipLabel =
-        payrollCategory === 'crew' ? 'skipped (no timesheet)' : 'skipped';
+    const skipLabel = 'skipped';
 
     return (
         <div className="relative mb-4 space-y-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 px-4 py-3.5 pr-10">

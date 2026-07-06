@@ -27,35 +27,42 @@ final class CrewPayrollCalculator
      *     total_deductions: string,
      *     gross_salary: string,
      *     net_salary: string,
+     *     working_days: int,
+     *     present_days: float,
+     *     leave_days: float,
      *     calculation_breakdown: array<string, mixed>
      * }
      */
     public function calculate(
         CrewTimesheet $timesheet,
         Collection $components,
-        int $periodDays,
+        int $overtimePeriodDays,
+        int $workingDaysInPeriod,
     ): array {
         $basicRate = $this->activeAmount($components, SalaryComponentCode::Basic);
         $siteRate = $this->activeAmount($components, SalaryComponentCode::SiteAllowance);
         $supplementaryRate = $this->activeAmount($components, SalaryComponentCode::SupplementaryAllowance);
 
-        if ($basicRate === null) {
+        $standbyDays = (float) ($timesheet->standby_days ?? 0);
+        $onsiteDays = (float) ($timesheet->onsite_days ?? 0);
+        $overtimeHours = (float) ($timesheet->overtime_hours ?? 0);
+        $hasPayableActivity = $standbyDays > 0 || $onsiteDays > 0 || $overtimeHours > 0;
+
+        if ($basicRate === null && $hasPayableActivity) {
             throw ValidationException::withMessages([
                 'employee_id' => 'Active basic daily rate is required on the crew contract.',
             ]);
         }
 
-        $standbyDays = (float) ($timesheet->standby_days ?? 0);
-        $onsiteDays = (float) ($timesheet->onsite_days ?? 0);
+        $basicRate ??= 0.0;
         $standbyPay = round($standbyDays * ($basicRate + ($supplementaryRate ?? 0)), 2);
         $onsitePay = round($onsiteDays * $basicRate, 2);
         $siteAllowancePay = round($onsiteDays * ($siteRate ?? 0), 2);
         $supplementaryPay = round($onsiteDays * ($supplementaryRate ?? 0), 2);
 
-        $overtimeHours = (float) ($timesheet->overtime_hours ?? 0);
         $overtimeBreakdown = $this->resolveOvertimePay(
             $overtimeHours,
-            $periodDays,
+            $overtimePeriodDays,
             $basicRate,
             $siteRate ?? 0.0,
             $supplementaryRate ?? 0.0,
@@ -70,6 +77,8 @@ final class CrewPayrollCalculator
             2,
         );
         $netSalary = round($grossSalary - $deductionAmount, 2);
+        $presentDays = round($standbyDays + $onsiteDays, 2);
+        $leaveDays = round(max(0, $workingDaysInPeriod - $presentDays), 2);
 
         return [
             'basic_salary' => $this->formatMoney($standbyPay + $onsitePay),
@@ -81,9 +90,15 @@ final class CrewPayrollCalculator
             'total_deductions' => $this->formatMoney($deductionAmount),
             'gross_salary' => $this->formatMoney($grossSalary),
             'net_salary' => $this->formatMoney($netSalary),
+            'working_days' => $workingDaysInPeriod,
+            'present_days' => $presentDays,
+            'leave_days' => $leaveDays,
             'calculation_breakdown' => [
                 'standby_days' => $standbyDays,
                 'onsite_days' => $onsiteDays,
+                'working_days' => $workingDaysInPeriod,
+                'present_days' => $presentDays,
+                'leave_days' => $leaveDays,
                 'rates' => [
                     'basic_daily' => $basicRate,
                     'site_allowance_daily' => $siteRate ?? 0,

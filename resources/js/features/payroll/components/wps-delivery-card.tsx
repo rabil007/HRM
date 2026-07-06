@@ -136,7 +136,7 @@ export function WpsDeliveryCard({
                 ? periodSkipped > 0
                     ? 'Fix the issues below before exporting WPS files for this period.'
                     : 'No payroll records are eligible for WPS export in this period.'
-                : `${periodEligible} eligible and ${periodSkipped} skipped in this pay period.`;
+                : `${periodEligible} eligible and ${periodSkipped} warning${periodSkipped === 1 ? '' : 's'} in this pay period.`;
 
     const skippedRecords = usesSelection
         ? exportSkippedRecords
@@ -212,7 +212,7 @@ export function WpsDeliveryCard({
                         tone="emerald"
                     />
                     <WpsStat
-                        label="Skipped"
+                        label="Warnings"
                         value={periodSkipped}
                         tone="amber"
                     />
@@ -234,7 +234,7 @@ export function WpsDeliveryCard({
                                 </span>{' '}
                                 selected record
                                 {exportSkipped === 1 ? '' : 's'} will be
-                                skipped.
+                                excluded from the file.
                             </>
                         ) : null}
                     </div>
@@ -267,8 +267,8 @@ export function WpsDeliveryCard({
                                 >
                                     <span className="text-xs font-bold tracking-[0.14em] text-amber-800 uppercase dark:text-amber-200">
                                         {usesSelection && exportSkipped > 0
-                                            ? `Why ${exportSkipped} selected record${exportSkipped === 1 ? '' : 's'} were skipped`
-                                            : `${periodSkipped} skipped record${periodSkipped === 1 ? '' : 's'} in period`}
+                                            ? `Why ${exportSkipped} selected record${exportSkipped === 1 ? '' : 's'} are excluded from export`
+                                            : `${periodSkipped} warning${periodSkipped === 1 ? '' : 's'} — excluded from file`}
                                     </span>
                                     <ChevronDown
                                         className={cn(
@@ -315,8 +315,8 @@ export function WpsDeliveryCard({
                                 {usesSelection &&
                                 periodSkipped > skippedRecords.length ? (
                                     <p className="mt-3 text-xs text-muted-foreground">
-                                        View all skipped employees on the WPS
-                                        export page.
+                                        View all warnings on the WPS export
+                                        page.
                                     </p>
                                 ) : null}
                             </CollapsibleContent>

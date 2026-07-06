@@ -91,7 +91,7 @@ final class WpsExportRows
             $inclusiveDays,
             self::integerAmount((float) $record->net_salary),
             0,
-            0,
+            (int) round((float) $record->leave_days),
             (string) ($record->employee?->name ?? ''),
         ];
     }

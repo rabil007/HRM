@@ -10,6 +10,7 @@ use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Support\Payroll\Wps\WpsExcelExporter;
 use App\Support\Payroll\Wps\WpsExportPreview;
 use App\Support\Payroll\Wps\WpsSifExporter;
 use Carbon\Carbon;
@@ -472,4 +473,142 @@ test('wps sif exporter builds scr and edr lines', function () {
         ->toContain('SCR,MOL-999,AGENT-999')
         ->toContain('EDR,11112222333344,555666,AE123456789012345678901')
         ->toContain('3500.00');
+});
+
+test('wps excel export outputs crew leave days in column j', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    Carbon::setTestNow(Carbon::parse('2026-06-26 10:00:00', 'Asia/Dubai'));
+
+    $company->forceFill([
+        'wps_mol_uid' => '0000001194930',
+        'wps_agent_code' => '600310101',
+        'wps_employer_iban' => 'AE140260001015853434101',
+        'timezone' => 'Asia/Dubai',
+    ])->save();
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'labor_card_number' => null,
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $employee->id,
+        'company_id' => $company->id,
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew,
+        'labor_contract_id' => '784198015428794',
+    ]);
+
+    $bank = Bank::query()->create([
+        'name' => 'WPS Crew Bank',
+        'uae_routing_code_agent_id' => '302620122',
+        'is_active' => true,
+    ]);
+
+    EmployeeBankAccount::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'bank_id' => $bank->id,
+        'iban' => 'AE140260001015853434101',
+        'account_name' => $employee->name,
+        'is_primary' => true,
+    ]);
+
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'net_salary' => 0,
+        'status' => 'approved',
+        'working_days' => 30,
+        'present_days' => 0,
+        'leave_days' => 30,
+        'calculation_breakdown' => [
+            'rates' => ['basic_daily' => 150],
+            'lines' => ['standby_pay' => 0, 'onsite_pay' => 0],
+        ],
+    ]);
+
+    $content = app(WpsExcelExporter::class)->export(
+        $company,
+        $period,
+        collect([$record]),
+        'REF-CREW-LEAVE',
+    );
+
+    $tempPath = tempnam(sys_get_temp_dir(), 'wps-crew-leave-').'.xlsx';
+    file_put_contents($tempPath, $content);
+
+    $sheet = IOFactory::load($tempPath)->getActiveSheet();
+
+    expect((int) $sheet->getCell('J1')->getValue())->toBe(30);
+
+    @unlink($tempPath);
+
+    Carbon::setTestNow();
+});
+
+test('wps preview warns when crew basic daily rate is missing', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $company->forceFill([
+        'wps_mol_uid' => 'MOL-12345',
+        'wps_agent_code' => 'AGENT-001',
+        'wps_employer_iban' => 'AE070331234567890123456',
+    ])->save();
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'CREW-NO-RATE',
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $employee->id,
+        'company_id' => $company->id,
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew,
+        'labor_contract_id' => '12345678901234',
+    ]);
+
+    $bank = Bank::query()->create([
+        'name' => 'WPS Bank',
+        'uae_routing_code_agent_id' => '987654',
+        'is_active' => true,
+    ]);
+
+    EmployeeBankAccount::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'bank_id' => $bank->id,
+        'iban' => 'AE070331234567890123456',
+        'account_name' => $employee->name,
+        'is_primary' => true,
+    ]);
+
+    PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'approved',
+        'calculation_breakdown' => [
+            'rates' => ['basic_daily' => 0],
+            'lines' => ['standby_pay' => 0, 'onsite_pay' => 0],
+        ],
+    ]);
+
+    $preview = app(WpsExportPreview::class)->forPeriod($company, $period);
+
+    expect($preview['eligible_count'])->toBe(0)
+        ->and($preview['skipped'])->toHaveCount(1)
+        ->and($preview['skipped'][0]['employee_id'])->toBe($employee->id)
+        ->and($preview['skipped'][0]['reason'])->toBe('Active basic daily rate is missing.');
 });

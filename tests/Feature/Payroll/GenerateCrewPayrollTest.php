@@ -13,7 +13,7 @@ use App\Models\PayrollRecord;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
 use Inertia\Testing\AssertableInertia as Assert;
 
-test('crew payroll generation creates records for employees with timesheets and skips others', function () {
+test('crew payroll generation creates records for all active crew employees including those without timesheets', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
@@ -62,12 +62,22 @@ test('crew payroll generation creates records for employees with timesheets and 
         ->and($record->net_salary)->toBe('3925.00')
         ->and($record->calculation_breakdown['lines']['standby_pay'])->toEqual(1125);
 
-    expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(1);
+    expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(2);
+
+    $zeroWorkRecord = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $crewWithoutTimesheet->id)
+        ->first();
+
+    expect($zeroWorkRecord)->not->toBeNull()
+        ->and($zeroWorkRecord->gross_salary)->toBe('0.00')
+        ->and($zeroWorkRecord->net_salary)->toBe('0.00')
+        ->and($zeroWorkRecord->present_days)->toBe(0)
+        ->and((float) $zeroWorkRecord->leave_days)->toBe(30.0);
 
     $summary = session('payroll_generation');
-    expect($summary['generated_count'])->toBe(1)
-        ->and($summary['skipped_count'])->toBe(1)
-        ->and($summary['skipped_employees'][0]['id'])->toBe($crewWithoutTimesheet->id);
+    expect($summary['generated_count'])->toBe(2)
+        ->and($summary['skipped_count'])->toBe(0);
 });
 
 test('crew payroll generation calculates overtime pay from hours and period daily rates', function () {

@@ -35,7 +35,7 @@ export function PayrollGenerateDialog({
 
     const crewDescription = hasExistingRecords
         ? 'Timesheet amounts will be refreshed and all salary input lines will be re-applied to gross and net pay.'
-        : 'Payroll will be calculated for employees with timesheets. Employees without timesheets will be skipped.';
+        : 'Payroll records will be created for all active crew employees. Employees with no standby, onsite, or overtime will receive zero-pay records with leave days counted.';
 
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>

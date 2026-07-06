@@ -5,6 +5,7 @@ namespace App\Support\Payroll\Actions;
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Enums\SalaryPaymentMethod;
+use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
@@ -68,17 +69,14 @@ final class GenerateCrewPayroll
 
             foreach ($employees as $employee) {
                 /** @var Employee $employee */
-                $timesheet = $employee->crewTimesheets->first();
-
-                if ($timesheet === null) {
-                    $skippedEmployees[] = [
-                        'id' => $employee->id,
-                        'name' => $employee->name,
-                        'employee_no' => $employee->employee_no,
-                    ];
-
-                    continue;
-                }
+                $timesheet = $employee->crewTimesheets->first()
+                    ?? new CrewTimesheet([
+                        'standby_days' => 0,
+                        'onsite_days' => 0,
+                        'overtime_hours' => 0,
+                        'additional_amount' => 0,
+                        'deduction_amount' => 0,
+                    ]);
 
                 $contract = $employee->currentContract;
 
@@ -97,6 +95,7 @@ final class GenerateCrewPayroll
                         $timesheet,
                         $contract->salaryComponents,
                         CrewOvertimeMonthlySalary::STANDARD_PERIOD_DAYS,
+                        $period->calendarDayCount(),
                     );
                 } catch (ValidationException $exception) {
                     $errors[] = PayrollGenerationError::fromValidationException($employee, $exception);
@@ -130,6 +129,9 @@ final class GenerateCrewPayroll
                         'total_deductions' => $calculated['total_deductions'],
                         'gross_salary' => $calculated['gross_salary'],
                         'net_salary' => $calculated['net_salary'],
+                        'working_days' => $calculated['working_days'],
+                        'present_days' => (int) round($calculated['present_days']),
+                        'leave_days' => $calculated['leave_days'],
                         'overtime_hours' => $calculated['overtime_hours'],
                         'calculation_breakdown' => $breakdown,
                         'status' => 'draft',
