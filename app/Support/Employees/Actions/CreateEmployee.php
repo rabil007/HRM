@@ -118,7 +118,6 @@ final class CreateEmployee
             'bank_id',
             'emirates_id',
             'passport_number',
-            'labor_card_number',
             'termination_date',
             'termination_reason',
         ] as $key) {

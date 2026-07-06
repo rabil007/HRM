@@ -102,7 +102,6 @@ export type EmployeeDetails = {
     labor_contract_id?: string | null;
     passport_number?: string | null;
     emirates_id?: string | null;
-    labor_card_number?: string | null;
     bank_id?: number | null;
     iban?: string | null;
     account_name?: string | null;

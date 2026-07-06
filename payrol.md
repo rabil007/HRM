@@ -302,8 +302,7 @@ Shared row builder: `WpsExportRows`. SIF uses `WpsSifExporter`; Excel uses `WpsE
 | Entity | Field |
 |--------|--------|
 | Company | `wps_mol_uid`, `wps_agent_code` |
-| Employee contract | Active contract `labor_contract_id` (preferred labour identifier) |
-| Employee | `labor_card_number` (fallback if contract ID missing) |
+| Employee contract | Active contract `labor_contract_id` |
 | Employee bank | Primary `iban`, bank `uae_routing_code_agent_id` |
 | Payroll record | `status` = `approved` or `paid` |
 
@@ -451,7 +450,7 @@ tests/Feature/Payroll/
   ...
 
 tests/Unit/Support/Payroll/
-  WpsLaborIdentifierTest.php # contract labor_contract_id vs employee fallback
+  WpsLaborIdentifierTest.php # contract labor_contract_id resolution
 
 tests/Feature/Settings/EmailTemplatesSeederTest.php
 ```

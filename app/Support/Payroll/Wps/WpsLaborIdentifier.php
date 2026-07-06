@@ -9,8 +9,7 @@ use App\Models\PayrollRecord;
 final class WpsLaborIdentifier
 {
     /**
-     * UAE WPS EDR lines require the employee labour identifier.
-     * Prefer the active contract's labor_contract_id; fall back to employee.labor_card_number.
+     * UAE WPS EDR lines require the employee labour identifier from the payroll contract.
      */
     public static function forPayrollRecord(PayrollRecord $record): ?string
     {
@@ -28,15 +27,7 @@ final class WpsLaborIdentifier
             return (string) $contract->labor_contract_id;
         }
 
-        $employee = $record->employee;
-
-        if ($employee === null) {
-            return null;
-        }
-
-        return filled($employee->labor_card_number)
-            ? (string) $employee->labor_card_number
-            : null;
+        return null;
     }
 
     private static function resolveContract(Employee $employee, PayrollRecord $record): ?EmployeeContract

@@ -83,7 +83,6 @@ class StoreEmployeeRequest extends FormRequest
             'account_name' => ['nullable', 'string', 'max:200'],
             'emirates_id' => ['nullable', 'string', 'max:30'],
             'passport_number' => ['nullable', 'string', 'max:50'],
-            'labor_card_number' => ['nullable', 'string', 'max:100'],
             'salary_payment_method' => ['nullable', Rule::enum(SalaryPaymentMethod::class)],
             'employee_profile_template_id' => [
                 'nullable',

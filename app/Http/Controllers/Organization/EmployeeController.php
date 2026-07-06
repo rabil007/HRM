@@ -277,7 +277,6 @@ class EmployeeController extends Controller
             'address',
             'emirates_id',
             'passport_number',
-            'labor_card_number',
             'termination_date',
             'termination_reason',
         ] as $key) {

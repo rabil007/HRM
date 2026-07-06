@@ -31,7 +31,6 @@ final class EmployeeProfileTemplateImportFields
         'emergency_phone' => 'emergency_phone',
         'passport_number' => 'passport_number',
         'emirates_id' => 'emirates_id',
-        'labor_card_number' => 'labor_card_number',
         'branch_id' => 'branch',
         'department_id' => 'department',
         'position_id' => 'position',

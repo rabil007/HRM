@@ -10,9 +10,7 @@ use App\Support\Payroll\Wps\WpsLaborIdentifier;
 test('wps labor identifier prefers active contract labor_contract_id', function () {
     ['company' => $company] = makePayrollFixtures();
 
-    $employee = Employee::factory()->forCompany($company)->create([
-        'labor_card_number' => null,
-    ]);
+    $employee = Employee::factory()->forCompany($company)->create();
 
     EmployeeContract::factory()->create([
         'employee_id' => $employee->id,
@@ -34,12 +32,10 @@ test('wps labor identifier prefers active contract labor_contract_id', function 
     expect(WpsLaborIdentifier::forPayrollRecord($record))->toBe('2255');
 });
 
-test('wps labor identifier falls back to employee labor_card_number', function () {
+test('wps labor identifier returns null when contract labor_contract_id is missing', function () {
     ['company' => $company] = makePayrollFixtures();
 
-    $employee = Employee::factory()->forCompany($company)->create([
-        'labor_card_number' => '99887766554433',
-    ]);
+    $employee = Employee::factory()->forCompany($company)->create();
 
     EmployeeContract::factory()->create([
         'employee_id' => $employee->id,
@@ -57,15 +53,13 @@ test('wps labor identifier falls back to employee labor_card_number', function (
         'status' => 'approved',
     ]);
 
-    expect(WpsLaborIdentifier::forPayrollRecord($record))->toBe('99887766554433');
+    expect(WpsLaborIdentifier::forPayrollRecord($record))->toBeNull();
 });
 
 test('wps labor identifier prefers stored contract snapshot over current active contract', function () {
     ['company' => $company] = makePayrollFixtures();
 
-    $employee = Employee::factory()->forCompany($company)->create([
-        'labor_card_number' => null,
-    ]);
+    $employee = Employee::factory()->forCompany($company)->create();
 
     $snapshotContract = EmployeeContract::factory()->create([
         'employee_id' => $employee->id,

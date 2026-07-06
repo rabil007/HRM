@@ -181,7 +181,6 @@ export type EmployeeFormData = {
     spouse_name: string;
     passport_number: string;
     emirates_id: string;
-    labor_card_number: string;
     bank_id: number | '';
     iban: string;
     basic_salary: string;

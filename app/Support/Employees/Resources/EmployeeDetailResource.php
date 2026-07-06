@@ -126,7 +126,6 @@ final class EmployeeDetailResource
             'salary_payment_method_label' => $employee->salary_payment_method?->label() ?? 'Bank transfer',
             'emirates_id' => $employee->emirates_id,
             'passport_number' => $employee->passport_number,
-            'labor_card_number' => $employee->labor_card_number,
             'status' => $employee->status,
             'termination_date' => $employee->termination_date,
             'termination_reason' => $employee->termination_reason,

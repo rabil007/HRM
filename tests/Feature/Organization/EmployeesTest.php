@@ -227,7 +227,6 @@ test('employee profile profile_fields excludes unchecked template fields such as
             'date_of_birth',
             'passport_number',
             'emirates_id',
-            'labor_card_number',
             'department_id',
             'position_id',
         ]),

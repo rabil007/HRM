@@ -28,7 +28,6 @@ export type EmployeePersonalFormSlice = {
         nationality_id?: string;
         passport_number?: string;
         emirates_id?: string;
-        labor_card_number?: string;
     };
     errors: Record<string, string | undefined>;
     setData: (key: string, value: unknown) => void;
@@ -100,8 +99,7 @@ export function EmployeePersonalTab({
     const showCitizenship =
         showField('nationality_id') ||
         showField('passport_number') ||
-        showField('emirates_id') ||
-        showField('labor_card_number');
+        showField('emirates_id');
     const showWorkAssignments =
         showField('approval_location_ids') || showField('sssa_option_ids');
 
@@ -372,14 +370,6 @@ export function EmployeePersonalTab({
                                     value:
                                         form.data.emirates_id ||
                                         employee.emirates_id ||
-                                        '—',
-                                },
-                                {
-                                    key: 'labor_card_number',
-                                    label: 'Labor card number',
-                                    value:
-                                        form.data.labor_card_number ||
-                                        employee.labor_card_number ||
                                         '—',
                                 },
                             ]

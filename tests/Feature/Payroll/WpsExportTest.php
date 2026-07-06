@@ -163,7 +163,6 @@ test('wps export downloads sif file and marks records submitted', function () {
 
     $employee = Employee::factory()->forCompany($company)->create([
         'employee_no' => 'WPS-001',
-        'labor_card_number' => null,
     ]);
 
     EmployeeContract::factory()->create([
@@ -243,7 +242,6 @@ test('wps export can be limited to selected payroll record ids', function () {
 
     $firstEmployee = Employee::factory()->forCompany($company)->create([
         'employee_no' => 'WPS-010',
-        'labor_card_number' => null,
     ]);
 
     EmployeeContract::factory()->create([
@@ -265,7 +263,6 @@ test('wps export can be limited to selected payroll record ids', function () {
 
     $secondEmployee = Employee::factory()->forCompany($company)->create([
         'employee_no' => 'WPS-011',
-        'labor_card_number' => null,
     ]);
 
     EmployeeContract::factory()->create([
@@ -342,7 +339,6 @@ test('wps export downloads excel file in company format layout', function () {
     ]);
 
     $employee = Employee::factory()->forCompany($company)->create([
-        'labor_card_number' => null,
     ]);
 
     EmployeeContract::factory()->create([
@@ -431,7 +427,6 @@ test('wps sif exporter builds scr and edr lines', function () {
     ]);
 
     $employee = Employee::factory()->forCompany($company)->create([
-        'labor_card_number' => null,
     ]);
 
     EmployeeContract::factory()->create([
@@ -499,7 +494,6 @@ test('wps excel export outputs crew leave days in column j', function () {
     ]);
 
     $employee = Employee::factory()->forCompany($company)->create([
-        'labor_card_number' => null,
     ]);
 
     EmployeeContract::factory()->create([

@@ -69,7 +69,6 @@ class UpdateEmployeeRequest extends FormRequest
             'address' => ['nullable', 'string'],
             'emirates_id' => ['nullable', 'string', 'max:30'],
             'passport_number' => ['nullable', 'string', 'max:50'],
-            'labor_card_number' => ['nullable', 'string', 'max:100'],
             'salary_payment_method' => ['nullable', Rule::enum(SalaryPaymentMethod::class)],
             'status' => ['nullable', 'in:active,inactive,on_leave,terminated'],
             'termination_date' => ['nullable', 'date'],

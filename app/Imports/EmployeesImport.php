@@ -47,7 +47,6 @@ class EmployeesImport
         'emergency_phone' => ['emergency_phone', 'emergency phone'],
         'passport_number' => ['passport_number', 'passport no', 'passport number', 'passport'],
         'emirates_id' => ['emirates_id', 'emirates id', 'eid'],
-        'labor_card_number' => ['labor_card_number', 'labor card', 'labor card number', 'labour card'],
         'status' => ['status'],
         'branch' => ['branch', 'branch name'],
         'department' => ['department', 'department name', 'dept'],
@@ -85,7 +84,6 @@ class EmployeesImport
             'emergency_phone' => ['employees', 'emergency_phone'],
             'passport_number' => ['employees', 'passport_number'],
             'emirates_id' => ['employees', 'emirates_id'],
-            'labor_card_number' => ['employees', 'labor_card_number'],
             'branch' => ['employees', 'branch_id'],
             'department' => ['employees', 'department_id'],
             'position' => ['employees', 'position_id'],
@@ -100,7 +98,6 @@ class EmployeesImport
     public const SENSITIVE_FIELD_PERMISSIONS = [
         'passport_number' => 'employees.identity.import',
         'emirates_id' => 'employees.identity.import',
-        'labor_card_number' => 'employees.identity.import',
     ];
 
     public const IMPORT_MIME_TYPES = [
@@ -134,7 +131,6 @@ class EmployeesImport
         'emergency_phone',
         'passport_number',
         'emirates_id',
-        'labor_card_number',
         'branch',
         'department',
         'position',
@@ -538,7 +534,6 @@ class EmployeesImport
                         'emergency_phone' => $row['emergency_phone'] ?? null,
                         'passport_number' => $row['passport_number'] ?? null,
                         'emirates_id' => $row['emirates_id'] ?? null,
-                        'labor_card_number' => $row['labor_card_number'] ?? null,
                         'branch_id' => $resolved['branch_id'] ?? null,
                         'department_id' => $resolved['department_id'] ?? null,
                         'position_id' => $resolved['position_id'] ?? null,
@@ -604,7 +599,6 @@ class EmployeesImport
             'emergency_phone' => ['nullable', 'string', 'max:30'],
             'passport_number' => ['nullable', 'string', 'max:50'],
             'emirates_id' => ['nullable', 'string', 'max:30'],
-            'labor_card_number' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', 'in:active,inactive,on_leave,terminated'],
         ];
 
@@ -712,7 +706,6 @@ class EmployeesImport
             'emergency_phone',
             'passport_number',
             'emirates_id',
-            'labor_card_number',
             'status',
         ];
 

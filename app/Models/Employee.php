@@ -68,7 +68,6 @@ class Employee extends Model
                 'marital_status',
                 'emirates_id',
                 'passport_number',
-                'labor_card_number',
                 'salary_payment_method',
                 'status',
                 'termination_date',
