@@ -90,14 +90,26 @@ jobs:
 
             composer install --no-dev --optimize-autoloader
 
-            if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
-              export PUPPETEER_CACHE_DIR="$PWD/storage/app/puppeteer"
-              mkdir -p "$PUPPETEER_CACHE_DIR"
-              npm ci --omit=dev
-              php artisan browsershot:install
-            else
-              echo "WARNING: Node.js/npm not found. Salary declaration PDF jobs require them on the queue worker host."
+            NODE_BIN=""
+            for candidate in $(ls -d /opt/alt/alt-nodejs*/root/usr/bin/node 2>/dev/null | sort -V | tail -1) /usr/local/bin/node /usr/bin/node; do
+              if [ -x "$candidate" ]; then
+                NODE_BIN="$candidate"
+                break
+              fi
+            done
+
+            if [ -z "$NODE_BIN" ]; then
+              echo "ERROR: Node.js not found. Enable Node.js in Hostinger hPanel, then redeploy."
+              exit 1
             fi
+
+            export PATH="$(dirname "$NODE_BIN"):$PATH"
+            export PUPPETEER_CACHE_DIR="$PWD/storage/app/puppeteer"
+            mkdir -p "$PUPPETEER_CACHE_DIR"
+
+            npm ci --omit=dev
+            php artisan browsershot:install
+            php artisan browsershot:doctor
 
             php artisan migrate --force
             php artisan leave-balances:sync

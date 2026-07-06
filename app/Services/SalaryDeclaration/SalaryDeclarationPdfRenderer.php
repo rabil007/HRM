@@ -4,6 +4,7 @@ namespace App\Services\SalaryDeclaration;
 
 use App\Models\Employee;
 use App\Support\BulkDocuments\ConfiguresBrowsershotEnvironment;
+use App\Support\BulkDocuments\ResolvesBrowsershotBinaries;
 use App\Support\Employees\Services\SalaryDeclarationData;
 use Spatie\Browsershot\Browsershot;
 
@@ -18,9 +19,7 @@ final class SalaryDeclarationPdfRenderer implements RendersSalaryDeclarationPdf
 
         $html = view('employees.salary-declaration', $data)->render();
 
-        $nodeBinary = config('services.browsershot.node_binary');
-        $npmBinary = config('services.browsershot.npm_binary');
-        $chromePath = config('services.browsershot.chrome_path');
+        $binaries = ResolvesBrowsershotBinaries::resolve();
 
         $shot = Browsershot::html($html)
             ->showBackground()
@@ -28,22 +27,16 @@ final class SalaryDeclarationPdfRenderer implements RendersSalaryDeclarationPdf
             ->margins(14, 14, 14, 14)
             ->emulateMedia('print')
             ->setNodeModulePath(base_path('node_modules'))
+            ->setNodeBinary($binaries['node'])
+            ->setNpmBinary($binaries['npm'])
             ->noSandbox()
             ->addChromiumArguments([
                 'disable-dev-shm-usage',
                 'disable-gpu',
             ]);
 
-        if (is_string($nodeBinary) && $nodeBinary !== '') {
-            $shot->setNodeBinary($nodeBinary);
-        }
-
-        if (is_string($npmBinary) && $npmBinary !== '') {
-            $shot->setNpmBinary($npmBinary);
-        }
-
-        if (is_string($chromePath) && $chromePath !== '') {
-            $shot->setChromePath($chromePath);
+        if ($binaries['chrome'] !== null) {
+            $shot->setChromePath($binaries['chrome']);
         }
 
         return $shot->pdf();

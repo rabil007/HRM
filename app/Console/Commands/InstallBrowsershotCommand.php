@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Support\BulkDocuments\ConfiguresBrowsershotEnvironment;
+use App\Support\BulkDocuments\ResolvesBrowsershotBinaries;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
 
@@ -18,10 +19,15 @@ class InstallBrowsershotCommand extends Command
 
         $this->components->info("Using Puppeteer cache directory: {$cacheDir}");
 
-        $npmBinary = config('services.browsershot.npm_binary');
-        $command = is_string($npmBinary) && $npmBinary !== ''
-            ? [$npmBinary, 'run', 'browsershot:install']
-            : ['npm', 'run', 'browsershot:install'];
+        $npmBinary = ResolvesBrowsershotBinaries::npmBinary();
+
+        if ($npmBinary === null) {
+            $this->components->error('NPM was not found. Install Node.js on this server or set BROWSERSHOT_NPM_BINARY in .env.');
+
+            return self::FAILURE;
+        }
+
+        $command = [$npmBinary, 'run', 'browsershot:install'];
 
         $process = new Process(
             $command,
