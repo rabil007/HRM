@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\JobRun;
 use App\Services\SalaryDeclaration\RendersSalaryDeclarationPdf;
+use App\Support\BulkDocuments\SalaryDeclarationGenerationProgress;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -48,6 +49,10 @@ class GenerateSalaryDeclarationsJob implements ShouldQueue
 
         $batchCorrelationId = $this->batchCorrelationId
             ?? ($this->job ? $this->job->uuid() : (string) Str::uuid());
+
+        if ($this->afterEmployeeId === null) {
+            SalaryDeclarationGenerationProgress::markRunning($this->companyId, $batchCorrelationId);
+        }
 
         $generated = 0;
         $skipped = 0;
@@ -131,6 +136,7 @@ class GenerateSalaryDeclarationsJob implements ShouldQueue
                 $companyName,
                 $totalGenerated,
                 $totalSkipped,
+                running: true,
             );
 
             return;
@@ -143,12 +149,18 @@ class GenerateSalaryDeclarationsJob implements ShouldQueue
                 $companyName,
                 $totalGenerated,
                 $totalSkipped,
+                running: false,
             );
         }
     }
 
     public function failed(Throwable $exception): void
     {
+        SalaryDeclarationGenerationProgress::markFailed(
+            $this->companyId,
+            'Salary declaration generation failed. Check Job Runs for details.',
+        );
+
         report($exception);
     }
 
@@ -167,6 +179,7 @@ class GenerateSalaryDeclarationsJob implements ShouldQueue
         string $companyName,
         int $generated,
         int $skipped,
+        bool $running,
     ): void {
         JobRun::query()->where('correlation_id', $batchCorrelationId)->update([
             'message' => $message,
@@ -176,6 +189,14 @@ class GenerateSalaryDeclarationsJob implements ShouldQueue
                 'generated' => $generated,
                 'skipped' => $skipped,
             ],
+        ]);
+
+        SalaryDeclarationGenerationProgress::update($this->companyId, [
+            'status' => $running ? 'running' : 'completed',
+            'message' => $message,
+            'generated' => $generated,
+            'skipped' => $skipped,
+            'finished_at' => $running ? null : now()->toIso8601String(),
         ]);
     }
 }

@@ -10,6 +10,7 @@ use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\SalaryDeclaration\RendersSalaryDeclarationPdf;
+use App\Support\BulkDocuments\SalaryDeclarationGenerationProgress;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Support\Facades\Queue;
@@ -36,6 +37,47 @@ test('authenticated users can dispatch salary declaration bulk generation job', 
     Queue::assertPushed(GenerateSalaryDeclarationsJob::class, function (GenerateSalaryDeclarationsJob $job) use ($user) {
         return $job->userId === $user->id;
     });
+});
+
+test('application settings expose salary declaration generation progress', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'PRG',
+        'name' => 'Progress Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'PRG',
+        'name' => 'Progress Currency',
+        'symbol' => 'AED',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Progress Co',
+        'slug' => 'progress-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['settings.application.view']);
+
+    SalaryDeclarationGenerationProgress::markQueued($company->id);
+
+    $this->get(route('application.edit', ['tab' => 'bulk-documents']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('settings/application')
+            ->where('salary_declaration_generation.status', 'running')
+            ->where('salary_declaration_generation.message', 'Salary declaration generation queued...'));
 });
 
 test('authenticated users can clear all salary declaration documents', function () {

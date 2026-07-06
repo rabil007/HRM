@@ -1,6 +1,6 @@
-import { router } from '@inertiajs/react';
+import { Link, router, usePoll } from '@inertiajs/react';
 import { ChevronDown, Download, FileCheck2, Info, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -14,19 +14,89 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 
-export function BulkDocumentsPanel() {
-    const [isGenerating, setIsGenerating] = useState(false);
+export type SalaryDeclarationGenerationStatus = {
+    status: 'idle' | 'running' | 'completed' | 'failed';
+    message: string | null;
+    generated: number;
+    skipped: number;
+    started_at: string | null;
+    finished_at: string | null;
+};
+
+function isGenerationProcessing(
+    status: SalaryDeclarationGenerationStatus['status'],
+): boolean {
+    return status === 'running';
+}
+
+export function BulkDocumentsPanel({
+    generation,
+}: {
+    generation: SalaryDeclarationGenerationStatus;
+}) {
+    const [isSubmittingGenerate, setIsSubmittingGenerate] = useState(false);
     const [isClearing, setIsClearing] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const [clearDialogOpen, setClearDialogOpen] = useState(false);
+    const previousStatus = useRef(generation.status);
+
+    const isGenerating = isGenerationProcessing(generation.status);
+
+    const { start, stop } = usePoll(
+        3000,
+        {
+            only: ['salary_declaration_generation'],
+            preserveScroll: true,
+        },
+        {
+            autoStart: false,
+        },
+    );
+
+    useEffect(() => {
+        if (!isGenerating) {
+            stop();
+
+            return;
+        }
+
+        start();
+
+        return () => {
+            stop();
+        };
+    }, [isGenerating, start, stop]);
+
+    useEffect(() => {
+        const previous = previousStatus.current;
+
+        if (
+            isGenerationProcessing(previous) &&
+            generation.status === 'completed' &&
+            generation.message
+        ) {
+            toast.success(generation.message);
+        }
+
+        if (
+            isGenerationProcessing(previous) &&
+            generation.status === 'failed' &&
+            generation.message
+        ) {
+            toast.error(generation.message);
+        }
+
+        previousStatus.current = generation.status;
+    }, [generation.message, generation.status]);
 
     const handleGenerateSalaryDeclarations = () => {
         if (isBusy) {
             return;
         }
 
-        setIsGenerating(true);
+        setIsSubmittingGenerate(true);
 
         router.post(
             '/settings/application/bulk-documents/salary-declarations',
@@ -34,7 +104,7 @@ export function BulkDocumentsPanel() {
             {
                 preserveScroll: true,
                 onFinish: () => {
-                    setIsGenerating(false);
+                    setIsSubmittingGenerate(false);
                 },
             },
         );
@@ -83,7 +153,8 @@ export function BulkDocumentsPanel() {
         );
     };
 
-    const isBusy = isGenerating || isClearing || isDownloading;
+    const isBusy =
+        isSubmittingGenerate || isClearing || isDownloading || isGenerating;
 
     return (
         <div className="space-y-6">
@@ -116,6 +187,56 @@ export function BulkDocumentsPanel() {
                             all to remove them for the current company.
                         </AlertDescription>
                     </Alert>
+
+                    {generation.status !== 'idle' ? (
+                        <Alert
+                            className={cn(
+                                'mb-6',
+                                generation.status === 'running' &&
+                                    'border-amber-500/30 bg-amber-500/10',
+                                generation.status === 'completed' &&
+                                    'border-emerald-500/30 bg-emerald-500/10',
+                                generation.status === 'failed' &&
+                                    'border-destructive/30 bg-destructive/10',
+                            )}
+                        >
+                            {generation.status === 'running' ? (
+                                <Spinner className="h-4 w-4 text-amber-600" />
+                            ) : (
+                                <FileCheck2 className="h-4 w-4" />
+                            )}
+                            <AlertTitle>
+                                {generation.status === 'running'
+                                    ? 'Generation in progress'
+                                    : generation.status === 'completed'
+                                      ? 'Generation completed'
+                                      : 'Generation failed'}
+                            </AlertTitle>
+                            <AlertDescription className="space-y-2">
+                                {generation.message ? (
+                                    <p>{generation.message}</p>
+                                ) : null}
+                                {(generation.generated > 0 ||
+                                    generation.skipped > 0) && (
+                                    <p className="text-xs text-muted-foreground">
+                                        Generated {generation.generated} ·
+                                        Skipped {generation.skipped}
+                                    </p>
+                                )}
+                                {generation.status === 'running' ? (
+                                    <p className="text-xs">
+                                        <Link
+                                            href="/jobs"
+                                            className="font-medium text-foreground underline-offset-4 hover:underline"
+                                        >
+                                            View job runs
+                                        </Link>{' '}
+                                        for detailed queue activity.
+                                    </p>
+                                ) : null}
+                            </AlertDescription>
+                        </Alert>
+                    ) : null}
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Jobs\GenerateSalaryDeclarationsJob;
 use App\Support\BulkDocuments\ClearSalaryDeclarations;
+use App\Support\BulkDocuments\SalaryDeclarationGenerationProgress;
 use App\Support\EmployeeDocuments\DocumentDownloadService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,8 @@ class BulkDocumentController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         $userId = (int) $request->user()?->id;
+
+        SalaryDeclarationGenerationProgress::markQueued($companyId);
 
         GenerateSalaryDeclarationsJob::dispatch($companyId, $userId);
 

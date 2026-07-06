@@ -32,6 +32,7 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { BulkDocumentsPanel } from '@/features/settings/bulk-documents-panel';
+import type { SalaryDeclarationGenerationStatus } from '@/features/settings/bulk-documents-panel';
 import { HikvisionSettingsPanel } from '@/features/settings/hikvision-settings-panel';
 import type { HikvisionSettingsPanelProps } from '@/features/settings/hikvision-settings-panel';
 import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
@@ -90,6 +91,7 @@ type Props = {
     };
     whatsapp: WhatsAppSettingsPanelProps | null;
     hikvision: HikvisionSettingsPanelProps | null;
+    salary_declaration_generation: SalaryDeclarationGenerationStatus;
 };
 
 const ALL_NAV_ITEMS = [
@@ -254,6 +256,7 @@ export default function ApplicationSettings({
     smtp,
     whatsapp,
     hikvision,
+    salary_declaration_generation,
 }: Props) {
     const auth = usePage().props.auth;
     const authUser = auth?.user as { email?: string } | undefined;
@@ -1287,7 +1290,11 @@ export default function ApplicationSettings({
                         <HikvisionSettingsPanel {...hikvision} />
                     ) : null}
 
-                    {tab === 'bulk-documents' ? <BulkDocumentsPanel /> : null}
+                    {tab === 'bulk-documents' ? (
+                        <BulkDocumentsPanel
+                            generation={salary_declaration_generation}
+                        />
+                    ) : null}
 
                     {/* ══ PREFERENCES ══ */}
                     {tab === 'preferences' && (
