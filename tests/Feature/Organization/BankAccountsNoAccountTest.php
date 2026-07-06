@@ -101,9 +101,42 @@ test('no-account index lists active employees without any bank accounts', functi
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/bank-accounts/no-account')
+            ->where('summary.total_no_account', 1)
+            ->where('summary.bank_transfer', 1)
+            ->where('summary.cash_c3', 0)
+            ->where('summary.cash_other', 0)
             ->has('employees', 1)
             ->where('employees.0.id', $employeeNoAccount->id)
             ->where('employees.0.name', 'No Account Employee')
             ->where('employees.0.salary_payment_method', 'bank_transfer')
             ->where('employees.0.salary_payment_method_label', 'Bank transfer'));
+});
+
+test('no-account index filters by payment method', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'branch' => $branch] = makeNoBankAccountFixtures();
+
+    $c3Employee = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'employee_no' => 'NOB003',
+        'name' => 'C3 Employee',
+        'status' => 'active',
+        'salary_payment_method' => 'cash_c3',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['bank_accounts.view']);
+
+    $this->get(route('organization.bank-accounts.no-account', ['payment_method' => 'cash_c3']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/bank-accounts/no-account')
+            ->where('summary.total_no_account', 2)
+            ->where('summary.bank_transfer', 1)
+            ->where('summary.cash_c3', 1)
+            ->has('employees', 1)
+            ->where('employees.0.id', $c3Employee->id)
+            ->where('employees.0.name', 'C3 Employee'));
 });

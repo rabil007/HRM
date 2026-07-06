@@ -18,14 +18,17 @@ class BankAccountsNoAccountController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         $search = (string) $request->query('search', '');
+        $paymentMethod = (string) $request->query('payment_method', '');
         $perPage = $this->resolvePerPage($request, default: 25);
 
-        $paginator = $query->paginate($companyId, $search, $perPage);
+        $paginator = $query->paginate($companyId, $search, $paymentMethod, $perPage);
 
         return Inertia::render('organization/bank-accounts/no-account', [
+            'summary' => $query->summary($companyId),
             'employees' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
             'search' => $search,
+            'payment_method' => $paymentMethod,
             'can' => BankAccountPagePermissions::for($request->user()),
         ]);
     }

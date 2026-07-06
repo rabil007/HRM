@@ -17,6 +17,7 @@ import { SearchBar } from '@/components/search-bar';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { NoBankAccountEmployee, NoBankAccountIndexProps } from '@/features/organization/bank-accounts/types';
+import { NoAccountSummaryCards } from '@/features/organization/bank-accounts/no-account-summary-cards';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { cashPaymentBadgeLabel } from '@/features/organization/employees/salary-payment-method';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -79,9 +80,11 @@ function NoBankAccountTableRow({ emp }: { emp: NoBankAccountEmployee }) {
 }
 
 export function BankAccountsNoAccountContent({
+    summary,
     employees,
     pagination,
     search: initialSearch,
+    payment_method = '',
 }: NoBankAccountIndexProps) {
     const [searchInput, setSearchInput] = useState(initialSearch);
 
@@ -89,7 +92,15 @@ export function BankAccountsNoAccountContent({
         setSearchInput(value);
         router.get(
             noAccount.url(),
-            { search: value || undefined },
+            { search: value || undefined, payment_method: payment_method || undefined },
+            { preserveState: true, preserveScroll: true },
+        );
+    }
+
+    function onFilterChange(filterValue: string) {
+        router.get(
+            noAccount.url(),
+            { search: searchInput || undefined, payment_method: filterValue || undefined },
             { preserveState: true, preserveScroll: true },
         );
     }
@@ -97,7 +108,7 @@ export function BankAccountsNoAccountContent({
     function onPageChange(page: number) {
         router.get(
             noAccount.url(),
-            { search: searchInput || undefined, page },
+            { search: searchInput || undefined, payment_method: payment_method || undefined, page },
             { preserveState: true, preserveScroll: true },
         );
     }
@@ -118,6 +129,12 @@ export function BankAccountsNoAccountContent({
                 }
             />
 
+            <NoAccountSummaryCards
+                summary={summary}
+                activeFilter={payment_method}
+                onSelect={onFilterChange}
+            />
+
             <SearchBar
                 value={searchInput}
                 onChange={onSearchChange}
@@ -129,8 +146,8 @@ export function BankAccountsNoAccountContent({
                     icon={<UserX className="size-10 text-muted-foreground/40" />}
                     title="No employees found"
                     description={
-                        searchInput
-                            ? 'No employees match your search.'
+                        searchInput || payment_method
+                            ? 'No employees match your search or filter.'
                             : 'All employees have at least one bank account assigned.'
                     }
                 />

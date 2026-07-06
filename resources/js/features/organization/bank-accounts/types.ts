@@ -69,10 +69,19 @@ export type NoBankAccountEmployee = {
     salary_payment_method_label?: string;
 };
 
+export type NoBankAccountSummary = {
+    total_no_account: number;
+    bank_transfer: number;
+    cash_c3: number;
+    cash_other: number;
+};
+
 export type NoBankAccountIndexProps = {
+    summary: NoBankAccountSummary;
     employees: NoBankAccountEmployee[];
     pagination: PaginationMeta;
     search: string;
+    payment_method?: string;
     can: BankAccountPageCan;
 };
 
