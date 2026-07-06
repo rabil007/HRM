@@ -17,6 +17,7 @@ import { SearchBar } from '@/components/search-bar';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import type { NoContractEmployee, NoContractIndexProps } from '@/features/organization/contracts/types';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
+import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { contracts } from '@/routes/organization';
@@ -34,9 +35,21 @@ function NoContractTableRow({ emp }: { emp: NoContractEmployee }) {
         >
             <TableCell className={cn(dataTableCellPrimaryClass(), 'min-w-[200px]')}>
                 <div className="flex min-w-0 items-center gap-3">
-                    <EmployeeAvatar name={emp.name} image={emp.image} size="sm" />
+                    <EmployeeProfileLink
+                        employeeId={emp.id}
+                        stopRowNavigation
+                        className="shrink-0"
+                    >
+                        <EmployeeAvatar name={emp.name} image={emp.image} size="sm" />
+                    </EmployeeProfileLink>
                     <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">{emp.name}</p>
+                        <EmployeeProfileLink
+                            employeeId={emp.id}
+                            className="block truncate text-sm font-semibold text-foreground hover:text-primary"
+                            stopRowNavigation
+                        >
+                            {emp.name}
+                        </EmployeeProfileLink>
                         <p className="truncate font-mono text-[11px] text-muted-foreground/75">
                             {emp.employee_no}
                         </p>

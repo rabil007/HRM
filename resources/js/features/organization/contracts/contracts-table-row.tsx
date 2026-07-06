@@ -13,6 +13,7 @@ import {
 } from '@/features/organization/contracts/contracts-format';
 import type { ContractListItem } from '@/features/organization/contracts/types';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
+import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -95,15 +96,25 @@ export function ContractsTableRow({
                 className={cn(dataTableCellPrimaryClass(), 'min-w-[180px]')}
             >
                 <div className="flex min-w-0 items-center gap-3">
-                    <EmployeeAvatar
-                        name={contract.employee_name}
-                        image={contract.employee_image}
-                        size="sm"
-                    />
+                    <EmployeeProfileLink
+                        employeeId={contract.employee_id}
+                        stopRowNavigation
+                        className="shrink-0"
+                    >
+                        <EmployeeAvatar
+                            name={contract.employee_name}
+                            image={contract.employee_image}
+                            size="sm"
+                        />
+                    </EmployeeProfileLink>
                     <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">
+                        <EmployeeProfileLink
+                            employeeId={contract.employee_id}
+                            className="block truncate text-sm font-semibold text-foreground hover:text-primary"
+                            stopRowNavigation
+                        >
                             {contract.employee_name}
-                        </p>
+                        </EmployeeProfileLink>
                         <p className="truncate font-mono text-[11px] text-muted-foreground/75">
                             {contract.employee_no}
                         </p>

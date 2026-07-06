@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
 import type { BankAccountListItem } from '@/features/organization/bank-accounts/types';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
+import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { cashPaymentBadgeLabel } from '@/features/organization/employees/salary-payment-method';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -32,15 +33,25 @@ export function BankAccountsTableRow({
                 className={cn(dataTableCellPrimaryClass(), 'min-w-[180px]')}
             >
                 <div className="flex min-w-0 items-center gap-3">
-                    <EmployeeAvatar
-                        name={bankAccount.employee_name}
-                        image={bankAccount.employee_image}
-                        size="sm"
-                    />
+                    <EmployeeProfileLink
+                        employeeId={bankAccount.employee_id}
+                        stopRowNavigation
+                        className="shrink-0"
+                    >
+                        <EmployeeAvatar
+                            name={bankAccount.employee_name}
+                            image={bankAccount.employee_image}
+                            size="sm"
+                        />
+                    </EmployeeProfileLink>
                     <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">
+                        <EmployeeProfileLink
+                            employeeId={bankAccount.employee_id}
+                            className="block truncate text-sm font-semibold text-foreground hover:text-primary"
+                            stopRowNavigation
+                        >
                             {bankAccount.employee_name}
-                        </p>
+                        </EmployeeProfileLink>
                         <p className="truncate font-mono text-[11px] text-muted-foreground/75">
                             {bankAccount.employee_no}
                         </p>

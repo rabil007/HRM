@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import type { NoBankAccountEmployee, NoBankAccountIndexProps } from '@/features/organization/bank-accounts/types';
 import { NoAccountSummaryCards } from '@/features/organization/bank-accounts/no-account-summary-cards';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
+import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { cashPaymentBadgeLabel } from '@/features/organization/employees/salary-payment-method';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -41,9 +42,21 @@ function NoBankAccountTableRow({ emp }: { emp: NoBankAccountEmployee }) {
         >
             <TableCell className={cn(dataTableCellPrimaryClass(), 'min-w-[200px]')}>
                 <div className="flex min-w-0 items-center gap-3">
-                    <EmployeeAvatar name={emp.name} image={emp.image} size="sm" />
+                    <EmployeeProfileLink
+                        employeeId={emp.id}
+                        stopRowNavigation
+                        className="shrink-0"
+                    >
+                        <EmployeeAvatar name={emp.name} image={emp.image} size="sm" />
+                    </EmployeeProfileLink>
                     <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">{emp.name}</p>
+                        <EmployeeProfileLink
+                            employeeId={emp.id}
+                            className="block truncate text-sm font-semibold text-foreground hover:text-primary"
+                            stopRowNavigation
+                        >
+                            {emp.name}
+                        </EmployeeProfileLink>
                         <p className="truncate font-mono text-[11px] text-muted-foreground/75">
                             {emp.employee_no}
                         </p>
