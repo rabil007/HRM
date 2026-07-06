@@ -10,7 +10,6 @@ import {
     CommandInput,
     CommandItem,
     CommandList,
-    CommandSeparator,
 } from '@/components/ui/command';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSearch } from '@/context/search-provider';
