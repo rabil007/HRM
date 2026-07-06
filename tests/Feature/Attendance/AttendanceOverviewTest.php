@@ -130,12 +130,10 @@ test('attendance overview summary contains correct structure', function () {
     ]);
 
     // Seed a leave type and leave request
-    $leaveType = LeaveType::query()->create([
-        'company_id' => $company->id,
+    $leaveType = LeaveType::factory()->for($company)->create([
         'name' => 'Annual Leave',
         'code' => 'AL',
         'status' => 'active',
-        'requires_approval' => true,
     ]);
 
     LeaveRequest::query()->create([
