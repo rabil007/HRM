@@ -14,7 +14,6 @@ use App\Support\Payroll\Wps\WpsExportValidator;
 use App\Support\Payroll\Wps\WpsSifExporter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -95,21 +94,20 @@ class WpsExportController extends Controller
 
         $format = (string) $request->validated('format');
         $reference = $sifExporter->makeReference($company, $period);
-        $slug = Str::slug($company->slug.'-wps-'.$period->id);
+        $now = now($company->timezone ?? config('app.timezone'));
+        $filename = sprintf(
+            '%s%s%s.%s',
+            $company->wps_mol_uid,
+            $now->format('ymd'),
+            $now->format('His'),
+            $format === 'xlsx' ? 'xlsx' : 'sif',
+        );
 
         if ($format === 'xlsx') {
             $content = $excelExporter->export($company, $period, $partition['eligible'], $reference);
-            $now = now($company->timezone ?? config('app.timezone'));
-            $filename = sprintf(
-                '%s%s%s.xlsx',
-                $company->wps_mol_uid,
-                $now->format('dmy'),
-                $now->format('His'),
-            );
             $contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
         } else {
             $content = $sifExporter->export($company, $period, $partition['eligible'], $reference);
-            $filename = $slug.'.sif';
             $contentType = 'text/plain; charset=UTF-8';
         }
 

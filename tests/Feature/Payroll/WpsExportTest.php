@@ -142,10 +142,13 @@ test('wps preview excludes cash c3 employees with explicit skip reason', functio
 });
 
 test('wps export downloads sif file and marks records submitted', function () {
+    Carbon::setTestNow(Carbon::parse('2026-07-06 02:47:10', 'Asia/Dubai'));
+
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
     $company->forceFill([
+        'timezone' => 'Asia/Dubai',
         'wps_mol_uid' => 'MOL-12345',
         'wps_agent_code' => 'AGENT-001',
         'wps_employer_iban' => 'AE070331234567890123456',
@@ -204,13 +207,15 @@ test('wps export downloads sif file and marks records submitted', function () {
             'format' => 'sif',
         ])
         ->assertOk()
-        ->assertHeader('content-disposition');
+        ->assertHeader('content-disposition', 'attachment; filename=MOL-12345260706024710.sif');
 
     $record->refresh();
 
     expect($record->wps_status)->toBe(WpsStatus::Submitted)
         ->and($record->wps_reference)->not->toBeNull()
         ->and($record->wps_submitted_at)->not->toBeNull();
+
+    Carbon::setTestNow();
 });
 
 test('wps export can be limited to selected payroll record ids', function () {
@@ -320,7 +325,7 @@ test('wps export downloads excel file in company format layout', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
-    Carbon::setTestNow(Carbon::parse('2026-06-26 10:00:00', 'Asia/Dubai'));
+    Carbon::setTestNow(Carbon::parse('2026-07-06 02:47:10', 'Asia/Dubai'));
 
     $company->forceFill([
         'wps_mol_uid' => '0000001194930',
@@ -381,7 +386,7 @@ test('wps export downloads excel file in company format layout', function () {
 
     $response
         ->assertOk()
-        ->assertHeader('content-disposition', 'attachment; filename=0000001194930260626100000.xlsx');
+        ->assertHeader('content-disposition', 'attachment; filename=0000001194930260706024710.xlsx');
 
     expect($response->headers->get('content-type'))
         ->toContain('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -478,7 +483,7 @@ test('wps sif exporter builds scr and edr lines', function () {
 test('wps excel export outputs crew leave days in column j', function () {
     ['company' => $company] = makePayrollFixtures();
 
-    Carbon::setTestNow(Carbon::parse('2026-06-26 10:00:00', 'Asia/Dubai'));
+    Carbon::setTestNow(Carbon::parse('2026-07-06 02:47:10', 'Asia/Dubai'));
 
     $company->forceFill([
         'wps_mol_uid' => '0000001194930',
