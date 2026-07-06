@@ -160,6 +160,11 @@ const baseSidebarData: SidebarData = {
             title: 'Attendance',
             items: [
                 {
+                    title: 'Overview',
+                    url: '/attendance/overview',
+                    icon: LayoutDashboard,
+                },
+                {
                     title: 'Calendar',
                     url: '/attendance/calendar',
                     icon: CalendarDays,
@@ -422,6 +427,17 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 : null;
                         case '/attendance/records':
                             return has(permissions, 'attendance.records.view')
+                                ? item
+                                : null;
+                        case '/attendance/overview':
+                            return has(
+                                permissions,
+                                'attendance.records.view',
+                            ) ||
+                                has(
+                                    permissions,
+                                    'attendance.leave-requests.view',
+                                )
                                 ? item
                                 : null;
                         case '/payroll/overview':

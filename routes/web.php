@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ApplicationLogController;
 use App\Http\Controllers\Attendance\AttendanceCalendarController;
+use App\Http\Controllers\Attendance\AttendanceOverviewController;
 use App\Http\Controllers\Attendance\AttendanceRecordController;
 use App\Http\Controllers\Attendance\LeaveRequestAttachmentController;
 use App\Http\Controllers\Attendance\LeaveRequestController;
@@ -397,6 +398,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('hikvision.persons.employee.link');
 
     Route::redirect('hikvision/devices', '/settings/application?tab=hikvision');
+
+    Route::get('attendance/overview', AttendanceOverviewController::class)
+        ->name('attendance.overview');
 
     Route::get('attendance/records', [AttendanceRecordController::class, 'index'])
         ->middleware('can:attendance.records.view')
