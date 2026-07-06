@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Payroll\CrewOvertimeMonthlySalary;
 use App\Support\Payroll\CrewOvertimePay;
 
 test('crew overtime pay uses monthly salary divided by 365 with 1.25 multiplier', function () {
@@ -32,4 +33,15 @@ test('crew overtime pay matches hamza sample', function () {
     $result = (new CrewOvertimePay)->calculate(56, 5040);
 
     expect($result['overtime_pay'])->toBe(966.58);
+});
+
+test('crew overtime pay matches tauhid alam sample', function () {
+    $monthlySalary = CrewOvertimeMonthlySalary::fromDailyRates(30, 33.5, 134, 66.5);
+
+    $result = (new CrewOvertimePay)->calculate(78, $monthlySalary);
+
+    expect($monthlySalary)->toBe(7020.0)
+        ->and($result['hour_rate'])->toBe(19.23)
+        ->and($result['overtime_hourly_rate'])->toBe(24.04)
+        ->and($result['overtime_pay'])->toBe(1875.21);
 });

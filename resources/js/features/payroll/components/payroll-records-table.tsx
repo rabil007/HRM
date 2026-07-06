@@ -173,15 +173,6 @@ export function PayrollRecordsTable({
                         Number(record.supplementary_allowance ?? 0);
 
                     const overtimeHours = Number(record.overtime?.hours ?? record.overtime_hours ?? 0);
-                    const overtimePeriodDays = Number(
-                        record.overtime?.period_days ?? 0,
-                    );
-                    const overtimeDailyOnsiteRate = Number(
-                        record.overtime?.daily_onsite_rate ?? 0,
-                    );
-                    const overtimeHourlyRate = Number(
-                        record.overtime?.overtime_hourly_rate ?? 0,
-                    );
                     const overtimeAmount = Number(
                         record.overtime?.overtime_pay ?? record.overtime_pay ?? 0,
                     );
@@ -269,9 +260,6 @@ export function PayrollRecordsTable({
                             >
                                 <CrewOvertimeColumnCell
                                     hours={overtimeHours}
-                                    periodDays={overtimePeriodDays}
-                                    dailyOnsiteRate={overtimeDailyOnsiteRate}
-                                    overtimeHourlyRate={overtimeHourlyRate}
                                     totalAmount={overtimeAmount}
                                 />
                             </TableCell>

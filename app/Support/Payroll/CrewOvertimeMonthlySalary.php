@@ -5,8 +5,13 @@ namespace App\Support\Payroll;
 final class CrewOvertimeMonthlySalary
 {
     /**
+     * Fixed 30-day month used for crew OT base, matching the Excel payroll sheet.
+     */
+    public const STANDARD_PERIOD_DAYS = 30;
+
+    /**
      * Full-month on-site equivalent used as the OT base:
-     * period days × (basic daily + site daily + supplementary daily).
+     * standard period days × (basic daily + site daily + supplementary daily).
      */
     public static function fromDailyRates(
         int $periodDays,

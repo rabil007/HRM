@@ -110,6 +110,45 @@ test('crew payroll generation calculates overtime pay from hours and period dail
         ->and($record->calculation_breakdown['overtime']['daily_onsite_rate'])->toEqual(350);
 });
 
+test('crew payroll generation uses a fixed 30 day overtime base even in 31 day months', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+
+    $employee = createCrewEmployeeWithContract($company, 'CREW-3095', 33.5, 134, 66.5);
+
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'standby_days' => 0,
+        'onsite_days' => 0,
+        'overtime_hours' => 78,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect();
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->overtime_pay)->toBe('1875.21')
+        ->and($record->calculation_breakdown['overtime']['monthly_salary'])->toEqual(7020)
+        ->and($record->calculation_breakdown['overtime']['period_days'])->toBe(30)
+        ->and($record->calculation_breakdown['overtime']['overtime_hourly_rate'])->toEqual(24.04);
+});
+
 test('crew payroll generation upserts existing payroll records on re-generate', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);

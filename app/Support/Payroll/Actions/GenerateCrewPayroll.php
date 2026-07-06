@@ -8,6 +8,7 @@ use App\Enums\SalaryPaymentMethod;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Support\Payroll\CrewOvertimeMonthlySalary;
 use App\Support\Payroll\CrewPayrollCalculator;
 use App\Support\Payroll\GeneratePayrollResult;
 use App\Support\Payroll\PayrollEmployeeQuery;
@@ -95,7 +96,7 @@ final class GenerateCrewPayroll
                     $calculated = $this->calculator->calculate(
                         $timesheet,
                         $contract->salaryComponents,
-                        $period->calendarDayCount(),
+                        CrewOvertimeMonthlySalary::STANDARD_PERIOD_DAYS,
                     );
                 } catch (ValidationException $exception) {
                     $errors[] = PayrollGenerationError::fromValidationException($employee, $exception);
