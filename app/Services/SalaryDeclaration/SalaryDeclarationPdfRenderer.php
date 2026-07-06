@@ -3,6 +3,7 @@
 namespace App\Services\SalaryDeclaration;
 
 use App\Models\Employee;
+use App\Support\BulkDocuments\BrowsershotEmbeddedFonts;
 use App\Support\BulkDocuments\ConfiguresBrowsershotEnvironment;
 use App\Support\BulkDocuments\ResolvesBrowsershotBinaries;
 use App\Support\Employees\Services\SalaryDeclarationData;
@@ -16,6 +17,7 @@ final class SalaryDeclarationPdfRenderer implements RendersSalaryDeclarationPdf
 
         $data = SalaryDeclarationData::for($employee, $companyId);
         $data['printable'] = false;
+        $data['embedded_font_styles'] = BrowsershotEmbeddedFonts::dejaVuStyles();
 
         $html = view('employees.salary-declaration', $data)->render();
 

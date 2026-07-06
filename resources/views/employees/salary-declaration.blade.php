@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Employee Declaration and Acknowledgment — {{ $employee_name ?: 'Employee' }}</title>
     <style>
+        @if (! empty($embedded_font_styles))
+            {!! $embedded_font_styles !!}
+        @endif
+
         :root { --highlight: #4a6079; }
 
         * { box-sizing: border-box; }
@@ -15,6 +19,10 @@
             background: #4a4a4a;
             font-family: "Times New Roman", Georgia, serif;
             color: #1a1a1a;
+        }
+
+        body.pdf-embedded-fonts {
+            font-family: 'DejaVu Serif';
         }
 
         .toolbar {
@@ -69,6 +77,10 @@
 
         .col.ar { direction: rtl; text-align: right; }
 
+        body.pdf-embedded-fonts .col.ar {
+            font-family: 'DejaVu Sans';
+        }
+
         .intro { font-weight: bold; margin: 0 0 10px; }
 
         .field {
@@ -106,7 +118,7 @@
         }
     </style>
 </head>
-<body>
+<body @class(['pdf-embedded-fonts' => ! empty($embedded_font_styles)])>
     @if ($printable ?? true)
         <div class="toolbar">
             <button type="button" onclick="window.print()">Download / Print PDF</button>
