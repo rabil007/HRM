@@ -8,14 +8,12 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import type { PayrollCategory, PayrollGenerationSummary } from '../types';
+import type { PayrollGenerationSummary } from '../types';
 
 export function PayrollSkippedBanner({
     summary,
-    payrollCategory,
 }: {
     summary: PayrollGenerationSummary | null;
-    payrollCategory: PayrollCategory;
 }) {
     const [isDismissed, setIsDismissed] = useState(false);
     const [errorsExpanded, setErrorsExpanded] = useState(true);

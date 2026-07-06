@@ -15,12 +15,12 @@ import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import type { NoContractEmployee, NoContractIndexProps } from '@/features/organization/contracts/types';
+import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import { noContract, employee as contractEmployee } from '@/routes/organization/contracts';
 import { contracts } from '@/routes/organization';
+import { noContract, employee as contractEmployee } from '@/routes/organization/contracts';
 
 function NoContractTableRow({ emp }: { emp: NoContractEmployee }) {
     return (

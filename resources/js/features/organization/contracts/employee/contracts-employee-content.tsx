@@ -1,7 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
-import { Main } from '@/components/layout/main';
 import { DetailsHeader } from '@/components/details-header';
+import { Main } from '@/components/layout/main';
 import { ContractsBreadcrumbs } from '@/features/organization/contracts/employee/contracts-breadcrumbs';
 import type { ContractEmployeeBrowseProps } from '@/features/organization/contracts/types';
 import { EmployeeContractTab } from '@/pages/organization/_components/employee-contract-tab';

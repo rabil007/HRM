@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { ScrollText } from 'lucide-react';
 import { Fragment } from 'react';
 import {
     Breadcrumb,
@@ -8,7 +9,6 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import { ScrollText } from 'lucide-react';
 
 export type ContractsBreadcrumbItem = {
     title: string;

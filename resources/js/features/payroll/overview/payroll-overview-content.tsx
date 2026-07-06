@@ -32,7 +32,6 @@ import {
     BarChart,
     CartesianGrid,
     Cell,
-    Legend,
     Line,
     LineChart,
     Pie,
@@ -176,8 +175,14 @@ export function PayrollOverviewContent({
         }).format(amount);
 
     const fmtCompact = (amount: number) => {
-        if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
-        if (amount >= 1_000) return `${(amount / 1_000).toFixed(1)}K`;
+        if (amount >= 1_000_000) {
+return `${(amount / 1_000_000).toFixed(1)}M`;
+}
+
+        if (amount >= 1_000) {
+return `${(amount / 1_000).toFixed(1)}K`;
+}
+
         return fmt(amount);
     };
 
@@ -1611,6 +1616,7 @@ export function PayrollOverviewContent({
                                             ),
                                             1,
                                         );
+
                                         return summary.department_employee_counts.map(
                                             (dept, i) => (
                                                 <div

@@ -1,11 +1,12 @@
+import { Link } from '@inertiajs/react';
 import {
     CheckCircle2,
     CreditCard,
     UserX,
-    Wallet,
-    type LucideIcon,
+    Wallet
+    
 } from 'lucide-react';
-import { Link } from '@inertiajs/react';
+import type {LucideIcon} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { BankAccountSummary } from '@/features/organization/bank-accounts/types';
 import { cn } from '@/lib/utils';

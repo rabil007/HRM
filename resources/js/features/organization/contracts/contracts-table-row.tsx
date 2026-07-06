@@ -6,7 +6,6 @@ import {
 } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
-import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import {
     formatContractMoney,
     formatContractStatus,
@@ -14,6 +13,7 @@ import {
     formatPayrollCategory,
 } from '@/features/organization/contracts/contracts-format';
 import type { ContractListItem } from '@/features/organization/contracts/types';
+import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -32,11 +32,13 @@ function getDaysRemaining(endDate: string | null): number | null {
     if (!endDate) {
         return null;
     }
+
     const end = new Date(endDate);
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     end.setHours(0, 0, 0, 0);
     const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
     return diff;
 }
 
@@ -44,13 +46,16 @@ function DaysRemainingBadge({ endDate, status }: { endDate: string | null; statu
     if (status !== 'active' || !endDate) {
         return null;
     }
+
     const days = getDaysRemaining(endDate);
+
     if (days === null || days > 90) {
         return null;
     }
 
     let className: string;
     let label: string;
+
     if (days <= 0) {
         return null;
     } else if (days <= 30) {

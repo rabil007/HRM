@@ -18,9 +18,9 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { TableBody, TableHeader } from '@/components/ui/table';
-import { buildBankAccountEmployeeUrl } from '@/features/organization/bank-accounts/build-bank-account-employee-url';
 import { BankAccountsSummaryCards } from '@/features/organization/bank-accounts/bank-accounts-summary-cards';
 import { BankAccountsTableRow } from '@/features/organization/bank-accounts/bank-accounts-table-row';
+import { buildBankAccountEmployeeUrl } from '@/features/organization/bank-accounts/build-bank-account-employee-url';
 import type { BankAccountsIndexProps } from '@/features/organization/bank-accounts/types';
 import { useBankAccountsIndexFilters } from '@/features/organization/bank-accounts/use-bank-accounts-index-filters';
 import { bankAccounts } from '@/routes/organization';

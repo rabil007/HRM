@@ -782,10 +782,7 @@ export function PayrollShowContent({
                             />
                         }
                     />
-                    <PayrollSkippedBanner
-                        summary={generation_summary}
-                        payrollCategory={period.payroll_category}
-                    />
+                    <PayrollSkippedBanner summary={generation_summary} />
                     <PayrollPeriodDeliveryPanel
                         period={period}
                         payslip_summary={payslip_summary}

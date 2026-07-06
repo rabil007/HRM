@@ -15,12 +15,12 @@ import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import type { NoBankAccountEmployee, NoBankAccountIndexProps } from '@/features/organization/bank-accounts/types';
+import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import { noAccount, employee as bankAccountEmployee } from '@/routes/organization/bank-accounts';
 import { bankAccounts } from '@/routes/organization';
+import { noAccount, employee as bankAccountEmployee } from '@/routes/organization/bank-accounts';
 
 function NoBankAccountTableRow({ emp }: { emp: NoBankAccountEmployee }) {
     return (

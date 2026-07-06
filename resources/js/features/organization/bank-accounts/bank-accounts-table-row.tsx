@@ -6,8 +6,8 @@ import {
 } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
-import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import type { BankAccountListItem } from '@/features/organization/bank-accounts/types';
+import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 

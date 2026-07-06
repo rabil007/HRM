@@ -1,7 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
-import { Main } from '@/components/layout/main';
 import { DetailsHeader } from '@/components/details-header';
+import { Main } from '@/components/layout/main';
 import { BankAccountsBreadcrumbs } from '@/features/organization/bank-accounts/employee/bank-accounts-breadcrumbs';
 import type { BankAccountEmployeeBrowseProps } from '@/features/organization/bank-accounts/types';
 import { EmployeeBankTab } from '@/pages/organization/_components/employee-bank-tab';

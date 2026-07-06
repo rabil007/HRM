@@ -18,8 +18,8 @@ import { ContractsSummaryCards } from '@/features/organization/contracts/contrac
 import { ContractsTableRow } from '@/features/organization/contracts/contracts-table-row';
 import type { ContractsIndexProps } from '@/features/organization/contracts/types';
 import { useContractsIndexFilters } from '@/features/organization/contracts/use-contracts-index-filters';
-import { contracts } from '@/routes/organization';
 import { cn } from '@/lib/utils';
+import { contracts } from '@/routes/organization';
 
 export function ContractsContent({
     summary,

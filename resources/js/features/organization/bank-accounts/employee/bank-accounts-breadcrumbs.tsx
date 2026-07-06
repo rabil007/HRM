@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { Landmark } from 'lucide-react';
 import { Fragment } from 'react';
 import {
     Breadcrumb,
@@ -8,7 +9,6 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import { Landmark } from 'lucide-react';
 
 export type BankAccountsBreadcrumbItem = {
     title: string;

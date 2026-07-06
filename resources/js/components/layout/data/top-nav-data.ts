@@ -1,10 +1,10 @@
-import { dashboard } from '@/routes';
-import { employees } from '@/routes/organization';
 import {
     canViewCrewOperations,
     canViewPayroll,
     has,
 } from '@/components/layout/data/sidebar-data';
+import { dashboard } from '@/routes';
+import { employees } from '@/routes/organization';
 
 export type TopNavLink = {
     title: string;

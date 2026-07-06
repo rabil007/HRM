@@ -1,12 +1,13 @@
+import { Link } from '@inertiajs/react';
 import {
     CheckCircle2,
     Clock,
     FileText,
     UserX,
-    XCircle,
-    type LucideIcon,
+    XCircle
+    
 } from 'lucide-react';
-import { Link } from '@inertiajs/react';
+import type {LucideIcon} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { LIFECYCLE_FILTER_LABELS } from '@/features/organization/contracts/contracts-format';
 import type {

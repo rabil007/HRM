@@ -1,5 +1,5 @@
-import { employee } from '@/routes/organization/contracts';
 import type { ContractLifecycleFilter } from '@/features/organization/contracts/types';
+import { employee } from '@/routes/organization/contracts';
 
 export type ContractEmployeeBackContext = {
     from: 'index';

@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
 import { usePage } from '@inertiajs/react';
+import { useMemo } from 'react';
 import { ApplicationBrandingSync } from '@/components/application-branding-sync';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { ConfigDrawer } from '@/components/config-drawer';
