@@ -21,6 +21,7 @@ class PermissionsSeeder extends Seeder
             'settings.appearance.view',
             'settings.application.view',
             'settings.application.update',
+            'settings.application.bulk-documents',
             'settings.integrations.whatsapp.view',
             'settings.integrations.whatsapp.update',
             'settings.integrations.hikvision.view',

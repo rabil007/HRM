@@ -3,6 +3,7 @@ export const SALARY_PAYMENT_METHOD_OPTIONS = [
     { value: 'cash_c3', label: 'C3' },
     { value: 'cash_ansari', label: 'Ansari' },
     { value: 'cash_other', label: 'Cash' },
+    { value: 'third_party', label: 'Third party' },
 ] as const;
 
 export type SalaryPaymentMethodValue =
@@ -23,6 +24,14 @@ export function cashPaymentBadgeLabel(
     }
 }
 
+export function requiresBankAccount(method: SalaryPaymentMethodValue): boolean {
+    return method === 'bank_transfer';
+}
+
 export function isCashPaymentMethod(method: SalaryPaymentMethodValue): boolean {
-    return method !== 'bank_transfer';
+    return (
+        method === 'cash_c3' ||
+        method === 'cash_ansari' ||
+        method === 'cash_other'
+    );
 }

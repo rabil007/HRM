@@ -315,7 +315,7 @@ class PayrollController extends Controller
         $missingBankCount = $allCategoryEmployees->filter(function ($employee) {
             $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
 
-            return ! $paymentMethod->isCash() && $employee->primaryBankAccount === null;
+            return $paymentMethod->requiresBankAccount() && $employee->primaryBankAccount === null;
         })->count();
         $employeeStats = [
             'total' => $totalCount,

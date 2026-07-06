@@ -3,6 +3,7 @@ import {
     Building2,
     Camera,
     CheckCircle2,
+    FileCheck2,
     ImageIcon,
     Layout,
     Mail,
@@ -30,6 +31,8 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { BulkDocumentsPanel } from '@/features/settings/bulk-documents-panel';
+import type { BulkDocumentsPanelProps } from '@/features/settings/bulk-documents-panel';
 import { HikvisionSettingsPanel } from '@/features/settings/hikvision-settings-panel';
 import type { HikvisionSettingsPanelProps } from '@/features/settings/hikvision-settings-panel';
 import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
@@ -88,6 +91,7 @@ type Props = {
     };
     whatsapp: WhatsAppSettingsPanelProps | null;
     hikvision: HikvisionSettingsPanelProps | null;
+    can: BulkDocumentsPanelProps['can'];
 };
 
 const ALL_NAV_ITEMS = [
@@ -125,6 +129,13 @@ const ALL_NAV_ITEMS = [
         icon: Camera,
         description: 'Access control API',
         permission: 'settings.integrations.hikvision.view',
+    },
+    {
+        id: 'bulk-documents',
+        label: 'Bulk Documents',
+        icon: FileCheck2,
+        description: 'Mass document generation',
+        permission: 'settings.application.bulk-documents',
     },
     {
         id: 'preferences',
@@ -245,6 +256,7 @@ export default function ApplicationSettings({
     smtp,
     whatsapp,
     hikvision,
+    can,
 }: Props) {
     const auth = usePage().props.auth;
     const authUser = auth?.user as { email?: string } | undefined;
@@ -1276,6 +1288,10 @@ export default function ApplicationSettings({
                     {/* ══ HIKVISION ══ */}
                     {tab === 'hikvision' && hikvision ? (
                         <HikvisionSettingsPanel {...hikvision} />
+                    ) : null}
+
+                    {tab === 'bulk-documents' ? (
+                        <BulkDocumentsPanel can={can} />
                     ) : null}
 
                     {/* ══ PREFERENCES ══ */}

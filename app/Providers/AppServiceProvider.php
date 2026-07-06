@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Models\EmailTemplate;
+use App\Services\SalaryDeclaration\RendersSalaryDeclarationPdf;
+use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
 use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
 use App\Support\Queue\JobRunRecorder;
@@ -49,7 +51,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(RendersSalaryDeclarationPdf::class, SalaryDeclarationPdfRenderer::class);
     }
 
     /**

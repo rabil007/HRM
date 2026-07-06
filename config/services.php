@@ -46,4 +46,9 @@ return [
         'pdf_compression_setting' => env('DOCUMENT_PDF_COMPRESSION_SETTING', '/ebook'),
     ],
 
+    'browsershot' => [
+        'node_binary' => env('BROWSERSHOT_NODE_BINARY'),
+        'npm_binary' => env('BROWSERSHOT_NPM_BINARY'),
+    ],
+
 ];

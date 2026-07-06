@@ -33,6 +33,7 @@ class ApplicationSettingsController extends Controller
 
         if (
             ! $user?->can('settings.application.view')
+            && ! $user?->can('settings.application.bulk-documents')
             && ! $user?->can('settings.integrations.whatsapp.view')
             && ! $user?->can('settings.integrations.hikvision.view')
         ) {
@@ -75,6 +76,9 @@ class ApplicationSettingsController extends Controller
             'smtp' => $this->mailSettings->forSettingsPage(),
             'whatsapp' => WhatsAppIntegrationController::pageProps($user),
             'hikvision' => HikvisionIntegrationController::pageProps($user),
+            'can' => [
+                'bulk_documents' => $user?->can('settings.application.bulk-documents') ?? false,
+            ],
         ]);
     }
 

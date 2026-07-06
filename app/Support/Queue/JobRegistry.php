@@ -65,6 +65,21 @@ final class JobRegistry
             ],
             [
                 'type' => 'job',
+                'name' => 'GenerateSalaryDeclarationsJob',
+                'class' => 'App\Jobs\GenerateSalaryDeclarationsJob',
+                'purpose' => 'Renders bilingual salary declaration PDFs for active employees and stores them as employee documents.',
+                'trigger' => 'Manually from Application Settings → Bulk Documents.',
+                'queue' => 'default',
+                'connection' => 'database',
+                'parameters' => [
+                    'companyId' => 'Integer company ID to generate documents for.',
+                    'userId' => 'Integer user ID recorded as uploader.',
+                ],
+                'details' => 'Skips active employees who already have a Salary Declaration document. Uses Browsershot for Arabic/RTL rendering.',
+                'code_snippet' => 'dispatch(new \\App\\Jobs\\GenerateSalaryDeclarationsJob($companyId, $userId));',
+            ],
+            [
+                'type' => 'job',
                 'name' => 'SendDocumentExpiryAlertJob',
                 'class' => 'App\Jobs\SendDocumentExpiryAlertJob',
                 'purpose' => 'Checks for expiring employee/company documents (visas, passports, licenses) and sends email alerts to HR managers.',

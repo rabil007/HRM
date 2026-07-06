@@ -1,7 +1,4 @@
 <laravel-boost-guidelines>
-
-Human-readable product docs: [docs/README.md](docs/README.md).
-
 === foundation rules ===
 
 # Laravel Boost Guidelines

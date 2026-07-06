@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { TableCell } from '@/components/ui/table';
 import {
     cashPaymentBadgeLabel,
-    isCashPaymentMethod,
+    requiresBankAccount,
 } from '@/features/organization/employees/salary-payment-method';
 import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import type { OfficePrimaryAccount } from '../types';
@@ -41,14 +41,14 @@ export function PayrollRecordBankAccountCell({
     primary_account: OfficePrimaryAccount | null;
     salary_payment_method: SalaryPaymentMethodValue;
 }) {
-    const paysByCash = isCashPaymentMethod(salary_payment_method);
+    const exemptFromBankAccount = !requiresBankAccount(salary_payment_method);
     const hasBankAccount =
         primary_account !== null && primary_account !== undefined;
     const hasIban = !!primary_account?.iban;
 
     return (
         <TableCell className={dataTableCellClass()}>
-            {paysByCash ? (
+            {exemptFromBankAccount ? (
                 <span className="text-xs text-muted-foreground">—</span>
             ) : hasBankAccount ? (
                 <div className="space-y-0.5">

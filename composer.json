@@ -19,6 +19,7 @@
         "maatwebsite/excel": "^3.1",
         "setasign/fpdf": "^1.8",
         "setasign/fpdi": "^2.6",
+        "spatie/browsershot": "^5.4",
         "spatie/laravel-activitylog": "^5.0",
         "spatie/laravel-permission": "^7.3"
     },
