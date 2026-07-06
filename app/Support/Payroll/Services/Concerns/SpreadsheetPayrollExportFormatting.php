@@ -216,6 +216,11 @@ trait SpreadsheetPayrollExportFormatting
         $sheet->getStyle($range)->getNumberFormat()->setFormatCode(self::DATE_FORMAT);
     }
 
+    protected function applyDaysFormat(Worksheet $sheet, string $range): void
+    {
+        $sheet->getStyle($range)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER);
+    }
+
     /**
      * @return array{path: string, filename: string}
      */

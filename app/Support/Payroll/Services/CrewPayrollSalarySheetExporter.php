@@ -109,6 +109,7 @@ final class CrewPayrollSalarySheetExporter
         $sheet->setCellValue('P1', '=SUBTOTAL(9,P'.self::DATA_START_ROW.':P200)');
         $sheet->setCellValue('Q1', '=SUBTOTAL(9,Q'.self::DATA_START_ROW.':Q200)');
         $sheet->setCellValue('R1', '=SUBTOTAL(9,R'.self::DATA_START_ROW.':R200)');
+        $sheet->setCellValue('S1', '=SUBTOTAL(9,S'.self::DATA_START_ROW.':S200)');
     }
 
     private function writeHeaderRow(Worksheet $sheet): void
@@ -132,8 +133,9 @@ final class CrewPayrollSalarySheetExporter
             'P' => 'STAND BY',
             'Q' => 'ON SITE',
             'R' => 'ADD / DED',
-            'S' => 'TOTAL SALARY',
-            'T' => 'PAYMENT METHOD',
+            'S' => 'OT',
+            'T' => 'TOTAL SALARY',
+            'U' => 'PAYMENT METHOD',
         ];
 
         foreach ($headers as $column => $header) {
@@ -167,6 +169,7 @@ final class CrewPayrollSalarySheetExporter
         $siteAllowancePay = $this->toFloat($lines['site_allowance'] ?? null);
         $supplementaryPay = $this->toFloat($lines['supplementary_allowance'] ?? null);
         $onsiteTotalPay = round($onsitePay + $siteAllowancePay + $supplementaryPay, 2);
+        $overtimePay = $this->toFloat($lines['overtime'] ?? $record->overtime_pay ?? null);
 
         $bonus = $this->toFloat($record->bonus);
         $deductions = $this->toFloat($record->other_deductions);
@@ -183,18 +186,19 @@ final class CrewPayrollSalarySheetExporter
             'F' => $this->presentValue($employee->project?->title, ! filled($employee->project?->title)),
             'G' => $this->presentDate($timesheet?->standby_from),
             'H' => $this->presentDate($timesheet?->standby_to),
-            'I' => $this->presentNumeric($breakdown['standby_days'] ?? null),
+            'I' => $this->presentNumeric($timesheet?->standby_days ?? $breakdown['standby_days'] ?? null),
             'J' => $this->presentDate($timesheet?->onsite_from),
             'K' => $this->presentDate($timesheet?->onsite_to),
-            'L' => $this->presentNumeric($breakdown['onsite_days'] ?? null),
+            'L' => $this->presentNumeric($timesheet?->onsite_days ?? $breakdown['onsite_days'] ?? null),
             'M' => $this->presentNumeric($rates['basic_daily'] ?? null),
             'N' => $this->presentNumeric($rates['supplementary_allowance_daily'] ?? null),
             'O' => $this->presentNumeric($rates['site_allowance_daily'] ?? null),
             'P' => $this->presentNumeric($standbyPay, false),
             'Q' => $this->presentNumeric($onsiteTotalPay, false),
             'R' => $this->presentAdjustment($netAdjustment),
-            'S' => $this->presentNumeric($record->net_salary, false),
-            'T' => $this->presentValue(
+            'S' => $this->presentNumeric($overtimePay, false),
+            'T' => $this->presentNumeric($record->net_salary, false),
+            'U' => $this->presentValue(
                 $paymentMethod instanceof SalaryPaymentMethod ? $paymentMethod->label() : null,
                 $paymentMethod === null,
             ),
@@ -216,7 +220,7 @@ final class CrewPayrollSalarySheetExporter
 
     private function applyWorksheetFormatting(Worksheet $sheet, int $lastDataRow): void
     {
-        $this->applyHeaderStyle($sheet, 'T');
+        $this->applyHeaderStyle($sheet, 'U');
         $this->applyColumnWidths($sheet, [
             'A' => 8,
             'B' => 12,
@@ -236,10 +240,11 @@ final class CrewPayrollSalarySheetExporter
             'P' => 12,
             'Q' => 12,
             'R' => 12,
-            'S' => 14,
-            'T' => 18,
+            'S' => 12,
+            'T' => 14,
+            'U' => 18,
         ]);
-        $this->applyDataBorderStyle($sheet, 'T', $lastDataRow);
+        $this->applyDataBorderStyle($sheet, 'U', $lastDataRow);
 
         if ($lastDataRow < self::DATA_START_ROW) {
             return;
@@ -261,7 +266,10 @@ final class CrewPayrollSalarySheetExporter
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9D9D9']],
         ]);
 
-        $this->applyDateFormatRange($sheet, 'G'.self::DATA_START_ROW.':K'.$lastDataRow);
-        $this->applyMoneyFormat($sheet, 'M'.self::DATA_START_ROW.':S'.$lastDataRow);
+        $this->applyDateFormatRange($sheet, 'G'.self::DATA_START_ROW.':H'.$lastDataRow);
+        $this->applyDateFormatRange($sheet, 'J'.self::DATA_START_ROW.':K'.$lastDataRow);
+        $this->applyDaysFormat($sheet, 'I'.self::DATA_START_ROW.':I'.$lastDataRow);
+        $this->applyDaysFormat($sheet, 'L'.self::DATA_START_ROW.':L'.$lastDataRow);
+        $this->applyMoneyFormat($sheet, 'M'.self::DATA_START_ROW.':T'.$lastDataRow);
     }
 }

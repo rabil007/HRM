@@ -14,6 +14,7 @@ use App\Support\Payroll\Services\CrewPayrollSalarySheetExporter;
 use Inertia\Testing\AssertableInertia as Assert;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
 test('users without crew timesheet view permission cannot export approved crew payroll', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
@@ -100,17 +101,68 @@ test('crew payroll salary sheet export populates payroll and timesheet data', fu
 
     expect($sheet)->not->toBeNull()
         ->and($sheet->getCell('B2')->getValue())->toBe('EMP.NO.')
-        ->and($sheet->getCell('S2')->getValue())->toBe('TOTAL SALARY')
+        ->and($sheet->getCell('S2')->getValue())->toBe('OT')
+        ->and($sheet->getCell('T2')->getValue())->toBe('TOTAL SALARY')
         ->and($sheet->getCell('B3')->getValue())->toBe('2025')
         ->and($sheet->getCell('C3')->getValue())->toBe('VINOD MENON')
         ->and($sheet->getCell('D3')->getValue())->toBe('JUB PORT CAPT.')
         ->and($sheet->getCell('E3')->getValue())->toBe($client->name)
         ->and($sheet->getCell('F3')->getValue())->toBe($project->title)
         ->and($sheet->getCell('I3')->getCalculatedValue())->toEqual(0)
+        ->and($sheet->getStyle('I3')->getNumberFormat()->getFormatCode())->toBe(NumberFormat::FORMAT_NUMBER)
         ->and($sheet->getCell('L3')->getCalculatedValue())->toEqual(30)
         ->and($sheet->getCell('P3')->getCalculatedValue())->toEqual(0)
-        ->and($sheet->getCell('S3')->getCalculatedValue())->toEqual(55000)
-        ->and($sheet->getCell('T3')->getValue())->toBe('Bank transfer');
+        ->and($sheet->getCell('S3')->getCalculatedValue())->toEqual(0)
+        ->and($sheet->getCell('T3')->getCalculatedValue())->toEqual(55000)
+        ->and($sheet->getCell('U3')->getValue())->toBe('Bank transfer');
+
+    @unlink($result['path']);
+});
+
+test('crew payroll salary sheet export includes overtime pay and formats standby days as numbers', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    [$period, $employee, $client, $project] = createApprovedCrewExportFixture($company);
+
+    CrewTimesheet::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->update([
+            'standby_days' => 0,
+            'overtime_hours' => 78,
+        ]);
+
+    PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->update([
+            'overtime_pay' => '1875.21',
+            'gross_salary' => '56875.21',
+            'net_salary' => '56875.21',
+            'calculation_breakdown' => [
+                'standby_days' => 0,
+                'onsite_days' => 30,
+                'rates' => [
+                    'basic_daily' => 0,
+                    'site_allowance_daily' => 0,
+                    'supplementary_allowance_daily' => 0,
+                ],
+                'lines' => [
+                    'standby_pay' => 0,
+                    'onsite_pay' => 0,
+                    'site_allowance' => 0,
+                    'supplementary_allowance' => 0,
+                    'overtime' => 1875.21,
+                ],
+            ],
+        ]);
+
+    $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh());
+    $sheet = IOFactory::load($result['path'])->getSheetByName(CrewPayrollSalarySheetExporter::SHEET_NAME);
+
+    expect($sheet->getCell('I3')->getFormattedValue())->toBe('0')
+        ->and($sheet->getCell('S3')->getCalculatedValue())->toEqual(1875.21)
+        ->and($sheet->getCell('T3')->getCalculatedValue())->toEqual(56875.21);
 
     @unlink($result['path']);
 });
