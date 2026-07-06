@@ -90,6 +90,15 @@ jobs:
 
             composer install --no-dev --optimize-autoloader
 
+            if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+              export PUPPETEER_CACHE_DIR="$PWD/storage/app/puppeteer"
+              mkdir -p "$PUPPETEER_CACHE_DIR"
+              npm ci --omit=dev
+              php artisan browsershot:install
+            else
+              echo "WARNING: Node.js/npm not found. Salary declaration PDF jobs require them on the queue worker host."
+            fi
+
             php artisan migrate --force
             php artisan leave-balances:sync
             php artisan db:seed --class=PermissionsSeeder --force

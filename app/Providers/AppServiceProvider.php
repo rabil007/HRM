@@ -7,6 +7,7 @@ use App\Services\SalaryDeclaration\RendersSalaryDeclarationPdf;
 use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
 use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
+use App\Support\BulkDocuments\ConfiguresBrowsershotEnvironment;
 use App\Support\Queue\JobRunRecorder;
 use App\Support\Settings\SettingKey;
 use Carbon\CarbonImmutable;
@@ -59,6 +60,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        ConfiguresBrowsershotEnvironment::apply();
         $this->configureDefaults();
         $this->configureApplicationSettings();
         $this->configureMailViews();
