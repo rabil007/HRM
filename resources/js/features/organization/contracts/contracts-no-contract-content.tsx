@@ -98,14 +98,11 @@ export function ContractsNoContractContent({
                 }
             />
 
-            <div className="mb-4">
-                <SearchBar
-                    value={searchInput}
-                    onChange={onSearchChange}
-                    placeholder="Search by name or employee number..."
-                    className="max-w-md"
-                />
-            </div>
+            <SearchBar
+                value={searchInput}
+                onChange={onSearchChange}
+                placeholder="Search by name or employee number..."
+            />
 
             {employees.length === 0 ? (
                 <EmptyState

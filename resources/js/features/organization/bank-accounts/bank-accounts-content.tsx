@@ -10,7 +10,6 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
-import { Button } from '@/components/ui/button';
 import {
     Select,
     SelectContent,
@@ -25,7 +24,6 @@ import { BankAccountsTableRow } from '@/features/organization/bank-accounts/bank
 import type { BankAccountsIndexProps } from '@/features/organization/bank-accounts/types';
 import { useBankAccountsIndexFilters } from '@/features/organization/bank-accounts/use-bank-accounts-index-filters';
 import { bankAccounts } from '@/routes/organization';
-import { cn } from '@/lib/utils';
 
 export function BankAccountsContent({
     summary,
@@ -85,70 +83,43 @@ export function BankAccountsContent({
                 onSelect={onIsPrimaryChange}
             />
 
-            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <SearchBar
-                    value={searchInput}
-                    onChange={onSearchChange}
-                    placeholder="Search employee, IBAN or account name..."
-                    className="max-w-md"
-                />
+            <SearchBar
+                placeholder="Search employee, IBAN or account name..."
+                value={searchInput}
+                onChange={onSearchChange}
+                right={
+                    <div className="flex items-center gap-3">
+                        {isSearching ? (
+                            <Loader2
+                                className="size-4 animate-spin text-muted-foreground"
+                                aria-hidden
+                            />
+                        ) : null}
 
-                <div className="flex flex-wrap items-center gap-3">
-                    {isSearching ? (
-                        <Loader2
-                            className="size-4 animate-spin text-muted-foreground"
-                            aria-hidden
-                        />
-                    ) : null}
-
-                    <Select
-                        value={initialBankId || 'all'}
-                        onValueChange={(val) => onBankChange(val === 'all' ? '' : val)}
-                    >
-                        <SelectTrigger className="w-[180px] h-9 text-xs">
-                            <SelectValue placeholder="All banks" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All banks</SelectItem>
-                            {banks.map((bank) => (
-                                <SelectItem key={bank.id} value={String(bank.id)}>
-                                    {bank.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-
-                    <div className="flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
-                        {(['', 'primary', 'secondary'] as const).map((value) => {
-                            const label =
-                                value === ''
-                                    ? 'All'
-                                    : value === 'primary'
-                                      ? 'Primary'
-                                      : 'Secondary';
-                            const isActive = initialIsPrimary === value;
-
-                            return (
-                                <Button
-                                    key={value || 'all'}
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    className={cn(
-                                        'h-7 px-3 text-xs font-medium transition-all',
-                                        isActive
-                                            ? 'bg-background text-foreground shadow-sm hover:bg-background'
-                                            : 'text-muted-foreground hover:text-foreground hover:bg-transparent',
-                                    )}
-                                    onClick={() => onIsPrimaryChange(value)}
-                                >
-                                    {label}
-                                </Button>
-                            );
-                        })}
+                        <Select
+                            value={initialBankId || 'all'}
+                            onValueChange={(val) =>
+                                onBankChange(val === 'all' ? '' : val)
+                            }
+                        >
+                            <SelectTrigger className="h-12 w-[200px] rounded-xl glass-card px-4 text-sm font-medium transition-colors hover:bg-accent">
+                                <SelectValue placeholder="All banks" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All banks</SelectItem>
+                                {banks.map((bank) => (
+                                    <SelectItem
+                                        key={bank.id}
+                                        value={String(bank.id)}
+                                    >
+                                        {bank.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
-                </div>
-            </div>
+                }
+            />
 
             {bankAccountRows.length === 0 ? (
                 <EmptyState

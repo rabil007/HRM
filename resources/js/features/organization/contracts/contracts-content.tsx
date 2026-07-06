@@ -105,52 +105,50 @@ export function ContractsContent({
                 onSelect={onLifecycleChange}
             />
 
-            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <SearchBar
-                    value={searchInput}
-                    onChange={onSearchChange}
-                    placeholder="Search employee or labor contract ID..."
-                    className="max-w-md"
-                />
+            <SearchBar
+                placeholder="Search employee or labor contract ID..."
+                value={searchInput}
+                onChange={onSearchChange}
+                right={
+                    <div className="flex items-center gap-3">
+                        {isSearching ? (
+                            <Loader2
+                                className="size-4 animate-spin text-muted-foreground"
+                                aria-hidden
+                            />
+                        ) : null}
+                        <div className="flex items-center rounded-xl glass-card p-1">
+                            {(['', 'office', 'crew'] as const).map((value) => {
+                                const label =
+                                    value === ''
+                                        ? 'All'
+                                        : value === 'office'
+                                          ? 'Office'
+                                          : 'Crew';
+                                const isActive =
+                                    initialPayrollCategory === value;
 
-                <div className="flex flex-wrap items-center gap-3">
-                    {isSearching ? (
-                        <Loader2
-                            className="size-4 animate-spin text-muted-foreground"
-                            aria-hidden
-                        />
-                    ) : null}
-                    <div className="flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
-                        {(['', 'office', 'crew'] as const).map((value) => {
-                            const label =
-                                value === ''
-                                    ? 'All'
-                                    : value === 'office'
-                                      ? 'Office'
-                                      : 'Crew';
-                            const isActive = initialPayrollCategory === value;
-
-                            return (
-                                <Button
-                                    key={value || 'all'}
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    className={cn(
-                                        'h-7 px-3 text-xs font-medium transition-all',
-                                        isActive
-                                            ? 'bg-background text-foreground shadow-sm hover:bg-background'
-                                            : 'text-muted-foreground hover:text-foreground hover:bg-transparent',
-                                    )}
-                                    onClick={() => onPayrollCategoryChange(value)}
-                                >
-                                    {label}
-                                </Button>
-                            );
-                        })}
+                                return (
+                                    <Button
+                                        key={value || 'all'}
+                                        type="button"
+                                        variant={isActive ? 'default' : 'ghost'}
+                                        className={cn(
+                                            'h-10 rounded-lg px-4 text-sm font-medium transition-all',
+                                            !isActive && 'hover:bg-accent',
+                                        )}
+                                        onClick={() =>
+                                            onPayrollCategoryChange(value)
+                                        }
+                                    >
+                                        {label}
+                                    </Button>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
-            </div>
+                }
+            />
 
             {contractRows.length === 0 ? (
                 <EmptyState
