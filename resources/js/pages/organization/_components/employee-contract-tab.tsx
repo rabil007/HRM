@@ -1,5 +1,11 @@
 import { router, useForm } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import {
+    Banknote,
+    CalendarDays,
+    FileText,
+    MessageSquare,
+    Plus,
+} from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -209,6 +215,36 @@ function contractStatusClass(status: string | null | undefined): string {
     return 'border-zinc-500/25 bg-zinc-500/10 text-muted-foreground';
 }
 
+function CurrencyInput({
+    id,
+    value,
+    onChange,
+    placeholder,
+    className,
+}: {
+    id: string;
+    value: string;
+    onChange: (v: string) => void;
+    placeholder?: string;
+    className?: string;
+}): ReactElement {
+    return (
+        <div className="relative">
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[11px] font-medium text-muted-foreground select-none">
+                AED
+            </span>
+            <Input
+                id={id}
+                inputMode="decimal"
+                placeholder={placeholder}
+                className={cn('h-10 rounded-xl border-border/60 bg-muted/50 pl-10 text-sm tabular-nums', className)}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+            />
+        </div>
+    );
+}
+
 export function EmployeeContractTab({
     employeeId,
     contracts,
@@ -283,6 +319,25 @@ export function EmployeeContractTab({
     const [deleteContractId, setDeleteContractId] = useState<number | null>(
         null,
     );
+
+    // Ctrl/Cmd+Enter keyboard shortcut to submit the form
+    useEffect(() => {
+        if (!dialogOpen) {
+            return;
+        }
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                submitContract();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => window.removeEventListener('keydown', handleKeyDown);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dialogOpen]);
 
     const contractForm = useForm({
         payroll_category: 'office',
@@ -738,7 +793,7 @@ export function EmployeeContractTab({
                     }
                 }}
             >
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>
                             {editingContract ? 'Edit contract' : 'Add contract'}
@@ -757,6 +812,7 @@ export function EmployeeContractTab({
                     {showContractDetailsSection ? (
                         <div className="space-y-4 py-1">
                             <div className="flex items-center gap-2">
+                                <FileText className="size-3.5 text-muted-foreground" aria-hidden />
                                 <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Contract details
                                 </span>
@@ -834,23 +890,37 @@ export function EmployeeContractTab({
                                                 show={isFieldRequired('status')}
                                             />
                                         </Label>
-                                        <AppSelect
-                                            value={contractForm.data.status}
-                                            onValueChange={(v) =>
-                                                contractForm.setData(
-                                                    'status',
-                                                    v,
-                                                )
-                                            }
-                                            variant="dark"
-                                        >
-                                            <AppSelectItem value="active">
-                                                Active
-                                            </AppSelectItem>
-                                            <AppSelectItem value="ended">
-                                                Ended
-                                            </AppSelectItem>
-                                        </AppSelect>
+                                        <div className="flex items-center gap-2">
+                                            <AppSelect
+                                                value={contractForm.data.status}
+                                                onValueChange={(v) =>
+                                                    contractForm.setData(
+                                                        'status',
+                                                        v,
+                                                    )
+                                                }
+                                                variant="dark"
+                                            >
+                                                <AppSelectItem value="active">
+                                                    Active
+                                                </AppSelectItem>
+                                                <AppSelectItem value="ended">
+                                                    Ended
+                                                </AppSelectItem>
+                                            </AppSelect>
+                                            <span
+                                                className={cn(
+                                                    'inline-flex shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium',
+                                                    contractStatusClass(
+                                                        contractForm.data.status,
+                                                    ),
+                                                )}
+                                            >
+                                                {formatStatus(
+                                                    contractForm.data.status,
+                                                )}
+                                            </span>
+                                        </div>
                                         <p className="text-[11px] text-muted-foreground">
                                             Current state of this contract
                                         </p>
@@ -883,7 +953,7 @@ export function EmployeeContractTab({
                                     <Input
                                         id="contract_labor_contract_id"
                                         className={cn(
-                                            'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
+                                            'h-10 rounded-xl border-border/60 bg-muted/50 font-mono text-sm tracking-wide',
                                             isMissingRequired(
                                                 'labor_contract_id',
                                             ) && 'border-rose-500/50',
@@ -914,6 +984,7 @@ export function EmployeeContractTab({
                     {showDurationSection ? (
                         <div className="space-y-4 pt-2">
                             <div className="flex items-center gap-2">
+                                <CalendarDays className="size-3.5 text-muted-foreground" aria-hidden />
                                 <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Duration
                                 </span>
@@ -1026,6 +1097,7 @@ export function EmployeeContractTab({
                     {showCompensationSection ? (
                         <div className="space-y-4 pt-2">
                             <div className="flex items-center gap-2">
+                                <Banknote className="size-3.5 text-muted-foreground" aria-hidden />
                                 <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Compensation
                                 </span>
@@ -1056,12 +1128,10 @@ export function EmployeeContractTab({
                                                 )}
                                             />
                                         </Label>
-                                        <Input
+                                        <CurrencyInput
                                             id="contract_basic_salary"
-                                            inputMode="decimal"
-                                            placeholder="e.g. 5000.00"
+                                            placeholder="5,000.00"
                                             className={cn(
-                                                'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
                                                 isMissingRequired(
                                                     'basic_salary',
                                                 ) && 'border-rose-500/50',
@@ -1069,16 +1139,15 @@ export function EmployeeContractTab({
                                             value={
                                                 contractForm.data.basic_salary
                                             }
-                                            onChange={(e) =>
+                                            onChange={(v) =>
                                                 contractForm.setData(
                                                     'basic_salary',
-                                                    e.target.value,
+                                                    v,
                                                 )
                                             }
                                         />
                                         <p className="text-[11px] text-muted-foreground">
-                                            Monthly base salary in local
-                                            currency
+                                            Monthly base salary
                                             {isFieldRequired('basic_salary')
                                                 ? ''
                                                 : ' (optional)'}
@@ -1109,12 +1178,10 @@ export function EmployeeContractTab({
                                                 )}
                                             />
                                         </Label>
-                                        <Input
+                                        <CurrencyInput
                                             id="contract_housing_allowance"
-                                            inputMode="decimal"
-                                            placeholder="e.g. 1500.00"
+                                            placeholder="1,500.00"
                                             className={cn(
-                                                'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
                                                 isMissingRequired(
                                                     'housing_allowance',
                                                 ) && 'border-rose-500/50',
@@ -1123,10 +1190,10 @@ export function EmployeeContractTab({
                                                 contractForm.data
                                                     .housing_allowance
                                             }
-                                            onChange={(e) =>
+                                            onChange={(v) =>
                                                 contractForm.setData(
                                                     'housing_allowance',
-                                                    e.target.value,
+                                                    v,
                                                 )
                                             }
                                         />
@@ -1164,12 +1231,10 @@ export function EmployeeContractTab({
                                                 )}
                                             />
                                         </Label>
-                                        <Input
+                                        <CurrencyInput
                                             id="contract_transport_allowance"
-                                            inputMode="decimal"
-                                            placeholder="e.g. 500.00"
+                                            placeholder="500.00"
                                             className={cn(
-                                                'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
                                                 isMissingRequired(
                                                     'transport_allowance',
                                                 ) && 'border-rose-500/50',
@@ -1178,10 +1243,10 @@ export function EmployeeContractTab({
                                                 contractForm.data
                                                     .transport_allowance
                                             }
-                                            onChange={(e) =>
+                                            onChange={(v) =>
                                                 contractForm.setData(
                                                     'transport_allowance',
-                                                    e.target.value,
+                                                    v,
                                                 )
                                             }
                                         />
@@ -1219,12 +1284,10 @@ export function EmployeeContractTab({
                                                 )}
                                             />
                                         </Label>
-                                        <Input
+                                        <CurrencyInput
                                             id="contract_other_allowances"
-                                            inputMode="decimal"
-                                            placeholder="e.g. 200.00"
+                                            placeholder="200.00"
                                             className={cn(
-                                                'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
                                                 isMissingRequired(
                                                     'other_allowances',
                                                 ) && 'border-rose-500/50',
@@ -1233,10 +1296,10 @@ export function EmployeeContractTab({
                                                 contractForm.data
                                                     .other_allowances
                                             }
-                                            onChange={(e) =>
+                                            onChange={(v) =>
                                                 contractForm.setData(
                                                     'other_allowances',
-                                                    e.target.value,
+                                                    v,
                                                 )
                                             }
                                         />
@@ -1272,12 +1335,10 @@ export function EmployeeContractTab({
                                                 )}
                                             />
                                         </Label>
-                                        <Input
+                                        <CurrencyInput
                                             id="contract_supplementary_allowance"
-                                            inputMode="decimal"
-                                            placeholder="e.g. 428.00"
+                                            placeholder="428.00"
                                             className={cn(
-                                                'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
                                                 isMissingRequired(
                                                     'supplementary_allowance',
                                                 ) && 'border-rose-500/50',
@@ -1286,10 +1347,10 @@ export function EmployeeContractTab({
                                                 contractForm.data
                                                     .supplementary_allowance
                                             }
-                                            onChange={(e) =>
+                                            onChange={(v) =>
                                                 contractForm.setData(
                                                     'supplementary_allowance',
-                                                    e.target.value,
+                                                    v,
                                                 )
                                             }
                                         />
@@ -1327,12 +1388,10 @@ export function EmployeeContractTab({
                                                 )}
                                             />
                                         </Label>
-                                        <Input
+                                        <CurrencyInput
                                             id="contract_site_allowance"
-                                            inputMode="decimal"
-                                            placeholder="e.g. 715.00"
+                                            placeholder="715.00"
                                             className={cn(
-                                                'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
                                                 isMissingRequired(
                                                     'site_allowance',
                                                 ) && 'border-rose-500/50',
@@ -1340,10 +1399,10 @@ export function EmployeeContractTab({
                                             value={
                                                 contractForm.data.site_allowance
                                             }
-                                            onChange={(e) =>
+                                            onChange={(v) =>
                                                 contractForm.setData(
                                                     'site_allowance',
-                                                    e.target.value,
+                                                    v,
                                                 )
                                             }
                                         />
@@ -1356,12 +1415,56 @@ export function EmployeeContractTab({
                                     </ContractFormField>
                                 ) : null}
                             </div>
+
+                            {/* Live total compensation banner */}
+                            {(() => {
+                                const fields = [
+                                    contractForm.data.basic_salary,
+                                    contractForm.data.housing_allowance,
+                                    contractForm.data.transport_allowance,
+                                    contractForm.data.other_allowances,
+                                    contractForm.data.supplementary_allowance,
+                                    contractForm.data.site_allowance,
+                                ];
+                                const hasAnyValue = fields.some(
+                                    (f) => f.trim() !== '',
+                                );
+
+                                if (!hasAnyValue) {
+                                    return (
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Enter at least one compensation value to calculate the total.
+                                        </p>
+                                    );
+                                }
+
+                                const total = fields.reduce((sum, f) => {
+                                    const n = parseFloat(f);
+                                    return sum + (Number.isNaN(n) ? 0 : n);
+                                }, 0);
+
+                                return (
+                                    <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-2.5">
+                                        <span className="text-xs text-muted-foreground">
+                                            Total compensation
+                                        </span>
+                                        <span className="font-mono text-sm font-semibold tabular-nums">
+                                            AED{' '}
+                                            {total.toLocaleString(undefined, {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                            })}
+                                        </span>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     ) : null}
 
                     {showNoteSection ? (
                         <div className="space-y-4 pt-2">
                             <div className="flex items-center gap-2">
+                                <MessageSquare className="size-3.5 text-muted-foreground" aria-hidden />
                                 <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Note
                                 </span>
@@ -1427,15 +1530,20 @@ export function EmployeeContractTab({
                         >
                             Cancel
                         </Button>
-                        <Button
-                            type="button"
-                            size="sm"
-                            className={actions.dialogPrimary}
-                            disabled={contractForm.processing}
-                            onClick={submitContract}
-                        >
-                            {contractForm.processing ? 'Saving…' : 'Save'}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <span className="hidden text-[10px] text-muted-foreground sm:block">
+                                ⌘↵
+                            </span>
+                            <Button
+                                type="button"
+                                size="sm"
+                                className={actions.dialogPrimary}
+                                disabled={contractForm.processing}
+                                onClick={submitContract}
+                            >
+                                {contractForm.processing ? 'Saving…' : 'Save'}
+                            </Button>
+                        </div>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
