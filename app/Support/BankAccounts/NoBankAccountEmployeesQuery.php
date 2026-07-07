@@ -12,7 +12,8 @@ final class NoBankAccountEmployeesQuery
      *     total_no_account: int,
      *     bank_transfer: int,
      *     cash_c3: int,
-     *     cash_other: int
+     *     cash_other: int,
+     *     third_party: int
      * }
      */
     public function summary(int $companyId): array
@@ -24,6 +25,7 @@ final class NoBankAccountEmployeesQuery
             ->selectRaw("SUM(CASE WHEN salary_payment_method IS NULL OR salary_payment_method = 'bank_transfer' THEN 1 ELSE 0 END) as bank_transfer")
             ->selectRaw("SUM(CASE WHEN salary_payment_method = 'cash_c3' THEN 1 ELSE 0 END) as cash_c3")
             ->selectRaw("SUM(CASE WHEN salary_payment_method = 'cash_other' THEN 1 ELSE 0 END) as cash_other")
+            ->selectRaw("SUM(CASE WHEN salary_payment_method = 'third_party' THEN 1 ELSE 0 END) as third_party")
             ->first();
 
         return [
@@ -31,6 +33,7 @@ final class NoBankAccountEmployeesQuery
             'bank_transfer' => (int) ($row->bank_transfer ?? 0),
             'cash_c3' => (int) ($row->cash_c3 ?? 0),
             'cash_other' => (int) ($row->cash_other ?? 0),
+            'third_party' => (int) ($row->third_party ?? 0),
         ];
     }
 

@@ -81,6 +81,7 @@ export type NoBankAccountSummary = {
     bank_transfer: number;
     cash_c3: number;
     cash_other: number;
+    third_party: number;
 };
 
 export type NoBankAccountIndexProps = {

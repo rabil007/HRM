@@ -2,6 +2,7 @@ import {
     Banknote,
     Building2,
     CreditCard,
+    Users,
     UserX,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -9,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import type { NoBankAccountSummary } from '@/features/organization/bank-accounts/types';
 import { cn } from '@/lib/utils';
 
-type SummaryKey = 'total_no_account' | 'bank_transfer' | 'cash_c3' | 'cash_other';
+type SummaryKey = 'total_no_account' | 'bank_transfer' | 'cash_c3' | 'cash_other' | 'third_party';
 
 const SUMMARY_ITEMS: {
     key: SummaryKey;
@@ -66,6 +67,17 @@ const SUMMARY_ITEMS: {
         valueClass: 'text-teal-400',
         iconClass: 'text-teal-500/60',
     },
+    {
+        key: 'third_party',
+        filterValue: 'third_party',
+        label: 'Third party',
+        icon: Users,
+        cardClass:
+            'border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30',
+        activeClass: 'border-violet-500/40 ring-1 ring-violet-500/25',
+        valueClass: 'text-violet-400',
+        iconClass: 'text-violet-500/60',
+    },
 ];
 
 export function NoAccountSummaryCards({
@@ -78,7 +90,7 @@ export function NoAccountSummaryCards({
     onSelect: (filterValue: string) => void;
 }) {
     return (
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
             {SUMMARY_ITEMS.map((item) => {
                 const isActive = item.filterValue === (activeFilter || '');
                 const Icon = item.icon;
