@@ -144,8 +144,7 @@ class PayrollController extends Controller
         $tab = trim((string) $request->query('tab', ''));
         $boardFilters = PayrollPeriodBoardFilters::fromRequest($request);
         $crewSalaryStructure = $payrollPeriod->isCrew()
-            && in_array($request->query('crew_salary_structure'), ['daily', 'monthly'], true)
-            ? (string) $request->query('crew_salary_structure')
+            ? $boardFilters->crewSalaryStructure
             : 'daily';
         $directoryFilters = new EmployeeDirectoryFilters(
             departmentId: $boardFilters->departmentId,
@@ -259,43 +258,6 @@ class PayrollController extends Controller
             $payrollRecords = $mapPayrollRecords($recordsPaginator);
             $payrollRecordsPagination = $this->paginationMeta($recordsPaginator);
         }
-
-        // #region agent log
-        $allPeriodRecords = PayrollRecord::query()
-            ->where('company_id', $companyId)
-            ->where('period_id', $payrollPeriod->id)
-            ->get(['id', 'employee_id', 'calculation_breakdown', 'payroll_category']);
-        $totalMonthlyInPeriod = $allPeriodRecords->filter(
-            fn (PayrollRecord $record) => $record->payroll_category?->value === 'crew'
-                && (($record->calculation_breakdown['salary_structure'] ?? 'daily') === 'monthly')
-        )->count();
-        $pageMonthlyCount = count($payrollRecordsMonthly);
-        $pageDailyCount = collect($payrollRecords)->count();
-        @file_put_contents(
-            '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-83f246.log',
-            json_encode([
-                'sessionId' => '83f246',
-                'hypothesisId' => 'H1',
-                'runId' => 'post-fix',
-                'location' => 'PayrollController.php:show',
-                'message' => 'payroll records pagination vs monthly split',
-                'data' => [
-                    'period_id' => $payrollPeriod->id,
-                    'is_crew' => $payrollPeriod->isCrew(),
-                    'records_page' => $recordsPaginator->currentPage(),
-                    'per_page' => $recordsPaginator->perPage(),
-                    'total_daily_records' => $recordsPaginator->total(),
-                    'daily_on_page' => $pageDailyCount,
-                    'monthly_on_page' => $pageMonthlyCount,
-                    'total_monthly_paginated' => $payrollRecordsMonthlyPagination['total'] ?? 0,
-                    'total_monthly_in_period' => $totalMonthlyInPeriod,
-                    'search' => $search,
-                ],
-                'timestamp' => (int) round(microtime(true) * 1000),
-            ]).PHP_EOL,
-            FILE_APPEND
-        );
-        // #endregion
 
         $allPayrollRecordIds = PayrollRecord::query()
             ->where('company_id', $companyId)

@@ -8,6 +8,7 @@ use App\Enums\SalaryPaymentMethod;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Support\Contracts\ContractSalaryStructureFilter;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -76,6 +77,10 @@ final class PayrollPeriodBoardQuery
         $this->applyDepartmentFilters($query, $companyId, $filters);
         $this->applyEmployeeGroupFilter($query, $filters->employeeGroup);
 
+        if ($payrollCategory === PayrollCategory::Crew) {
+            $this->applyCrewSalaryStructureFilter($query, $filters->crewSalaryStructure);
+        }
+
         $leaveByEmployee = $payrollCategory === PayrollCategory::Office
             ? $this->loadOfficeLeaveByEmployee($companyId, $period, $filters)
             : Collection::make();
@@ -118,6 +123,10 @@ final class PayrollPeriodBoardQuery
         $this->applySearch($query, $search);
         $this->applyDepartmentFilters($query, $companyId, $filters);
         $this->applyEmployeeGroupFilter($query, $filters->employeeGroup);
+
+        if ($payrollCategory === PayrollCategory::Crew) {
+            $this->applyCrewSalaryStructureFilter($query, $filters->crewSalaryStructure);
+        }
 
         return $query
             ->orderBy('employees.name')
@@ -218,5 +227,21 @@ final class PayrollPeriodBoardQuery
                 }),
             PayrollBoardEmployeeGroup::Total => null,
         };
+    }
+
+    /**
+     * @param  Builder<Employee>  $query
+     */
+    private function applyCrewSalaryStructureFilter(
+        Builder $query,
+        string $crewSalaryStructure,
+    ): void {
+        if (! ContractSalaryStructureFilter::isValid($crewSalaryStructure)) {
+            return;
+        }
+
+        $query->whereHas('currentContract', function (Builder $contractQuery) use ($crewSalaryStructure): void {
+            ContractSalaryStructureFilter::apply($contractQuery, $crewSalaryStructure);
+        });
     }
 }

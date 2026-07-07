@@ -288,18 +288,6 @@ export function PayrollShowContent({
         );
     }, [all_board_employee_ids]);
 
-    const list = useServerPaginationFilters({
-        url: show.url(period.id),
-        search: initialSearch,
-        filters: {
-            tab: initialTab,
-            department_id: initialFilters.department_id,
-            position_id: initialFilters.position_id,
-            employee_group: initialFilters.employee_group ?? '',
-        },
-        pagination,
-    });
-
     const payrollFilters: PayrollShowFilters = {
         department_id: initialFilters.department_id ?? '',
         position_id: initialFilters.position_id ?? '',
@@ -311,8 +299,25 @@ export function PayrollShowContent({
     };
 
     const activeCrewSalaryStructure = payrollFilters.crew_salary_structure;
-
     const activeEmployeeGroup = payrollFilters.employee_group;
+
+    const list = useServerPaginationFilters({
+        url: show.url(period.id),
+        search: initialSearch,
+        filters: {
+            tab: initialTab,
+            department_id: payrollFilters.department_id,
+            position_id: payrollFilters.position_id,
+            employee_group: payrollFilters.employee_group,
+            ...(period.supports_timesheets
+                ? {
+                      crew_salary_structure:
+                          payrollFilters.crew_salary_structure,
+                  }
+                : {}),
+        },
+        pagination,
+    });
 
     const handleEmployeeGroupSelect = (
         employeeGroup: PayrollShowFilters['employee_group'],
@@ -322,6 +327,11 @@ export function PayrollShowContent({
             department_id: payrollFilters.department_id,
             position_id: payrollFilters.position_id,
             employee_group: employeeGroup,
+            ...(period.supports_timesheets
+                ? {
+                      crew_salary_structure: activeCrewSalaryStructure,
+                  }
+                : {}),
             page: null,
         });
     };
@@ -335,6 +345,11 @@ export function PayrollShowContent({
             department_id: id !== null ? String(id) : '',
             position_id: '',
             employee_group: activeEmployeeGroup,
+            ...(period.supports_timesheets
+                ? {
+                      crew_salary_structure: activeCrewSalaryStructure,
+                  }
+                : {}),
         });
     };
 
@@ -347,12 +362,30 @@ export function PayrollShowContent({
             department_id: String(departmentId),
             position_id: String(positionId),
             employee_group: activeEmployeeGroup,
+            ...(period.supports_timesheets
+                ? {
+                      crew_salary_structure: activeCrewSalaryStructure,
+                  }
+                : {}),
         });
     };
 
     const handleCrewSalaryStructureChange = (
         crewSalaryStructure: CrewSalaryStructureView,
     ) => {
+        if (period.status === 'draft') {
+            list.applyFilters({
+                tab: initialTab,
+                department_id: payrollFilters.department_id,
+                position_id: payrollFilters.position_id,
+                employee_group: activeEmployeeGroup,
+                crew_salary_structure: crewSalaryStructure,
+                page: 1,
+            });
+
+            return;
+        }
+
         router.get(
             show.url(period.id),
             {
@@ -764,18 +797,26 @@ export function PayrollShowContent({
 
                     {period.supports_timesheets
                         ? renderListToolbar(
-                              permissions.import_timesheets ? (
-                                  <Button
-                                      variant="outline"
-                                      className="h-12 shrink-0 rounded-xl px-6"
-                                      onClick={() =>
-                                          setIsImportDialogOpen(true)
+                              <div className="flex flex-wrap items-center gap-2">
+                                  <CrewSalaryStructureToggle
+                                      value={activeCrewSalaryStructure}
+                                      onChange={
+                                          handleCrewSalaryStructureChange
                                       }
-                                  >
-                                      <Upload className="mr-2 h-4 w-4" />
-                                      Import Excel
-                                  </Button>
-                              ) : null,
+                                  />
+                                  {permissions.import_timesheets ? (
+                                      <Button
+                                          variant="outline"
+                                          className="h-12 shrink-0 rounded-xl px-6"
+                                          onClick={() =>
+                                              setIsImportDialogOpen(true)
+                                          }
+                                      >
+                                          <Upload className="mr-2 h-4 w-4" />
+                                          Import Excel
+                                      </Button>
+                                  ) : null}
+                              </div>,
                           )
                         : renderListToolbar()}
 
@@ -801,18 +842,28 @@ export function PayrollShowContent({
                         placeholder="Search payroll records..."
                         className="mb-4"
                         right={
-                            <DepartmentFilterControls
-                                department_tree={department_tree}
-                                department_tree_selected_id={
-                                    department_tree_selected_id
-                                }
-                                department_tree_selected_position_id={
-                                    department_tree_selected_position_id
-                                }
-                                selectionCount={departmentTreeSelectionCount}
-                                onSelectDepartment={handleDepartmentSelect}
-                                onSelectPosition={handlePositionSelect}
-                            />
+                            <div className="flex shrink-0 flex-wrap items-center gap-3">
+                                <DepartmentFilterControls
+                                    department_tree={department_tree}
+                                    department_tree_selected_id={
+                                        department_tree_selected_id
+                                    }
+                                    department_tree_selected_position_id={
+                                        department_tree_selected_position_id
+                                    }
+                                    selectionCount={departmentTreeSelectionCount}
+                                    onSelectDepartment={handleDepartmentSelect}
+                                    onSelectPosition={handlePositionSelect}
+                                />
+                                {period.supports_timesheets ? (
+                                    <CrewSalaryStructureToggle
+                                        value={activeCrewSalaryStructure}
+                                        onChange={
+                                            handleCrewSalaryStructureChange
+                                        }
+                                    />
+                                ) : null}
+                            </div>
                         }
                     />
                     <PayrollSkippedBanner summary={generation_summary} />
@@ -1462,33 +1513,6 @@ export function PayrollShowContent({
                 record.payroll_category === 'office',
         );
 
-        // #region agent log
-        fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Debug-Session-Id': '83f246',
-            },
-            body: JSON.stringify({
-                sessionId: '83f246',
-                hypothesisId: 'H2',
-                runId: 'toggle-ui',
-                location: 'show.tsx:renderPayrollTab',
-                message: 'crew salary structure toggle view',
-                data: {
-                    periodId: period.id,
-                    activeCrewSalaryStructure,
-                    dailyCrewCount: dailyCrewRecords.length,
-                    monthlyCrewCount: monthlyCrewRecords.length,
-                    dailyRecordsTotal: recordsPagination?.total ?? null,
-                    monthlyRecordsTotal:
-                        monthlyRecordsPagination?.total ?? null,
-                },
-                timestamp: Date.now(),
-            }),
-        }).catch(() => {});
-        // #endregion
-
         const payrollTabQuery = {
             tab: 'payroll' as const,
             crew_salary_structure: activeCrewSalaryStructure,
@@ -1499,12 +1523,6 @@ export function PayrollShowContent({
             <>
                 {period.supports_timesheets ? (
                     <div className="space-y-6">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <CrewSalaryStructureToggle
-                                value={activeCrewSalaryStructure}
-                                onChange={handleCrewSalaryStructureChange}
-                            />
-                        </div>
                         {activeCrewSalaryStructure === 'daily' ? (
                             dailyCrewRecords.length > 0 ? (
                                 <>

@@ -625,3 +625,62 @@ test('crew payroll tab paginates daily and monthly records separately', function
             ->has('payroll_records_monthly', 5)
             ->where('filters.crew_salary_structure', 'monthly'));
 });
+
+test('crew payroll draft board can filter rows by salary structure', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => PayrollPeriodStatus::Draft,
+    ]);
+
+    $dailyEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'DLY-BOARD-01',
+        'status' => 'active',
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $dailyEmployee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'salary_structure' => 'daily',
+        'status' => 'active',
+    ]);
+
+    $monthlyEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'MTH-BOARD-01',
+        'status' => 'active',
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $monthlyEmployee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'salary_structure' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 1)
+            ->where('rows.0.employee.id', $dailyEmployee->id)
+            ->where('rows.0.salary_structure', 'daily')
+            ->where('filters.crew_salary_structure', 'daily'));
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', [
+            'payrollPeriod' => $period,
+            'crew_salary_structure' => 'monthly',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 1)
+            ->where('rows.0.employee.id', $monthlyEmployee->id)
+            ->where('rows.0.salary_structure', 'monthly')
+            ->where('filters.crew_salary_structure', 'monthly'));
+});
