@@ -75,11 +75,6 @@ const PAYROLL_CATEGORY_LABELS: Record<string, string> = {
     crew: 'Crew',
 };
 
-const SALARY_STRUCTURE_LABELS: Record<string, string> = {
-    daily: 'Daily',
-    monthly: 'Monthly',
-};
-
 const DEFAULT_CONTRACT_REQUIRED_FIELDS = [
     'start_date',
     'status',
@@ -1525,6 +1520,7 @@ export function EmployeeContractTab({
 
                                 const total = fields.reduce((sum, f) => {
                                     const n = parseFloat(f);
+
                                     return sum + (Number.isNaN(n) ? 0 : n);
                                 }, 0);
 

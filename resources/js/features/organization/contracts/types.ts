@@ -1,3 +1,4 @@
+import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import type { EmployeeContractDetails } from '@/pages/organization/employee-page.types';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -59,7 +60,7 @@ export type ContractsIndexProps = {
     department_id: string;
     contracts: ContractListItem[];
     pagination: PaginationMeta;
-    department_tree?: import('@/features/organization/employees/types').DepartmentTreeNode[];
+    department_tree?: DepartmentTreeNode[];
     department_tree_selected_id?: number | null;
     can: ContractPageCan;
 };
@@ -79,7 +80,7 @@ export type NoContractIndexProps = {
     pagination: PaginationMeta;
     search: string;
     department_id?: string;
-    department_tree?: import('@/features/organization/employees/types').DepartmentTreeNode[];
+    department_tree?: DepartmentTreeNode[];
     department_tree_selected_id?: number | null;
     can: ContractPageCan;
 };

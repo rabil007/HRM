@@ -70,7 +70,7 @@ final class ApplyCrewSalaryInputs
                 'gross' => (float) ($storedBase['gross'] ?? $record->gross_salary),
                 'net' => (float) ($storedBase['net'] ?? $record->net_salary),
                 'bonus' => (float) ($storedBase['bonus'] ?? $record->bonus),
-                'other_deductions' => (float) ($storedBase['other_deductions'] ?? $record->other_deductions),
+                'other_deductions' => (float) ($storedBase['other_deductions'] ?? 0),
             ];
         }
 

@@ -73,9 +73,17 @@ test('contracts index returns paginated contracts with summary', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'employee' => $employee] = makeContractFixtures();
+    ['company' => $company, 'branch' => $branch, 'employee' => $employee] = makeContractFixtures();
 
     grantCompanyPermissions($user, $company, ['contracts.view']);
+
+    $endedEmployee = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'employee_no' => 'CTR002',
+        'name' => 'Ended Contract Employee',
+        'status' => 'active',
+    ]);
 
     EmployeeContract::query()->create([
         'company_id' => $company->id,
@@ -89,7 +97,7 @@ test('contracts index returns paginated contracts with summary', function () {
 
     EmployeeContract::query()->create([
         'company_id' => $company->id,
-        'employee_id' => $employee->id,
+        'employee_id' => $endedEmployee->id,
         'payroll_category' => PayrollCategory::Crew->value,
         'start_date' => '2024-01-01',
         'end_date' => '2024-12-31',
@@ -106,8 +114,8 @@ test('contracts index returns paginated contracts with summary', function () {
             ->where('summary.ended', 1)
             ->has('contracts', 2)
             ->where('contracts.0.employee_name', 'Contract Employee')
-            ->where('contracts.0.total_contracts', 2)
-            ->where('contracts.1.total_contracts', 2)
+            ->where('contracts.0.total_contracts', 1)
+            ->where('contracts.1.total_contracts', 1)
             ->where('can.view', true)
             ->where('can.create', false)
             ->where('can.update', false)

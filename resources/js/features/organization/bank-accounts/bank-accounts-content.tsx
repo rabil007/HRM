@@ -1,5 +1,6 @@
 import { Loader2, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -10,7 +11,6 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
 import { BankAccountsImportDialog } from '@/features/organization/bank-accounts/bank-accounts-import-dialog';

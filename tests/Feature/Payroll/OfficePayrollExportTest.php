@@ -1,11 +1,7 @@
 <?php
 
-use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\Department;
-use App\Models\Employee;
-use App\Models\PayrollPeriod;
-use App\Models\PayrollRecord;
 use App\Models\Position;
 use App\Support\Payroll\Services\OfficePayrollSalarySheetExporter;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -169,68 +165,3 @@ test('paid office payroll show page exposes export permission flag', function ()
             ->where('permissions.export_payroll', true)
         );
 });
-
-/**
- * @return array{0: PayrollPeriod, 1: Employee, 2: Department, 3: Position}
- */
-function createApprovedOfficeExportFixture($company, bool $withOrgData = true): array
-{
-    $period = PayrollPeriod::factory()->for($company)->office()->approved()->create([
-        'name' => 'June 2026 Office',
-        'start_date' => '2026-06-01',
-        'end_date' => '2026-06-30',
-    ]);
-
-    $parentDepartment = Department::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Operations',
-        'parent_id' => null,
-    ]);
-
-    $department = Department::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Offshore',
-        'parent_id' => $parentDepartment->id,
-    ]);
-
-    $position = Position::query()->create([
-        'company_id' => $company->id,
-        'department_id' => $department->id,
-        'title' => 'Mechanical Technician',
-        'status' => 'active',
-    ]);
-
-    $employee = createOfficeEmployeeWithContract($company, '3007', 10000, 2000, 500, 250);
-    $employee->update([
-        'name' => 'ABDELLAH BELLYMANI',
-        'department_id' => $withOrgData ? $department->id : null,
-        'position_id' => $withOrgData ? $position->id : null,
-    ]);
-
-    PayrollRecord::factory()->for($company)->create([
-        'period_id' => $period->id,
-        'employee_id' => $employee->id,
-        'payroll_category' => PayrollCategory::Office,
-        'basic_salary' => '10000.00',
-        'housing_allowance' => '2000.00',
-        'transport_allowance' => '500.00',
-        'other_allowances' => '250.00',
-        'overtime_pay' => '0.00',
-        'bonus' => '0.00',
-        'other_deductions' => '0.00',
-        'total_deductions' => '0.00',
-        'gross_salary' => '12750.00',
-        'net_salary' => '12750.00',
-        'working_days' => 22,
-        'present_days' => 22,
-        'absent_days' => 0,
-        'status' => 'approved',
-        'calculation_breakdown' => [
-            'working_days' => 22,
-            'present_days' => 22,
-            'absent_days' => 0,
-        ],
-    ]);
-
-    return [$period, $employee, $department, $position];
-}

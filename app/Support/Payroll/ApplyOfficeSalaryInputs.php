@@ -81,8 +81,8 @@ final class ApplyOfficeSalaryInputs
                 'gross' => (float) ($storedBase['gross'] ?? $record->gross_salary),
                 'net' => (float) ($storedBase['net'] ?? $record->net_salary),
                 'bonus' => (float) ($storedBase['bonus'] ?? 0),
-                'unpaid_leave_deduction' => (float) ($storedBase['unpaid_leave_deduction'] ?? $record->unpaid_leave_deduction),
-                'other_deductions' => (float) ($storedBase['other_deductions'] ?? $record->other_deductions),
+                'unpaid_leave_deduction' => (float) ($storedBase['unpaid_leave_deduction'] ?? 0),
+                'other_deductions' => (float) ($storedBase['other_deductions'] ?? 0),
             ];
         }
 
