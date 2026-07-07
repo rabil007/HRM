@@ -158,12 +158,24 @@ export function useBankAccountsIndexFilters({
         [baseParams, visit],
     );
 
+    const onDepartmentChange = useCallback(
+        (departmentId: number | null) => {
+            visit({
+                ...baseParams(),
+                department_id: departmentId !== null ? String(departmentId) : undefined,
+                page: null,
+            });
+        },
+        [baseParams, visit],
+    );
+
     return {
         searchInput,
         isSearching,
         onSearchChange,
         onBankChange,
         onIsPrimaryChange,
+        onDepartmentChange,
         onPageChange,
     };
 }

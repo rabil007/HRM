@@ -1,4 +1,5 @@
 import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
+import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import type { EmployeeBankAccountItem } from '@/pages/organization/employee-page.types';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -55,6 +56,8 @@ export type BankAccountsIndexProps = {
     payment_method: string;
     branch_id: string;
     department_id: string;
+    department_tree: DepartmentTreeNode[];
+    department_tree_selected_id: number | null;
     bank_accounts: BankAccountListItem[];
     banks: BankOption[];
     pagination: PaginationMeta;

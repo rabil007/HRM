@@ -19,6 +19,7 @@ import { BankAccountsTableRow } from '@/features/organization/bank-accounts/bank
 import { buildBankAccountEmployeeUrl } from '@/features/organization/bank-accounts/build-bank-account-employee-url';
 import type { BankAccountsIndexProps } from '@/features/organization/bank-accounts/types';
 import { useBankAccountsIndexFilters } from '@/features/organization/bank-accounts/use-bank-accounts-index-filters';
+import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { bankAccounts } from '@/routes/organization';
 
 export function BankAccountsContent({
@@ -29,6 +30,8 @@ export function BankAccountsContent({
     payment_method: initialPaymentMethod,
     branch_id: initialBranchId,
     department_id: initialDepartmentId,
+    department_tree,
+    department_tree_selected_id,
     bank_accounts: bankAccountRows,
     banks,
     pagination,
@@ -41,6 +44,7 @@ export function BankAccountsContent({
         onSearchChange,
         onBankChange,
         onIsPrimaryChange,
+        onDepartmentChange,
         onPageChange,
     } = useBankAccountsIndexFilters({
         url: bankAccounts.url(),
@@ -129,6 +133,16 @@ export function BankAccountsContent({
                                 </AppSelectItem>
                             ))}
                         </AppSelect>
+
+                        <DepartmentFilterControls
+                            department_tree={department_tree}
+                            department_tree_selected_id={department_tree_selected_id}
+                            department_tree_selected_position_id={null}
+                            onSelectDepartment={onDepartmentChange}
+                            onSelectPosition={(_, departmentId) =>
+                                onDepartmentChange(departmentId)
+                            }
+                        />
                     </div>
                 }
             />
