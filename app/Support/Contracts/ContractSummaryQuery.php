@@ -25,7 +25,14 @@ final class ContractSummaryQuery
         $in60 = now()->addDays(60)->toDateString();
         $in90 = now()->addDays(90)->toDateString();
 
+        $latestContractIds = EmployeeContract::query()
+            ->selectRaw('MAX(id)')
+            ->where('company_id', $companyId)
+            ->whereNull('deleted_at')
+            ->groupBy('employee_id');
+
         $row = EmployeeContract::query()
+            ->whereIn('id', $latestContractIds)
             ->where('company_id', $companyId)
             ->selectRaw('COUNT(*) as total_contracts')
             ->selectRaw("SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active")

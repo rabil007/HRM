@@ -38,6 +38,12 @@ final class ContractDirectoryQuery
      */
     private function baseQuery(): Builder
     {
+        $latestContractIds = EmployeeContract::query()
+            ->selectRaw('MAX(id)')
+            ->where('company_id', $this->companyId)
+            ->whereNull('deleted_at')
+            ->groupBy('employee_id');
+
         $totalContractsSubquery = fn (QueryBuilder $sub): QueryBuilder => $sub
             ->selectRaw('count(*)')
             ->from('employee_contracts as ec_count')
@@ -46,6 +52,7 @@ final class ContractDirectoryQuery
             ->whereNull('ec_count.deleted_at');
 
         return EmployeeContract::query()
+            ->whereIn('employee_contracts.id', $latestContractIds)
             ->where('employee_contracts.company_id', $this->companyId)
             ->addSelect('employee_contracts.*')
             ->selectSub($totalContractsSubquery, 'total_contracts')
