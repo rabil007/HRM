@@ -1,6 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { ArrowLeft, UserX } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, Loader2, UserX } from 'lucide-react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -18,8 +17,10 @@ import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/tab
 import { Badge } from '@/components/ui/badge';
 import type { NoBankAccountEmployee, NoBankAccountIndexProps } from '@/features/organization/bank-accounts/types';
 import { NoAccountSummaryCards } from '@/features/organization/bank-accounts/no-account-summary-cards';
+import { useNoBankAccountIndexFilters } from '@/features/organization/bank-accounts/use-no-bank-account-index-filters';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
+import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { cashPaymentBadgeLabel } from '@/features/organization/employees/salary-payment-method';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -60,6 +61,13 @@ function NoBankAccountTableRow({ emp }: { emp: NoBankAccountEmployee }) {
                         <p className="truncate font-mono text-[11px] text-muted-foreground/75">
                             {emp.employee_no}
                         </p>
+                        {(emp.department || emp.position) ? (
+                            <p className="truncate text-[11px] text-muted-foreground/60">
+                                {[emp.department, emp.position]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                            </p>
+                        ) : null}
                     </div>
                 </div>
             </TableCell>
@@ -78,12 +86,6 @@ function NoBankAccountTableRow({ emp }: { emp: NoBankAccountEmployee }) {
                 )}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
-                <span className="text-sm text-muted-foreground">{emp.department ?? '—'}</span>
-            </TableCell>
-            <TableCell className={dataTableCellClass()}>
-                <span className="text-sm text-muted-foreground">{emp.position ?? '—'}</span>
-            </TableCell>
-            <TableCell className={dataTableCellClass()}>
                 <span className="text-sm text-muted-foreground">
                     {emp.hire_date ? formatDisplayDate(emp.hire_date) : '—'}
                 </span>
@@ -98,33 +100,24 @@ export function BankAccountsNoAccountContent({
     pagination,
     search: initialSearch,
     payment_method = '',
+    department_id = '',
+    department_tree = [],
+    department_tree_selected_id = null,
 }: NoBankAccountIndexProps) {
-    const [searchInput, setSearchInput] = useState(initialSearch);
-
-    function onSearchChange(value: string) {
-        setSearchInput(value);
-        router.get(
-            noAccount.url(),
-            { search: value || undefined, payment_method: payment_method || undefined },
-            { preserveState: true, preserveScroll: true },
-        );
-    }
-
-    function onFilterChange(filterValue: string) {
-        router.get(
-            noAccount.url(),
-            { search: searchInput || undefined, payment_method: filterValue || undefined },
-            { preserveState: true, preserveScroll: true },
-        );
-    }
-
-    function onPageChange(page: number) {
-        router.get(
-            noAccount.url(),
-            { search: searchInput || undefined, payment_method: payment_method || undefined, page },
-            { preserveState: true, preserveScroll: true },
-        );
-    }
+    const {
+        searchInput,
+        isSearching,
+        onSearchChange,
+        onFilterChange,
+        onDepartmentChange,
+        onPageChange,
+    } = useNoBankAccountIndexFilters({
+        url: noAccount.url(),
+        initialSearch,
+        initialPaymentMethod: payment_method,
+        initialDepartmentId: department_id,
+        perPage: pagination.per_page,
+    });
 
     return (
         <Main>
@@ -149,9 +142,29 @@ export function BankAccountsNoAccountContent({
             />
 
             <SearchBar
+                placeholder="Search by name or employee number..."
                 value={searchInput}
                 onChange={onSearchChange}
-                placeholder="Search by name or employee number..."
+                right={
+                    <div className="flex items-center gap-3">
+                        {isSearching ? (
+                            <Loader2
+                                className="size-4 animate-spin text-muted-foreground"
+                                aria-hidden
+                            />
+                        ) : null}
+
+                        <DepartmentFilterControls
+                            department_tree={department_tree}
+                            department_tree_selected_id={department_tree_selected_id}
+                            department_tree_selected_position_id={null}
+                            onSelectDepartment={onDepartmentChange}
+                            onSelectPosition={(_, depId) =>
+                                onDepartmentChange(depId)
+                            }
+                        />
+                    </div>
+                }
             />
 
             {employees.length === 0 ? (
@@ -159,20 +172,18 @@ export function BankAccountsNoAccountContent({
                     icon={<UserX className="size-10 text-muted-foreground/40" />}
                     title="No employees found"
                     description={
-                        searchInput || payment_method
+                        searchInput || payment_method || department_id
                             ? 'No employees match your search or filter.'
                             : 'All employees have at least one bank account assigned.'
                     }
                 />
             ) : (
                 <div className="space-y-4">
-                    <OrganizationDataTable minWidth="min-w-[940px]" compact>
+                    <OrganizationDataTable minWidth="min-w-[640px]" compact>
                         <TableHeader>
                             <DataTableHeaderRow>
                                 <DataTableHead>Employee</DataTableHead>
                                 <DataTableHead>Payment Type</DataTableHead>
-                                <DataTableHead>Department</DataTableHead>
-                                <DataTableHead>Position</DataTableHead>
                                 <DataTableHead>Hire date</DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>

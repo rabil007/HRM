@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
 use App\Models\Bank;
+use App\Support\BankAccounts\BankAccountDepartmentTree;
 use App\Support\BankAccounts\BankAccountDirectoryFilters;
 use App\Support\BankAccounts\BankAccountDirectoryQuery;
 use App\Support\BankAccounts\BankAccountPagePermissions;
 use App\Support\BankAccounts\BankAccountSummaryQuery;
-use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\Request;
@@ -39,9 +39,10 @@ class BankAccountsIndexController extends Controller
             'payment_method' => $filters->paymentMethod,
             'branch_id' => $filters->branchId,
             'department_id' => $filters->departmentId,
-            'department_tree' => BuildDepartmentEmployeeTree::for(
+            'department_tree' => BankAccountDepartmentTree::for(
                 $companyId,
                 new EmployeeDirectoryFilters(departmentId: $filters->departmentId),
+                BankAccountDepartmentTree::CONTEXT_INDEX,
             ),
             'department_tree_selected_id' => $filters->departmentId !== '' ? (int) $filters->departmentId : null,
             'bank_accounts' => $paginator->items(),

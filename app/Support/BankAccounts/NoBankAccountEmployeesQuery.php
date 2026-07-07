@@ -3,6 +3,8 @@
 namespace App\Support\BankAccounts;
 
 use App\Models\Employee;
+use App\Support\Employees\EmployeeDirectoryFilters;
+use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 final class NoBankAccountEmployeesQuery
@@ -40,11 +42,22 @@ final class NoBankAccountEmployeesQuery
     /**
      * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    public function paginate(int $companyId, string $search, string $paymentMethod, int $perPage): LengthAwarePaginator
+    public function paginate(int $companyId, string $search, string $paymentMethod, string $departmentId, int $perPage): LengthAwarePaginator
     {
         return Employee::query()
             ->where('company_id', $companyId)
             ->whereDoesntHave('bankAccounts')
+            ->when($departmentId !== '', function ($query) use ($companyId, $departmentId) {
+                $directoryFilters = new EmployeeDirectoryFilters(departmentId: $departmentId);
+
+                EmployeeDirectoryQuery::applyAttributeFilters(
+                    $query,
+                    $companyId,
+                    $directoryFilters,
+                    exceptDepartment: false,
+                    exceptPosition: true,
+                );
+            })
             ->when($paymentMethod !== '', function ($query) use ($paymentMethod) {
                 if ($paymentMethod === 'bank_transfer') {
                     $query->where(function ($q) {

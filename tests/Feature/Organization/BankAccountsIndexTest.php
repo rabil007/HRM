@@ -5,6 +5,7 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Models\User;
@@ -217,4 +218,71 @@ test('bank accounts index filters by payment method ansari', function () {
             ->where('payment_method', 'cash_ansari')
             ->has('bank_accounts', 1)
             ->where('bank_accounts.0.iban', 'AE3333333333'));
+});
+
+test('bank accounts index department tree counts only employees with bank accounts', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'branch' => $branch] = makeBankAccountIndexFixtures();
+
+    grantCompanyPermissions($user, $company, ['bank_accounts.view']);
+
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'parent_id' => null,
+    ]);
+
+    $offshoreDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Offshore',
+        'parent_id' => null,
+    ]);
+
+    $officeEmployee = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'employee_no' => 'BNK004',
+        'name' => 'Office With Account',
+        'status' => 'active',
+        'department_id' => $officeDepartment->id,
+    ]);
+
+    Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'employee_no' => 'BNK005',
+        'name' => 'Offshore Without Account',
+        'status' => 'active',
+        'department_id' => $offshoreDepartment->id,
+    ]);
+
+    $bank = Bank::query()->create([
+        'name' => 'Tree Index Bank',
+        'is_active' => true,
+    ]);
+
+    EmployeeBankAccount::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $officeEmployee->id,
+        'bank_id' => $bank->id,
+        'iban' => 'AE4444444444',
+        'account_name' => 'Office With Account',
+        'is_primary' => true,
+    ]);
+
+    $this->get(route('organization.bank-accounts'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/bank-accounts/index')
+            ->where('department_tree', function ($tree) use ($officeDepartment, $offshoreDepartment) {
+                $allNode = collect($tree)->firstWhere('id', null);
+                $officeNode = collect($tree)->firstWhere('id', $officeDepartment->id);
+                $offshoreNode = collect($tree)->firstWhere('id', $offshoreDepartment->id);
+
+                return $allNode['count'] === 1
+                    && $officeNode['count'] === 1
+                    && $offshoreNode['count'] === 0;
+            }));
 });

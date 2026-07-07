@@ -90,6 +90,9 @@ export type NoBankAccountIndexProps = {
     pagination: PaginationMeta;
     search: string;
     payment_method?: string;
+    department_id?: string;
+    department_tree: DepartmentTreeNode[];
+    department_tree_selected_id: number | null;
     can: BankAccountPageCan;
 };
 
