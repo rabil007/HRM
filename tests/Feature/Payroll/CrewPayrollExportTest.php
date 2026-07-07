@@ -115,7 +115,8 @@ test('crew payroll salary sheet export populates payroll and timesheet data', fu
         ->and($sheet->getCell('S3')->getCalculatedValue())->toEqual(0)
         ->and($sheet->getCell('T3')->getCalculatedValue())->toEqual(55000)
         ->and($sheet->getCell('U3')->getValue())->toBe('Bank transfer')
-        ->and($sheet->getCell('V3')->getValue())->toBe('Daily');
+        ->and($sheet->getCell('V3')->getValue())->toBe('Daily')
+        ->and($sheet->getAutoFilter()->getRange())->toBe('A2:V3');
 
     @unlink($result['path']);
 });

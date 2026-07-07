@@ -180,6 +180,7 @@ final class OfficePayrollSalarySheetExporter
             'O' => 14,
         ]);
         $this->applyDataBorderStyle($sheet, 'O', $lastDataRow);
+        $this->applyAutoFilter($sheet, 'O', $lastDataRow);
 
         if ($lastDataRow < self::DATA_START_ROW) {
             return;

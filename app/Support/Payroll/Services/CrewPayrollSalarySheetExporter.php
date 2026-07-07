@@ -249,6 +249,7 @@ final class CrewPayrollSalarySheetExporter
             'V' => 16,
         ]);
         $this->applyDataBorderStyle($sheet, 'V', $lastDataRow);
+        $this->applyAutoFilter($sheet, 'V', $lastDataRow);
 
         if ($lastDataRow < self::DATA_START_ROW) {
             return;

@@ -221,6 +221,13 @@ trait SpreadsheetPayrollExportFormatting
         $sheet->getStyle($range)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER);
     }
 
+    protected function applyAutoFilter(Worksheet $sheet, string $lastColumn, int $lastDataRow): void
+    {
+        $lastRow = max($lastDataRow, self::HEADER_ROW);
+
+        $sheet->setAutoFilter('A'.self::HEADER_ROW.":{$lastColumn}{$lastRow}");
+    }
+
     /**
      * @return array{path: string, filename: string}
      */

@@ -87,7 +87,8 @@ test('office payroll salary sheet export populates payroll data without client o
         ->and($sheet->getCell('K3')->getCalculatedValue())->toEqual(500)
         ->and($sheet->getCell('L3')->getCalculatedValue())->toEqual(250)
         ->and($sheet->getCell('M3')->getValue())->toBe('Bank transfer')
-        ->and($sheet->getCell('O3')->getCalculatedValue())->toEqual(12750);
+        ->and($sheet->getCell('O3')->getCalculatedValue())->toEqual(12750)
+        ->and($sheet->getAutoFilter()->getRange())->toBe('A2:O3');
 
     @unlink($result['path']);
 });
