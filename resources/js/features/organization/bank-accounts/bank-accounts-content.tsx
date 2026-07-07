@@ -180,9 +180,6 @@ export function BankAccountsContent({
                                 <DataTableHead className="w-[130px]">
                                     Created Date
                                 </DataTableHead>
-                                <DataTableHead className="w-[150px]">
-                                    Profile Template
-                                </DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>

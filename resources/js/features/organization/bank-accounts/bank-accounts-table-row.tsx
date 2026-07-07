@@ -55,6 +55,13 @@ export function BankAccountsTableRow({
                         <p className="truncate font-mono text-[11px] text-muted-foreground/75">
                             {bankAccount.employee_no}
                         </p>
+                        {(bankAccount.department_name || bankAccount.position_title) ? (
+                            <p className="truncate text-[11px] text-muted-foreground/60">
+                                {[bankAccount.department_name, bankAccount.position_title]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                            </p>
+                        ) : null}
                     </div>
                 </div>
             </TableCell>
@@ -109,9 +116,6 @@ export function BankAccountsTableRow({
             </TableCell>
             <TableCell className={dataTableCellClass()}>
                 {formatDisplayDate(bankAccount.created_at)}
-            </TableCell>
-            <TableCell className={dataTableCellClass()}>
-                {bankAccount.profile_template_name?.trim() || 'Default'}
             </TableCell>
         </TableRow>
     );

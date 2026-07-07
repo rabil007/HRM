@@ -15,7 +15,8 @@ export type BankAccountListItem = EmployeeBankAccountItem & {
     employee_name: string;
     employee_no: string;
     employee_image: string | null;
-    profile_template_name: string | null;
+    department_name: string | null;
+    position_title: string | null;
     salary_payment_method?: SalaryPaymentMethodValue;
     salary_payment_method_label?: string;
     total_bank_accounts: number;
