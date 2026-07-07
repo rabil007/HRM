@@ -1704,7 +1704,7 @@ const employeeGroupLabels: Record<
     string
 > = {
     with_bank_account: 'Bank Account Set',
-    cash_payment: 'Cash Payment',
+    cash_payment: 'Non-bank payment',
     missing_bank_account: 'Missing Bank Account',
 };
 
@@ -1770,9 +1770,9 @@ function EmployeeAnalyticsCardsGrid({
                 onClick={() => onEmployeeGroupSelect('with_bank_account')}
             />
             <EmployeeAnalyticsCard
-                title="Cash Payment"
+                title="Non-bank payment"
                 value={employee_stats.cash_payment_count}
-                subtitle="Paid by C3, Ansari, or cash"
+                subtitle="C3, Ansari, Cash, or third party"
                 icon={Building2}
                 variant={
                     employee_stats.cash_payment_count > 0

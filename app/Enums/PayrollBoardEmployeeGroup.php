@@ -6,6 +6,7 @@ enum PayrollBoardEmployeeGroup: string
 {
     case Total = '';
     case WithBankAccount = 'with_bank_account';
+    /** All non-bank salary payment methods (C3, Ansari, Cash, third party). */
     case CashPayment = 'cash_payment';
     case MissingBankAccount = 'missing_bank_account';
 

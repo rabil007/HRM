@@ -307,7 +307,7 @@ class PayrollController extends Controller
             ->get(['id', 'salary_payment_method']);
         $totalCount = $allCategoryEmployees->count();
         $cashPaymentCount = $allCategoryEmployees->filter(
-            fn ($employee) => ($employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer)->isCash(),
+            fn ($employee) => ($employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer)->excludesFromWps(),
         )->count();
         $withBankCount = $allCategoryEmployees->filter(
             fn ($employee) => $employee->primaryBankAccount !== null,

@@ -207,6 +207,7 @@ final class PayrollPeriodBoardQuery
                 SalaryPaymentMethod::CashC3->value,
                 SalaryPaymentMethod::CashAnsari->value,
                 SalaryPaymentMethod::CashOther->value,
+                SalaryPaymentMethod::ThirdParty->value,
             ]),
             PayrollBoardEmployeeGroup::MissingBankAccount => $query
                 ->whereDoesntHave('primaryBankAccount')

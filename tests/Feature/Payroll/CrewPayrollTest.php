@@ -205,6 +205,27 @@ test('payroll show can filter board rows by employee analytics group', function 
         'status' => 'active',
     ]);
 
+    $thirdPartyEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'TP-001',
+        'name' => 'Third Party Crew',
+        'status' => 'active',
+        'salary_payment_method' => SalaryPaymentMethod::ThirdParty,
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $thirdPartyEmployee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'active',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('employee_stats.cash_payment_count', 2));
+
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('payroll.show', [
             'payrollPeriod' => $period,
@@ -213,9 +234,10 @@ test('payroll show can filter board rows by employee analytics group', function 
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
-            ->has('rows', 1)
+            ->has('rows', 2)
+            ->where('filters.employee_group', 'cash_payment')
             ->where('rows.0.employee.id', $cashEmployee->id)
-            ->where('filters.employee_group', 'cash_payment'));
+            ->where('rows.1.employee.id', $thirdPartyEmployee->id));
 
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('payroll.show', [
@@ -234,7 +256,7 @@ test('payroll show can filter board rows by employee analytics group', function 
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
-            ->has('rows', 2)
+            ->has('rows', 3)
             ->where('filters.employee_group', ''));
 });
 
