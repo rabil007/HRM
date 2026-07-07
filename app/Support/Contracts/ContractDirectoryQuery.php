@@ -50,8 +50,10 @@ final class ContractDirectoryQuery
             ->addSelect('employee_contracts.*')
             ->selectSub($totalContractsSubquery, 'total_contracts')
             ->with([
-                'employee:id,name,employee_no,image,company_id,branch_id,department_id,employee_profile_template_id',
+                'employee:id,name,employee_no,image,company_id,branch_id,department_id,position_id,employee_profile_template_id',
                 'employee.employeeProfileTemplate:id,name',
+                'employee.department:id,name',
+                'employee.position:id,title',
             ]);
     }
 

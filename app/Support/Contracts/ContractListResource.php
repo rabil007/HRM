@@ -21,6 +21,8 @@ final class ContractListResource
             'employee_name' => $employee?->name ?? '',
             'employee_no' => $employee?->employee_no ?? '',
             'employee_image' => $employee?->image,
+            'department_name' => $employee?->department?->name,
+            'position_title' => $employee?->position?->title,
             'profile_template_name' => $employee?->employeeProfileTemplate?->name,
             'total_contracts' => (int) $contract->total_contracts,
         ];

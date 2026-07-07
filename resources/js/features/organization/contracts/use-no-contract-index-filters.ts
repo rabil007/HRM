@@ -1,6 +1,5 @@
 import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ContractLifecycleFilter } from '@/features/organization/contracts/types';
 
 function cleanParams(
     params: Record<string, string | number | null | undefined>,
@@ -16,20 +15,14 @@ function cleanParams(
     return clean;
 }
 
-export function useContractsIndexFilters({
+export function useNoContractIndexFilters({
     url,
     initialSearch,
-    initialLifecycle,
-    initialStatus,
-    initialPayrollCategory,
     initialDepartmentId = '',
     perPage = 25,
 }: {
     url: string;
     initialSearch: string;
-    initialLifecycle: ContractLifecycleFilter;
-    initialStatus: string;
-    initialPayrollCategory: string;
     initialDepartmentId?: string;
     perPage?: number;
 }) {
@@ -49,21 +42,10 @@ export function useContractsIndexFilters({
     const baseParams = useCallback(
         () => ({
             search: initialSearch || undefined,
-            lifecycle:
-                initialLifecycle === 'all' ? undefined : initialLifecycle,
-            status: initialStatus || undefined,
-            payroll_category: initialPayrollCategory || undefined,
             department_id: initialDepartmentId || undefined,
             per_page: perPage,
         }),
-        [
-            initialDepartmentId,
-            initialLifecycle,
-            initialPayrollCategory,
-            initialSearch,
-            initialStatus,
-            perPage,
-        ],
+        [initialDepartmentId, initialSearch, perPage],
     );
 
     const visit = useCallback(
@@ -76,16 +58,12 @@ export function useContractsIndexFilters({
                 preserveState: true,
                 replace: true,
                 only: only ?? [
-                    'summary',
-                    'lifecycle',
+                    'employees',
+                    'pagination',
                     'search',
-                    'status',
-                    'payroll_category',
                     'department_id',
                     'department_tree',
                     'department_tree_selected_id',
-                    'contracts',
-                    'pagination',
                 ],
                 onFinish: () => {
                     setIsSearching(false);
@@ -115,28 +93,6 @@ export function useContractsIndexFilters({
         [baseParams, visit],
     );
 
-    const onLifecycleChange = useCallback(
-        (lifecycle: ContractLifecycleFilter) => {
-            visit({
-                ...baseParams(),
-                lifecycle: lifecycle === 'all' ? undefined : lifecycle,
-                page: null,
-            });
-        },
-        [baseParams, visit],
-    );
-
-    const onPayrollCategoryChange = useCallback(
-        (payrollCategory: string) => {
-            visit({
-                ...baseParams(),
-                payroll_category: payrollCategory || undefined,
-                page: null,
-            });
-        },
-        [baseParams, visit],
-    );
-
     const onDepartmentChange = useCallback(
         (departmentId: number | null) => {
             visit({
@@ -162,8 +118,6 @@ export function useContractsIndexFilters({
         searchInput,
         isSearching,
         onSearchChange,
-        onLifecycleChange,
-        onPayrollCategoryChange,
         onDepartmentChange,
         onPageChange,
     };

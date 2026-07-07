@@ -24,6 +24,8 @@ export type ContractListItem = EmployeeContractDetails & {
     employee_name: string;
     employee_no: string;
     employee_image: string | null;
+    department_name?: string | null;
+    position_title?: string | null;
     profile_template_name: string | null;
     total_contracts: number;
 };
@@ -57,6 +59,8 @@ export type ContractsIndexProps = {
     department_id: string;
     contracts: ContractListItem[];
     pagination: PaginationMeta;
+    department_tree?: import('@/features/organization/employees/types').DepartmentTreeNode[];
+    department_tree_selected_id?: number | null;
     can: ContractPageCan;
 };
 
@@ -74,6 +78,9 @@ export type NoContractIndexProps = {
     employees: NoContractEmployee[];
     pagination: PaginationMeta;
     search: string;
+    department_id?: string;
+    department_tree?: import('@/features/organization/employees/types').DepartmentTreeNode[];
+    department_tree_selected_id?: number | null;
     can: ContractPageCan;
 };
 

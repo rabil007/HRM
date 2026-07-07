@@ -1,6 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { ArrowLeft, UserX } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, Loader2, UserX } from 'lucide-react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -16,7 +15,9 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import type { NoContractEmployee, NoContractIndexProps } from '@/features/organization/contracts/types';
+import { useNoContractIndexFilters } from '@/features/organization/contracts/use-no-contract-index-filters';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
+import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -53,14 +54,15 @@ function NoContractTableRow({ emp }: { emp: NoContractEmployee }) {
                         <p className="truncate font-mono text-[11px] text-muted-foreground/75">
                             {emp.employee_no}
                         </p>
+                        {(emp.department || emp.position) ? (
+                            <p className="truncate text-[11px] text-muted-foreground/60">
+                                {[emp.department, emp.position]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                            </p>
+                        ) : null}
                     </div>
                 </div>
-            </TableCell>
-            <TableCell className={dataTableCellClass()}>
-                <span className="text-sm text-muted-foreground">{emp.department ?? '—'}</span>
-            </TableCell>
-            <TableCell className={dataTableCellClass()}>
-                <span className="text-sm text-muted-foreground">{emp.position ?? '—'}</span>
             </TableCell>
             <TableCell className={dataTableCellClass()}>
                 <span className="text-sm text-muted-foreground">
@@ -75,25 +77,22 @@ export function ContractsNoContractContent({
     employees,
     pagination,
     search: initialSearch,
+    department_id: initialDepartmentId = '',
+    department_tree,
+    department_tree_selected_id,
 }: NoContractIndexProps) {
-    const [searchInput, setSearchInput] = useState(initialSearch);
-
-    function onSearchChange(value: string) {
-        setSearchInput(value);
-        router.get(
-            noContract.url(),
-            { search: value || undefined },
-            { preserveState: true, preserveScroll: true },
-        );
-    }
-
-    function onPageChange(page: number) {
-        router.get(
-            noContract.url(),
-            { search: searchInput || undefined, page },
-            { preserveState: true, preserveScroll: true },
-        );
-    }
+    const {
+        searchInput,
+        isSearching,
+        onSearchChange,
+        onDepartmentChange,
+        onPageChange,
+    } = useNoContractIndexFilters({
+        url: noContract.url(),
+        initialSearch,
+        initialDepartmentId,
+        perPage: pagination.per_page,
+    });
 
     return (
         <Main>
@@ -115,6 +114,27 @@ export function ContractsNoContractContent({
                 value={searchInput}
                 onChange={onSearchChange}
                 placeholder="Search by name or employee number..."
+                right={
+                    <div className="flex items-center gap-2">
+                        {department_tree && department_tree.length > 0 ? (
+                            <DepartmentFilterControls
+                                department_tree={department_tree}
+                                department_tree_selected_id={department_tree_selected_id}
+                                department_tree_selected_position_id={null}
+                                onSelectDepartment={onDepartmentChange}
+                                onSelectPosition={(_, depId) =>
+                                    onDepartmentChange(depId)
+                                }
+                            />
+                        ) : null}
+                        {isSearching ? (
+                            <Loader2
+                                className="size-4 animate-spin text-muted-foreground"
+                                aria-hidden
+                            />
+                        ) : null}
+                    </div>
+                }
             />
 
             {employees.length === 0 ? (
@@ -122,19 +142,17 @@ export function ContractsNoContractContent({
                     icon={<UserX className="size-10 text-muted-foreground/40" />}
                     title="No employees found"
                     description={
-                        searchInput
-                            ? 'No employees match your search.'
+                        searchInput || initialDepartmentId
+                            ? 'No employees match your filters.'
                             : 'All employees have at least one contract assigned.'
                     }
                 />
             ) : (
                 <div className="space-y-4">
-                    <OrganizationDataTable minWidth="min-w-[800px]" compact>
+                    <OrganizationDataTable minWidth="min-w-[600px]" compact>
                         <TableHeader>
                             <DataTableHeaderRow>
                                 <DataTableHead>Employee</DataTableHead>
-                                <DataTableHead>Department</DataTableHead>
-                                <DataTableHead>Position</DataTableHead>
                                 <DataTableHead>Hire date</DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>

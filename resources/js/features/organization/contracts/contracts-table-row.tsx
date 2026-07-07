@@ -93,7 +93,7 @@ export function ContractsTableRow({
             onClick={() => router.visit(browseHref)}
         >
             <TableCell
-                className={cn(dataTableCellPrimaryClass(), 'min-w-[180px]')}
+                className={cn(dataTableCellPrimaryClass(), 'min-w-[200px]')}
             >
                 <div className="flex min-w-0 items-center gap-3">
                     <EmployeeProfileLink
@@ -118,6 +118,13 @@ export function ContractsTableRow({
                         <p className="truncate font-mono text-[11px] text-muted-foreground/75">
                             {contract.employee_no}
                         </p>
+                        {(contract.department_name || contract.position_title) ? (
+                            <p className="truncate text-[11px] text-muted-foreground/60">
+                                {[contract.department_name, contract.position_title]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                            </p>
+                        ) : null}
                     </div>
                 </div>
             </TableCell>
@@ -160,9 +167,6 @@ export function ContractsTableRow({
             <TableCell className={dataTableCellClass()}>
                 {formatDisplayDate(contract.end_date)}
             </TableCell>
-            <TableCell className={dataTableCellClass()}>
-                {formatContractMoney(contract.basic_salary)}
-            </TableCell>
             {showOfficeColumns ? (
                 <>
                     <TableCell className={dataTableCellClass()}>
@@ -188,9 +192,6 @@ export function ContractsTableRow({
                     </TableCell>
                 </>
             ) : null}
-            <TableCell className={dataTableCellClass()}>
-                {contract.profile_template_name?.trim() || 'Default'}
-            </TableCell>
         </TableRow>
     );
 }

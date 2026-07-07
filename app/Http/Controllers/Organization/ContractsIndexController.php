@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
+use App\Support\Contracts\ContractDepartmentTree;
 use App\Support\Contracts\ContractDirectoryFilters;
 use App\Support\Contracts\ContractDirectoryQuery;
 use App\Support\Contracts\ContractPagePermissions;
 use App\Support\Contracts\ContractSummaryQuery;
+use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -33,7 +35,14 @@ class ContractsIndexController extends Controller
             'department_id' => $filters->departmentId,
             'contracts' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
+            'department_tree' => ContractDepartmentTree::for(
+                $companyId,
+                new EmployeeDirectoryFilters(departmentId: $filters->departmentId),
+                ContractDepartmentTree::CONTEXT_INDEX,
+            ),
+            'department_tree_selected_id' => $filters->departmentId !== '' ? (int) $filters->departmentId : null,
             'can' => ContractPagePermissions::for($request->user()),
         ]);
     }
 }
+

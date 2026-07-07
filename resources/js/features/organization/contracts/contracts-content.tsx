@@ -18,6 +18,7 @@ import { ContractsSummaryCards } from '@/features/organization/contracts/contrac
 import { ContractsTableRow } from '@/features/organization/contracts/contracts-table-row';
 import type { ContractsIndexProps } from '@/features/organization/contracts/types';
 import { useContractsIndexFilters } from '@/features/organization/contracts/use-contracts-index-filters';
+import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { cn } from '@/lib/utils';
 import { contracts } from '@/routes/organization';
 
@@ -27,8 +28,11 @@ export function ContractsContent({
     search: initialSearch,
     status: initialStatus,
     payroll_category: initialPayrollCategory,
+    department_id: initialDepartmentId = '',
     contracts: contractRows,
     pagination,
+    department_tree,
+    department_tree_selected_id,
     can,
 }: ContractsIndexProps) {
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -38,6 +42,7 @@ export function ContractsContent({
         onSearchChange,
         onLifecycleChange,
         onPayrollCategoryChange,
+        onDepartmentChange,
         onPageChange,
     } = useContractsIndexFilters({
         url: contracts.url(),
@@ -45,6 +50,7 @@ export function ContractsContent({
         initialLifecycle,
         initialStatus,
         initialPayrollCategory,
+        initialDepartmentId,
         perPage: pagination.per_page,
     });
 
@@ -53,14 +59,14 @@ export function ContractsContent({
 
     const minWidth = useMemo(() => {
         if (showOfficeColumns) {
-            return 'min-w-[1830px]';
+            return 'min-w-[1580px]';
         }
 
         if (showCrewColumns) {
-            return 'min-w-[1670px]';
+            return 'min-w-[1420px]';
         }
 
-        return 'min-w-[1430px]';
+        return 'min-w-[1180px]';
     }, [showCrewColumns, showOfficeColumns]);
 
     const backContext = useMemo(
@@ -111,6 +117,17 @@ export function ContractsContent({
                 onChange={onSearchChange}
                 right={
                     <div className="flex flex-wrap items-center gap-2">
+                        {department_tree && department_tree.length > 0 ? (
+                            <DepartmentFilterControls
+                                department_tree={department_tree}
+                                department_tree_selected_id={department_tree_selected_id}
+                                department_tree_selected_position_id={null}
+                                onSelectDepartment={onDepartmentChange}
+                                onSelectPosition={(_, departmentId) =>
+                                    onDepartmentChange(departmentId)
+                                }
+                            />
+                        ) : null}
                         <div className="flex items-center rounded-xl glass-card p-1">
                             {(['', 'office', 'crew'] as const).map((value) => {
                                 const label =
@@ -167,7 +184,6 @@ export function ContractsContent({
                                 <DataTableHead>Status</DataTableHead>
                                 <DataTableHead>Start</DataTableHead>
                                 <DataTableHead>End</DataTableHead>
-                                <DataTableHead>Basic salary</DataTableHead>
                                 {showOfficeColumns ? (
                                     <>
                                         <DataTableHead>Housing</DataTableHead>
@@ -187,7 +203,6 @@ export function ContractsContent({
                                         </DataTableHead>
                                     </>
                                 ) : null}
-                                <DataTableHead>Profile template</DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>
