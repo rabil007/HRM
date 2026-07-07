@@ -50,7 +50,7 @@ final class BankAccountDirectoryQuery
             ->addSelect('employee_bank_accounts.*')
             ->selectSub($totalAccountsSubquery, 'total_bank_accounts')
             ->with([
-                'bank:id,name',
+                'bank:id,name,uae_routing_code_agent_id',
                 'employee:id,name,employee_no,image,company_id,branch_id,department_id,position_id,salary_payment_method',
                 'employee.department:id,name',
                 'employee.position:id,title',

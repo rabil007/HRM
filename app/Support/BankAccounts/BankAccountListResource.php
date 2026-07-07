@@ -18,6 +18,7 @@ final class BankAccountListResource
             'id' => $account->id,
             'bank_id' => $account->bank_id,
             'bank_name' => $account->bank?->name ?? '',
+            'bank_routing_code' => $account->bank?->uae_routing_code_agent_id,
             'iban' => $account->iban,
             'account_name' => $account->account_name,
             'is_primary' => (bool) $account->is_primary,

@@ -88,6 +88,11 @@ export function BankAccountsTableRow({
                 <span className="font-medium text-foreground">
                     {bankAccount.bank_name || '—'}
                 </span>
+                {bankAccount.bank_routing_code ? (
+                    <p className="font-mono text-[11px] text-muted-foreground/60">
+                        {bankAccount.bank_routing_code}
+                    </p>
+                ) : null}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
                 {bankAccount.account_name || '—'}

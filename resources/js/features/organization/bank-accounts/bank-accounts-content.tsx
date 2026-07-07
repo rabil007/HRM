@@ -10,14 +10,8 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { TableBody, TableHeader } from '@/components/ui/table';
 import { BankAccountsImportDialog } from '@/features/organization/bank-accounts/bank-accounts-import-dialog';
 import { BankAccountsSummaryCards } from '@/features/organization/bank-accounts/bank-accounts-summary-cards';
@@ -118,27 +112,23 @@ export function BankAccountsContent({
                             />
                         ) : null}
 
-                        <Select
-                            value={initialBankId || 'all'}
-                            onValueChange={(val) =>
-                                onBankChange(val === 'all' ? '' : val)
-                            }
+                        <AppSelect
+                            value={initialBankId || ''}
+                            onValueChange={(val) => onBankChange(val)}
+                            placeholder="All banks"
+                            searchPlaceholder="Search bank..."
+                            className="w-[200px]"
                         >
-                            <SelectTrigger className="h-12 w-[200px] rounded-xl glass-card px-4 text-sm font-medium transition-colors hover:bg-accent">
-                                <SelectValue placeholder="All banks" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All banks</SelectItem>
-                                {banks.map((bank) => (
-                                    <SelectItem
-                                        key={bank.id}
-                                        value={String(bank.id)}
-                                    >
-                                        {bank.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            <AppSelectItem value="">All banks</AppSelectItem>
+                            {banks.map((bank) => (
+                                <AppSelectItem
+                                    key={bank.id}
+                                    value={String(bank.id)}
+                                >
+                                    {bank.name}
+                                </AppSelectItem>
+                            ))}
+                        </AppSelect>
                     </div>
                 }
             />

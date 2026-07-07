@@ -15,6 +15,7 @@ export type BankAccountListItem = EmployeeBankAccountItem & {
     employee_name: string;
     employee_no: string;
     employee_image: string | null;
+    bank_routing_code: string | null;
     department_name: string | null;
     position_title: string | null;
     salary_payment_method?: SalaryPaymentMethodValue;
