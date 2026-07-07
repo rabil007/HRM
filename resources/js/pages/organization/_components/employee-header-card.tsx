@@ -233,6 +233,7 @@ export function EmployeeHeaderCard({
     company_visa_types = [],
     ranks,
     projects = [],
+    clients = [],
     form,
     activeField,
     setActiveField,
@@ -257,6 +258,7 @@ export function EmployeeHeaderCard({
     company_visa_types?: Option[];
     ranks: Option[];
     projects?: Array<{ id: number; title: string | null }>;
+    clients?: Array<{ id: number; name: string | null }>;
     form: any;
     activeField: string | null;
     setActiveField: (v: string | null) => void;
@@ -337,6 +339,7 @@ export function EmployeeHeaderCard({
         projects,
         'title',
     );
+    const { selectOptions: clientOptions } = useMutableSelectOptions(clients);
     const { selectOptions: genderOptions } = useMutableSelectOptions(genders);
     const { selectOptions: religionOptions } =
         useMutableSelectOptions(religions);
@@ -807,6 +810,37 @@ export function EmployeeHeaderCard({
                                 form.setData('project_id', value)
                             }
                             highlightMissing={isMissingRequired('project_id')}
+                        />
+                    )}
+
+                    {showField('client_id') && (
+                        <EditableDetailSelectField
+                            label="Client"
+                            field="client_id"
+                            value={form.data.client_id}
+                            displayValue={
+                                clientOptions.find(
+                                    (option) =>
+                                        option.value ===
+                                        String(
+                                            form.data.client_id ||
+                                                employee.client_id ||
+                                                '',
+                                        ),
+                                )?.label ??
+                                employee.client?.name ??
+                                '—'
+                            }
+                            options={clientOptions}
+                            creatableKey="client"
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            canEdit={canUpdate}
+                            onChange={(value) =>
+                                form.setData('client_id', value)
+                            }
+                            highlightMissing={isMissingRequired('client_id')}
                         />
                     )}
 

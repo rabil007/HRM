@@ -49,6 +49,7 @@ class Employee extends Model
                 'position_id',
                 'rank_id',
                 'project_id',
+                'client_id',
                 'employee_no',
                 'name',
                 'date_of_birth',
@@ -115,6 +116,11 @@ class Employee extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
+    }
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
     }
 
     public function contracts(): HasMany

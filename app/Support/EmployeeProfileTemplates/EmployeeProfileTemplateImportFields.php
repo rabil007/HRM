@@ -35,6 +35,7 @@ final class EmployeeProfileTemplateImportFields
         'department_id' => 'department',
         'position_id' => 'position',
         'project_id' => 'project',
+        'client_id' => 'client',
         'gender_id' => 'gender',
         'religion_id' => 'religion',
         'nationality_id' => 'nationality',

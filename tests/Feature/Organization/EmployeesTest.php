@@ -3,6 +3,7 @@
 use App\Enums\SalaryPaymentMethod;
 use App\Models\ApprovalLocation;
 use App\Models\Branch;
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\CompanyVisaType;
 use App\Models\Country;
@@ -126,7 +127,8 @@ test('authenticated users can view an employee details page', function () {
                 ->has('employee')
                 ->has('employee_tabs')
                 ->has('ranks')
-                ->has('projects'),
+                ->has('projects')
+                ->has('profile_clients'),
         ));
 });
 
@@ -250,7 +252,7 @@ test('employee profile profile_fields excludes unchecked template fields such as
 
     expect($profileFields)->toBeArray()
         ->and($profileFields)->toContain('work_email', 'religion_id')
-        ->and($profileFields)->not->toContain('rank_id', 'project_id', 'place_of_birth', 'gender_id', 'visa_type_id', 'company_visa_type_id');
+        ->and($profileFields)->not->toContain('rank_id', 'project_id', 'client_id', 'place_of_birth', 'gender_id', 'visa_type_id', 'company_visa_type_id');
 });
 
 test('employee profile profile_fields includes visa_type_id when enabled in template', function () {
@@ -1329,6 +1331,172 @@ test('employee import resolves project name when project_id is enabled in templa
         'name' => 'Project Employee',
         'project_id' => $project->id,
     ]);
+});
+
+test('employee import resolves client name when client_id is enabled in template', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'CLI',
+        'name' => 'Client Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'CLI',
+        'name' => 'Client Currency',
+        'symbol' => 'C$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Client Co',
+        'slug' => 'client-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $client = Client::query()->create([
+        'name' => 'ADNOC Offshore',
+        'is_active' => true,
+    ]);
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'With Client',
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.import']);
+
+    $csv = "employee_no,name,client\n"
+        ."EMP-CLI-1,Client Employee,ADNOC Offshore\n";
+
+    $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $this->post('/organization/employees/import', [
+        'file' => $file,
+        'employee_profile_template_id' => $template->id,
+    ])->assertRedirect('/organization/employees');
+
+    $this->assertDatabaseHas('employees', [
+        'company_id' => $company->id,
+        'employee_no' => 'EMP-CLI-1',
+        'name' => 'Client Employee',
+        'client_id' => $client->id,
+    ]);
+});
+
+test('employee update persists client_id', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'CLU',
+        'name' => 'Client Update Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'CLU',
+        'name' => 'Client Update Currency',
+        'symbol' => 'U$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Client Update Co',
+        'slug' => 'client-update-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $client = Client::query()->create([
+        'name' => 'North Oil',
+        'is_active' => true,
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'EMP-CLU-1',
+        'name' => 'Client Worker',
+        'client_id' => null,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $this->put("/organization/employees/{$employee->id}", [
+        'employee_no' => 'EMP-CLU-1',
+        'name' => 'Client Worker',
+        'status' => 'active',
+        'client_id' => $client->id,
+    ])->assertRedirect("/organization/employees/{$employee->id}");
+
+    expect($employee->fresh()->client_id)->toBe($client->id);
+});
+
+test('employee import update rejects unknown client values', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'UCB',
+        'name' => 'Unknown Client Land',
+        'dial_code' => '+980',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'UCB',
+        'name' => 'Unknown Client Currency',
+        'symbol' => 'B$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Unknown Client Co',
+        'slug' => 'unknown-client-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Unknown Client Template',
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'employee_no' => '2025',
+        'name' => 'Existing Employee',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.import', 'employees.update']);
+
+    $csv = "employee_no,client\n2025,Unknown Client\n";
+    $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $preview = $this->post('/organization/employees/import/preview', [
+        'file' => $file,
+        'employee_profile_template_id' => $template->id,
+    ]);
+
+    $preview->assertOk();
+    expect(collect($preview->json('errors'))->pluck('field'))->toContain('client');
 });
 
 test('employee import updates existing employees when employee number matches', function () {

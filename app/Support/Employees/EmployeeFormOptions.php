@@ -5,6 +5,7 @@ namespace App\Support\Employees;
 use App\Models\ApprovalLocation;
 use App\Models\Bank;
 use App\Models\Branch;
+use App\Models\Client;
 use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Department;
@@ -96,6 +97,7 @@ final class EmployeeFormOptions
             'banks' => self::banks(),
             'ranks' => self::activeRanks(),
             'projects' => self::activeProjects(),
+            'clients' => self::activeClients(),
             'document_types' => self::documentTypes(),
         ];
     }
@@ -107,6 +109,7 @@ final class EmployeeFormOptions
      * @return array{
      *     ranks: Collection,
      *     projects: Collection,
+     *     clients: Collection,
      *     document_types: Collection
      * }
      */
@@ -115,6 +118,7 @@ final class EmployeeFormOptions
         return [
             'ranks' => self::ranksForProfile($employee, $ensureRankIds),
             'projects' => self::projectsForProfile($employee),
+            'clients' => self::clientsForProfile($employee),
             'document_types' => self::documentTypes(),
         ];
     }
@@ -295,6 +299,14 @@ final class EmployeeFormOptions
             ->get(['id', 'title']));
     }
 
+    private static function activeClients()
+    {
+        return once(fn () => Client::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']));
+    }
+
     private static function documentTypes()
     {
         return once(fn () => DocumentType::query()
@@ -346,5 +358,19 @@ final class EmployeeFormOptions
             })
             ->orderBy('title')
             ->get(['id', 'title']);
+    }
+
+    private static function clientsForProfile(Employee $employee)
+    {
+        return Client::query()
+            ->where(function ($query) use ($employee): void {
+                $query->where('is_active', true);
+
+                if ($employee->client_id !== null) {
+                    $query->orWhere('id', $employee->client_id);
+                }
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
     }
 }

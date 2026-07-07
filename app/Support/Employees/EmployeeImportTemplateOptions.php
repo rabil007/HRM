@@ -3,6 +3,7 @@
 namespace App\Support\Employees;
 
 use App\Models\Branch;
+use App\Models\Client;
 use App\Models\Country;
 use App\Models\Department;
 use App\Models\Gender;
@@ -46,6 +47,13 @@ final class EmployeeImportTemplateOptions
                 ->orderBy('title')
                 ->pluck('title')
                 ->map(fn ($title) => (string) $title)
+                ->values()
+                ->all(),
+            'client' => Client::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->pluck('name')
+                ->map(fn ($name) => (string) $name)
                 ->values()
                 ->all(),
             'gender' => Gender::query()

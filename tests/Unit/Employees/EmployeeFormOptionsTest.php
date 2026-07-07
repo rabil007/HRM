@@ -101,6 +101,7 @@ test('employee form options for create returns nested onboarding option keys', f
         'banks',
         'ranks',
         'projects',
+        'clients',
         'document_types',
     ]);
 });

@@ -102,6 +102,7 @@ final class CreateEmployee
             'position_id',
             'rank_id',
             'project_id',
+            'client_id',
             'date_of_birth',
             'hire_date',
             'nationality_id',

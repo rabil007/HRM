@@ -43,6 +43,11 @@ final class EmployeeDetailResource
                 'id' => $employee->project_id,
                 'title' => $employee->project?->title,
             ] : null,
+            'client_id' => $employee->client_id,
+            'client' => $employee->client_id ? [
+                'id' => $employee->client_id,
+                'name' => $employee->client?->name,
+            ] : null,
             'manager' => ResolveDepartmentEffectiveManager::managerPayloadForEmployee($employee),
             'employee_no' => $employee->employee_no,
             'name' => $employee->name,

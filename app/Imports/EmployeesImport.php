@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\Branch;
+use App\Models\Client;
 use App\Models\Country;
 use App\Models\Department;
 use App\Models\Employee;
@@ -52,6 +53,7 @@ class EmployeesImport
         'department' => ['department', 'department name', 'dept'],
         'position' => ['position', 'position title', 'job title', 'title'],
         'project' => ['project', 'project name', 'project title'],
+        'client' => ['client', 'client name'],
         'gender' => ['gender'],
         'religion' => ['religion'],
         'nationality' => ['nationality', 'country'],
@@ -88,6 +90,7 @@ class EmployeesImport
             'department' => ['employees', 'department_id'],
             'position' => ['employees', 'position_id'],
             'project' => ['employees', 'project_id'],
+            'client' => ['employees', 'client_id'],
             'gender' => ['employees', 'gender_id'],
             'religion' => ['employees', 'religion_id'],
             'nationality' => ['employees', 'nationality_id'],
@@ -135,6 +138,7 @@ class EmployeesImport
         'department',
         'position',
         'project',
+        'client',
         'gender',
         'religion',
         'nationality',
@@ -175,6 +179,11 @@ class EmployeesImport
      * @var array<string, int>|null
      */
     private ?array $projectMap = null;
+
+    /**
+     * @var array<string, int>|null
+     */
+    private ?array $clientMap = null;
 
     public function __construct(public int $companyId, public int $actorId) {}
 
@@ -538,6 +547,7 @@ class EmployeesImport
                         'department_id' => $resolved['department_id'] ?? null,
                         'position_id' => $resolved['position_id'] ?? null,
                         'project_id' => $resolved['project_id'] ?? null,
+                        'client_id' => $resolved['client_id'] ?? null,
                         'gender_id' => $resolved['gender_id'] ?? null,
                         'religion_id' => $resolved['religion_id'] ?? null,
                         'nationality_id' => $resolved['nationality_id'] ?? null,
@@ -721,7 +731,7 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id'] as $key => $field) {
+        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id', 'client' => 'client_id'] as $key => $field) {
             if ($this->fieldHasValue($row, $key)) {
                 $payload[$field] = $resolved[$field];
             }
@@ -788,7 +798,7 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => $this->genderMap, 'religion' => $this->religionMap, 'nationality' => $this->countryMap, 'project' => $this->projectMap] as $key => $map) {
+        foreach (['gender' => $this->genderMap, 'religion' => $this->religionMap, 'nationality' => $this->countryMap, 'project' => $this->projectMap, 'client' => $this->clientMap] as $key => $map) {
             if (! empty($row[$key])) {
                 $name = self::normalize((string) $row[$key]);
 
@@ -812,6 +822,7 @@ class EmployeesImport
             'department_id' => null,
             'position_id' => null,
             'project_id' => null,
+            'client_id' => null,
             'gender_id' => null,
             'religion_id' => null,
             'nationality_id' => null,
@@ -825,7 +836,7 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id'] as $key => $field) {
+        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id', 'client' => 'client_id'] as $key => $field) {
             if (! empty($row[$key])) {
                 $name = self::normalize((string) $row[$key]);
                 $map = match ($key) {
@@ -833,6 +844,7 @@ class EmployeesImport
                     'religion' => $this->religionMap,
                     'nationality' => $this->countryMap,
                     'project' => $this->projectMap,
+                    'client' => $this->clientMap,
                     default => [],
                 };
                 $resolved[$field] = $map[$name] ?? null;
@@ -869,6 +881,11 @@ class EmployeesImport
         $this->projectMap = Project::query()
             ->pluck('id', 'title')
             ->mapWithKeys(fn ($id, $title) => [self::normalize((string) $title) => (int) $id])
+            ->all();
+
+        $this->clientMap = Client::query()
+            ->pluck('id', 'name')
+            ->mapWithKeys(fn ($id, $name) => [self::normalize((string) $name) => (int) $id])
             ->all();
 
         $this->genderMap = Gender::query()

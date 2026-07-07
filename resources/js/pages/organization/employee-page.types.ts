@@ -59,6 +59,8 @@ export type EmployeeDetails = {
     rank?: { id: number; name: string | null } | null;
     project_id?: number | null;
     project?: { id: number; title: string | null } | null;
+    client_id?: number | null;
+    client?: { id: number; name: string | null } | null;
     manager: {
         id: number;
         employee_no: string | null;
@@ -363,6 +365,7 @@ export type EmployeePageProps = {
     banks: BankOption[];
     ranks: RankOption[];
     projects: ProjectOption[];
+    profile_clients: ClientOption[];
     vessel_types?: VesselTypeOption[];
     vessels?: VesselOption[];
     clients?: ClientOption[];

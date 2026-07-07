@@ -49,6 +49,7 @@ final class EmployeeProfilePageData
             'position:id,title',
             'rank:id,name',
             'project:id,title',
+            'client:id,name',
             'user:id,name,email,avatar',
             'religionRef:id,name',
             'genderRef:id,name',
@@ -137,6 +138,7 @@ final class EmployeeProfilePageData
             'banks' => $formOptions['banks'],
             'ranks' => $profileLookups['ranks'],
             'projects' => $profileLookups['projects'],
+            'profile_clients' => $profileLookups['clients'],
             'employee_tabs' => $employeeTabsPayload,
             'contract_count' => self::contractCount($companyId, $employee->id),
             'contracts' => Inertia::defer(
@@ -217,7 +219,11 @@ final class EmployeeProfilePageData
         $formOptions = EmployeeFormOptions::for($companyId);
         $profileLookups = $employee !== null
             ? EmployeeFormOptions::forProfile($companyId, $employee, [])
-            : ['ranks' => EmployeeFormOptions::forCreate($companyId)['ranks'], 'projects' => EmployeeFormOptions::forCreate($companyId)['projects']];
+            : [
+                'ranks' => EmployeeFormOptions::forCreate($companyId)['ranks'],
+                'projects' => EmployeeFormOptions::forCreate($companyId)['projects'],
+                'clients' => EmployeeFormOptions::forCreate($companyId)['clients'],
+            ];
 
         $employeeId = $employee?->id;
         $employeePayload = $employee !== null
@@ -253,6 +259,7 @@ final class EmployeeProfilePageData
             'banks' => $formOptions['banks'],
             'ranks' => $profileLookups['ranks'],
             'projects' => $profileLookups['projects'],
+            'profile_clients' => $profileLookups['clients'],
             'employee_tabs' => $employeeTabsPayload,
             'contract_count' => $employeeId ? self::contractCount($companyId, $employeeId) : 0,
             'contracts' => $employeeId ? self::contracts($companyId, $employeeId) : [],

@@ -43,6 +43,7 @@ class StoreEmployeeRequest extends FormRequest
             ],
             'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')],
             'project_id' => ['nullable', 'integer', Rule::exists('projects', 'id')],
+            'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')],
             'employee_no' => $this->employeeNumberRules($companyId),
             'name' => ['required', 'string', 'max:200'],
             'image' => ['nullable', 'image', 'max:4096'],

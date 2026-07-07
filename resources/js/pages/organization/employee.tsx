@@ -108,6 +108,7 @@ function EmployeeDetailsPage({
     banks,
     ranks,
     projects,
+    profile_clients,
     vessel_types,
     vessels,
     clients,
@@ -640,6 +641,7 @@ function EmployeeDetailsPage({
                             positions={positions}
                             ranks={ranks}
                             projects={projects}
+                            clients={profile_clients}
                             countries={countries}
                             genders={genders}
                             religions={religions}
