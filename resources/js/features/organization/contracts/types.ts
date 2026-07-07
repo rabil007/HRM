@@ -50,12 +50,15 @@ export type ContractPageCan = {
     import: boolean;
 };
 
+export type ContractSalaryStructureFilter = '' | 'daily' | 'monthly';
+
 export type ContractsIndexProps = {
     summary: ContractSummary;
     lifecycle: ContractLifecycleFilter;
     search: string;
     status: string;
     payroll_category: string;
+    salary_structure: ContractSalaryStructureFilter;
     branch_id: string;
     department_id: string;
     contracts: ContractListItem[];

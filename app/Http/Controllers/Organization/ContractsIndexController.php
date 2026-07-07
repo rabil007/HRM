@@ -31,6 +31,7 @@ class ContractsIndexController extends Controller
             'search' => $filters->search,
             'status' => $filters->status,
             'payroll_category' => $filters->payrollCategory,
+            'salary_structure' => $filters->salaryStructure,
             'branch_id' => $filters->branchId,
             'department_id' => $filters->departmentId,
             'contracts' => $paginator->items(),
@@ -45,4 +46,3 @@ class ContractsIndexController extends Controller
         ]);
     }
 }
-

@@ -71,6 +71,10 @@ final class ContractDirectoryQuery
     {
         ContractLifecycleFilter::apply($query, $this->filters->lifecycle);
 
+        if ($this->filters->salaryStructure !== '') {
+            ContractSalaryStructureFilter::apply($query, $this->filters->salaryStructure);
+        }
+
         $query
             ->when($this->filters->status !== '', fn (Builder $inner) => $inner->where('employee_contracts.status', $this->filters->status))
             ->when($this->filters->search !== '', function (Builder $inner): void {

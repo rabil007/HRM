@@ -22,7 +22,7 @@ final class ContractShowBackNavigation
 
         $query = [];
 
-        foreach (['search', 'lifecycle', 'status', 'payroll_category', 'branch_id', 'department_id', 'page'] as $key) {
+        foreach (['search', 'lifecycle', 'status', 'payroll_category', 'salary_structure', 'branch_id', 'department_id', 'page'] as $key) {
             $value = $request->query($key);
 
             if ($value !== null && $value !== '') {

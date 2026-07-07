@@ -222,6 +222,84 @@ test('contracts index filters by lifecycle and workforce department scope', func
             ->where('contracts.0.salary_structure', 'daily'));
 });
 
+test('contracts index filters by salary structure', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'branch' => $branch] = makeContractFixtures();
+
+    grantCompanyPermissions($user, $company, ['contracts.view']);
+
+    $officeEmployee = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'employee_no' => 'CTR-OFF-03',
+        'name' => 'Monthly Office Employee',
+        'status' => 'active',
+    ]);
+
+    $dailyCrewEmployee = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'employee_no' => 'CTR-CREW-03',
+        'name' => 'Daily Crew Employee',
+        'status' => 'active',
+    ]);
+
+    $monthlyCrewEmployee = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'employee_no' => 'CTR-CREW-04',
+        'name' => 'Monthly Crew Employee',
+        'status' => 'active',
+    ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $officeEmployee->id,
+        'payroll_category' => PayrollCategory::Office->value,
+        'salary_structure' => 'monthly',
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+    ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $dailyCrewEmployee->id,
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'daily',
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+    ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $monthlyCrewEmployee->id,
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'monthly',
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+    ]);
+
+    $this->get(route('organization.contracts', ['salary_structure' => 'daily']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('salary_structure', 'daily')
+            ->has('contracts', 1)
+            ->where('contracts.0.employee_name', 'Daily Crew Employee')
+            ->where('contracts.0.salary_structure', 'daily'));
+
+    $this->get(route('organization.contracts', ['salary_structure' => 'monthly']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('salary_structure', 'monthly')
+            ->has('contracts', 2)
+            ->where('contracts.0.employee_name', 'Monthly Crew Employee')
+            ->where('contracts.0.salary_structure', 'monthly')
+            ->where('contracts.1.employee_name', 'Monthly Office Employee')
+            ->where('contracts.1.salary_structure', 'monthly'));
+});
+
 test('contracts index supports search by employee name and labor contract id', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

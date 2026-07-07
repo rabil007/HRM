@@ -7,6 +7,7 @@ export type ContractEmployeeBackContext = {
     lifecycle?: ContractLifecycleFilter;
     status?: string;
     payroll_category?: string;
+    salary_structure?: string;
     branch_id?: string;
     department_id?: string;
     page?: number;
@@ -34,6 +35,10 @@ export function buildContractEmployeeUrl(
 
     if (back.payroll_category?.trim()) {
         query.payroll_category = back.payroll_category.trim();
+    }
+
+    if (back.salary_structure?.trim()) {
+        query.salary_structure = back.salary_structure.trim();
     }
 
     if (back.branch_id?.trim()) {

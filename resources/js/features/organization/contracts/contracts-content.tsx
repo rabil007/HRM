@@ -28,6 +28,7 @@ export function ContractsContent({
     search: initialSearch,
     status: initialStatus,
     payroll_category: initialPayrollCategory,
+    salary_structure: initialSalaryStructure = '',
     department_id: initialDepartmentId = '',
     contracts: contractRows,
     pagination,
@@ -42,6 +43,7 @@ export function ContractsContent({
         onSearchChange,
         onLifecycleChange,
         onPayrollCategoryChange,
+        onSalaryStructureChange,
         onDepartmentChange,
         onPageChange,
     } = useContractsIndexFilters({
@@ -50,6 +52,7 @@ export function ContractsContent({
         initialLifecycle,
         initialStatus,
         initialPayrollCategory,
+        initialSalaryStructure,
         initialDepartmentId,
         perPage: pagination.per_page,
     });
@@ -76,11 +79,13 @@ export function ContractsContent({
             lifecycle: initialLifecycle,
             status: initialStatus,
             payroll_category: initialPayrollCategory,
+            salary_structure: initialSalaryStructure,
             page: pagination.current_page,
         }),
         [
             initialLifecycle,
             initialPayrollCategory,
+            initialSalaryStructure,
             initialSearch,
             initialStatus,
             pagination.current_page,
@@ -150,6 +155,35 @@ export function ContractsContent({
                                         )}
                                         onClick={() =>
                                             onPayrollCategoryChange(value)
+                                        }
+                                    >
+                                        {label}
+                                    </Button>
+                                );
+                            })}
+                        </div>
+                        <div className="flex items-center rounded-xl glass-card p-1">
+                            {(['', 'daily', 'monthly'] as const).map((value) => {
+                                const label =
+                                    value === ''
+                                        ? 'All structures'
+                                        : value === 'daily'
+                                          ? 'Daily'
+                                          : 'Monthly';
+                                const isActive =
+                                    initialSalaryStructure === value;
+
+                                return (
+                                    <Button
+                                        key={value || 'all-structures'}
+                                        type="button"
+                                        variant={isActive ? 'default' : 'ghost'}
+                                        className={cn(
+                                            'h-10 rounded-lg px-4 text-sm font-medium transition-all',
+                                            !isActive && 'hover:bg-accent',
+                                        )}
+                                        onClick={() =>
+                                            onSalaryStructureChange(value)
                                         }
                                     >
                                         {label}

@@ -1,6 +1,9 @@
 import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ContractLifecycleFilter } from '@/features/organization/contracts/types';
+import type {
+    ContractLifecycleFilter,
+    ContractSalaryStructureFilter,
+} from '@/features/organization/contracts/types';
 
 function cleanParams(
     params: Record<string, string | number | null | undefined>,
@@ -22,6 +25,7 @@ export function useContractsIndexFilters({
     initialLifecycle,
     initialStatus,
     initialPayrollCategory,
+    initialSalaryStructure = '',
     initialDepartmentId = '',
     perPage = 25,
 }: {
@@ -30,6 +34,7 @@ export function useContractsIndexFilters({
     initialLifecycle: ContractLifecycleFilter;
     initialStatus: string;
     initialPayrollCategory: string;
+    initialSalaryStructure?: ContractSalaryStructureFilter;
     initialDepartmentId?: string;
     perPage?: number;
 }) {
@@ -53,6 +58,7 @@ export function useContractsIndexFilters({
                 initialLifecycle === 'all' ? undefined : initialLifecycle,
             status: initialStatus || undefined,
             payroll_category: initialPayrollCategory || undefined,
+            salary_structure: initialSalaryStructure || undefined,
             department_id: initialDepartmentId || undefined,
             per_page: perPage,
         }),
@@ -60,6 +66,7 @@ export function useContractsIndexFilters({
             initialDepartmentId,
             initialLifecycle,
             initialPayrollCategory,
+            initialSalaryStructure,
             initialSearch,
             initialStatus,
             perPage,
@@ -81,6 +88,7 @@ export function useContractsIndexFilters({
                     'search',
                     'status',
                     'payroll_category',
+                    'salary_structure',
                     'department_id',
                     'department_tree',
                     'department_tree_selected_id',
@@ -137,6 +145,17 @@ export function useContractsIndexFilters({
         [baseParams, visit],
     );
 
+    const onSalaryStructureChange = useCallback(
+        (salaryStructure: ContractSalaryStructureFilter) => {
+            visit({
+                ...baseParams(),
+                salary_structure: salaryStructure || undefined,
+                page: null,
+            });
+        },
+        [baseParams, visit],
+    );
+
     const onDepartmentChange = useCallback(
         (departmentId: number | null) => {
             visit({
@@ -164,6 +183,7 @@ export function useContractsIndexFilters({
         onSearchChange,
         onLifecycleChange,
         onPayrollCategoryChange,
+        onSalaryStructureChange,
         onDepartmentChange,
         onPageChange,
     };

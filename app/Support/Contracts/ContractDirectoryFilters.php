@@ -12,6 +12,7 @@ final class ContractDirectoryFilters
         public readonly string $lifecycle = ContractLifecycleFilter::ALL,
         public readonly string $status = '',
         public readonly string $payrollCategory = '',
+        public readonly string $salaryStructure = '',
         public readonly string $branchId = '',
         public readonly string $departmentId = '',
     ) {}
@@ -30,11 +31,18 @@ final class ContractDirectoryFilters
             $payrollCategory = '';
         }
 
+        $salaryStructure = (string) $request->query('salary_structure', '');
+
+        if ($salaryStructure !== '' && ! ContractSalaryStructureFilter::isValid($salaryStructure)) {
+            $salaryStructure = '';
+        }
+
         return new self(
             search: trim((string) $request->query('search', '')),
             lifecycle: $lifecycle,
             status: (string) $request->query('status', ''),
             payrollCategory: $payrollCategory,
+            salaryStructure: $salaryStructure,
             branchId: (string) $request->query('branch_id', ''),
             departmentId: (string) $request->query('department_id', ''),
         );
@@ -61,6 +69,10 @@ final class ContractDirectoryFilters
 
         if ($this->payrollCategory !== '') {
             $query['payroll_category'] = $this->payrollCategory;
+        }
+
+        if ($this->salaryStructure !== '') {
+            $query['salary_structure'] = $this->salaryStructure;
         }
 
         if ($this->branchId !== '') {
