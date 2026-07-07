@@ -17,42 +17,17 @@ final class CompanyLogoDataUri
         $cacheKey = (string) ($company?->id ?? 'global').'|'.($company?->logo ?? '');
 
         if (array_key_exists($cacheKey, self::$resolvedByCompany)) {
-            // #region agent log
-            file_put_contents(
-                '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-386635.log',
-                json_encode([
-                    'sessionId' => '386635',
-                    'hypothesisId' => 'D',
-                    'location' => 'CompanyLogoDataUri.php:resolve',
-                    'message' => 'company_logo_cache_hit',
-                    'data' => [
-                        'company_id' => $company?->id,
-                        'duration_ms' => 0,
-                        'has_logo' => self::$resolvedByCompany[$cacheKey] !== null,
-                    ],
-                    'timestamp' => (int) (microtime(true) * 1000),
-                ])."\n",
-                FILE_APPEND,
-            );
-            // #endregion
-
             return self::$resolvedByCompany[$cacheKey];
         }
 
-        // #region agent log
-        $startedAt = microtime(true);
-        // #endregion
-
         $settings ??= app(SettingService::class);
         $resolved = null;
-        $source = 'none';
 
         if (filled($company?->logo)) {
             $embedded = self::fromPublicDiskPath((string) $company->logo);
 
             if ($embedded !== null) {
                 $resolved = $embedded;
-                $source = 'company_logo';
             }
         }
 
@@ -65,7 +40,6 @@ final class CompanyLogoDataUri
 
                     if ($embedded !== null) {
                         $resolved = $embedded;
-                        $source = (string) $key;
 
                         break;
                     }
@@ -74,26 +48,6 @@ final class CompanyLogoDataUri
         }
 
         self::$resolvedByCompany[$cacheKey] = $resolved;
-
-        // #region agent log
-        file_put_contents(
-            '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-386635.log',
-            json_encode([
-                'sessionId' => '386635',
-                'hypothesisId' => 'D',
-                'location' => 'CompanyLogoDataUri.php:resolve',
-                'message' => $resolved === null ? 'company_logo_not_found' : 'company_logo_resolved',
-                'data' => [
-                    'company_id' => $company?->id,
-                    'source' => $source,
-                    'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
-                    'embedded_length' => $resolved !== null ? strlen($resolved) : 0,
-                ],
-                'timestamp' => (int) (microtime(true) * 1000),
-            ])."\n",
-            FILE_APPEND,
-        );
-        // #endregion
 
         return $resolved;
     }

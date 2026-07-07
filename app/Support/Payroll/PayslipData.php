@@ -126,11 +126,7 @@ final class PayslipData
             return $stored;
         }
 
-        // #region agent log
-        $queryStartedAt = microtime(true);
-        // #endregion
-
-        $salaryInputs = SalaryInput::query()
+        return SalaryInput::query()
             ->where('company_id', $record->company_id)
             ->where('period_id', $record->period_id)
             ->where('employee_id', $record->employee_id)
@@ -140,28 +136,6 @@ final class PayslipData
             ->map(fn (SalaryInput $input) => SalaryInputResource::toArray($input))
             ->values()
             ->all();
-
-        // #region agent log
-        file_put_contents(
-            '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-386635.log',
-            json_encode([
-                'sessionId' => '386635',
-                'hypothesisId' => 'C',
-                'location' => 'PayslipData.php:resolveOfficeSalaryInputLines',
-                'message' => 'salary_input_query_executed',
-                'data' => [
-                    'record_id' => $record->id,
-                    'employee_id' => $record->employee_id,
-                    'row_count' => count($salaryInputs),
-                    'duration_ms' => (int) round((microtime(true) - $queryStartedAt) * 1000),
-                ],
-                'timestamp' => (int) (microtime(true) * 1000),
-            ])."\n",
-            FILE_APPEND,
-        );
-        // #endregion
-
-        return $salaryInputs;
     }
 
     /**
