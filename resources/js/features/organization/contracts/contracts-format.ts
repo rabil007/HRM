@@ -21,6 +21,11 @@ export const PAYROLL_CATEGORY_LABELS: Record<string, string> = {
     crew: 'Crew',
 };
 
+export const SALARY_STRUCTURE_LABELS: Record<string, string> = {
+    daily: 'Daily',
+    monthly: 'Monthly',
+};
+
 export function formatContractStatus(value: string | null | undefined): string {
     if (!value) {
         return '—';
@@ -35,6 +40,14 @@ export function formatPayrollCategory(value: string | null | undefined): string 
     }
 
     return PAYROLL_CATEGORY_LABELS[value] ?? value;
+}
+
+export function formatSalaryStructure(value: string | null | undefined): string {
+    if (!value) {
+        return '—';
+    }
+
+    return SALARY_STRUCTURE_LABELS[value] ?? value;
 }
 
 export function formatContractMoney(value: number | null | undefined): string {

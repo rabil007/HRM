@@ -89,6 +89,7 @@ test('contracts index returns paginated contracts with summary', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'payroll_category' => PayrollCategory::Office->value,
+        'salary_structure' => 'monthly',
         'start_date' => '2026-01-01',
         'end_date' => null,
         'status' => 'active',
@@ -114,6 +115,7 @@ test('contracts index returns paginated contracts with summary', function () {
             ->where('summary.ended', 1)
             ->has('contracts', 2)
             ->where('contracts.0.employee_name', 'Contract Employee')
+            ->where('contracts.0.salary_structure', 'monthly')
             ->where('contracts.0.total_contracts', 1)
             ->where('contracts.1.total_contracts', 1)
             ->where('can.view', true)
@@ -216,7 +218,8 @@ test('contracts index filters by lifecycle and workforce department scope', func
         ->assertInertia(fn (Assert $page) => $page
             ->where('payroll_category', 'crew')
             ->has('contracts', 1)
-            ->where('contracts.0.payroll_category', 'crew'));
+            ->where('contracts.0.payroll_category', 'crew')
+            ->where('contracts.0.salary_structure', 'daily'));
 });
 
 test('contracts index supports search by employee name and labor contract id', function () {

@@ -52,6 +52,7 @@ test('employee contracts browse page loads contracts and template fields', funct
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'payroll_category' => PayrollCategory::Office->value,
+        'salary_structure' => 'monthly',
         'start_date' => '2026-01-01',
         'status' => 'active',
         'basic_salary' => 7500,
@@ -65,6 +66,7 @@ test('employee contracts browse page loads contracts and template fields', funct
             ->where('employee.name', 'Contract Employee')
             ->has('contracts', 1)
             ->where('contracts.0.basic_salary', '7500.00')
+            ->where('contracts.0.salary_structure', 'monthly')
             ->has('template_contract_fields.start_date')
             ->where('can.view', true)
             ->where('can.create', true)

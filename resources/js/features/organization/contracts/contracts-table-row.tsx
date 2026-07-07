@@ -10,6 +10,7 @@ import {
     formatContractMoney,
     formatContractStatus,
     formatPayrollCategory,
+    formatSalaryStructure,
 } from '@/features/organization/contracts/contracts-format';
 import type { ContractListItem } from '@/features/organization/contracts/types';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
@@ -143,6 +144,9 @@ export function ContractsTableRow({
             </TableCell>
             <TableCell className={dataTableCellClass()}>
                 {formatPayrollCategory(contract.payroll_category)}
+            </TableCell>
+            <TableCell className={dataTableCellClass()}>
+                {formatSalaryStructure(contract.salary_structure)}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
                 <div className="flex items-center">

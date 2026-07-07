@@ -122,7 +122,9 @@ test('employee show page includes contracts tab data when user can view contract
             ->where('can.contracts_view', true)
             ->tap(fn (Assert $page) => assertEmployeeProfileRecords(
                 $page,
-                fn (Assert $deferred) => $deferred->has('contracts', 1),
+                fn (Assert $deferred) => $deferred
+                    ->has('contracts', 1)
+                    ->where('contracts.0.salary_structure', 'daily'),
             )));
 });
 

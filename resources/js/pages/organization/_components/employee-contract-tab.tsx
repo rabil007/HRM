@@ -26,6 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { formatSalaryStructure } from '@/features/organization/contracts/contracts-format';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import { actions } from '@/lib/design-system';
@@ -552,12 +553,17 @@ export function EmployeeContractTab({
                     ) : undefined
                 }
             >
-                <EmployeeRecordsTable className="min-w-[1480px]">
+                <EmployeeRecordsTable className="min-w-[1580px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
                             {showField('payroll_category') ? (
                                 <th className={employeeRecordsTableThClass()}>
                                     Payroll category
+                                </th>
+                            ) : null}
+                            {showField('salary_structure') ? (
+                                <th className={employeeRecordsTableThClass()}>
+                                    Salary structure
                                 </th>
                             ) : null}
                             {showField('status') ? (
@@ -642,6 +648,18 @@ export function EmployeeContractTab({
                                                 row.payroll_category,
                                             )}
                                         </span>
+                                    </td>
+                                ) : null}
+                                {showField('salary_structure') ? (
+                                    <td
+                                        className={employeeRecordsTableTdClass()}
+                                    >
+                                        {formatSalaryStructure(
+                                            row.salary_structure ??
+                                                (row.payroll_category === 'crew'
+                                                    ? 'daily'
+                                                    : 'monthly'),
+                                        )}
                                     </td>
                                 ) : null}
                                 {showField('status') ? (
