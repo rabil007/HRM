@@ -63,6 +63,7 @@ import type { SalaryPaymentMethodValue } from '@/features/organization/employees
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import { CrewSalaryStructureToggle } from './components/crew-salary-structure-toggle';
 import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
 import { OfficePayrollRecordsTable } from './components/office-payroll-records-table';
 import { OfficeSalaryInputsSheet } from './components/office-salary-inputs-sheet';
@@ -91,6 +92,7 @@ import {
 import type {
     CrewPayrollRecordListItem,
     CrewPayrollRow,
+    CrewSalaryStructureView,
     CrewTimesheetDraft,
     EmployeeStats,
     OfficePayrollRecordListItem,
@@ -109,6 +111,8 @@ export function PayrollShowContent({
     all_board_employee_ids,
     payroll_records,
     payroll_records_pagination,
+    payroll_records_monthly,
+    payroll_records_monthly_pagination,
     all_payroll_record_ids,
     payroll_records_summary,
     salary_inputs_by_employee,
@@ -300,7 +304,13 @@ export function PayrollShowContent({
         department_id: initialFilters.department_id ?? '',
         position_id: initialFilters.position_id ?? '',
         employee_group: initialFilters.employee_group ?? '',
+        crew_salary_structure:
+            initialFilters.crew_salary_structure === 'monthly'
+                ? 'monthly'
+                : 'daily',
     };
+
+    const activeCrewSalaryStructure = payrollFilters.crew_salary_structure;
 
     const activeEmployeeGroup = payrollFilters.employee_group;
 
@@ -338,6 +348,28 @@ export function PayrollShowContent({
             position_id: String(positionId),
             employee_group: activeEmployeeGroup,
         });
+    };
+
+    const handleCrewSalaryStructureChange = (
+        crewSalaryStructure: CrewSalaryStructureView,
+    ) => {
+        router.get(
+            show.url(period.id),
+            {
+                tab: 'payroll',
+                crew_salary_structure: crewSalaryStructure,
+                records_page:
+                    crewSalaryStructure === 'daily'
+                        ? 1
+                        : payroll_records_pagination?.current_page,
+                monthly_records_page:
+                    crewSalaryStructure === 'monthly'
+                        ? 1
+                        : payroll_records_monthly_pagination?.current_page,
+                search: initialSearch || undefined,
+            },
+            { preserveState: true, preserveScroll: true },
+        );
     };
 
     const employeeSearchPlaceholder = `Search ${period.payroll_category_label.toLowerCase()} employees...`;
@@ -573,6 +605,7 @@ export function PayrollShowContent({
         Boolean(period.has_payment_proof);
 
     const recordsPagination = payroll_records_pagination;
+    const monthlyRecordsPagination = payroll_records_monthly_pagination;
 
     return (
         <Main>
@@ -1399,7 +1432,7 @@ export function PayrollShowContent({
             ? 'Generate payroll from entered timesheets to review gross and net amounts.'
             : 'Generate payroll to review full monthly salary and leave usage for this period.';
 
-        if (payroll_records.length === 0) {
+        if (!hasPayrollRecords) {
             return (
                 <EmptyState
                     title="No payroll records yet"
@@ -1419,70 +1452,201 @@ export function PayrollShowContent({
             );
         }
 
-        const crewRecords = payroll_records.filter(
+        const dailyCrewRecords = payroll_records.filter(
             (record): record is CrewPayrollRecordListItem =>
                 record.payroll_category === 'crew',
         );
-        const dailyCrewRecords = crewRecords.filter(
-            (record) => record.salary_structure !== 'monthly',
-        );
-        const monthlyCrewRecords = crewRecords.filter(
-            (record) => record.salary_structure === 'monthly',
-        );
+        const monthlyCrewRecords = payroll_records_monthly;
         const officeRecords = payroll_records.filter(
             (record): record is OfficePayrollRecordListItem =>
                 record.payroll_category === 'office',
         );
 
+        // #region agent log
+        fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Debug-Session-Id': '83f246',
+            },
+            body: JSON.stringify({
+                sessionId: '83f246',
+                hypothesisId: 'H2',
+                runId: 'toggle-ui',
+                location: 'show.tsx:renderPayrollTab',
+                message: 'crew salary structure toggle view',
+                data: {
+                    periodId: period.id,
+                    activeCrewSalaryStructure,
+                    dailyCrewCount: dailyCrewRecords.length,
+                    monthlyCrewCount: monthlyCrewRecords.length,
+                    dailyRecordsTotal: recordsPagination?.total ?? null,
+                    monthlyRecordsTotal:
+                        monthlyRecordsPagination?.total ?? null,
+                },
+                timestamp: Date.now(),
+            }),
+        }).catch(() => {});
+        // #endregion
+
+        const payrollTabQuery = {
+            tab: 'payroll' as const,
+            crew_salary_structure: activeCrewSalaryStructure,
+            search: initialSearch || undefined,
+        };
+
         return (
             <>
                 {period.supports_timesheets ? (
                     <div className="space-y-6">
-                        {dailyCrewRecords.length > 0 ? (
-                            <PayrollRecordsTable
-                                records={dailyCrewRecords}
-                                salaryInputsByEmployee={
-                                    salary_inputs_by_employee
-                                }
-                                canViewPayslips={permissions.payslips_view}
-                                canShowPayslipActions={canShowPayslipActions}
-                                canManageSalaryInputs={canManageSalaryInputs}
-                                canRemove={canGenerate}
-                                wpsSelection={wpsSelection}
-                                onManageSalaryInputs={setSalaryInputsRecord}
-                                onRemove={setRemoveRecord}
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <CrewSalaryStructureToggle
+                                value={activeCrewSalaryStructure}
+                                onChange={handleCrewSalaryStructureChange}
                             />
-                        ) : null}
-                        {monthlyCrewRecords.length > 0 ? (
-                            <OfficePayrollRecordsTable
-                                records={monthlyCrewRecords.map(
-                                    (record) => ({
-                                        ...record,
-                                        payroll_category: 'office' as const,
-                                    }),
-                                )}
-                                salaryInputsByEmployee={
-                                    salary_inputs_by_employee
-                                }
-                                canViewPayslips={permissions.payslips_view}
-                                canShowPayslipActions={canShowPayslipActions}
-                                canManageSalaryInputs={canManageSalaryInputs}
-                                canRemove={canGenerate}
-                                wpsSelection={wpsSelection}
-                                onManageSalaryInputs={(record) =>
-                                    setSalaryInputsRecord({
-                                        ...record,
-                                        payroll_category: 'crew',
-                                    } as CrewPayrollRecordListItem)
-                                }
-                                onRemove={(record) =>
-                                    setRemoveRecord({
-                                        ...record,
-                                        payroll_category: 'crew',
-                                    } as CrewPayrollRecordListItem)
-                                }
+                        </div>
+                        {activeCrewSalaryStructure === 'daily' ? (
+                            dailyCrewRecords.length > 0 ? (
+                                <>
+                                    <PayrollRecordsTable
+                                        records={dailyCrewRecords}
+                                        salaryInputsByEmployee={
+                                            salary_inputs_by_employee
+                                        }
+                                        canViewPayslips={
+                                            permissions.payslips_view
+                                        }
+                                        canShowPayslipActions={
+                                            canShowPayslipActions
+                                        }
+                                        canManageSalaryInputs={
+                                            canManageSalaryInputs
+                                        }
+                                        canRemove={canGenerate}
+                                        wpsSelection={wpsSelection}
+                                        onManageSalaryInputs={
+                                            setSalaryInputsRecord
+                                        }
+                                        onRemove={setRemoveRecord}
+                                    />
+                                    {recordsPagination &&
+                                    recordsPagination.last_page > 1 ? (
+                                        <Pagination
+                                            currentPage={
+                                                recordsPagination.current_page
+                                            }
+                                            lastPage={
+                                                recordsPagination.last_page
+                                            }
+                                            perPage={
+                                                recordsPagination.per_page
+                                            }
+                                            total={recordsPagination.total}
+                                            from={recordsPagination.from}
+                                            to={recordsPagination.to}
+                                            onPageChange={(page) => {
+                                                router.get(
+                                                    show.url(period.id),
+                                                    {
+                                                        ...payrollTabQuery,
+                                                        records_page: page,
+                                                        monthly_records_page:
+                                                            monthlyRecordsPagination?.current_page ??
+                                                            undefined,
+                                                    },
+                                                    {
+                                                        preserveState: true,
+                                                        preserveScroll: true,
+                                                    },
+                                                );
+                                            }}
+                                        />
+                                    ) : null}
+                                </>
+                            ) : (
+                                <EmptyState
+                                    title="No daily crew payroll records"
+                                    description="Generate payroll or switch to Monthly to review monthly crew salaries."
+                                />
+                            )
+                        ) : (monthlyRecordsPagination?.total ?? 0) >
+                          0 ? (
+                            <>
+                                <OfficePayrollRecordsTable
+                                    records={monthlyCrewRecords.map(
+                                        (record) => ({
+                                            ...record,
+                                            payroll_category:
+                                                'office' as const,
+                                        }),
+                                    )}
+                                    salaryInputsByEmployee={
+                                        salary_inputs_by_employee
+                                    }
+                                    canViewPayslips={
+                                        permissions.payslips_view
+                                    }
+                                    canShowPayslipActions={
+                                        canShowPayslipActions
+                                    }
+                                    canManageSalaryInputs={
+                                        canManageSalaryInputs
+                                    }
+                                    canRemove={canGenerate}
+                                    wpsSelection={wpsSelection}
+                                    onManageSalaryInputs={(record) =>
+                                        setSalaryInputsRecord({
+                                            ...record,
+                                            payroll_category: 'crew',
+                                        } as CrewPayrollRecordListItem)
+                                    }
+                                    onRemove={(record) =>
+                                        setRemoveRecord({
+                                            ...record,
+                                            payroll_category: 'crew',
+                                        } as CrewPayrollRecordListItem)
+                                    }
+                                />
+                                {monthlyRecordsPagination &&
+                                monthlyRecordsPagination.last_page > 1 ? (
+                                    <Pagination
+                                        currentPage={
+                                            monthlyRecordsPagination.current_page
+                                        }
+                                        lastPage={
+                                            monthlyRecordsPagination.last_page
+                                        }
+                                        perPage={
+                                            monthlyRecordsPagination.per_page
+                                        }
+                                        total={monthlyRecordsPagination.total}
+                                        from={monthlyRecordsPagination.from}
+                                        to={monthlyRecordsPagination.to}
+                                        onPageChange={(page) => {
+                                            router.get(
+                                                show.url(period.id),
+                                                {
+                                                    ...payrollTabQuery,
+                                                    monthly_records_page: page,
+                                                    records_page:
+                                                        recordsPagination?.current_page ??
+                                                        undefined,
+                                                },
+                                                {
+                                                    preserveState: true,
+                                                    preserveScroll: true,
+                                                },
+                                            );
+                                        }}
+                                    />
+                                ) : null}
+                            </>
+                        ) : (
+                            <EmptyState
+                                title="No monthly crew payroll records"
+                                description="Switch to Daily to review standby, onsite, and overtime payroll."
                             />
-                        ) : null}
+                        )}
                     </div>
                 ) : (
                     <OfficePayrollRecordsTable
@@ -1497,7 +1661,7 @@ export function PayrollShowContent({
                         onRemove={setRemoveRecord}
                     />
                 )}
-                {recordsPagination ? (
+                {!period.supports_timesheets && recordsPagination ? (
                     <Pagination
                         currentPage={recordsPagination.current_page}
                         lastPage={recordsPagination.last_page}

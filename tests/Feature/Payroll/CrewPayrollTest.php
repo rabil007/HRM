@@ -1,12 +1,14 @@
 <?php
 
 use App\Enums\PayrollCategory;
+use App\Enums\PayrollPeriodStatus;
 use App\Enums\SalaryPaymentMethod;
 use App\Models\CrewTimesheet;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
+use App\Models\PayrollRecord;
 use App\Models\Position;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -553,4 +555,73 @@ test('legacy crew payroll route redirects to payroll show when period is provide
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('organization.crew-payroll.index', ['period_id' => $period->id]))
         ->assertRedirect(route('payroll.show', $period));
+});
+
+test('crew payroll tab paginates daily and monthly records separately', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => PayrollPeriodStatus::Processing,
+    ]);
+
+    foreach (range(1, 25) as $index) {
+        $employee = Employee::factory()->forCompany($company)->create([
+            'employee_no' => sprintf('DLY-%03d', $index),
+            'status' => 'active',
+        ]);
+
+        PayrollRecord::factory()->for($company)->create([
+            'employee_id' => $employee->id,
+            'period_id' => $period->id,
+            'payroll_category' => PayrollCategory::Crew,
+            'calculation_breakdown' => ['salary_structure' => 'daily'],
+        ]);
+    }
+
+    foreach (range(1, 5) as $index) {
+        $employee = Employee::factory()->forCompany($company)->create([
+            'employee_no' => sprintf('MTH-%03d', $index),
+            'status' => 'active',
+        ]);
+
+        PayrollRecord::factory()->for($company)->create([
+            'employee_id' => $employee->id,
+            'period_id' => $period->id,
+            'payroll_category' => PayrollCategory::Crew,
+            'calculation_breakdown' => ['salary_structure' => 'monthly'],
+        ]);
+    }
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', [
+            'payrollPeriod' => $period,
+            'tab' => 'payroll',
+            'per_page' => 20,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->has('payroll_records', 20)
+            ->has('payroll_records_monthly', 5)
+            ->where('payroll_records_pagination.total', 25)
+            ->where('payroll_records_monthly_pagination.total', 5)
+            ->where('payroll_records.0.salary_structure', 'daily')
+            ->where('payroll_records_monthly.0.salary_structure', 'monthly')
+            ->where('filters.crew_salary_structure', 'daily'));
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', [
+            'payrollPeriod' => $period,
+            'tab' => 'payroll',
+            'per_page' => 20,
+            'crew_salary_structure' => 'monthly',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('payroll_records_monthly', 5)
+            ->where('filters.crew_salary_structure', 'monthly'));
 });

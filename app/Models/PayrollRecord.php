@@ -6,6 +6,7 @@ use App\Enums\PayrollCategory;
 use App\Enums\SalaryPaymentMethod;
 use App\Enums\WpsStatus;
 use Database\Factories\PayrollRecordFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -116,5 +117,30 @@ class PayrollRecord extends Model
         $this->loadMissing('employee');
 
         return $this->employee?->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
+    }
+
+    /**
+     * @param  Builder<PayrollRecord>  $query
+     * @return Builder<PayrollRecord>
+     */
+    public function scopeCrewMonthly(Builder $query): Builder
+    {
+        return $query
+            ->where('payroll_category', PayrollCategory::Crew)
+            ->where('calculation_breakdown->salary_structure', 'monthly');
+    }
+
+    /**
+     * @param  Builder<PayrollRecord>  $query
+     * @return Builder<PayrollRecord>
+     */
+    public function scopeCrewDaily(Builder $query): Builder
+    {
+        return $query
+            ->where('payroll_category', PayrollCategory::Crew)
+            ->where(function (Builder $inner): void {
+                $inner->whereNull('calculation_breakdown->salary_structure')
+                    ->orWhere('calculation_breakdown->salary_structure', '!=', 'monthly');
+            });
     }
 }

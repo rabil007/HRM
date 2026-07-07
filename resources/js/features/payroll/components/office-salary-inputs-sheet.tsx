@@ -39,6 +39,8 @@ const reloadProps = [
     'salary_inputs_by_employee',
     'payroll_records',
     'payroll_records_pagination',
+    'payroll_records_monthly',
+    'payroll_records_monthly_pagination',
     'payroll_records_summary',
 ] as const;
 

@@ -143,6 +143,10 @@ class PayrollController extends Controller
         $search = trim((string) $request->query('search', ''));
         $tab = trim((string) $request->query('tab', ''));
         $boardFilters = PayrollPeriodBoardFilters::fromRequest($request);
+        $crewSalaryStructure = $payrollPeriod->isCrew()
+            && in_array($request->query('crew_salary_structure'), ['daily', 'monthly'], true)
+            ? (string) $request->query('crew_salary_structure')
+            : 'daily';
         $directoryFilters = new EmployeeDirectoryFilters(
             departmentId: $boardFilters->departmentId,
             positionId: $boardFilters->positionId,
@@ -163,7 +167,7 @@ class PayrollController extends Controller
                 $params['search'] = $search;
             }
 
-            foreach (['department_id', 'position_id', 'employee_group', 'page', 'records_page', 'per_page'] as $key) {
+            foreach (['department_id', 'position_id', 'employee_group', 'page', 'records_page', 'monthly_records_page', 'crew_salary_structure', 'per_page'] as $key) {
                 if ($request->filled($key)) {
                     $params[$key] = $request->query($key);
                 }
@@ -191,40 +195,15 @@ class PayrollController extends Controller
 
         $payrollRecords = [];
         $payrollRecordsPagination = null;
+        $payrollRecordsMonthly = [];
+        $payrollRecordsMonthlyPagination = null;
 
-        $recordsQuery = PayrollRecord::query()
-            ->where('company_id', $companyId)
-            ->where('period_id', $payrollPeriod->id)
-            ->with([
-                'employee.primaryBankAccount.bank:id,name',
-                'employee.department.parent:id,name',
-                'employee.position:id,title',
-            ]);
-
-        if ($search !== '') {
-            $recordsQuery->whereHas('employee', function ($query) use ($search) {
-                $query->where('name', 'like', "%{$search}%")
-                    ->orWhere('employee_no', 'like', "%{$search}%");
-            });
-        }
-
-        if ($boardFilters->isActive()) {
-            $recordsQuery->whereHas('employee', function (Builder $query) use ($companyId, $boardFilters): void {
-                EmployeeDirectoryQuery::applyAttributeFilters(
-                    $query,
-                    $companyId,
-                    new EmployeeDirectoryFilters(
-                        departmentId: $boardFilters->departmentId,
-                        positionId: $boardFilters->positionId,
-                    ),
-                );
-            });
-        }
-
-        $recordsPaginator = $recordsQuery
-            ->orderBy('id')
-            ->paginate($perPage, ['*'], 'records_page')
-            ->withQueryString();
+        $recordsQuery = $this->payrollPeriodRecordsQuery(
+            $companyId,
+            $payrollPeriod,
+            $search,
+            $boardFilters,
+        );
 
         $salaryInputCountsByEmployee = SalaryInput::query()
             ->where('company_id', $companyId)
@@ -242,14 +221,81 @@ class PayrollController extends Controller
                 ->get(),
         );
 
-        $payrollRecords = collect($recordsPaginator->items())
-            ->map(fn (PayrollRecord $record) => PayrollRecordResource::toArray(
-                $record,
-                (int) ($salaryInputCountsByEmployee[$record->employee_id] ?? 0),
-            ))
-            ->values()
-            ->all();
-        $payrollRecordsPagination = $this->paginationMeta($recordsPaginator);
+        $mapPayrollRecords = function ($paginator) use ($salaryInputCountsByEmployee): array {
+            return collect($paginator->items())
+                ->map(fn (PayrollRecord $record) => PayrollRecordResource::toArray(
+                    $record,
+                    (int) ($salaryInputCountsByEmployee[$record->employee_id] ?? 0),
+                ))
+                ->values()
+                ->all();
+        };
+
+        if ($payrollPeriod->isCrew()) {
+            $dailyRecordsPaginator = (clone $recordsQuery)
+                ->crewDaily()
+                ->orderBy('id')
+                ->paginate($perPage, ['*'], 'records_page')
+                ->withQueryString();
+
+            $monthlyRecordsPaginator = (clone $recordsQuery)
+                ->crewMonthly()
+                ->orderBy('id')
+                ->paginate($perPage, ['*'], 'monthly_records_page')
+                ->withQueryString();
+
+            $payrollRecords = $mapPayrollRecords($dailyRecordsPaginator);
+            $payrollRecordsPagination = $this->paginationMeta($dailyRecordsPaginator);
+            $payrollRecordsMonthly = $mapPayrollRecords($monthlyRecordsPaginator);
+            $payrollRecordsMonthlyPagination = $this->paginationMeta($monthlyRecordsPaginator);
+
+            $recordsPaginator = $dailyRecordsPaginator;
+        } else {
+            $recordsPaginator = $recordsQuery
+                ->orderBy('id')
+                ->paginate($perPage, ['*'], 'records_page')
+                ->withQueryString();
+
+            $payrollRecords = $mapPayrollRecords($recordsPaginator);
+            $payrollRecordsPagination = $this->paginationMeta($recordsPaginator);
+        }
+
+        // #region agent log
+        $allPeriodRecords = PayrollRecord::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $payrollPeriod->id)
+            ->get(['id', 'employee_id', 'calculation_breakdown', 'payroll_category']);
+        $totalMonthlyInPeriod = $allPeriodRecords->filter(
+            fn (PayrollRecord $record) => $record->payroll_category?->value === 'crew'
+                && (($record->calculation_breakdown['salary_structure'] ?? 'daily') === 'monthly')
+        )->count();
+        $pageMonthlyCount = count($payrollRecordsMonthly);
+        $pageDailyCount = collect($payrollRecords)->count();
+        @file_put_contents(
+            '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-83f246.log',
+            json_encode([
+                'sessionId' => '83f246',
+                'hypothesisId' => 'H1',
+                'runId' => 'post-fix',
+                'location' => 'PayrollController.php:show',
+                'message' => 'payroll records pagination vs monthly split',
+                'data' => [
+                    'period_id' => $payrollPeriod->id,
+                    'is_crew' => $payrollPeriod->isCrew(),
+                    'records_page' => $recordsPaginator->currentPage(),
+                    'per_page' => $recordsPaginator->perPage(),
+                    'total_daily_records' => $recordsPaginator->total(),
+                    'daily_on_page' => $pageDailyCount,
+                    'monthly_on_page' => $pageMonthlyCount,
+                    'total_monthly_paginated' => $payrollRecordsMonthlyPagination['total'] ?? 0,
+                    'total_monthly_in_period' => $totalMonthlyInPeriod,
+                    'search' => $search,
+                ],
+                'timestamp' => (int) round(microtime(true) * 1000),
+            ]).PHP_EOL,
+            FILE_APPEND
+        );
+        // #endregion
 
         $allPayrollRecordIds = PayrollRecord::query()
             ->where('company_id', $companyId)
@@ -341,6 +387,8 @@ class PayrollController extends Controller
             'all_board_employee_ids' => $allBoardEmployeeIds,
             'payroll_records' => $payrollRecords,
             'payroll_records_pagination' => $payrollRecordsPagination,
+            'payroll_records_monthly' => $payrollRecordsMonthly,
+            'payroll_records_monthly_pagination' => $payrollRecordsMonthlyPagination,
             'all_payroll_record_ids' => $allPayrollRecordIds,
             'payroll_records_summary' => $payrollPeriod->payroll_records_count > 0
                 ? PayrollPeriodRecordsSummary::forPeriod($payrollPeriod)
@@ -368,6 +416,7 @@ class PayrollController extends Controller
                 'department_id' => $boardFilters->departmentId,
                 'position_id' => $boardFilters->positionId,
                 'employee_group' => $boardFilters->employeeGroup->value,
+                'crew_salary_structure' => $crewSalaryStructure,
             ],
             'department_tree' => BuildDepartmentEmployeeTree::for(
                 $companyId,
@@ -418,6 +467,44 @@ class PayrollController extends Controller
     /**
      * @return array<string, mixed>|null
      */
+    private function payrollPeriodRecordsQuery(
+        int $companyId,
+        PayrollPeriod $payrollPeriod,
+        string $search,
+        PayrollPeriodBoardFilters $boardFilters,
+    ): Builder {
+        $recordsQuery = PayrollRecord::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $payrollPeriod->id)
+            ->with([
+                'employee.primaryBankAccount.bank:id,name',
+                'employee.department.parent:id,name',
+                'employee.position:id,title',
+            ]);
+
+        if ($search !== '') {
+            $recordsQuery->whereHas('employee', function ($query) use ($search) {
+                $query->where('name', 'like', "%{$search}%")
+                    ->orWhere('employee_no', 'like', "%{$search}%");
+            });
+        }
+
+        if ($boardFilters->isActive()) {
+            $recordsQuery->whereHas('employee', function (Builder $query) use ($companyId, $boardFilters): void {
+                EmployeeDirectoryQuery::applyAttributeFilters(
+                    $query,
+                    $companyId,
+                    new EmployeeDirectoryFilters(
+                        departmentId: $boardFilters->departmentId,
+                        positionId: $boardFilters->positionId,
+                    ),
+                );
+            });
+        }
+
+        return $recordsQuery;
+    }
+
     private function timesheetDraftFromOldInput(Request $request): ?array
     {
         if ($request->old('employee_id') === null) {

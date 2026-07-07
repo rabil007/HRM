@@ -7,10 +7,13 @@ export type PayrollBoardEmployeeGroup =
     | 'cash_payment'
     | 'missing_bank_account';
 
+export type CrewSalaryStructureView = 'daily' | 'monthly';
+
 export type PayrollShowFilters = {
     department_id: string;
     position_id: string;
     employee_group: PayrollBoardEmployeeGroup;
+    crew_salary_structure: CrewSalaryStructureView;
 };
 
 export type PayrollCategory = 'office' | 'crew';
@@ -402,6 +405,8 @@ export type PayrollShowProps = {
     all_board_employee_ids: number[];
     payroll_records: PayrollRecordListItem[];
     payroll_records_pagination: PaginationMeta | null;
+    payroll_records_monthly: CrewPayrollRecordListItem[];
+    payroll_records_monthly_pagination: PaginationMeta | null;
     all_payroll_record_ids: number[];
     payroll_records_summary: PayrollRecordsSummary | null;
     salary_inputs_by_employee: Record<string, SalaryInput[]>;
