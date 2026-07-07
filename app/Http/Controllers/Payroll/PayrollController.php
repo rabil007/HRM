@@ -724,7 +724,7 @@ class PayrollController extends Controller
                 'payrollPeriod' => $payrollPeriod,
                 'tab' => 'payroll',
             ])
-            ->with('success', 'Pay period approved.');
+            ->with('success', 'Pay period approved. Payslips are being generated in the background.');
     }
 
     public function markPaid(

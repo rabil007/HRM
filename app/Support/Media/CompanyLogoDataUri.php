@@ -9,31 +9,93 @@ use Illuminate\Support\Facades\Storage;
 
 final class CompanyLogoDataUri
 {
+    /** @var array<string, ?string> */
+    private static array $resolvedByCompany = [];
+
     public static function resolve(?Company $company, ?SettingService $settings = null): ?string
     {
+        $cacheKey = (string) ($company?->id ?? 'global').'|'.($company?->logo ?? '');
+
+        if (array_key_exists($cacheKey, self::$resolvedByCompany)) {
+            // #region agent log
+            file_put_contents(
+                '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-386635.log',
+                json_encode([
+                    'sessionId' => '386635',
+                    'hypothesisId' => 'D',
+                    'location' => 'CompanyLogoDataUri.php:resolve',
+                    'message' => 'company_logo_cache_hit',
+                    'data' => [
+                        'company_id' => $company?->id,
+                        'duration_ms' => 0,
+                        'has_logo' => self::$resolvedByCompany[$cacheKey] !== null,
+                    ],
+                    'timestamp' => (int) (microtime(true) * 1000),
+                ])."\n",
+                FILE_APPEND,
+            );
+            // #endregion
+
+            return self::$resolvedByCompany[$cacheKey];
+        }
+
+        // #region agent log
+        $startedAt = microtime(true);
+        // #endregion
+
         $settings ??= app(SettingService::class);
+        $resolved = null;
+        $source = 'none';
 
         if (filled($company?->logo)) {
             $embedded = self::fromPublicDiskPath((string) $company->logo);
 
             if ($embedded !== null) {
-                return $embedded;
+                $resolved = $embedded;
+                $source = 'company_logo';
             }
         }
 
-        foreach ([SettingKey::MainLogo, SettingKey::EmailBrandingLogo, SettingKey::SidebarLogo, SettingKey::LoginLogo] as $key) {
-            $path = $settings->get($key);
+        if ($resolved === null) {
+            foreach ([SettingKey::MainLogo, SettingKey::EmailBrandingLogo, SettingKey::SidebarLogo, SettingKey::LoginLogo] as $key) {
+                $path = $settings->get($key);
 
-            if (filled($path)) {
-                $embedded = self::fromPublicDiskPath((string) $path);
+                if (filled($path)) {
+                    $embedded = self::fromPublicDiskPath((string) $path);
 
-                if ($embedded !== null) {
-                    return $embedded;
+                    if ($embedded !== null) {
+                        $resolved = $embedded;
+                        $source = (string) $key;
+
+                        break;
+                    }
                 }
             }
         }
 
-        return null;
+        self::$resolvedByCompany[$cacheKey] = $resolved;
+
+        // #region agent log
+        file_put_contents(
+            '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-386635.log',
+            json_encode([
+                'sessionId' => '386635',
+                'hypothesisId' => 'D',
+                'location' => 'CompanyLogoDataUri.php:resolve',
+                'message' => $resolved === null ? 'company_logo_not_found' : 'company_logo_resolved',
+                'data' => [
+                    'company_id' => $company?->id,
+                    'source' => $source,
+                    'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+                    'embedded_length' => $resolved !== null ? strlen($resolved) : 0,
+                ],
+                'timestamp' => (int) (microtime(true) * 1000),
+            ])."\n",
+            FILE_APPEND,
+        );
+        // #endregion
+
+        return $resolved;
     }
 
     public static function fromPublicDiskPath(string $path): ?string
