@@ -8,7 +8,9 @@ use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\Position;
+use App\Models\SalaryInput;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
+use App\Support\Payroll\CrewTimesheetImportSchema;
 use App\Support\Payroll\Services\CrewTimesheetTemplateExporter;
 use Illuminate\Http\UploadedFile;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -67,13 +69,18 @@ test('crew timesheet template download includes roster with department and posit
         ->and($sheet->getCell('C1')->getValue())->toBe('Division')
         ->and($sheet->getCell('I1')->getValue())->toBe('Onsite To')
         ->and($sheet->getCell('J1')->getValue())->toBe('Overtime Hours')
+        ->and($sheet->getCell('K1')->getValue())->toBe('Additions')
+        ->and($sheet->getCell('L1')->getValue())->toBe('Deductions')
+        ->and($sheet->getCell('M1')->getValue())->toBe('Bonus')
+        ->and($sheet->getCell('N1')->getValue())->toBe('Commission')
+        ->and($sheet->getCell('S1')->getValue())->toBe('Remarks')
         ->and($sheet->getCell('A2')->getValue())->toBe('2057')
         ->and($sheet->getCell('B2')->getValue())->toBe('AHMED LATECH')
         ->and($sheet->getCell('C2')->getValue())->toBe('Marine')
         ->and($sheet->getCell('D2')->getValue())->toBe('Deck')
         ->and($sheet->getCell('E2')->getValue())->toBe('Chief Officer')
         ->and($sheet->getCell('F2')->getValue())->toBeNull()
-        ->and($sheet->getAutoFilter()->getRange())->toBe('A1:J2')
+        ->and($sheet->getAutoFilter()->getRange())->toBe('A1:S2')
         ->and($sheet->getStyle('F2')->getNumberFormat()->getFormatCode())->toBe(CrewTimesheetTemplateExporter::DATE_FORMAT);
 
     @unlink($result['path']);
@@ -93,7 +100,7 @@ test('crew timesheet import parses dd-mm-yyyy dates from excel', function () {
 
     createImportCrewEmployee($company, '2057', 50, 661, 611);
 
-    $file = makeCrewTimesheetImportFile([
+    $file = makeCrewTimesheetImportFile($company->id, [
         [
             'employee_no' => '2057',
             'name' => 'AHMED LATECH',
@@ -127,7 +134,7 @@ test('crew timesheet import preview rejects unknown employee numbers', function 
         'payroll_category' => PayrollCategory::Crew,
     ]);
 
-    $file = makeCrewTimesheetImportFile([
+    $file = makeCrewTimesheetImportFile($company->id, [
         ['employee_no' => '9999', 'name' => 'Unknown'],
     ]);
 
@@ -155,7 +162,7 @@ test('crew timesheet import creates timesheets for valid rows', function () {
 
     $employee = createImportCrewEmployee($company, '2057', 50, 661, 611);
 
-    $file = makeCrewTimesheetImportFile([
+    $file = makeCrewTimesheetImportFile($company->id, [
         [
             'employee_no' => '2057',
             'name' => 'AHMED LATECH',
@@ -200,7 +207,7 @@ test('crew timesheet import stores overtime hours from excel', function () {
 
     $employee = createImportCrewEmployee($company, '2057', 50, 661, 611);
 
-    $file = makeCrewTimesheetImportFile([
+    $file = makeCrewTimesheetImportFile($company->id, [
         [
             'employee_no' => '2057',
             'name' => 'AHMED LATECH',
@@ -249,7 +256,7 @@ test('crew timesheet import cannot run on approved periods', function () {
 
     createImportCrewEmployee($company, '2057', 50, 661, 611);
 
-    $file = makeCrewTimesheetImportFile([
+    $file = makeCrewTimesheetImportFile($company->id, [
         ['employee_no' => '2057', 'name' => 'AHMED LATECH'],
     ]);
 
@@ -287,45 +294,237 @@ test('crew timesheet import preview rejects invalid template headers', function 
         ->assertSessionHasErrors('file');
 });
 
+test('crew timesheet import stores additions deductions and remarks from excel', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.import',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    $employee = createImportCrewEmployee($company, '2057', 50, 661, 611);
+
+    $file = makeCrewTimesheetImportFile($company->id, [
+        [
+            'employee_no' => '2057',
+            'name' => 'AHMED LATECH',
+            'additional_amount' => 150,
+            'deduction_amount' => 25,
+            'remarks' => 'Imported adjustment',
+        ],
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.timesheets.import.preview', $period), [
+            'file' => $file,
+        ])
+        ->assertOk()
+        ->assertJsonPath('rows.0.additional_amount', 150)
+        ->assertJsonPath('rows.0.deduction_amount', 25)
+        ->assertJsonPath('rows.0.remarks', 'Imported adjustment');
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.timesheets.import', $period), [
+            'file' => $file,
+        ])
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']))
+        ->assertSessionHas('success');
+
+    $timesheet = CrewTimesheet::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    expect($timesheet)->not->toBeNull()
+        ->and($timesheet->additional_amount)->toBe('150.00')
+        ->and($timesheet->deduction_amount)->toBe('25.00')
+        ->and($timesheet->remarks)->toBe('Imported adjustment');
+});
+
+test('crew timesheet import stores typed salary input from excel', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.import',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    $employee = createImportCrewEmployee($company, '2057', 50, 661, 611);
+
+    $file = makeCrewTimesheetImportFile($company->id, [
+        [
+            'employee_no' => '2057',
+            'name' => 'AHMED LATECH',
+            'salary_inputs' => [
+                'Bonus' => 500,
+            ],
+        ],
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.timesheets.import', $period), [
+            'file' => $file,
+        ])
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']))
+        ->assertSessionHas('success');
+
+    $salaryInput = SalaryInput::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->where('salary_input_type_id', salaryInputTypeId($company, 'bonus'))
+        ->first();
+
+    expect($salaryInput)->not->toBeNull()
+        ->and($salaryInput->amount)->toBe('500.00');
+});
+
+test('crew timesheet import clears typed salary input when column is blank', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.import',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    $employee = createImportCrewEmployee($company, '2057', 50, 661, 611);
+
+    SalaryInput::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'salary_input_type_id' => salaryInputTypeId($company, 'bonus'),
+        'amount' => 300,
+    ]);
+
+    $file = makeCrewTimesheetImportFile($company->id, [
+        [
+            'employee_no' => '2057',
+            'name' => 'AHMED LATECH',
+            'salary_inputs' => [
+                'Bonus' => '',
+            ],
+        ],
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.timesheets.import', $period), [
+            'file' => $file,
+        ])
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']))
+        ->assertSessionHas('success');
+
+    expect(SalaryInput::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->where('salary_input_type_id', salaryInputTypeId($company, 'bonus'))
+        ->exists())->toBeFalse();
+});
+
+test('crew timesheet import still accepts legacy ten column files', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.import',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    $employee = createImportCrewEmployee($company, '2057', 50, 661, 611);
+
+    $file = makeCrewTimesheetImportFile($company->id, [
+        [
+            'employee_no' => '2057',
+            'name' => 'AHMED LATECH',
+            'standby_from' => '2026-01-16',
+            'standby_to' => '2026-01-17',
+            'onsite_from' => '2026-01-01',
+            'onsite_to' => '2026-01-15',
+        ],
+    ], legacyHeaders: true);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.timesheets.import', $period), [
+            'file' => $file,
+        ])
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']))
+        ->assertSessionHas('success');
+
+    $timesheet = CrewTimesheet::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    expect($timesheet)->not->toBeNull()
+        ->and($timesheet->additional_amount)->toBe('0.00')
+        ->and($timesheet->deduction_amount)->toBe('0.00')
+        ->and($timesheet->remarks)->toBeNull();
+});
+
 /**
  * @param  list<array<string, mixed>>  $rows
  */
-function makeCrewTimesheetImportFile(array $rows): UploadedFile
+function makeCrewTimesheetImportFile(int $companyId, array $rows, bool $legacyHeaders = false): UploadedFile
 {
     $spreadsheet = new Spreadsheet;
     $sheet = $spreadsheet->getActiveSheet();
     $sheet->setTitle(CrewTimesheetsImport::SHEET_NAME);
 
-    $headers = [
-        'Employee No',
-        'Employee Name',
-        'Division',
-        'Department',
-        'Position',
-        'Standby From',
-        'Standby To',
-        'Onsite From',
-        'Onsite To',
-        'Overtime Hours',
-    ];
+    $schema = app(CrewTimesheetImportSchema::class);
+    $headers = $legacyHeaders
+        ? CrewTimesheetImportSchema::rosterHeaders()
+        : $schema->headers($companyId);
 
     foreach ($headers as $columnIndex => $header) {
         $sheet->setCellValueByColumnAndRow($columnIndex + 1, 1, $header);
     }
 
+    $headerIndexByName = collect($headers)
+        ->mapWithKeys(fn (string $header, int $index) => [$header => $index + 1])
+        ->all();
+
     $rowNumber = CrewTimesheetsImport::DATA_START_ROW;
 
     foreach ($rows as $row) {
-        $sheet->setCellValue('A'.$rowNumber, $row['employee_no'] ?? '');
-        $sheet->setCellValue('B'.$rowNumber, $row['name'] ?? '');
-        $sheet->setCellValue('C'.$rowNumber, $row['division'] ?? '');
-        $sheet->setCellValue('D'.$rowNumber, $row['department'] ?? '');
-        $sheet->setCellValue('E'.$rowNumber, $row['position'] ?? '');
-        $sheet->setCellValue('F'.$rowNumber, $row['standby_from'] ?? '');
-        $sheet->setCellValue('G'.$rowNumber, $row['standby_to'] ?? '');
-        $sheet->setCellValue('H'.$rowNumber, $row['onsite_from'] ?? '');
-        $sheet->setCellValue('I'.$rowNumber, $row['onsite_to'] ?? '');
-        $sheet->setCellValue('J'.$rowNumber, $row['overtime_hours'] ?? '');
+        $setCell = function (string $header, mixed $value) use ($sheet, $headerIndexByName, $rowNumber): void {
+            if (! isset($headerIndexByName[$header])) {
+                return;
+            }
+
+            $sheet->setCellValueByColumnAndRow($headerIndexByName[$header], $rowNumber, $value ?? '');
+        };
+
+        $setCell('Employee No', $row['employee_no'] ?? '');
+        $setCell('Employee Name', $row['name'] ?? '');
+        $setCell('Division', $row['division'] ?? '');
+        $setCell('Department', $row['department'] ?? '');
+        $setCell('Position', $row['position'] ?? '');
+        $setCell('Standby From', $row['standby_from'] ?? '');
+        $setCell('Standby To', $row['standby_to'] ?? '');
+        $setCell('Onsite From', $row['onsite_from'] ?? '');
+        $setCell('Onsite To', $row['onsite_to'] ?? '');
+        $setCell('Overtime Hours', $row['overtime_hours'] ?? '');
+        $setCell('Additions', $row['additional_amount'] ?? '');
+        $setCell('Deductions', $row['deduction_amount'] ?? '');
+        $setCell('Remarks', $row['remarks'] ?? '');
+
+        foreach ($row['salary_inputs'] ?? [] as $typeName => $amount) {
+            $setCell((string) $typeName, $amount);
+        }
+
         $rowNumber++;
     }
 

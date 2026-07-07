@@ -6,7 +6,11 @@ use App\Enums\PayrollCategory;
 use App\Imports\CrewTimesheetsImport;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Models\SalaryInputType;
+use App\Support\Payroll\CrewTimesheetImportSchema;
 use App\Support\Payroll\PayrollEmployeeQuery;
+use Illuminate\Support\Collection;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -24,6 +28,10 @@ final class CrewTimesheetTemplateExporter
     /** Excel text format — keeps typed DD-MM-YYYY literal (avoids locale date parsing). */
     public const DATE_FORMAT = NumberFormat::FORMAT_TEXT;
 
+    public function __construct(
+        private readonly CrewTimesheetImportSchema $schema,
+    ) {}
+
     /**
      * @return array{path: string, filename: string}
      */
@@ -39,22 +47,17 @@ final class CrewTimesheetTemplateExporter
             ])
             ->values();
 
+        $headers = $this->schema->headers($companyId);
+        $salaryInputTypes = $this->schema->activeSalaryInputTypes($companyId);
+        $lastColumn = $this->schema->lastColumnLetter($companyId);
+        $rosterColumnCount = count(CrewTimesheetImportSchema::rosterHeaders());
+        $timesheetSalaryStart = $rosterColumnCount + 1;
+        $typedSalaryStart = $timesheetSalaryStart + 2;
+        $remarksColumnIndex = Coordinate::columnIndexFromString($lastColumn);
+
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle(CrewTimesheetsImport::SHEET_NAME);
-
-        $headers = [
-            'Employee No',
-            'Employee Name',
-            'Division',
-            'Department',
-            'Position',
-            'Standby From',
-            'Standby To',
-            'Onsite From',
-            'Onsite To',
-            'Overtime Hours',
-        ];
 
         foreach ($headers as $columnIndex => $header) {
             $sheet->setCellValueByColumnAndRow($columnIndex + 1, 1, $header);
@@ -78,9 +81,18 @@ final class CrewTimesheetTemplateExporter
         }
 
         $lastDataRow = max($rowNumber - 1, CrewTimesheetsImport::DATA_START_ROW);
-        $this->applyWorksheetFormatting($sheet, $lastDataRow);
+        $this->applyWorksheetFormatting(
+            $sheet,
+            $lastDataRow,
+            $lastColumn,
+            $rosterColumnCount,
+            $timesheetSalaryStart,
+            $typedSalaryStart,
+            $remarksColumnIndex,
+            $salaryInputTypes,
+        );
         $this->applyDateColumnValidation($sheet, $lastDataRow);
-        $this->addInstructionsSheet($spreadsheet, $period);
+        $this->addInstructionsSheet($spreadsheet, $period, $salaryInputTypes);
 
         $tempPath = tempnam(sys_get_temp_dir(), 'crew-timesheet-template-');
 
@@ -101,10 +113,22 @@ final class CrewTimesheetTemplateExporter
         ];
     }
 
-    private function applyWorksheetFormatting(Worksheet $sheet, int $lastDataRow): void
-    {
-        $sheet->freezePane('F2');
-        $sheet->setAutoFilter("A1:J{$lastDataRow}");
+    /**
+     * @param  Collection<int, SalaryInputType>  $salaryInputTypes
+     */
+    private function applyWorksheetFormatting(
+        Worksheet $sheet,
+        int $lastDataRow,
+        string $lastColumn,
+        int $rosterColumnCount,
+        int $timesheetSalaryStart,
+        int $typedSalaryStart,
+        int $remarksColumnIndex,
+        $salaryInputTypes,
+    ): void {
+        $dateStartColumn = $this->schema->columnLetter(6);
+        $sheet->freezePane("{$dateStartColumn}2");
+        $sheet->setAutoFilter("A1:{$lastColumn}{$lastDataRow}");
 
         $columnWidths = [
             'A' => 14,
@@ -117,11 +141,20 @@ final class CrewTimesheetTemplateExporter
             'H' => 16,
             'I' => 16,
             'J' => 16,
+            'K' => 14,
+            'L' => 14,
         ];
 
         foreach ($columnWidths as $column => $width) {
             $sheet->getColumnDimension($column)->setWidth($width);
         }
+
+        for ($columnIndex = $typedSalaryStart; $columnIndex < $remarksColumnIndex; $columnIndex++) {
+            $sheet->getColumnDimension($this->schema->columnLetter($columnIndex))->setWidth(14);
+        }
+
+        $remarksColumn = $this->schema->columnLetter($remarksColumnIndex);
+        $sheet->getColumnDimension($remarksColumn)->setWidth(24);
 
         $sheet->getRowDimension(1)->setRowHeight(28);
 
@@ -144,39 +177,83 @@ final class CrewTimesheetTemplateExporter
             ],
         ];
 
-        $sheet->getStyle('A1:E1')->applyFromArray(array_merge($headerStyle, [
+        $rosterEnd = $this->schema->columnLetter($rosterColumnCount);
+        $sheet->getStyle("A1:{$rosterEnd}1")->applyFromArray(array_merge($headerStyle, [
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => '475569'],
             ],
         ]));
 
-        $sheet->getStyle('F1:G1')->applyFromArray(array_merge($headerStyle, [
+        $standbyStart = $this->schema->columnLetter(6);
+        $standbyEnd = $this->schema->columnLetter(7);
+        $sheet->getStyle("{$standbyStart}1:{$standbyEnd}1")->applyFromArray(array_merge($headerStyle, [
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'B45309'],
             ],
         ]));
 
-        $sheet->getStyle('H1:I1')->applyFromArray(array_merge($headerStyle, [
+        $onsiteStart = $this->schema->columnLetter(8);
+        $onsiteEnd = $this->schema->columnLetter(9);
+        $sheet->getStyle("{$onsiteStart}1:{$onsiteEnd}1")->applyFromArray(array_merge($headerStyle, [
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => '1D4ED8'],
             ],
         ]));
 
-        $sheet->getStyle('J1')->applyFromArray(array_merge($headerStyle, [
+        $overtimeColumn = $this->schema->columnLetter(10);
+        $sheet->getStyle("{$overtimeColumn}1")->applyFromArray(array_merge($headerStyle, [
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'B45309'],
             ],
         ]));
 
+        $additionsColumn = $this->schema->columnLetter($timesheetSalaryStart);
+        $deductionsColumn = $this->schema->columnLetter($timesheetSalaryStart + 1);
+
+        $sheet->getStyle("{$additionsColumn}1")->applyFromArray(array_merge($headerStyle, [
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '15803D'],
+            ],
+        ]));
+
+        $sheet->getStyle("{$deductionsColumn}1")->applyFromArray(array_merge($headerStyle, [
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'B91C1C'],
+            ],
+        ]));
+
+        $sheet->getStyle("{$remarksColumn}1")->applyFromArray(array_merge($headerStyle, [
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '64748B'],
+            ],
+        ]));
+
+        $typeIndex = 0;
+
+        foreach ($salaryInputTypes as $type) {
+            $column = $this->schema->columnLetter($typedSalaryStart + $typeIndex);
+            $sheet->getStyle("{$column}1")->applyFromArray(array_merge($headerStyle, [
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => $type->is_addition ? '15803D' : 'B91C1C'],
+                ],
+            ]));
+            $typeIndex++;
+        }
+
         if ($lastDataRow < CrewTimesheetsImport::DATA_START_ROW) {
             return;
         }
 
-        $dataRange = 'A'.CrewTimesheetsImport::DATA_START_ROW.":J{$lastDataRow}";
+        $dataStart = CrewTimesheetsImport::DATA_START_ROW;
+        $dataRange = "A{$dataStart}:{$lastColumn}{$lastDataRow}";
 
         $sheet->getStyle($dataRange)->applyFromArray([
             'alignment' => [
@@ -190,38 +267,54 @@ final class CrewTimesheetTemplateExporter
             ],
         ]);
 
-        $sheet->getStyle('A'.CrewTimesheetsImport::DATA_START_ROW.":E{$lastDataRow}")->applyFromArray([
+        $sheet->getStyle("A{$dataStart}:{$rosterEnd}{$lastDataRow}")->applyFromArray([
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'F8FAFC'],
             ],
         ]);
 
-        $sheet->getStyle('F'.CrewTimesheetsImport::DATA_START_ROW.":I{$lastDataRow}")->applyFromArray([
+        $sheet->getStyle("{$standbyStart}{$dataStart}:{$onsiteEnd}{$lastDataRow}")->applyFromArray([
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'FFFBEB'],
             ],
         ]);
 
-        $sheet->getStyle('J'.CrewTimesheetsImport::DATA_START_ROW.":J{$lastDataRow}")->applyFromArray([
+        $sheet->getStyle("{$overtimeColumn}{$dataStart}:{$overtimeColumn}{$lastDataRow}")->applyFromArray([
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'FFF7ED'],
             ],
         ]);
 
+        $sheet->getStyle("{$additionsColumn}{$dataStart}:{$deductionsColumn}{$lastDataRow}")->applyFromArray([
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F0FDF4'],
+            ],
+        ]);
+
         foreach (['F', 'G', 'H', 'I'] as $dateColumn) {
-            $sheet->getStyle("{$dateColumn}".CrewTimesheetsImport::DATA_START_ROW.":{$dateColumn}{$lastDataRow}")
+            $sheet->getStyle("{$dateColumn}{$dataStart}:{$dateColumn}{$lastDataRow}")
                 ->getNumberFormat()
                 ->setFormatCode(self::DATE_FORMAT);
         }
 
-        $sheet->getStyle('J'.CrewTimesheetsImport::DATA_START_ROW.":J{$lastDataRow}")
-            ->getNumberFormat()
-            ->setFormatCode(NumberFormat::FORMAT_NUMBER_00);
+        $numericColumns = array_merge(
+            [$overtimeColumn, $additionsColumn, $deductionsColumn],
+            collect(range($typedSalaryStart, $remarksColumnIndex - 1))
+                ->map(fn (int $index) => $this->schema->columnLetter($index))
+                ->all(),
+        );
 
-        $sheet->getStyle('A'.CrewTimesheetsImport::DATA_START_ROW.":A{$lastDataRow}")
+        foreach ($numericColumns as $numericColumn) {
+            $sheet->getStyle("{$numericColumn}{$dataStart}:{$numericColumn}{$lastDataRow}")
+                ->getNumberFormat()
+                ->setFormatCode(NumberFormat::FORMAT_NUMBER_00);
+        }
+
+        $sheet->getStyle("A{$dataStart}:A{$lastDataRow}")
             ->getAlignment()
             ->setHorizontal(Alignment::HORIZONTAL_LEFT);
     }
@@ -247,7 +340,10 @@ final class CrewTimesheetTemplateExporter
         }
     }
 
-    private function addInstructionsSheet(Spreadsheet $spreadsheet, PayrollPeriod $period): void
+    /**
+     * @param  Collection<int, SalaryInputType>  $salaryInputTypes
+     */
+    private function addInstructionsSheet(Spreadsheet $spreadsheet, PayrollPeriod $period, $salaryInputTypes): void
     {
         $instructions = $spreadsheet->createSheet();
         $instructions->setTitle(self::INSTRUCTIONS_SHEET_NAME);
@@ -259,10 +355,15 @@ final class CrewTimesheetTemplateExporter
             ['2. Use the header filters (▼) to narrow by Division or Department.'],
             ['3. Fill the yellow date columns — days are calculated automatically on import.'],
             ['4. Fill the orange Overtime Hours column when the employee worked overtime. Leave blank when there is no OT.'],
-            ['5. Gray columns are pre-filled — do not change Employee No.'],
-            ['6. Type dates as DD-MM-YYYY text (e.g. 01-07-2026 = 1 July 2026). Do not use the date picker — Excel may swap day and month.'],
-            ['7. Leave a row blank if the employee had no standby or onsite days.'],
-            ['8. Save and upload this file back to payroll.'],
+            ['5. Fill green Additions and red Deductions columns for flat timesheet adjustments.'],
+            ['6. Fill green salary input columns for additions (e.g. Bonus, Commission) and red columns for deductions (e.g. Loan, Late). Leave blank when not applicable.'],
+            ['7. Optional Remarks column at the end for notes.'],
+            ['8. Gray columns are pre-filled — do not change Employee No.'],
+            ['9. Type dates as DD-MM-YYYY text (e.g. 01-07-2026 = 1 July 2026). Do not use the date picker — Excel may swap day and month.'],
+            ['10. Leave a row blank if the employee had no standby or onsite days.'],
+            ['11. Save and upload this file back to payroll.'],
+            [''],
+            ['Salary input columns in this template: '.$salaryInputTypes->pluck('name')->join(', ')],
             [''],
             ['Period: '.($period->name ?? 'Payroll period #'.$period->id)],
         ];
@@ -273,8 +374,9 @@ final class CrewTimesheetTemplateExporter
 
         $instructions->getColumnDimension('A')->setWidth(72);
         $instructions->getStyle('A1')->getFont()->setBold(true)->setSize(13);
-        $instructions->getStyle('A3:A10')->getFont()->setSize(11);
-        $instructions->getStyle('A12')->getFont()->setItalic(true)->setSize(10);
+        $instructions->getStyle('A3:A13')->getFont()->setSize(11);
+        $instructions->getStyle('A15')->getFont()->setItalic(true)->setSize(10);
+        $instructions->getStyle('A17')->getFont()->setItalic(true)->setSize(10);
     }
 
     private function divisionName(Employee $employee): string

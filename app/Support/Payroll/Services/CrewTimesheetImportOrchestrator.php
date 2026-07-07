@@ -6,7 +6,11 @@ use App\Enums\PayrollCategory;
 use App\Imports\CrewTimesheetsImport;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Models\PayrollRecord;
+use App\Models\SalaryInputType;
 use App\Support\Attendance\CalculateLeaveRequestDays;
+use App\Support\Payroll\Actions\RecalculateCrewPayroll;
+use App\Support\Payroll\Actions\SyncEmployeeSalaryInputsFromImport;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -18,6 +22,8 @@ final class CrewTimesheetImportOrchestrator
     public function __construct(
         private readonly CrewTimesheetsImport $import,
         private readonly UpsertCrewTimesheet $upsertCrewTimesheet,
+        private readonly SyncEmployeeSalaryInputsFromImport $syncEmployeeSalaryInputsFromImport,
+        private readonly RecalculateCrewPayroll $recalculateCrewPayroll,
     ) {}
 
     /**
@@ -32,12 +38,17 @@ final class CrewTimesheetImportOrchestrator
     {
         $this->assertImportablePeriod($period);
 
-        $evaluation = $this->evaluateRows($companyId, $period, $this->import->parse($file));
+        $parsed = $this->import->parse($file, $companyId);
+        $evaluation = $this->evaluateRows(
+            $companyId,
+            $parsed['rows'],
+            $parsed['managed_salary_input_type_ids'],
+        );
 
         return [
             'rows' => collect($evaluation['rows'])
                 ->map(function (array $row): array {
-                    unset($row['employee'], $row['timesheet_data']);
+                    unset($row['employee'], $row['timesheet_data'], $row['salary_amounts_by_type_id']);
 
                     return $row;
                 })
@@ -56,7 +67,12 @@ final class CrewTimesheetImportOrchestrator
     {
         $this->assertImportablePeriod($period);
 
-        $evaluation = $this->evaluateRows($companyId, $period, $this->import->parse($file));
+        $parsed = $this->import->parse($file, $companyId);
+        $evaluation = $this->evaluateRows(
+            $companyId,
+            $parsed['rows'],
+            $parsed['managed_salary_input_type_ids'],
+        );
 
         if ($evaluation['summary']['valid'] === 0) {
             throw ValidationException::withMessages([
@@ -66,6 +82,7 @@ final class CrewTimesheetImportOrchestrator
 
         $imported = 0;
         $skipped = 0;
+        $managedTypeIds = $parsed['managed_salary_input_type_ids'];
 
         foreach ($evaluation['rows'] as $row) {
             if (! empty($row['errors'])) {
@@ -83,6 +100,24 @@ final class CrewTimesheetImportOrchestrator
                 $row['timesheet_data'],
             );
 
+            if ($managedTypeIds !== []) {
+                $this->syncEmployeeSalaryInputsFromImport->handle(
+                    $period,
+                    $employee,
+                    $row['salary_amounts_by_type_id'],
+                    $managedTypeIds,
+                );
+            }
+
+            if (PayrollRecord::query()
+                ->where('company_id', $period->company_id)
+                ->where('period_id', $period->id)
+                ->where('employee_id', $employee->id)
+                ->where('payroll_category', PayrollCategory::Crew)
+                ->exists()) {
+                $this->recalculateCrewPayroll->handle($period, $employee->id);
+            }
+
             $imported++;
         }
 
@@ -95,6 +130,7 @@ final class CrewTimesheetImportOrchestrator
 
     /**
      * @param  list<array<string, mixed>>  $parsedRows
+     * @param  list<int>  $managedTypeIds
      * @return array{
      *     rows: list<array<string, mixed>>,
      *     errors: list<array{row: int, field: string, message: string}>,
@@ -102,9 +138,13 @@ final class CrewTimesheetImportOrchestrator
      *     summary: array{total: int, valid: int, invalid: int, warnings: int}
      * }
      */
-    private function evaluateRows(int $companyId, PayrollPeriod $period, array $parsedRows): array
-    {
+    private function evaluateRows(
+        int $companyId,
+        array $parsedRows,
+        array $managedTypeIds,
+    ): array {
         $employeesByNo = $this->loadEmployeesByNumber($companyId);
+        $typeNamesById = $this->loadSalaryInputTypeNames($companyId, $managedTypeIds);
         $seenEmployeeNumbers = [];
         $rows = [];
         $errors = [];
@@ -153,6 +193,35 @@ final class CrewTimesheetImportOrchestrator
                 }
             }
 
+            /** @var array<int, float|string|null> $salaryAmountsByTypeId */
+            $salaryAmountsByTypeId = $parsedRow['salary_amounts_by_type_id'] ?? [];
+
+            foreach ($salaryAmountsByTypeId as $typeId => $amount) {
+                if ($amount === null || $amount === '') {
+                    continue;
+                }
+
+                if (! is_numeric($amount)) {
+                    $typeName = $typeNamesById[$typeId] ?? 'Salary input';
+                    $rowErrors[] = [
+                        'row' => $rowNumber,
+                        'field' => "salary_input_{$typeId}",
+                        'message' => "{$typeName} must be a number.",
+                    ];
+
+                    continue;
+                }
+
+                if ((float) $amount < 0) {
+                    $typeName = $typeNamesById[$typeId] ?? 'Salary input';
+                    $rowErrors[] = [
+                        'row' => $rowNumber,
+                        'field' => "salary_input_{$typeId}",
+                        'message' => "{$typeName} must be at least 0.",
+                    ];
+                }
+            }
+
             $rowResult = [
                 'row' => $rowNumber,
                 'employee_no' => $employeeNo,
@@ -162,10 +231,15 @@ final class CrewTimesheetImportOrchestrator
                 'standby_days' => $timesheetData['standby_days'],
                 'onsite_days' => $timesheetData['onsite_days'],
                 'overtime_hours' => $timesheetData['overtime_hours'],
+                'additional_amount' => $timesheetData['additional_amount'],
+                'deduction_amount' => $timesheetData['deduction_amount'],
+                'remarks' => $timesheetData['remarks'],
+                'salary_input_summary' => $this->buildSalaryInputSummary($salaryAmountsByTypeId, $typeNamesById),
                 'errors' => $rowErrors,
                 'warnings' => [],
                 'employee' => $employee,
                 'timesheet_data' => $timesheetData,
+                'salary_amounts_by_type_id' => $this->normalizeSalaryAmountsByTypeId($salaryAmountsByTypeId),
             ];
 
             $rows[] = $rowResult;
@@ -201,6 +275,24 @@ final class CrewTimesheetImportOrchestrator
     }
 
     /**
+     * @param  list<int>  $managedTypeIds
+     * @return array<int, string>
+     */
+    private function loadSalaryInputTypeNames(int $companyId, array $managedTypeIds): array
+    {
+        if ($managedTypeIds === []) {
+            return [];
+        }
+
+        return SalaryInputType::query()
+            ->where('company_id', $companyId)
+            ->whereIn('id', $managedTypeIds)
+            ->pluck('name', 'id')
+            ->map(fn (string $name) => $name)
+            ->all();
+    }
+
+    /**
      * @param  array<string, mixed>  $parsedRow
      * @return array<string, mixed>
      */
@@ -220,9 +312,9 @@ final class CrewTimesheetImportOrchestrator
                 $parsedRow['onsite_to'],
             ),
             'overtime_hours' => $parsedRow['overtime_hours'] ?? 0,
-            'additional_amount' => 0,
-            'deduction_amount' => 0,
-            'remarks' => null,
+            'additional_amount' => $parsedRow['additional_amount'] ?? 0,
+            'deduction_amount' => $parsedRow['deduction_amount'] ?? 0,
+            'remarks' => $parsedRow['remarks'] ?? null,
         ];
     }
 
@@ -243,6 +335,52 @@ final class CrewTimesheetImportOrchestrator
             'deduction_amount' => ['nullable', 'numeric', 'min:0'],
             'remarks' => ['nullable', 'string'],
         ];
+    }
+
+    /**
+     * @param  array<int, float|string|null>  $salaryAmountsByTypeId
+     * @param  array<int, string>  $typeNamesById
+     * @return list<array{name: string, amount: float}>
+     */
+    private function buildSalaryInputSummary(array $salaryAmountsByTypeId, array $typeNamesById): array
+    {
+        $summary = [];
+
+        foreach ($salaryAmountsByTypeId as $typeId => $amount) {
+            if ($amount === null || $amount === '' || ! is_numeric($amount) || (float) $amount <= 0) {
+                continue;
+            }
+
+            $summary[] = [
+                'name' => $typeNamesById[$typeId] ?? 'Salary input',
+                'amount' => round((float) $amount, 2),
+            ];
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @param  array<int, float|string|null>  $salaryAmountsByTypeId
+     * @return array<int, float|null>
+     */
+    private function normalizeSalaryAmountsByTypeId(array $salaryAmountsByTypeId): array
+    {
+        $normalized = [];
+
+        foreach ($salaryAmountsByTypeId as $typeId => $amount) {
+            if ($amount === null || $amount === '') {
+                $normalized[(int) $typeId] = null;
+
+                continue;
+            }
+
+            $normalized[(int) $typeId] = is_numeric($amount)
+                ? round((float) $amount, 2)
+                : null;
+        }
+
+        return $normalized;
     }
 
     private function calculateInclusiveDays(?string $from, ?string $to): ?float

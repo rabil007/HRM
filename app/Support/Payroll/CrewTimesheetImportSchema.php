@@ -1,0 +1,158 @@
+<?php
+
+namespace App\Support\Payroll;
+
+use App\Models\SalaryInputType;
+use Illuminate\Support\Collection;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+
+final class CrewTimesheetImportSchema
+{
+    public const HEADER_EMPLOYEE_NO = 'Employee No';
+
+    public const HEADER_ADDITIONS = 'Additions';
+
+    public const HEADER_DEDUCTIONS = 'Deductions';
+
+    public const HEADER_REMARKS = 'Remarks';
+
+    /**
+     * @return list<string>
+     */
+    public static function rosterHeaders(): array
+    {
+        return [
+            self::HEADER_EMPLOYEE_NO,
+            'Employee Name',
+            'Division',
+            'Department',
+            'Position',
+            'Standby From',
+            'Standby To',
+            'Onsite From',
+            'Onsite To',
+            'Overtime Hours',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function headers(int $companyId): array
+    {
+        return array_merge(
+            self::rosterHeaders(),
+            [
+                self::HEADER_ADDITIONS,
+                self::HEADER_DEDUCTIONS,
+            ],
+            $this->activeSalaryInputTypes($companyId)
+                ->pluck('name')
+                ->all(),
+            [self::HEADER_REMARKS],
+        );
+    }
+
+    /**
+     * @return Collection<int, SalaryInputType>
+     */
+    public function activeSalaryInputTypes(int $companyId): Collection
+    {
+        (new ProvisionDefaultSalaryInputTypes)->handle($companyId);
+
+        return SalaryInputType::query()
+            ->where('company_id', $companyId)
+            ->where('status', 'active')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function lastColumnLetter(int $companyId): string
+    {
+        return $this->columnLetter(count($this->headers($companyId)));
+    }
+
+    public function columnLetter(int $columnIndex): string
+    {
+        $letter = '';
+        $index = $columnIndex;
+
+        while ($index > 0) {
+            $remainder = ($index - 1) % 26;
+            $letter = chr(65 + $remainder).$letter;
+            $index = intdiv($index - 1, 26);
+        }
+
+        return $letter;
+    }
+
+    /**
+     * @return array{
+     *     additions_column: ?string,
+     *     deductions_column: ?string,
+     *     remarks_column: ?string,
+     *     salary_type_columns: array<string, int>
+     * }
+     */
+    public function mapHeaderColumns(Worksheet $sheet, int $companyId): array
+    {
+        $typesByNormalizedName = $this->activeSalaryInputTypes($companyId)
+            ->keyBy(fn (SalaryInputType $type) => $this->normalizeHeader((string) $type->name));
+
+        $map = [
+            'additions_column' => null,
+            'deductions_column' => null,
+            'remarks_column' => null,
+            'salary_type_columns' => [],
+        ];
+
+        $highestColumnIndex = Coordinate::columnIndexFromString(
+            $sheet->getHighestDataColumn(),
+        );
+
+        for ($columnIndex = 1; $columnIndex <= $highestColumnIndex; $columnIndex++) {
+            $header = $this->normalizeHeader(
+                (string) $sheet->getCellByColumnAndRow($columnIndex, 1)->getCalculatedValue(),
+            );
+
+            if ($header === '') {
+                continue;
+            }
+
+            $columnLetter = $this->columnLetter($columnIndex);
+
+            if ($header === $this->normalizeHeader(self::HEADER_ADDITIONS)) {
+                $map['additions_column'] = $columnLetter;
+
+                continue;
+            }
+
+            if ($header === $this->normalizeHeader(self::HEADER_DEDUCTIONS)) {
+                $map['deductions_column'] = $columnLetter;
+
+                continue;
+            }
+
+            if ($header === $this->normalizeHeader(self::HEADER_REMARKS)) {
+                $map['remarks_column'] = $columnLetter;
+
+                continue;
+            }
+
+            $type = $typesByNormalizedName->get($header);
+
+            if ($type !== null) {
+                $map['salary_type_columns'][$columnLetter] = (int) $type->id;
+            }
+        }
+
+        return $map;
+    }
+
+    private function normalizeHeader(string $header): string
+    {
+        return mb_strtolower(trim($header));
+    }
+}

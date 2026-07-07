@@ -2,6 +2,7 @@
 
 namespace App\Imports;
 
+use App\Support\Payroll\CrewTimesheetImportSchema;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -36,13 +37,23 @@ final class CrewTimesheetsImport
 
     private const COL_OVERTIME = 'J';
 
+    public function __construct(
+        private readonly CrewTimesheetImportSchema $schema,
+    ) {}
+
     /**
-     * @return list<array<string, mixed>>
+     * @return array{
+     *     rows: list<array<string, mixed>>,
+     *     managed_salary_input_type_ids: list<int>
+     * }
      */
-    public function parse(UploadedFile $file): array
+    public function parse(UploadedFile $file, int $companyId): array
     {
         $sheet = $this->resolveSheet($file);
         $this->assertValidTemplate($sheet);
+
+        $columnMap = $this->schema->mapHeaderColumns($sheet, $companyId);
+        $managedTypeIds = array_values($columnMap['salary_type_columns']);
 
         $rows = [];
         $highestRow = min($sheet->getHighestDataRow(), self::DATA_START_ROW + self::MAX_ROWS - 1);
@@ -52,6 +63,12 @@ final class CrewTimesheetsImport
 
             if ($this->shouldStopAtRow($employeeNo)) {
                 break;
+            }
+
+            $salaryAmountsByTypeId = [];
+
+            foreach ($columnMap['salary_type_columns'] as $column => $typeId) {
+                $salaryAmountsByTypeId[$typeId] = $this->numericValue($sheet, $column, $rowNumber);
             }
 
             $rows[] = [
@@ -68,10 +85,23 @@ final class CrewTimesheetsImport
                 'onsite_from' => $this->dateValue($sheet, self::COL_ONSITE_FROM, $rowNumber),
                 'onsite_to' => $this->dateValue($sheet, self::COL_ONSITE_TO, $rowNumber),
                 'overtime_hours' => $this->numericValue($sheet, self::COL_OVERTIME, $rowNumber),
+                'additional_amount' => $columnMap['additions_column'] !== null
+                    ? $this->numericValue($sheet, $columnMap['additions_column'], $rowNumber)
+                    : null,
+                'deduction_amount' => $columnMap['deductions_column'] !== null
+                    ? $this->numericValue($sheet, $columnMap['deductions_column'], $rowNumber)
+                    : null,
+                'remarks' => $columnMap['remarks_column'] !== null
+                    ? $this->stringValue($sheet, $columnMap['remarks_column'], $rowNumber)
+                    : null,
+                'salary_amounts_by_type_id' => $salaryAmountsByTypeId,
             ];
         }
 
-        return $rows;
+        return [
+            'rows' => $rows,
+            'managed_salary_input_type_ids' => $managedTypeIds,
+        ];
     }
 
     private function resolveSheet(UploadedFile $file): Worksheet
