@@ -36,6 +36,20 @@ final class BankAccountDirectoryQuery
     /**
      * @return Builder<EmployeeBankAccount>
      */
+    public function exportQuery(): Builder
+    {
+        $query = $this->baseQuery()->with(['employee.branch:id,name']);
+
+        $this->applyFilters($query);
+
+        return $query
+            ->orderByDesc('employee_bank_accounts.is_primary')
+            ->orderByDesc('employee_bank_accounts.id');
+    }
+
+    /**
+     * @return Builder<EmployeeBankAccount>
+     */
     private function baseQuery(): Builder
     {
         $totalAccountsSubquery = fn (QueryBuilder $sub): QueryBuilder => $sub
