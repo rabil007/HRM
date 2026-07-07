@@ -69,18 +69,16 @@ test('crew timesheet template download includes roster with department and posit
         ->and($sheet->getCell('C1')->getValue())->toBe('Division')
         ->and($sheet->getCell('I1')->getValue())->toBe('Onsite To')
         ->and($sheet->getCell('J1')->getValue())->toBe('Overtime Hours')
-        ->and($sheet->getCell('K1')->getValue())->toBe('Additions')
-        ->and($sheet->getCell('L1')->getValue())->toBe('Deductions')
-        ->and($sheet->getCell('M1')->getValue())->toBe('Bonus')
-        ->and($sheet->getCell('N1')->getValue())->toBe('Commission')
-        ->and($sheet->getCell('S1')->getValue())->toBe('Remarks')
+        ->and($sheet->getCell('K1')->getValue())->toBe('Bonus')
+        ->and($sheet->getCell('L1')->getValue())->toBe('Commission')
+        ->and($sheet->getCell('Q1')->getValue())->toBe('Remarks')
         ->and($sheet->getCell('A2')->getValue())->toBe('2057')
         ->and($sheet->getCell('B2')->getValue())->toBe('AHMED LATECH')
         ->and($sheet->getCell('C2')->getValue())->toBe('Marine')
         ->and($sheet->getCell('D2')->getValue())->toBe('Deck')
         ->and($sheet->getCell('E2')->getValue())->toBe('Chief Officer')
         ->and($sheet->getCell('F2')->getValue())->toBeNull()
-        ->and($sheet->getAutoFilter()->getRange())->toBe('A1:S2')
+        ->and($sheet->getAutoFilter()->getRange())->toBe('A1:Q2')
         ->and($sheet->getStyle('F2')->getNumberFormat()->getFormatCode())->toBe(CrewTimesheetTemplateExporter::DATE_FORMAT);
 
     @unlink($result['path']);
@@ -294,7 +292,7 @@ test('crew timesheet import preview rejects invalid template headers', function 
         ->assertSessionHasErrors('file');
 });
 
-test('crew timesheet import stores additions deductions and remarks from excel', function () {
+test('crew timesheet import stores remarks from excel', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
@@ -312,8 +310,6 @@ test('crew timesheet import stores additions deductions and remarks from excel',
         [
             'employee_no' => '2057',
             'name' => 'AHMED LATECH',
-            'additional_amount' => 150,
-            'deduction_amount' => 25,
             'remarks' => 'Imported adjustment',
         ],
     ]);
@@ -323,8 +319,6 @@ test('crew timesheet import stores additions deductions and remarks from excel',
             'file' => $file,
         ])
         ->assertOk()
-        ->assertJsonPath('rows.0.additional_amount', 150)
-        ->assertJsonPath('rows.0.deduction_amount', 25)
         ->assertJsonPath('rows.0.remarks', 'Imported adjustment');
 
     $this->withSession(['current_company_id' => $company->id])
@@ -340,21 +334,7 @@ test('crew timesheet import stores additions deductions and remarks from excel',
         ->first();
 
     expect($timesheet)->not->toBeNull()
-        ->and($timesheet->additional_amount)->toBe('0.00')
-        ->and($timesheet->deduction_amount)->toBe('0.00')
         ->and($timesheet->remarks)->toBe('Imported adjustment');
-
-    expect(SalaryInput::query()
-        ->where('period_id', $period->id)
-        ->where('employee_id', $employee->id)
-        ->where('salary_input_type_id', salaryInputTypeId($company, 'bonus'))
-        ->value('amount'))->toBe('150.00');
-
-    expect(SalaryInput::query()
-        ->where('period_id', $period->id)
-        ->where('employee_id', $employee->id)
-        ->where('salary_input_type_id', salaryInputTypeId($company, 'other'))
-        ->value('amount'))->toBe('25.00');
 });
 
 test('crew timesheet import stores typed salary input from excel', function () {
@@ -529,8 +509,6 @@ function makeCrewTimesheetImportFile(int $companyId, array $rows, bool $legacyHe
         $setCell('Onsite From', $row['onsite_from'] ?? '');
         $setCell('Onsite To', $row['onsite_to'] ?? '');
         $setCell('Overtime Hours', $row['overtime_hours'] ?? '');
-        $setCell('Additions', $row['additional_amount'] ?? '');
-        $setCell('Deductions', $row['deduction_amount'] ?? '');
         $setCell('Remarks', $row['remarks'] ?? '');
 
         foreach ($row['salary_inputs'] ?? [] as $typeName => $amount) {

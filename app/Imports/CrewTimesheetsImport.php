@@ -85,12 +85,6 @@ final class CrewTimesheetsImport
                 'onsite_from' => $this->dateValue($sheet, self::COL_ONSITE_FROM, $rowNumber),
                 'onsite_to' => $this->dateValue($sheet, self::COL_ONSITE_TO, $rowNumber),
                 'overtime_hours' => $this->numericValue($sheet, self::COL_OVERTIME, $rowNumber),
-                'additional_amount' => $columnMap['additions_column'] !== null
-                    ? $this->numericValue($sheet, $columnMap['additions_column'], $rowNumber)
-                    : null,
-                'deduction_amount' => $columnMap['deductions_column'] !== null
-                    ? $this->numericValue($sheet, $columnMap['deductions_column'], $rowNumber)
-                    : null,
                 'remarks' => $columnMap['remarks_column'] !== null
                     ? $this->stringValue($sheet, $columnMap['remarks_column'], $rowNumber)
                     : null,

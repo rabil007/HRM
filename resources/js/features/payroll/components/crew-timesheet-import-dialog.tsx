@@ -51,8 +51,6 @@ type ImportPreviewRow = {
     standby_days: number | null;
     onsite_days: number | null;
     overtime_hours: number | string | null;
-    additional_amount: number | string | null;
-    deduction_amount: number | string | null;
     remarks: string | null;
     salary_input_summary?: Array<{ name: string; amount: number }>;
     errors: ImportRowError[];
@@ -125,8 +123,6 @@ export function CrewTimesheetImportDialog({
                 row.standby_days?.toString(),
                 row.onsite_days?.toString(),
                 row.overtime_hours?.toString(),
-                row.additional_amount?.toString(),
-                row.deduction_amount?.toString(),
                 row.remarks,
                 row.errors[0]?.message,
             ]
@@ -274,9 +270,9 @@ export function CrewTimesheetImportDialog({
                         Use Excel filters on Division or Department, then fill
                         the yellow date columns as DD-MM-YYYY text (e.g.
                         01-07-2026) and the orange Overtime Hours column when
-                        applicable. Green columns are additions (Additions, Bonus,
-                        Commission); red columns are deductions (Deductions,
-                        Loan, Late, etc.). Do not use the Excel date picker.
+                        applicable. Green columns are additions (Bonus,
+                        Commission); red columns are deductions (Loan,
+                        Late, etc.). Do not use the Excel date picker.
                         Days and pay are calculated when you generate payroll.
                     </DialogDescription>
                 </DialogHeader>
@@ -379,8 +375,6 @@ export function CrewTimesheetImportDialog({
                                             <TableHead>Standby</TableHead>
                                             <TableHead>Onsite</TableHead>
                                             <TableHead>Overtime</TableHead>
-                                            <TableHead>Additions</TableHead>
-                                            <TableHead>Deductions</TableHead>
                                             <TableHead>Status</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -388,7 +382,7 @@ export function CrewTimesheetImportDialog({
                                         {filteredRows.length === 0 ? (
                                             <TableRow>
                                                 <TableCell
-                                                    colSpan={9}
+                                                    colSpan={7}
                                                     className="py-8 text-center text-sm text-muted-foreground"
                                                 >
                                                     No rows match your search.
@@ -416,14 +410,6 @@ export function CrewTimesheetImportDialog({
                                                     </TableCell>
                                                     <TableCell>
                                                         {row.overtime_hours ??
-                                                            '—'}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {row.additional_amount ??
-                                                            '—'}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {row.deduction_amount ??
                                                             '—'}
                                                     </TableCell>
                                                     <TableCell>

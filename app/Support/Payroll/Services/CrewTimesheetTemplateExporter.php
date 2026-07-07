@@ -51,8 +51,7 @@ final class CrewTimesheetTemplateExporter
         $salaryInputTypes = $this->schema->activeSalaryInputTypes($companyId);
         $lastColumn = $this->schema->lastColumnLetter($companyId);
         $rosterColumnCount = count(CrewTimesheetImportSchema::rosterHeaders());
-        $timesheetSalaryStart = $rosterColumnCount + 1;
-        $typedSalaryStart = $timesheetSalaryStart + 2;
+        $typedSalaryStart = $rosterColumnCount + 1;
         $remarksColumnIndex = Coordinate::columnIndexFromString($lastColumn);
 
         $spreadsheet = new Spreadsheet;
@@ -86,7 +85,6 @@ final class CrewTimesheetTemplateExporter
             $lastDataRow,
             $lastColumn,
             $rosterColumnCount,
-            $timesheetSalaryStart,
             $typedSalaryStart,
             $remarksColumnIndex,
             $salaryInputTypes,
@@ -121,7 +119,6 @@ final class CrewTimesheetTemplateExporter
         int $lastDataRow,
         string $lastColumn,
         int $rosterColumnCount,
-        int $timesheetSalaryStart,
         int $typedSalaryStart,
         int $remarksColumnIndex,
         $salaryInputTypes,
@@ -141,8 +138,6 @@ final class CrewTimesheetTemplateExporter
             'H' => 16,
             'I' => 16,
             'J' => 16,
-            'K' => 14,
-            'L' => 14,
         ];
 
         foreach ($columnWidths as $column => $width) {
@@ -211,23 +206,6 @@ final class CrewTimesheetTemplateExporter
             ],
         ]));
 
-        $additionsColumn = $this->schema->columnLetter($timesheetSalaryStart);
-        $deductionsColumn = $this->schema->columnLetter($timesheetSalaryStart + 1);
-
-        $sheet->getStyle("{$additionsColumn}1")->applyFromArray(array_merge($headerStyle, [
-            'fill' => [
-                'fillType' => Fill::FILL_SOLID,
-                'startColor' => ['rgb' => '15803D'],
-            ],
-        ]));
-
-        $sheet->getStyle("{$deductionsColumn}1")->applyFromArray(array_merge($headerStyle, [
-            'fill' => [
-                'fillType' => Fill::FILL_SOLID,
-                'startColor' => ['rgb' => 'B91C1C'],
-            ],
-        ]));
-
         $sheet->getStyle("{$remarksColumn}1")->applyFromArray(array_merge($headerStyle, [
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
@@ -288,13 +266,6 @@ final class CrewTimesheetTemplateExporter
             ],
         ]);
 
-        $sheet->getStyle("{$additionsColumn}{$dataStart}:{$deductionsColumn}{$lastDataRow}")->applyFromArray([
-            'fill' => [
-                'fillType' => Fill::FILL_SOLID,
-                'startColor' => ['rgb' => 'F0FDF4'],
-            ],
-        ]);
-
         foreach (['F', 'G', 'H', 'I'] as $dateColumn) {
             $sheet->getStyle("{$dateColumn}{$dataStart}:{$dateColumn}{$lastDataRow}")
                 ->getNumberFormat()
@@ -302,7 +273,7 @@ final class CrewTimesheetTemplateExporter
         }
 
         $numericColumns = array_merge(
-            [$overtimeColumn, $additionsColumn, $deductionsColumn],
+            [$overtimeColumn],
             collect(range($typedSalaryStart, $remarksColumnIndex - 1))
                 ->map(fn (int $index) => $this->schema->columnLetter($index))
                 ->all(),
@@ -355,13 +326,12 @@ final class CrewTimesheetTemplateExporter
             ['2. Use the header filters (▼) to narrow by Division or Department.'],
             ['3. Fill the yellow date columns — days are calculated automatically on import.'],
             ['4. Fill the orange Overtime Hours column when the employee worked overtime. Leave blank when there is no OT.'],
-            ['5. Fill green Additions and red Deductions columns for flat timesheet adjustments.'],
-            ['6. Fill green salary input columns for additions (e.g. Bonus, Commission) and red columns for deductions (e.g. Loan, Late). Leave blank when not applicable.'],
-            ['7. Optional Remarks column at the end for notes.'],
-            ['8. Gray columns are pre-filled — do not change Employee No.'],
-            ['9. Type dates as DD-MM-YYYY text (e.g. 01-07-2026 = 1 July 2026). Do not use the date picker — Excel may swap day and month.'],
-            ['10. Leave a row blank if the employee had no standby or onsite days.'],
-            ['11. Save and upload this file back to payroll.'],
+            ['5. Fill green salary input columns for additions (e.g. Bonus, Commission) and red columns for deductions (e.g. Loan, Late). Leave blank when not applicable.'],
+            ['6. Optional Remarks column at the end for notes.'],
+            ['7. Gray columns are pre-filled — do not change Employee No.'],
+            ['8. Type dates as DD-MM-YYYY text (e.g. 01-07-2026 = 1 July 2026). Do not use the date picker — Excel may swap day and month.'],
+            ['9. Leave a row blank if the employee had no standby or onsite days.'],
+            ['10. Save and upload this file back to payroll.'],
             [''],
             ['Salary input columns in this template: '.$salaryInputTypes->pluck('name')->join(', ')],
             [''],

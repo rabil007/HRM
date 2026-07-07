@@ -96,22 +96,12 @@ final class CrewTimesheetImportOrchestrator
 
             $timesheetData = $row['timesheet_data'];
 
-            $syncResult = $this->syncEmployeeSalaryInputsFromImport->handle(
+            $this->syncEmployeeSalaryInputsFromImport->handle(
                 $period,
                 $employee,
                 $row['salary_amounts_by_type_id'],
                 $managedTypeIds,
-                (float) ($timesheetData['additional_amount'] ?? 0),
-                (float) ($timesheetData['deduction_amount'] ?? 0),
             );
-
-            if ($syncResult['mirrored_addition']) {
-                $timesheetData['additional_amount'] = 0;
-            }
-
-            if ($syncResult['mirrored_deduction']) {
-                $timesheetData['deduction_amount'] = 0;
-            }
 
             $this->upsertCrewTimesheet->handle(
                 $period,
@@ -241,8 +231,6 @@ final class CrewTimesheetImportOrchestrator
                 'standby_days' => $timesheetData['standby_days'],
                 'onsite_days' => $timesheetData['onsite_days'],
                 'overtime_hours' => $timesheetData['overtime_hours'],
-                'additional_amount' => $timesheetData['additional_amount'],
-                'deduction_amount' => $timesheetData['deduction_amount'],
                 'remarks' => $timesheetData['remarks'],
                 'salary_input_summary' => $this->buildSalaryInputSummary($salaryAmountsByTypeId, $typeNamesById),
                 'errors' => $rowErrors,
@@ -322,8 +310,8 @@ final class CrewTimesheetImportOrchestrator
                 $parsedRow['onsite_to'],
             ),
             'overtime_hours' => $parsedRow['overtime_hours'] ?? 0,
-            'additional_amount' => $parsedRow['additional_amount'] ?? 0,
-            'deduction_amount' => $parsedRow['deduction_amount'] ?? 0,
+            'additional_amount' => 0,
+            'deduction_amount' => 0,
             'remarks' => $parsedRow['remarks'] ?? null,
         ];
     }

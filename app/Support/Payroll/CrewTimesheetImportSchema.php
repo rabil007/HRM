@@ -11,10 +11,6 @@ final class CrewTimesheetImportSchema
 {
     public const HEADER_EMPLOYEE_NO = 'Employee No';
 
-    public const HEADER_ADDITIONS = 'Additions';
-
-    public const HEADER_DEDUCTIONS = 'Deductions';
-
     public const HEADER_REMARKS = 'Remarks';
 
     /**
@@ -43,10 +39,6 @@ final class CrewTimesheetImportSchema
     {
         return array_merge(
             self::rosterHeaders(),
-            [
-                self::HEADER_ADDITIONS,
-                self::HEADER_DEDUCTIONS,
-            ],
             $this->activeSalaryInputTypes($companyId)
                 ->pluck('name')
                 ->all(),
@@ -90,8 +82,6 @@ final class CrewTimesheetImportSchema
 
     /**
      * @return array{
-     *     additions_column: ?string,
-     *     deductions_column: ?string,
      *     remarks_column: ?string,
      *     salary_type_columns: array<string, int>
      * }
@@ -102,8 +92,6 @@ final class CrewTimesheetImportSchema
             ->keyBy(fn (SalaryInputType $type) => $this->normalizeHeader((string) $type->name));
 
         $map = [
-            'additions_column' => null,
-            'deductions_column' => null,
             'remarks_column' => null,
             'salary_type_columns' => [],
         ];
@@ -123,18 +111,6 @@ final class CrewTimesheetImportSchema
             }
 
             $columnLetter = $this->columnLetter($columnIndex);
-
-            if ($header === $this->normalizeHeader(self::HEADER_ADDITIONS)) {
-                $map['additions_column'] = $columnLetter;
-
-                continue;
-            }
-
-            if ($header === $this->normalizeHeader(self::HEADER_DEDUCTIONS)) {
-                $map['deductions_column'] = $columnLetter;
-
-                continue;
-            }
 
             if ($header === $this->normalizeHeader(self::HEADER_REMARKS)) {
                 $map['remarks_column'] = $columnLetter;
