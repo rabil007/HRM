@@ -84,6 +84,7 @@ import { PayrollRecordsSummaryCards } from './components/payroll-records-summary
 import { PayrollRecordsTable } from './components/payroll-records-table';
 import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft-dialog';
 import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
+import { usePayslipGenerationPoll } from './hooks/use-payslip-generation-poll';
 import { calculateInclusiveDays } from './lib/calculate-inclusive-days';
 import {
     getPayrollBoardSelectionSummary,
@@ -312,6 +313,12 @@ export function PayrollShowContent({
         monthlyRecordsPagination: payroll_records_monthly_pagination,
         isDraft: isDraftPeriod,
         supportsTimesheets: period.supports_timesheets,
+    });
+
+    const { isLiveUpdating: isPayslipGenerationLive } = usePayslipGenerationPoll({
+        tab: initialTab,
+        periodStatus: period.status,
+        payslipSummary: payslip_summary,
     });
 
     const handleEmployeeGroupSelect = (
@@ -838,6 +845,7 @@ export function PayrollShowContent({
                         selectedWpsRecordIds={
                             canSelectForWpsExport ? selectedWpsRecordIds : null
                         }
+                        isPayslipGenerationLive={isPayslipGenerationLive}
                     />
                     {payroll_records_summary ? (
                         <PayrollRecordsSummaryCards
@@ -1509,6 +1517,9 @@ export function PayrollShowContent({
                                             setSalaryInputsRecord
                                         }
                                         onRemove={setRemoveRecord}
+                                        isPayslipGenerationLive={
+                                            isPayslipGenerationLive
+                                        }
                                     />
                                     {recordsPagination &&
                                     recordsPagination.last_page > 1 ? (
@@ -1580,6 +1591,9 @@ export function PayrollShowContent({
                                             payroll_category: 'crew',
                                         } as CrewPayrollRecordListItem)
                                     }
+                                    isPayslipGenerationLive={
+                                        isPayslipGenerationLive
+                                    }
                                 />
                                 {monthlyRecordsPagination &&
                                 monthlyRecordsPagination.last_page > 1 ? (
@@ -1626,6 +1640,7 @@ export function PayrollShowContent({
                         wpsSelection={wpsSelection}
                         onManageSalaryInputs={setSalaryInputsRecord}
                         onRemove={setRemoveRecord}
+                        isPayslipGenerationLive={isPayslipGenerationLive}
                     />
                 )}
                 {!period.supports_timesheets && recordsPagination ? (

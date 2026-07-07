@@ -52,6 +52,7 @@ export function PayrollRecordsTable({
     wpsSelection,
     onManageSalaryInputs,
     onRemove,
+    isPayslipGenerationLive = false,
 }: {
     records: CrewPayrollRecordListItem[];
     salaryInputsByEmployee: Record<string, SalaryInput[]>;
@@ -59,6 +60,7 @@ export function PayrollRecordsTable({
     canShowPayslipActions: boolean;
     canManageSalaryInputs: boolean;
     canRemove: boolean;
+    isPayslipGenerationLive?: boolean;
     wpsSelection?: {
         selectedRecordIds: number[];
         allSelected: boolean;
@@ -320,6 +322,7 @@ export function PayrollRecordsTable({
                             <PayrollRecordPayslipStatusCell
                                 has_payslip={record.has_payslip}
                                 wps_status_label={record.wps_status_label}
+                                isLiveUpdating={isPayslipGenerationLive}
                             />
 
                             {/* Actions */}

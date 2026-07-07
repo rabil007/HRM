@@ -16,6 +16,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 import type { PayslipSummary } from '../types';
 import { PayrollPeriodProgress } from './payroll-period-progress';
@@ -52,10 +53,12 @@ export function PayslipDeliveryCard({
     periodId,
     summary,
     canEmail,
+    isLiveUpdating = false,
 }: {
     periodId: number;
     summary: PayslipSummary;
     canEmail: boolean;
+    isLiveUpdating?: boolean;
 }) {
     const [processing, setProcessing] = useState(false);
 
@@ -149,9 +152,17 @@ export function PayslipDeliveryCard({
                             </span>
                             {' generated'}
                         </span>
-                        <span className="font-semibold text-foreground tabular-nums">
-                            {progressPercent}%
-                        </span>
+                        <div className="flex items-center gap-2">
+                            {isLiveUpdating ? (
+                                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Spinner className="size-3.5" />
+                                    Updating…
+                                </span>
+                            ) : null}
+                            <span className="font-semibold text-foreground tabular-nums">
+                                {progressPercent}%
+                            </span>
+                        </div>
                     </div>
                     <PayrollPeriodProgress
                         value={progressPercent}

@@ -15,6 +15,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import type { PayrollRecordDeliveryFields } from '../types';
 
 type PayrollRecordPayslipCellsProps = PayrollRecordDeliveryFields & {
@@ -25,11 +26,21 @@ type PayrollRecordPayslipCellsProps = PayrollRecordDeliveryFields & {
 export function PayrollRecordPayslipStatusCell({
     has_payslip,
     wps_status_label,
-}: Pick<PayrollRecordPayslipCellsProps, 'has_payslip' | 'wps_status_label'>) {
+    isLiveUpdating = false,
+}: Pick<PayrollRecordPayslipCellsProps, 'has_payslip' | 'wps_status_label'> & {
+    isLiveUpdating?: boolean;
+}) {
     return (
         <TableCell className={dataTableCellClass()}>
             <div className="flex flex-col gap-1">
-                <Badge variant={has_payslip ? 'default' : 'outline'}>
+                <Badge
+                    variant={has_payslip ? 'default' : 'secondary'}
+                    className={cn(
+                        !has_payslip &&
+                            isLiveUpdating &&
+                            'animate-pulse',
+                    )}
+                >
                     {has_payslip ? 'Generated' : 'Pending'}
                 </Badge>
                 {wps_status_label ? (

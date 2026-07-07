@@ -30,12 +30,14 @@ export function PayrollPeriodDeliveryPanel({
     wps_preview,
     permissions,
     selectedWpsRecordIds = null,
+    isPayslipGenerationLive = false,
 }: {
     period: PayrollPeriod;
     payslip_summary: PayslipSummary;
     wps_preview: WpsPreview | null;
     permissions: CrewPayrollPermissions;
     selectedWpsRecordIds?: number[] | null;
+    isPayslipGenerationLive?: boolean;
 }) {
     const showPayslipsCard = canShowPayslipDeliveryPanel(
         period,
@@ -55,6 +57,7 @@ export function PayrollPeriodDeliveryPanel({
                     periodId={period.id}
                     summary={payslip_summary}
                     canEmail={permissions.payslips_email}
+                    isLiveUpdating={isPayslipGenerationLive}
                 />
             ) : null}
 

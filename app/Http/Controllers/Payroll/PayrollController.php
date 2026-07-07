@@ -61,6 +61,17 @@ class PayrollController extends Controller
 {
     use ResolvesPerPage;
 
+    /**
+     * @var list<string>
+     */
+    private const PAYSLIP_POLL_PROPS = [
+        'payslip_summary',
+        'payroll_records',
+        'payroll_records_pagination',
+        'payroll_records_monthly',
+        'payroll_records_monthly_pagination',
+    ];
+
     public function index(Request $request): InertiaResponse
     {
         $this->authorizePayrollHub($request);
@@ -146,6 +157,17 @@ class PayrollController extends Controller
         $crewSalaryStructure = $payrollPeriod->isCrew()
             ? $boardFilters->crewSalaryStructure
             : 'daily';
+
+        if ($this->isPayslipPollOnly($request)) {
+            return $this->renderPayslipPollProps(
+                $payrollPeriod,
+                $companyId,
+                $perPage,
+                $search,
+                $boardFilters,
+            );
+        }
+
         $directoryFilters = new EmployeeDirectoryFilters(
             departmentId: $boardFilters->departmentId,
             positionId: $boardFilters->positionId,
@@ -192,24 +214,18 @@ class PayrollController extends Controller
             filters: $boardFilters,
         );
 
-        $payrollRecords = [];
-        $payrollRecordsPagination = null;
-        $payrollRecordsMonthly = [];
-        $payrollRecordsMonthlyPagination = null;
-
-        $recordsQuery = $this->payrollPeriodRecordsQuery(
+        $payrollRecordsProps = $this->paginatedPayrollRecordsProps(
             $companyId,
             $payrollPeriod,
             $search,
             $boardFilters,
+            $perPage,
         );
 
-        $salaryInputCountsByEmployee = SalaryInput::query()
-            ->where('company_id', $companyId)
-            ->where('period_id', $payrollPeriod->id)
-            ->selectRaw('employee_id, COUNT(*) as aggregate_count')
-            ->groupBy('employee_id')
-            ->pluck('aggregate_count', 'employee_id');
+        $payrollRecords = $payrollRecordsProps['payroll_records'];
+        $payrollRecordsPagination = $payrollRecordsProps['payroll_records_pagination'];
+        $payrollRecordsMonthly = $payrollRecordsProps['payroll_records_monthly'];
+        $payrollRecordsMonthlyPagination = $payrollRecordsProps['payroll_records_monthly_pagination'];
 
         $salaryInputsByEmployee = SalaryInputResource::groupByEmployee(
             SalaryInput::query()
@@ -219,45 +235,6 @@ class PayrollController extends Controller
                 ->orderBy('id')
                 ->get(),
         );
-
-        $mapPayrollRecords = function ($paginator) use ($salaryInputCountsByEmployee): array {
-            return collect($paginator->items())
-                ->map(fn (PayrollRecord $record) => PayrollRecordResource::toArray(
-                    $record,
-                    (int) ($salaryInputCountsByEmployee[$record->employee_id] ?? 0),
-                ))
-                ->values()
-                ->all();
-        };
-
-        if ($payrollPeriod->isCrew()) {
-            $dailyRecordsPaginator = (clone $recordsQuery)
-                ->crewDaily()
-                ->orderBy('id')
-                ->paginate($perPage, ['*'], 'records_page')
-                ->withQueryString();
-
-            $monthlyRecordsPaginator = (clone $recordsQuery)
-                ->crewMonthly()
-                ->orderBy('id')
-                ->paginate($perPage, ['*'], 'monthly_records_page')
-                ->withQueryString();
-
-            $payrollRecords = $mapPayrollRecords($dailyRecordsPaginator);
-            $payrollRecordsPagination = $this->paginationMeta($dailyRecordsPaginator);
-            $payrollRecordsMonthly = $mapPayrollRecords($monthlyRecordsPaginator);
-            $payrollRecordsMonthlyPagination = $this->paginationMeta($monthlyRecordsPaginator);
-
-            $recordsPaginator = $dailyRecordsPaginator;
-        } else {
-            $recordsPaginator = $recordsQuery
-                ->orderBy('id')
-                ->paginate($perPage, ['*'], 'records_page')
-                ->withQueryString();
-
-            $payrollRecords = $mapPayrollRecords($recordsPaginator);
-            $payrollRecordsPagination = $this->paginationMeta($recordsPaginator);
-        }
 
         $allPayrollRecordIds = PayrollRecord::query()
             ->where('company_id', $companyId)
@@ -418,6 +395,128 @@ class PayrollController extends Controller
                 ? $this->timesheetDraftFromOldInput($request)
                 : null,
             'employee_stats' => $employeeStats,
+        ]);
+    }
+
+    /**
+     * @return array{
+     *     payroll_records: list<array<string, mixed>>,
+     *     payroll_records_pagination: array<string, mixed>|null,
+     *     payroll_records_monthly: list<array<string, mixed>>,
+     *     payroll_records_monthly_pagination: array<string, mixed>|null
+     * }
+     */
+    private function paginatedPayrollRecordsProps(
+        int $companyId,
+        PayrollPeriod $payrollPeriod,
+        string $search,
+        PayrollPeriodBoardFilters $boardFilters,
+        int $perPage,
+    ): array {
+        $recordsQuery = $this->payrollPeriodRecordsQuery(
+            $companyId,
+            $payrollPeriod,
+            $search,
+            $boardFilters,
+        );
+
+        $salaryInputCountsByEmployee = SalaryInput::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $payrollPeriod->id)
+            ->selectRaw('employee_id, COUNT(*) as aggregate_count')
+            ->groupBy('employee_id')
+            ->pluck('aggregate_count', 'employee_id');
+
+        $mapPayrollRecords = function ($paginator) use ($salaryInputCountsByEmployee): array {
+            return collect($paginator->items())
+                ->map(fn (PayrollRecord $record) => PayrollRecordResource::toArray(
+                    $record,
+                    (int) ($salaryInputCountsByEmployee[$record->employee_id] ?? 0),
+                ))
+                ->values()
+                ->all();
+        };
+
+        $payrollRecords = [];
+        $payrollRecordsPagination = null;
+        $payrollRecordsMonthly = [];
+        $payrollRecordsMonthlyPagination = null;
+
+        if ($payrollPeriod->isCrew()) {
+            $dailyRecordsPaginator = (clone $recordsQuery)
+                ->crewDaily()
+                ->orderBy('id')
+                ->paginate($perPage, ['*'], 'records_page')
+                ->withQueryString();
+
+            $monthlyRecordsPaginator = (clone $recordsQuery)
+                ->crewMonthly()
+                ->orderBy('id')
+                ->paginate($perPage, ['*'], 'monthly_records_page')
+                ->withQueryString();
+
+            $payrollRecords = $mapPayrollRecords($dailyRecordsPaginator);
+            $payrollRecordsPagination = $this->paginationMeta($dailyRecordsPaginator);
+            $payrollRecordsMonthly = $mapPayrollRecords($monthlyRecordsPaginator);
+            $payrollRecordsMonthlyPagination = $this->paginationMeta($monthlyRecordsPaginator);
+        } else {
+            $recordsPaginator = $recordsQuery
+                ->orderBy('id')
+                ->paginate($perPage, ['*'], 'records_page')
+                ->withQueryString();
+
+            $payrollRecords = $mapPayrollRecords($recordsPaginator);
+            $payrollRecordsPagination = $this->paginationMeta($recordsPaginator);
+        }
+
+        return [
+            'payroll_records' => $payrollRecords,
+            'payroll_records_pagination' => $payrollRecordsPagination,
+            'payroll_records_monthly' => $payrollRecordsMonthly,
+            'payroll_records_monthly_pagination' => $payrollRecordsMonthlyPagination,
+        ];
+    }
+
+    private function isPayslipPollOnly(Request $request): bool
+    {
+        if (! $request->header('X-Inertia')) {
+            return false;
+        }
+
+        $partialData = trim((string) $request->header('X-Inertia-Partial-Data', ''));
+
+        if ($partialData === '') {
+            return false;
+        }
+
+        /** @var list<string> $requested */
+        $requested = array_values(array_filter(array_map('trim', explode(',', $partialData))));
+
+        if ($requested === []) {
+            return false;
+        }
+
+        return empty(array_diff($requested, self::PAYSLIP_POLL_PROPS));
+    }
+
+    private function renderPayslipPollProps(
+        PayrollPeriod $payrollPeriod,
+        int $companyId,
+        int $perPage,
+        string $search,
+        PayrollPeriodBoardFilters $boardFilters,
+    ): InertiaResponse {
+        $payrollRecordsProps = $this->paginatedPayrollRecordsProps(
+            $companyId,
+            $payrollPeriod,
+            $search,
+            $boardFilters,
+            $perPage,
+        );
+
+        return Inertia::render('payroll/show', [
+            'payslip_summary' => PayslipSummary::forPeriod($payrollPeriod),
+            ...$payrollRecordsProps,
         ]);
     }
 
