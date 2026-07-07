@@ -23,16 +23,23 @@ final class ProvisionDefaultSalaryInputTypes
 
     public function handle(int $companyId): void
     {
+        $hasExistingTypes = SalaryInputType::query()
+            ->where('company_id', $companyId)
+            ->exists();
+
+        if ($hasExistingTypes) {
+            return;
+        }
+
         foreach (self::defaults() as $default) {
-            SalaryInputType::query()->firstOrCreate(
-                ['company_id' => $companyId, 'code' => $default['code']],
-                [
-                    'name' => $default['name'],
-                    'is_addition' => $default['is_addition'],
-                    'status' => 'active',
-                    'sort_order' => $default['sort_order'],
-                ],
-            );
+            SalaryInputType::query()->create([
+                'company_id' => $companyId,
+                'code' => $default['code'],
+                'name' => $default['name'],
+                'is_addition' => $default['is_addition'],
+                'status' => 'active',
+                'sort_order' => $default['sort_order'],
+            ]);
         }
     }
 

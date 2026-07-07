@@ -123,6 +123,39 @@ test('authorized users can create update and delete salary input types', functio
     $this->assertDatabaseMissing('salary_input_types', ['id' => $type->id]);
 });
 
+test('deleting a default salary input type does not recreate it on index reload', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.salary_inputs.delete',
+        'payroll.salary_inputs.view',
+    ]);
+
+    $bonusType = SalaryInputType::query()
+        ->where('company_id', $company->id)
+        ->where('code', 'bonus')
+        ->firstOrFail();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->delete(route('payroll.salary-input-types.destroy', $bonusType))
+        ->assertRedirect(route('payroll.salary-inputs.index'))
+        ->assertSessionHas('success');
+
+    $this->assertDatabaseMissing('salary_input_types', [
+        'company_id' => $company->id,
+        'code' => 'bonus',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.salary-inputs.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/salary-inputs')
+            ->has('salary_input_types', 5)
+            ->where('salary_input_types', fn ($types) => collect($types)->pluck('code')->doesntContain('bonus')));
+});
+
 test('salary input types cannot be deleted when used in pay runs', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
