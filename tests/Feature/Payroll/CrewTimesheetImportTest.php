@@ -340,9 +340,21 @@ test('crew timesheet import stores additions deductions and remarks from excel',
         ->first();
 
     expect($timesheet)->not->toBeNull()
-        ->and($timesheet->additional_amount)->toBe('150.00')
-        ->and($timesheet->deduction_amount)->toBe('25.00')
+        ->and($timesheet->additional_amount)->toBe('0.00')
+        ->and($timesheet->deduction_amount)->toBe('0.00')
         ->and($timesheet->remarks)->toBe('Imported adjustment');
+
+    expect(SalaryInput::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->where('salary_input_type_id', salaryInputTypeId($company, 'bonus'))
+        ->value('amount'))->toBe('150.00');
+
+    expect(SalaryInput::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->where('salary_input_type_id', salaryInputTypeId($company, 'other'))
+        ->value('amount'))->toBe('25.00');
 });
 
 test('crew timesheet import stores typed salary input from excel', function () {

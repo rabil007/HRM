@@ -94,20 +94,30 @@ final class CrewTimesheetImportOrchestrator
             /** @var Employee $employee */
             $employee = $row['employee'];
 
+            $timesheetData = $row['timesheet_data'];
+
+            $syncResult = $this->syncEmployeeSalaryInputsFromImport->handle(
+                $period,
+                $employee,
+                $row['salary_amounts_by_type_id'],
+                $managedTypeIds,
+                (float) ($timesheetData['additional_amount'] ?? 0),
+                (float) ($timesheetData['deduction_amount'] ?? 0),
+            );
+
+            if ($syncResult['mirrored_addition']) {
+                $timesheetData['additional_amount'] = 0;
+            }
+
+            if ($syncResult['mirrored_deduction']) {
+                $timesheetData['deduction_amount'] = 0;
+            }
+
             $this->upsertCrewTimesheet->handle(
                 $period,
                 $employee,
-                $row['timesheet_data'],
+                $timesheetData,
             );
-
-            if ($managedTypeIds !== []) {
-                $this->syncEmployeeSalaryInputsFromImport->handle(
-                    $period,
-                    $employee,
-                    $row['salary_amounts_by_type_id'],
-                    $managedTypeIds,
-                );
-            }
 
             if (PayrollRecord::query()
                 ->where('company_id', $period->company_id)

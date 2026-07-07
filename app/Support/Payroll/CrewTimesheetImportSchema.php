@@ -108,8 +108,9 @@ final class CrewTimesheetImportSchema
             'salary_type_columns' => [],
         ];
 
-        $highestColumnIndex = Coordinate::columnIndexFromString(
-            $sheet->getHighestDataColumn(),
+        $highestColumnIndex = max(
+            count($this->headers($companyId)),
+            Coordinate::columnIndexFromString($sheet->getHighestDataColumn()),
         );
 
         for ($columnIndex = 1; $columnIndex <= $highestColumnIndex; $columnIndex++) {
