@@ -6,7 +6,6 @@ use App\Enums\PayrollCategory;
 use App\Enums\SalaryPaymentMethod;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
-use App\Models\EmployeeDeployment;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\Services\Concerns\SpreadsheetPayrollExportFormatting;
@@ -33,6 +32,7 @@ final class CrewPayrollSalarySheetExporter
             ->with([
                 'employee.position:id,title',
                 'employee.project:id,title',
+                'employee.client:id,name',
             ])
             ->get()
             ->sortBy([
@@ -51,17 +51,6 @@ final class CrewPayrollSalarySheetExporter
             ->get()
             ->keyBy('employee_id');
 
-        /** @var Collection<int, EmployeeDeployment> $latestDeploymentsByEmployee */
-        $latestDeploymentsByEmployee = EmployeeDeployment::query()
-            ->where('company_id', $companyId)
-            ->whereIn('employee_id', $employeeIds)
-            ->with('client:id,name')
-            ->orderByDesc('sort_order')
-            ->orderByDesc('id')
-            ->get()
-            ->unique('employee_id')
-            ->keyBy('employee_id');
-
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle(self::SHEET_NAME);
@@ -77,7 +66,6 @@ final class CrewPayrollSalarySheetExporter
             /** @var Employee $employee */
             $employee = $record->employee;
             $timesheet = $timesheetsByEmployee->get($employee->id);
-            $deployment = $latestDeploymentsByEmployee->get($employee->id);
 
             $missingCoordinates = array_merge(
                 $missingCoordinates,
@@ -88,7 +76,6 @@ final class CrewPayrollSalarySheetExporter
                     $record,
                     $employee,
                     $timesheet,
-                    $deployment,
                 ),
             );
 
@@ -159,7 +146,6 @@ final class CrewPayrollSalarySheetExporter
         PayrollRecord $record,
         Employee $employee,
         ?CrewTimesheet $timesheet,
-        ?EmployeeDeployment $deployment,
     ): array {
         $breakdown = is_array($record->calculation_breakdown) ? $record->calculation_breakdown : [];
         $rates = is_array($breakdown['rates'] ?? null) ? $breakdown['rates'] : [];
@@ -184,7 +170,7 @@ final class CrewPayrollSalarySheetExporter
             'B' => $this->presentValue($employee->employee_no, ! filled($employee->employee_no)),
             'C' => $this->presentValue($employee->name, ! filled($employee->name)),
             'D' => $this->presentValue($employee->position?->title, ! filled($employee->position?->title)),
-            'E' => $this->presentValue($deployment?->client?->name, ! filled($deployment?->client?->name)),
+            'E' => $this->presentValue($employee->client?->name, ! filled($employee->client?->name)),
             'F' => $this->presentValue($employee->project?->title, ! filled($employee->project?->title)),
             'G' => $this->presentDate($timesheet?->standby_from),
             'H' => $this->presentDate($timesheet?->standby_to),

@@ -5,7 +5,6 @@ use App\Enums\PayrollPeriodStatus;
 use App\Models\Client;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
-use App\Models\EmployeeDeployment;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\Position;
@@ -219,12 +218,14 @@ test('crew payroll salary sheet export highlights missing client in red', functi
     expect($sheet->getStyle('E3')->getFill()->getFillType())->toBe(Fill::FILL_SOLID)
         ->and($sheet->getStyle('E3')->getFill()->getStartColor()->getRGB())->toBe('FF0000');
 
-    EmployeeDeployment::factory()->forEmployee($employee)->create([
-        'client_id' => Client::query()->create([
-            'name' => 'TARGET',
-            'is_active' => true,
-        ])->id,
-    ]);
+    Employee::query()
+        ->whereKey($employee->id)
+        ->update([
+            'client_id' => Client::query()->create([
+                'name' => 'TARGET',
+                'is_active' => true,
+            ])->id,
+        ]);
 
     $resultWithClient = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh());
     $sheetWithClient = IOFactory::load($resultWithClient['path'])->getSheetByName(CrewPayrollSalarySheetExporter::SHEET_NAME);
@@ -310,9 +311,7 @@ function createApprovedCrewExportFixture($company, bool $withClient = true): arr
     ]);
 
     if ($withClient) {
-        EmployeeDeployment::factory()->forEmployee($employee)->create([
-            'client_id' => $client->id,
-        ]);
+        $employee->update(['client_id' => $client->id]);
     }
 
     CrewTimesheet::factory()->create([
