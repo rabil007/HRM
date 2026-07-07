@@ -124,6 +124,51 @@ class PayslipController extends Controller
         return $this->streamPdf($payrollRecord, $data);
     }
 
+    public function downloadZip(Request $request): BinaryFileResponse|RedirectResponse
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $periodId = $request->query('period_id');
+
+        abort_unless(filled($periodId), 400, 'Period ID is required.');
+
+        $records = PayrollRecord::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', (int) $periodId)
+            ->whereNotNull('payslip_path')
+            ->with('employee')
+            ->get();
+
+        if ($records->isEmpty()) {
+            return back()->with('error', 'No generated payslips found for this period.');
+        }
+
+        $zip = new \ZipArchive();
+        $zipFileName = 'payslips-' . $periodId . '-' . time() . '.zip';
+        $zipPath = tempnam(sys_get_temp_dir(), 'payslips_zip');
+
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            return back()->with('error', 'Could not create ZIP file.');
+        }
+
+        $addedFiles = 0;
+        foreach ($records as $record) {
+            if (filled($record->payslip_path) && Storage::disk('local')->exists($record->payslip_path)) {
+                $filePath = Storage::disk('local')->path($record->payslip_path);
+                $zip->addFile($filePath, $this->payslipFilename($record));
+                $addedFiles++;
+            }
+        }
+
+        $zip->close();
+
+        if ($addedFiles === 0) {
+            @unlink($zipPath);
+            return back()->with('error', 'No generated payslip files found on disk.');
+        }
+
+        return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
+    }
+
     public function generate(
         BulkPayslipActionRequest $request,
         GeneratePayslip $generatePayslip,

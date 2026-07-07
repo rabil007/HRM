@@ -3,6 +3,7 @@ import {
     ArrowUpRight,
     CheckCircle2,
     Clock3,
+    Download,
     FileText,
     Mail,
 } from 'lucide-react';
@@ -10,6 +11,7 @@ import { useState } from 'react';
 import {
     email as emailPayslips,
     index as payslipsIndex,
+    downloadZip as downloadZipPayslips,
 } from '@/actions/App/Http/Controllers/Payroll/PayslipController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -155,10 +157,10 @@ export function PayslipDeliveryCard({
                         value={progressPercent}
                         barClassName={
                             isComplete
-                                ? 'from-emerald-500 to-emerald-400'
-                                : hasPartial
-                                  ? 'from-sky-500 to-sky-400'
-                                  : undefined
+                               ? 'from-emerald-500 to-emerald-400'
+                               : hasPartial
+                                 ? 'from-sky-500 to-sky-400'
+                                 : undefined
                         }
                     />
                 </div>
@@ -193,6 +195,33 @@ export function PayslipDeliveryCard({
                             <ArrowUpRight className="ml-2 h-4 w-4" />
                         </Link>
                     </Button>
+                    {summary.generated > 0 ? (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl"
+                            asChild
+                        >
+                            <a
+                                href={downloadZipPayslips.url({
+                                    query: { period_id: String(periodId) },
+                                })}
+                            >
+                                <Download className="mr-2 h-4 w-4" />
+                                Download ZIP
+                            </a>
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl"
+                            disabled
+                        >
+                            <Download className="mr-2 h-4 w-4" />
+                            Download ZIP
+                        </Button>
+                    )}
                     {canEmail ? (
                         <Button
                             size="sm"

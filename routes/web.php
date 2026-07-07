@@ -193,6 +193,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('payroll/salary-inputs/{salaryInputType}/status', [SalaryInputTypeController::class, 'updateStatus'])->name('payroll.salary-input-types.update-status');
     Route::delete('payroll/salary-inputs/{salaryInputType}', [SalaryInputTypeController::class, 'destroy'])->name('payroll.salary-input-types.destroy');
     Route::get('payroll/payslips', [PayslipController::class, 'index'])->middleware('can:payroll.payslips.view')->name('payroll.payslips.index');
+    Route::get('payroll/payslips-zip', [PayslipController::class, 'downloadZip'])->middleware('can:payroll.payslips.view')->name('payroll.payslips.download-zip');
     Route::get('payroll/payslips/{payrollRecord}', [PayslipController::class, 'show'])->middleware('can:payroll.payslips.view')->name('payroll.payslips.show');
     Route::get('payroll/payslips/{payrollRecord}/download', [PayslipController::class, 'download'])->middleware('can:payroll.payslips.view')->name('payroll.payslips.download');
     Route::post('payroll/payslips/generate', [PayslipController::class, 'generate'])->name('payroll.payslips.generate');

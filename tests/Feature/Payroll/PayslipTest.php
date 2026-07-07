@@ -337,3 +337,41 @@ test('crew payslip includes overtime calculation breakdown', function () {
         ->toContain('3523.97')
         ->toContain('Crew Attendance');
 });
+
+test('authorized users can download all generated payslips as a ZIP file', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.payslips.view']);
+
+    Storage::fake('local');
+
+    $period = PayrollPeriod::factory()->for($company)->create();
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'PAY-ZIP-1']);
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'status' => 'approved',
+    ]);
+
+    app(GeneratePayslip::class)->handle($record);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.payslips.download-zip', ['period_id' => $period->id]))
+        ->assertOk()
+        ->assertHeader('content-type', 'application/zip');
+});
+
+test('downloading payslips ZIP fails when no payslips are generated', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.payslips.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->create();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.payslips.download-zip', ['period_id' => $period->id]))
+        ->assertRedirect()
+        ->assertSessionHas('error');
+});
