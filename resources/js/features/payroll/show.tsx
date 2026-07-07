@@ -60,7 +60,7 @@ import {
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 
 import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
-import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
+import { usePayrollShowFilters } from './use-payroll-show-filters';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { CrewSalaryStructureToggle } from './components/crew-salary-structure-toggle';
@@ -92,7 +92,6 @@ import {
 import type {
     CrewPayrollRecordListItem,
     CrewPayrollRow,
-    CrewSalaryStructureView,
     CrewTimesheetDraft,
     EmployeeStats,
     OfficePayrollRecordListItem,
@@ -288,6 +287,8 @@ export function PayrollShowContent({
         );
     }, [all_board_employee_ids]);
 
+    const isDraftPeriod = period.status === 'draft';
+
     const payrollFilters: PayrollShowFilters = {
         department_id: initialFilters.department_id ?? '',
         position_id: initialFilters.position_id ?? '',
@@ -301,22 +302,16 @@ export function PayrollShowContent({
     const activeCrewSalaryStructure = payrollFilters.crew_salary_structure;
     const activeEmployeeGroup = payrollFilters.employee_group;
 
-    const list = useServerPaginationFilters({
+    const list = usePayrollShowFilters({
         url: show.url(period.id),
-        search: initialSearch,
-        filters: {
-            tab: initialTab,
-            department_id: payrollFilters.department_id,
-            position_id: payrollFilters.position_id,
-            employee_group: payrollFilters.employee_group,
-            ...(period.supports_timesheets
-                ? {
-                      crew_salary_structure:
-                          payrollFilters.crew_salary_structure,
-                  }
-                : {}),
-        },
+        initialSearch,
+        initialTab,
+        payrollFilters,
         pagination,
+        recordsPagination: payroll_records_pagination,
+        monthlyRecordsPagination: payroll_records_monthly_pagination,
+        isDraft: isDraftPeriod,
+        supportsTimesheets: period.supports_timesheets,
     });
 
     const handleEmployeeGroupSelect = (
@@ -370,40 +365,8 @@ export function PayrollShowContent({
         });
     };
 
-    const handleCrewSalaryStructureChange = (
-        crewSalaryStructure: CrewSalaryStructureView,
-    ) => {
-        if (period.status === 'draft') {
-            list.applyFilters({
-                tab: initialTab,
-                department_id: payrollFilters.department_id,
-                position_id: payrollFilters.position_id,
-                employee_group: activeEmployeeGroup,
-                crew_salary_structure: crewSalaryStructure,
-                page: 1,
-            });
-
-            return;
-        }
-
-        router.get(
-            show.url(period.id),
-            {
-                tab: 'payroll',
-                crew_salary_structure: crewSalaryStructure,
-                records_page:
-                    crewSalaryStructure === 'daily'
-                        ? 1
-                        : payroll_records_pagination?.current_page,
-                monthly_records_page:
-                    crewSalaryStructure === 'monthly'
-                        ? 1
-                        : payroll_records_monthly_pagination?.current_page,
-                search: initialSearch || undefined,
-            },
-            { preserveState: true, preserveScroll: true },
-        );
-    };
+    const handleCrewSalaryStructureChange =
+        list.onCrewSalaryStructureChange;
 
     const employeeSearchPlaceholder = `Search ${period.payroll_category_label.toLowerCase()} employees...`;
 
@@ -1563,20 +1526,13 @@ export function PayrollShowContent({
                                             from={recordsPagination.from}
                                             to={recordsPagination.to}
                                             onPageChange={(page) => {
-                                                router.get(
-                                                    show.url(period.id),
-                                                    {
-                                                        ...payrollTabQuery,
-                                                        records_page: page,
-                                                        monthly_records_page:
-                                                            monthlyRecordsPagination?.current_page ??
-                                                            undefined,
-                                                    },
-                                                    {
-                                                        preserveState: true,
-                                                        preserveScroll: true,
-                                                    },
-                                                );
+                                                list.visit({
+                                                    ...payrollTabQuery,
+                                                    records_page: page,
+                                                    monthly_records_page:
+                                                        monthlyRecordsPagination?.current_page ??
+                                                        undefined,
+                                                });
                                             }}
                                         />
                                     ) : null}
@@ -1641,20 +1597,13 @@ export function PayrollShowContent({
                                         from={monthlyRecordsPagination.from}
                                         to={monthlyRecordsPagination.to}
                                         onPageChange={(page) => {
-                                            router.get(
-                                                show.url(period.id),
-                                                {
-                                                    ...payrollTabQuery,
-                                                    monthly_records_page: page,
-                                                    records_page:
-                                                        recordsPagination?.current_page ??
-                                                        undefined,
-                                                },
-                                                {
-                                                    preserveState: true,
-                                                    preserveScroll: true,
-                                                },
-                                            );
+                                            list.visit({
+                                                ...payrollTabQuery,
+                                                monthly_records_page: page,
+                                                records_page:
+                                                    recordsPagination?.current_page ??
+                                                    undefined,
+                                            });
                                         }}
                                     />
                                 ) : null}
@@ -1688,15 +1637,11 @@ export function PayrollShowContent({
                         from={recordsPagination.from}
                         to={recordsPagination.to}
                         onPageChange={(page) => {
-                            router.get(
-                                show.url(period.id),
-                                {
-                                    tab: 'payroll',
-                                    records_page: page,
-                                    search: initialSearch || undefined,
-                                },
-                                { preserveState: true, preserveScroll: true },
-                            );
+                            list.visit({
+                                tab: 'payroll',
+                                records_page: page,
+                                search: initialSearch || undefined,
+                            });
                         }}
                     />
                 ) : null}

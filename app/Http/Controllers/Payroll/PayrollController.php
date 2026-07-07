@@ -20,7 +20,6 @@ use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
 use App\Models\SalaryInputType;
-use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use App\Support\Pagination\ResolvesPerPage;
@@ -37,6 +36,7 @@ use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\PayrollHubSummary;
 use App\Support\Payroll\PayrollPeriodBoardFilters;
 use App\Support\Payroll\PayrollPeriodBoardQuery;
+use App\Support\Payroll\PayrollPeriodDepartmentTree;
 use App\Support\Payroll\PayrollPeriodListResource;
 use App\Support\Payroll\PayrollPeriodRecordsSummary;
 use App\Support\Payroll\PayrollPeriodResource;
@@ -334,13 +334,6 @@ class PayrollController extends Controller
 
         $provisionDefaultSalaryInputTypes->handle($companyId);
 
-        $payrollEmployeeScope = function (Builder $query) use ($companyId, $payrollCategory): void {
-            $query->whereIn(
-                'employees.id',
-                PayrollEmployeeQuery::activeQuery($companyId, $payrollCategory)->select('employees.id'),
-            );
-        };
-
         return Inertia::render('payroll/show', [
             'period' => PayrollPeriodResource::toArray($payrollPeriod),
             'leave_types' => $leaveTypes,
@@ -380,10 +373,12 @@ class PayrollController extends Controller
                 'employee_group' => $boardFilters->employeeGroup->value,
                 'crew_salary_structure' => $crewSalaryStructure,
             ],
-            'department_tree' => BuildDepartmentEmployeeTree::for(
+            'department_tree' => PayrollPeriodDepartmentTree::for(
                 $companyId,
+                $payrollPeriod,
                 $directoryFilters,
-                $payrollEmployeeScope,
+                $boardSearch,
+                $boardFilters,
             ),
             'department_tree_selected_id' => $boardFilters->departmentId !== ''
                 ? (int) $boardFilters->departmentId

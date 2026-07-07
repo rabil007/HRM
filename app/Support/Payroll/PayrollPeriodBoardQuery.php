@@ -2,17 +2,11 @@
 
 namespace App\Support\Payroll;
 
-use App\Enums\PayrollBoardEmployeeGroup;
 use App\Enums\PayrollCategory;
-use App\Enums\SalaryPaymentMethod;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
-use App\Support\Contracts\ContractSalaryStructureFilter;
-use App\Support\Employees\EmployeeDirectoryFilters;
-use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 final class PayrollPeriodBoardQuery
@@ -73,13 +67,7 @@ final class PayrollPeriodBoardQuery
             ]);
         }
 
-        $this->applySearch($query, $search);
-        $this->applyDepartmentFilters($query, $companyId, $filters);
-        $this->applyEmployeeGroupFilter($query, $filters->employeeGroup);
-
-        if ($payrollCategory === PayrollCategory::Crew) {
-            $this->applyCrewSalaryStructureFilter($query, $filters->crewSalaryStructure);
-        }
+        PayrollPeriodBoardEmployeeScope::apply($query, $companyId, $period, $search, $filters);
 
         $leaveByEmployee = $payrollCategory === PayrollCategory::Office
             ? $this->loadOfficeLeaveByEmployee($companyId, $period, $filters)
@@ -115,18 +103,14 @@ final class PayrollPeriodBoardQuery
         ?string $search = null,
         ?PayrollPeriodBoardFilters $filters = null,
     ): array {
-        $payrollCategory = $period->payroll_category ?? PayrollCategory::Crew;
         $filters ??= new PayrollPeriodBoardFilters;
 
-        $query = PayrollEmployeeQuery::activeQuery($companyId, $payrollCategory);
+        $query = PayrollEmployeeQuery::activeQuery(
+            $companyId,
+            $period->payroll_category ?? PayrollCategory::Crew,
+        );
 
-        $this->applySearch($query, $search);
-        $this->applyDepartmentFilters($query, $companyId, $filters);
-        $this->applyEmployeeGroupFilter($query, $filters->employeeGroup);
-
-        if ($payrollCategory === PayrollCategory::Crew) {
-            $this->applyCrewSalaryStructureFilter($query, $filters->crewSalaryStructure);
-        }
+        PayrollPeriodBoardEmployeeScope::apply($query, $companyId, $period, $search, $filters);
 
         return $query
             ->orderBy('employees.name')
@@ -145,8 +129,14 @@ final class PayrollPeriodBoardQuery
         PayrollPeriodBoardFilters $filters,
     ): Collection {
         $employeeIdsQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Office);
-        $this->applyDepartmentFilters($employeeIdsQuery, $companyId, $filters);
-        $this->applyEmployeeGroupFilter($employeeIdsQuery, $filters->employeeGroup);
+
+        PayrollPeriodBoardEmployeeScope::apply(
+            $employeeIdsQuery,
+            $companyId,
+            $period,
+            null,
+            $filters,
+        );
 
         $employeeIds = $employeeIdsQuery
             ->pluck('employees.id')
@@ -159,89 +149,5 @@ final class PayrollPeriodBoardQuery
             $period->end_date->toDateString(),
             $employeeIds,
         );
-    }
-
-    /**
-     * @param  Builder<Employee>  $query
-     */
-    private function applySearch(Builder $query, ?string $search): void
-    {
-        if ($search === null || trim($search) === '') {
-            return;
-        }
-
-        $term = '%'.mb_strtolower(trim($search)).'%';
-
-        $query->where(function (Builder $builder) use ($term) {
-            $builder
-                ->whereRaw('LOWER(employees.employee_no) LIKE ?', [$term])
-                ->orWhereRaw('LOWER(employees.name) LIKE ?', [$term]);
-        });
-    }
-
-    /**
-     * @param  Builder<Employee>  $query
-     */
-    private function applyDepartmentFilters(
-        Builder $query,
-        int $companyId,
-        PayrollPeriodBoardFilters $filters,
-    ): void {
-        if (! $filters->isActive()) {
-            return;
-        }
-
-        EmployeeDirectoryQuery::applyAttributeFilters(
-            $query,
-            $companyId,
-            new EmployeeDirectoryFilters(
-                departmentId: $filters->departmentId,
-                positionId: $filters->positionId,
-            ),
-            exceptDepartment: false,
-            exceptPosition: false,
-        );
-    }
-
-    /**
-     * @param  Builder<Employee>  $query
-     */
-    private function applyEmployeeGroupFilter(
-        Builder $query,
-        PayrollBoardEmployeeGroup $employeeGroup,
-    ): void {
-        match ($employeeGroup) {
-            PayrollBoardEmployeeGroup::WithBankAccount => $query->whereHas('primaryBankAccount'),
-            PayrollBoardEmployeeGroup::CashPayment => $query->whereIn('salary_payment_method', [
-                SalaryPaymentMethod::CashC3->value,
-                SalaryPaymentMethod::CashAnsari->value,
-                SalaryPaymentMethod::CashOther->value,
-                SalaryPaymentMethod::ThirdParty->value,
-            ]),
-            PayrollBoardEmployeeGroup::MissingBankAccount => $query
-                ->whereDoesntHave('primaryBankAccount')
-                ->where(function (Builder $builder): void {
-                    $builder
-                        ->where('salary_payment_method', SalaryPaymentMethod::BankTransfer->value)
-                        ->orWhereNull('salary_payment_method');
-                }),
-            PayrollBoardEmployeeGroup::Total => null,
-        };
-    }
-
-    /**
-     * @param  Builder<Employee>  $query
-     */
-    private function applyCrewSalaryStructureFilter(
-        Builder $query,
-        string $crewSalaryStructure,
-    ): void {
-        if (! ContractSalaryStructureFilter::isValid($crewSalaryStructure)) {
-            return;
-        }
-
-        $query->whereHas('currentContract', function (Builder $contractQuery) use ($crewSalaryStructure): void {
-            ContractSalaryStructureFilter::apply($contractQuery, $crewSalaryStructure);
-        });
     }
 }
