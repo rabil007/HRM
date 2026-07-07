@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ContractSalaryStructure;
 use App\Enums\PayrollCategory;
 use App\Enums\SalaryComponentCode;
 use App\Enums\SalaryComponentStatus;
@@ -41,6 +42,74 @@ test('sync creates office salary components from legacy contract columns', funct
         ->and($components->firstWhere('component_code', SalaryComponentCode::Housing)?->amount)->toBe('2000.00')
         ->and($components->firstWhere('component_code', SalaryComponentCode::Transport)?->amount)->toBe('1000.00')
         ->and($components->firstWhere('component_code', SalaryComponentCode::Other)?->amount)->toBe('250.00');
+});
+
+test('sync creates crew monthly salary components from legacy contract columns', function () {
+    $company = makeSyncContractSalaryComponentsCompany();
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'SSC-CREW-MONTHLY',
+    ]);
+
+    $contract = EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => ContractSalaryStructure::Monthly->value,
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'basic_salary' => 5000,
+        'housing_allowance' => 2000,
+        'transport_allowance' => 1000,
+        'other_allowances' => 250,
+    ]);
+
+    (new SyncContractSalaryComponentsFromContract)->handle($contract);
+
+    $components = ContractSalaryComponent::query()
+        ->where('contract_id', $contract->id)
+        ->orderBy('component_code')
+        ->get();
+
+    expect($components)->toHaveCount(4)
+        ->and($components->firstWhere('component_code', SalaryComponentCode::Basic)?->rate_type->value)->toBe('monthly')
+        ->and($components->firstWhere('component_code', SalaryComponentCode::Housing)?->amount)->toBe('2000.00');
+});
+
+test('sync deactivates incompatible crew daily components when structure is monthly', function () {
+    $company = makeSyncContractSalaryComponentsCompany();
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'SSC-CREW-SWITCH',
+    ]);
+
+    $contract = EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => ContractSalaryStructure::Monthly->value,
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'basic_salary' => 5000,
+    ]);
+
+    ContractSalaryComponent::query()->create([
+        'company_id' => $company->id,
+        'contract_id' => $contract->id,
+        'component_code' => SalaryComponentCode::SiteAllowance->value,
+        'component_name' => 'Site allowance',
+        'rate_type' => 'daily',
+        'amount' => 50,
+        'status' => SalaryComponentStatus::Active->value,
+    ]);
+
+    (new SyncContractSalaryComponentsFromContract)->handle($contract);
+
+    expect(
+        ContractSalaryComponent::query()
+            ->where('contract_id', $contract->id)
+            ->where('component_code', SalaryComponentCode::SiteAllowance->value)
+            ->first()
+            ?->status,
+    )->toBe(SalaryComponentStatus::Inactive);
 });
 
 test('sync creates crew salary components from legacy contract columns', function () {

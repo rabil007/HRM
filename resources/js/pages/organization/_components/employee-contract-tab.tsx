@@ -75,6 +75,11 @@ const PAYROLL_CATEGORY_LABELS: Record<string, string> = {
     crew: 'Crew',
 };
 
+const SALARY_STRUCTURE_LABELS: Record<string, string> = {
+    daily: 'Daily',
+    monthly: 'Monthly',
+};
+
 const DEFAULT_CONTRACT_REQUIRED_FIELDS = [
     'start_date',
     'status',
@@ -161,6 +166,7 @@ function formatMoney(value: number | null | undefined): string {
 function buildContractPayload(
     data: {
         payroll_category: string;
+        salary_structure: string;
         start_date: string;
         end_date: string;
         labor_contract_id: string;
@@ -178,6 +184,9 @@ function buildContractPayload(
     return omitHiddenTemplateRecordFields(
         {
             payroll_category: data.payroll_category,
+            salary_structure: data.payroll_category === 'crew'
+                ? data.salary_structure
+                : 'monthly',
             start_date: data.start_date,
             end_date: data.end_date === '' ? null : data.end_date,
             labor_contract_id:
@@ -300,6 +309,7 @@ export function EmployeeContractTab({
 
     const showContractDetailsSection =
         showField('payroll_category') ||
+        showField('salary_structure') ||
         showField('status') ||
         showField('labor_contract_id');
     const showDurationSection =
@@ -341,6 +351,7 @@ export function EmployeeContractTab({
 
     const contractForm = useForm({
         payroll_category: 'office',
+        salary_structure: 'monthly',
         start_date: '',
         end_date: '',
         labor_contract_id: '',
@@ -353,6 +364,12 @@ export function EmployeeContractTab({
         site_allowance: '',
         note: '',
     });
+
+    const isCrewContract = contractForm.data.payroll_category === 'crew';
+    const isCrewMonthly =
+        isCrewContract && contractForm.data.salary_structure === 'monthly';
+    const isCrewDaily =
+        isCrewContract && contractForm.data.salary_structure !== 'monthly';
 
     useEffect(() => {
         if (missingRequiredFields.size === 0) {
@@ -384,6 +401,7 @@ export function EmployeeContractTab({
         setMissingRequiredFields(new Set());
         contractForm.setData({
             payroll_category: 'office',
+            salary_structure: 'monthly',
             start_date: '',
             end_date: '',
             labor_contract_id: '',
@@ -405,6 +423,9 @@ export function EmployeeContractTab({
         setMissingRequiredFields(new Set());
         contractForm.setData({
             payroll_category: row.payroll_category ?? 'office',
+            salary_structure:
+                row.salary_structure ??
+                (row.payroll_category === 'crew' ? 'daily' : 'monthly'),
             start_date: row.start_date ?? '',
             end_date: row.end_date ?? '',
             labor_contract_id: row.labor_contract_id ?? '',
@@ -849,10 +870,14 @@ export function EmployeeContractTab({
                                                     .payroll_category
                                             }
                                             onValueChange={(v) =>
-                                                contractForm.setData(
-                                                    'payroll_category',
-                                                    v,
-                                                )
+                                                contractForm.setData((data) => ({
+                                                    ...data,
+                                                    payroll_category: v,
+                                                    salary_structure:
+                                                        v === 'crew'
+                                                            ? 'daily'
+                                                            : 'monthly',
+                                                }))
                                             }
                                             variant="dark"
                                         >
@@ -864,9 +889,62 @@ export function EmployeeContractTab({
                                             </AppSelectItem>
                                         </AppSelect>
                                         <p className="text-[11px] text-muted-foreground">
-                                            Office payroll uses monthly salary;
-                                            crew payroll uses daily rates and
+                                            Office uses monthly salary; crew uses
+                                            daily or monthly structures with
                                             timesheets
+                                        </p>
+                                    </ContractFormField>
+                                ) : null}
+                                {showField('salary_structure') &&
+                                isCrewContract ? (
+                                    <ContractFormField
+                                        field="salary_structure"
+                                        highlightMissing={isMissingRequired(
+                                            'salary_structure',
+                                        )}
+                                    >
+                                        <Label
+                                            htmlFor="contract_salary_structure"
+                                            className={cn(
+                                                'text-xs',
+                                                isMissingRequired(
+                                                    'salary_structure',
+                                                ) &&
+                                                    employeeFieldMissingLabelClass,
+                                            )}
+                                        >
+                                            Salary structure
+                                            <RequiredIndicator
+                                                show={isFieldRequired(
+                                                    'salary_structure',
+                                                )}
+                                            />
+                                        </Label>
+                                        <AppSelect
+                                            value={
+                                                contractForm.data
+                                                    .salary_structure
+                                            }
+                                            onValueChange={(v) =>
+                                                contractForm.setData(
+                                                    'salary_structure',
+                                                    v,
+                                                )
+                                            }
+                                            variant="dark"
+                                        >
+                                            <AppSelectItem value="daily">
+                                                Daily
+                                            </AppSelectItem>
+                                            <AppSelectItem value="monthly">
+                                                Monthly
+                                            </AppSelectItem>
+                                        </AppSelect>
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Daily crew uses site and
+                                            supplementary rates; monthly crew
+                                            uses housing, transport, and other
+                                            allowances
                                         </p>
                                     </ContractFormField>
                                 ) : null}
@@ -1147,14 +1225,17 @@ export function EmployeeContractTab({
                                             }
                                         />
                                         <p className="text-[11px] text-muted-foreground">
-                                            Monthly base salary
+                                            {isCrewDaily
+                                                ? 'Daily basic rate for crew payroll'
+                                                : 'Monthly base salary'}
                                             {isFieldRequired('basic_salary')
                                                 ? ''
                                                 : ' (optional)'}
                                         </p>
                                     </ContractFormField>
                                 ) : null}
-                                {showField('housing_allowance') ? (
+                                {showField('housing_allowance') &&
+                                (!isCrewContract || isCrewMonthly) ? (
                                     <ContractFormField
                                         field="housing_allowance"
                                         highlightMissing={isMissingRequired(
@@ -1207,7 +1288,8 @@ export function EmployeeContractTab({
                                         </p>
                                     </ContractFormField>
                                 ) : null}
-                                {showField('transport_allowance') ? (
+                                {showField('transport_allowance') &&
+                                (!isCrewContract || isCrewMonthly) ? (
                                     <ContractFormField
                                         field="transport_allowance"
                                         highlightMissing={isMissingRequired(
@@ -1260,7 +1342,8 @@ export function EmployeeContractTab({
                                         </p>
                                     </ContractFormField>
                                 ) : null}
-                                {showField('other_allowances') ? (
+                                {showField('other_allowances') &&
+                                (!isCrewContract || isCrewMonthly) ? (
                                     <ContractFormField
                                         field="other_allowances"
                                         highlightMissing={isMissingRequired(
@@ -1311,7 +1394,8 @@ export function EmployeeContractTab({
                                         </p>
                                     </ContractFormField>
                                 ) : null}
-                                {showField('supplementary_allowance') ? (
+                                {showField('supplementary_allowance') &&
+                                (!isCrewContract || isCrewDaily) ? (
                                     <ContractFormField
                                         field="supplementary_allowance"
                                         highlightMissing={isMissingRequired(
@@ -1364,7 +1448,8 @@ export function EmployeeContractTab({
                                         </p>
                                     </ContractFormField>
                                 ) : null}
-                                {showField('site_allowance') ? (
+                                {showField('site_allowance') &&
+                                (!isCrewContract || isCrewDaily) ? (
                                     <ContractFormField
                                         field="site_allowance"
                                         highlightMissing={isMissingRequired(

@@ -46,7 +46,11 @@ final class PayrollPeriodBoardQuery
                 'currentContract' => fn ($q) => $q->select([
                     'employee_contracts.id',
                     'employee_contracts.employee_id',
+                    'employee_contracts.salary_structure',
                     'employee_contracts.basic_salary',
+                    'employee_contracts.housing_allowance',
+                    'employee_contracts.transport_allowance',
+                    'employee_contracts.other_allowances',
                     'employee_contracts.supplementary_allowance',
                     'employee_contracts.site_allowance',
                 ]),

@@ -34,12 +34,25 @@ enum SalaryComponentCode: string
         return $this->defaultRateTypeFor(PayrollCategory::Office);
     }
 
-    public function defaultRateTypeFor(PayrollCategory $category): SalaryComponentRateType
-    {
+    public function defaultRateTypeFor(
+        PayrollCategory $category,
+        ?ContractSalaryStructure $structure = null,
+    ): SalaryComponentRateType {
+        if ($category === PayrollCategory::Crew) {
+            $structure ??= ContractSalaryStructure::Daily;
+
+            return match ($this) {
+                self::Basic => $structure === ContractSalaryStructure::Monthly
+                    ? SalaryComponentRateType::Monthly
+                    : SalaryComponentRateType::Daily,
+                self::Housing, self::Transport, self::Other => SalaryComponentRateType::Monthly,
+                self::StandbyRate, self::OnsiteRate, self::SiteAllowance, self::SupplementaryAllowance => SalaryComponentRateType::Daily,
+                self::OtRate => SalaryComponentRateType::Hourly,
+            };
+        }
+
         return match ($this) {
-            self::Basic => $category === PayrollCategory::Crew
-                ? SalaryComponentRateType::Daily
-                : SalaryComponentRateType::Monthly,
+            self::Basic => SalaryComponentRateType::Monthly,
             self::Housing, self::Transport, self::Other => SalaryComponentRateType::Monthly,
             self::StandbyRate, self::OnsiteRate, self::SiteAllowance, self::SupplementaryAllowance => SalaryComponentRateType::Daily,
             self::OtRate => SalaryComponentRateType::Hourly,

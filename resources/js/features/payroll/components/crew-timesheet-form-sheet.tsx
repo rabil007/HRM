@@ -68,6 +68,9 @@ export function CrewTimesheetFormSheet({
     onSubmit: () => void;
 }) {
     const hasErrors = Object.keys(errors).length > 0;
+    const isMonthlyCrew = row?.salary_structure === 'monthly';
+    const standbyLabel = isMonthlyCrew ? 'Leave' : 'Standby';
+    const onsiteLabel = isMonthlyCrew ? 'Working' : 'Onsite';
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -101,7 +104,7 @@ export function CrewTimesheetFormSheet({
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                    Standby from
+                                    {standbyLabel} from
                                 </Label>
                                 <Input
                                     type="date"
@@ -123,7 +126,7 @@ export function CrewTimesheetFormSheet({
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                    Standby to
+                                    {standbyLabel} to
                                 </Label>
                                 <Input
                                     type="date"
@@ -147,7 +150,7 @@ export function CrewTimesheetFormSheet({
 
                         <div className="space-y-2">
                             <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                Standby days
+                                {standbyLabel} days
                             </Label>
                             <Input
                                 type="number"
@@ -161,8 +164,9 @@ export function CrewTimesheetFormSheet({
                                 disabled={!canSave}
                             />
                             <p className="text-xs text-muted-foreground">
-                                Auto-calculated from standby dates (inclusive).
-                                You can adjust manually.
+                                {isMonthlyCrew
+                                    ? 'Leave days reduce monthly pay for this period.'
+                                    : 'Auto-calculated from standby dates (inclusive). You can adjust manually.'}
                             </p>
                             <InputError
                                 message={errors.standby_days}
@@ -173,7 +177,7 @@ export function CrewTimesheetFormSheet({
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                    Onsite from
+                                    {onsiteLabel} from
                                 </Label>
                                 <Input
                                     type="date"
@@ -195,7 +199,7 @@ export function CrewTimesheetFormSheet({
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                    Onsite to
+                                    {onsiteLabel} to
                                 </Label>
                                 <Input
                                     type="date"
@@ -219,7 +223,7 @@ export function CrewTimesheetFormSheet({
 
                         <div className="space-y-2">
                             <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                Onsite days
+                                {onsiteLabel} days
                             </Label>
                             <Input
                                 type="number"
@@ -233,8 +237,9 @@ export function CrewTimesheetFormSheet({
                                 disabled={!canSave}
                             />
                             <p className="text-xs text-muted-foreground">
-                                Auto-calculated from onsite dates (inclusive).
-                                You can adjust manually.
+                                {isMonthlyCrew
+                                    ? 'Working days recorded for this monthly crew contract.'
+                                    : 'Auto-calculated from onsite dates (inclusive). You can adjust manually.'}
                             </p>
                             <InputError
                                 message={errors.onsite_days}
@@ -249,29 +254,31 @@ export function CrewTimesheetFormSheet({
                         </h3>
 
                         <div className="grid grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                    Overtime (hrs)
-                                </Label>
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    className="h-11 rounded-xl border-border bg-card"
-                                    value={form.data.overtime_hours}
-                                    onChange={(e) =>
-                                        form.setData(
-                                            'overtime_hours',
-                                            e.target.value,
-                                        )
-                                    }
-                                    disabled={!canSave}
-                                />
-                                <InputError
-                                    message={errors.overtime_hours}
-                                    className="text-xs"
-                                />
-                            </div>
+                            {!isMonthlyCrew ? (
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                        Overtime (hrs)
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        className="h-11 rounded-xl border-border bg-card"
+                                        value={form.data.overtime_hours}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'overtime_hours',
+                                                e.target.value,
+                                            )
+                                        }
+                                        disabled={!canSave}
+                                    />
+                                    <InputError
+                                        message={errors.overtime_hours}
+                                        className="text-xs"
+                                    />
+                                </div>
+                            ) : null}
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                     Additions

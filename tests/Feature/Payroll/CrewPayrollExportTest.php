@@ -114,7 +114,8 @@ test('crew payroll salary sheet export populates payroll and timesheet data', fu
         ->and($sheet->getCell('P3')->getCalculatedValue())->toEqual(0)
         ->and($sheet->getCell('S3')->getCalculatedValue())->toEqual(0)
         ->and($sheet->getCell('T3')->getCalculatedValue())->toEqual(55000)
-        ->and($sheet->getCell('U3')->getValue())->toBe('Bank transfer');
+        ->and($sheet->getCell('U3')->getValue())->toBe('Bank transfer')
+        ->and($sheet->getCell('V3')->getValue())->toBe('Daily');
 
     @unlink($result['path']);
 });
@@ -163,6 +164,45 @@ test('crew payroll salary sheet export includes overtime pay and formats standby
     expect($sheet->getCell('I3')->getFormattedValue())->toBe('0')
         ->and($sheet->getCell('S3')->getCalculatedValue())->toEqual(1875.21)
         ->and($sheet->getCell('T3')->getCalculatedValue())->toEqual(56875.21);
+
+    @unlink($result['path']);
+});
+
+test('crew payroll salary sheet export includes salary structure column for monthly crew', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    [$period, $employee] = createApprovedCrewExportFixture($company);
+
+    PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->update([
+            'housing_allowance' => '2000.00',
+            'calculation_breakdown' => [
+                'salary_structure' => 'monthly',
+                'standby_days' => 5,
+                'onsite_days' => 25,
+                'rates' => [
+                    'basic_monthly' => 5000,
+                    'housing_monthly' => 2000,
+                    'transport_monthly' => 1000,
+                    'other_monthly' => 500,
+                ],
+                'lines' => [
+                    'basic' => 4166.67,
+                    'housing' => 1666.67,
+                    'transport' => 833.33,
+                    'other' => 416.67,
+                    'unpaid_leave_deduction' => 1416.67,
+                ],
+            ],
+        ]);
+
+    $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh());
+    $sheet = IOFactory::load($result['path'])->getSheetByName(CrewPayrollSalarySheetExporter::SHEET_NAME);
+
+    expect($sheet->getCell('V2')->getValue())->toBe('SALARY STRUCTURE')
+        ->and($sheet->getCell('V3')->getValue())->toBe('Monthly');
 
     @unlink($result['path']);
 });
@@ -300,6 +340,7 @@ function createApprovedCrewExportFixture($company, bool $withClient = true): arr
         'net_salary' => '55000.00',
         'status' => 'approved',
         'calculation_breakdown' => [
+            'salary_structure' => 'daily',
             'standby_days' => 0,
             'onsite_days' => 30,
             'rates' => [

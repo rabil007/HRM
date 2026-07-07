@@ -108,6 +108,7 @@ final class EmployeeProfileTemplateFieldRegistry
             ],
             'employee_contracts' => [
                 'payroll_category' => 'Payroll category',
+                'salary_structure' => 'Salary structure',
                 'start_date' => 'Start date',
                 'end_date' => 'End date',
                 'labor_contract_id' => 'Labor contract ID',

@@ -94,6 +94,7 @@ final class CrewPayrollCalculator
             'present_days' => $presentDays,
             'leave_days' => $leaveDays,
             'calculation_breakdown' => [
+                'salary_structure' => 'daily',
                 'standby_days' => $standbyDays,
                 'onsite_days' => $onsiteDays,
                 'working_days' => $workingDaysInPeriod,

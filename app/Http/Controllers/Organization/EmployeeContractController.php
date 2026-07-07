@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Organization;
 
+use App\Enums\ContractSalaryStructure;
 use App\Enums\PayrollCategory;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
@@ -30,7 +31,7 @@ class EmployeeContractController extends Controller
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
-            ['start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
+            ['start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'salary_structure', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
             'Enter at least one contract field before saving.',
         );
 
@@ -56,7 +57,7 @@ class EmployeeContractController extends Controller
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
-            ['start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
+            ['start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'salary_structure', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
             'Enter at least one contract field before saving.',
         );
 
@@ -103,6 +104,7 @@ class EmployeeContractController extends Controller
             'labor_contract_id' => ['nullable', 'string', 'max:100'],
             'status' => ['required', 'in:active,ended'],
             'payroll_category' => ['nullable', 'in:'.implode(',', PayrollCategory::values())],
+            'salary_structure' => ['nullable', 'in:'.implode(',', ContractSalaryStructure::values())],
             'basic_salary' => ['nullable', 'numeric', 'min:0'],
             'housing_allowance' => ['nullable', 'numeric', 'min:0'],
             'transport_allowance' => ['nullable', 'numeric', 'min:0'],
@@ -130,6 +132,7 @@ class EmployeeContractController extends Controller
                 'payroll_category',
                 $existing?->payroll_category?->value ?? PayrollCategory::Office->value,
             ),
+            'salary_structure' => $this->resolvedSalaryStructureValue($validated, $existing),
             'end_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'end_date')
                 ? ($validated['end_date'] ?? null)
                 : $existing?->end_date,
@@ -167,5 +170,27 @@ class EmployeeContractController extends Controller
                     : null)
                 : $existing?->note,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function resolvedSalaryStructureValue(array $validated, ?EmployeeContract $existing): string
+    {
+        $payrollCategory = EmployeeProfileTemplateRequestRules::hasValidated($validated, 'payroll_category')
+            ? ($validated['payroll_category'] ?? PayrollCategory::Office->value)
+            : ($existing?->payroll_category?->value ?? PayrollCategory::Office->value);
+
+        if ($payrollCategory === PayrollCategory::Office->value) {
+            return ContractSalaryStructure::Monthly->value;
+        }
+
+        if (EmployeeProfileTemplateRequestRules::hasValidated($validated, 'salary_structure')) {
+            return $validated['salary_structure'] ?? ContractSalaryStructure::Daily->value;
+        }
+
+        return $existing?->salary_structure?->value
+            ?? $existing?->resolvedSalaryStructure()->value
+            ?? ContractSalaryStructure::Daily->value;
     }
 }

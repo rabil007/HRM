@@ -42,10 +42,32 @@ final class PayrollRecordResource
         ];
 
         if ($category === PayrollCategory::Crew) {
+            $salaryStructure = (string) ($breakdown['salary_structure'] ?? 'daily');
+
+            if ($salaryStructure === 'monthly') {
+                return array_merge($base, [
+                    'salary_structure' => 'monthly',
+                    'basic_salary' => self::formatAmount($record->basic_salary),
+                    'housing_allowance' => self::formatAmount($record->housing_allowance),
+                    'transport_allowance' => self::formatAmount($record->transport_allowance),
+                    'other_allowances' => self::formatAmount($record->other_allowances),
+                    'deduction_amount' => self::formatAmount($record->total_deductions),
+                    'standby_days' => $breakdown['standby_days'] ?? null,
+                    'onsite_days' => $breakdown['onsite_days'] ?? null,
+                    'working_days' => $record->working_days,
+                    'present_days' => $record->present_days,
+                    'absent_days' => $record->absent_days,
+                    'unpaid_leave_deduction' => self::formatAmount($record->unpaid_leave_deduction),
+                    'primary_account' => EmployeePrimaryAccountResource::forPayrollRecord($record),
+                    'salary_inputs_count' => $salaryInputsCount,
+                ]);
+            }
+
             $rates = is_array($breakdown['rates'] ?? null) ? $breakdown['rates'] : [];
             $overtime = is_array($breakdown['overtime'] ?? null) ? $breakdown['overtime'] : [];
 
             return array_merge($base, [
+                'salary_structure' => 'daily',
                 'basic_salary' => self::formatAmount($record->basic_salary),
                 'deduction_amount' => self::formatAmount($record->total_deductions),
                 'standby_days' => $breakdown['standby_days'] ?? null,

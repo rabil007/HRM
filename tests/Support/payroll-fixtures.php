@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ContractSalaryStructure;
 use App\Enums\PayrollCategory;
 use App\Models\Company;
 use App\Models\Country;
@@ -111,6 +112,36 @@ function createCrewEmployeeWithContract(
         'basic_salary' => $basicRate,
         'site_allowance' => $siteRate,
         'supplementary_allowance' => $supplementaryRate,
+    ]);
+
+    (new SyncContractSalaryComponentsFromContract)->handle($contract);
+
+    return $employee;
+}
+
+function createCrewMonthlyEmployeeWithContract(
+    Company $company,
+    string $employeeNo,
+    float $basic,
+    float $housing,
+    float $transport,
+    float $other,
+): Employee {
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => $employeeNo,
+        'status' => 'active',
+    ]);
+
+    $contract = EmployeeContract::factory()->create([
+        'employee_id' => $employee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'salary_structure' => ContractSalaryStructure::Monthly,
+        'status' => 'active',
+        'basic_salary' => $basic,
+        'housing_allowance' => $housing,
+        'transport_allowance' => $transport,
+        'other_allowances' => $other,
     ]);
 
     (new SyncContractSalaryComponentsFromContract)->handle($contract);

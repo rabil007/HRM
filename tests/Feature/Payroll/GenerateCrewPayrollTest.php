@@ -459,3 +459,44 @@ test('crew payroll generation from draft stays draft when all employees are excl
         ->and($period->excluded_employee_ids)->toBe([$firstEmployee->id, $secondEmployee->id])
         ->and(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0);
 });
+
+test('crew payroll generation calculates monthly crew contracts from working and leave days', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+
+    $employee = createCrewMonthlyEmployeeWithContract($company, 'CREW-MONTHLY', 5000, 2000, 1000, 500);
+
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'standby_days' => 5,
+        'onsite_days' => 25,
+        'additional_amount' => 100,
+        'deduction_amount' => 50,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect();
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->payroll_category)->toBe(PayrollCategory::Crew)
+        ->and($record->calculation_breakdown['salary_structure'])->toBe('monthly')
+        ->and($record->housing_allowance)->toBe('1666.67')
+        ->and($record->gross_salary)->toBe('7183.34')
+        ->and($record->net_salary)->toBe('5716.67');
+});

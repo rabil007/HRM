@@ -1023,16 +1023,16 @@ export function PayrollShowContent({
                                 Basic
                             </DataTableHead>
                             <DataTableHead className="bg-primary/3 text-right">
-                                Suppl.
+                                Hous. / Suppl.
                             </DataTableHead>
                             <DataTableHead className="border-r border-primary/10 bg-primary/3 text-right">
-                                Site
+                                Trans. / Site
                             </DataTableHead>
                             <DataTableHead className="border-l border-blue-500/10 bg-blue-500/3">
-                                Standby
+                                Leave / Standby
                             </DataTableHead>
                             <DataTableHead className="border-r border-blue-500/10 bg-blue-500/3">
-                                Onsite
+                                Working / Onsite
                             </DataTableHead>
                             <DataTableHead className="border-x border-amber-500/10 bg-amber-500/3 text-right">
                                 Hours
@@ -1047,6 +1047,8 @@ export function PayrollShowContent({
                             const paymentMethod = (row.salary_payment_method ??
                                 'bank_transfer') as SalaryPaymentMethodValue;
                             const contract = row.contract ?? null;
+                            const isMonthlyCrewRow =
+                                row.salary_structure === 'monthly';
 
                             const currentDraft = crewTimesheetDrafts[row.employee.id];
                             const standbyFrom =
@@ -1153,7 +1155,9 @@ export function PayrollShowContent({
                                     >
                                         <SalaryCell
                                             value={
-                                                contract?.supplementary_allowance
+                                                isMonthlyCrewRow
+                                                    ? contract?.housing_allowance
+                                                    : contract?.supplementary_allowance
                                             }
                                         />
                                     </TableCell>
@@ -1166,7 +1170,11 @@ export function PayrollShowContent({
                                         )}
                                     >
                                         <SalaryCell
-                                            value={contract?.site_allowance}
+                                            value={
+                                                isMonthlyCrewRow
+                                                    ? contract?.transport_allowance
+                                                    : contract?.site_allowance
+                                            }
                                         />
                                     </TableCell>
 
@@ -1309,25 +1317,31 @@ export function PayrollShowContent({
                                             'border-x border-amber-500/8 bg-amber-500/2',
                                         )}
                                     >
-                                        <Input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            inputMode="decimal"
-                                            placeholder="0"
-                                            value={overtimeHours}
-                                            onChange={(e) =>
-                                                handleCrewTimesheetChange(
-                                                    row.employee.id,
-                                                    'overtime_hours',
-                                                    e.target.value,
-                                                    row.timesheet,
-                                                )
-                                            }
-                                            disabled={!canEditTimesheets}
-                                            className="h-8 w-[110px] rounded-md border-border/50 bg-background/60 px-2 font-mono text-[11px] tabular-nums shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50"
-                                            aria-label={`Overtime hours for ${row.employee.name}`}
-                                        />
+                                        {isMonthlyCrewRow ? (
+                                            <span className="text-xs text-muted-foreground">
+                                                —
+                                            </span>
+                                        ) : (
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                inputMode="decimal"
+                                                placeholder="0"
+                                                value={overtimeHours}
+                                                onChange={(e) =>
+                                                    handleCrewTimesheetChange(
+                                                        row.employee.id,
+                                                        'overtime_hours',
+                                                        e.target.value,
+                                                        row.timesheet,
+                                                    )
+                                                }
+                                                disabled={!canEditTimesheets}
+                                                className="h-8 w-[110px] rounded-md border-border/50 bg-background/60 px-2 font-mono text-[11px] tabular-nums shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50"
+                                                aria-label={`Overtime hours for ${row.employee.name}`}
+                                            />
+                                        )}
                                     </TableCell>
 
                                     {/* Payment method */}
@@ -1409,6 +1423,12 @@ export function PayrollShowContent({
             (record): record is CrewPayrollRecordListItem =>
                 record.payroll_category === 'crew',
         );
+        const dailyCrewRecords = crewRecords.filter(
+            (record) => record.salary_structure !== 'monthly',
+        );
+        const monthlyCrewRecords = crewRecords.filter(
+            (record) => record.salary_structure === 'monthly',
+        );
         const officeRecords = payroll_records.filter(
             (record): record is OfficePayrollRecordListItem =>
                 record.payroll_category === 'office',
@@ -1417,17 +1437,53 @@ export function PayrollShowContent({
         return (
             <>
                 {period.supports_timesheets ? (
-                    <PayrollRecordsTable
-                        records={crewRecords}
-                        salaryInputsByEmployee={salary_inputs_by_employee}
-                        canViewPayslips={permissions.payslips_view}
-                        canShowPayslipActions={canShowPayslipActions}
-                        canManageSalaryInputs={canManageSalaryInputs}
-                        canRemove={canGenerate}
-                        wpsSelection={wpsSelection}
-                        onManageSalaryInputs={setSalaryInputsRecord}
-                        onRemove={setRemoveRecord}
-                    />
+                    <div className="space-y-6">
+                        {dailyCrewRecords.length > 0 ? (
+                            <PayrollRecordsTable
+                                records={dailyCrewRecords}
+                                salaryInputsByEmployee={
+                                    salary_inputs_by_employee
+                                }
+                                canViewPayslips={permissions.payslips_view}
+                                canShowPayslipActions={canShowPayslipActions}
+                                canManageSalaryInputs={canManageSalaryInputs}
+                                canRemove={canGenerate}
+                                wpsSelection={wpsSelection}
+                                onManageSalaryInputs={setSalaryInputsRecord}
+                                onRemove={setRemoveRecord}
+                            />
+                        ) : null}
+                        {monthlyCrewRecords.length > 0 ? (
+                            <OfficePayrollRecordsTable
+                                records={monthlyCrewRecords.map(
+                                    (record) => ({
+                                        ...record,
+                                        payroll_category: 'office' as const,
+                                    }),
+                                )}
+                                salaryInputsByEmployee={
+                                    salary_inputs_by_employee
+                                }
+                                canViewPayslips={permissions.payslips_view}
+                                canShowPayslipActions={canShowPayslipActions}
+                                canManageSalaryInputs={canManageSalaryInputs}
+                                canRemove={canGenerate}
+                                wpsSelection={wpsSelection}
+                                onManageSalaryInputs={(record) =>
+                                    setSalaryInputsRecord({
+                                        ...record,
+                                        payroll_category: 'crew',
+                                    } as CrewPayrollRecordListItem)
+                                }
+                                onRemove={(record) =>
+                                    setRemoveRecord({
+                                        ...record,
+                                        payroll_category: 'crew',
+                                    } as CrewPayrollRecordListItem)
+                                }
+                            />
+                        ) : null}
+                    </div>
                 ) : (
                     <OfficePayrollRecordsTable
                         records={officeRecords}

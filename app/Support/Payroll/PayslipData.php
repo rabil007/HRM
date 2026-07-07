@@ -64,14 +64,38 @@ final class PayslipData
         ];
 
         if ($category === PayrollCategory::Crew) {
+            if (($breakdown['salary_structure'] ?? 'daily') === 'monthly') {
+                $salaryInputLines = self::resolveOfficeSalaryInputLines($record, $breakdown);
+
+                return array_merge($base, [
+                    'salary_structure' => 'monthly',
+                    'earnings' => self::officeEarnings($record, $salaryInputLines),
+                    'deductions' => self::officeDeductions($record, $salaryInputLines),
+                    'crew_summary' => [
+                        'standby_days' => self::formatDayCount($breakdown['standby_days'] ?? null),
+                        'onsite_days' => self::formatDayCount($breakdown['onsite_days'] ?? null),
+                        'standby_label' => 'Leave days',
+                        'onsite_label' => 'Working days',
+                    ],
+                    'working_days' => $record->working_days,
+                    'present_days' => $record->present_days,
+                    'absent_days' => $record->absent_days,
+                    'leave_days' => self::formatAmount($record->leave_days),
+                    'overtime_hours' => self::formatAmount($record->overtime_hours),
+                ]);
+            }
+
             $overtime = is_array($breakdown['overtime'] ?? null) ? $breakdown['overtime'] : [];
 
             return array_merge($base, [
+                'salary_structure' => 'daily',
                 'earnings' => self::crewEarnings($record, $lines),
                 'deductions' => self::crewDeductions($record, $breakdown),
                 'crew_summary' => [
                     'standby_days' => self::formatDayCount($breakdown['standby_days'] ?? null),
                     'onsite_days' => self::formatDayCount($breakdown['onsite_days'] ?? null),
+                    'standby_label' => 'Standby days',
+                    'onsite_label' => 'On-site days',
                 ],
                 'overtime' => self::crewOvertimeBreakdown($record, $overtime),
             ]);

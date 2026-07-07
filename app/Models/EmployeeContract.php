@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ContractSalaryStructure;
 use App\Enums\PayrollCategory;
 use Database\Factories\EmployeeContractFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -25,6 +26,7 @@ class EmployeeContract extends Model
             'start_date' => 'date',
             'end_date' => 'date',
             'payroll_category' => PayrollCategory::class,
+            'salary_structure' => ContractSalaryStructure::class,
             'basic_salary' => 'decimal:2',
             'housing_allowance' => 'decimal:2',
             'transport_allowance' => 'decimal:2',
@@ -47,5 +49,16 @@ class EmployeeContract extends Model
     public function salaryComponents(): HasMany
     {
         return $this->hasMany(ContractSalaryComponent::class, 'contract_id');
+    }
+
+    public function resolvedSalaryStructure(): ContractSalaryStructure
+    {
+        if ($this->salary_structure !== null) {
+            return $this->salary_structure;
+        }
+
+        return ContractSalaryStructure::defaultFor(
+            $this->payroll_category ?? PayrollCategory::Office,
+        );
     }
 }

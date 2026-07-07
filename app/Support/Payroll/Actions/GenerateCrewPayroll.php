@@ -2,13 +2,16 @@
 
 namespace App\Support\Payroll\Actions;
 
+use App\Enums\ContractSalaryStructure;
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Enums\SalaryPaymentMethod;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
+use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Support\Payroll\CrewMonthlyPayrollCalculator;
 use App\Support\Payroll\CrewOvertimeMonthlySalary;
 use App\Support\Payroll\CrewPayrollCalculator;
 use App\Support\Payroll\GeneratePayrollResult;
@@ -22,6 +25,7 @@ final class GenerateCrewPayroll
 {
     public function __construct(
         private readonly CrewPayrollCalculator $calculator,
+        private readonly CrewMonthlyPayrollCalculator $monthlyCalculator,
         private readonly RecalculateCrewPayroll $recalculateCrewPayroll,
     ) {}
 
@@ -58,8 +62,17 @@ final class GenerateCrewPayroll
         $generatedCount = 0;
         $skippedEmployees = [];
         $errors = [];
+        $workingDaysInPeriod = $period->calendarDayCount();
 
-        DB::transaction(function () use ($period, $employees, $excludedEmployeeIds, &$generatedCount, &$skippedEmployees, &$errors): void {
+        DB::transaction(function () use (
+            $period,
+            $employees,
+            $excludedEmployeeIds,
+            $workingDaysInPeriod,
+            &$generatedCount,
+            &$skippedEmployees,
+            &$errors,
+        ): void {
             if ($excludedEmployeeIds !== []) {
                 PayrollRecord::query()
                     ->where('period_id', $period->id)
@@ -91,25 +104,14 @@ final class GenerateCrewPayroll
                 }
 
                 try {
-                    $calculated = $this->calculator->calculate(
-                        $timesheet,
-                        $contract->salaryComponents,
-                        CrewOvertimeMonthlySalary::STANDARD_PERIOD_DAYS,
-                        $period->calendarDayCount(),
-                    );
+                    $recordAttributes = $contract->resolvedSalaryStructure() === ContractSalaryStructure::Monthly
+                        ? $this->buildMonthlyRecordAttributes($employee, $contract, $timesheet, $workingDaysInPeriod)
+                        : $this->buildDailyRecordAttributes($employee, $contract, $timesheet, $workingDaysInPeriod);
                 } catch (ValidationException $exception) {
                     $errors[] = PayrollGenerationError::fromValidationException($employee, $exception);
 
                     continue;
                 }
-
-                $breakdown = $calculated['calculation_breakdown'];
-                $breakdown['base'] = [
-                    'gross' => (float) $calculated['gross_salary'],
-                    'net' => (float) $calculated['net_salary'],
-                    'bonus' => (float) $calculated['bonus'],
-                    'other_deductions' => (float) $calculated['other_deductions'],
-                ];
 
                 PayrollRecord::query()->updateOrCreate(
                     [
@@ -117,25 +119,7 @@ final class GenerateCrewPayroll
                         'employee_id' => $employee->id,
                         'period_id' => $period->id,
                     ],
-                    [
-                        ...ResolvePayrollRecordSnapshot::from($employee, $contract),
-                        'payroll_category' => PayrollCategory::Crew,
-                        'salary_payment_method' => $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer,
-                        'basic_salary' => $calculated['basic_salary'],
-                        'other_allowances' => $calculated['other_allowances'],
-                        'overtime_pay' => $calculated['overtime_pay'],
-                        'bonus' => $calculated['bonus'],
-                        'other_deductions' => $calculated['other_deductions'],
-                        'total_deductions' => $calculated['total_deductions'],
-                        'gross_salary' => $calculated['gross_salary'],
-                        'net_salary' => $calculated['net_salary'],
-                        'working_days' => $calculated['working_days'],
-                        'present_days' => (int) round($calculated['present_days']),
-                        'leave_days' => $calculated['leave_days'],
-                        'overtime_hours' => $calculated['overtime_hours'],
-                        'calculation_breakdown' => $breakdown,
-                        'status' => 'draft',
-                    ],
+                    $recordAttributes,
                 );
 
                 $generatedCount++;
@@ -162,5 +146,111 @@ final class GenerateCrewPayroll
             skippedEmployees: $skippedEmployees,
             errors: $errors,
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildDailyRecordAttributes(
+        Employee $employee,
+        EmployeeContract $contract,
+        CrewTimesheet $timesheet,
+        int $workingDaysInPeriod,
+    ): array {
+        $calculated = $this->calculator->calculate(
+            $timesheet,
+            $contract->salaryComponents,
+            CrewOvertimeMonthlySalary::STANDARD_PERIOD_DAYS,
+            $workingDaysInPeriod,
+        );
+
+        $breakdown = $calculated['calculation_breakdown'];
+        $breakdown['base'] = [
+            'gross' => (float) $calculated['gross_salary'],
+            'net' => (float) $calculated['net_salary'],
+            'bonus' => (float) $calculated['bonus'],
+            'other_deductions' => (float) $calculated['other_deductions'],
+        ];
+
+        return [
+            ...ResolvePayrollRecordSnapshot::from($employee, $contract),
+            'payroll_category' => PayrollCategory::Crew,
+            'salary_payment_method' => $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer,
+            'basic_salary' => $calculated['basic_salary'],
+            'housing_allowance' => 0,
+            'transport_allowance' => 0,
+            'other_allowances' => $calculated['other_allowances'],
+            'overtime_pay' => $calculated['overtime_pay'],
+            'bonus' => $calculated['bonus'],
+            'unpaid_leave_deduction' => 0,
+            'late_deduction' => 0,
+            'loan_deduction' => 0,
+            'other_deductions' => $calculated['other_deductions'],
+            'total_deductions' => $calculated['total_deductions'],
+            'gross_salary' => $calculated['gross_salary'],
+            'net_salary' => $calculated['net_salary'],
+            'working_days' => $calculated['working_days'],
+            'present_days' => (int) round($calculated['present_days']),
+            'absent_days' => 0,
+            'leave_days' => $calculated['leave_days'],
+            'overtime_hours' => $calculated['overtime_hours'],
+            'calculation_breakdown' => $breakdown,
+            'status' => 'draft',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildMonthlyRecordAttributes(
+        Employee $employee,
+        EmployeeContract $contract,
+        CrewTimesheet $timesheet,
+        int $workingDaysInPeriod,
+    ): array {
+        $calculated = $this->monthlyCalculator->calculate(
+            $timesheet,
+            $contract->salaryComponents,
+            $workingDaysInPeriod,
+        );
+
+        $breakdown = $calculated['calculation_breakdown'];
+        $breakdown['base'] = [
+            'basic' => (float) $calculated['basic_salary'],
+            'housing' => (float) $calculated['housing_allowance'],
+            'transport' => (float) $calculated['transport_allowance'],
+            'other' => (float) $calculated['other_allowances'],
+            'gross' => (float) $calculated['gross_salary'],
+            'net' => (float) $calculated['net_salary'],
+            'bonus' => (float) $calculated['bonus'],
+            'unpaid_leave_deduction' => (float) $calculated['unpaid_leave_deduction'],
+            'other_deductions' => (float) $calculated['other_deductions'],
+        ];
+
+        return [
+            ...ResolvePayrollRecordSnapshot::from($employee, $contract),
+            'payroll_category' => PayrollCategory::Crew,
+            'salary_payment_method' => $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer,
+            'basic_salary' => $calculated['basic_salary'],
+            'housing_allowance' => $calculated['housing_allowance'],
+            'transport_allowance' => $calculated['transport_allowance'],
+            'other_allowances' => $calculated['other_allowances'],
+            'overtime_pay' => $calculated['overtime_pay'],
+            'bonus' => $calculated['bonus'],
+            'unpaid_leave_deduction' => $calculated['unpaid_leave_deduction'],
+            'late_deduction' => $calculated['late_deduction'],
+            'loan_deduction' => $calculated['loan_deduction'],
+            'other_deductions' => $calculated['other_deductions'],
+            'total_deductions' => $calculated['total_deductions'],
+            'gross_salary' => $calculated['gross_salary'],
+            'net_salary' => $calculated['net_salary'],
+            'working_days' => $calculated['working_days'],
+            'present_days' => (int) round($calculated['present_days']),
+            'absent_days' => (int) round($calculated['absent_days']),
+            'leave_days' => $calculated['leave_days'],
+            'overtime_hours' => $calculated['overtime_hours'],
+            'calculation_breakdown' => $breakdown,
+            'status' => 'draft',
+        ];
     }
 }

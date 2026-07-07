@@ -136,6 +136,7 @@ final class CrewPayrollSalarySheetExporter
             'S' => 'OT',
             'T' => 'TOTAL SALARY',
             'U' => 'PAYMENT METHOD',
+            'V' => 'SALARY STRUCTURE',
         ];
 
         foreach ($headers as $column => $header) {
@@ -176,6 +177,7 @@ final class CrewPayrollSalarySheetExporter
         $netAdjustment = round($bonus - $deductions, 2);
 
         $paymentMethod = $record->salary_payment_method ?? $employee->salary_payment_method;
+        $salaryStructure = $this->resolveSalaryStructureLabel($breakdown);
 
         $cells = [
             'A' => $this->presentValue($serialNumber, false),
@@ -202,6 +204,7 @@ final class CrewPayrollSalarySheetExporter
                 $paymentMethod instanceof SalaryPaymentMethod ? $paymentMethod->label() : null,
                 $paymentMethod === null,
             ),
+            'V' => $this->presentValue($salaryStructure, false),
         ];
 
         $missingCoordinates = [];
@@ -220,7 +223,7 @@ final class CrewPayrollSalarySheetExporter
 
     private function applyWorksheetFormatting(Worksheet $sheet, int $lastDataRow): void
     {
-        $this->applyHeaderStyle($sheet, 'U');
+        $this->applyHeaderStyle($sheet, 'V');
         $this->applyColumnWidths($sheet, [
             'A' => 8,
             'B' => 12,
@@ -243,8 +246,9 @@ final class CrewPayrollSalarySheetExporter
             'S' => 12,
             'T' => 14,
             'U' => 18,
+            'V' => 16,
         ]);
-        $this->applyDataBorderStyle($sheet, 'U', $lastDataRow);
+        $this->applyDataBorderStyle($sheet, 'V', $lastDataRow);
 
         if ($lastDataRow < self::DATA_START_ROW) {
             return;
@@ -271,5 +275,15 @@ final class CrewPayrollSalarySheetExporter
         $this->applyDaysFormat($sheet, 'I'.self::DATA_START_ROW.':I'.$lastDataRow);
         $this->applyDaysFormat($sheet, 'L'.self::DATA_START_ROW.':L'.$lastDataRow);
         $this->applyMoneyFormat($sheet, 'M'.self::DATA_START_ROW.':T'.$lastDataRow);
+    }
+
+    /**
+     * @param  array<string, mixed>  $breakdown
+     */
+    private function resolveSalaryStructureLabel(array $breakdown): string
+    {
+        return ($breakdown['salary_structure'] ?? 'daily') === 'monthly'
+            ? 'Monthly'
+            : 'Daily';
     }
 }

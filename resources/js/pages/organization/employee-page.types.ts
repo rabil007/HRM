@@ -140,6 +140,7 @@ export type ActivityItem = {
 export type EmployeeContractDetails = {
     id: number;
     payroll_category: 'office' | 'crew' | null;
+    salary_structure?: 'daily' | 'monthly' | null;
     start_date: string | null;
     end_date: string | null;
     labor_contract_id: string | null;

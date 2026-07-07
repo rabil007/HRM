@@ -20,10 +20,11 @@ final class ApplyOfficeSalaryInputs
 
         $bonus = round($totals['bonus'] + $totals['commission'], 2);
         $baseUnpaidLeave = (float) ($base['unpaid_leave_deduction'] ?? $record->unpaid_leave_deduction ?? 0);
+        $baseOtherDeductions = (float) ($base['other_deductions'] ?? 0);
         $unpaidLeaveDeduction = round($baseUnpaidLeave + $totals['unpaid_leave'], 2);
         $lateDeduction = round($totals['late'], 2);
         $loanDeduction = round($totals['loan'], 2);
-        $otherDeductions = round($totals['other'], 2);
+        $otherDeductions = round($baseOtherDeductions + $totals['other'], 2);
         $additions = round($bonus, 2);
         $totalDeductions = round($unpaidLeaveDeduction + $lateDeduction + $loanDeduction + $otherDeductions, 2);
 
@@ -65,7 +66,7 @@ final class ApplyOfficeSalaryInputs
 
     /**
      * @param  array<string, mixed>  $breakdown
-     * @return array{basic: float, housing: float, transport: float, other: float, gross: float, net: float, bonus: float, unpaid_leave_deduction: float}
+     * @return array{basic: float, housing: float, transport: float, other: float, gross: float, net: float, bonus: float, unpaid_leave_deduction: float, other_deductions: float}
      */
     private function resolveBase(PayrollRecord $record, array $breakdown): array
     {
@@ -81,6 +82,7 @@ final class ApplyOfficeSalaryInputs
                 'net' => (float) ($storedBase['net'] ?? $record->net_salary),
                 'bonus' => (float) ($storedBase['bonus'] ?? 0),
                 'unpaid_leave_deduction' => (float) ($storedBase['unpaid_leave_deduction'] ?? $record->unpaid_leave_deduction),
+                'other_deductions' => (float) ($storedBase['other_deductions'] ?? $record->other_deductions),
             ];
         }
 
@@ -102,6 +104,7 @@ final class ApplyOfficeSalaryInputs
             'net' => $gross,
             'bonus' => 0.0,
             'unpaid_leave_deduction' => (float) $record->unpaid_leave_deduction,
+            'other_deductions' => (float) $record->other_deductions,
         ];
     }
 
