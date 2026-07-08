@@ -3,6 +3,7 @@
 namespace App\Support\Employees;
 
 use App\Models\Employee;
+use Illuminate\Database\Eloquent\Builder;
 
 final class ResolveEmployeeNavigation
 {
@@ -30,16 +31,42 @@ final class ResolveEmployeeNavigation
             return null;
         }
 
-        $position = $scoped->clone()->where('id', '>=', $employee->id)->count();
+        $name = (string) $employee->name;
+
+        $position = $scoped->clone()
+            ->where(function (Builder $q) use ($name, $employee): void {
+                $q->where('name', '<', $name)
+                    ->orWhere(function (Builder $inner) use ($name, $employee): void {
+                        $inner->where('name', '=', $name)
+                            ->where('id', '<=', $employee->id);
+                    });
+            })
+            ->count();
 
         $previousId = $scoped->clone()
-            ->where('id', '>', $employee->id)
-            ->orderBy('id')
+            ->where(function (Builder $q) use ($name, $employee): void {
+                $q->where('name', '<', $name)
+                    ->orWhere(function (Builder $inner) use ($name, $employee): void {
+                        $inner->where('name', '=', $name)
+                            ->where('id', '<', $employee->id);
+                    });
+            })
+            ->reorder()
+            ->orderByDesc('name')
+            ->orderByDesc('id')
             ->value('id');
 
         $nextId = $scoped->clone()
-            ->where('id', '<', $employee->id)
-            ->orderByDesc('id')
+            ->where(function (Builder $q) use ($name, $employee): void {
+                $q->where('name', '>', $name)
+                    ->orWhere(function (Builder $inner) use ($name, $employee): void {
+                        $inner->where('name', '=', $name)
+                            ->where('id', '>', $employee->id);
+                    });
+            })
+            ->reorder()
+            ->orderBy('name')
+            ->orderBy('id')
             ->value('id');
 
         return [

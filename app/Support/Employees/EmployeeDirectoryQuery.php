@@ -18,7 +18,7 @@ final class EmployeeDirectoryQuery
     {
         self::applyAttributeFilters($query, $this->companyId, $this->filters);
 
-        return $query->orderBy('name');
+        return $query->orderBy('name')->orderBy('id');
     }
 
     public static function applyAttributeFilters(

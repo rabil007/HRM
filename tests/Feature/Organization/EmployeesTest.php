@@ -2672,9 +2672,9 @@ test('employee show includes navigation within unfiltered directory', function (
         'status' => 'active',
     ]);
 
-    $first = Employee::factory()->forCompany($company)->create(['employee_no' => 'NAV001', 'name' => 'First']);
-    $middle = Employee::factory()->forCompany($company)->create(['employee_no' => 'NAV002', 'name' => 'Middle']);
-    $last = Employee::factory()->forCompany($company)->create(['employee_no' => 'NAV003', 'name' => 'Last']);
+    $first = Employee::factory()->forCompany($company)->create(['employee_no' => 'NAV001', 'name' => 'Alpha']);
+    $middle = Employee::factory()->forCompany($company)->create(['employee_no' => 'NAV002', 'name' => 'Bravo']);
+    $last = Employee::factory()->forCompany($company)->create(['employee_no' => 'NAV003', 'name' => 'Charlie']);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
 
@@ -2683,9 +2683,64 @@ test('employee show includes navigation within unfiltered directory', function (
         ->assertInertia(fn (Assert $page) => $page
             ->where('employee_navigation.position', 2)
             ->where('employee_navigation.total', 3)
-            ->where('employee_navigation.previous_id', $last->id)
-            ->where('employee_navigation.next_id', $first->id)
+            ->where('employee_navigation.previous_id', $first->id)
+            ->where('employee_navigation.next_id', $last->id)
             ->where('employee_navigation.list_query', []));
+});
+
+test('employee show navigation orders by name not id', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'NVO',
+        'name' => 'Navorder',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'NVO',
+        'name' => 'Nav Order Currency',
+        'symbol' => 'N$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Nav Order Co',
+        'slug' => 'nav-order-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    // Created in reverse alphabetical order so ids do not match name order.
+    $zoe = Employee::factory()->forCompany($company)->create(['employee_no' => 'NVO001', 'name' => 'Zoe']);
+    $mike = Employee::factory()->forCompany($company)->create(['employee_no' => 'NVO002', 'name' => 'Mike']);
+    $adam = Employee::factory()->forCompany($company)->create(['employee_no' => 'NVO003', 'name' => 'Adam']);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    // Adam sorts first alphabetically despite having the largest id.
+    $this->get(route('organization.employees.show', $adam))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employee_navigation.position', 1)
+            ->where('employee_navigation.total', 3)
+            ->where('employee_navigation.previous_id', null)
+            ->where('employee_navigation.next_id', $mike->id));
+
+    // Zoe sorts last alphabetically despite having the smallest id.
+    $this->get(route('organization.employees.show', $zoe))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employee_navigation.position', 3)
+            ->where('employee_navigation.total', 3)
+            ->where('employee_navigation.previous_id', $mike->id)
+            ->where('employee_navigation.next_id', null));
 });
 
 test('employee show navigation respects branch filter', function () {
