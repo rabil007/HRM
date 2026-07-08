@@ -28,7 +28,7 @@ class GenerateBulkDocumentsController extends Controller
         }
 
         $directoryFilters = EmployeeDirectoryFilters::fromArray($filters);
-        $roster = BulkDocumentRosterQuery::for(
+        $counts = BulkDocumentRosterQuery::counts(
             $companyId,
             $documentTypeKey,
             $directoryFilters,
@@ -37,7 +37,7 @@ class GenerateBulkDocumentsController extends Controller
 
         $targetCount = $replaceExisting
             ? count($employeeIds)
-            : $roster['counts']['not_generated'];
+            : $counts['not_generated'];
 
         if ($targetCount === 0) {
             return back()->with('info', 'No employees need document generation for the current selection.');

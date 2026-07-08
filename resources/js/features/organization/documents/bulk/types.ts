@@ -7,8 +7,11 @@ export type BulkRosterEmployee = {
     id: number;
     name: string;
     employee_no: string | null;
+    image: string | null;
     department: string | null;
+    position: string | null;
     sponsor: string | null;
+    email: string | null;
     status: string;
     document: {
         id: number;
@@ -46,7 +49,7 @@ export type BulkEmailTemplateOption = {
     is_default: boolean;
 };
 
-export type BulkRecentActivityItem =
+export type BulkActivityItem =
     | {
           kind: 'generation';
           id: number;
@@ -76,6 +79,7 @@ export type BulkRecentActivityItem =
 export type BulkDocumentsPageProps = {
     document_type_key: string;
     document_type_options: BulkDocumentTypeOption[];
+    view: 'roster' | 'history';
     filters: {
         department_id: string;
         position_id: string;
@@ -86,6 +90,8 @@ export type BulkDocumentsPageProps = {
     search: string;
     counts: BulkDocumentCounts;
     employees: BulkRosterEmployee[];
+    activity: BulkActivityItem[];
+    pagination: import('@/types/pagination').PaginationMeta;
     generation_filter: 'all' | 'missing';
     departments: { id: number; name: string }[];
     positions: { id: number; title: string }[];
@@ -95,7 +101,6 @@ export type BulkDocumentsPageProps = {
     department_tree_selected_position_id: number | null;
     email_templates: BulkEmailTemplateOption[];
     latest_run: BulkGenerationRun | null;
-    recent_activity: BulkRecentActivityItem[];
     can: {
         generate: boolean;
         download: boolean;

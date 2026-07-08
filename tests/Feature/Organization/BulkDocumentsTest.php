@@ -93,8 +93,99 @@ test('users with view permission can open bulk documents page', function () {
             ->component('organization/documents/bulk/index')
             ->has('document_type_options', 2)
             ->has('employees', 1)
+            ->has('pagination')
+            ->where('pagination.total', 1)
             ->where('counts.targeted', 1)
             ->where('counts.not_generated', 1));
+});
+
+test('bulk documents page paginates employee roster', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    Employee::factory()
+        ->count(25)
+        ->forCompany($company)
+        ->create(['status' => 'active']);
+
+    $this->get(route('organization.documents.bulk', ['per_page' => 10]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 10)
+            ->where('pagination.total', 25)
+            ->where('pagination.per_page', 10)
+            ->where('pagination.last_page', 3)
+            ->where('counts.targeted', 25));
+
+    $this->get(route('organization.documents.bulk', ['per_page' => 10, 'page' => 2]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 10)
+            ->where('pagination.current_page', 2));
+});
+
+test('missing generation filter paginates only employees without documents', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $withDoc = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    Employee::factory()->count(14)->forCompany($company)->create(['status' => 'active']);
+
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+
+    createEmployeePdfDocument(
+        $company->id,
+        $withDoc->id,
+        $documentType->id,
+        "employee-documents/{$company->id}/{$withDoc->id}/existing.pdf",
+        'existing.pdf',
+    );
+
+    $this->get(route('organization.documents.bulk', [
+        'generation_filter' => 'missing',
+        'per_page' => 10,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 10)
+            ->where('pagination.total', 14)
+            ->where('counts.generated', 1)
+            ->where('counts.not_generated', 14)
+            ->where('generation_filter', 'missing'));
+});
+
+test('bulk documents history view returns paginated activity', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    BulkDocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_type_key' => 'salary_declaration',
+        'filters' => ['status' => 'active'],
+        'status' => 'completed',
+        'total_targeted' => 5,
+        'generated_count' => 2,
+        'replaced_count' => 0,
+        'skipped_count' => 3,
+        'failed_count' => 0,
+        'triggered_by' => $user->id,
+    ]);
+
+    $this->get(route('organization.documents.bulk', ['view' => 'history']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('organization/documents/bulk/index')
+            ->where('view', 'history')
+            ->has('activity', 1)
+            ->where('activity.0.kind', 'generation')
+            ->where('activity.0.generated_count', 2)
+            ->has('pagination'));
 });
 
 test('bulk documents routes enforce permissions', function () {
@@ -180,13 +271,13 @@ test('roster counts reflect generated and missing documents', function () {
         'existing.pdf',
     );
 
-    $roster = BulkDocumentRosterQuery::for(
+    $counts = BulkDocumentRosterQuery::counts(
         $company->id,
         'salary_declaration',
         EmployeeDirectoryFilters::fromArray(['status' => 'active']),
     );
 
-    expect($roster['counts'])->toMatchArray([
+    expect($counts)->toMatchArray([
         'targeted' => 2,
         'generated' => 1,
         'not_generated' => 1,

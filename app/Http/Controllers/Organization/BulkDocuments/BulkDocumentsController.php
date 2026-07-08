@@ -4,20 +4,23 @@ namespace App\Http\Controllers\Organization\BulkDocuments;
 
 use App\Enums\EmailTemplateCategory;
 use App\Http\Controllers\Controller;
-use App\Models\BulkDocumentEmailBatch;
 use App\Models\BulkDocumentGenerationRun;
 use App\Models\EmailTemplate;
+use App\Support\BulkDocuments\BulkDocumentActivityQuery;
 use App\Support\BulkDocuments\BulkDocumentPagePermissions;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
+use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class BulkDocumentsController extends Controller
 {
+    use ResolvesPerPage;
+
     public function __invoke(Request $request)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
@@ -30,25 +33,75 @@ class BulkDocumentsController extends Controller
         }
 
         $filters = $this->resolveFilters($request);
-        $roster = BulkDocumentRosterQuery::for($companyId, $documentTypeKey, $filters);
+        $perPage = $this->resolvePerPage($request);
+        $page = max(1, (int) $request->query('page', 1));
+        $generationFilter = $request->query('generation_filter') === 'missing' ? 'missing' : 'all';
+        $view = $request->query('view') === 'history' ? 'history' : 'roster';
         $formOptions = EmployeeFormOptions::for($companyId);
 
-        $generationFilter = $request->query('generation_filter');
-        if ($generationFilter === 'missing') {
-            $roster['employees'] = array_values(array_filter(
-                $roster['employees'],
-                fn (array $employee): bool => $employee['document'] === null,
-            ));
+        if ($view === 'history') {
+            $activityPaginator = BulkDocumentActivityQuery::paginate(
+                $companyId,
+                $documentTypeKey,
+                $perPage,
+                $page,
+            );
+
+            return Inertia::render('organization/documents/bulk/index', $this->sharedPayload(
+                $request,
+                $companyId,
+                $documentTypeKey,
+                $filters,
+                $formOptions,
+            ) + [
+                'view' => 'history',
+                'activity' => $activityPaginator->items(),
+                'employees' => [],
+                'counts' => BulkDocumentRosterQuery::counts($companyId, $documentTypeKey, $filters),
+                'pagination' => $this->paginationMeta($activityPaginator),
+                'generation_filter' => $generationFilter,
+            ]);
         }
 
-        return Inertia::render('organization/documents/bulk/index', [
+        $paginator = BulkDocumentRosterQuery::paginate(
+            $companyId,
+            $documentTypeKey,
+            $filters,
+            $perPage,
+            $generationFilter,
+        );
+
+        return Inertia::render('organization/documents/bulk/index', $this->sharedPayload(
+            $request,
+            $companyId,
+            $documentTypeKey,
+            $filters,
+            $formOptions,
+        ) + [
+            'view' => 'roster',
+            'activity' => [],
+            'counts' => BulkDocumentRosterQuery::counts($companyId, $documentTypeKey, $filters),
+            'employees' => $paginator->items(),
+            'pagination' => $this->paginationMeta($paginator),
+            'generation_filter' => $generationFilter,
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sharedPayload(
+        Request $request,
+        int $companyId,
+        string $documentTypeKey,
+        EmployeeDirectoryFilters $filters,
+        array $formOptions,
+    ): array {
+        return [
             'document_type_key' => $documentTypeKey,
             'document_type_options' => BulkDocumentTypeRegistry::options()->all(),
             'filters' => $this->filtersPayload($filters),
             'search' => $filters->search,
-            'counts' => $roster['counts'],
-            'employees' => $roster['employees'],
-            'generation_filter' => $generationFilter === 'missing' ? 'missing' : 'all',
             'departments' => $formOptions['departments'],
             'positions' => $formOptions['positions'],
             'company_visa_types' => $formOptions['company_visa_types'],
@@ -73,9 +126,8 @@ class BulkDocumentsController extends Controller
                 ->values()
                 ->all(),
             'latest_run' => $this->latestRunPayload($companyId, $documentTypeKey),
-            'recent_activity' => $this->recentActivity($companyId),
             'can' => BulkDocumentPagePermissions::for($request->user()),
-        ]);
+        ];
     }
 
     private function resolveFilters(Request $request): EmployeeDirectoryFilters
@@ -135,66 +187,5 @@ class BulkDocumentsController extends Controller
             'finished_at' => $run->finished_at?->toIso8601String(),
             'triggered_by' => $run->triggeredBy?->name,
         ];
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function recentActivity(int $companyId): array
-    {
-        $runs = BulkDocumentGenerationRun::query()
-            ->where('company_id', $companyId)
-            ->latest('id')
-            ->limit(10)
-            ->with('triggeredBy:id,name')
-            ->get()
-            ->map(fn (BulkDocumentGenerationRun $run): array => [
-                'kind' => 'generation',
-                'id' => $run->id,
-                'document_type_key' => $run->document_type_key,
-                'document_type_label' => self::labelForKey($run->document_type_key),
-                'status' => $run->status,
-                'generated_count' => $run->generated_count,
-                'replaced_count' => $run->replaced_count,
-                'skipped_count' => $run->skipped_count,
-                'failed_count' => $run->failed_count,
-                'created_at' => $run->created_at?->toIso8601String(),
-                'triggered_by' => $run->triggeredBy?->name,
-            ]);
-
-        $batches = BulkDocumentEmailBatch::query()
-            ->where('company_id', $companyId)
-            ->latest('id')
-            ->limit(10)
-            ->with(['triggeredBy:id,name', 'emailTemplate:id,label'])
-            ->get()
-            ->map(fn (BulkDocumentEmailBatch $batch): array => [
-                'kind' => 'email',
-                'id' => $batch->id,
-                'document_type_key' => $batch->document_type_key,
-                'document_type_label' => self::labelForKey($batch->document_type_key),
-                'template_label' => $batch->emailTemplate?->label,
-                'sent_count' => $batch->sent_count,
-                'failed_count' => $batch->failed_count,
-                'skipped_no_email_count' => $batch->skipped_no_email_count,
-                'created_at' => $batch->created_at?->toIso8601String(),
-                'triggered_by' => $batch->triggeredBy?->name,
-            ]);
-
-        return $runs
-            ->concat($batches)
-            ->sortByDesc('created_at')
-            ->take(10)
-            ->values()
-            ->all();
-    }
-
-    private static function labelForKey(string $key): string
-    {
-        try {
-            return BulkDocumentTypeRegistry::find($key)['label'];
-        } catch (\InvalidArgumentException) {
-            return $key;
-        }
     }
 }

@@ -245,6 +245,14 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
         }
 
         if (
+            item.url === '/organization/documents' &&
+            (path === '/organization/documents/bulk' ||
+                path.startsWith('/organization/documents/bulk/'))
+        ) {
+            return false;
+        }
+
+        if (
             path === item.url ||
             (item.url !== '/' && path.startsWith(`${item.url}/`))
         ) {
