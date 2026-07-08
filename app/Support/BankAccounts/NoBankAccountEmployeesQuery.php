@@ -22,6 +22,7 @@ final class NoBankAccountEmployeesQuery
     {
         $row = Employee::query()
             ->where('company_id', $companyId)
+            ->active()
             ->whereDoesntHave('bankAccounts')
             ->selectRaw('COUNT(*) as total_no_account')
             ->selectRaw("SUM(CASE WHEN salary_payment_method IS NULL OR salary_payment_method = 'bank_transfer' THEN 1 ELSE 0 END) as bank_transfer")
@@ -46,6 +47,7 @@ final class NoBankAccountEmployeesQuery
     {
         return Employee::query()
             ->where('company_id', $companyId)
+            ->active()
             ->whereDoesntHave('bankAccounts')
             ->when($departmentId !== '', function ($query) use ($companyId, $departmentId) {
                 $directoryFilters = new EmployeeDirectoryFilters(departmentId: $departmentId);

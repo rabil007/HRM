@@ -21,7 +21,9 @@ trait ValidatesDepartmentManager
         return [
             'nullable',
             'integer',
-            Rule::exists('employees', 'id')->where(fn ($q) => $q->where('company_id', $companyId)),
+            Rule::exists('employees', 'id')->where(fn ($q) => $q
+                ->where('company_id', $companyId)
+                ->where('status', 'active')),
             Rule::prohibitedIf(fn () => filled($this->input('parent_id'))),
         ];
     }

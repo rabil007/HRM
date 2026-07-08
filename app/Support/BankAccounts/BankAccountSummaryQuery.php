@@ -34,6 +34,7 @@ final class BankAccountSummaryQuery
 
         $noAccountCount = Employee::query()
             ->where('company_id', $companyId)
+            ->active()
             ->whereDoesntHave('bankAccounts')
             ->count();
 

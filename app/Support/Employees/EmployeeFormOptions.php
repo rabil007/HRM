@@ -145,6 +145,7 @@ final class EmployeeFormOptions
 
         return Employee::query()
             ->where('company_id', $companyId)
+            ->active()
             ->whereIn('id', $managerIds)
             ->orderBy('name')
             ->get(['id', 'name', 'employee_no']);
@@ -159,6 +160,7 @@ final class EmployeeFormOptions
     {
         return Employee::query()
             ->where('company_id', $companyId)
+            ->active()
             ->orderBy('name')
             ->get(['id', 'name', 'employee_no']);
     }

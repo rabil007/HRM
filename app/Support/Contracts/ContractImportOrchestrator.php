@@ -227,6 +227,7 @@ final class ContractImportOrchestrator
     {
         return Employee::query()
             ->where('company_id', $companyId)
+            ->active()
             ->get()
             ->filter(fn (Employee $employee) => filled($employee->employee_no))
             ->keyBy(fn (Employee $employee) => (string) $employee->employee_no);

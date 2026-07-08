@@ -284,6 +284,7 @@ final class DashboardAnalytics
     {
         return Employee::query()
             ->where('employees.company_id', $companyId)
+            ->active()
             ->leftJoin('departments', 'departments.id', '=', 'employees.department_id')
             ->selectRaw("COALESCE(departments.name, 'Unassigned') as label")
             ->selectRaw('COUNT(*) as count')
@@ -305,6 +306,7 @@ final class DashboardAnalytics
     {
         return Employee::query()
             ->where('employees.company_id', $companyId)
+            ->active()
             ->leftJoin('branches', 'branches.id', '=', 'employees.branch_id')
             ->selectRaw("COALESCE(branches.name, 'Unassigned') as label")
             ->selectRaw('COUNT(*) as count')
@@ -350,6 +352,7 @@ final class DashboardAnalytics
     {
         return Employee::query()
             ->where('company_id', $companyId)
+            ->active()
             ->orderByDesc('created_at')
             ->limit(5)
             ->get(['id', 'name', 'employee_no', 'created_at'])

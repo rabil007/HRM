@@ -17,7 +17,9 @@ trait LeaveRequestValidationRules
             'employee_id' => [
                 'required',
                 'integer',
-                Rule::exists('employees', 'id')->where(fn ($query) => $query->where('company_id', $companyId)),
+                Rule::exists('employees', 'id')->where(fn ($query) => $query
+                    ->where('company_id', $companyId)
+                    ->where('status', 'active')),
             ],
             'leave_type_id' => [
                 'required',

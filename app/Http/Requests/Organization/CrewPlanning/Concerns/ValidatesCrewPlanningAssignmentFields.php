@@ -22,6 +22,7 @@ trait ValidatesCrewPlanningAssignmentFields
             'integer',
             Rule::exists('employees', 'id')->where(fn ($query) => $query
                 ->where('company_id', $companyId)
+                ->where('status', 'active')
                 ->whereNotNull('rank_id')),
         ];
     }

@@ -78,6 +78,14 @@ class Employee extends Model
             ->logOnlyDirty();
     }
 
+    /**
+     * @param  Builder<Employee>  $query
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where($query->qualifyColumn('status'), 'active');
+    }
+
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
@@ -246,6 +254,7 @@ class Employee extends Model
     {
         return self::query()
             ->where('company_id', $companyId)
+            ->active()
             ->where(function (Builder $query) use ($currentPersonId): void {
                 $query->whereNull('hikvision_person_id');
 

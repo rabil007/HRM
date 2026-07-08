@@ -139,6 +139,7 @@ final class CrewOperationsSettings
 
         return Employee::query()
             ->where('employees.company_id', $companyId)
+            ->active()
             ->whereNull('employees.termination_date')
             ->whereNotNull('employees.rank_id')
             ->when($departmentIds !== [], fn (Builder $q) => $q->whereIn('employees.department_id', $departmentIds))

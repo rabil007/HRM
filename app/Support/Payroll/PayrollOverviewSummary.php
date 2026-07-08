@@ -300,6 +300,7 @@ final class PayrollOverviewSummary
     {
         $rows = DB::table('employees')
             ->where('employees.company_id', $companyId)
+            ->where('employees.status', 'active')
             ->whereExists(function ($query) {
                 $query->select(DB::raw(1))
                     ->from('employee_contracts')

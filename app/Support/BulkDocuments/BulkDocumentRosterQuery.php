@@ -257,7 +257,7 @@ final class BulkDocumentRosterQuery
     ): Builder {
         $query = Employee::query()
             ->where('company_id', $companyId)
-            ->where('status', 'active');
+            ->active();
 
         EmployeeDirectoryQuery::applyAttributeFilters($query, $companyId, $filters);
 

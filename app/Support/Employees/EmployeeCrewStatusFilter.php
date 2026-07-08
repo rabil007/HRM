@@ -43,6 +43,7 @@ final class EmployeeCrewStatusFilter
 
         $employees = Employee::query()
             ->where('company_id', $companyId)
+            ->active()
             ->get(['id']);
 
         if ($employees->isEmpty()) {

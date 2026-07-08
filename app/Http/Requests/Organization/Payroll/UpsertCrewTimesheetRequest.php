@@ -57,7 +57,9 @@ class UpsertCrewTimesheetRequest extends FormRequest
             'employee_id' => [
                 'required',
                 'integer',
-                Rule::exists('employees', 'id')->where('company_id', $companyId),
+                Rule::exists('employees', 'id')->where(fn ($query) => $query
+                    ->where('company_id', $companyId)
+                    ->where('status', 'active')),
             ],
             'standby_from' => ['nullable', 'date'],
             'standby_to' => [

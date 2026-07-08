@@ -24,6 +24,7 @@ final class NoContractEmployeesQuery
     {
         return Employee::query()
             ->where('company_id', $companyId)
+            ->active()
             ->whereDoesntHave('contracts')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
@@ -56,4 +57,3 @@ final class NoContractEmployeesQuery
             ]);
     }
 }
-

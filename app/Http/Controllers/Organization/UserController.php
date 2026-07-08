@@ -78,6 +78,7 @@ class UserController extends Controller
     {
         return Employee::query()
             ->where('company_id', $companyId)
+            ->active()
             ->orderBy('name')
             ->get(['id', 'name', 'employee_no', 'user_id', 'image'])
             ->map(fn (Employee $employee): array => [

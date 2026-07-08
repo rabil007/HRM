@@ -19,6 +19,7 @@ class DocumentBrowseQuery
 
         return Employee::query()
             ->where('company_id', $companyId)
+            ->active()
             ->whereHas('documents', fn ($query) => $query->where('company_id', $companyId))
             ->withCount([
                 'documents as document_count' => fn ($query) => $query->where('company_id', $companyId),
@@ -167,8 +168,12 @@ class DocumentBrowseQuery
         $query->where(function (Builder $inner) use ($like) {
             $inner->whereHas('employee', function (Builder $employeeQuery) use ($like) {
                 $employeeQuery
-                    ->where('name', 'like', $like)
-                    ->orWhere('employee_no', 'like', $like);
+                    ->active()
+                    ->where(function (Builder $nameQuery) use ($like): void {
+                        $nameQuery
+                            ->where('name', 'like', $like)
+                            ->orWhere('employee_no', 'like', $like);
+                    });
             })->orWhere(function (Builder $documentQuery) use ($like) {
                 $this->applyDocumentFieldSearch($documentQuery, $like);
             });

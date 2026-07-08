@@ -266,6 +266,7 @@ final class CrewTimesheetImportOrchestrator
     {
         return Employee::query()
             ->where('company_id', $companyId)
+            ->active()
             ->with(['currentContract'])
             ->get()
             ->filter(fn (Employee $employee) => filled($employee->employee_no))

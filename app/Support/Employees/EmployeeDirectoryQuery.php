@@ -47,7 +47,11 @@ final class EmployeeDirectoryQuery
                 $q->whereIn('department_id', $departmentIds);
             })
             ->when(! $exceptPosition && $filters->positionId, fn (Builder $q) => $q->where('position_id', $filters->positionId))
-            ->when($filters->status, fn (Builder $q) => $q->where('status', $filters->status))
+            ->when(
+                $filters->status !== '',
+                fn (Builder $q) => $q->where('status', $filters->status),
+                fn (Builder $q) => $q->where('status', 'active'),
+            )
             ->when($filters->managerId, function (Builder $q) use ($companyId, $filters): void {
                 $departmentIds = ResolveDepartmentEffectiveManager::departmentIdsForManager(
                     $companyId,
