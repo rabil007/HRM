@@ -159,6 +159,20 @@ function formatMoney(value: number | null | undefined): string {
     });
 }
 
+function contractTotalSalary(row: EmployeeContractDetails): number {
+    return [
+        row.basic_salary,
+        row.housing_allowance,
+        row.transport_allowance,
+        row.other_allowances,
+        row.supplementary_allowance,
+        row.site_allowance,
+    ].reduce(
+        (sum, value) => sum + (Number(value) || 0),
+        0,
+    );
+}
+
 function buildContractPayload(
     data: {
         payroll_category: string;
@@ -553,7 +567,7 @@ export function EmployeeContractTab({
                     ) : undefined
                 }
             >
-                <EmployeeRecordsTable className="min-w-[1580px]">
+                <EmployeeRecordsTable className="min-w-[1680px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
                             {showField('payroll_category') ? (
@@ -614,6 +628,11 @@ export function EmployeeContractTab({
                             {showField('site_allowance') ? (
                                 <th className={employeeRecordsTableThClass()}>
                                     Site allowance
+                                </th>
+                            ) : null}
+                            {showCompensationSection ? (
+                                <th className={employeeRecordsTableThClass()}>
+                                    Total salary
                                 </th>
                             ) : null}
                             {showField('note') ? (
@@ -769,6 +788,16 @@ export function EmployeeContractTab({
                                         )}
                                     >
                                         {formatMoney(row.site_allowance)}
+                                    </td>
+                                ) : null}
+                                {showCompensationSection ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'font-semibold tabular-nums text-foreground',
+                                        )}
+                                    >
+                                        {formatMoney(contractTotalSalary(row))}
                                     </td>
                                 ) : null}
                                 {showField('note') ? (
