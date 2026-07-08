@@ -45,6 +45,37 @@ export function substituteBulkEmailTemplate(
         .replaceAll('{{document_type}}', documentTypeLabel);
 }
 
+function escapeHtml(value: string): string {
+    return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+/** Render stored template body for the bulk email preview panel. */
+export function formatBulkEmailBodyPreview(body: string): string {
+    const trimmed = body.trim();
+
+    if (trimmed === '') {
+        return '';
+    }
+
+    if (/<[a-z][\s\S]*>/i.test(trimmed)) {
+        return trimmed;
+    }
+
+    return trimmed
+        .split(/\n{2,}/)
+        .filter((paragraph) => paragraph.trim() !== '')
+        .map(
+            (paragraph) =>
+                `<p>${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`,
+        )
+        .join('');
+}
+
 export function isValidEmailAddress(email: string): boolean {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }

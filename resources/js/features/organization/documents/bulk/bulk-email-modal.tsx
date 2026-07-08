@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     dedupeEmails,
+    formatBulkEmailBodyPreview,
     initialCcFromTemplate,
     isValidEmailAddress,
     substituteBulkEmailTemplate
@@ -256,9 +257,11 @@ export function BulkDocumentsEmailModal({
                                         {previewSubject}
                                     </p>
                                     <div
-                                        className="prose prose-sm mt-2 max-w-none whitespace-pre-wrap dark:prose-invert"
+                                        className="prose prose-sm mt-2 max-w-none dark:prose-invert [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-2"
                                         dangerouslySetInnerHTML={{
-                                            __html: previewBody,
+                                            __html: formatBulkEmailBodyPreview(
+                                                previewBody,
+                                            ),
                                         }}
                                     />
                                     {employeeIds.length > 1 ? (

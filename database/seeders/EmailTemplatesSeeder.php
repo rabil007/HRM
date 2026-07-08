@@ -219,38 +219,26 @@ TEXT;
 
     private static function bulkSalaryDeclarationBody(): string
     {
-        return <<<'TEXT'
-Dear {{employee_name}},
-
-Please find your Salary Declaration attached to this email.
-
-We kindly ask you to review the document carefully, sign it according to company standards, and return the signed copy to the HR department at your earliest convenience.
-
-Employee no.: {{employee_no}}
-
-If you have any questions, please contact HR.
-
-Thank you,
-{{company_name}}
-TEXT;
+        return <<<'HTML'
+<p style="margin:0 0 16px;">Dear {{employee_name}},</p>
+<p style="margin:0 0 16px;">Please find your Salary Declaration attached to this email.</p>
+<p style="margin:0 0 16px;">We kindly ask you to review the document carefully, sign it according to company standards, and return the signed copy to the HR department at your earliest convenience.</p>
+<p style="margin:0 0 16px;"><strong>Employee no.:</strong> {{employee_no}}</p>
+<p style="margin:0 0 16px;">If you have any questions, please contact HR.</p>
+<p style="margin:0;">Thank you,<br>{{company_name}}</p>
+HTML;
     }
 
     private static function bulkSalaryCertificateBody(): string
     {
-        return <<<'TEXT'
-Dear {{employee_name}},
-
-Please find attached your official Salary Certificate issued by {{company_name}}.
-
-This document certifies your employment and salary details with the company and may be used for official purposes as required.
-
-Employee no.: {{employee_no}}
-
-Should you require any further assistance or an updated certificate, please contact the HR department.
-
-Sincerely,
-{{company_name}}
-TEXT;
+        return <<<'HTML'
+<p style="margin:0 0 16px;">Dear {{employee_name}},</p>
+<p style="margin:0 0 16px;">Please find attached your official Salary Certificate issued by {{company_name}}.</p>
+<p style="margin:0 0 16px;">This document certifies your employment and salary details with the company and may be used for official purposes as required.</p>
+<p style="margin:0 0 16px;"><strong>Employee no.:</strong> {{employee_no}}</p>
+<p style="margin:0 0 16px;">Should you require any further assistance or an updated certificate, please contact the HR department.</p>
+<p style="margin:0;">Sincerely,<br>{{company_name}}</p>
+HTML;
     }
 
     private static function passwordResetBody(): string

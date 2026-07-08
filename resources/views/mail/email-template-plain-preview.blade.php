@@ -15,7 +15,9 @@
     </tr>
     <tr>
         <td style="padding:24px 32px;">
-            <p class="email-text" style="margin:0;font-size:15px;line-height:1.7;color:#3f3f46;white-space:pre-wrap;">{{ $bodyMessage }}</p>
+            <div class="email-text" style="margin:0;font-size:15px;line-height:1.7;color:#3f3f46;">
+                {!! \App\Support\Email\EmailTemplateBodyRenderer::toHtml($bodyMessage) !!}
+            </div>
         </td>
     </tr>
 @endsection

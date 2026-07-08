@@ -111,6 +111,24 @@ test('bulk document email templates are seeded', function () {
         ->and(EmailTemplate::query()->where('slug', 'bulk_salary_certificate')->exists())->toBeTrue();
 });
 
+test('bulk document email templates use structured html paragraphs', function () {
+    EmailTemplatesSeeder::seedBulkSalaryDeclarationTemplate();
+    EmailTemplatesSeeder::seedBulkSalaryCertificateTemplate();
+
+    $declarationBody = EmailTemplate::query()
+        ->where('slug', 'bulk_salary_declaration')
+        ->value('body_html');
+
+    $certificateBody = EmailTemplate::query()
+        ->where('slug', 'bulk_salary_certificate')
+        ->value('body_html');
+
+    expect($declarationBody)
+        ->toContain('<p style="margin:0 0 16px;">Dear {{employee_name}},</p>')
+        ->and($certificateBody)
+        ->toContain('<p style="margin:0 0 16px;">Dear {{employee_name}},</p>');
+});
+
 test('resolve email template returns wired template per document type', function () {
     EmailTemplatesSeeder::seedBulkSalaryDeclarationTemplate();
     EmailTemplatesSeeder::seedBulkSalaryCertificateTemplate();
