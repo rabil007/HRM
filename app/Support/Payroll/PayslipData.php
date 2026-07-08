@@ -12,10 +12,14 @@ use Carbon\CarbonImmutable;
 final class PayslipData
 {
     /**
+     * @param  list<array<string, mixed>>|null  $preloadedSalaryInputLines
      * @return array<string, mixed>
      */
-    public static function for(PayrollRecord $record, int $companyId): array
-    {
+    public static function for(
+        PayrollRecord $record,
+        int $companyId,
+        ?array $preloadedSalaryInputLines = null,
+    ): array {
         $record->loadMissing([
             'employee.position:id,title',
             'employee.company.currency:id,code,symbol',
@@ -65,7 +69,7 @@ final class PayslipData
 
         if ($category === PayrollCategory::Crew) {
             if (($breakdown['salary_structure'] ?? 'daily') === 'monthly') {
-                $salaryInputLines = self::resolveOfficeSalaryInputLines($record, $breakdown);
+                $salaryInputLines = self::resolveOfficeSalaryInputLines($record, $breakdown, $preloadedSalaryInputLines);
 
                 return array_merge($base, [
                     'salary_structure' => 'monthly',
@@ -101,7 +105,7 @@ final class PayslipData
             ]);
         }
 
-        $salaryInputLines = self::resolveOfficeSalaryInputLines($record, $breakdown);
+        $salaryInputLines = self::resolveOfficeSalaryInputLines($record, $breakdown, $preloadedSalaryInputLines);
 
         return array_merge($base, [
             'earnings' => self::officeEarnings($record, $salaryInputLines),
@@ -116,14 +120,22 @@ final class PayslipData
 
     /**
      * @param  array<string, mixed>  $breakdown
+     * @param  list<array<string, mixed>>|null  $preloadedSalaryInputLines
      * @return list<array<string, mixed>>
      */
-    private static function resolveOfficeSalaryInputLines(PayrollRecord $record, array $breakdown): array
-    {
+    private static function resolveOfficeSalaryInputLines(
+        PayrollRecord $record,
+        array $breakdown,
+        ?array $preloadedSalaryInputLines = null,
+    ): array {
         $stored = is_array($breakdown['salary_inputs'] ?? null) ? $breakdown['salary_inputs'] : [];
 
         if ($stored !== []) {
             return $stored;
+        }
+
+        if ($preloadedSalaryInputLines !== null) {
+            return $preloadedSalaryInputLines;
         }
 
         return SalaryInput::query()

@@ -10,11 +10,14 @@ use Illuminate\Support\Str;
 
 final class GeneratePayslip
 {
-    public function handle(PayrollRecord $record): PayrollRecord
+    /**
+     * @param  list<array<string, mixed>>|null  $preloadedSalaryInputLines
+     */
+    public function handle(PayrollRecord $record, ?array $preloadedSalaryInputLines = null): PayrollRecord
     {
         $record->loadMissing('employee');
 
-        $data = PayslipData::for($record, (int) $record->company_id);
+        $data = PayslipData::for($record, (int) $record->company_id, $preloadedSalaryInputLines);
         $data['printable'] = false;
         $data['is_pdf'] = true;
 
@@ -35,6 +38,6 @@ final class GeneratePayslip
 
         $record->forceFill(['payslip_path' => $relativePath])->save();
 
-        return $record->fresh();
+        return $record;
     }
 }

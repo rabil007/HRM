@@ -3,7 +3,6 @@
 namespace App\Support\Payroll\Actions;
 
 use App\Enums\PayrollPeriodStatus;
-use App\Jobs\GeneratePayrollPayslipsJob;
 use App\Models\PayrollPeriod;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +30,7 @@ final class ApprovePayrollPeriod
             return $period->refresh();
         });
 
-        GeneratePayrollPayslipsJob::dispatch($approvedPeriod->id, (int) $approvedPeriod->company_id);
+        app(GeneratePayrollPayslips::class)->dispatchForPeriod($approvedPeriod);
 
         return $approvedPeriod;
     }
