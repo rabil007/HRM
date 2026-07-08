@@ -63,12 +63,8 @@ import { cn } from '@/lib/utils';
 import { documents } from '@/routes/organization';
 import {
     EMPTY_BULK_DOCUMENT_FILTERS
-    
-    
-    
-    
 } from './types';
-import type {BulkDocumentFilters, BulkDocumentsPageProps, BulkGenerationFilter, BulkRosterEmployee} from './types';
+import type {BulkDocumentFilters, BulkDocumentsPageProps, BulkGenerationFilter, BulkRosterEmployee, LatestEmailBatch} from './types';
 
 const BULK_URL = '/organization/documents/bulk';
 
@@ -265,6 +261,109 @@ function ProgressBanner({
     );
 }
 
+function EmailProgressBanner({
+    latestEmailBatch,
+}: {
+    latestEmailBatch: LatestEmailBatch | null;
+}) {
+    const [dismissedBatchId, setDismissedBatchId] = useState<number | null>(null);
+
+    const status = latestEmailBatch?.status;
+    const isRunning = status === 'running' || status === 'queued';
+    const isFailed = status === 'failed';
+    const isCompleted = status === 'completed';
+
+    useEffect(() => {
+        if (!latestEmailBatch || !isCompleted) {
+            return;
+        }
+
+        const batchId = latestEmailBatch.id;
+        const timeout = window.setTimeout(() => {
+            setDismissedBatchId(batchId);
+        }, 6000);
+
+        return () => window.clearTimeout(timeout);
+    }, [isCompleted, latestEmailBatch]);
+
+    if (!latestEmailBatch) {
+        return null;
+    }
+
+    if (!isRunning && !isFailed && !isCompleted) {
+        return null;
+    }
+
+    if (!isRunning && dismissedBatchId === latestEmailBatch.id) {
+        return null;
+    }
+
+    const processed =
+        latestEmailBatch.sent_count +
+        latestEmailBatch.failed_count +
+        latestEmailBatch.skipped_no_email_count;
+
+    let message = '';
+
+    if (isRunning) {
+        message = `Sending emails… ${processed} of ${latestEmailBatch.total_selected} processed`;
+    } else if (isCompleted) {
+        const parts = [`${latestEmailBatch.sent_count} sent`];
+
+        if (latestEmailBatch.skipped_no_email_count > 0) {
+            parts.push(`${latestEmailBatch.skipped_no_email_count} skipped (no email)`);
+        }
+
+        if (latestEmailBatch.failed_count > 0) {
+            parts.push(`${latestEmailBatch.failed_count} failed`);
+        }
+
+        message = parts.join(' · ');
+    } else {
+        message = 'Email sending failed. Please try again.';
+    }
+
+    return (
+        <div
+            className={cn(
+                'mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm',
+                isRunning &&
+                    'border-sky-500/25 bg-sky-500/6 text-sky-700 dark:text-sky-400',
+                isCompleted &&
+                    'border-emerald-500/25 bg-emerald-500/6 text-emerald-700 dark:text-emerald-400',
+                isFailed &&
+                    'border-destructive/25 bg-destructive/6 text-destructive',
+            )}
+        >
+            <Mail className="h-4 w-4 shrink-0" />
+            {isRunning ? (
+                <Spinner className="h-4 w-4 shrink-0" />
+            ) : (
+                <span
+                    className={cn(
+                        'flex h-2 w-2 shrink-0 rounded-full',
+                        isCompleted && 'bg-emerald-500',
+                        isFailed && 'bg-destructive',
+                    )}
+                />
+            )}
+            <span className="font-medium">{message}</span>
+            {!isRunning ? (
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="ml-auto h-6 w-6 shrink-0 rounded-full hover:bg-foreground/10"
+                    onClick={() => setDismissedBatchId(latestEmailBatch.id)}
+                    aria-label="Dismiss"
+                >
+                    <X className="h-3.5 w-3.5" />
+                </Button>
+            ) : null}
+        </div>
+    );
+}
+
 export function BulkDocumentsContent({
     document_type_key,
     document_type_options,
@@ -283,6 +382,7 @@ export function BulkDocumentsContent({
     company_name,
     email_template,
     latest_run,
+    latest_email_batch,
     can,
 }: BulkDocumentsPageProps) {
     const isRosterView = view === 'roster';
@@ -447,11 +547,16 @@ export function BulkDocumentsContent({
     const isRunActive =
         latest_run?.status === 'running' || latest_run?.status === 'queued';
 
+    const isEmailBatchActive =
+        latest_email_batch?.status === 'running' ||
+        latest_email_batch?.status === 'queued';
+
     const { start, stop } = usePoll(
         3000,
         {
             only: [
                 'latest_run',
+                'latest_email_batch',
                 'counts',
                 'employees',
                 'activity',
@@ -464,7 +569,7 @@ export function BulkDocumentsContent({
     );
 
     useEffect(() => {
-        if (!isRunActive || !isRosterView) {
+        if ((!isRunActive && !isEmailBatchActive) || !isRosterView) {
             stop();
 
             return;
@@ -475,7 +580,7 @@ export function BulkDocumentsContent({
         return () => {
             stop();
         };
-    }, [isRunActive, isRosterView, start, stop]);
+    }, [isRunActive, isEmailBatchActive, isRosterView, start, stop]);
 
     const previousRunStatus = useRef(latest_run?.status);
     useEffect(() => {
@@ -497,6 +602,27 @@ export function BulkDocumentsContent({
 
         previousRunStatus.current = latest_run?.status;
     }, [latest_run?.status]);
+
+    const previousEmailBatchStatus = useRef(latest_email_batch?.status);
+    useEffect(() => {
+        const previous = previousEmailBatchStatus.current;
+
+        if (
+            (previous === 'running' || previous === 'queued') &&
+            latest_email_batch?.status === 'completed'
+        ) {
+            toast.success('Email sending completed.');
+        }
+
+        if (
+            (previous === 'running' || previous === 'queued') &&
+            latest_email_batch?.status === 'failed'
+        ) {
+            toast.error('Email sending failed.');
+        }
+
+        previousEmailBatchStatus.current = latest_email_batch?.status;
+    }, [latest_email_batch?.status]);
 
     const navigate = useCallback(
         (
@@ -1079,6 +1205,9 @@ export function BulkDocumentsContent({
             ) : null}
 
             {isRosterView ? <ProgressBanner latestRun={latest_run} /> : null}
+            {isRosterView ? (
+                <EmailProgressBanner latestEmailBatch={latest_email_batch} />
+            ) : null}
 
             {isRosterView ? (
                 <>

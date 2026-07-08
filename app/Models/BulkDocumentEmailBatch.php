@@ -10,6 +10,14 @@ class BulkDocumentEmailBatch extends Model
 {
     protected $guarded = [];
 
+    protected function casts(): array
+    {
+        return [
+            'started_at' => 'datetime',
+            'finished_at' => 'datetime',
+        ];
+    }
+
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);

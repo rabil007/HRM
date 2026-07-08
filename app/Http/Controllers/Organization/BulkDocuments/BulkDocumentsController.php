@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization\BulkDocuments;
 
 use App\Http\Controllers\Controller;
+use App\Models\BulkDocumentEmailBatch;
 use App\Models\BulkDocumentGenerationRun;
 use App\Models\Company;
 use App\Support\BulkDocuments\BulkDocumentActivityQuery;
@@ -114,6 +115,7 @@ class BulkDocumentsController extends Controller
             'company_name' => (string) Company::query()->whereKey($companyId)->value('name'),
             'email_template' => $this->emailTemplatePayload($documentTypeKey),
             'latest_run' => $this->latestRunPayload($companyId, $documentTypeKey),
+            'latest_email_batch' => $this->latestEmailBatchPayload($companyId, $documentTypeKey),
             'can' => BulkDocumentPagePermissions::for($request->user()),
         ];
     }
@@ -161,6 +163,35 @@ class BulkDocumentsController extends Controller
             'body_html' => $template->body_html,
             'to_preset' => $template->to_preset,
             'cc_preset' => $template->cc_preset,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function latestEmailBatchPayload(int $companyId, string $documentTypeKey): ?array
+    {
+        $batch = BulkDocumentEmailBatch::query()
+            ->where('company_id', $companyId)
+            ->where('document_type_key', $documentTypeKey)
+            ->latest('id')
+            ->with('triggeredBy:id,name')
+            ->first();
+
+        if ($batch === null) {
+            return null;
+        }
+
+        return [
+            'id' => $batch->id,
+            'status' => $batch->status,
+            'total_selected' => $batch->total_selected,
+            'sent_count' => $batch->sent_count,
+            'failed_count' => $batch->failed_count,
+            'skipped_no_email_count' => $batch->skipped_no_email_count,
+            'started_at' => $batch->started_at?->toIso8601String(),
+            'finished_at' => $batch->finished_at?->toIso8601String(),
+            'triggered_by' => $batch->triggeredBy?->name,
         ];
     }
 

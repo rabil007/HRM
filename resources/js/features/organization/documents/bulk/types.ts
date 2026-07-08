@@ -94,6 +94,18 @@ export type BulkActivityItem =
 
 export type BulkGenerationFilter = 'all' | 'missing' | 'generated';
 
+export type LatestEmailBatch = {
+    id: number;
+    status: 'queued' | 'running' | 'completed' | 'failed';
+    total_selected: number;
+    sent_count: number;
+    failed_count: number;
+    skipped_no_email_count: number;
+    started_at: string | null;
+    finished_at: string | null;
+    triggered_by: string | null;
+};
+
 export type BulkDocumentsPageProps = {
     document_type_key: string;
     document_type_options: BulkDocumentTypeOption[];
@@ -119,6 +131,7 @@ export type BulkDocumentsPageProps = {
     company_name: string;
     email_template: WiredEmailTemplate | null;
     latest_run: BulkGenerationRun | null;
+    latest_email_batch: LatestEmailBatch | null;
     can: {
         generate: boolean;
         download: boolean;
