@@ -82,10 +82,7 @@ class PayrollPeriod extends Model
 
     public function canRevertToDraft(): bool
     {
-        return in_array($this->status, [
-            PayrollPeriodStatus::Processing,
-            PayrollPeriodStatus::Approved,
-        ], true);
+        return $this->status === PayrollPeriodStatus::Processing;
     }
 
     public function canApprove(): bool
@@ -103,6 +100,11 @@ class PayrollPeriod extends Model
     public function canRevertToApproved(): bool
     {
         return $this->status === PayrollPeriodStatus::Paid;
+    }
+
+    public function canRevertToProcessing(): bool
+    {
+        return $this->status === PayrollPeriodStatus::Approved;
     }
 
     public function canCancel(): bool

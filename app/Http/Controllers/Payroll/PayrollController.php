@@ -13,6 +13,7 @@ use App\Http\Requests\Organization\Payroll\ImportCrewTimesheetsRequest;
 use App\Http\Requests\Organization\Payroll\MarkPayrollPeriodPaidRequest;
 use App\Http\Requests\Organization\Payroll\RevertPayrollPeriodToApprovedRequest;
 use App\Http\Requests\Organization\Payroll\RevertPayrollPeriodToDraftRequest;
+use App\Http\Requests\Organization\Payroll\RevertPayrollPeriodToProcessingRequest;
 use App\Http\Requests\Organization\Payroll\StorePayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\UpsertCrewTimesheetRequest;
 use App\Models\Company;
@@ -32,6 +33,7 @@ use App\Support\Payroll\Actions\GenerateOfficePayroll;
 use App\Support\Payroll\Actions\MarkPayrollPeriodPaid;
 use App\Support\Payroll\Actions\RevertPayrollPeriodToApproved;
 use App\Support\Payroll\Actions\RevertPayrollPeriodToDraft;
+use App\Support\Payroll\Actions\RevertPayrollPeriodToProcessing;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use App\Support\Payroll\CrewPayrollPagePermissions;
 use App\Support\Payroll\PayrollEmployeeQuery;
@@ -776,6 +778,21 @@ class PayrollController extends Controller
         return redirect()
             ->route('payroll.show', $payrollPeriod)
             ->with('success', 'Pay period reverted to approved. Payment status has been removed.');
+    }
+
+    public function revertToProcessing(
+        RevertPayrollPeriodToProcessingRequest $request,
+        PayrollPeriod $payrollPeriod,
+        RevertPayrollPeriodToProcessing $revertPayrollPeriodToProcessing,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+
+        $revertPayrollPeriodToProcessing->handle($payrollPeriod);
+
+        return redirect()
+            ->route('payroll.show', $payrollPeriod)
+            ->with('success', 'Pay period reverted to processing. Payslips and WPS data were cleared.');
     }
 
     public function approve(

@@ -227,7 +227,7 @@ test('revert to draft removes salary inputs for the pay period', function () {
     expect(SalaryInput::query()->where('period_id', $period->id)->count())->toBe(0);
 });
 
-test('reverting approved crew pay period to draft removes all payroll records', function () {
+test('approved pay periods cannot be reverted to draft', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
@@ -239,50 +239,10 @@ test('reverting approved crew pay period to draft removes all payroll records', 
         'approved_at' => now(),
     ]);
 
-    $firstEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
-    $secondEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
-
-    foreach ([$firstEmployee, $secondEmployee] as $employee) {
-        EmployeeContract::factory()->create([
-            'employee_id' => $employee->id,
-            'company_id' => $company->id,
-            'payroll_category' => PayrollCategory::Crew,
-            'status' => 'active',
-        ]);
-    }
-
-    PayrollRecord::factory()->for($company)->create([
-        'period_id' => $period->id,
-        'employee_id' => $firstEmployee->id,
-        'payroll_category' => PayrollCategory::Crew,
-        'status' => 'approved',
-    ]);
-    PayrollRecord::factory()->for($company)->create([
-        'period_id' => $period->id,
-        'employee_id' => $secondEmployee->id,
-        'payroll_category' => PayrollCategory::Crew,
-        'status' => 'approved',
-    ]);
-
-    SalaryInput::factory()->for($company)->create([
-        'employee_id' => $firstEmployee->id,
-        'period_id' => $period->id,
-        'salary_input_type_id' => salaryInputTypeId($company, 'bonus'),
-        'amount' => 300,
-    ]);
-
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.revert-to-draft', $period))
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
-        ->assertSessionHas('success');
+        ->assertSessionHasErrors('period_id');
 
     $period->refresh();
-
-    expect($period->status)->toBe(PayrollPeriodStatus::Draft)
-        ->and($period->approved_by)->toBeNull()
-        ->and($period->approved_at)->toBeNull()
-        ->and($period->excluded_employee_ids)->toBeNull()
-        ->and(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0)
-        ->and(SalaryInput::query()->where('period_id', $period->id)->count())->toBe(0)
-        ->and(CrewTimesheet::query()->where('period_id', $period->id)->count())->toBe(0);
+    expect($period->status)->toBe(PayrollPeriodStatus::Approved);
 });

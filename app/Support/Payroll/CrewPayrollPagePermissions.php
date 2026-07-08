@@ -13,6 +13,7 @@ final class CrewPayrollPagePermissions
      *     generate_payroll: bool,
      *     revert_to_draft: bool,
      *     revert_to_approved: bool,
+     *     revert_to_processing: bool,
      *     approve: bool,
      *     mark_paid: bool,
      *     cancel: bool
@@ -26,6 +27,7 @@ final class CrewPayrollPagePermissions
             'generate_payroll' => $user?->can('payroll.periods.update') ?? false,
             'revert_to_draft' => $user?->can('payroll.periods.revert_to_draft') ?? false,
             'revert_to_approved' => $user?->can('payroll.periods.revert_to_approved') ?? false,
+            'revert_to_processing' => $user?->can('payroll.periods.revert_to_processing') ?? false,
             'approve' => $user?->can('payroll.periods.approve') ?? false,
             'mark_paid' => $user?->can('payroll.periods.mark_paid') ?? false,
             'cancel' => $user?->can('payroll.periods.cancel') ?? false,

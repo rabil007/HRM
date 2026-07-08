@@ -343,6 +343,81 @@ test('revert to approved fails for non-paid pay period', function () {
     expect($period->status)->toBe(PayrollPeriodStatus::Approved);
 });
 
+test('users without permission cannot revert pay period to processing', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+
+    [$period] = createApprovedPayrollPeriodWithRecord($company, $user);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.revert-to-processing', $period))
+        ->assertForbidden();
+});
+
+test('authorized users can revert approved pay period to processing', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.revert_to_processing']);
+
+    Storage::fake('local');
+
+    [$period, $employee] = createApprovedPayrollPeriodWithRecord($company, $user);
+
+    $payslipPath = "payslips/{$company->id}/{$period->id}/{$employee->employee_no}.pdf";
+    Storage::disk('local')->put($payslipPath, 'payslip-content');
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    $record->update([
+        'payslip_path' => $payslipPath,
+        'wps_reference' => 'WPS-123',
+        'wps_agent_ref' => 'AGENT-1',
+        'wps_status' => 'submitted',
+        'wps_submitted_at' => now(),
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.revert-to-processing', $period))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
+        ->assertSessionHas('success');
+
+    $period->refresh();
+    $record->refresh();
+
+    expect($period->status)->toBe(PayrollPeriodStatus::Processing)
+        ->and($period->approved_by)->toBeNull()
+        ->and($period->approved_at)->toBeNull()
+        ->and($record->status)->toBe('draft')
+        ->and($record->payslip_path)->toBeNull()
+        ->and($record->wps_reference)->toBeNull()
+        ->and($record->wps_agent_ref)->toBeNull()
+        ->and($record->wps_status)->toBeNull()
+        ->and($record->wps_submitted_at)->toBeNull()
+        ->and(Storage::disk('local')->exists($payslipPath))->toBeFalse();
+});
+
+test('revert to processing fails for non-approved pay period', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.revert_to_processing']);
+
+    [$period] = createProcessingPayrollPeriodWithRecord($company);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.revert-to-processing', $period))
+        ->assertSessionHasErrors('period_id');
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::Processing);
+});
+
 test('approved and paid pay periods load without tab query params', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);

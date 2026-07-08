@@ -239,6 +239,7 @@ class PermissionsSeeder extends Seeder
             'payroll.periods.delete',
             'payroll.periods.revert_to_draft',
             'payroll.periods.revert_to_approved',
+            'payroll.periods.revert_to_processing',
             'payroll.periods.approve',
             'payroll.periods.mark_paid',
             'payroll.periods.cancel',

@@ -9,13 +9,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
-final class RevertPayrollPeriodToDraft
+final class RevertPayrollPeriodToProcessing
 {
     public function handle(PayrollPeriod $period): PayrollPeriod
     {
-        if (! $period->canRevertToDraft()) {
+        if (! $period->canRevertToProcessing()) {
             throw ValidationException::withMessages([
-                'period_id' => 'Only processing pay periods can be reverted to draft.',
+                'period_id' => 'Only approved pay periods can be reverted to processing.',
             ]);
         }
 
@@ -28,18 +28,19 @@ final class RevertPayrollPeriodToDraft
                     }
                 });
 
-            $period->payrollRecords()->delete();
-            $period->salaryInputs()->delete();
-
-            if ($period->isCrew()) {
-                $period->crewTimesheets()->delete();
-            }
+            $period->payrollRecords()->update([
+                'status' => 'draft',
+                'payslip_path' => null,
+                'wps_reference' => null,
+                'wps_agent_ref' => null,
+                'wps_status' => null,
+                'wps_submitted_at' => null,
+            ]);
 
             $period->update([
-                'status' => PayrollPeriodStatus::Draft,
+                'status' => PayrollPeriodStatus::Processing,
                 'approved_by' => null,
                 'approved_at' => null,
-                'excluded_employee_ids' => null,
             ]);
 
             return $period->refresh();

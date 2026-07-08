@@ -27,6 +27,7 @@ import {
     markPaid,
     revertToApproved,
     revertToDraft,
+    revertToProcessing,
     show,
     storeTimesheet,
 } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
@@ -84,6 +85,7 @@ import { PayrollRecordsSummaryCards } from './components/payroll-records-summary
 import { PayrollRecordsTable } from './components/payroll-records-table';
 import { PayrollRevertToApprovedDialog } from './components/payroll-revert-to-approved-dialog';
 import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft-dialog';
+import { PayrollRevertToProcessingDialog } from './components/payroll-revert-to-processing-dialog';
 import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
 import { usePayslipGenerationPoll } from './hooks/use-payslip-generation-poll';
 import { calculateInclusiveDays } from './lib/calculate-inclusive-days';
@@ -137,6 +139,10 @@ export function PayrollShowContent({
     const [isRevertToApprovedDialogOpen, setIsRevertToApprovedDialogOpen] =
         useState(false);
     const [isRevertingToApproved, setIsRevertingToApproved] = useState(false);
+    const [isRevertToProcessingDialogOpen, setIsRevertToProcessingDialogOpen] =
+        useState(false);
+    const [isRevertingToProcessing, setIsRevertingToProcessing] =
+        useState(false);
     const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
     const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
@@ -465,6 +471,21 @@ export function PayrollShowContent({
         );
     };
 
+    const handleRevertToProcessing = () => {
+        setIsRevertingToProcessing(true);
+        router.post(
+            revertToProcessing.url(period.id),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setIsRevertingToProcessing(false);
+                    setIsRevertToProcessingDialogOpen(false);
+                },
+            },
+        );
+    };
+
     const handleApprove = () => {
         setIsApproving(true);
         router.post(
@@ -561,6 +582,8 @@ export function PayrollShowContent({
         period.can_revert_to_draft && permissions.revert_to_draft;
     const canRevertToApproved =
         period.can_revert_to_approved && permissions.revert_to_approved;
+    const canRevertToProcessing =
+        period.can_revert_to_processing && permissions.revert_to_processing;
     const canApprove = period.can_approve && permissions.approve;
     const canMarkPaid = period.can_mark_paid && permissions.mark_paid;
     const canCancelPeriod = period.can_cancel && permissions.cancel;
@@ -614,6 +637,7 @@ export function PayrollShowContent({
         canGenerate ||
         canRevertToDraft ||
         canRevertToApproved ||
+        canRevertToProcessing ||
         canApprove ||
         canMarkPaid ||
         canCancelPeriod ||
@@ -692,6 +716,18 @@ export function PayrollShowContent({
                                 >
                                     <RotateCcw className="mr-2 h-4 w-4" />
                                     Revert to draft
+                                </Button>
+                            ) : null}
+                            {canRevertToProcessing ? (
+                                <Button
+                                    variant="outline"
+                                    className={headerSecondaryActionClass}
+                                    onClick={() =>
+                                        setIsRevertToProcessingDialogOpen(true)
+                                    }
+                                >
+                                    <RotateCcw className="mr-2 h-4 w-4" />
+                                    Revert to processing
                                 </Button>
                             ) : null}
                             {canRevertToApproved ? (
@@ -928,6 +964,13 @@ export function PayrollShowContent({
                 onOpenChange={setIsRevertToApprovedDialogOpen}
                 onConfirm={handleRevertToApproved}
                 processing={isRevertingToApproved}
+            />
+
+            <PayrollRevertToProcessingDialog
+                open={isRevertToProcessingDialogOpen}
+                onOpenChange={setIsRevertToProcessingDialogOpen}
+                onConfirm={handleRevertToProcessing}
+                processing={isRevertingToProcessing}
             />
 
             <PayrollApproveDialog
