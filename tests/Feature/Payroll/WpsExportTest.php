@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\PayrollCategory;
-use App\Enums\PayrollPeriodStatus;
 use App\Enums\SalaryPaymentMethod;
 use App\Enums\WpsStatus;
 use App\Models\Bank;
@@ -14,39 +13,7 @@ use App\Support\Payroll\Wps\WpsExcelExporter;
 use App\Support\Payroll\Wps\WpsExportPreview;
 use App\Support\Payroll\Wps\WpsSifExporter;
 use Carbon\Carbon;
-use Inertia\Testing\AssertableInertia;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-
-test('wps index includes enriched period options for the export UI', function () {
-    ['user' => $user, 'company' => $company] = makePayrollFixtures();
-    $this->actingAs($user);
-
-    grantCompanyPermissions($user, $company, ['payroll.wps.view']);
-
-    $approved = PayrollPeriod::factory()->for($company)->create([
-        'name' => 'Approved Run',
-        'status' => PayrollPeriodStatus::Approved,
-    ]);
-
-    $draft = PayrollPeriod::factory()->for($company)->create([
-        'name' => 'Draft Run',
-        'status' => PayrollPeriodStatus::Draft,
-    ]);
-
-    $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.wps.index', ['period_id' => $approved->id]))
-        ->assertOk()
-        ->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('payroll/wps')
-            ->where('selected_period_id', $approved->id)
-            ->has('preview')
-            ->where('preview.period.id', $approved->id)
-            ->has('periods', 2)
-            ->where('periods.0.id', $approved->id)
-            ->where('periods.0.status_label', 'Approved')
-            ->where('periods.0.payroll_category_label', 'Crew')
-            ->where('periods.1.id', $draft->id));
-});
 
 test('wps preview skipped rows include employee id for employee page links', function () {
     ['company' => $company] = makePayrollFixtures();

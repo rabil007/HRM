@@ -11,7 +11,6 @@ final class PayrollHubSummary
     /**
      * @return array{
      *     total_periods: int,
-     *     draft_periods: int,
      *     crew_periods: int,
      *     office_periods: int,
      *     incomplete_crew_runs: int
@@ -34,7 +33,6 @@ final class PayrollHubSummary
 
         return [
             'total_periods' => $periods->count(),
-            'draft_periods' => $periods->where('status', PayrollPeriodStatus::Draft)->count(),
             'crew_periods' => $periods->filter(
                 fn (PayrollPeriod $period) => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Crew,
             )->count(),

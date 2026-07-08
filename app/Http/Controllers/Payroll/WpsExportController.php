@@ -9,61 +9,13 @@ use App\Models\Company;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\Wps\WpsExcelExporter;
-use App\Support\Payroll\Wps\WpsExportPreview;
 use App\Support\Payroll\Wps\WpsExportValidator;
 use App\Support\Payroll\Wps\WpsSifExporter;
-use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Inertia\Inertia;
-use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WpsExportController extends Controller
 {
-    public function index(Request $request): Response
-    {
-        $companyId = (int) $request->attributes->get('current_company_id');
-        $periodId = (int) $request->query('period_id', 0);
-
-        $periods = PayrollPeriod::query()
-            ->where('company_id', $companyId)
-            ->orderByDesc('start_date')
-            ->limit(50)
-            ->get(['id', 'name', 'start_date', 'end_date', 'status', 'payroll_category'])
-            ->sortByDesc(fn (PayrollPeriod $period) => in_array($period->status->value, ['approved', 'paid'], true))
-            ->values()
-            ->map(fn (PayrollPeriod $period) => [
-                'id' => $period->id,
-                'name' => $period->name,
-                'start_date' => $period->start_date?->toDateString(),
-                'end_date' => $period->end_date?->toDateString(),
-                'status' => $period->status->value,
-                'status_label' => $period->status->label(),
-                'payroll_category' => $period->payroll_category->value,
-                'payroll_category_label' => $period->payroll_category->label(),
-            ]);
-
-        $preview = null;
-
-        if ($periodId > 0) {
-            $period = PayrollPeriod::query()
-                ->where('company_id', $companyId)
-                ->findOrFail($periodId);
-
-            $company = Company::query()->findOrFail($companyId);
-            $preview = app(WpsExportPreview::class)->forPeriod($company, $period);
-        }
-
-        return Inertia::render('payroll/wps', [
-            'periods' => $periods,
-            'selected_period_id' => $periodId > 0 ? $periodId : null,
-            'preview' => $preview,
-            'permissions' => [
-                'export' => $request->user()?->can('payroll.wps.export') ?? false,
-            ],
-        ]);
-    }
-
     public function export(
         ExportWpsRequest $request,
         WpsExportValidator $validator,

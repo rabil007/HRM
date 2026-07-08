@@ -94,7 +94,6 @@ export type PayrollHubFilters = {
 
 export type PayrollHubSummary = {
     total_periods: number;
-    draft_periods: number;
     crew_periods: number;
     office_periods: number;
     incomplete_crew_runs: number;
@@ -223,7 +222,6 @@ export type CrewPayrollPermissions = {
     salary_inputs_update: boolean;
     salary_inputs_delete: boolean;
     recalculate_payroll: boolean;
-    wps_view: boolean;
     wps_export: boolean;
     export_payroll: boolean;
 };

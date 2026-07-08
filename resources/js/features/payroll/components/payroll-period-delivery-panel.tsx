@@ -18,7 +18,7 @@ export function PayrollPeriodDeliveryPanel({
     payslip_summary?: unknown;
     isPayslipGenerationLive?: boolean;
 }) {
-    const showWpsCard = wps_preview !== null && permissions.wps_view;
+    const showWpsCard = wps_preview !== null;
 
     if (!showWpsCard || !wps_preview) {
         return null;

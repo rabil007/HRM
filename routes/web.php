@@ -196,7 +196,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('payroll/salary-inputs/{salaryInputType}', [SalaryInputTypeController::class, 'destroy'])->name('payroll.salary-input-types.destroy');
     Route::get('payroll/payslips/{payrollRecord}', [PayslipController::class, 'show'])->name('payroll.payslips.show');
     Route::get('payroll/payslips/{payrollRecord}/download', [PayslipController::class, 'download'])->name('payroll.payslips.download');
-    Route::get('payroll/wps', [WpsExportController::class, 'index'])->middleware('can:payroll.wps.view')->name('payroll.wps.index');
     Route::post('payroll/wps/export', [WpsExportController::class, 'export'])->name('payroll.wps.export');
     Route::post('payroll/periods', [PayrollController::class, 'storePeriod'])->middleware('can:payroll.periods.create')->name('payroll.periods.store');
     Route::get('payroll/{payrollPeriod}', [PayrollController::class, 'show'])->name('payroll.show');

@@ -49,7 +49,7 @@ function payrollHref(permissions: string[]): string {
         return '/payroll/salary-inputs';
     }
 
-    return '/payroll/wps';
+    return '/payroll/salary-inputs';
 }
 
 export function getTopNavLinks(

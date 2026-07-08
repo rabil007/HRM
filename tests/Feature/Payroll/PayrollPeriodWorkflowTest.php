@@ -319,7 +319,6 @@ test('approved pay period show includes wps delivery props', function () {
 
     grantCompanyPermissions($user, $company, [
         'payroll.crew_timesheets.view',
-        'payroll.wps.view',
         'payroll.wps.export',
     ]);
 
@@ -338,7 +337,6 @@ test('approved pay period show includes wps delivery props', function () {
             ->where('payslip_summary.total', 1)
             ->where('payslip_summary.generated', 0)
             ->where('payslip_summary.pending', 1)
-            ->where('permissions.wps_view', true)
             ->where('permissions.wps_export', true)
             ->has('wps_preview')
             ->where('wps_preview.period.id', $approvedPeriod->id)

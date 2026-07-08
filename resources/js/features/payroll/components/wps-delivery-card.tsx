@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { show as showEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
-import { index as wpsIndex } from '@/actions/App/Http/Controllers/Payroll/WpsExportController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -375,22 +374,6 @@ export function WpsDeliveryCard({
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-1">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-xl"
-                        asChild
-                    >
-                        <Link
-                            href={wpsIndex.url({
-                                query: { period_id: String(periodId) },
-                            })}
-                            preserveScroll
-                        >
-                            View all
-                            <ArrowUpRight className="ml-2 h-4 w-4" />
-                        </Link>
-                    </Button>
                     {canExport ? (
                         <WpsExportButton
                             periodId={periodId}

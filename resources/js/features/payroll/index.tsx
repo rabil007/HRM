@@ -41,6 +41,7 @@ import { PayrollPeriodProgress } from './components/payroll-period-progress';
 import { PayrollPeriodStatusBadge } from './components/payroll-period-status-badge';
 import { PayrollSummaryCards } from './components/payroll-summary-cards';
 import type {
+    PayrollCategory,
     PayrollCategoryOption,
     PayrollHubFilters,
     PayrollHubPermissions,
@@ -115,6 +116,10 @@ export function PayrollIndexContent({
         list.applyFilters(next);
     };
 
+    const handleCategoryChange = (category: PayrollCategory | '') => {
+        list.applyFilters({ category });
+    };
+
     const activeFiltersCount = [
         initialFilters.category,
         initialFilters.status,
@@ -149,7 +154,11 @@ export function PayrollIndexContent({
                 }
             />
 
-            <PayrollSummaryCards summary={summary} />
+            <PayrollSummaryCards
+                summary={summary}
+                activeCategory={initialFilters.category}
+                onSelect={handleCategoryChange}
+            />
 
             <SearchBar
                 placeholder="Search pay runs by name..."
