@@ -40,7 +40,7 @@ final class EmployeeExportFieldResolver
             'department' => $employee->department?->name,
             'position' => $employee->position?->title,
             'rank' => $employee->rank?->name,
-            'project' => $employee->project?->name,
+            'project' => $employee->project?->title,
             'client' => $employee->client?->name,
             'manager' => ResolveDepartmentEffectiveManager::managerForEmployee($employee)?->name,
             'work_email' => $employee->work_email,

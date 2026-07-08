@@ -1307,6 +1307,63 @@ test('post employee export includes contract and primary bank columns when selec
     expect($data[3])->toBe('AE029010101010');
 });
 
+test('post employee export includes project title when employee has a project', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $project = Project::query()->create([
+        'title' => 'North Field',
+        'is_active' => true,
+    ]);
+
+    Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP0101',
+            'name' => 'Project Export',
+            'status' => 'active',
+            'project_id' => $project->id,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.export']);
+
+    $response = $this->postJson('/organization/employees/export', [
+        'format' => 'xlsx',
+        'fields' => ['name', 'project'],
+    ]);
+
+    $response->assertOk();
+    $response->assertHeader(
+        'content-type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+});
+
 test('post employee export rejects unknown field keys', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

@@ -24,7 +24,7 @@ class EmployeeExportController extends Controller
         'department:id,name',
         'position:id,title',
         'rank:id,name',
-        'project:id,name',
+        'project:id,title',
         'client:id,name',
         'genderRef:id,name',
         'religionRef:id,name',
@@ -72,14 +72,16 @@ class EmployeeExportController extends Controller
                 Employee::query()->with(self::EXPORT_RELATIONS),
             );
 
-        $export = new EmployeesExport($query, $fields);
-
         $timestamp = now()->format('Y-m-d_His');
         $baseName = "employees_{$timestamp}";
 
         if ($format === 'xlsx' || $format === 'excel') {
+            $export = new EmployeesExport($query, $this->withUsdAfterAed($fields));
+
             return Excel::download($export, "{$baseName}.xlsx", ExcelWriter::XLSX);
         }
+
+        $export = new EmployeesExport($query, $fields);
 
         if ($format === 'pdf') {
             $employees = $query->get();
@@ -94,5 +96,35 @@ class EmployeeExportController extends Controller
         return Excel::download($export, "{$baseName}.csv", ExcelWriter::CSV, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    /**
+     * For XLSX exports: automatically insert `contract_total_compensation_usd`
+     * immediately after `contract_total_compensation_aed` when the AED field
+     * is selected but the USD field was not explicitly added.
+     *
+     * @param  list<string>  $fields
+     * @return list<string>
+     */
+    private function withUsdAfterAed(array $fields): array
+    {
+        $aedKey = 'contract_total_compensation_aed';
+        $usdKey = 'contract_total_compensation_usd';
+
+        if (! in_array($aedKey, $fields, true) || in_array($usdKey, $fields, true)) {
+            return $fields;
+        }
+
+        $result = [];
+
+        foreach ($fields as $field) {
+            $result[] = $field;
+
+            if ($field === $aedKey) {
+                $result[] = $usdKey;
+            }
+        }
+
+        return $result;
     }
 }
