@@ -90,6 +90,12 @@ final class BulkDocumentRosterQuery
                     ->where('company_id', $companyId)
                     ->where('document_type_id', $documentType->id);
             });
+        } elseif ($generationFilter === 'generated') {
+            $query->whereHas('documents', function (Builder $documentQuery) use ($companyId, $documentType): void {
+                $documentQuery
+                    ->where('company_id', $companyId)
+                    ->where('document_type_id', $documentType->id);
+            });
         }
 
         $paginator = $query

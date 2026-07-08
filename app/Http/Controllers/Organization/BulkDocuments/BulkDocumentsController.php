@@ -34,7 +34,11 @@ class BulkDocumentsController extends Controller
         $filters = $this->resolveFilters($request);
         $perPage = $this->resolvePerPage($request);
         $page = max(1, (int) $request->query('page', 1));
-        $generationFilter = $request->query('generation_filter') === 'missing' ? 'missing' : 'all';
+        $generationFilter = match ($request->query('generation_filter')) {
+            'missing' => 'missing',
+            'generated' => 'generated',
+            default => 'all',
+        };
         $view = $request->query('view') === 'history' ? 'history' : 'roster';
         $formOptions = EmployeeFormOptions::for($companyId);
 

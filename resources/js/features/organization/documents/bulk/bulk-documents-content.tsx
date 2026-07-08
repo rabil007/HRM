@@ -65,8 +65,9 @@ import {
     
     
     
+    
 } from './types';
-import type {BulkDocumentFilters, BulkDocumentsPageProps, BulkRosterEmployee} from './types';
+import type {BulkDocumentFilters, BulkDocumentsPageProps, BulkGenerationFilter, BulkRosterEmployee} from './types';
 
 const BULK_URL = '/organization/documents/bulk';
 
@@ -74,7 +75,7 @@ function buildQuery(
     documentTypeKey: string,
     filters: BulkDocumentFilters,
     search: string,
-    generationFilter: string,
+    generationFilter: BulkGenerationFilter,
     view: BulkDocumentsView,
     pagination?: { page?: number | null; perPage: number },
 ): Record<string, string> {
@@ -97,8 +98,8 @@ function buildQuery(
         }
     });
 
-    if (generationFilter === 'missing') {
-        query.generation_filter = 'missing';
+    if (generationFilter === 'missing' || generationFilter === 'generated') {
+        query.generation_filter = generationFilter;
     }
 
     if (pagination?.page) {
@@ -119,35 +120,33 @@ function SummaryCard({
 }: {
     label: string;
     value: number;
-    active?: boolean;
-    onClick?: () => void;
-    cardClass?: string;
-    activeClass?: string;
-    valueClass?: string;
+    active: boolean;
+    onClick: () => void;
+    cardClass: string;
+    activeClass: string;
+    valueClass: string;
 }) {
     return (
         <button
             type="button"
             onClick={onClick}
-            className={cn(
-                'text-left',
-                onClick ? 'cursor-pointer' : 'cursor-default',
-            )}
+            aria-pressed={active}
+            className="rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
         >
             <Card
                 className={cn(
-                    'transition-all duration-200',
+                    'glass-card cursor-pointer transition-all duration-200',
                     cardClass,
                     active && activeClass,
                 )}
             >
-                <CardContent className="p-5">
-                    <p className="text-xs font-medium tracking-wide text-muted-foreground/80 uppercase">
+                <CardContent className="p-4">
+                    <p className="text-[11px] font-semibold tracking-wide text-muted-foreground/80 uppercase">
                         {label}
                     </p>
                     <p
                         className={cn(
-                            'mt-2 text-3xl font-extrabold tabular-nums',
+                            'mt-1 text-2xl font-bold tabular-nums',
                             valueClass,
                         )}
                     >
@@ -586,12 +585,24 @@ export function BulkDocumentsContent({
     const deptSelectionCount =
         filters.department_id || filters.position_id ? 1 : 0;
 
+    const setGenerationFilter = useCallback(
+        (next: BulkGenerationFilter) => {
+            navigate(
+                document_type_key,
+                filters,
+                searchInput,
+                next,
+            );
+        },
+        [document_type_key, filters, navigate, searchInput],
+    );
+
     const activeFilterCount = [
         filters.department_id,
         filters.position_id,
         filters.company_visa_type_id,
         searchInput.trim(),
-        generation_filter === 'missing',
+        generation_filter !== 'all',
     ].filter(Boolean).length;
 
     const clearAllFilters = useCallback(() => {
@@ -661,36 +672,33 @@ export function BulkDocumentsContent({
             {/* Summary cards */}
             {isRosterView ? (
                 <div className="mb-8 grid gap-4 sm:grid-cols-3">
-                <SummaryCard
-                    label="In this list"
-                    value={counts.targeted}
-                    cardClass="border-border bg-muted/20 hover:border-border dark:border-white/10 dark:hover:border-white/20"
-                    activeClass="border-primary/30 ring-1 ring-primary/10"
-                    valueClass="text-foreground"
-                />
-                <SummaryCard
-                    label="Already generated"
-                    value={counts.generated}
-                    cardClass="border-emerald-500/15 bg-emerald-500/[0.04] hover:border-emerald-500/30"
-                    activeClass="border-emerald-500/40 ring-1 ring-emerald-500/25"
-                    valueClass="text-emerald-500 dark:text-emerald-400"
-                />
-                <SummaryCard
-                    label="Missing document"
-                    value={counts.not_generated}
-                    active={generation_filter === 'missing'}
-                    onClick={() =>
-                        navigate(
-                            document_type_key,
-                            filters,
-                            searchInput,
-                            generation_filter === 'missing' ? 'all' : 'missing',
-                        )
-                    }
-                    cardClass="border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30"
-                    activeClass="border-amber-500/40 ring-1 ring-amber-500/25"
-                    valueClass="text-amber-500 dark:text-amber-400"
-                />
+                    <SummaryCard
+                        label="In this list"
+                        value={counts.targeted}
+                        active={generation_filter === 'all'}
+                        onClick={() => setGenerationFilter('all')}
+                        cardClass="border-border bg-muted/20 hover:border-border dark:border-white/10 dark:hover:border-white/20"
+                        activeClass="border-primary/30 ring-1 ring-primary/10 dark:border-white/20 dark:ring-white/10"
+                        valueClass="text-foreground"
+                    />
+                    <SummaryCard
+                        label="Already generated"
+                        value={counts.generated}
+                        active={generation_filter === 'generated'}
+                        onClick={() => setGenerationFilter('generated')}
+                        cardClass="border-emerald-500/15 bg-emerald-500/[0.04] hover:border-emerald-500/30"
+                        activeClass="border-emerald-500/40 ring-1 ring-emerald-500/25"
+                        valueClass="text-emerald-500 dark:text-emerald-400"
+                    />
+                    <SummaryCard
+                        label="Missing document"
+                        value={counts.not_generated}
+                        active={generation_filter === 'missing'}
+                        onClick={() => setGenerationFilter('missing')}
+                        cardClass="border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30"
+                        activeClass="border-amber-500/40 ring-1 ring-amber-500/25"
+                        valueClass="text-amber-500 dark:text-amber-400"
+                    />
                 </div>
             ) : null}
 
@@ -909,6 +917,25 @@ export function BulkDocumentsContent({
                         </Badge>
                     ) : null}
 
+                    {generation_filter === 'generated' ? (
+                        <Badge
+                            variant="outline"
+                            className="gap-1 border-emerald-500/25 bg-emerald-500/5 pr-1 pl-2.5 font-normal"
+                        >
+                            Already generated only
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 rounded-full hover:bg-emerald-500/10"
+                                onClick={() => setGenerationFilter('all')}
+                                aria-label="Clear generated filter"
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </Badge>
+                    ) : null}
+
                     {generation_filter === 'missing' ? (
                         <Badge
                             variant="outline"
@@ -920,14 +947,7 @@ export function BulkDocumentsContent({
                                 variant="ghost"
                                 size="icon"
                                 className="h-5 w-5 rounded-full hover:bg-amber-500/10"
-                                onClick={() =>
-                                    navigate(
-                                        document_type_key,
-                                        filters,
-                                        searchInput,
-                                        'all',
-                                    )
-                                }
+                                onClick={() => setGenerationFilter('all')}
                                 aria-label="Clear missing document filter"
                             >
                                 <X className="h-3 w-3" />

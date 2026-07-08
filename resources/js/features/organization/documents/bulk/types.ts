@@ -91,6 +91,8 @@ export type BulkActivityItem =
           triggered_by: string | null;
       };
 
+export type BulkGenerationFilter = 'all' | 'missing' | 'generated';
+
 export type BulkDocumentsPageProps = {
     document_type_key: string;
     document_type_options: BulkDocumentTypeOption[];
@@ -106,7 +108,7 @@ export type BulkDocumentsPageProps = {
     employees: BulkRosterEmployee[];
     activity: BulkActivityItem[];
     pagination: PaginationMeta;
-    generation_filter: 'all' | 'missing';
+    generation_filter: BulkGenerationFilter;
     departments: { id: number; name: string }[];
     positions: { id: number; title: string }[];
     company_visa_types: { id: number; name: string }[];

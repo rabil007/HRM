@@ -197,6 +197,38 @@ test('missing generation filter paginates only employees without documents', fun
             ->where('generation_filter', 'missing'));
 });
 
+test('generated generation filter paginates only employees with documents', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $withDoc = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    Employee::factory()->count(5)->forCompany($company)->create(['status' => 'active']);
+
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+
+    createEmployeePdfDocument(
+        $company->id,
+        $withDoc->id,
+        $documentType->id,
+        "employee-documents/{$company->id}/{$withDoc->id}/existing.pdf",
+        'existing.pdf',
+    );
+
+    $this->get(route('organization.documents.bulk', [
+        'generation_filter' => 'generated',
+        'per_page' => 10,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 1)
+            ->where('pagination.total', 1)
+            ->where('counts.generated', 1)
+            ->where('counts.not_generated', 5)
+            ->where('generation_filter', 'generated'));
+});
+
 test('bulk documents history view returns paginated activity', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
