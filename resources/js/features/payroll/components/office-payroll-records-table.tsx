@@ -43,8 +43,6 @@ import {
 export function OfficePayrollRecordsTable({
     records,
     salaryInputsByEmployee,
-    canViewPayslips,
-    canShowPayslipActions,
     canManageSalaryInputs,
     canRemove,
     wpsSelection,
@@ -54,8 +52,6 @@ export function OfficePayrollRecordsTable({
 }: {
     records: OfficePayrollRecordListItem[];
     salaryInputsByEmployee: Record<string, SalaryInput[]>;
-    canViewPayslips: boolean;
-    canShowPayslipActions: boolean;
     canManageSalaryInputs: boolean;
     canRemove: boolean;
     isPayslipGenerationLive?: boolean;
@@ -278,13 +274,10 @@ export function OfficePayrollRecordsTable({
                                             </TooltipContent>
                                         </Tooltip>
                                     ) : null}
-                                    {canViewPayslips ? (
-                                        <PayrollRecordPayslipActionButtons
-                                            recordId={record.id}
-                                            canView={canShowPayslipActions}
-                                            canDownload={canShowPayslipActions}
-                                        />
-                                    ) : null}
+                                    <PayrollRecordPayslipActionButtons
+                                        recordId={record.id}
+                                        has_payslip={record.has_payslip}
+                                    />
                                     {canRemove ? (
                                         <Tooltip>
                                             <TooltipTrigger asChild>

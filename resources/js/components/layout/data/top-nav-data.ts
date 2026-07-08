@@ -49,10 +49,6 @@ function payrollHref(permissions: string[]): string {
         return '/payroll/salary-inputs';
     }
 
-    if (has(permissions, 'payroll.payslips.view')) {
-        return '/payroll/payslips';
-    }
-
     return '/payroll/wps';
 }
 

@@ -13,7 +13,6 @@ test('payroll show payslip poll partial reload returns summary and record paysli
 
     grantCompanyPermissions($user, $company, [
         'payroll.periods.view',
-        'payroll.payslips.view',
     ]);
 
     $period = PayrollPeriod::factory()->for($company)->create([
@@ -69,7 +68,6 @@ test('payroll show full reload still returns complete page when partial data inc
 
     grantCompanyPermissions($user, $company, [
         'payroll.periods.view',
-        'payroll.payslips.view',
     ]);
 
     $period = PayrollPeriod::factory()->for($company)->approved()->create([

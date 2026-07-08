@@ -374,9 +374,6 @@ class PayrollController extends Controller
                     || ($request->user()?->can('payroll.periods.update') ?? false),
                 'recalculate_payroll' => ($request->user()?->can('payroll.periods.recalculate') ?? false)
                     || ($request->user()?->can('payroll.periods.update') ?? false),
-                'payslips_view' => $request->user()?->can('payroll.payslips.view') ?? false,
-                'payslips_generate' => $request->user()?->can('payroll.payslips.generate') ?? false,
-                'payslips_email' => $request->user()?->can('payroll.payslips.email') ?? false,
                 'wps_view' => $request->user()?->can('payroll.wps.view') ?? false,
                 'wps_export' => $request->user()?->can('payroll.wps.export') ?? false,
                 'export_payroll' => in_array($payrollPeriod->status, [

@@ -60,7 +60,6 @@ import {
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 
 import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
-import { usePayrollShowFilters } from './use-payroll-show-filters';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { CrewSalaryStructureToggle } from './components/crew-salary-structure-toggle';
@@ -103,6 +102,7 @@ import type {
     SalaryInput,
 } from './types';
 import { buildCrewTimesheetDraft, formatTimesheetDays } from './types';
+import { usePayrollShowFilters } from './use-payroll-show-filters';
 
 export function PayrollShowContent({
     period,
@@ -554,10 +554,6 @@ export function PayrollShowContent({
         (permissions.salary_inputs_create ||
             permissions.salary_inputs_update ||
             permissions.salary_inputs_delete);
-
-    const canShowPayslipActions =
-        permissions.payslips_view &&
-        (period.status === 'approved' || period.status === 'paid');
 
     const canSelectForWpsExport =
         permissions.wps_export &&
@@ -1502,12 +1498,6 @@ export function PayrollShowContent({
                                         salaryInputsByEmployee={
                                             salary_inputs_by_employee
                                         }
-                                        canViewPayslips={
-                                            permissions.payslips_view
-                                        }
-                                        canShowPayslipActions={
-                                            canShowPayslipActions
-                                        }
                                         canManageSalaryInputs={
                                             canManageSalaryInputs
                                         }
@@ -1568,12 +1558,6 @@ export function PayrollShowContent({
                                     salaryInputsByEmployee={
                                         salary_inputs_by_employee
                                     }
-                                    canViewPayslips={
-                                        permissions.payslips_view
-                                    }
-                                    canShowPayslipActions={
-                                        canShowPayslipActions
-                                    }
                                     canManageSalaryInputs={
                                         canManageSalaryInputs
                                     }
@@ -1633,8 +1617,6 @@ export function PayrollShowContent({
                     <OfficePayrollRecordsTable
                         records={officeRecords}
                         salaryInputsByEmployee={salary_inputs_by_employee}
-                        canViewPayslips={permissions.payslips_view}
-                        canShowPayslipActions={canShowPayslipActions}
                         canManageSalaryInputs={canManageSalaryInputs}
                         canRemove={canGenerate}
                         wpsSelection={wpsSelection}

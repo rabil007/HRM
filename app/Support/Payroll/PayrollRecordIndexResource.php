@@ -35,6 +35,7 @@ final class PayrollRecordIndexResource
             'gross_salary' => self::formatAmount($record->gross_salary),
             'net_salary' => self::formatAmount($record->net_salary),
             'status' => $record->status,
+            'has_payslip' => filled($record->payslip_path),
         ];
     }
 

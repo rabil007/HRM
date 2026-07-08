@@ -323,14 +323,12 @@ test('office payroll generation reports detailed errors for employees missing co
         );
 });
 
-test('processing pay period show does not expose payslip delivery until approved', function () {
+test('processing pay period show returns payslip summary', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, [
         'payroll.periods.view',
-        'payroll.payslips.view',
-        'payroll.payslips.generate',
     ]);
 
     $period = PayrollPeriod::factory()->for($company)->office()->create([
@@ -351,18 +349,15 @@ test('processing pay period show does not expose payslip delivery until approved
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
             ->where('period.status', 'processing')
-            ->where('payslip_summary.total', 1)
-            ->where('permissions.payslips_view', true));
+            ->where('payslip_summary.total', 1));
 });
 
-test('approved pay period show includes payslip delivery summary', function () {
+test('approved pay period show includes payslip summary', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, [
         'payroll.periods.view',
-        'payroll.payslips.view',
-        'payroll.payslips.generate',
     ]);
 
     $period = PayrollPeriod::factory()->for($company)->office()->approved()->create();
@@ -382,9 +377,7 @@ test('approved pay period show includes payslip delivery summary', function () {
             ->where('period.status', 'approved')
             ->where('payslip_summary.total', 1)
             ->where('payslip_summary.generated', 0)
-            ->where('payslip_summary.pending', 1)
-            ->where('permissions.payslips_view', true)
-            ->where('permissions.payslips_generate', true));
+            ->where('payslip_summary.pending', 1));
 });
 
 test('payroll show includes office payroll records and leave usage on employees tab', function () {

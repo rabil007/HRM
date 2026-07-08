@@ -84,10 +84,6 @@ export function usePayrollShowFilters({
         };
     }, []);
 
-    const defaultReloadProps = isDraft
-        ? [...boardReloadProps]
-        : [...recordsReloadProps];
-
     const baseParams = useCallback(
         () => ({
             tab: initialTab || undefined,
@@ -120,6 +116,10 @@ export function usePayrollShowFilters({
             params: Record<string, string | number | null | undefined>,
             only?: string[],
         ) => {
+            const defaultReloadProps = isDraft
+                ? [...boardReloadProps]
+                : [...recordsReloadProps];
+
             router.get(url, cleanParams(params), {
                 preserveState: true,
                 preserveScroll: true,
@@ -127,7 +127,7 @@ export function usePayrollShowFilters({
                 only: only ?? defaultReloadProps,
             });
         },
-        [defaultReloadProps, url],
+        [isDraft, url],
     );
 
     const onSearchChange = useCallback(

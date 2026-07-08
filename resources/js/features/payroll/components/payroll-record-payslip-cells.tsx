@@ -3,10 +3,7 @@ import {
     download as downloadPayslip,
     show as showPayslip,
 } from '@/actions/App/Http/Controllers/Payroll/PayslipController';
-import {
-    dataTableActionsCellClass,
-    dataTableCellClass,
-} from '@/components/data-table';
+import { dataTableCellClass } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell } from '@/components/ui/table';
@@ -20,7 +17,6 @@ import type { PayrollRecordDeliveryFields } from '../types';
 
 type PayrollRecordPayslipCellsProps = PayrollRecordDeliveryFields & {
     recordId: number;
-    canViewPayslips: boolean;
 };
 
 export function PayrollRecordPayslipStatusCell({
@@ -55,22 +51,16 @@ export function PayrollRecordPayslipStatusCell({
 
 export function PayrollRecordPayslipActionButtons({
     recordId,
-    canView = true,
-    canDownload = true,
+    has_payslip = false,
 }: {
     recordId: number;
-    canView?: boolean;
-    canDownload?: boolean;
+    has_payslip?: boolean;
 }) {
-    if (!canView && !canDownload) {
-        return null;
-    }
-
     return (
         <>
-            {canView ? (
-                <Tooltip>
-                    <TooltipTrigger asChild>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    {has_payslip ? (
                         <Button
                             asChild
                             variant="ghost"
@@ -86,13 +76,26 @@ export function PayrollRecordPayslipActionButtons({
                                 <FileText className="h-4 w-4" />
                             </a>
                         </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>View payslip</TooltipContent>
-                </Tooltip>
-            ) : null}
-            {canDownload ? (
-                <Tooltip>
-                    <TooltipTrigger asChild>
+                    ) : (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 rounded-lg"
+                            disabled
+                            aria-label="View payslip (Not generated)"
+                        >
+                            <FileText className="h-4 w-4" />
+                        </Button>
+                    )}
+                </TooltipTrigger>
+                <TooltipContent>
+                    {has_payslip ? 'View payslip' : 'Payslip not generated'}
+                </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    {has_payslip ? (
                         <Button
                             asChild
                             variant="ghost"
@@ -106,34 +109,23 @@ export function PayrollRecordPayslipActionButtons({
                                 <Download className="h-4 w-4" />
                             </a>
                         </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Download payslip</TooltipContent>
-                </Tooltip>
-            ) : null}
+                    ) : (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 rounded-lg"
+                            disabled
+                            aria-label="Download payslip (Not generated)"
+                        >
+                            <Download className="h-4 w-4" />
+                        </Button>
+                    )}
+                </TooltipTrigger>
+                <TooltipContent>
+                    {has_payslip ? 'Download payslip' : 'Payslip not generated'}
+                </TooltipContent>
+            </Tooltip>
         </>
-    );
-}
-
-export function PayrollRecordPayslipActionsCell({
-    recordId,
-    canViewPayslips,
-    canShowPayslipActions = false,
-}: Pick<PayrollRecordPayslipCellsProps, 'recordId' | 'canViewPayslips'> & {
-    canShowPayslipActions?: boolean;
-}) {
-    if (!canViewPayslips) {
-        return <TableCell className={dataTableActionsCellClass()} />;
-    }
-
-    return (
-        <TableCell className={dataTableActionsCellClass()}>
-            <div className="flex items-center justify-end gap-2">
-                <PayrollRecordPayslipActionButtons
-                    recordId={recordId}
-                    canView={canShowPayslipActions}
-                    canDownload={canShowPayslipActions}
-                />
-            </div>
-        </TableCell>
     );
 }

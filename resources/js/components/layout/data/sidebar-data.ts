@@ -20,7 +20,6 @@ import {
     PiggyBank,
     Coins,
     FileDown,
-    Receipt,
     Radio,
     Contact,
     CreditCard,
@@ -196,7 +195,6 @@ const baseSidebarData: SidebarData = {
                     url: '/payroll/salary-inputs',
                     icon: Coins,
                 },
-                { title: 'Payslips', url: '/payroll/payslips', icon: Receipt },
                 { title: 'WPS export', url: '/payroll/wps', icon: FileDown },
             ],
         },
@@ -228,7 +226,6 @@ function canViewPayroll(permissions: string[]): boolean {
         has(permissions, 'payroll.crew_timesheets.view') ||
         has(permissions, 'payroll.records.view') ||
         has(permissions, 'payroll.salary_inputs.view') ||
-        has(permissions, 'payroll.payslips.view') ||
         has(permissions, 'payroll.wps.view')
     );
 }
@@ -431,10 +428,6 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             ) ||
                                 has(permissions, 'payroll.periods.update') ||
                                 has(permissions, 'payroll.salary_inputs.create')
-                                ? item
-                                : null;
-                        case '/payroll/payslips':
-                            return has(permissions, 'payroll.payslips.view')
                                 ? item
                                 : null;
                         case '/payroll/wps':

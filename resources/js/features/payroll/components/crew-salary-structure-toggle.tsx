@@ -1,5 +1,5 @@
-import type { CrewSalaryStructureView } from '@/features/payroll/types';
 import { Button } from '@/components/ui/button';
+import type { CrewSalaryStructureView } from '@/features/payroll/types';
 import { cn } from '@/lib/utils';
 
 const options: { value: CrewSalaryStructureView; label: string }[] = [

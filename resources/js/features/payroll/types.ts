@@ -223,9 +223,6 @@ export type CrewPayrollPermissions = {
     salary_inputs_update: boolean;
     salary_inputs_delete: boolean;
     recalculate_payroll: boolean;
-    payslips_view: boolean;
-    payslips_generate: boolean;
-    payslips_email: boolean;
     wps_view: boolean;
     wps_export: boolean;
     export_payroll: boolean;

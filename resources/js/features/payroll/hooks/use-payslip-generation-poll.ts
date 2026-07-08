@@ -1,5 +1,5 @@
 import { usePoll } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { toast } from '@/lib/toast';
 import type { PayslipSummary, PayrollPeriodStatus } from '../types';
 
@@ -21,7 +21,6 @@ export function usePayslipGenerationPoll({
     payslipSummary: PayslipSummary;
 }): { isLiveUpdating: boolean } {
     const previousPending = useRef(payslipSummary.pending);
-    const [isPolling, setIsPolling] = useState(false);
 
     const isFinalizedPeriod =
         periodStatus === 'approved' || periodStatus === 'paid';
@@ -45,17 +44,14 @@ export function usePayslipGenerationPoll({
     useEffect(() => {
         if (!shouldPoll) {
             stop();
-            setIsPolling(false);
 
             return;
         }
 
         start();
-        setIsPolling(true);
 
         return () => {
             stop();
-            setIsPolling(false);
         };
     }, [shouldPoll, start, stop]);
 
@@ -74,6 +70,6 @@ export function usePayslipGenerationPoll({
     }, [payslipSummary.pending, payslipSummary.total]);
 
     return {
-        isLiveUpdating: shouldPoll && isPolling,
+        isLiveUpdating: shouldPoll,
     };
 }

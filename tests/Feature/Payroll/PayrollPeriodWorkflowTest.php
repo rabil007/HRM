@@ -313,15 +313,12 @@ test('approved and paid pay periods open on payroll tab by default', function ()
         ]));
 });
 
-test('approved pay period show includes payslip and wps delivery props', function () {
+test('approved pay period show includes wps delivery props', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, [
         'payroll.crew_timesheets.view',
-        'payroll.payslips.view',
-        'payroll.payslips.generate',
-        'payroll.payslips.email',
         'payroll.wps.view',
         'payroll.wps.export',
     ]);
@@ -341,8 +338,6 @@ test('approved pay period show includes payslip and wps delivery props', functio
             ->where('payslip_summary.total', 1)
             ->where('payslip_summary.generated', 0)
             ->where('payslip_summary.pending', 1)
-            ->where('permissions.payslips_view', true)
-            ->where('permissions.payslips_generate', true)
             ->where('permissions.wps_view', true)
             ->where('permissions.wps_export', true)
             ->has('wps_preview')
