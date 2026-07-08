@@ -2,12 +2,14 @@
 
 namespace App\Support\BulkDocuments;
 
+use App\Models\BulkDocumentEmailSend;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 final class BulkDocumentRosterQuery
@@ -25,7 +27,8 @@ final class BulkDocumentRosterQuery
      *         position: string|null,
      *         email: string|null,
      *         status: string,
-     *         document: array{id: int, file_path: string, created_at: string|null}|null
+     *         document: array{id: int, file_path: string, created_at: string|null}|null,
+     *         email_sent_at: string|null
      *     }>
      * }
      */
@@ -91,16 +94,25 @@ final class BulkDocumentRosterQuery
             ->paginate($perPage)
             ->withQueryString();
 
+        $employeeIdList = $paginator->getCollection()->pluck('id')->all();
+
         $documentsByEmployee = self::latestDocumentsForEmployees(
             $companyId,
             $documentType->id,
-            $paginator->getCollection()->pluck('id')->all(),
+            $employeeIdList,
+        );
+
+        $emailSentAtByEmployee = self::latestEmailSentAtByEmployee(
+            $companyId,
+            $documentTypeKey,
+            $employeeIdList,
         );
 
         return $paginator->through(
             fn (Employee $employee): array => self::mapEmployee(
                 $employee,
                 $documentsByEmployee->get($employee->id),
+                $emailSentAtByEmployee->get($employee->id),
             ),
         );
     }
@@ -202,7 +214,8 @@ final class BulkDocumentRosterQuery
      *     position: string|null,
      *     email: string|null,
      *     status: string,
-     *     document: array{id: int, file_path: string, created_at: string|null}|null
+     *     document: array{id: int, file_path: string, created_at: string|null}|null,
+     *     email_sent_at: string|null
      * }>
      */
     private static function rosterEmployees(
@@ -232,16 +245,25 @@ final class BulkDocumentRosterQuery
                 'status',
             ]);
 
+        $employeeIdList = $employees->pluck('id')->all();
+
         $documentsByEmployee = self::latestDocumentsForEmployees(
             $companyId,
             $documentType->id,
-            $employees->pluck('id')->all(),
+            $employeeIdList,
+        );
+
+        $emailSentAtByEmployee = self::latestEmailSentAtByEmployee(
+            $companyId,
+            $documentTypeKey,
+            $employeeIdList,
         );
 
         return $employees
             ->map(fn (Employee $employee): array => self::mapEmployee(
                 $employee,
                 $documentsByEmployee->get($employee->id),
+                $emailSentAtByEmployee->get($employee->id),
             ))
             ->values()
             ->all();
@@ -292,6 +314,32 @@ final class BulkDocumentRosterQuery
     }
 
     /**
+     * @param  list<int>  $employeeIds
+     * @return Collection<int, Carbon>
+     */
+    private static function latestEmailSentAtByEmployee(
+        int $companyId,
+        string $documentTypeKey,
+        array $employeeIds,
+    ): Collection {
+        if ($employeeIds === []) {
+            return collect();
+        }
+
+        return BulkDocumentEmailSend::query()
+            ->whereIn('bulk_document_email_sends.employee_id', $employeeIds)
+            ->where('bulk_document_email_sends.status', 'sent')
+            ->whereHas('batch', function (Builder $q) use ($companyId, $documentTypeKey): void {
+                $q->where('company_id', $companyId)
+                    ->where('document_type_key', $documentTypeKey);
+            })
+            ->orderByDesc('bulk_document_email_sends.sent_at')
+            ->get(['bulk_document_email_sends.employee_id', 'bulk_document_email_sends.sent_at'])
+            ->groupBy('employee_id')
+            ->map(fn ($rows) => $rows->first()->sent_at);
+    }
+
+    /**
      * @return array{
      *     id: int,
      *     name: string,
@@ -301,10 +349,11 @@ final class BulkDocumentRosterQuery
      *     position: string|null,
      *     email: string|null,
      *     status: string,
-     *     document: array{id: int, file_path: string, created_at: string|null}|null
+     *     document: array{id: int, file_path: string, created_at: string|null}|null,
+     *     email_sent_at: string|null
      * }
      */
-    private static function mapEmployee(Employee $employee, ?EmployeeDocument $document): array
+    private static function mapEmployee(Employee $employee, ?EmployeeDocument $document, ?Carbon $emailSentAt = null): array
     {
         return [
             'id' => $employee->id,
@@ -320,6 +369,7 @@ final class BulkDocumentRosterQuery
                 'file_path' => (string) $document->file_path,
                 'created_at' => $document->created_at?->toIso8601String(),
             ] : null,
+            'email_sent_at' => $emailSentAt?->toIso8601String(),
         ];
     }
 }

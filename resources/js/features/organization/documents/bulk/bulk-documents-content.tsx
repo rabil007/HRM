@@ -57,6 +57,7 @@ import { useBulkSelection } from '@/features/organization/documents/shared/use-b
 import { DepartmentEmployeeTree } from '@/features/organization/employees/components/department-employee-tree';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
+import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { documents } from '@/routes/organization';
@@ -1185,6 +1186,7 @@ export function BulkDocumentsContent({
                         </DataTableHead>
                         <DataTableHead>Employee</DataTableHead>
                         <DataTableHead>Email</DataTableHead>
+                        <DataTableHead>Emailed</DataTableHead>
                         <DataTableHead>Document</DataTableHead>
                         <DataTableHead className="text-right">
                             Actions
@@ -1194,7 +1196,7 @@ export function BulkDocumentsContent({
                 <TableBody>
                     {employees.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={5} className="p-0">
+                            <TableCell colSpan={6} className="p-0">
                                 <EmptyState
                                     title="No employees match the current filters."
                                     description="Try adjusting your search or filters."
@@ -1356,6 +1358,25 @@ function BulkRosterRow({
                     </a>
                 ) : (
                     <span className="text-muted-foreground/70">—</span>
+                )}
+            </TableCell>
+            <TableCell className={dataTableCellClass()}>
+                {employee.email_sent_at ? (
+                    <div className="flex flex-col gap-0.5">
+                        <Badge className="w-fit border-0 bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                            Sent
+                        </Badge>
+                        <span className="text-[11px] text-muted-foreground/70">
+                            {formatDisplayDateTime12h(employee.email_sent_at)}
+                        </span>
+                    </div>
+                ) : (
+                    <Badge
+                        variant="outline"
+                        className="border-dashed text-muted-foreground/60"
+                    >
+                        Not emailed
+                    </Badge>
                 )}
             </TableCell>
             <TableCell className={dataTableCellClass()}>

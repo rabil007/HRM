@@ -32,6 +32,7 @@ export type BulkRosterEmployee = {
         file_path: string;
         created_at: string | null;
     } | null;
+    email_sent_at: string | null;
 };
 
 export type BulkDocumentCounts = {
