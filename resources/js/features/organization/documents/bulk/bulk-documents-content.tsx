@@ -1,8 +1,9 @@
-import { router, usePoll } from '@inertiajs/react';
+import { Link, router, usePoll } from '@inertiajs/react';
 import {
     Download,
     FileStack,
     Filter,
+    Folder,
     FolderTree,
     Loader2,
     Mail,
@@ -20,6 +21,7 @@ import {
     dataTableBodyRowClass,
     dataTableCellClass,
     dataTableCellPrimaryClass,
+    dataTableActionsCellClass,
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
@@ -929,7 +931,9 @@ export function BulkDocumentsContent({
                         <DataTableHead>Email</DataTableHead>
                         <DataTableHead>Sponsor</DataTableHead>
                         <DataTableHead>Document</DataTableHead>
-                        <DataTableHead className="w-12" />
+                        <DataTableHead className="text-right">
+                            Actions
+                        </DataTableHead>
                     </DataTableHeaderRow>
                 </TableHeader>
                 <TableBody>
@@ -1104,10 +1108,10 @@ function BulkRosterRow({
                 </Badge>
             </TableCell>
             <TableCell
-                className={dataTableCellClass()}
+                className={dataTableActionsCellClass()}
                 onClick={(e) => e.stopPropagation()}
             >
-                {hasDocument && canDownload ? (
+                <div className="flex items-center justify-end gap-1">
                     <Button
                         type="button"
                         variant="ghost"
@@ -1115,15 +1119,36 @@ function BulkRosterRow({
                         className="h-8 w-8"
                         asChild
                     >
-                        <a
-                            href={`/organization/documents/files/${employee.document!.id}/download`}
-                            target="_blank"
-                            rel="noreferrer"
+                        <Link
+                            href={documents.employee.url({
+                                employee: employee.id,
+                            })}
+                            title="View document folder"
+                            aria-label={`View document folder for ${employee.name}`}
                         >
-                            <Download className="h-4 w-4" />
-                        </a>
+                            <Folder className="h-4 w-4" />
+                        </Link>
                     </Button>
-                ) : null}
+                    {hasDocument && canDownload ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            asChild
+                        >
+                            <a
+                                href={`/organization/documents/files/${employee.document!.id}/download`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="Download document"
+                                aria-label={`Download document for ${employee.name}`}
+                            >
+                                <Download className="h-4 w-4" />
+                            </a>
+                        </Button>
+                    ) : null}
+                </div>
             </TableCell>
         </TableRow>
     );
