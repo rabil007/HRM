@@ -25,15 +25,19 @@ final class ContractDirectoryFilters
             $lifecycle = ContractLifecycleFilter::ALL;
         }
 
-        $payrollCategory = (string) $request->query('payroll_category', '');
+        $payrollCategory = (string) $request->query('payroll_category', PayrollCategory::Office->value);
 
-        if ($payrollCategory !== '' && ! in_array($payrollCategory, PayrollCategory::values(), true)) {
-            $payrollCategory = '';
+        if (! in_array($payrollCategory, PayrollCategory::values(), true)) {
+            $payrollCategory = PayrollCategory::Office->value;
         }
 
         $salaryStructure = (string) $request->query('salary_structure', '');
 
         if ($salaryStructure !== '' && ! ContractSalaryStructureFilter::isValid($salaryStructure)) {
+            $salaryStructure = '';
+        }
+
+        if ($payrollCategory === PayrollCategory::Office->value) {
             $salaryStructure = '';
         }
 

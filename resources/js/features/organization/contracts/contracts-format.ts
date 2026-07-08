@@ -66,3 +66,39 @@ export function formatContractMoney(value: number | null | undefined): string {
         maximumFractionDigits: 2,
     });
 }
+
+function contractMoneyValue(value: number | null | undefined): number {
+    if (value === null || value === undefined) {
+        return 0;
+    }
+
+    const numeric = Number(value);
+
+    return Number.isNaN(numeric) ? 0 : numeric;
+}
+
+export function contractOfficeSalaryTotal(contract: {
+    basic_salary: number | null;
+    housing_allowance?: number | null;
+    transport_allowance?: number | null;
+    other_allowances?: number | null;
+}): number {
+    return (
+        contractMoneyValue(contract.basic_salary)
+        + contractMoneyValue(contract.housing_allowance)
+        + contractMoneyValue(contract.transport_allowance)
+        + contractMoneyValue(contract.other_allowances)
+    );
+}
+
+export function contractCrewSalaryTotal(contract: {
+    basic_salary: number | null;
+    supplementary_allowance?: number | null;
+    site_allowance?: number | null;
+}): number {
+    return (
+        contractMoneyValue(contract.basic_salary)
+        + contractMoneyValue(contract.supplementary_allowance)
+        + contractMoneyValue(contract.site_allowance)
+    );
+}

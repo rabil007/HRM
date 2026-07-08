@@ -77,9 +77,26 @@ test('contracts index returns paginated contracts with summary', function () {
 
     grantCompanyPermissions($user, $company, ['contracts.view']);
 
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF',
+        'status' => 'active',
+    ]);
+
+    $marineDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine',
+        'code' => 'MAR',
+        'status' => 'active',
+    ]);
+
+    $employee->update(['department_id' => $officeDepartment->id]);
+
     $endedEmployee = Employee::query()->create([
         'company_id' => $company->id,
         'branch_id' => $branch->id,
+        'department_id' => $marineDepartment->id,
         'employee_no' => 'CTR002',
         'name' => 'Ended Contract Employee',
         'status' => 'active',
@@ -110,14 +127,15 @@ test('contracts index returns paginated contracts with summary', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/contracts/index')
             ->where('lifecycle', 'all')
+            ->where('payroll_category', 'office')
             ->where('summary.total_contracts', 2)
             ->where('summary.active', 1)
             ->where('summary.ended', 1)
-            ->has('contracts', 2)
+            ->has('contracts', 1)
             ->where('contracts.0.employee_name', 'Contract Employee')
             ->where('contracts.0.salary_structure', 'monthly')
+            ->where('contracts.0.basic_salary', '5000.00')
             ->where('contracts.0.total_contracts', 1)
-            ->where('contracts.1.total_contracts', 1)
             ->where('can.view', true)
             ->where('can.create', false)
             ->where('can.update', false)
@@ -130,7 +148,17 @@ test('contracts index returns employee image with each contract row', function (
 
     ['company' => $company, 'employee' => $employee] = makeContractFixtures();
 
-    $employee->update(['image' => 'employees/photos/contract-employee.jpg']);
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF',
+        'status' => 'active',
+    ]);
+
+    $employee->update([
+        'image' => 'employees/photos/contract-employee.jpg',
+        'department_id' => $officeDepartment->id,
+    ]);
 
     grantCompanyPermissions($user, $company, ['contracts.view']);
 
@@ -210,6 +238,7 @@ test('contracts index filters by lifecycle and workforce department scope', func
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('lifecycle', 'active')
+            ->where('payroll_category', 'office')
             ->has('contracts', 1)
             ->where('contracts.0.payroll_category', 'office'));
 
@@ -230,17 +259,33 @@ test('contracts index filters by salary structure', function () {
 
     grantCompanyPermissions($user, $company, ['contracts.view']);
 
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF',
+        'status' => 'active',
+    ]);
+
     $officeEmployee = Employee::query()->create([
         'company_id' => $company->id,
         'branch_id' => $branch->id,
+        'department_id' => $officeDepartment->id,
         'employee_no' => 'CTR-OFF-03',
         'name' => 'Monthly Office Employee',
+        'status' => 'active',
+    ]);
+
+    $marineDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine',
+        'code' => 'MAR',
         'status' => 'active',
     ]);
 
     $dailyCrewEmployee = Employee::query()->create([
         'company_id' => $company->id,
         'branch_id' => $branch->id,
+        'department_id' => $marineDepartment->id,
         'employee_no' => 'CTR-CREW-03',
         'name' => 'Daily Crew Employee',
         'status' => 'active',
@@ -249,6 +294,7 @@ test('contracts index filters by salary structure', function () {
     $monthlyCrewEmployee = Employee::query()->create([
         'company_id' => $company->id,
         'branch_id' => $branch->id,
+        'department_id' => $marineDepartment->id,
         'employee_no' => 'CTR-CREW-04',
         'name' => 'Monthly Crew Employee',
         'status' => 'active',
@@ -281,23 +327,41 @@ test('contracts index filters by salary structure', function () {
         'status' => 'active',
     ]);
 
-    $this->get(route('organization.contracts', ['salary_structure' => 'daily']))
+    $this->get(route('organization.contracts', [
+        'payroll_category' => 'crew',
+        'salary_structure' => 'daily',
+    ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('salary_structure', 'daily')
+            ->where('payroll_category', 'crew')
             ->has('contracts', 1)
             ->where('contracts.0.employee_name', 'Daily Crew Employee')
             ->where('contracts.0.salary_structure', 'daily'));
 
-    $this->get(route('organization.contracts', ['salary_structure' => 'monthly']))
+    $this->get(route('organization.contracts', [
+        'payroll_category' => 'office',
+        'salary_structure' => 'monthly',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('salary_structure', '')
+            ->where('payroll_category', 'office')
+            ->has('contracts', 1)
+            ->where('contracts.0.employee_name', 'Monthly Office Employee')
+            ->where('contracts.0.salary_structure', 'monthly'));
+
+    $this->get(route('organization.contracts', [
+        'payroll_category' => 'crew',
+        'salary_structure' => 'monthly',
+    ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('salary_structure', 'monthly')
-            ->has('contracts', 2)
+            ->where('payroll_category', 'crew')
+            ->has('contracts', 1)
             ->where('contracts.0.employee_name', 'Monthly Crew Employee')
-            ->where('contracts.0.salary_structure', 'monthly')
-            ->where('contracts.1.employee_name', 'Monthly Office Employee')
-            ->where('contracts.1.salary_structure', 'monthly'));
+            ->where('contracts.0.salary_structure', 'monthly'));
 });
 
 test('contracts index supports search by employee name and labor contract id', function () {
@@ -306,11 +370,21 @@ test('contracts index supports search by employee name and labor contract id', f
 
     ['company' => $company, 'employee' => $employee] = makeContractFixtures();
 
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF',
+        'status' => 'active',
+    ]);
+
+    $employee->update(['department_id' => $officeDepartment->id]);
+
     grantCompanyPermissions($user, $company, ['contracts.view']);
 
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
+        'payroll_category' => PayrollCategory::Office->value,
         'start_date' => '2026-01-01',
         'status' => 'active',
         'labor_contract_id' => 'LAB-9001',
@@ -362,9 +436,19 @@ test('contracts index scopes data to current company', function () {
 
     grantCompanyPermissions($user, $company, ['contracts.view']);
 
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF',
+        'status' => 'active',
+    ]);
+
+    $employee->update(['department_id' => $officeDepartment->id]);
+
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
+        'payroll_category' => PayrollCategory::Office->value,
         'start_date' => '2026-01-01',
         'status' => 'active',
     ]);

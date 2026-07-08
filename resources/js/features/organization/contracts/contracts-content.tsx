@@ -39,6 +39,9 @@ export function ContractsContent({
     can,
 }: ContractsIndexProps) {
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+    const activePayrollCategory =
+        initialPayrollCategory === 'crew' ? 'crew' : 'office';
+
     const {
         searchInput,
         isSearching,
@@ -53,7 +56,7 @@ export function ContractsContent({
         initialSearch,
         initialLifecycle,
         initialStatus,
-        initialPayrollCategory,
+        initialPayrollCategory: activePayrollCategory,
         initialSalaryStructure,
         initialDepartmentId,
         perPage: pagination.per_page,
@@ -65,7 +68,7 @@ export function ContractsContent({
                 search: initialSearch || undefined,
                 lifecycle: initialLifecycle === 'all' ? undefined : initialLifecycle,
                 status: initialStatus || undefined,
-                payroll_category: initialPayrollCategory || undefined,
+                payroll_category: activePayrollCategory,
                 salary_structure: initialSalaryStructure || undefined,
                 branch_id: initialBranchId || undefined,
                 department_id: initialDepartmentId || undefined,
@@ -74,20 +77,16 @@ export function ContractsContent({
         });
     };
 
-    const showOfficeColumns = initialPayrollCategory === 'office';
-    const showCrewColumns = initialPayrollCategory === 'crew';
+    const showOfficeColumns = activePayrollCategory === 'office';
+    const showCrewColumns = activePayrollCategory === 'crew';
 
     const minWidth = useMemo(() => {
-        if (showOfficeColumns) {
-            return 'min-w-[1680px]';
-        }
-
         if (showCrewColumns) {
-            return 'min-w-[1520px]';
+            return 'min-w-[1640px]';
         }
 
-        return 'min-w-[1280px]';
-    }, [showCrewColumns, showOfficeColumns]);
+        return 'min-w-[1920px]';
+    }, [showCrewColumns]);
 
     const backContext = useMemo(
         () => ({
@@ -95,13 +94,13 @@ export function ContractsContent({
             search: initialSearch,
             lifecycle: initialLifecycle,
             status: initialStatus,
-            payroll_category: initialPayrollCategory,
+            payroll_category: activePayrollCategory,
             salary_structure: initialSalaryStructure,
             page: pagination.current_page,
         }),
         [
+            activePayrollCategory,
             initialLifecycle,
-            initialPayrollCategory,
             initialSalaryStructure,
             initialSearch,
             initialStatus,
@@ -154,19 +153,15 @@ export function ContractsContent({
                             />
                         ) : null}
                         <div className="flex items-center rounded-xl glass-card p-1">
-                            {(['', 'office', 'crew'] as const).map((value) => {
+                            {(['office', 'crew'] as const).map((value) => {
                                 const label =
-                                    value === ''
-                                        ? 'All'
-                                        : value === 'office'
-                                          ? 'Office'
-                                          : 'Crew';
+                                    value === 'office' ? 'Office' : 'Crew';
                                 const isActive =
-                                    initialPayrollCategory === value;
+                                    activePayrollCategory === value;
 
                                 return (
                                     <Button
-                                        key={value || 'all'}
+                                        key={value}
                                         type="button"
                                         variant={isActive ? 'default' : 'ghost'}
                                         className={cn(
@@ -182,35 +177,39 @@ export function ContractsContent({
                                 );
                             })}
                         </div>
-                        <div className="flex items-center rounded-xl glass-card p-1">
-                            {(['', 'daily', 'monthly'] as const).map((value) => {
-                                const label =
-                                    value === ''
-                                        ? 'All structures'
-                                        : value === 'daily'
-                                          ? 'Daily'
-                                          : 'Monthly';
-                                const isActive =
-                                    initialSalaryStructure === value;
+                        {showCrewColumns ? (
+                            <div className="flex items-center rounded-xl glass-card p-1">
+                                {(['', 'daily', 'monthly'] as const).map((value) => {
+                                    const label =
+                                        value === ''
+                                            ? 'All structures'
+                                            : value === 'daily'
+                                              ? 'Daily'
+                                              : 'Monthly';
+                                    const isActive =
+                                        initialSalaryStructure === value;
 
-                                return (
-                                    <Button
-                                        key={value || 'all-structures'}
-                                        type="button"
-                                        variant={isActive ? 'default' : 'ghost'}
-                                        className={cn(
-                                            'h-10 rounded-lg px-4 text-sm font-medium transition-all',
-                                            !isActive && 'hover:bg-accent',
-                                        )}
-                                        onClick={() =>
-                                            onSalaryStructureChange(value)
-                                        }
-                                    >
-                                        {label}
-                                    </Button>
-                                );
-                            })}
-                        </div>
+                                    return (
+                                        <Button
+                                            key={value || 'all-structures'}
+                                            type="button"
+                                            variant={
+                                                isActive ? 'default' : 'ghost'
+                                            }
+                                            className={cn(
+                                                'h-10 rounded-lg px-4 text-sm font-medium transition-all',
+                                                !isActive && 'hover:bg-accent',
+                                            )}
+                                            onClick={() =>
+                                                onSalaryStructureChange(value)
+                                            }
+                                        >
+                                            {label}
+                                        </Button>
+                                    );
+                                })}
+                            </div>
+                        ) : null}
                         {isSearching ? (
                             <Loader2
                                 className="size-4 animate-spin text-muted-foreground"
@@ -232,29 +231,40 @@ export function ContractsContent({
                         <TableHeader>
                             <DataTableHeaderRow>
                                 <DataTableHead>Employee</DataTableHead>
-                                <DataTableHead>Labor contract ID</DataTableHead>
-                                <DataTableHead># Contracts</DataTableHead>
-                                <DataTableHead>Payroll category</DataTableHead>
-                                <DataTableHead>Salary structure</DataTableHead>
-                                <DataTableHead>Status</DataTableHead>
-                                <DataTableHead>Start</DataTableHead>
-                                <DataTableHead>End</DataTableHead>
+                                <DataTableHead className="text-right">
+                                    Basic rate
+                                </DataTableHead>
                                 {showOfficeColumns ? (
                                     <>
-                                        <DataTableHead>Housing</DataTableHead>
-                                        <DataTableHead>Transport</DataTableHead>
-                                        <DataTableHead>
+                                        <DataTableHead className="text-right">
+                                            Housing
+                                        </DataTableHead>
+                                        <DataTableHead className="text-right">
+                                            Transport
+                                        </DataTableHead>
+                                        <DataTableHead className="text-right">
                                             Other allowances
+                                        </DataTableHead>
+                                        <DataTableHead className="text-right">
+                                            Total
                                         </DataTableHead>
                                     </>
                                 ) : null}
+                                <DataTableHead>Salary structure</DataTableHead>
+                                <DataTableHead>Labor contract ID</DataTableHead>
+                                <DataTableHead># Contracts</DataTableHead>
+                                <DataTableHead>Start</DataTableHead>
+                                <DataTableHead>End</DataTableHead>
                                 {showCrewColumns ? (
                                     <>
-                                        <DataTableHead>
+                                        <DataTableHead className="text-right">
                                             Supplementary
                                         </DataTableHead>
-                                        <DataTableHead>
+                                        <DataTableHead className="text-right">
                                             Site allowance
+                                        </DataTableHead>
+                                        <DataTableHead className="text-right">
+                                            Total
                                         </DataTableHead>
                                     </>
                                 ) : null}
