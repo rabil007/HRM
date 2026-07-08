@@ -44,24 +44,25 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { DepartmentEmployeeTree } from '@/features/organization/employees/components/department-employee-tree';
-import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
-import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import {
     BulkDocumentsFiltersSheet,
     EMPTY_BULK_DOCUMENT_FILTERS,
 } from '@/features/organization/documents/bulk/bulk-documents-filters-sheet';
 import type { BulkDocumentFilters } from '@/features/organization/documents/bulk/bulk-documents-filters-sheet';
-import { BulkDocumentsEmailModal } from '@/features/organization/documents/bulk/bulk-email-modal';
 import { BulkDocumentsHistoryTable } from '@/features/organization/documents/bulk/bulk-documents-history-table';
 import {
-    BulkDocumentsViewSwitcher,
-    type BulkDocumentsView,
+    BulkDocumentsViewSwitcher
+    
 } from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
+import type {BulkDocumentsView} from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
+import { BulkDocumentsEmailModal } from '@/features/organization/documents/bulk/bulk-email-modal';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
+import { DepartmentEmployeeTree } from '@/features/organization/employees/components/department-employee-tree';
+import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
+import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { documents } from '@/routes/organization';
@@ -213,12 +214,15 @@ function ProgressBanner({
         message = `Generating… ${processed} of ${latestRun.total_targeted} processed`;
     } else if (isCompleted) {
         const parts = [`${latestRun.generated_count} created`];
+
         if (latestRun.replaced_count > 0) {
             parts.push(`${latestRun.replaced_count} updated`);
         }
+
         if (latestRun.skipped_count > 0) {
             parts.push(`${latestRun.skipped_count} skipped`);
         }
+
         message = parts.join(' · ');
     } else {
         message = 'Document generation failed. Please try again.';
@@ -361,6 +365,7 @@ export function BulkDocumentsContent({
     useEffect(() => {
         if (!isRunActive || !isRosterView) {
             stop();
+
             return;
         }
 
@@ -374,18 +379,21 @@ export function BulkDocumentsContent({
     const previousRunStatus = useRef(latest_run?.status);
     useEffect(() => {
         const previous = previousRunStatus.current;
+
         if (
             (previous === 'running' || previous === 'queued') &&
             latest_run?.status === 'completed'
         ) {
             toast.success('Document generation completed.');
         }
+
         if (
             (previous === 'running' || previous === 'queued') &&
             latest_run?.status === 'failed'
         ) {
             toast.error('Document generation failed.');
         }
+
         previousRunStatus.current = latest_run?.status;
     }, [latest_run?.status]);
 
@@ -559,6 +567,7 @@ export function BulkDocumentsContent({
 
         if (withDocuments.length === 0) {
             toast.error('No generated documents in the current selection.');
+
             return;
         }
 
@@ -909,7 +918,7 @@ export function BulkDocumentsContent({
             ) : null}
 
             {/* Employee table */}
-            <OrganizationDataTable minWidth="min-w-[1080px]">
+            <OrganizationDataTable minWidth="min-w-[880px]">
                 <TableHeader>
                     <DataTableHeaderRow>
                         <DataTableHead className="w-10">
@@ -926,10 +935,7 @@ export function BulkDocumentsContent({
                             />
                         </DataTableHead>
                         <DataTableHead>Employee</DataTableHead>
-                        <DataTableHead>Position</DataTableHead>
-                        <DataTableHead>Department</DataTableHead>
                         <DataTableHead>Email</DataTableHead>
-                        <DataTableHead>Sponsor</DataTableHead>
                         <DataTableHead>Document</DataTableHead>
                         <DataTableHead className="text-right">
                             Actions
@@ -939,7 +945,7 @@ export function BulkDocumentsContent({
                 <TableBody>
                     {employees.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={8} className="p-0">
+                            <TableCell colSpan={5} className="p-0">
                                 <EmptyState
                                     title="No employees match the current filters."
                                     description="Try adjusting your search or filters."
@@ -1039,6 +1045,9 @@ function BulkRosterRow({
     canDownload: boolean;
 }) {
     const hasDocument = employee.document !== null;
+    const assignment = [employee.department, employee.position]
+        .filter(Boolean)
+        .join(' · ');
 
     return (
         <TableRow className={dataTableBodyRowClass(false)}>
@@ -1070,14 +1079,13 @@ function BulkRosterRow({
                         <div className="text-xs text-muted-foreground/70">
                             {employee.employee_no ?? '—'}
                         </div>
+                        {assignment ? (
+                            <div className="text-xs text-muted-foreground/70">
+                                {assignment}
+                            </div>
+                        ) : null}
                     </div>
                 </div>
-            </TableCell>
-            <TableCell className={dataTableCellClass()}>
-                {employee.position ?? '—'}
-            </TableCell>
-            <TableCell className={dataTableCellClass()}>
-                {employee.department ?? '—'}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
                 {employee.email ? (
@@ -1091,9 +1099,6 @@ function BulkRosterRow({
                 ) : (
                     <span className="text-muted-foreground/70">—</span>
                 )}
-            </TableCell>
-            <TableCell className={dataTableCellClass()}>
-                {employee.sponsor ?? '—'}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
                 <Badge

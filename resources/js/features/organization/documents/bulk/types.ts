@@ -1,3 +1,6 @@
+import type { DepartmentTreeNode } from '@/features/organization/employees/types';
+import type { PaginationMeta } from '@/types/pagination';
+
 export type BulkDocumentTypeOption = {
     value: string;
     label: string;
@@ -10,7 +13,6 @@ export type BulkRosterEmployee = {
     image: string | null;
     department: string | null;
     position: string | null;
-    sponsor: string | null;
     email: string | null;
     status: string;
     document: {
@@ -91,12 +93,12 @@ export type BulkDocumentsPageProps = {
     counts: BulkDocumentCounts;
     employees: BulkRosterEmployee[];
     activity: BulkActivityItem[];
-    pagination: import('@/types/pagination').PaginationMeta;
+    pagination: PaginationMeta;
     generation_filter: 'all' | 'missing';
     departments: { id: number; name: string }[];
     positions: { id: number; title: string }[];
     company_visa_types: { id: number; name: string }[];
-    department_tree: import('@/features/organization/employees/types').DepartmentTreeNode[];
+    department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
     department_tree_selected_position_id: number | null;
     email_templates: BulkEmailTemplateOption[];

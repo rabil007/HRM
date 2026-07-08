@@ -1,6 +1,6 @@
-import { Loader2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
+import { Loader2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -43,14 +43,22 @@ export function BulkDocumentsEmailModal({
         [emailTemplates],
     );
 
-    const [templateId, setTemplateId] = useState<string>('');
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+        null,
+    );
     const [isSending, setIsSending] = useState(false);
 
-    useEffect(() => {
-        if (open && defaultTemplate) {
-            setTemplateId(String(defaultTemplate.id));
+    const templateId =
+        selectedTemplateId ??
+        (defaultTemplate ? String(defaultTemplate.id) : '');
+
+    const handleOpenChange = (next: boolean) => {
+        if (!next) {
+            setSelectedTemplateId(null);
         }
-    }, [open, defaultTemplate]);
+
+        onOpenChange(next);
+    };
 
     const selectedTemplate =
         emailTemplates.find((template) => String(template.id) === templateId) ??
@@ -73,7 +81,7 @@ export function BulkDocumentsEmailModal({
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    onOpenChange(false);
+                    handleOpenChange(false);
                     onSendComplete();
                     toast.success(
                         `Email queued for ${employeeIds.length} employee(s).`,
@@ -85,7 +93,7 @@ export function BulkDocumentsEmailModal({
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="max-w-lg">
                 <DialogHeader>
                     <DialogTitle>
@@ -97,7 +105,10 @@ export function BulkDocumentsEmailModal({
                 <div className="grid gap-4 py-2">
                     <div className="grid gap-2">
                         <Label>Email template</Label>
-                        <Select value={templateId} onValueChange={setTemplateId}>
+                        <Select
+                            value={templateId}
+                            onValueChange={setSelectedTemplateId}
+                        >
                             <SelectTrigger>
                                 <SelectValue placeholder="Choose a template" />
                             </SelectTrigger>
@@ -139,7 +150,7 @@ export function BulkDocumentsEmailModal({
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={() => onOpenChange(false)}
+                        onClick={() => handleOpenChange(false)}
                     >
                         Cancel
                     </Button>

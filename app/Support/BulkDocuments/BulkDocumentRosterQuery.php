@@ -23,7 +23,6 @@ final class BulkDocumentRosterQuery
      *         image: string|null,
      *         department: string|null,
      *         position: string|null,
-     *         sponsor: string|null,
      *         email: string|null,
      *         status: string,
      *         document: array{id: int, file_path: string, created_at: string|null}|null
@@ -83,7 +82,6 @@ final class BulkDocumentRosterQuery
             ->with([
                 'department:id,name',
                 'position:id,title',
-                'companyVisaTypeRef:id,name',
             ]);
 
         if ($generationFilter === 'missing') {
@@ -130,7 +128,6 @@ final class BulkDocumentRosterQuery
      *     image: string|null,
      *     department: string|null,
      *     position: string|null,
-     *     sponsor: string|null,
      *     email: string|null,
      *     status: string,
      *     document: array{id: int, file_path: string, created_at: string|null}|null
@@ -158,7 +155,6 @@ final class BulkDocumentRosterQuery
                 'image',
                 'department_id',
                 'position_id',
-                'company_visa_type_id',
                 'work_email',
                 'personal_email',
                 'status',
@@ -229,7 +225,6 @@ final class BulkDocumentRosterQuery
      *     image: string|null,
      *     department: string|null,
      *     position: string|null,
-     *     sponsor: string|null,
      *     email: string|null,
      *     status: string,
      *     document: array{id: int, file_path: string, created_at: string|null}|null
@@ -244,7 +239,6 @@ final class BulkDocumentRosterQuery
             'image' => $employee->image,
             'department' => $employee->department?->name,
             'position' => $employee->position?->title,
-            'sponsor' => $employee->companyVisaTypeRef?->name,
             'email' => $employee->work_email ?: $employee->personal_email,
             'status' => (string) $employee->status,
             'document' => $document !== null ? [
