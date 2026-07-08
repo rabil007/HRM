@@ -3,8 +3,6 @@
 namespace App\Support\Contracts;
 
 use App\Models\EmployeeContract;
-use App\Support\Employees\EmployeeDirectoryFilters;
-use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -107,27 +105,11 @@ final class ContractDirectoryQuery
                 });
             })
             ->whereHas('employee', function (Builder $employeeQuery): void {
-                $directoryFilters = new EmployeeDirectoryFilters(
-                    branchId: $this->filters->branchId,
-                    departmentId: $this->filters->departmentId,
-                );
-
-                EmployeeDirectoryQuery::applyAttributeFilters(
+                ContractDirectoryEmployeeScope::apply(
                     $employeeQuery,
                     $this->companyId,
-                    $directoryFilters,
-                    exceptDepartment: false,
-                    exceptPosition: true,
+                    $this->filters,
                 );
-
-                if ($this->filters->payrollCategory !== ''
-                    && ContractWorkforceDepartmentScope::isValid($this->filters->payrollCategory)) {
-                    ContractWorkforceDepartmentScope::apply(
-                        $employeeQuery,
-                        $this->companyId,
-                        $this->filters->payrollCategory,
-                    );
-                }
             });
     }
 }

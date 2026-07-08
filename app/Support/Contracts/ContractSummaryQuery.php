@@ -4,6 +4,7 @@ namespace App\Support\Contracts;
 
 use App\Models\Employee;
 use App\Models\EmployeeContract;
+use Illuminate\Database\Eloquent\Builder;
 
 final class ContractSummaryQuery
 {
@@ -18,7 +19,7 @@ final class ContractSummaryQuery
      *     no_contract_employees: int
      * }
      */
-    public function forCompany(int $companyId): array
+    public function forCompany(int $companyId, ContractDirectoryFilters $filters): array
     {
         $today = now()->toDateString();
         $in30 = now()->addDays(30)->toDateString();
@@ -31,9 +32,13 @@ final class ContractSummaryQuery
             ->whereNull('deleted_at')
             ->groupBy('employee_id');
 
-        $row = EmployeeContract::query()
+        $query = EmployeeContract::query()
             ->whereIn('id', $latestContractIds)
-            ->where('company_id', $companyId)
+            ->where('company_id', $companyId);
+
+        $this->applyWorkforceFilters($query, $companyId, $filters);
+
+        $row = $query
             ->selectRaw('COUNT(*) as total_contracts')
             ->selectRaw("SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active")
             ->selectRaw("SUM(CASE WHEN status = 'ended' THEN 1 ELSE 0 END) as ended")
@@ -51,10 +56,11 @@ final class ContractSummaryQuery
             )
             ->first();
 
-        $noContractCount = Employee::query()
+        $noContractQuery = Employee::query()
             ->where('company_id', $companyId)
-            ->whereDoesntHave('contracts')
-            ->count();
+            ->whereDoesntHave('contracts');
+
+        ContractDirectoryEmployeeScope::apply($noContractQuery, $companyId, $filters);
 
         return [
             'total_contracts' => (int) ($row->total_contracts ?? 0),
@@ -63,7 +69,24 @@ final class ContractSummaryQuery
             'ending_60' => (int) ($row->ending_60 ?? 0),
             'ending_90' => (int) ($row->ending_90 ?? 0),
             'ended' => (int) ($row->ended ?? 0),
-            'no_contract_employees' => $noContractCount,
+            'no_contract_employees' => $noContractQuery->count(),
         ];
+    }
+
+    /**
+     * @param  Builder<EmployeeContract>  $query
+     */
+    private function applyWorkforceFilters(
+        Builder $query,
+        int $companyId,
+        ContractDirectoryFilters $filters,
+    ): void {
+        if ($filters->salaryStructure !== '') {
+            ContractSalaryStructureFilter::apply($query, $filters->salaryStructure);
+        }
+
+        $query->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters): void {
+            ContractDirectoryEmployeeScope::apply($employeeQuery, $companyId, $filters);
+        });
     }
 }

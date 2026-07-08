@@ -26,7 +26,7 @@ class ContractsIndexController extends Controller
         $paginator = (new ContractDirectoryQuery($companyId, $filters))->paginate($perPage);
 
         return Inertia::render('organization/contracts/index', [
-            'summary' => $summaryQuery->forCompany($companyId),
+            'summary' => $summaryQuery->forCompany($companyId, $filters),
             'lifecycle' => $filters->lifecycle,
             'search' => $filters->search,
             'status' => $filters->status,

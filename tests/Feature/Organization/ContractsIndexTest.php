@@ -128,9 +128,9 @@ test('contracts index returns paginated contracts with summary', function () {
             ->component('organization/contracts/index')
             ->where('lifecycle', 'all')
             ->where('payroll_category', 'office')
-            ->where('summary.total_contracts', 2)
+            ->where('summary.total_contracts', 1)
             ->where('summary.active', 1)
-            ->where('summary.ended', 1)
+            ->where('summary.ended', 0)
             ->has('contracts', 1)
             ->where('contracts.0.employee_name', 'Contract Employee')
             ->where('contracts.0.salary_structure', 'monthly')
@@ -247,6 +247,8 @@ test('contracts index filters by lifecycle and workforce department scope', func
         ->assertInertia(fn (Assert $page) => $page
             ->where('payroll_category', 'crew')
             ->where('salary_structure', 'daily')
+            ->where('summary.total_contracts', 1)
+            ->where('summary.ended', 1)
             ->has('contracts', 1)
             ->where('contracts.0.payroll_category', 'crew')
             ->where('contracts.0.salary_structure', 'daily'));
