@@ -19,6 +19,7 @@ use App\Http\Controllers\Organization\BankAccountsNoAccountController;
 use App\Http\Controllers\Organization\BranchController;
 use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\CompanySwitchController;
+use App\Http\Controllers\Organization\ContractsExportController;
 use App\Http\Controllers\Organization\ContractsImportController;
 use App\Http\Controllers\Organization\ContractsIndexController;
 use App\Http\Controllers\Organization\ContractsNoContractController;
@@ -288,6 +289,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('can:contracts.view')->group(function () {
         Route::get('organization/contracts', ContractsIndexController::class)->name('organization.contracts');
+        Route::get('organization/contracts/export', [ContractsExportController::class, 'export'])->name('organization.contracts.export');
         Route::get('organization/contracts/no-contract', ContractsNoContractController::class)->name('organization.contracts.no-contract');
         Route::get('organization/contracts/employees/{employee}', EmployeeContractsBrowseController::class)->name('organization.contracts.employee');
         Route::get('organization/contracts/import/template', [ContractsImportController::class, 'importTemplate'])

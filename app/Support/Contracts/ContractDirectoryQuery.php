@@ -36,6 +36,20 @@ final class ContractDirectoryQuery
     /**
      * @return Builder<EmployeeContract>
      */
+    public function exportQuery(): Builder
+    {
+        $query = $this->baseQuery();
+
+        $this->applyFilters($query);
+
+        return $query
+            ->orderByDesc('employee_contracts.start_date')
+            ->orderByDesc('employee_contracts.id');
+    }
+
+    /**
+     * @return Builder<EmployeeContract>
+     */
     private function baseQuery(): Builder
     {
         $latestContractIds = EmployeeContract::query()
@@ -58,6 +72,7 @@ final class ContractDirectoryQuery
             ->selectSub($totalContractsSubquery, 'total_contracts')
             ->with([
                 'employee:id,name,employee_no,image,company_id,branch_id,department_id,position_id,employee_profile_template_id',
+                'employee.branch:id,name',
                 'employee.employeeProfileTemplate:id,name',
                 'employee.department:id,name',
                 'employee.position:id,title',

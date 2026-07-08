@@ -6,6 +6,7 @@ import {
     DataTableHeaderRow,
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
+import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
@@ -29,6 +30,7 @@ export function ContractsContent({
     status: initialStatus,
     payroll_category: initialPayrollCategory,
     salary_structure: initialSalaryStructure = '',
+    branch_id: initialBranchId = '',
     department_id: initialDepartmentId = '',
     contracts: contractRows,
     pagination,
@@ -56,6 +58,21 @@ export function ContractsContent({
         initialDepartmentId,
         perPage: pagination.per_page,
     });
+
+    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
+        return contracts.export.url({
+            query: {
+                search: initialSearch || undefined,
+                lifecycle: initialLifecycle === 'all' ? undefined : initialLifecycle,
+                status: initialStatus || undefined,
+                payroll_category: initialPayrollCategory || undefined,
+                salary_structure: initialSalaryStructure || undefined,
+                branch_id: initialBranchId || undefined,
+                department_id: initialDepartmentId || undefined,
+                format,
+            },
+        });
+    };
 
     const showOfficeColumns = initialPayrollCategory === 'office';
     const showCrewColumns = initialPayrollCategory === 'crew';
@@ -97,16 +114,19 @@ export function ContractsContent({
             <PageHeader
                 title="Contracts"
                 right={
-                    can.import ? (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setIsImportDialogOpen(true)}
-                        >
-                            <Upload className="mr-2 h-4 w-4" />
-                            Import
-                        </Button>
-                    ) : null
+                    <div className="flex items-center gap-2">
+                        {can.import ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsImportDialogOpen(true)}
+                            >
+                                <Upload className="mr-2 h-4 w-4" />
+                                Import
+                            </Button>
+                        ) : null}
+                        <ExportMenu getUrl={getExportUrl} />
+                    </div>
                 }
             />
 
