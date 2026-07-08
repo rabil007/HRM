@@ -84,19 +84,7 @@ final class BulkDocumentRosterQuery
                 'position:id,title',
             ]);
 
-        if ($generationFilter === 'missing') {
-            $query->whereDoesntHave('documents', function (Builder $documentQuery) use ($companyId, $documentType): void {
-                $documentQuery
-                    ->where('company_id', $companyId)
-                    ->where('document_type_id', $documentType->id);
-            });
-        } elseif ($generationFilter === 'generated') {
-            $query->whereHas('documents', function (Builder $documentQuery) use ($companyId, $documentType): void {
-                $documentQuery
-                    ->where('company_id', $companyId)
-                    ->where('document_type_id', $documentType->id);
-            });
-        }
+        self::applyGenerationFilter($query, $companyId, $documentType->id, $generationFilter);
 
         $paginator = $query
             ->orderBy('name')
@@ -123,6 +111,84 @@ final class BulkDocumentRosterQuery
         ?array $employeeIds = null,
     ): Builder {
         return self::baseEmployeeQuery($companyId, $filters, $employeeIds)->orderBy('id');
+    }
+
+    /**
+     * @return array{
+     *     employee_ids: list<int>,
+     *     document_ids: list<int>,
+     *     total: int
+     * }
+     */
+    public static function matchingSelection(
+        int $companyId,
+        string $documentTypeKey,
+        EmployeeDirectoryFilters $filters,
+        string $generationFilter = 'all',
+    ): array {
+        $documentType = BulkDocumentTypeRegistry::resolveDocumentType($documentTypeKey);
+
+        $employeeIds = self::filteredEmployeeQuery(
+            $companyId,
+            $documentType->id,
+            $filters,
+            $generationFilter,
+        )
+            ->orderBy('name')
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
+
+        $documentsByEmployee = self::latestDocumentsForEmployees(
+            $companyId,
+            $documentType->id,
+            $employeeIds,
+        );
+
+        return [
+            'employee_ids' => $employeeIds,
+            'document_ids' => $documentsByEmployee->values()->pluck('id')->map(fn ($id): int => (int) $id)->values()->all(),
+            'total' => count($employeeIds),
+        ];
+    }
+
+    private static function filteredEmployeeQuery(
+        int $companyId,
+        int $documentTypeId,
+        EmployeeDirectoryFilters $filters,
+        string $generationFilter,
+    ): Builder {
+        $query = self::baseEmployeeQuery($companyId, $filters);
+
+        self::applyGenerationFilter($query, $companyId, $documentTypeId, $generationFilter);
+
+        return $query;
+    }
+
+    private static function applyGenerationFilter(
+        Builder $query,
+        int $companyId,
+        int $documentTypeId,
+        string $generationFilter,
+    ): void {
+        if ($generationFilter === 'missing') {
+            $query->whereDoesntHave('documents', function (Builder $documentQuery) use ($companyId, $documentTypeId): void {
+                $documentQuery
+                    ->where('company_id', $companyId)
+                    ->where('document_type_id', $documentTypeId);
+            });
+
+            return;
+        }
+
+        if ($generationFilter === 'generated') {
+            $query->whereHas('documents', function (Builder $documentQuery) use ($companyId, $documentTypeId): void {
+                $documentQuery
+                    ->where('company_id', $companyId)
+                    ->where('document_type_id', $documentTypeId);
+            });
+        }
     }
 
     /**

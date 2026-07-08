@@ -689,3 +689,69 @@ test('bulk document recipients search requires email permission', function () {
     $this->get(route('organization.documents.bulk.recipients-search', ['q' => 'test']))
         ->assertForbidden();
 });
+
+test('bulk document selection returns all matching employee ids across pages', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    Employee::factory()->count(25)->forCompany($company)->create([
+        'status' => 'active',
+    ]);
+
+    $this->get(route('organization.documents.bulk.selection'))
+        ->assertOk()
+        ->assertJsonPath('total', 25)
+        ->assertJson(fn ($json) => $json
+            ->where('total', 25)
+            ->has('employee_ids', 25)
+            ->has('document_ids')
+            ->etc());
+});
+
+test('bulk document selection respects generation filter', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $withDoc = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    Employee::factory()->count(5)->forCompany($company)->create(['status' => 'active']);
+
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+
+    createEmployeePdfDocument(
+        $company->id,
+        $withDoc->id,
+        $documentType->id,
+        "employee-documents/{$company->id}/{$withDoc->id}/existing.pdf",
+        'existing.pdf',
+    );
+
+    $missingSelection = $this->get(route('organization.documents.bulk.selection', [
+        'generation_filter' => 'missing',
+    ]))
+        ->assertOk()
+        ->assertJsonPath('total', 5);
+
+    expect($missingSelection->json('employee_ids'))->not->toContain($withDoc->id);
+
+    $this->get(route('organization.documents.bulk.selection', [
+        'generation_filter' => 'generated',
+    ]))
+        ->assertOk()
+        ->assertJsonPath('total', 1)
+        ->assertJsonPath('employee_ids.0', $withDoc->id)
+        ->assertJsonCount(1, 'document_ids');
+});
+
+test('bulk document selection requires view permission', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    setupBulkDocumentsCompany($user, []);
+
+    $this->get(route('organization.documents.bulk.selection'))
+        ->assertForbidden();
+});

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -8,6 +9,7 @@ export function DocumentsBulkToolbar({
     onClear,
     actions,
     selectAll,
+    selectAllMatching,
     className,
 }: {
     count: number;
@@ -15,6 +17,11 @@ export function DocumentsBulkToolbar({
     onClear: () => void;
     actions: ReactNode;
     selectAll?: ReactNode;
+    selectAllMatching?: {
+        total: number;
+        onSelect: () => void;
+        loading?: boolean;
+    };
     className?: string;
 }) {
     if (count === 0) {
@@ -38,6 +45,23 @@ export function DocumentsBulkToolbar({
             <span className="text-sm font-medium text-foreground">
                 {label} selected
             </span>
+            {selectAllMatching ? (
+                <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 rounded-full px-3 text-xs"
+                    onClick={selectAllMatching.onSelect}
+                    disabled={selectAllMatching.loading}
+                >
+                    {selectAllMatching.loading ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                        <ArrowRight className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Select all {selectAllMatching.total}
+                </Button>
+            ) : null}
             <Button
                 type="button"
                 variant="ghost"

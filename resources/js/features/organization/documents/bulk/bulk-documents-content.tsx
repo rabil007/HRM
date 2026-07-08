@@ -297,6 +297,12 @@ export function BulkDocumentsContent({
     const [isGenerating, setIsGenerating] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
+    const [matchingSelection, setMatchingSelection] = useState<{
+        employee_ids: number[];
+        document_ids: number[];
+        total: number;
+    } | null>(null);
+    const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
 
     const employeeIds = useMemo(
         () => employees.map((employee) => employee.id),
@@ -327,15 +333,115 @@ export function BulkDocumentsContent({
         [selectedEmployees],
     );
 
+    const effectiveSelectedIds =
+        matchingSelection?.employee_ids ?? selectedIds;
+    const effectiveSelectedCount =
+        matchingSelection?.total ?? selectedCount;
+    const effectiveDocumentIds =
+        matchingSelection?.document_ids ?? selectedDocumentIds;
+
+    const clearSelection = useCallback(() => {
+        clear();
+        setMatchingSelection(null);
+    }, [clear]);
+
+    useEffect(() => {
+        setMatchingSelection(null);
+    }, [document_type_key, filters, generation_filter, searchInput]);
+
+    const previewEmployee = useMemo(() => {
+        if (matchingSelection) {
+            return employees[0] ?? null;
+        }
+
+        return selectedEmployees[0] ?? null;
+    }, [employees, matchingSelection, selectedEmployees]);
+
     const selectedTypeLabel =
         document_type_options.find((option) => option.value === document_type_key)
             ?.label ?? document_type_key;
 
     const missingCount = counts.not_generated;
     const generateLabel =
-        selectedCount > 0
-            ? `Generate for ${selectedCount} selected`
+        effectiveSelectedCount > 0
+            ? `Generate for ${effectiveSelectedCount} selected`
             : `Generate missing (${missingCount})`;
+
+    const showSelectAllMatching =
+        isAllSelected &&
+        matchingSelection === null &&
+        pagination.total > selectedCount;
+
+    const handleSelectAllMatching = async () => {
+        setIsSelectingAllMatching(true);
+
+        try {
+            const params = new URLSearchParams(
+                buildQuery(
+                    document_type_key,
+                    filters,
+                    searchInput,
+                    generation_filter,
+                    'roster',
+                    { perPage: pagination.per_page },
+                ),
+            );
+
+            const response = await fetch(
+                `/organization/documents/bulk/selection?${params.toString()}`,
+                {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to load selection.');
+            }
+
+            const data = (await response.json()) as {
+                employee_ids: number[];
+                document_ids: number[];
+                total: number;
+            };
+
+            setMatchingSelection(data);
+        } catch {
+            toast.error('Could not select all matching employees.');
+        } finally {
+            setIsSelectingAllMatching(false);
+        }
+    };
+
+    const handleToggleEmployee = (employeeId: number) => {
+        setMatchingSelection(null);
+        toggle(employeeId);
+    };
+
+    const handleToggleAllEmployees = () => {
+        if (matchingSelection) {
+            clearSelection();
+
+            return;
+        }
+
+        toggleAll();
+    };
+
+    const isEmployeeRowSelected = (employeeId: number) =>
+        matchingSelection
+            ? matchingSelection.employee_ids.includes(employeeId)
+            : isSelected(employeeId);
+
+    const isHeaderCheckboxChecked = matchingSelection
+        ? true
+        : isAllSelected
+          ? true
+          : isPartiallySelected
+            ? 'indeterminate'
+            : false;
 
     const isRunActive =
         latest_run?.status === 'running' || latest_run?.status === 'queued';
@@ -428,7 +534,7 @@ export function BulkDocumentsContent({
 
     const setView = useCallback(
         (nextView: BulkDocumentsView) => {
-            clear();
+            clearSelection();
             navigate(
                 document_type_key,
                 filters,
@@ -439,7 +545,7 @@ export function BulkDocumentsContent({
             );
         },
         [
-            clear,
+            clearSelection,
             document_type_key,
             filters,
             generation_filter,
@@ -521,7 +627,9 @@ export function BulkDocumentsContent({
                 status: 'active',
                 ...filters,
                 search: searchInput,
-                ...(selectedCount > 0 ? { employee_ids: selectedIds } : {}),
+                ...(effectiveSelectedCount > 0
+                    ? { employee_ids: effectiveSelectedIds }
+                    : {}),
             },
             {
                 preserveScroll: true,
@@ -531,7 +639,7 @@ export function BulkDocumentsContent({
     };
 
     const handleDelete = () => {
-        if (!can.delete || isDeleting || selectedDocumentIds.length === 0) {
+        if (!can.delete || isDeleting || effectiveDocumentIds.length === 0) {
             return;
         }
 
@@ -540,12 +648,12 @@ export function BulkDocumentsContent({
         router.delete('/organization/documents/bulk/documents', {
             data: {
                 document_type_key,
-                document_ids: selectedDocumentIds,
+                document_ids: effectiveDocumentIds,
             },
             preserveScroll: true,
             onSuccess: () => {
                 setDeleteOpen(false);
-                clear();
+                clearSelection();
             },
             onFinish: () => setIsDeleting(false),
         });
@@ -556,11 +664,13 @@ export function BulkDocumentsContent({
             return;
         }
 
-        const withDocuments = selectedEmployees.filter(
-            (employee) => employee.document !== null,
-        );
+        const employeeIdsForDownload = matchingSelection
+            ? matchingSelection.employee_ids
+            : selectedEmployees
+                  .filter((employee) => employee.document !== null)
+                  .map((employee) => employee.id);
 
-        if (withDocuments.length === 0) {
+        if (employeeIdsForDownload.length === 0) {
             toast.error('No generated documents in the current selection.');
 
             return;
@@ -571,7 +681,7 @@ export function BulkDocumentsContent({
         try {
             await downloadBulkZip('/organization/documents/bulk/download', {
                 document_type_key,
-                employee_ids: withDocuments.map((employee) => employee.id),
+                employee_ids: employeeIdsForDownload,
             });
         } catch (error) {
             toast.error(
@@ -646,7 +756,7 @@ export function BulkDocumentsContent({
                             ))}
                         </AppSelect>
 
-                        {isRosterView && can.generate && selectedCount === 0 ? (
+                        {isRosterView && can.generate && effectiveSelectedCount === 0 ? (
                             <Button
                                 type="button"
                                 onClick={handleGenerate}
@@ -973,19 +1083,22 @@ export function BulkDocumentsContent({
                 <>
             {/* Selection toolbar */}
             <DocumentsBulkToolbar
-                count={selectedCount}
+                count={effectiveSelectedCount}
                 itemLabel="employees"
-                onClear={clear}
+                onClear={clearSelection}
+                selectAllMatching={
+                    showSelectAllMatching
+                        ? {
+                              total: pagination.total,
+                              onSelect: () => void handleSelectAllMatching(),
+                              loading: isSelectingAllMatching,
+                          }
+                        : undefined
+                }
                 selectAll={
                     <Checkbox
-                        checked={
-                            isAllSelected
-                                ? true
-                                : isPartiallySelected
-                                  ? 'indeterminate'
-                                  : false
-                        }
-                        onCheckedChange={() => toggleAll()}
+                        checked={isHeaderCheckboxChecked}
+                        onCheckedChange={handleToggleAllEmployees}
                         aria-label="Select all employees"
                     />
                 }
@@ -1034,7 +1147,7 @@ export function BulkDocumentsContent({
                                 variant="outline"
                                 className="text-destructive hover:text-destructive"
                                 onClick={() => setDeleteOpen(true)}
-                                disabled={selectedDocumentIds.length === 0}
+                                disabled={effectiveDocumentIds.length === 0}
                             >
                                 <Trash2 className="mr-2 h-3.5 w-3.5" />
                                 Delete
@@ -1044,7 +1157,7 @@ export function BulkDocumentsContent({
                 }
             />
 
-            {selectedCount > 0 ? (
+            {effectiveSelectedCount > 0 ? (
                 <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground/80">
                     <RotateCcw className="h-3 w-3" />
                     Existing documents for selected employees will be replaced.
@@ -1065,14 +1178,8 @@ export function BulkDocumentsContent({
                     <DataTableHeaderRow>
                         <DataTableHead className="w-10">
                             <Checkbox
-                                checked={
-                                    isAllSelected
-                                        ? true
-                                        : isPartiallySelected
-                                          ? 'indeterminate'
-                                          : false
-                                }
-                                onCheckedChange={() => toggleAll()}
+                                checked={isHeaderCheckboxChecked}
+                                onCheckedChange={handleToggleAllEmployees}
                                 aria-label="Select all employees"
                             />
                         </DataTableHead>
@@ -1099,8 +1206,8 @@ export function BulkDocumentsContent({
                             <BulkRosterRow
                                 key={employee.id}
                                 employee={employee}
-                                checked={isSelected(employee.id)}
-                                onToggle={() => toggle(employee.id)}
+                                checked={isEmployeeRowSelected(employee.id)}
+                                onToggle={() => handleToggleEmployee(employee.id)}
                                 canDownload={can.download}
                             />
                         ))
@@ -1156,20 +1263,20 @@ export function BulkDocumentsContent({
                 <BulkDocumentsEmailModal
                     documentTypeKey={document_type_key}
                     documentTypeLabel={selectedTypeLabel}
-                    employeeIds={selectedIds}
+                    employeeIds={effectiveSelectedIds}
                     emailTemplate={email_template}
                     companyName={company_name}
                     previewEmployee={
-                        selectedEmployees[0]
+                        previewEmployee
                             ? {
-                                  name: selectedEmployees[0].name,
-                                  employee_no: selectedEmployees[0].employee_no,
-                                  email: selectedEmployees[0].email,
+                                  name: previewEmployee.name,
+                                  employee_no: previewEmployee.employee_no,
+                                  email: previewEmployee.email,
                               }
                             : null
                     }
                     onOpenChange={setEmailOpen}
-                    onSendComplete={clear}
+                    onSendComplete={clearSelection}
                 />
             ) : null}
 
@@ -1177,7 +1284,7 @@ export function BulkDocumentsContent({
                 open={deleteOpen}
                 onOpenChange={setDeleteOpen}
                 title="Delete selected documents?"
-                description={`This will permanently remove ${selectedDocumentIds.length} document(s) from employee profiles.`}
+                description={`This will permanently remove ${effectiveDocumentIds.length} document(s) from employee profiles.`}
                 onConfirm={handleDelete}
             />
         </Main>
