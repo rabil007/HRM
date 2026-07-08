@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Support\Eloquent\IgnoresInvalidEncryptionInLocal;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class HikvisionSetting extends Model
 {
+    use IgnoresInvalidEncryptionInLocal;
     use SoftDeletes;
 
     protected $table = 'hikvision_settings';

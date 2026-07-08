@@ -3,6 +3,7 @@
 use App\Models\HikvisionDevice;
 use App\Models\HikvisionSetting;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
 
@@ -420,4 +421,25 @@ test('user without sync permission cannot sync hikvision devices', function () {
     test()->actingAs($user)
         ->post(route('application.hikvision.devices.sync'), ['_token' => csrf_token()])
         ->assertForbidden();
+});
+
+test('application settings tolerates stale hikvision encrypted credentials in local env', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.integrations.hikvision.view']);
+
+    HikvisionSetting::current();
+
+    DB::table('hikvision_settings')
+        ->where('id', 1)
+        ->update([
+            'api_key' => 'eyJpdiI6InRlc3QiLCJ2YWx1ZSI6InRlc3QiLCJtYWMiOiJpbnZhbGlkbWFjIn0=',
+            'api_secret' => 'eyJpdiI6InRlc3QiLCJ2YWx1ZSI6InRlc3QiLCJtYWMiOiJpbnZhbGlkbWFjIn0=',
+        ]);
+
+    app()->detectEnvironment(fn () => 'local');
+
+    $this->actingAs($user)
+        ->get(route('application.edit'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('settings/application'));
 });
