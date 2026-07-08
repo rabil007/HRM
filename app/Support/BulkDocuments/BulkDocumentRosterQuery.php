@@ -7,9 +7,9 @@ use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 final class BulkDocumentRosterQuery
@@ -315,7 +315,7 @@ final class BulkDocumentRosterQuery
 
     /**
      * @param  list<int>  $employeeIds
-     * @return Collection<int, Carbon>
+     * @return Collection<int, CarbonInterface>
      */
     private static function latestEmailSentAtByEmployee(
         int $companyId,
@@ -353,7 +353,7 @@ final class BulkDocumentRosterQuery
      *     email_sent_at: string|null
      * }
      */
-    private static function mapEmployee(Employee $employee, ?EmployeeDocument $document, ?Carbon $emailSentAt = null): array
+    private static function mapEmployee(Employee $employee, ?EmployeeDocument $document, ?CarbonInterface $emailSentAt = null): array
     {
         return [
             'id' => $employee->id,
