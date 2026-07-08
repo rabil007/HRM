@@ -343,7 +343,7 @@ Possible future work (not started):
 
 ```text
 payroll.periods.view|create|update|delete|revert_to_draft|approve|mark_paid|cancel
-payroll.crew_timesheets.view|create|update|delete|import
+payroll.crew_timesheets.view|create|update|import
 payroll.records.view
 payroll.payslips.view|generate|email
 payroll.wps.view|export

@@ -211,7 +211,6 @@ export function buildCrewTimesheetDraft(
 export type CrewPayrollPermissions = {
     create: boolean;
     update: boolean;
-    delete: boolean;
     import_timesheets: boolean;
     generate_payroll: boolean;
     revert_to_draft: boolean;
