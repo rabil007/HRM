@@ -610,42 +610,44 @@ export function BulkDocumentsContent({
                 title="Bulk generate"
                 description={`Generate and manage ${selectedTypeLabel} documents for multiple employees.`}
                 right={
-                    isRosterView && can.generate && selectedCount === 0 ? (
-                        <Button
-                            type="button"
-                            onClick={handleGenerate}
-                            disabled={
-                                isGenerating ||
-                                missingCount === 0 ||
-                                isRunActive
-                            }
-                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <AppSelect
+                            value={document_type_key}
+                            onValueChange={(value) => navigate(value)}
+                            className="h-12 w-full rounded-xl sm:w-56"
                         >
-                            {isGenerating ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <FileStack className="mr-2 h-4 w-4" />
-                            )}
-                            {generateLabel}
-                        </Button>
-                    ) : null
+                            {document_type_options.map((option) => (
+                                <AppSelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                >
+                                    {option.label}
+                                </AppSelectItem>
+                            ))}
+                        </AppSelect>
+
+                        {isRosterView && can.generate && selectedCount === 0 ? (
+                            <Button
+                                type="button"
+                                onClick={handleGenerate}
+                                disabled={
+                                    isGenerating ||
+                                    missingCount === 0 ||
+                                    isRunActive
+                                }
+                                className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                            >
+                                {isGenerating ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <FileStack className="mr-2 h-4 w-4" />
+                                )}
+                                {generateLabel}
+                            </Button>
+                        ) : null}
+                    </div>
                 }
             />
-
-            {/* Document type selector */}
-            <div className="mb-6">
-                <AppSelect
-                    value={document_type_key}
-                    onValueChange={(value) => navigate(value)}
-                    className="w-full sm:w-72"
-                >
-                    {document_type_options.map((option) => (
-                        <AppSelectItem key={option.value} value={option.value}>
-                            {option.label}
-                        </AppSelectItem>
-                    ))}
-                </AppSelect>
-            </div>
 
             {/* Summary cards */}
             {isRosterView ? (
