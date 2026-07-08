@@ -167,7 +167,7 @@ Payroll
 
 ### Removed (by product decision)
 
-- **Salary adjustments** — module was built then **removed**. No routes/UI. Legacy `salary_adjustments` table/migrations may still exist in DB but are unused.
+- **Salary adjustments** — module was built then **removed**. No routes/UI. Legacy `salary_adjustments` table/migrations may still exist in DB but are unused. Orphaned `payroll.adjustments.*` permissions were removed from the seeder on 2026-06-23 and dropped from existing databases via migration.
 
 ### Payroll records index
 

@@ -292,8 +292,8 @@ export default function RoleDetails({
                     <div className="grid min-h-[600px] grid-cols-1 gap-6 lg:grid-cols-12">
                         {/* Sidebar Navigator */}
                         <aside className="space-y-4 lg:sticky lg:top-6 lg:col-span-3 lg:self-start">
-                            <Card className="flex max-h-[calc(100vh-6rem)] flex-col overflow-hidden border-border bg-card dark:border-white/5 dark:bg-white/5">
-                                <div className="flex items-center justify-between border-b border-border bg-muted/20 p-4 dark:border-white/5 dark:bg-white/[0.02]">
+                            <Card className="flex max-h-96 flex-col gap-0 overflow-hidden border-border bg-card py-0 lg:h-[calc(100vh-6rem)] lg:max-h-[calc(100vh-6rem)] dark:border-white/5 dark:bg-white/5">
+                                <div className="flex shrink-0 items-center justify-between border-b border-border bg-muted/20 p-4 dark:border-white/5 dark:bg-white/[0.02]">
                                     <h3 className="text-xs font-bold tracking-widest text-muted-foreground uppercase">
                                         Categories
                                     </h3>
@@ -304,7 +304,7 @@ export default function RoleDetails({
                                         {grouped.length}
                                     </Badge>
                                 </div>
-                                <ScrollArea className="flex-1">
+                                <ScrollArea className="min-h-0 flex-1">
                                     <div className="space-y-1 p-2">
                                         {grouped.map(([group, subGroups]) => {
                                             const allItems = subGroups.flatMap(
@@ -359,7 +359,7 @@ export default function RoleDetails({
                                         })}
                                     </div>
                                 </ScrollArea>
-                                <div className="border-t border-border bg-muted/20 p-3 dark:border-white/5 dark:bg-white/[0.02]">
+                                <div className="shrink-0 border-t border-border bg-muted/20 p-3 dark:border-white/5 dark:bg-white/[0.02]">
                                     <Button
                                         variant="ghost"
                                         className="h-8 w-full text-[10px] font-bold tracking-widest text-muted-foreground/40 uppercase hover:text-primary"
