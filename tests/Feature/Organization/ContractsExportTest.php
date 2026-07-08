@@ -254,3 +254,134 @@ test('export adjusts structure based on payroll category filter', function () {
         ->and($contentCrew)->not->toContain('Salary Structure')
         ->and($contentCrew)->not->toContain('Created At');
 });
+
+test('export includes total salary usd column calculated from aed total', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company] = makeContractExportFixtures();
+
+    grantCompanyPermissions($user, $company, ['contracts.view']);
+
+    $response = $this->get(route('organization.contracts.export', [
+        'format' => 'csv',
+        'payroll_category' => 'office',
+    ]));
+
+    $response->assertOk();
+
+    $lines = array_values(array_filter(explode("\n", trim($response->streamedContent()))));
+    $headers = str_getcsv($lines[0]);
+    $data = str_getcsv($lines[1]);
+
+    expect($headers)->toContain('Total Salary')
+        ->and($headers)->toContain('Total Salary (USD)')
+        ->and((float) $data[array_search('Total Salary', $headers, true)])->toBe(8000.0)
+        ->and((float) $data[array_search('Total Salary (USD)', $headers, true)])->toBe(2178.35);
+});
+
+test('crew export calculates usd from basic supplementary and site allowances only', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'branch' => $branch] = makeContractExportFixtures();
+
+    $marineDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine',
+        'code' => 'MAR-USD',
+        'status' => 'active',
+    ]);
+
+    $crewEmployee = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'department_id' => $marineDepartment->id,
+        'employee_no' => 'CEXP-CREW-USD',
+        'name' => 'Crew USD Export',
+        'status' => 'active',
+    ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $crewEmployee->id,
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'daily',
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'basic_salary' => 50,
+        'supplementary_allowance' => 50,
+        'site_allowance' => 167,
+        'housing_allowance' => 999,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['contracts.view']);
+
+    $response = $this->get(route('organization.contracts.export', [
+        'format' => 'csv',
+        'payroll_category' => 'crew',
+    ]));
+
+    $response->assertOk();
+
+    $lines = array_values(array_filter(explode("\n", trim($response->streamedContent()))));
+    $headers = str_getcsv($lines[0]);
+    $crewRow = collect($lines)
+        ->map(fn (string $line) => str_getcsv($line))
+        ->first(fn (array $row) => ($row[0] ?? null) === 'CEXP-CREW-USD');
+
+    expect($crewRow)->not->toBeNull()
+        ->and((float) $crewRow[array_search('Total Salary', $headers, true)])->toBe(267.0)
+        ->and((float) $crewRow[array_search('Total Salary (USD)', $headers, true)])->toBe(72.7);
+});
+
+test('export shows zero totals when contract has no salary components', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'branch' => $branch] = makeContractExportFixtures();
+
+    $offshoreDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Offshore',
+        'code' => 'OFF-USD',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'department_id' => $offshoreDepartment->id,
+        'employee_no' => 'CEXP-ZERO',
+        'name' => 'Zero Salary Export',
+        'status' => 'active',
+    ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'daily',
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['contracts.view']);
+
+    $response = $this->get(route('organization.contracts.export', [
+        'format' => 'csv',
+        'payroll_category' => 'crew',
+    ]));
+
+    $response->assertOk();
+
+    $lines = array_values(array_filter(explode("\n", trim($response->streamedContent()))));
+    $headers = str_getcsv($lines[0]);
+    $row = collect($lines)
+        ->map(fn (string $line) => str_getcsv($line))
+        ->first(fn (array $data) => ($data[0] ?? null) === 'CEXP-ZERO');
+
+    expect($row)->not->toBeNull()
+        ->and($row[array_search('Total Salary', $headers, true)])->toBe('0')
+        ->and($row[array_search('Total Salary (USD)', $headers, true)])->toBe('0');
+});

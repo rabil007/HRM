@@ -42,17 +42,14 @@
                 <th class="text-right">Other</th>
             @endif
             <th class="text-right">Total</th>
+            <th class="text-right">Total (USD)</th>
         </tr>
         </thead>
         <tbody>
         @foreach($contracts as $contract)
             @php
-                $totalSalary = (float) $contract->basic_salary
-                    + (float) $contract->housing_allowance
-                    + (float) $contract->transport_allowance
-                    + (float) $contract->supplementary_allowance
-                    + (float) $contract->site_allowance
-                    + (float) $contract->other_allowances;
+                $totalSalary = \App\Support\Contracts\ContractSalaryTotals::total($contract, $payrollCategory);
+                $totalSalaryUsd = \App\Support\Contracts\ContractSalaryTotals::totalUsd($contract, $payrollCategory);
             @endphp
             <tr>
                 <td>{{ $contract->employee?->employee_no }}</td>
@@ -75,6 +72,7 @@
                     <td class="text-right">{{ number_format((float) $contract->other_allowances, 2) }}</td>
                 @endif
                 <td class="text-right" style="font-weight: 700;">{{ number_format($totalSalary, 2) }}</td>
+                <td class="text-right" style="font-weight: 700;">{{ number_format($totalSalaryUsd, 2) }}</td>
             </tr>
         @endforeach
         </tbody>

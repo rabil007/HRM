@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\EmployeeContract;
+use App\Support\Contracts\ContractSalaryTotals;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -52,18 +53,15 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
         }
 
         $headings[] = 'Total Salary';
+        $headings[] = 'Total Salary (USD)';
 
         return $headings;
     }
 
     public function map($contract): array
     {
-        $totalSalary = (float) $contract->basic_salary
-            + (float) $contract->housing_allowance
-            + (float) $contract->transport_allowance
-            + (float) $contract->supplementary_allowance
-            + (float) $contract->site_allowance
-            + (float) $contract->other_allowances;
+        $totalSalary = ContractSalaryTotals::total($contract, $this->payrollCategory);
+        $totalSalaryUsd = ContractSalaryTotals::totalUsd($contract, $this->payrollCategory);
 
         $row = [
             $contract->employee?->employee_no,
@@ -90,7 +88,8 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             $row[] = $contract->other_allowances;
         }
 
-        $row[] = number_format($totalSalary, 2, '.', '');
+        $row[] = $totalSalary;
+        $row[] = $totalSalaryUsd;
 
         return $row;
     }
