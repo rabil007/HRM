@@ -284,7 +284,8 @@ export function BulkDocumentsContent({
     department_tree,
     department_tree_selected_id,
     department_tree_selected_position_id,
-    email_templates,
+    company_name,
+    email_template,
     latest_run,
     can,
 }: BulkDocumentsPageProps) {
@@ -1013,14 +1014,26 @@ export function BulkDocumentsContent({
                 companyVisaTypes={company_visa_types}
             />
 
-            <BulkDocumentsEmailModal
-                open={emailOpen}
-                onOpenChange={setEmailOpen}
-                documentTypeKey={document_type_key}
-                employeeIds={selectedIds}
-                emailTemplates={email_templates}
-                onSendComplete={clear}
-            />
+            {emailOpen ? (
+                <BulkDocumentsEmailModal
+                    documentTypeKey={document_type_key}
+                    documentTypeLabel={selectedTypeLabel}
+                    employeeIds={selectedIds}
+                    emailTemplate={email_template}
+                    companyName={company_name}
+                    previewEmployee={
+                        selectedEmployees[0]
+                            ? {
+                                  name: selectedEmployees[0].name,
+                                  employee_no: selectedEmployees[0].employee_no,
+                                  email: selectedEmployees[0].email,
+                              }
+                            : null
+                    }
+                    onOpenChange={setEmailOpen}
+                    onSendComplete={clear}
+                />
+            ) : null}
 
             <ConfirmDeleteDialog
                 open={deleteOpen}

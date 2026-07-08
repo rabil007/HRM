@@ -15,6 +15,8 @@ class EmailTemplatesSeeder extends Seeder
         self::seedLeaveRequestApprovedTemplate();
         self::seedLeaveRequestRejectedTemplate();
         self::seedPasswordResetTemplate();
+        self::seedBulkSalaryDeclarationTemplate();
+        self::seedBulkSalaryCertificateTemplate();
     }
 
     public static function seedPayslipDeliveryTemplate(): EmailTemplate
@@ -175,6 +177,80 @@ TEXT;
         );
 
         return $template->fresh();
+    }
+
+    public static function seedBulkSalaryDeclarationTemplate(): EmailTemplate
+    {
+        return EmailTemplate::query()->updateOrCreate(
+            ['slug' => 'bulk_salary_declaration'],
+            [
+                'label' => 'Bulk salary declaration',
+                'category' => EmailTemplateCategory::Document,
+                'to_preset' => null,
+                'cc_preset' => null,
+                'dispatch_at' => null,
+                'subject' => 'Your Salary Declaration from {{company_name}}',
+                'body_html' => self::bulkSalaryDeclarationBody(),
+                'enabled' => true,
+                'is_default' => false,
+                'sort_order' => 10,
+            ],
+        )->fresh();
+    }
+
+    public static function seedBulkSalaryCertificateTemplate(): EmailTemplate
+    {
+        return EmailTemplate::query()->updateOrCreate(
+            ['slug' => 'bulk_salary_certificate'],
+            [
+                'label' => 'Bulk salary certificate',
+                'category' => EmailTemplateCategory::Document,
+                'to_preset' => null,
+                'cc_preset' => null,
+                'dispatch_at' => null,
+                'subject' => 'Your Salary Certificate from {{company_name}}',
+                'body_html' => self::bulkSalaryCertificateBody(),
+                'enabled' => true,
+                'is_default' => false,
+                'sort_order' => 11,
+            ],
+        )->fresh();
+    }
+
+    private static function bulkSalaryDeclarationBody(): string
+    {
+        return <<<'TEXT'
+Dear {{employee_name}},
+
+Please find your Salary Declaration attached to this email.
+
+We kindly ask you to review the document carefully, sign it according to company standards, and return the signed copy to the HR department at your earliest convenience.
+
+Employee no.: {{employee_no}}
+
+If you have any questions, please contact HR.
+
+Thank you,
+{{company_name}}
+TEXT;
+    }
+
+    private static function bulkSalaryCertificateBody(): string
+    {
+        return <<<'TEXT'
+Dear {{employee_name}},
+
+Please find attached your official Salary Certificate issued by {{company_name}}.
+
+This document certifies your employment and salary details with the company and may be used for official purposes as required.
+
+Employee no.: {{employee_no}}
+
+Should you require any further assistance or an updated certificate, please contact the HR department.
+
+Sincerely,
+{{company_name}}
+TEXT;
     }
 
     private static function passwordResetBody(): string

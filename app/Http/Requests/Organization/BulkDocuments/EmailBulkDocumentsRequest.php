@@ -16,6 +16,23 @@ class EmailBulkDocumentsRequest extends BulkDocumentActionRequest
     {
         return array_merge(parent::rules(), [
             'email_template_id' => ['nullable', 'integer', 'exists:email_templates,id'],
+            'cc' => ['nullable', 'array'],
+            'cc.*' => ['email', 'max:255'],
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function ccRecipients(): array
+    {
+        /** @var list<string>|null $cc */
+        $cc = $this->validated('cc');
+
+        if ($cc === null) {
+            return [];
+        }
+
+        return array_values($cc);
     }
 }

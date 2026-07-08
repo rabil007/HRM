@@ -17,6 +17,7 @@ use App\Http\Controllers\Organization\BankAccountsImportController;
 use App\Http\Controllers\Organization\BankAccountsIndexController;
 use App\Http\Controllers\Organization\BankAccountsNoAccountController;
 use App\Http\Controllers\Organization\BranchController;
+use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentEmployeeSearchController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\DeleteBulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\DownloadBulkDocumentsController;
@@ -278,6 +279,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/documents/bulk/email', [EmailBulkDocumentsController::class, 'store'])
         ->middleware('can:bulk_documents.email')
         ->name('organization.documents.bulk.email');
+    Route::get('organization/documents/bulk/recipients-search', BulkDocumentEmployeeSearchController::class)
+        ->middleware('can:bulk_documents.email')
+        ->name('organization.documents.bulk.recipients-search');
     Route::middleware('can:documents.share')->group(function () {
         Route::post('organization/documents/employees/{employee}/files/share-links', DocumentBulkShareLinksController::class)
             ->name('organization.documents.employee.files.share-links');

@@ -19,12 +19,14 @@ class BulkDocumentMail extends Mailable implements ShouldQueue
         public string $bodyHtml,
         public string $attachmentPath,
         public string $attachmentName,
+        public array $ccRecipients = [],
     ) {}
 
     public function envelope(): Envelope
     {
         return new Envelope(
             subject: $this->subjectLine,
+            cc: $this->ccRecipients,
         );
     }
 

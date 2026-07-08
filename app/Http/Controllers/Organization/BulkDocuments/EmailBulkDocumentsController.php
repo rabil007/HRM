@@ -26,9 +26,13 @@ class EmailBulkDocumentsController extends Controller
             ->whereIn('id', $request->employeeIds())
             ->get();
 
-        $template = $sender->resolveTemplate(
-            $request->filled('email_template_id') ? (int) $request->input('email_template_id') : null,
-        );
+        $template = BulkDocumentTypeRegistry::resolveEmailTemplate($documentTypeKey);
+
+        if ($template === null) {
+            return back()->withErrors([
+                'email_template_id' => 'No enabled email template is configured for this document type.',
+            ]);
+        }
 
         $result = $sender->handle(
             $companyId,
@@ -36,6 +40,7 @@ class EmailBulkDocumentsController extends Controller
             $documentTypeKey,
             $employees,
             $template,
+            $request->ccRecipients(),
         );
 
         $message = "Email queued for {$result['sent']} employee(s).";

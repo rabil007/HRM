@@ -33,6 +33,7 @@ final class SendBulkDocumentEmails
         string $documentTypeKey,
         Collection $employees,
         EmailTemplate $template,
+        array $ccRecipients = [],
     ): array {
         $definition = BulkDocumentTypeRegistry::find($documentTypeKey);
         $documentType = BulkDocumentTypeRegistry::resolveDocumentType($documentTypeKey);
@@ -92,6 +93,7 @@ final class SendBulkDocumentEmails
             $subject = $this->substitute($template->subject, $employee, $company, $definition['label']);
             $body = $this->substitute($template->body_html, $employee, $company, $definition['label']);
             $filename = $this->attachmentFilename($documentTypeKey, $employee);
+            $cc = $this->normalizeCcRecipients($ccRecipients, $recipient);
 
             try {
                 Mail::to($recipient)->queue(new BulkDocumentMail(
@@ -99,6 +101,7 @@ final class SendBulkDocumentEmails
                     bodyHtml: $body,
                     attachmentPath: (string) $document->file_path,
                     attachmentName: $filename,
+                    ccRecipients: $cc,
                 ));
 
                 $sent++;
@@ -190,5 +193,21 @@ final class SendBulkDocumentEmails
             'salary_certificate' => "salary-certificate-{$slug}.pdf",
             default => "salary-declaration-{$slug}.pdf",
         };
+    }
+
+    /**
+     * @param  list<string>  $ccRecipients
+     * @return list<string>
+     */
+    private function normalizeCcRecipients(array $ccRecipients, string $recipient): array
+    {
+        $recipientLower = strtolower(trim($recipient));
+
+        return collect($ccRecipients)
+            ->map(fn (string $email) => trim($email))
+            ->filter(fn (string $email) => $email !== '' && strtolower($email) !== $recipientLower)
+            ->unique(fn (string $email) => strtolower($email))
+            ->values()
+            ->all();
     }
 }

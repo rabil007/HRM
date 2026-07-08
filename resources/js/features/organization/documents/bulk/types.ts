@@ -42,13 +42,14 @@ export type BulkGenerationRun = {
     triggered_by: string | null;
 };
 
-export type BulkEmailTemplateOption = {
+export type WiredEmailTemplate = {
     id: number;
     slug: string;
     label: string;
     subject: string;
     body_html: string;
-    is_default: boolean;
+    to_preset: string | null;
+    cc_preset: string | null;
 };
 
 export type BulkActivityItem =
@@ -101,7 +102,8 @@ export type BulkDocumentsPageProps = {
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
     department_tree_selected_position_id: number | null;
-    email_templates: BulkEmailTemplateOption[];
+    company_name: string;
+    email_template: WiredEmailTemplate | null;
     latest_run: BulkGenerationRun | null;
     can: {
         generate: boolean;

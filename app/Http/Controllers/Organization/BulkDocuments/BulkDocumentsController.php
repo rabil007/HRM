@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers\Organization\BulkDocuments;
 
-use App\Enums\EmailTemplateCategory;
 use App\Http\Controllers\Controller;
 use App\Models\BulkDocumentGenerationRun;
-use App\Models\EmailTemplate;
+use App\Models\Company;
 use App\Support\BulkDocuments\BulkDocumentActivityQuery;
 use App\Support\BulkDocuments\BulkDocumentPagePermissions;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
@@ -108,23 +107,8 @@ class BulkDocumentsController extends Controller
             'department_tree' => BuildDepartmentEmployeeTree::for($companyId, $filters),
             'department_tree_selected_id' => $filters->departmentId !== '' ? (int) $filters->departmentId : null,
             'department_tree_selected_position_id' => $filters->positionId !== '' ? (int) $filters->positionId : null,
-            'email_templates' => EmailTemplate::query()
-                ->enabled()
-                ->whereIn('category', [EmailTemplateCategory::Document, EmailTemplateCategory::Payroll])
-                ->orderByDesc('is_default')
-                ->orderBy('sort_order')
-                ->orderBy('label')
-                ->get(['id', 'slug', 'label', 'subject', 'body_html', 'is_default'])
-                ->map(fn (EmailTemplate $template) => [
-                    'id' => $template->id,
-                    'slug' => $template->slug,
-                    'label' => $template->label,
-                    'subject' => $template->subject,
-                    'body_html' => $template->body_html,
-                    'is_default' => $template->is_default,
-                ])
-                ->values()
-                ->all(),
+            'company_name' => (string) Company::query()->whereKey($companyId)->value('name'),
+            'email_template' => $this->emailTemplatePayload($documentTypeKey),
             'latest_run' => $this->latestRunPayload($companyId, $documentTypeKey),
             'can' => BulkDocumentPagePermissions::for($request->user()),
         ];
@@ -155,6 +139,28 @@ class BulkDocumentsController extends Controller
             'status' => $filters->status !== '' ? $filters->status : 'active',
             'company_visa_type_id' => $filters->companyVisaTypeId,
             'search' => $filters->search,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function emailTemplatePayload(string $documentTypeKey): ?array
+    {
+        $template = BulkDocumentTypeRegistry::resolveEmailTemplate($documentTypeKey);
+
+        if ($template === null) {
+            return null;
+        }
+
+        return [
+            'id' => $template->id,
+            'slug' => $template->slug,
+            'label' => $template->label,
+            'subject' => $template->subject,
+            'body_html' => $template->body_html,
+            'to_preset' => $template->to_preset,
+            'cc_preset' => $template->cc_preset,
         ];
     }
 
