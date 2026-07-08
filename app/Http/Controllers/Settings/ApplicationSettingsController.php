@@ -12,7 +12,6 @@ use App\Http\Requests\Settings\UpdateApplicationSmtpRequest;
 use App\Models\Currency;
 use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
-use App\Support\BulkDocuments\SalaryDeclarationGenerationProgress;
 use App\Support\Settings\SettingKey;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -34,7 +33,6 @@ class ApplicationSettingsController extends Controller
 
         if (
             ! $user?->can('settings.application.view')
-            && ! $user?->can('settings.application.bulk-documents')
             && ! $user?->can('settings.integrations.whatsapp.view')
             && ! $user?->can('settings.integrations.hikvision.view')
         ) {
@@ -79,7 +77,6 @@ class ApplicationSettingsController extends Controller
             'smtp' => $this->mailSettings->forSettingsPage(),
             'whatsapp' => WhatsAppIntegrationController::pageProps($user),
             'hikvision' => HikvisionIntegrationController::pageProps($user),
-            'salary_declaration_generation' => SalaryDeclarationGenerationProgress::forCompany($companyId),
         ]);
     }
 

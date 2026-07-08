@@ -24,6 +24,30 @@ final class EmployeeDirectoryFilters
         public readonly string $roleId = '',
     ) {}
 
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            search: trim((string) ($data['search'] ?? '')),
+            branchId: trim((string) ($data['branch_id'] ?? '')),
+            departmentId: trim((string) ($data['department_id'] ?? '')),
+            positionId: trim((string) ($data['position_id'] ?? '')),
+            status: trim((string) ($data['status'] ?? '')),
+            managerId: trim((string) ($data['manager_id'] ?? '')),
+            genderId: trim((string) ($data['gender_id'] ?? '')),
+            nationalityId: trim((string) ($data['nationality_id'] ?? '')),
+            visaTypeId: trim((string) ($data['visa_type_id'] ?? '')),
+            companyVisaTypeId: trim((string) ($data['company_visa_type_id'] ?? '')),
+            rankId: trim((string) ($data['rank_id'] ?? '')),
+            approvalLocationId: trim((string) ($data['approval_location_id'] ?? '')),
+            sssaOptionId: trim((string) ($data['sssa_option_id'] ?? '')),
+            crewStatus: trim((string) ($data['crew_status'] ?? '')),
+            roleId: trim((string) ($data['role_id'] ?? '')),
+        );
+    }
+
     public static function fromRequest(Request $request): self
     {
         return new self(

@@ -11,6 +11,7 @@ import {
     Wallet,
     Settings,
     FileText,
+    FileStack,
     FileSignature,
     IdCard,
     BadgeCheck,
@@ -104,6 +105,11 @@ const baseSidebarData: SidebarData = {
                     icon: Users,
                 },
                 { title: 'Documents', url: documents.url(), icon: FileText },
+                {
+                    title: 'Bulk generate',
+                    url: '/organization/documents/bulk',
+                    icon: FileStack,
+                },
                 { title: 'Contracts', url: contracts.url(), icon: FileSignature },
                 { title: 'Bank Accounts', url: bankAccounts.url(), icon: CreditCard },
             ],
@@ -337,6 +343,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 : null;
                         case documents.url():
                             return has(permissions, 'documents.view')
+                                ? item
+                                : null;
+                        case '/organization/documents/bulk':
+                            return has(permissions, 'bulk_documents.view')
                                 ? item
                                 : null;
                         case contracts.url():

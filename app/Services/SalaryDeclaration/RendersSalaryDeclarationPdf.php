@@ -2,9 +2,6 @@
 
 namespace App\Services\SalaryDeclaration;
 
-use App\Models\Employee;
+use App\Services\BulkDocuments\RendersEmployeeDocumentPdf;
 
-interface RendersSalaryDeclarationPdf
-{
-    public function render(Employee $employee, int $companyId): string;
-}
+interface RendersSalaryDeclarationPdf extends RendersEmployeeDocumentPdf {}

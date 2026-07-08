@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Settings\ApplicationSettingsController;
-use App\Http\Controllers\Settings\BulkDocumentController;
 use App\Http\Controllers\Settings\EmailTemplateController;
 use App\Http\Controllers\Settings\Integrations\HikvisionIntegrationController;
 use App\Http\Controllers\Settings\Integrations\WhatsAppIntegrationController;
@@ -47,15 +46,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('settings/application/general', [ApplicationSettingsController::class, 'updateGeneral'])
         ->middleware('can:settings.application.update')
         ->name('application.general.update');
-
-    Route::post('settings/application/bulk-documents/salary-declarations', [BulkDocumentController::class, 'store'])
-        ->name('application.bulk-documents.salary-declarations');
-
-    Route::delete('settings/application/bulk-documents/salary-declarations', [BulkDocumentController::class, 'destroy'])
-        ->name('application.bulk-documents.salary-declarations.clear');
-
-    Route::post('settings/application/bulk-documents/salary-declarations/download', [BulkDocumentController::class, 'download'])
-        ->name('application.bulk-documents.salary-declarations.download');
 
     Route::post('settings/application/branding', [ApplicationSettingsController::class, 'updateBranding'])
         ->middleware('can:settings.application.update')

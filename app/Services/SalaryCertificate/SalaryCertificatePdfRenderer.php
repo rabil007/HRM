@@ -1,26 +1,27 @@
 <?php
 
-namespace App\Services\SalaryDeclaration;
+namespace App\Services\SalaryCertificate;
 
 use App\Models\Employee;
 use App\Services\BulkDocuments\RendersEmployeeDocumentPdf;
 use App\Support\BulkDocuments\BrowsershotEmbeddedFonts;
 use App\Support\BulkDocuments\ConfiguresBrowsershotEnvironment;
 use App\Support\BulkDocuments\ResolvesBrowsershotBinaries;
-use App\Support\Employees\Services\SalaryDeclarationData;
+use App\Support\Employees\Services\SalaryCertificateData;
 use Spatie\Browsershot\Browsershot;
 
-final class SalaryDeclarationPdfRenderer implements RendersEmployeeDocumentPdf, RendersSalaryDeclarationPdf
+final class SalaryCertificatePdfRenderer implements RendersEmployeeDocumentPdf
 {
     public function render(Employee $employee, int $companyId): string
     {
         ConfiguresBrowsershotEnvironment::apply();
 
-        $data = SalaryDeclarationData::for($employee, $companyId);
+        $data = SalaryCertificateData::for($employee, $companyId);
         $data['printable'] = false;
+        $data['is_pdf'] = true;
         $data['embedded_font_styles'] = BrowsershotEmbeddedFonts::dejaVuStyles();
 
-        $html = view('employees.salary-declaration', $data)->render();
+        $html = view('employees.salary-certificate', $data)->render();
 
         $binaries = ResolvesBrowsershotBinaries::resolve();
 

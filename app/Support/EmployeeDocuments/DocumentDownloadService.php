@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use ZipArchive;
@@ -143,9 +144,25 @@ class DocumentDownloadService
 
         abort_if($documentType === null, 404, 'No salary declaration documents found.');
 
+        return $this->streamBulkDocumentsZipByType($companyId, $documentType->id);
+    }
+
+    /**
+     * @param  list<int>|null  $employeeIds
+     */
+    public function streamBulkDocumentsZipByType(
+        int $companyId,
+        int $documentTypeId,
+        ?array $employeeIds = null,
+    ): StreamedResponse {
+        $documentType = DocumentType::query()->find($documentTypeId);
+
+        abort_if($documentType === null, 404, 'No documents found for this type.');
+
         $documents = EmployeeDocument::query()
             ->forCompany($companyId)
             ->where('document_type_id', $documentType->id)
+            ->when($employeeIds !== null && $employeeIds !== [], fn ($query) => $query->whereIn('employee_id', $employeeIds))
             ->with('employee:id,name,employee_no')
             ->orderBy('employee_id')
             ->orderBy('id')
@@ -160,7 +177,9 @@ class DocumentDownloadService
                 'document_type',
             ]);
 
-        abort_if($documents->isEmpty(), 404, 'No salary declaration documents found.');
+        abort_if($documents->isEmpty(), 404, 'No documents found to download.');
+
+        $downloadName = Str::slug($documentType->title).'-documents-'.now()->format('Y-m-d').'.zip';
 
         return $this->buildAndStreamZip(
             function (ZipArchive $zip) use ($documents, $companyId): int {
@@ -184,7 +203,7 @@ class DocumentDownloadService
 
                 return $added;
             },
-            'salary_declarations.zip',
+            $downloadName,
         );
     }
 

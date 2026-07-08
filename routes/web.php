@@ -17,6 +17,11 @@ use App\Http\Controllers\Organization\BankAccountsImportController;
 use App\Http\Controllers\Organization\BankAccountsIndexController;
 use App\Http\Controllers\Organization\BankAccountsNoAccountController;
 use App\Http\Controllers\Organization\BranchController;
+use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentsController;
+use App\Http\Controllers\Organization\BulkDocuments\DeleteBulkDocumentsController;
+use App\Http\Controllers\Organization\BulkDocuments\DownloadBulkDocumentsController;
+use App\Http\Controllers\Organization\BulkDocuments\EmailBulkDocumentsController;
+use App\Http\Controllers\Organization\BulkDocuments\GenerateBulkDocumentsController;
 use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\CompanySwitchController;
 use App\Http\Controllers\Organization\ContractsExportController;
@@ -257,6 +262,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('organization/documents/employees/{employee}/files/email', DocumentBulkEmailController::class)->name('organization.documents.employee.files.email');
         Route::get('organization/employees/{employee}/documents/{document}/versions', [EmployeeDocumentController::class, 'versions'])->name('organization.employees.documents.versions');
     });
+    Route::middleware('can:bulk_documents.view')->group(function () {
+        Route::get('organization/documents/bulk', BulkDocumentsController::class)
+            ->name('organization.documents.bulk');
+    });
+    Route::post('organization/documents/bulk/generate', [GenerateBulkDocumentsController::class, 'store'])
+        ->middleware('can:bulk_documents.generate')
+        ->name('organization.documents.bulk.generate');
+    Route::delete('organization/documents/bulk/documents', [DeleteBulkDocumentsController::class, 'destroy'])
+        ->middleware('can:bulk_documents.delete')
+        ->name('organization.documents.bulk.documents.destroy');
+    Route::post('organization/documents/bulk/download', [DownloadBulkDocumentsController::class, 'store'])
+        ->middleware('can:documents.download')
+        ->name('organization.documents.bulk.download');
+    Route::post('organization/documents/bulk/email', [EmailBulkDocumentsController::class, 'store'])
+        ->middleware('can:bulk_documents.email')
+        ->name('organization.documents.bulk.email');
     Route::middleware('can:documents.share')->group(function () {
         Route::post('organization/documents/employees/{employee}/files/share-links', DocumentBulkShareLinksController::class)
             ->name('organization.documents.employee.files.share-links');
