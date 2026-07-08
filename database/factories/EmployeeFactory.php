@@ -94,7 +94,7 @@ class EmployeeFactory extends Factory
             'address' => $this->faker->optional()->address(),
             'emirates_id' => $this->faker->optional()->bothify('###-####-#######-#'),
             'passport_number' => $this->faker->optional()->bothify('P########'),
-            'status' => $this->faker->randomElement(['active', 'inactive', 'on_leave', 'terminated']),
+            'status' => 'active',
             'termination_date' => null,
             'termination_reason' => null,
         ];
