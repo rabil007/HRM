@@ -251,6 +251,8 @@ class PermissionsSeeder extends Seeder
             'payroll.salary_inputs.delete',
             'payroll.salary_inputs.view',
             'payroll.records.view',
+            'payroll.payslips.generate',
+            'payroll.payslips.email',
             'payroll.wps.export',
         ];
 

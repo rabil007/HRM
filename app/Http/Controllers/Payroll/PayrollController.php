@@ -384,6 +384,8 @@ class PayrollController extends Controller
                         ($payrollPeriod->isCrew() && ($request->user()?->can('payroll.crew_timesheets.view') ?? false))
                         || ($payrollPeriod->isOffice() && ($request->user()?->can('payroll.periods.view') ?? false))
                     ),
+                'payslips_generate' => $request->user()?->can('payroll.payslips.generate') ?? false,
+                'payslips_email' => $request->user()?->can('payroll.payslips.email') ?? false,
             ]),
             'payslip_summary' => $payslipSummary,
             'wps_preview' => $wpsPreview,

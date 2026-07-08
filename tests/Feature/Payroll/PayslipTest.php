@@ -1,12 +1,47 @@
 <?php
 
 use App\Enums\PayrollCategory;
+use App\Mail\PayslipMail;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\Actions\GeneratePayslip;
 use App\Support\Payroll\PayslipData;
+use Database\Seeders\EmailTemplatesSeeder;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+
+test('authorized users can generate payslip pdfs', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.payslips.generate',
+    ]);
+
+    Storage::fake('local');
+
+    $period = PayrollPeriod::factory()->for($company)->create();
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'PAY-001']);
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'approved',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.payslips.generate'), [
+            'record_ids' => [$record->id],
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $record->refresh();
+
+    expect($record->payslip_path)->not->toBeNull()
+        ->and(Storage::disk('local')->exists((string) $record->payslip_path))->toBeTrue();
+});
 
 test('authorized users can download payslips', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
@@ -99,6 +134,82 @@ test('inertia requests to payslip show force a full page visit', function () {
         ])
         ->assertStatus(409)
         ->assertHeader('X-Inertia-Location', route('payroll.payslips.show', $record));
+});
+
+test('bulk payslip email queues messages for employees with payslip pdfs', function () {
+    Mail::fake();
+
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.payslips.email',
+    ]);
+
+    Storage::fake('local');
+
+    EmailTemplatesSeeder::seedPayslipDeliveryTemplate();
+
+    $period = PayrollPeriod::factory()->for($company)->create();
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'PAY-003',
+        'work_email' => 'crew@example.com',
+    ]);
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'status' => 'approved',
+        'net_salary' => 5000,
+    ]);
+
+    app(GeneratePayslip::class)->handle($record);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.payslips.email'), [
+            'record_ids' => [$record->id],
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    Mail::assertQueued(PayslipMail::class);
+});
+
+test('authorized users can generate all payslips for a pay period', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.payslips.generate',
+    ]);
+
+    Storage::fake('local');
+
+    $period = PayrollPeriod::factory()->for($company)->create();
+    $firstEmployee = Employee::factory()->forCompany($company)->create(['employee_no' => 'PAY-010']);
+    $secondEmployee = Employee::factory()->forCompany($company)->create(['employee_no' => 'PAY-011']);
+
+    PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $firstEmployee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'approved',
+    ]);
+
+    PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $secondEmployee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'approved',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.payslips.generate'), [
+            'period_id' => $period->id,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(PayrollRecord::query()->where('period_id', $period->id)->whereNotNull('payslip_path')->count())->toBe(2);
 });
 
 test('payslip data embeds company logo as data uri for pdf rendering', function () {
@@ -223,4 +334,28 @@ test('crew payslip includes overtime calculation breakdown', function () {
         ->toContain('98 × 35.96')
         ->toContain('3523.97')
         ->toContain('Crew Attendance');
+});
+
+test('authorized users can download all generated payslips as a ZIP file', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.records.view']);
+
+    Storage::fake('local');
+
+    $period = PayrollPeriod::factory()->for($company)->create();
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'PAY-ZIP-1']);
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'status' => 'approved',
+    ]);
+
+    app(GeneratePayslip::class)->handle($record);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.payslips.download-zip', ['period_id' => $period->id]))
+        ->assertOk()
+        ->assertHeader('content-disposition');
 });

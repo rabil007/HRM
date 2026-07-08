@@ -223,6 +223,8 @@ export type CrewPayrollPermissions = {
     recalculate_payroll: boolean;
     wps_export: boolean;
     export_payroll: boolean;
+    payslips_generate: boolean;
+    payslips_email: boolean;
 };
 
 export type PayslipSummary = {
