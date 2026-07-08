@@ -1,5 +1,4 @@
 import { FileStack, History } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export type BulkDocumentsView = 'roster' | 'history';
@@ -12,31 +11,33 @@ export function BulkDocumentsViewSwitcher({
     onChange: (next: BulkDocumentsView) => void;
 }) {
     return (
-        <div className="flex items-center rounded-xl glass-card p-1">
-            <Button
+        <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted/60 p-0.5">
+            <button
                 type="button"
-                variant={value === 'roster' ? 'default' : 'ghost'}
-                className={cn(
-                    'h-11 rounded-lg px-4 text-sm font-medium',
-                    value !== 'roster' && 'hover:bg-accent',
-                )}
                 onClick={() => onChange('roster')}
-            >
-                <FileStack className="mr-2 h-4 w-4" />
-                Employees
-            </Button>
-            <Button
-                type="button"
-                variant={value === 'history' ? 'default' : 'ghost'}
                 className={cn(
-                    'h-11 rounded-lg px-4 text-sm font-medium',
-                    value !== 'history' && 'hover:bg-accent',
+                    'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                    value === 'roster'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground',
                 )}
-                onClick={() => onChange('history')}
             >
-                <History className="mr-2 h-4 w-4" />
+                <FileStack className="h-3.5 w-3.5" />
+                Employees
+            </button>
+            <button
+                type="button"
+                onClick={() => onChange('history')}
+                className={cn(
+                    'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                    value === 'history'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground',
+                )}
+            >
+                <History className="h-3.5 w-3.5" />
                 History
-            </Button>
+            </button>
         </div>
     );
 }

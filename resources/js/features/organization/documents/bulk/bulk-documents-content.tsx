@@ -1035,7 +1035,10 @@ export function BulkDocumentsContent({
             <OrganizationDataTable
                 minWidth="min-w-[880px]"
                 header={
-                    <BulkDocumentsViewSwitcher value={view} onChange={setView} />
+                    <>
+                        <span />
+                        <BulkDocumentsViewSwitcher value={view} onChange={setView} />
+                    </>
                 }
             >
                 <TableHeader>
@@ -1103,14 +1106,14 @@ export function BulkDocumentsContent({
                         activity={activity}
                         header={
                             <>
-                                <BulkDocumentsViewSwitcher
-                                    value={view}
-                                    onChange={setView}
-                                />
                                 <span className="text-sm text-muted-foreground/80">
                                     All bulk generation and email runs for{' '}
                                     {selectedTypeLabel}.
                                 </span>
+                                <BulkDocumentsViewSwitcher
+                                    value={view}
+                                    onChange={setView}
+                                />
                             </>
                         }
                     />
