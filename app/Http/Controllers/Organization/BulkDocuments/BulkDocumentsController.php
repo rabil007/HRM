@@ -118,14 +118,10 @@ class BulkDocumentsController extends Controller
     {
         $filters = EmployeeDirectoryFilters::fromRequest($request);
 
-        if ($filters->status === '') {
-            return EmployeeDirectoryFilters::fromArray(array_merge(
-                $filters->toQueryArray(),
-                ['status' => 'active'],
-            ));
-        }
-
-        return $filters;
+        return EmployeeDirectoryFilters::fromArray(array_merge(
+            $filters->toQueryArray(),
+            ['status' => 'active'],
+        ));
     }
 
     /**
@@ -136,7 +132,7 @@ class BulkDocumentsController extends Controller
         return [
             'department_id' => $filters->departmentId,
             'position_id' => $filters->positionId,
-            'status' => $filters->status !== '' ? $filters->status : 'active',
+            'status' => 'active',
             'company_visa_type_id' => $filters->companyVisaTypeId,
             'search' => $filters->search,
         ];

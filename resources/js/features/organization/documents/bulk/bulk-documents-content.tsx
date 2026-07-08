@@ -294,7 +294,6 @@ export function BulkDocumentsContent({
     const [filters, setFilters] = useState<BulkDocumentFilters>({
         department_id: initialFilters.department_id,
         position_id: initialFilters.position_id,
-        status: initialFilters.status || 'active',
         company_visa_type_id: initialFilters.company_visa_type_id,
     });
     const [filtersOpen, setFiltersOpen] = useState(false);
@@ -525,6 +524,7 @@ export function BulkDocumentsContent({
             '/organization/documents/bulk/generate',
             {
                 document_type_key,
+                status: 'active',
                 ...filters,
                 search: searchInput,
                 ...(selectedCount > 0 ? { employee_ids: selectedIds } : {}),
@@ -589,9 +589,9 @@ export function BulkDocumentsContent({
     };
 
     const activeFiltersCount = [
+        filters.department_id,
         filters.position_id,
         filters.company_visa_type_id,
-        filters.status && filters.status !== 'active' ? filters.status : '',
     ].filter(Boolean).length;
 
     const deptSelectionCount =

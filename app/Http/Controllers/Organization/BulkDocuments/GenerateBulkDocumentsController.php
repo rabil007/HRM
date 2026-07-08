@@ -23,9 +23,7 @@ class GenerateBulkDocumentsController extends Controller
         $replaceExisting = $employeeIds !== [];
 
         $filters = $request->filters();
-        if (trim((string) ($filters['status'] ?? '')) === '') {
-            $filters['status'] = 'active';
-        }
+        $filters['status'] = 'active';
 
         $directoryFilters = EmployeeDirectoryFilters::fromArray($filters);
         $counts = BulkDocumentRosterQuery::counts(

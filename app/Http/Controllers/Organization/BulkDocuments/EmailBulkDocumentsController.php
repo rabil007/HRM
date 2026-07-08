@@ -23,6 +23,7 @@ class EmailBulkDocumentsController extends Controller
 
         $employees = Employee::query()
             ->where('company_id', $companyId)
+            ->where('status', 'active')
             ->whereIn('id', $request->employeeIds())
             ->get();
 

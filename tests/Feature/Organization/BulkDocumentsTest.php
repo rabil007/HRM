@@ -227,6 +227,31 @@ test('bulk documents history view returns paginated activity', function () {
             ->has('pagination'));
 });
 
+test('bulk documents page excludes inactive employees even when status filter is requested', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    Employee::factory()->forCompany($company)->create([
+        'name' => 'Active Employee',
+        'status' => 'active',
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'name' => 'Inactive Employee',
+        'status' => 'inactive',
+    ]);
+
+    $this->get(route('organization.documents.bulk', ['status' => 'inactive']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.name', 'Active Employee')
+            ->where('filters.status', 'active')
+            ->where('counts.targeted', 1));
+});
+
 test('bulk documents routes enforce permissions', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

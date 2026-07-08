@@ -22,6 +22,7 @@ class BulkDocumentEmployeeSearchController extends Controller
 
         $employees = Employee::query()
             ->where('company_id', $companyId)
+            ->where('status', 'active')
             ->where(function ($query) use ($like): void {
                 $query->where('name', 'like', $like)
                     ->orWhere('employee_no', 'like', $like);

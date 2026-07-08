@@ -86,7 +86,6 @@ export type BulkDocumentsPageProps = {
     filters: {
         department_id: string;
         position_id: string;
-        status: string;
         company_visa_type_id: string;
         search: string;
     };
