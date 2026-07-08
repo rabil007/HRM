@@ -9,13 +9,25 @@ export function OrganizationDataTable({
     children,
     minWidth = 'min-w-[980px]',
     compact = false,
+    header,
 }: {
     children: ReactNode;
     minWidth?: string;
     compact?: boolean;
+    header?: ReactNode;
 }): ReactElement {
     return (
-        <Card className="w-full overflow-hidden glass-card">
+        <Card
+            className={cn(
+                'w-full overflow-hidden glass-card',
+                header && 'gap-0 py-0',
+            )}
+        >
+            {header ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
+                    {header}
+                </div>
+            ) : null}
             <CardContent
                 className={cn(
                     'w-full p-0',

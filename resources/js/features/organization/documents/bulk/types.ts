@@ -6,6 +6,18 @@ export type BulkDocumentTypeOption = {
     label: string;
 };
 
+export type BulkDocumentFilters = {
+    department_id: string;
+    position_id: string;
+    company_visa_type_id: string;
+};
+
+export const EMPTY_BULK_DOCUMENT_FILTERS: BulkDocumentFilters = {
+    department_id: '',
+    position_id: '',
+    company_visa_type_id: '',
+};
+
 export type BulkRosterEmployee = {
     id: number;
     name: string;

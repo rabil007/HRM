@@ -2,7 +2,6 @@ import { Link, router, usePoll } from '@inertiajs/react';
 import {
     Download,
     FileStack,
-    Filter,
     Folder,
     FolderTree,
     Loader2,
@@ -44,11 +43,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import {
-    BulkDocumentsFiltersSheet,
-    EMPTY_BULK_DOCUMENT_FILTERS,
-} from '@/features/organization/documents/bulk/bulk-documents-filters-sheet';
-import type { BulkDocumentFilters } from '@/features/organization/documents/bulk/bulk-documents-filters-sheet';
 import { BulkDocumentsHistoryTable } from '@/features/organization/documents/bulk/bulk-documents-history-table';
 import {
     BulkDocumentsViewSwitcher
@@ -66,10 +60,13 @@ import { EmployeeProfileLink } from '@/features/organization/employees/component
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { documents } from '@/routes/organization';
-import type {
-    BulkDocumentsPageProps,
-    BulkRosterEmployee,
+import {
+    EMPTY_BULK_DOCUMENT_FILTERS
+    
+    
+    
 } from './types';
+import type {BulkDocumentFilters, BulkDocumentsPageProps, BulkRosterEmployee} from './types';
 
 const BULK_URL = '/organization/documents/bulk';
 
@@ -279,7 +276,6 @@ export function BulkDocumentsContent({
     activity,
     pagination,
     generation_filter,
-    positions,
     company_visa_types,
     department_tree,
     department_tree_selected_id,
@@ -296,7 +292,6 @@ export function BulkDocumentsContent({
         position_id: initialFilters.position_id,
         company_visa_type_id: initialFilters.company_visa_type_id,
     });
-    const [filtersOpen, setFiltersOpen] = useState(false);
     const [deptPopoverOpen, setDeptPopoverOpen] = useState(false);
     const [emailOpen, setEmailOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -588,14 +583,28 @@ export function BulkDocumentsContent({
         }
     };
 
-    const activeFiltersCount = [
+    const deptSelectionCount =
+        filters.department_id || filters.position_id ? 1 : 0;
+
+    const activeFilterCount = [
         filters.department_id,
         filters.position_id,
         filters.company_visa_type_id,
+        searchInput.trim(),
+        generation_filter === 'missing',
     ].filter(Boolean).length;
 
-    const deptSelectionCount =
-        filters.department_id || filters.position_id ? 1 : 0;
+    const clearAllFilters = useCallback(() => {
+        const nextFilters = { ...EMPTY_BULK_DOCUMENT_FILTERS };
+
+        setFilters(nextFilters);
+        setSearchInput('');
+        navigate(document_type_key, nextFilters, '', 'all');
+    }, [document_type_key, navigate]);
+
+    const selectedSponsorLabel = company_visa_types.find(
+        (sponsor) => String(sponsor.id) === filters.company_visa_type_id,
+    )?.name;
 
     return (
         <Main>
@@ -686,34 +695,16 @@ export function BulkDocumentsContent({
             ) : null}
 
             {/* Search / view controls */}
-            <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center">
-                {isRosterView ? (
+            {isRosterView ? (
+                <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center">
                     <SearchBar
                         placeholder="Search employees by name or employee no…"
                         value={searchInput}
                         onChange={setSearchInput}
                         className="mb-0 flex-1"
                     />
-                ) : (
-                    <div className="min-w-0 flex-1 space-y-1">
-                        <p className="text-sm font-medium text-foreground/90">
-                            Activity history
-                        </p>
-                        <p className="text-sm text-muted-foreground/80">
-                            All bulk generation and email runs for{' '}
-                            {selectedTypeLabel}.
-                        </p>
-                    </div>
-                )}
 
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <BulkDocumentsViewSwitcher
-                        value={view}
-                        onChange={setView}
-                    />
-
-                    {isRosterView ? (
-                        <>
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
                         {/* Desktop: Departments popover */}
                         <Popover
                             open={deptPopoverOpen}
@@ -784,55 +775,175 @@ export function BulkDocumentsContent({
                             </PopoverContent>
                         </Popover>
 
-                        {/* Filters button */}
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
-                            onClick={() => setFiltersOpen(true)}
+                        {/* Sponsor quick filter */}
+                        <AppSelect
+                            value={filters.company_visa_type_id || 'all'}
+                            onValueChange={(value) => {
+                                const next = {
+                                    ...filters,
+                                    company_visa_type_id:
+                                        value === 'all' ? '' : value,
+                                };
+                                setFilters(next);
+                                navigate(document_type_key, next, searchInput);
+                            }}
+                            className="h-12 w-full rounded-xl glass-card sm:w-56"
                         >
-                            <Filter className="mr-2 h-4 w-4" />
-                            Filters
-                            {activeFiltersCount ? (
-                                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
-                                    {activeFiltersCount}
-                                </span>
-                            ) : null}
-                        </Button>
-                        </>
-                    ) : null}
+                            <AppSelectItem value="all">
+                                All sponsors
+                            </AppSelectItem>
+                            {company_visa_types.map((sponsor) => (
+                                <AppSelectItem
+                                    key={sponsor.id}
+                                    value={String(sponsor.id)}
+                                >
+                                    {sponsor.name}
+                                </AppSelectItem>
+                            ))}
+                        </AppSelect>
+
+                        {activeFilterCount > 0 ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="h-12 rounded-xl glass-card px-4 hover:bg-accent"
+                                onClick={clearAllFilters}
+                            >
+                                <X className="mr-2 h-4 w-4" />
+                                Clear all
+                            </Button>
+                        ) : null}
+                    </div>
                 </div>
-            </div>
+            ) : null}
 
             {/* Active filter chips */}
-            {isRosterView && generation_filter === 'missing' ? (
+            {isRosterView && activeFilterCount > 0 ? (
                 <div className="mb-4 flex flex-wrap items-center gap-2">
                     <span className="text-xs font-medium text-muted-foreground/80">
                         Active filters
                     </span>
-                    <Badge
-                        variant="outline"
-                        className="gap-1 border-amber-500/25 bg-amber-500/5 pr-1 pl-2.5 font-normal"
-                    >
-                        Missing document only
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 rounded-full hover:bg-amber-500/10"
-                            onClick={() =>
-                                navigate(
-                                    document_type_key,
-                                    filters,
-                                    searchInput,
-                                    'all',
-                                )
-                            }
-                            aria-label="Clear filter"
+
+                    {filters.department_id || filters.position_id ? (
+                        <Badge
+                            variant="outline"
+                            className="gap-1 pr-1 pl-2.5 font-normal"
                         >
-                            <X className="h-3 w-3" />
-                        </Button>
-                    </Badge>
+                            {filters.position_id
+                                ? 'Department · position'
+                                : 'Department'}
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 rounded-full hover:bg-muted"
+                                onClick={() => {
+                                    const next = {
+                                        ...filters,
+                                        department_id: '',
+                                        position_id: '',
+                                    };
+                                    setFilters(next);
+                                    navigate(
+                                        document_type_key,
+                                        next,
+                                        searchInput,
+                                    );
+                                }}
+                                aria-label="Clear department filter"
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </Badge>
+                    ) : null}
+
+                    {filters.company_visa_type_id ? (
+                        <Badge
+                            variant="outline"
+                            className="gap-1 pr-1 pl-2.5 font-normal"
+                        >
+                            Sponsor: {selectedSponsorLabel ?? 'Selected'}
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 rounded-full hover:bg-muted"
+                                onClick={() => {
+                                    const next = {
+                                        ...filters,
+                                        company_visa_type_id: '',
+                                    };
+                                    setFilters(next);
+                                    navigate(
+                                        document_type_key,
+                                        next,
+                                        searchInput,
+                                    );
+                                }}
+                                aria-label="Clear sponsor filter"
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </Badge>
+                    ) : null}
+
+                    {searchInput.trim() ? (
+                        <Badge
+                            variant="outline"
+                            className="gap-1 pr-1 pl-2.5 font-normal"
+                        >
+                            Search: {searchInput.trim()}
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 rounded-full hover:bg-muted"
+                                onClick={() => {
+                                    setSearchInput('');
+                                    navigate(document_type_key, filters, '');
+                                }}
+                                aria-label="Clear search"
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </Badge>
+                    ) : null}
+
+                    {generation_filter === 'missing' ? (
+                        <Badge
+                            variant="outline"
+                            className="gap-1 border-amber-500/25 bg-amber-500/5 pr-1 pl-2.5 font-normal"
+                        >
+                            Missing document only
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 rounded-full hover:bg-amber-500/10"
+                                onClick={() =>
+                                    navigate(
+                                        document_type_key,
+                                        filters,
+                                        searchInput,
+                                        'all',
+                                    )
+                                }
+                                aria-label="Clear missing document filter"
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </Badge>
+                    ) : null}
+
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={clearAllFilters}
+                    >
+                        Clear all
+                    </Button>
                 </div>
             ) : null}
 
@@ -921,7 +1032,12 @@ export function BulkDocumentsContent({
             ) : null}
 
             {/* Employee table */}
-            <OrganizationDataTable minWidth="min-w-[880px]">
+            <OrganizationDataTable
+                minWidth="min-w-[880px]"
+                header={
+                    <BulkDocumentsViewSwitcher value={view} onChange={setView} />
+                }
+            >
                 <TableHeader>
                     <DataTableHeaderRow>
                         <DataTableHead className="w-10">
@@ -983,7 +1099,21 @@ export function BulkDocumentsContent({
                 </>
             ) : (
                 <>
-                    <BulkDocumentsHistoryTable activity={activity} />
+                    <BulkDocumentsHistoryTable
+                        activity={activity}
+                        header={
+                            <>
+                                <BulkDocumentsViewSwitcher
+                                    value={view}
+                                    onChange={setView}
+                                />
+                                <span className="text-sm text-muted-foreground/80">
+                                    All bulk generation and email runs for{' '}
+                                    {selectedTypeLabel}.
+                                </span>
+                            </>
+                        }
+                    />
 
                     <Pagination
                         currentPage={pagination.current_page}
@@ -998,23 +1128,6 @@ export function BulkDocumentsContent({
                     />
                 </>
             )}
-
-            <BulkDocumentsFiltersSheet
-                open={filtersOpen}
-                onOpenChange={setFiltersOpen}
-                value={filters}
-                onChange={(next) => {
-                    setFilters(next);
-                    navigate(document_type_key, next, searchInput);
-                }}
-                onReset={() => {
-                    const next = { ...EMPTY_BULK_DOCUMENT_FILTERS };
-                    setFilters(next);
-                    navigate(document_type_key, next, searchInput);
-                }}
-                positions={positions}
-                companyVisaTypes={company_visa_types}
-            />
 
             {emailOpen ? (
                 <BulkDocumentsEmailModal

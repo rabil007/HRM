@@ -88,6 +88,17 @@ final class BulkDocumentTypeRegistry
     }
 
     /**
+     * @return list<string>
+     */
+    public static function emailTemplateSlugs(): array
+    {
+        return collect(self::definitions())
+            ->pluck('email_template_slug')
+            ->values()
+            ->all();
+    }
+
+    /**
      * @return Collection<int, array{value: string, label: string}>
      */
     public static function options(): Collection

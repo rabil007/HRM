@@ -8,6 +8,7 @@ use App\Models\EmailTemplate;
 use App\Models\User;
 use App\Models\WhatsAppSetting;
 use App\Models\WhatsAppTemplate;
+use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 
 class DocumentPagePermissions
 {
@@ -54,6 +55,7 @@ class DocumentPagePermissions
         $emailTemplates = EmailTemplate::query()
             ->enabled()
             ->forCategory(EmailTemplateCategory::Document)
+            ->whereNotIn('slug', BulkDocumentTypeRegistry::emailTemplateSlugs())
             ->orderByDesc('is_default')
             ->orderBy('sort_order')
             ->orderBy('label')

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -84,11 +85,13 @@ function generationStatusBadge(status: string) {
 
 export function BulkDocumentsHistoryTable({
     activity,
+    header,
 }: {
     activity: BulkActivityItem[];
+    header?: ReactNode;
 }) {
     return (
-        <OrganizationDataTable minWidth="min-w-[920px]">
+        <OrganizationDataTable minWidth="min-w-[920px]" header={header}>
             <TableHeader>
                 <DataTableHeaderRow>
                     <DataTableHead>Date</DataTableHead>
