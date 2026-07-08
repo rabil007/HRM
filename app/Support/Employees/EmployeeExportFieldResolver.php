@@ -4,6 +4,7 @@ namespace App\Support\Employees;
 
 use App\Models\Employee;
 use App\Support\Departments\ResolveDepartmentEffectiveManager;
+use Throwable;
 
 final class EmployeeExportFieldResolver
 {
@@ -13,26 +14,25 @@ final class EmployeeExportFieldResolver
      */
     public function resolve(Employee $employee, array $keys): array
     {
-        $values = $this->allValues($employee);
+        $contract = $employee->currentContract;
+        $bankAccount = $employee->primaryBankAccount;
 
         $resolved = [];
 
         foreach ($keys as $key) {
-            $resolved[$key] = $values[$key] ?? null;
+            $resolved[$key] = $this->value($key, $employee, $contract, $bankAccount);
         }
 
         return $resolved;
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function allValues(Employee $employee): array
-    {
-        $contract = $employee->currentContract;
-        $bankAccount = $employee->primaryBankAccount;
-
-        return [
+    private function value(
+        string $key,
+        Employee $employee,
+        mixed $contract,
+        mixed $bankAccount,
+    ): mixed {
+        return match ($key) {
             'id' => $employee->id,
             'employee_no' => $employee->employee_no,
             'name' => $employee->name,
@@ -63,11 +63,11 @@ final class EmployeeExportFieldResolver
             'nationality' => $employee->nationalityRef?->name,
             'visa_type' => $employee->visaTypeRef?->name,
             'company_visa_type' => $employee->companyVisaTypeRef?->name,
-            'salary_payment_method' => $employee->salary_payment_method?->label(),
+            'salary_payment_method' => $this->safe(fn () => $employee->salary_payment_method?->label()),
             'status' => $employee->status,
             'created_at' => $employee->created_at?->toDateTimeString(),
-            'contract_payroll_category' => $contract?->payroll_category?->label(),
-            'contract_salary_structure' => $contract?->resolvedSalaryStructure()->label(),
+            'contract_payroll_category' => $this->safe(fn () => $contract?->payroll_category?->label()),
+            'contract_salary_structure' => $this->safe(fn () => $contract?->resolvedSalaryStructure()->label()),
             'contract_start_date' => $contract?->start_date?->toDateString(),
             'contract_end_date' => $contract?->end_date?->toDateString(),
             'contract_labor_contract_id' => $contract?->labor_contract_id,
@@ -79,10 +79,48 @@ final class EmployeeExportFieldResolver
             'contract_site_allowance' => $contract?->site_allowance,
             'contract_note' => $contract?->note,
             'contract_status' => $contract?->status,
+            'contract_total_compensation_aed' => $contract !== null
+                ? round(
+                    (float) ($contract->basic_salary ?? 0)
+                    + (float) ($contract->housing_allowance ?? 0)
+                    + (float) ($contract->transport_allowance ?? 0)
+                    + (float) ($contract->other_allowances ?? 0)
+                    + (float) ($contract->supplementary_allowance ?? 0)
+                    + (float) ($contract->site_allowance ?? 0),
+                    2,
+                )
+                : null,
+            'contract_total_compensation_usd' => $contract !== null
+                ? round(
+                    (
+                        (float) ($contract->basic_salary ?? 0)
+                        + (float) ($contract->housing_allowance ?? 0)
+                        + (float) ($contract->transport_allowance ?? 0)
+                        + (float) ($contract->other_allowances ?? 0)
+                        + (float) ($contract->supplementary_allowance ?? 0)
+                        + (float) ($contract->site_allowance ?? 0)
+                    ) / EmployeeExportFieldRegistry::AED_PER_USD,
+                    2,
+                )
+                : null,
             'bank_name' => $bankAccount?->bank?->name,
             'bank_iban' => $bankAccount?->iban,
             'bank_account_name' => $bankAccount?->account_name,
             'bank_is_primary' => $bankAccount?->is_primary,
-        ];
+            default => null,
+        };
+    }
+
+    /**
+     * Safely call a closure that may throw due to enum cast failures or
+     * unexpected database values, returning null on any error.
+     */
+    private function safe(callable $fn): mixed
+    {
+        try {
+            return $fn();
+        } catch (Throwable) {
+            return null;
+        }
     }
 }

@@ -162,6 +162,7 @@ export type EmployeeExportFieldOption = {
     label: string;
     group: 'employee' | 'contract' | 'bank_account';
     allowed: boolean;
+    excel_only: boolean;
 };
 
 export type EmployeeFormData = {

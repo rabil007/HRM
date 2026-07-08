@@ -6,6 +6,7 @@ import {
     GripVertical,
     Plus,
     Search,
+    TriangleAlert,
     X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -162,6 +163,13 @@ export function EmployeeExportDialog({
     }, [open, optionByKey]);
 
     const addField = (key: string) => {
+        const option = optionByKey.get(key);
+
+        if (option?.excel_only && format === 'csv') {
+            toast.error('This field is only available in XLSX format.');
+            return;
+        }
+
         setSelectedKeys((current) =>
             current.includes(key) ? current : [...current, key],
         );
@@ -389,10 +397,21 @@ export function EmployeeExportDialog({
                                                         onClick={() =>
                                                             addField(option.key)
                                                         }
-                                                        className="group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left hover:bg-muted/70 active:bg-muted"
+                                                        className={cn(
+                                                            'group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left hover:bg-muted/70 active:bg-muted',
+                                                            option.excel_only &&
+                                                                format ===
+                                                                    'csv' &&
+                                                                'opacity-50',
+                                                        )}
                                                     >
-                                                        <span className="text-sm text-foreground">
+                                                        <span className="flex items-center gap-2 text-sm text-foreground">
                                                             {option.label}
+                                                            {option.excel_only && (
+                                                                <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1 py-px text-[9px] font-bold tracking-wide text-amber-600 dark:text-amber-400">
+                                                                    XLSX
+                                                                </span>
+                                                            )}
                                                         </span>
                                                         <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                                                     </button>
@@ -496,16 +515,32 @@ export function EmployeeExportDialog({
                                                 <span className="block truncate text-sm leading-none">
                                                     {option.label}
                                                 </span>
-                                                <span
-                                                    className={cn(
-                                                        'mt-0.5 inline-flex items-center gap-1 rounded border px-1.5 py-px text-[10px] font-medium leading-none',
-                                                        GROUP_COLORS[
-                                                            option.group
-                                                        ].badge,
-                                                    )}
-                                                >
-                                                    {GROUP_LABELS[option.group]}
-                                                </span>
+                                                <div className="mt-0.5 flex items-center gap-1">
+                                                    <span
+                                                        className={cn(
+                                                            'inline-flex items-center gap-1 rounded border px-1.5 py-px text-[10px] font-medium leading-none',
+                                                            GROUP_COLORS[
+                                                                option.group
+                                                            ].badge,
+                                                        )}
+                                                    >
+                                                        {
+                                                            GROUP_LABELS[
+                                                                option.group
+                                                            ]
+                                                        }
+                                                    </span>
+                                                    {option.excel_only &&
+                                                        format === 'csv' && (
+                                                            <span
+                                                                className="inline-flex items-center gap-0.5 rounded border border-amber-500/30 bg-amber-500/10 px-1 py-px text-[9px] font-bold text-amber-600 dark:text-amber-400"
+                                                                title="Switch to XLSX to include this field"
+                                                            >
+                                                                <TriangleAlert className="h-2.5 w-2.5" />
+                                                                XLSX only
+                                                            </span>
+                                                        )}
+                                                </div>
                                             </div>
 
                                             {/* remove */}

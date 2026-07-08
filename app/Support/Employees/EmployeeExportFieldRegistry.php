@@ -7,6 +7,9 @@ use App\Models\User;
 
 final class EmployeeExportFieldRegistry
 {
+    /** UAE dirham fixed peg: 1 USD = 3.6725 AED */
+    public const AED_PER_USD = 3.6725;
+
     /**
      * @var list<string>
      */
@@ -77,6 +80,8 @@ final class EmployeeExportFieldRegistry
             'contract_site_allowance' => ['label' => 'Contract Site Allowance', 'group' => 'contract', 'permission' => null],
             'contract_note' => ['label' => 'Contract Note', 'group' => 'contract', 'permission' => null],
             'contract_status' => ['label' => 'Contract Status', 'group' => 'contract', 'permission' => null],
+            'contract_total_compensation_aed' => ['label' => 'Total Compensation (AED)', 'group' => 'contract', 'permission' => null, 'excel_only' => false],
+            'contract_total_compensation_usd' => ['label' => 'Total Compensation (USD)', 'group' => 'contract', 'permission' => null, 'excel_only' => true],
             'bank_name' => ['label' => 'Bank Name', 'group' => 'bank_account', 'permission' => null],
             'bank_iban' => ['label' => 'IBAN', 'group' => 'bank_account', 'permission' => null],
             'bank_account_name' => ['label' => 'Account Name', 'group' => 'bank_account', 'permission' => null],
@@ -93,7 +98,7 @@ final class EmployeeExportFieldRegistry
     }
 
     /**
-     * @return list<array{key: string, label: string, group: string, allowed: bool}>
+     * @return list<array{key: string, label: string, group: string, allowed: bool, excel_only: bool}>
      */
     public static function optionsForUser(?User $user): array
     {
@@ -106,6 +111,7 @@ final class EmployeeExportFieldRegistry
                     'label' => $definition['label'],
                     'group' => $definition['group'],
                     'allowed' => $permission === null || ($user?->can($permission) ?? false),
+                    'excel_only' => (bool) ($definition['excel_only'] ?? false),
                 ];
             })
             ->values()
