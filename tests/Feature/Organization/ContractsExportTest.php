@@ -127,11 +127,21 @@ test('export adjusts structure based on payroll category filter', function () {
     $responseOffice->assertOk();
     $contentOffice = $responseOffice->streamedContent();
     expect($contentOffice)->toContain('Housing Allowance')
-        ->and($contentOffice)->not->toContain('Supplementary Allowance');
+        ->and($contentOffice)->not->toContain('Supplementary Allowance')
+        ->and($contentOffice)->not->toContain('Branch')
+        ->and($contentOffice)->not->toContain('Profile Template')
+        ->and($contentOffice)->not->toContain('Payroll Category')
+        ->and($contentOffice)->not->toContain('Salary Structure')
+        ->and($contentOffice)->not->toContain('Created At');
 
     $responseCrew = $this->get(route('organization.contracts.export', ['format' => 'csv', 'payroll_category' => 'crew']));
     $responseCrew->assertOk();
     $contentCrew = $responseCrew->streamedContent();
     expect($contentCrew)->toContain('Supplementary Allowance')
-        ->and($contentCrew)->not->toContain('Housing Allowance');
+        ->and($contentCrew)->not->toContain('Housing Allowance')
+        ->and($contentCrew)->not->toContain('Branch')
+        ->and($contentCrew)->not->toContain('Profile Template')
+        ->and($contentCrew)->not->toContain('Payroll Category')
+        ->and($contentCrew)->not->toContain('Salary Structure')
+        ->and($contentCrew)->not->toContain('Created At');
 });

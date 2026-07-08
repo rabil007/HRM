@@ -22,15 +22,11 @@
     <table>
         <thead>
         <tr>
-            <th>ID</th>
             <th>Emp No</th>
             <th>Name</th>
             <th>Department</th>
             <th>Position</th>
             <th>Labor Contract ID</th>
-            <th>Status</th>
-            <th>Category</th>
-            <th>Structure</th>
             <th>Start Date</th>
             <th>End Date</th>
             <th class="text-right">Basic</th>
@@ -59,15 +55,11 @@
                     + (float) $contract->other_allowances;
             @endphp
             <tr>
-                <td>{{ $contract->id }}</td>
                 <td>{{ $contract->employee?->employee_no }}</td>
                 <td>{{ $contract->employee?->name }}</td>
                 <td>{{ $contract->employee?->department?->name ?? '—' }}</td>
                 <td>{{ $contract->employee?->position?->title ?? '—' }}</td>
                 <td>{{ $contract->labor_contract_id ?? '—' }}</td>
-                <td>{{ ucfirst((string) $contract->status) }}</td>
-                <td>{{ $contract->payroll_category?->label() ?? '—' }}</td>
-                <td>{{ $contract->resolvedSalaryStructure()->label() }}</td>
                 <td>{{ optional($contract->start_date)->toDateString() ?? '—' }}</td>
                 <td>{{ optional($contract->end_date)->toDateString() ?? '—' }}</td>
                 <td class="text-right">{{ number_format((float) $contract->basic_salary, 2) }}</td>

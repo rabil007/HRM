@@ -27,17 +27,11 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
     public function headings(): array
     {
         $headings = [
-            'ID',
             'Employee No',
             'Employee Name',
-            'Branch',
             'Department',
             'Position',
-            'Profile Template',
             'Labor Contract ID',
-            'Status',
-            'Payroll Category',
-            'Salary Structure',
             'Start Date',
             'End Date',
             'Basic Salary',
@@ -58,8 +52,6 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
         }
 
         $headings[] = 'Total Salary';
-        $headings[] = 'Note';
-        $headings[] = 'Created At';
 
         return $headings;
     }
@@ -74,17 +66,11 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             + (float) $contract->other_allowances;
 
         $row = [
-            $contract->id,
             $contract->employee?->employee_no,
             $contract->employee?->name,
-            $contract->employee?->branch?->name,
             $contract->employee?->department?->name,
             $contract->employee?->position?->title,
-            $contract->employee?->employeeProfileTemplate?->name,
             $contract->labor_contract_id,
-            ucfirst((string) $contract->status),
-            $contract->payroll_category?->label(),
-            $contract->resolvedSalaryStructure()->label(),
             optional($contract->start_date)->toDateString(),
             optional($contract->end_date)->toDateString(),
             $contract->basic_salary,
@@ -105,8 +91,6 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
         }
 
         $row[] = number_format($totalSalary, 2, '.', '');
-        $row[] = $contract->note;
-        $row[] = optional($contract->created_at)->toDateTimeString();
 
         return $row;
     }
