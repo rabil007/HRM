@@ -18,6 +18,7 @@
     <h1>Contracts</h1>
     <div class="meta">Generated at: {{ $generatedAt->toDateTimeString() }}</div>
 
+    @php $payrollCategory = $payrollCategory ?? ''; @endphp
     <table>
         <thead>
         <tr>
@@ -33,11 +34,17 @@
             <th>Start Date</th>
             <th>End Date</th>
             <th class="text-right">Basic</th>
-            <th class="text-right">Housing</th>
-            <th class="text-right">Transport</th>
-            <th class="text-right">Suppl.</th>
-            <th class="text-right">Site</th>
-            <th class="text-right">Other</th>
+            @if($payrollCategory !== 'crew')
+                <th class="text-right">Housing</th>
+                <th class="text-right">Transport</th>
+            @endif
+            @if($payrollCategory !== 'office')
+                <th class="text-right">Suppl.</th>
+                <th class="text-right">Site</th>
+            @endif
+            @if($payrollCategory !== 'crew')
+                <th class="text-right">Other</th>
+            @endif
             <th class="text-right">Total</th>
         </tr>
         </thead>
@@ -64,11 +71,17 @@
                 <td>{{ optional($contract->start_date)->toDateString() ?? '—' }}</td>
                 <td>{{ optional($contract->end_date)->toDateString() ?? '—' }}</td>
                 <td class="text-right">{{ number_format((float) $contract->basic_salary, 2) }}</td>
-                <td class="text-right">{{ number_format((float) $contract->housing_allowance, 2) }}</td>
-                <td class="text-right">{{ number_format((float) $contract->transport_allowance, 2) }}</td>
-                <td class="text-right">{{ number_format((float) $contract->supplementary_allowance, 2) }}</td>
-                <td class="text-right">{{ number_format((float) $contract->site_allowance, 2) }}</td>
-                <td class="text-right">{{ number_format((float) $contract->other_allowances, 2) }}</td>
+                @if($payrollCategory !== 'crew')
+                    <td class="text-right">{{ number_format((float) $contract->housing_allowance, 2) }}</td>
+                    <td class="text-right">{{ number_format((float) $contract->transport_allowance, 2) }}</td>
+                @endif
+                @if($payrollCategory !== 'office')
+                    <td class="text-right">{{ number_format((float) $contract->supplementary_allowance, 2) }}</td>
+                    <td class="text-right">{{ number_format((float) $contract->site_allowance, 2) }}</td>
+                @endif
+                @if($payrollCategory !== 'crew')
+                    <td class="text-right">{{ number_format((float) $contract->other_allowances, 2) }}</td>
+                @endif
                 <td class="text-right" style="font-weight: 700;">{{ number_format($totalSalary, 2) }}</td>
             </tr>
         @endforeach

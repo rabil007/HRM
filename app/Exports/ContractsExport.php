@@ -14,7 +14,10 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
     /**
      * @param  Builder<EmployeeContract>  $query
      */
-    public function __construct(private readonly Builder $query) {}
+    public function __construct(
+        private readonly Builder $query,
+        private readonly string $payrollCategory = '',
+    ) {}
 
     public function query(): Builder
     {
@@ -23,7 +26,7 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
 
     public function headings(): array
     {
-        return [
+        $headings = [
             'ID',
             'Employee No',
             'Employee Name',
@@ -38,15 +41,27 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             'Start Date',
             'End Date',
             'Basic Salary',
-            'Housing Allowance',
-            'Transport Allowance',
-            'Supplementary Allowance',
-            'Site Allowance',
-            'Other Allowances',
-            'Total Salary',
-            'Note',
-            'Created At',
         ];
+
+        if ($this->payrollCategory !== 'crew') {
+            $headings[] = 'Housing Allowance';
+            $headings[] = 'Transport Allowance';
+        }
+
+        if ($this->payrollCategory !== 'office') {
+            $headings[] = 'Supplementary Allowance';
+            $headings[] = 'Site Allowance';
+        }
+
+        if ($this->payrollCategory !== 'crew') {
+            $headings[] = 'Other Allowances';
+        }
+
+        $headings[] = 'Total Salary';
+        $headings[] = 'Note';
+        $headings[] = 'Created At';
+
+        return $headings;
     }
 
     public function map($contract): array
@@ -58,7 +73,7 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             + (float) $contract->site_allowance
             + (float) $contract->other_allowances;
 
-        return [
+        $row = [
             $contract->id,
             $contract->employee?->employee_no,
             $contract->employee?->name,
@@ -73,14 +88,26 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             optional($contract->start_date)->toDateString(),
             optional($contract->end_date)->toDateString(),
             $contract->basic_salary,
-            $contract->housing_allowance,
-            $contract->transport_allowance,
-            $contract->supplementary_allowance,
-            $contract->site_allowance,
-            $contract->other_allowances,
-            number_format($totalSalary, 2, '.', ''),
-            $contract->note,
-            optional($contract->created_at)->toDateTimeString(),
         ];
+
+        if ($this->payrollCategory !== 'crew') {
+            $row[] = $contract->housing_allowance;
+            $row[] = $contract->transport_allowance;
+        }
+
+        if ($this->payrollCategory !== 'office') {
+            $row[] = $contract->supplementary_allowance;
+            $row[] = $contract->site_allowance;
+        }
+
+        if ($this->payrollCategory !== 'crew') {
+            $row[] = $contract->other_allowances;
+        }
+
+        $row[] = number_format($totalSalary, 2, '.', '');
+        $row[] = $contract->note;
+        $row[] = optional($contract->created_at)->toDateTimeString();
+
+        return $row;
     }
 }

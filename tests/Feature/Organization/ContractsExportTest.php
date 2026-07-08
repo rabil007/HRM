@@ -114,3 +114,24 @@ test('export respects status filter parameter', function () {
     $this->get(route('organization.contracts.export', ['format' => 'csv', 'status' => 'terminated']))
         ->assertOk();
 });
+
+test('export adjusts structure based on payroll category filter', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company] = makeContractExportFixtures();
+
+    grantCompanyPermissions($user, $company, ['contracts.view']);
+
+    $responseOffice = $this->get(route('organization.contracts.export', ['format' => 'csv', 'payroll_category' => 'office']));
+    $responseOffice->assertOk();
+    $contentOffice = $responseOffice->streamedContent();
+    expect($contentOffice)->toContain('Housing Allowance')
+        ->and($contentOffice)->not->toContain('Supplementary Allowance');
+
+    $responseCrew = $this->get(route('organization.contracts.export', ['format' => 'csv', 'payroll_category' => 'crew']));
+    $responseCrew->assertOk();
+    $contentCrew = $responseCrew->streamedContent();
+    expect($contentCrew)->toContain('Supplementary Allowance')
+        ->and($contentCrew)->not->toContain('Housing Allowance');
+});

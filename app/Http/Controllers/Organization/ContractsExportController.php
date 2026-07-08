@@ -21,7 +21,7 @@ class ContractsExportController extends Controller
 
         $query = (new ContractDirectoryQuery($companyId, $filters))->exportQuery();
 
-        $export = new ContractsExport($query);
+        $export = new ContractsExport($query, $filters->payrollCategory);
 
         $timestamp = now()->format('Y-m-d_His');
         $baseName = "contracts_{$timestamp}";
@@ -34,6 +34,7 @@ class ContractsExportController extends Controller
             $contracts = $query->get();
             $pdf = Pdf::loadView('exports.contracts', [
                 'contracts' => $contracts,
+                'payrollCategory' => $filters->payrollCategory,
                 'generatedAt' => now(),
             ])->setPaper('a4', 'landscape');
 
