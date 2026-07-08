@@ -68,6 +68,52 @@ test('crew payroll board lists only employees with active crew contracts', funct
             ->where('period.id', $period->id));
 });
 
+test('payroll board excludes inactive employees even when they have an active contract', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    $activeEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'CREW-ACTIVE',
+        'name' => 'Active Crew',
+        'status' => 'active',
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $activeEmployee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'active',
+    ]);
+
+    $inactiveEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'CREW-INACTIVE',
+        'name' => 'Inactive Crew',
+        'status' => 'inactive',
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $inactiveEmployee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'active',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', $period))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->has('rows', 1)
+            ->where('rows.0.employee.id', $activeEmployee->id)
+            ->where('all_board_employee_ids', [$activeEmployee->id]));
+});
+
 test('payroll show includes all board employee ids matching pagination total', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);

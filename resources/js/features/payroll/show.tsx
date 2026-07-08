@@ -980,7 +980,7 @@ export function PayrollShowContent({
                 {!hasPayRunEmployees ? (
                     <EmptyState
                         title={`No ${period.payroll_category_label.toLowerCase()} employees`}
-                        description={`Only employees with an active ${period.payroll_category_label.toLowerCase()} contract appear on this pay run.`}
+                        description={`Only active employees with an active ${period.payroll_category_label.toLowerCase()} contract appear on this pay run.`}
                     />
                 ) : !hasVisibleRows ? (
                     <PayrollBoardFilteredEmptyState
@@ -2149,7 +2149,7 @@ function OfficeEmployeesTabContent({
             {!hasPayRunEmployees ? (
                 <EmptyState
                     title={`No ${period.payroll_category_label.toLowerCase()} employees`}
-                    description={`Only employees with an active ${period.payroll_category_label.toLowerCase()} contract appear on this pay run.`}
+                    description={`Only active employees with an active ${period.payroll_category_label.toLowerCase()} contract appear on this pay run.`}
                 />
             ) : !hasVisibleRows ? (
                 <PayrollBoardFilteredEmptyState

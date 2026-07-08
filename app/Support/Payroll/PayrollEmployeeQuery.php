@@ -20,6 +20,7 @@ final class PayrollEmployeeQuery
     {
         return Employee::query()
             ->where('employees.company_id', $companyId)
+            ->where('employees.status', 'active')
             ->whereHas('currentContract', function (Builder $contractQuery) use ($category) {
                 $contractQuery->where('payroll_category', $category);
             });
