@@ -278,6 +278,71 @@ test('revert to draft fails for cancelled pay period', function () {
         ->assertSessionHasErrors('period_id');
 });
 
+test('users without permission cannot revert pay period to approved', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->paid()->create();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.revert-to-approved', $period))
+        ->assertForbidden();
+});
+
+test('authorized users can revert paid pay period to approved', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.revert_to_approved']);
+
+    [$period, $employee] = createProcessingPayrollPeriodWithRecord($company);
+
+    $period->update([
+        'status' => PayrollPeriodStatus::Paid,
+        'payment_proof_path' => 'test-path.pdf',
+    ]);
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    $record->update([
+        'status' => 'paid',
+        'paid_at' => now(),
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.revert-to-approved', $period))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
+        ->assertSessionHas('success');
+
+    $period->refresh();
+    $record->refresh();
+
+    expect($period->status)->toBe(PayrollPeriodStatus::Approved)
+        ->and($record->status)->toBe('approved')
+        ->and($record->paid_at)->toBeNull();
+});
+
+test('revert to approved fails for non-paid pay period', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.revert_to_approved']);
+
+    $period = PayrollPeriod::factory()->for($company)->approved()->create();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.revert-to-approved', $period))
+        ->assertSessionHasErrors('period_id');
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::Approved);
+});
+
 test('approved and paid pay periods load without tab query params', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);

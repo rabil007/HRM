@@ -43,6 +43,7 @@ final class PayrollPeriodResource
             'can_generate_crew_payroll' => $period->canGenerateCrewPayroll(),
             'can_generate_payroll' => $period->canGeneratePayroll(),
             'can_revert_to_draft' => $period->canRevertToDraft(),
+            'can_revert_to_approved' => $period->canRevertToApproved(),
             'can_approve' => $period->canApprove(),
             'can_mark_paid' => $period->canMarkPaid(),
             'can_cancel' => $period->canCancel(),

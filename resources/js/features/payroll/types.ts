@@ -51,6 +51,7 @@ export type PayrollPeriod = {
     can_generate_crew_payroll: boolean;
     can_generate_payroll: boolean;
     can_revert_to_draft: boolean;
+    can_revert_to_approved: boolean;
     can_approve: boolean;
     can_mark_paid: boolean;
     can_cancel: boolean;
@@ -214,6 +215,7 @@ export type CrewPayrollPermissions = {
     import_timesheets: boolean;
     generate_payroll: boolean;
     revert_to_draft: boolean;
+    revert_to_approved: boolean;
     approve: boolean;
     mark_paid: boolean;
     cancel: boolean;

@@ -11,6 +11,7 @@ use App\Http\Requests\Organization\Payroll\CancelPayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\GenerateCrewPayrollRequest;
 use App\Http\Requests\Organization\Payroll\ImportCrewTimesheetsRequest;
 use App\Http\Requests\Organization\Payroll\MarkPayrollPeriodPaidRequest;
+use App\Http\Requests\Organization\Payroll\RevertPayrollPeriodToApprovedRequest;
 use App\Http\Requests\Organization\Payroll\RevertPayrollPeriodToDraftRequest;
 use App\Http\Requests\Organization\Payroll\StorePayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\UpsertCrewTimesheetRequest;
@@ -29,6 +30,7 @@ use App\Support\Payroll\Actions\DeletePayrollRecord;
 use App\Support\Payroll\Actions\GenerateCrewPayroll;
 use App\Support\Payroll\Actions\GenerateOfficePayroll;
 use App\Support\Payroll\Actions\MarkPayrollPeriodPaid;
+use App\Support\Payroll\Actions\RevertPayrollPeriodToApproved;
 use App\Support\Payroll\Actions\RevertPayrollPeriodToDraft;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use App\Support\Payroll\CrewPayrollPagePermissions;
@@ -759,6 +761,21 @@ class PayrollController extends Controller
                     ? 'Pay period reverted to draft. Timesheets and payroll records were cleared.'
                     : 'Pay period reverted to draft. Payroll records were cleared.',
             );
+    }
+
+    public function revertToApproved(
+        RevertPayrollPeriodToApprovedRequest $request,
+        PayrollPeriod $payrollPeriod,
+        RevertPayrollPeriodToApproved $revertPayrollPeriodToApproved,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+
+        $revertPayrollPeriodToApproved->handle($payrollPeriod);
+
+        return redirect()
+            ->route('payroll.show', $payrollPeriod)
+            ->with('success', 'Pay period reverted to approved. Payment status has been removed.');
     }
 
     public function approve(

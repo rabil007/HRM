@@ -222,6 +222,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('payroll/{payrollPeriod}/salary-inputs/{salaryInput}', [SalaryInputController::class, 'destroy'])->name('payroll.salary-inputs.destroy');
     Route::post('payroll/{payrollPeriod}/recalculate', [SalaryInputController::class, 'recalculate'])->middleware('can:payroll.periods.recalculate')->name('payroll.recalculate');
     Route::post('payroll/{payrollPeriod}/revert-to-draft', [PayrollController::class, 'revertToDraft'])->middleware('can:payroll.periods.revert_to_draft')->name('payroll.revert-to-draft');
+    Route::post('payroll/{payrollPeriod}/revert-to-approved', [PayrollController::class, 'revertToApproved'])->middleware('can:payroll.periods.revert_to_approved')->name('payroll.revert-to-approved');
     Route::post('payroll/{payrollPeriod}/approve', [PayrollController::class, 'approve'])->middleware('can:payroll.periods.approve')->name('payroll.approve');
     Route::post('payroll/{payrollPeriod}/mark-paid', [PayrollController::class, 'markPaid'])->middleware('can:payroll.periods.mark_paid')->name('payroll.mark-paid');
     Route::get('payroll/{payrollPeriod}/payment-proof', [PayrollController::class, 'downloadPaymentProof'])->middleware('can:payroll.periods.view')->name('payroll.payment-proof');

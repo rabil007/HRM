@@ -100,6 +100,11 @@ class PayrollPeriod extends Model
             && $this->hasPayrollRecords();
     }
 
+    public function canRevertToApproved(): bool
+    {
+        return $this->status === PayrollPeriodStatus::Paid;
+    }
+
     public function canCancel(): bool
     {
         return in_array($this->status, [

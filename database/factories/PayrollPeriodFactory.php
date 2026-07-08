@@ -46,6 +46,20 @@ class PayrollPeriodFactory extends Factory
         ]);
     }
 
+    public function paid(): static
+    {
+        return $this->state(fn () => [
+            'status' => PayrollPeriodStatus::Paid,
+        ]);
+    }
+
+    public function cancelled(): static
+    {
+        return $this->state(fn () => [
+            'status' => PayrollPeriodStatus::Cancelled,
+        ]);
+    }
+
     public function office(): static
     {
         return $this->state(fn () => [
