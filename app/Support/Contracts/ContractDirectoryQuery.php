@@ -84,6 +84,10 @@ final class ContractDirectoryQuery
     {
         ContractLifecycleFilter::apply($query, $this->filters->lifecycle);
 
+        if ($this->filters->payrollCategory !== '') {
+            $query->where('employee_contracts.payroll_category', $this->filters->payrollCategory);
+        }
+
         if ($this->filters->salaryStructure !== '') {
             ContractSalaryStructureFilter::apply($query, $this->filters->salaryStructure);
         }

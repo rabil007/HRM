@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\PayrollCategory;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\User;
@@ -39,9 +41,17 @@ function makeContractExportFixtures(): array
         'is_headquarters' => true,
     ]);
 
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF',
+        'status' => 'active',
+    ]);
+
     $employee = Employee::query()->create([
         'company_id' => $company->id,
         'branch_id' => $branch->id,
+        'department_id' => $officeDepartment->id,
         'employee_no' => 'CEXP001',
         'name' => 'Contract Export Employee',
         'status' => 'active',
@@ -50,6 +60,7 @@ function makeContractExportFixtures(): array
     $contract = EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
+        'payroll_category' => PayrollCategory::Office->value,
         'start_date' => now()->subYear()->toDateString(),
         'end_date' => now()->addYear()->toDateString(),
         'labor_contract_id' => 'LC-12345',
@@ -59,7 +70,7 @@ function makeContractExportFixtures(): array
         'transport_allowance' => 1000,
     ]);
 
-    return compact('company', 'branch', 'employee', 'contract');
+    return compact('company', 'branch', 'officeDepartment', 'employee', 'contract');
 }
 
 test('guests cannot access contracts export', function () {
@@ -99,6 +110,7 @@ test('export respects status filter parameter', function () {
     EmployeeContract::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
+        'payroll_category' => PayrollCategory::Office->value,
         'start_date' => now()->subYears(2)->toDateString(),
         'end_date' => now()->subYear()->toDateString(),
         'labor_contract_id' => 'LC-00000',
@@ -113,6 +125,103 @@ test('export respects status filter parameter', function () {
 
     $this->get(route('organization.contracts.export', ['format' => 'csv', 'status' => 'terminated']))
         ->assertOk();
+});
+
+test('export respects payroll category, department, and lifecycle filters for csv and excel', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'branch' => $branch] = makeContractExportFixtures();
+
+    grantCompanyPermissions($user, $company, ['contracts.view']);
+
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF-2',
+        'status' => 'active',
+    ]);
+
+    $marineDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine',
+        'code' => 'MAR',
+        'status' => 'active',
+    ]);
+
+    $officeEmployee = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'department_id' => $officeDepartment->id,
+        'employee_no' => 'CEXP-OFF',
+        'name' => 'Office Export Employee',
+        'status' => 'active',
+    ]);
+
+    $crewEmployee = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'department_id' => $marineDepartment->id,
+        'employee_no' => 'CEXP-CREW',
+        'name' => 'Crew Export Employee',
+        'status' => 'active',
+    ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $officeEmployee->id,
+        'payroll_category' => PayrollCategory::Office->value,
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'basic_salary' => 6000,
+    ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $crewEmployee->id,
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'daily',
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-12-31',
+        'status' => 'ended',
+        'basic_salary' => 3000,
+    ]);
+
+    $officeCsv = $this->get(route('organization.contracts.export', [
+        'format' => 'csv',
+        'payroll_category' => 'office',
+        'lifecycle' => 'active',
+        'department_id' => $officeDepartment->id,
+    ]));
+    $officeCsv->assertOk();
+    $officeContent = $officeCsv->streamedContent();
+    expect($officeContent)->toContain('CEXP-OFF')
+        ->and($officeContent)->not->toContain('CEXP-CREW');
+
+    $this->get(route('organization.contracts.export', [
+        'format' => 'xlsx',
+        'payroll_category' => 'office',
+        'lifecycle' => 'active',
+        'department_id' => $officeDepartment->id,
+    ]))->assertOk();
+
+    $crewCsv = $this->get(route('organization.contracts.export', [
+        'format' => 'csv',
+        'payroll_category' => 'crew',
+        'salary_structure' => 'daily',
+        'lifecycle' => 'all',
+    ]));
+    $crewCsv->assertOk();
+    $crewContent = $crewCsv->streamedContent();
+    expect($crewContent)->toContain('CEXP-CREW')
+        ->and($crewContent)->not->toContain('CEXP-OFF');
+
+    $this->get(route('organization.contracts.export', [
+        'format' => 'xlsx',
+        'payroll_category' => 'crew',
+        'salary_structure' => 'daily',
+        'lifecycle' => 'all',
+    ]))->assertOk();
 });
 
 test('export adjusts structure based on payroll category filter', function () {

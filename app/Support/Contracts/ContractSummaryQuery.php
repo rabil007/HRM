@@ -81,6 +81,10 @@ final class ContractSummaryQuery
         int $companyId,
         ContractDirectoryFilters $filters,
     ): void {
+        if ($filters->payrollCategory !== '') {
+            $query->where('payroll_category', $filters->payrollCategory);
+        }
+
         if ($filters->salaryStructure !== '') {
             ContractSalaryStructureFilter::apply($query, $filters->salaryStructure);
         }
