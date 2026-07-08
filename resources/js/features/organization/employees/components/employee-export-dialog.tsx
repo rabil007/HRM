@@ -1,11 +1,11 @@
 import {
     ArrowDown,
     ArrowUp,
+    ChevronDown,
     Download,
     GripVertical,
     Plus,
     Search,
-    Trash2,
     X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -78,6 +78,9 @@ export function EmployeeExportDialog({
 }) {
     const [search, setSearch] = useState('');
     const [format, setFormat] = useState<'csv' | 'xlsx'>('xlsx');
+    const [collapsedGroups, setCollapsedGroups] = useState<
+        Set<EmployeeExportFieldOption['group']>
+    >(new Set());
     const [selectedKeys, setSelectedKeys] = useState<string[]>(
         DEFAULT_SELECTED_KEYS,
     );
@@ -152,6 +155,7 @@ export function EmployeeExportDialog({
 
         setSearch('');
         setFormat('xlsx');
+        setCollapsedGroups(new Set());
         setSelectedKeys(
             DEFAULT_SELECTED_KEYS.filter((key) => optionByKey.has(key)),
         );
@@ -161,6 +165,20 @@ export function EmployeeExportDialog({
         setSelectedKeys((current) =>
             current.includes(key) ? current : [...current, key],
         );
+    };
+
+    const toggleGroup = (group: EmployeeExportFieldOption['group']) => {
+        setCollapsedGroups((prev) => {
+            const next = new Set(prev);
+
+            if (next.has(group)) {
+                next.delete(group);
+            } else {
+                next.add(group);
+            }
+
+            return next;
+        });
     };
 
     const addAllVisible = () => {
@@ -333,9 +351,21 @@ export function EmployeeExportDialog({
                                     return null;
                                 }
 
+                                const isCollapsed = collapsedGroups.has(group);
+
                                 return (
-                                    <div key={group} className="mb-2">
-                                        <div className="flex items-center gap-1.5 px-1.5 py-1">
+                                    <div key={group} className="mb-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleGroup(group)}
+                                            className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 hover:bg-muted/60"
+                                        >
+                                            <ChevronDown
+                                                className={cn(
+                                                    'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150',
+                                                    isCollapsed && '-rotate-90',
+                                                )}
+                                            />
                                             <span
                                                 className={cn(
                                                     'h-1.5 w-1.5 rounded-full',
@@ -345,24 +375,30 @@ export function EmployeeExportDialog({
                                             <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                                                 {GROUP_LABELS[group]}
                                             </span>
-                                        </div>
-                                        <div>
-                                            {options.map((option) => (
-                                                <button
-                                                    key={option.key}
-                                                    type="button"
-                                                    onClick={() =>
-                                                        addField(option.key)
-                                                    }
-                                                    className="group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left hover:bg-muted/70 active:bg-muted"
-                                                >
-                                                    <span className="text-sm text-foreground">
-                                                        {option.label}
-                                                    </span>
-                                                    <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                                                </button>
-                                            ))}
-                                        </div>
+                                            <span className="ml-auto text-[11px] text-muted-foreground/60">
+                                                {options.length}
+                                            </span>
+                                        </button>
+
+                                        {!isCollapsed && (
+                                            <div className="ml-2">
+                                                {options.map((option) => (
+                                                    <button
+                                                        key={option.key}
+                                                        type="button"
+                                                        onClick={() =>
+                                                            addField(option.key)
+                                                        }
+                                                        className="group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left hover:bg-muted/70 active:bg-muted"
+                                                    >
+                                                        <span className="text-sm text-foreground">
+                                                            {option.label}
+                                                        </span>
+                                                        <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
