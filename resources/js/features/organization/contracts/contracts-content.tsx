@@ -11,17 +11,27 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
 import { buildContractEmployeeUrl } from '@/features/organization/contracts/build-contract-employee-url';
 import { ContractsImportDialog } from '@/features/organization/contracts/contracts-import-dialog';
 import { ContractsSummaryCards } from '@/features/organization/contracts/contracts-summary-cards';
 import { ContractsTableRow } from '@/features/organization/contracts/contracts-table-row';
+import { LIFECYCLE_FILTER_LABELS } from '@/features/organization/contracts/contracts-format';
 import type { ContractsIndexProps } from '@/features/organization/contracts/types';
 import { useContractsIndexFilters } from '@/features/organization/contracts/use-contracts-index-filters';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { cn } from '@/lib/utils';
 import { contracts } from '@/routes/organization';
+
+const LIFECYCLE_BADGE_STYLE: Record<string, string> = {
+    active: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    ending_30: 'bg-sky-500/10 text-sky-500 border-sky-500/20',
+    ending_60: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+    ending_90: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
+    ended: 'bg-red-500/10 text-red-500 border-red-500/20',
+};
 
 export function ContractsContent({
     summary,
@@ -118,10 +128,29 @@ export function ContractsContent({
         ],
     );
 
+    const lifecycleBadgeLabel = initialLifecycle !== 'all'
+        ? LIFECYCLE_FILTER_LABELS[initialLifecycle]
+        : null;
+
     return (
         <Main>
             <PageHeader
-                title="Contracts"
+                title={
+                    <span className="flex items-center gap-2.5">
+                        Contracts
+                        {lifecycleBadgeLabel ? (
+                            <Badge
+                                variant="outline"
+                                className={cn(
+                                    'text-xs font-medium',
+                                    LIFECYCLE_BADGE_STYLE[initialLifecycle] ?? '',
+                                )}
+                            >
+                                {lifecycleBadgeLabel}
+                            </Badge>
+                        ) : null}
+                    </span>
+                }
                 right={
                     <div className="flex items-center gap-2">
                         {can.import ? (

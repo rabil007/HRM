@@ -82,6 +82,7 @@ export type NoContractIndexProps = {
     employees: NoContractEmployee[];
     pagination: PaginationMeta;
     search: string;
+    payroll_category: string;
     department_id?: string;
     department_tree?: DepartmentTreeNode[];
     department_tree_selected_id?: number | null;

@@ -4,10 +4,9 @@ import {
     Clock,
     FileText,
     UserX,
-    XCircle
-    
+    XCircle,
 } from 'lucide-react';
-import type {LucideIcon} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { LIFECYCLE_FILTER_LABELS } from '@/features/organization/contracts/contracts-format';
 import type {
@@ -27,6 +26,7 @@ const SUMMARY_ITEMS: {
     activeClass: string;
     valueClass: string;
     iconClass: string;
+    barClass: string;
 }[] = [
     {
         key: 'total_contracts',
@@ -35,9 +35,10 @@ const SUMMARY_ITEMS: {
         cardClass:
             'border-border hover:border-border dark:border-white/5 dark:hover:border-white/10',
         activeClass:
-            'border-primary/30 ring-1 ring-primary/10 dark:border-white/20 dark:ring-white/10',
+            'border-primary/30 ring-2 ring-primary/15 dark:border-white/20 dark:ring-white/10',
         valueClass: 'text-foreground',
         iconClass: 'text-muted-foreground',
+        barClass: 'bg-primary/30',
     },
     {
         key: 'active',
@@ -45,9 +46,10 @@ const SUMMARY_ITEMS: {
         icon: CheckCircle2,
         cardClass:
             'border-emerald-500/15 bg-emerald-500/[0.04] hover:border-emerald-500/30',
-        activeClass: 'border-emerald-500/40 ring-1 ring-emerald-500/25',
+        activeClass: 'border-emerald-500/50 ring-2 ring-emerald-500/20',
         valueClass: 'text-emerald-400',
         iconClass: 'text-emerald-500/60',
+        barClass: 'bg-emerald-500/50',
     },
     {
         key: 'ending_30',
@@ -55,9 +57,10 @@ const SUMMARY_ITEMS: {
         icon: Clock,
         cardClass:
             'border-sky-500/15 bg-sky-500/[0.04] hover:border-sky-500/30',
-        activeClass: 'border-sky-500/40 ring-1 ring-sky-500/25',
+        activeClass: 'border-sky-500/50 ring-2 ring-sky-500/20',
         valueClass: 'text-sky-400',
         iconClass: 'text-sky-500/60',
+        barClass: 'bg-sky-500/50',
     },
     {
         key: 'ending_60',
@@ -65,9 +68,10 @@ const SUMMARY_ITEMS: {
         icon: Clock,
         cardClass:
             'border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30',
-        activeClass: 'border-amber-500/40 ring-1 ring-amber-500/25',
+        activeClass: 'border-amber-500/50 ring-2 ring-amber-500/20',
         valueClass: 'text-amber-400',
         iconClass: 'text-amber-500/60',
+        barClass: 'bg-amber-500/50',
     },
     {
         key: 'ending_90',
@@ -75,20 +79,44 @@ const SUMMARY_ITEMS: {
         icon: Clock,
         cardClass:
             'border-orange-500/20 bg-orange-500/[0.06] hover:border-orange-500/35',
-        activeClass: 'border-orange-500/45 ring-1 ring-orange-500/30',
+        activeClass: 'border-orange-500/55 ring-2 ring-orange-500/25',
         valueClass: 'text-orange-400',
         iconClass: 'text-orange-500/60',
+        barClass: 'bg-orange-500/50',
     },
     {
         key: 'ended',
         lifecycle: 'ended',
         icon: XCircle,
         cardClass: 'border-red-500/15 bg-red-500/[0.04] hover:border-red-500/30',
-        activeClass: 'border-red-500/40 ring-1 ring-red-500/25',
+        activeClass: 'border-red-500/50 ring-2 ring-red-500/20',
         valueClass: 'text-red-400',
         iconClass: 'text-red-500/60',
+        barClass: 'bg-red-500/50',
     },
 ];
+
+function SummaryProgressBar({
+    value,
+    total,
+    barClass,
+}: {
+    value: number;
+    total: number;
+    barClass: string;
+}) {
+    const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
+
+    return (
+        <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-border/50">
+            <div
+                className={cn('h-full rounded-full transition-all duration-500', barClass)}
+                style={{ width: `${pct}%` }}
+                aria-hidden
+            />
+        </div>
+    );
+}
 
 export function ContractsSummaryCards({
     summary,
@@ -99,6 +127,8 @@ export function ContractsSummaryCards({
     activeLifecycle: ContractLifecycleFilter;
     onSelect: (lifecycle: ContractLifecycleFilter) => void;
 }) {
+    const total = summary.total_contracts;
+
     return (
         <div className="mb-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
             {SUMMARY_ITEMS.map((item) => {
@@ -108,6 +138,10 @@ export function ContractsSummaryCards({
                         ? 'Total contracts'
                         : LIFECYCLE_FILTER_LABELS[item.lifecycle];
                 const Icon = item.icon;
+                const value = summary[item.key] as number;
+                // "all" bar fills completely; others show share of total
+                const barValue = item.lifecycle === 'all' ? total : value;
+                const barTotal = item.lifecycle === 'all' ? total : total;
 
                 return (
                     <button
@@ -118,7 +152,7 @@ export function ContractsSummaryCards({
                     >
                         <Card
                             className={cn(
-                                'cursor-pointer transition-all duration-150',
+                                'cursor-pointer transition-all duration-200 overflow-hidden',
                                 item.cardClass,
                                 isActive && item.activeClass,
                             )}
@@ -129,7 +163,11 @@ export function ContractsSummaryCards({
                                         {label}
                                     </p>
                                     <Icon
-                                        className={cn('size-3.5 shrink-0', item.iconClass)}
+                                        className={cn(
+                                            'size-4 shrink-0 transition-transform duration-200',
+                                            item.iconClass,
+                                            isActive && 'scale-110',
+                                        )}
                                         aria-hidden
                                     />
                                 </div>
@@ -139,31 +177,45 @@ export function ContractsSummaryCards({
                                         item.valueClass,
                                     )}
                                 >
-                                    {summary[item.key]}
+                                    {value.toLocaleString()}
                                 </p>
+                                <SummaryProgressBar
+                                    value={barValue}
+                                    total={barTotal}
+                                    barClass={item.barClass}
+                                />
                             </CardContent>
                         </Card>
                     </button>
                 );
             })}
+
+            {/* No-contract card */}
             <Link
                 href={noContract.url()}
                 className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl block"
             >
-                <Card className="border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30 cursor-pointer transition-all duration-150">
+                <Card className="border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30 cursor-pointer transition-all duration-200 overflow-hidden">
                     <CardContent className="p-4">
                         <div className="flex items-center justify-between gap-2">
                             <p className="text-xs font-medium text-muted-foreground leading-tight">
                                 No contract
                             </p>
                             <UserX
-                                className="size-3.5 shrink-0 text-violet-500/60"
+                                className="size-4 shrink-0 text-violet-500/60"
                                 aria-hidden
                             />
                         </div>
                         <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-violet-400">
-                            {summary.no_contract_employees}
+                            {summary.no_contract_employees.toLocaleString()}
                         </p>
+                        <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-border/50">
+                            <div
+                                className="h-full rounded-full bg-violet-500/50 transition-all duration-500"
+                                style={{ width: '100%' }}
+                                aria-hidden
+                            />
+                        </div>
                     </CardContent>
                 </Card>
             </Link>

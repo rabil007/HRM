@@ -18,11 +18,13 @@ function cleanParams(
 export function useNoContractIndexFilters({
     url,
     initialSearch,
+    initialPayrollCategory,
     initialDepartmentId = '',
     perPage = 25,
 }: {
     url: string;
     initialSearch: string;
+    initialPayrollCategory: string;
     initialDepartmentId?: string;
     perPage?: number;
 }) {
@@ -30,6 +32,8 @@ export function useNoContractIndexFilters({
     const [isSearching, setIsSearching] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const searchInput = pendingSearch ?? initialSearch;
+    const activePayrollCategory =
+        initialPayrollCategory === 'crew' ? 'crew' : 'office';
 
     useEffect(() => {
         return () => {
@@ -42,10 +46,11 @@ export function useNoContractIndexFilters({
     const baseParams = useCallback(
         () => ({
             search: initialSearch || undefined,
+            payroll_category: activePayrollCategory,
             department_id: initialDepartmentId || undefined,
             per_page: perPage,
         }),
-        [initialDepartmentId, initialSearch, perPage],
+        [activePayrollCategory, initialDepartmentId, initialSearch, perPage],
     );
 
     const visit = useCallback(
@@ -61,6 +66,7 @@ export function useNoContractIndexFilters({
                     'employees',
                     'pagination',
                     'search',
+                    'payroll_category',
                     'department_id',
                     'department_tree',
                     'department_tree_selected_id',
@@ -93,6 +99,18 @@ export function useNoContractIndexFilters({
         [baseParams, visit],
     );
 
+    const onPayrollCategoryChange = useCallback(
+        (payrollCategory: string) => {
+            visit({
+                ...baseParams(),
+                payroll_category: payrollCategory,
+                department_id: undefined,
+                page: null,
+            });
+        },
+        [baseParams, visit],
+    );
+
     const onDepartmentChange = useCallback(
         (departmentId: number | null) => {
             visit({
@@ -117,7 +135,9 @@ export function useNoContractIndexFilters({
     return {
         searchInput,
         isSearching,
+        activePayrollCategory,
         onSearchChange,
+        onPayrollCategoryChange,
         onDepartmentChange,
         onPageChange,
     };

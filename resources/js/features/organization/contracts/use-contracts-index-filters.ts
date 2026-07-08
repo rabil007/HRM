@@ -150,6 +150,7 @@ export function useContractsIndexFilters({
                         : initialSalaryStructure === 'monthly'
                           ? 'monthly'
                           : 'daily',
+                department_id: undefined,
                 page: null,
             });
         },
@@ -161,6 +162,7 @@ export function useContractsIndexFilters({
             visit({
                 ...baseParams(),
                 salary_structure: salaryStructure,
+                department_id: undefined,
                 page: null,
             });
         },

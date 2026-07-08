@@ -472,11 +472,20 @@ test('users can view employees without contracts on no-contract page with positi
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'branch' => $branch] = makeContractFixtures();
+    ['company' => $company, 'branch' => $branch, 'employee' => $fixtureEmployee] = makeContractFixtures();
+
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'name' => 'Office',
+        'code' => 'OFF',
+        'status' => 'active',
+    ]);
 
     $department = Department::query()->create([
         'company_id' => $company->id,
         'branch_id' => $branch->id,
+        'parent_id' => $officeDepartment->id,
         'name' => 'Engineering',
         'code' => 'ENG',
         'status' => 'active',
@@ -498,6 +507,8 @@ test('users can view employees without contracts on no-contract page with positi
         'name' => 'No Contract Employee',
         'status' => 'active',
     ]);
+
+    $fixtureEmployee->update(['department_id' => $department->id]);
 
     grantCompanyPermissions($user, $company, ['contracts.view']);
 

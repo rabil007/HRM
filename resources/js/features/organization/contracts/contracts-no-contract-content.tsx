@@ -24,7 +24,42 @@ import { cn } from '@/lib/utils';
 import { contracts } from '@/routes/organization';
 import { noContract, employee as contractEmployee } from '@/routes/organization/contracts';
 
+function formatRelativeDate(dateStr: string | null): string | null {
+    if (!dateStr) {
+        return null;
+    }
+
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+        return null;
+    }
+
+    if (diffDays === 0) {
+        return 'today';
+    }
+
+    if (diffDays < 30) {
+        return `${diffDays}d ago`;
+    }
+
+    const diffMonths = Math.floor(diffDays / 30);
+
+    if (diffMonths < 12) {
+        return `${diffMonths}mo ago`;
+    }
+
+    const diffYears = Math.floor(diffMonths / 12);
+
+    return `${diffYears}yr ago`;
+}
+
 function NoContractTableRow({ emp }: { emp: NoContractEmployee }) {
+    const relativeHireDate = formatRelativeDate(emp.hire_date);
+
     return (
         <TableRow
             className={cn(dataTableBodyRowClass(false), 'cursor-pointer')}
@@ -65,9 +100,20 @@ function NoContractTableRow({ emp }: { emp: NoContractEmployee }) {
                 </div>
             </TableCell>
             <TableCell className={dataTableCellClass()}>
-                <span className="text-sm text-muted-foreground">
-                    {emp.hire_date ? formatDisplayDate(emp.hire_date) : '—'}
-                </span>
+                {emp.hire_date ? (
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-sm text-muted-foreground">
+                            {formatDisplayDate(emp.hire_date)}
+                        </span>
+                        {relativeHireDate ? (
+                            <span className="text-[11px] text-muted-foreground/50">
+                                {relativeHireDate}
+                            </span>
+                        ) : null}
+                    </div>
+                ) : (
+                    <span className="text-sm text-muted-foreground">—</span>
+                )}
             </TableCell>
         </TableRow>
     );
@@ -77,6 +123,7 @@ export function ContractsNoContractContent({
     employees,
     pagination,
     search: initialSearch,
+    payroll_category: initialPayrollCategory,
     department_id: initialDepartmentId = '',
     department_tree,
     department_tree_selected_id,
@@ -84,12 +131,15 @@ export function ContractsNoContractContent({
     const {
         searchInput,
         isSearching,
+        activePayrollCategory,
         onSearchChange,
+        onPayrollCategoryChange,
         onDepartmentChange,
         onPageChange,
     } = useNoContractIndexFilters({
         url: noContract.url(),
         initialSearch,
+        initialPayrollCategory,
         initialDepartmentId,
         perPage: pagination.per_page,
     });
@@ -115,7 +165,7 @@ export function ContractsNoContractContent({
                 onChange={onSearchChange}
                 placeholder="Search by name or employee number..."
                 right={
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         {department_tree && department_tree.length > 0 ? (
                             <DepartmentFilterControls
                                 department_tree={department_tree}
@@ -127,6 +177,32 @@ export function ContractsNoContractContent({
                                 }
                             />
                         ) : null}
+                        <div className="flex items-center rounded-xl glass-card p-1">
+                            {(['office', 'crew'] as const).map((value) => {
+                                const label =
+                                    value === 'office' ? 'Office' : 'Crew';
+                                const isActive =
+                                    activePayrollCategory === value;
+
+                                return (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        onClick={() =>
+                                            onPayrollCategoryChange(value)
+                                        }
+                                        className={cn(
+                                            'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                                            isActive
+                                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                                : 'text-muted-foreground hover:text-foreground',
+                                        )}
+                                    >
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                        </div>
                         {isSearching ? (
                             <Loader2
                                 className="size-4 animate-spin text-muted-foreground"

@@ -27,27 +27,62 @@ final class ContractDepartmentTree
         int $companyId,
         EmployeeDirectoryFilters $filters,
         string $context,
+        ?ContractDirectoryFilters $contractFilters = null,
     ): array {
+        $payrollCategory = $contractFilters?->payrollCategory ?? '';
+        $limitToRootDepartmentIds = null;
+
+        if ($payrollCategory !== '' && ContractWorkforceDepartmentScope::isValid($payrollCategory)) {
+            $limitToRootDepartmentIds = ContractWorkforceDepartmentScope::rootIdsFor(
+                $companyId,
+                $payrollCategory,
+            );
+        }
+
         return BuildDepartmentEmployeeTree::for(
             $companyId,
             $filters,
-            self::employeeScope($companyId, $context),
+            self::employeeScope($companyId, $context, $contractFilters),
+            $limitToRootDepartmentIds,
         );
     }
 
     /**
      * @return callable(Builder<Employee>): void
      */
-    private static function employeeScope(int $companyId, string $context): callable
-    {
+    private static function employeeScope(
+        int $companyId,
+        string $context,
+        ?ContractDirectoryFilters $contractFilters,
+    ): callable {
         return match ($context) {
-            self::CONTEXT_INDEX => function (Builder $query) use ($companyId): void {
-                $query->whereHas('contracts', function (Builder $contractQuery) use ($companyId): void {
+            self::CONTEXT_INDEX => function (Builder $query) use ($companyId, $contractFilters): void {
+                if ($contractFilters !== null) {
+                    ContractDirectoryEmployeeScope::apply($query, $companyId, $contractFilters);
+                }
+
+                $query->whereHas('contracts', function (Builder $contractQuery) use ($companyId, $contractFilters): void {
                     $contractQuery->where('company_id', $companyId);
+
+                    if ($contractFilters === null) {
+                        return;
+                    }
+
+                    if ($contractFilters->payrollCategory !== '') {
+                        $contractQuery->where('payroll_category', $contractFilters->payrollCategory);
+                    }
+
+                    if ($contractFilters->salaryStructure !== '') {
+                        ContractSalaryStructureFilter::apply($contractQuery, $contractFilters->salaryStructure);
+                    }
                 });
             },
-            self::CONTEXT_NO_CONTRACT => function (Builder $query): void {
+            self::CONTEXT_NO_CONTRACT => function (Builder $query) use ($companyId, $contractFilters): void {
                 $query->whereDoesntHave('contracts');
+
+                if ($contractFilters !== null) {
+                    ContractDirectoryEmployeeScope::apply($query, $companyId, $contractFilters);
+                }
             },
             default => throw new InvalidArgumentException("Unknown contract department tree context: {$context}"),
         };

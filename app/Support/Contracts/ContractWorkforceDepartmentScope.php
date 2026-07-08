@@ -27,6 +27,26 @@ final class ContractWorkforceDepartmentScope
     /**
      * @return list<int>
      */
+    public static function rootIdsFor(int $companyId, string $scope): array
+    {
+        if (! self::isValid($scope)) {
+            return [];
+        }
+
+        $rootNames = $scope === 'office' ? self::OFFICE_ROOTS : self::CREW_ROOTS;
+
+        return Department::query()
+            ->where('company_id', $companyId)
+            ->whereIn('name', $rootNames)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<int>
+     */
     public static function departmentIdsFor(int $companyId, string $scope): array
     {
         if (! self::isValid($scope)) {

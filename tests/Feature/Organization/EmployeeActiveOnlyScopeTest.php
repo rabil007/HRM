@@ -109,7 +109,7 @@ test('contracts no contract list excludes terminated employees', function () {
 
     grantCompanyPermissions($user, $company, ['contracts.view']);
 
-    $this->get(route('organization.contracts.no-contract'))
+    $this->get(route('organization.contracts.no-contract', ['payroll_category' => 'office']))
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/contracts/no-contract')

@@ -3,8 +3,6 @@
 namespace App\Support\Contracts;
 
 use App\Models\Employee;
-use App\Support\Employees\EmployeeDirectoryFilters;
-use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 final class NoContractEmployeesQuery
@@ -20,8 +18,12 @@ final class NoContractEmployeesQuery
      *     hire_date: string|null
      * }[]
      */
-    public function paginate(int $companyId, string $search, string $departmentId, int $perPage): LengthAwarePaginator
-    {
+    public function paginate(
+        int $companyId,
+        ContractDirectoryFilters $filters,
+        string $search,
+        int $perPage,
+    ): LengthAwarePaginator {
         return Employee::query()
             ->where('company_id', $companyId)
             ->active()
@@ -32,16 +34,8 @@ final class NoContractEmployeesQuery
                         ->orWhere('employee_no', 'like', "%{$search}%");
                 });
             })
-            ->when($departmentId !== '', function ($query) use ($companyId, $departmentId) {
-                $directoryFilters = new EmployeeDirectoryFilters(departmentId: $departmentId);
-
-                EmployeeDirectoryQuery::applyAttributeFilters(
-                    $query,
-                    $companyId,
-                    $directoryFilters,
-                    exceptDepartment: false,
-                    exceptPosition: true,
-                );
+            ->tap(function ($query) use ($companyId, $filters): void {
+                ContractDirectoryEmployeeScope::apply($query, $companyId, $filters);
             })
             ->with(['department:id,name', 'position:id,title'])
             ->orderBy('name')

@@ -40,6 +40,7 @@ class ContractsIndexController extends Controller
                 $companyId,
                 new EmployeeDirectoryFilters(departmentId: $filters->departmentId),
                 ContractDepartmentTree::CONTEXT_INDEX,
+                $filters,
             ),
             'department_tree_selected_id' => $filters->departmentId !== '' ? (int) $filters->departmentId : null,
             'can' => ContractPagePermissions::for($request->user()),

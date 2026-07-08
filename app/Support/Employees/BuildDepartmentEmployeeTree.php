@@ -21,11 +21,13 @@ final class BuildDepartmentEmployeeTree
      */
     /**
      * @param  (callable(Builder<Employee>): void)|null  $employeeScope
+     * @param  list<int>|null  $limitToRootDepartmentIds
      */
     public static function for(
         int $companyId,
         EmployeeDirectoryFilters $filters,
         ?callable $employeeScope = null,
+        ?array $limitToRootDepartmentIds = null,
     ): array {
         $departments = Department::query()
             ->where('company_id', $companyId)
@@ -148,6 +150,14 @@ final class BuildDepartmentEmployeeTree
 
             return strcasecmp($nameA, $nameB);
         });
+
+        if ($limitToRootDepartmentIds !== null && $limitToRootDepartmentIds !== []) {
+            $allowedRoots = array_fill_keys($limitToRootDepartmentIds, true);
+            $rootIds = array_values(array_filter(
+                $rootIds,
+                fn (int $rootId): bool => isset($allowedRoots[$rootId]),
+            ));
+        }
 
         $treeRoots = array_map(
             fn (int $rootId): array => $buildNode($rootId),
