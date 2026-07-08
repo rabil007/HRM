@@ -92,7 +92,7 @@ export function DepartmentFilterControls({
                 </PopoverTrigger>
                 <PopoverContent
                     align="start"
-                    className="glass-card w-72 border-border p-3 dark:border-white/6"
+                    className="w-72 border-border p-3 dark:border-white/6"
                 >
                     <DepartmentEmployeeTree
                         nodes={department_tree}
