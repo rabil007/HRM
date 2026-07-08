@@ -44,7 +44,7 @@ test('crew payroll generation creates records for all active crew employees incl
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.generate', $period))
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success')
         ->assertSessionHas('payroll_generation');
 
@@ -219,7 +219,7 @@ test('crew payroll generation does not run on office periods via crew action', f
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.generate', $period))
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('payroll_generation');
 
     expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(1);
@@ -305,11 +305,10 @@ test('payroll show includes payroll records on payroll tab', function () {
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
-            ->where('tab', 'payroll')
             ->has('payroll_records', 1)
             ->where('payroll_records.0.net_salary', '500.00')
             ->where('payroll_records.0.rates.basic_daily', '100.00')

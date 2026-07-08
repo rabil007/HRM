@@ -400,7 +400,6 @@ test('authorized users can upsert crew timesheets for draft periods', function (
 
     $showUrl = route('payroll.show', [
         'payrollPeriod' => $period,
-        'tab' => 'timesheets',
         'search' => 'CREW-001',
     ]);
 
@@ -645,7 +644,6 @@ test('crew payroll tab paginates daily and monthly records separately', function
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('payroll.show', [
             'payrollPeriod' => $period,
-            'tab' => 'payroll',
             'per_page' => 20,
         ]))
         ->assertOk()
@@ -662,7 +660,6 @@ test('crew payroll tab paginates daily and monthly records separately', function
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('payroll.show', [
             'payrollPeriod' => $period,
-            'tab' => 'payroll',
             'per_page' => 20,
             'crew_salary_structure' => 'monthly',
         ]))

@@ -119,7 +119,6 @@ export function PayrollShowContent({
     salary_input_type_options,
     generation_summary,
     search: initialSearch,
-    tab: initialTab,
     filters: initialFilters,
     department_tree,
     department_tree_selected_id,
@@ -306,7 +305,6 @@ export function PayrollShowContent({
     const list = usePayrollShowFilters({
         url: show.url(period.id),
         initialSearch,
-        initialTab,
         payrollFilters,
         pagination,
         recordsPagination: payroll_records_pagination,
@@ -316,7 +314,6 @@ export function PayrollShowContent({
     });
 
     const { isLiveUpdating: isPayslipGenerationLive } = usePayslipGenerationPoll({
-        tab: initialTab,
         periodStatus: period.status,
         payslipSummary: payslip_summary,
     });
@@ -325,7 +322,6 @@ export function PayrollShowContent({
         employeeGroup: PayrollShowFilters['employee_group'],
     ) => {
         list.applyFilters({
-            tab: initialTab,
             department_id: payrollFilters.department_id,
             position_id: payrollFilters.position_id,
             employee_group: employeeGroup,
@@ -343,7 +339,6 @@ export function PayrollShowContent({
 
     const handleDepartmentSelect = (id: number | null) => {
         list.applyFilters({
-            tab: initialTab,
             department_id: id !== null ? String(id) : '',
             position_id: '',
             employee_group: activeEmployeeGroup,
@@ -360,7 +355,6 @@ export function PayrollShowContent({
         departmentId: number,
     ) => {
         list.applyFilters({
-            tab: initialTab,
             department_id: String(departmentId),
             position_id: String(positionId),
             employee_group: activeEmployeeGroup,
@@ -1480,8 +1474,7 @@ export function PayrollShowContent({
                 record.payroll_category === 'office',
         );
 
-        const payrollTabQuery = {
-            tab: 'payroll' as const,
+        const payrollRecordsQuery = {
             crew_salary_structure: activeCrewSalaryStructure,
             search: initialSearch || undefined,
         };
@@ -1528,7 +1521,7 @@ export function PayrollShowContent({
                                             to={recordsPagination.to}
                                             onPageChange={(page) => {
                                                 list.visit({
-                                                    ...payrollTabQuery,
+                                                    ...payrollRecordsQuery,
                                                     records_page: page,
                                                     monthly_records_page:
                                                         monthlyRecordsPagination?.current_page ??
@@ -1596,7 +1589,7 @@ export function PayrollShowContent({
                                         to={monthlyRecordsPagination.to}
                                         onPageChange={(page) => {
                                             list.visit({
-                                                ...payrollTabQuery,
+                                                ...payrollRecordsQuery,
                                                 monthly_records_page: page,
                                                 records_page:
                                                     recordsPagination?.current_page ??
@@ -1635,7 +1628,6 @@ export function PayrollShowContent({
                         to={recordsPagination.to}
                         onPageChange={(page) => {
                             list.visit({
-                                tab: 'payroll',
                                 records_page: page,
                                 search: initialSearch || undefined,
                             });

@@ -49,7 +49,6 @@ const recordsReloadProps = [
 export function usePayrollShowFilters({
     url,
     initialSearch,
-    initialTab,
     payrollFilters,
     pagination,
     recordsPagination,
@@ -60,7 +59,6 @@ export function usePayrollShowFilters({
 }: {
     url: string;
     initialSearch: string;
-    initialTab: string;
     payrollFilters: PayrollShowFilters;
     pagination: PaginationMeta;
     recordsPagination: PaginationMeta | null;
@@ -86,7 +84,6 @@ export function usePayrollShowFilters({
 
     const baseParams = useCallback(
         () => ({
-            tab: initialTab || undefined,
             department_id: payrollFilters.department_id || undefined,
             position_id: payrollFilters.position_id || undefined,
             employee_group: payrollFilters.employee_group || undefined,
@@ -101,7 +98,6 @@ export function usePayrollShowFilters({
         }),
         [
             initialSearch,
-            initialTab,
             pagination.per_page,
             payrollFilters.crew_salary_structure,
             payrollFilters.department_id,
@@ -198,7 +194,6 @@ export function usePayrollShowFilters({
 
             visit({
                 ...baseParams(),
-                tab: 'payroll',
                 crew_salary_structure: crewSalaryStructure,
                 records_page:
                     crewSalaryStructure === 'daily'

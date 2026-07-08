@@ -407,7 +407,6 @@ export type PayrollShowProps = {
     payroll_records_summary: PayrollRecordsSummary | null;
     salary_inputs_by_employee: Record<string, SalaryInput[]>;
     salary_input_type_options: SalaryInputTypeOption[];
-    tab: 'timesheets' | 'employees' | 'payroll';
     generation_summary: PayrollGenerationSummary | null;
     search: string;
     filters: PayrollShowFilters;

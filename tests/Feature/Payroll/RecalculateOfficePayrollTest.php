@@ -157,7 +157,7 @@ test('authorized users can recalculate office payroll from the period screen', f
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.recalculate', $period))
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $record = PayrollRecord::query()

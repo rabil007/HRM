@@ -66,7 +66,7 @@ test('authorized users can approve processing pay period with payroll records', 
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.approve', $period))
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $period->refresh();
@@ -125,7 +125,7 @@ test('authorized users can mark approved pay period as paid', function () {
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.mark-paid', $period))
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $period->refresh();
@@ -157,7 +157,7 @@ test('authorized users can mark approved pay period as paid with payment proof d
         ->post(route('payroll.mark-paid', $period), [
             'payment_proof' => $file,
         ])
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $period->refresh();
@@ -186,7 +186,7 @@ test('authorized users can mark approved pay period as paid with multiple paymen
         ->post(route('payroll.mark-paid', $period), [
             'payment_proofs' => [$file1, $file2],
         ])
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $period->refresh();
@@ -278,7 +278,7 @@ test('revert to draft fails for cancelled pay period', function () {
         ->assertSessionHasErrors('period_id');
 });
 
-test('approved and paid pay periods open on payroll tab by default', function () {
+test('approved and paid pay periods load without tab query params', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
@@ -288,17 +288,10 @@ test('approved and paid pay periods open on payroll tab by default', function ()
 
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('payroll.show', $approvedPeriod))
-        ->assertRedirect(route('payroll.show', [
-            'payrollPeriod' => $approvedPeriod,
-            'tab' => 'payroll',
-        ]));
-
-    $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $approvedPeriod, 'tab' => 'payroll']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
-            ->where('tab', 'payroll'));
+            ->where('period.status', 'approved'));
 
     $paidPeriod = PayrollPeriod::factory()->for($company)->create([
         'status' => PayrollPeriodStatus::Paid,
@@ -307,10 +300,10 @@ test('approved and paid pay periods open on payroll tab by default', function ()
 
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('payroll.show', $paidPeriod))
-        ->assertRedirect(route('payroll.show', [
-            'payrollPeriod' => $paidPeriod,
-            'tab' => 'payroll',
-        ]));
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('period.status', 'paid'));
 });
 
 test('approved pay period show includes wps delivery props', function () {
@@ -330,7 +323,7 @@ test('approved pay period show includes wps delivery props', function () {
     [$approvedPeriod] = createApprovedPayrollPeriodWithRecord($company, $user);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $approvedPeriod, 'tab' => 'payroll']))
+        ->get(route('payroll.show', ['payrollPeriod' => $approvedPeriod]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
@@ -414,7 +407,7 @@ test('authorized users can approve office pay period after payroll generation', 
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.approve', $period))
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $period->refresh();

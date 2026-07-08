@@ -59,7 +59,7 @@ test('authorized users can revert processing pay period to draft', function () {
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.revert-to-draft', $period))
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $period->refresh();
@@ -67,7 +67,7 @@ test('authorized users can revert processing pay period to draft', function () {
     expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0);
     expect(CrewTimesheet::query()->where('period_id', $period->id)->count())->toBe(0);
 
-    $showUrl = route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']);
+    $showUrl = route('payroll.show', ['payrollPeriod' => $period]);
 
     $this->withSession(['current_company_id' => $company->id])
         ->from($showUrl)
@@ -134,7 +134,7 @@ test('revert to draft clears excluded employee ids', function () {
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.revert-to-draft', $period))
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'employees']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $period->refresh();
@@ -273,7 +273,7 @@ test('reverting approved crew pay period to draft removes all payroll records', 
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.revert-to-draft', $period))
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $period->refresh();

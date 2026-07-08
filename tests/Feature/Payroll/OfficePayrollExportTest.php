@@ -143,7 +143,7 @@ test('approved office payroll show page exposes export permission flag', functio
     [$period] = createApprovedOfficeExportFixture($company);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('permissions.export_payroll', true)
@@ -160,7 +160,7 @@ test('paid office payroll show page exposes export permission flag', function ()
     $period->update(['status' => PayrollPeriodStatus::Paid]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $period->fresh(), 'tab' => 'payroll']))
+        ->get(route('payroll.show', ['payrollPeriod' => $period->fresh()]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('permissions.export_payroll', true)

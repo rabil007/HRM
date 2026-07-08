@@ -12,11 +12,9 @@ const PAYSLIP_POLL_PROPS = [
 ] as const;
 
 export function usePayslipGenerationPoll({
-    tab,
     periodStatus,
     payslipSummary,
 }: {
-    tab: string;
     periodStatus: PayrollPeriodStatus;
     payslipSummary: PayslipSummary;
 }): { isLiveUpdating: boolean } {
@@ -25,7 +23,6 @@ export function usePayslipGenerationPoll({
     const isFinalizedPeriod =
         periodStatus === 'approved' || periodStatus === 'paid';
     const shouldPoll =
-        tab === 'payroll' &&
         isFinalizedPeriod &&
         payslipSummary.total > 0 &&
         payslipSummary.pending > 0;

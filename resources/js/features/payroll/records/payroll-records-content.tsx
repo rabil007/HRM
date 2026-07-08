@@ -293,11 +293,6 @@ export function PayrollRecordsContent({
                                             <Link
                                                 href={payrollShow.url(
                                                     record.period.id,
-                                                    {
-                                                        query: {
-                                                            tab: 'payroll',
-                                                        },
-                                                    },
                                                 )}
                                                 aria-label="View period"
                                             >

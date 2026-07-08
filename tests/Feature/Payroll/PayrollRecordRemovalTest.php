@@ -51,7 +51,7 @@ test('office payroll record can be removed from processing pay run', function ()
             'payrollPeriod' => $period,
             'payrollRecord' => $recordToRemove,
         ]))
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     expect(PayrollRecord::query()->whereKey($recordToRemove->id)->exists())->toBeFalse()
@@ -210,7 +210,7 @@ test('crew payroll record can be removed from processing pay run', function () {
             'payrollPeriod' => $period,
             'payrollRecord' => $recordToRemove,
         ]))
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     expect(PayrollRecord::query()->whereKey($recordToRemove->id)->exists())->toBeFalse()

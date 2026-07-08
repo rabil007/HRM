@@ -152,7 +152,6 @@ class PayrollController extends Controller
 
         $perPage = $this->resolvePerPage($request);
         $search = trim((string) $request->query('search', ''));
-        $tab = trim((string) $request->query('tab', ''));
         $boardFilters = PayrollPeriodBoardFilters::fromRequest($request);
         $crewSalaryStructure = $payrollPeriod->isCrew()
             ? $boardFilters->crewSalaryStructure
@@ -177,25 +176,6 @@ class PayrollController extends Controller
             PayrollPeriodStatus::Approved,
             PayrollPeriodStatus::Paid,
         ], true);
-
-        if ($tab === '' && $isFinalizedPeriod) {
-            $params = [
-                'payrollPeriod' => $payrollPeriod,
-                'tab' => 'payroll',
-            ];
-
-            if ($search !== '') {
-                $params['search'] = $search;
-            }
-
-            foreach (['department_id', 'position_id', 'employee_group', 'page', 'records_page', 'monthly_records_page', 'crew_salary_structure', 'per_page'] as $key) {
-                if ($request->filled($key)) {
-                    $params[$key] = $request->query($key);
-                }
-            }
-
-            return redirect()->route('payroll.show', $params);
-        }
 
         $boardSearch = $search !== '' ? $search : null;
 
@@ -244,13 +224,6 @@ class PayrollController extends Controller
             ->map(fn ($id) => (int) $id)
             ->values()
             ->all();
-
-        $defaultTab = $isFinalizedPeriod
-            ? 'payroll'
-            : ($payrollPeriod->isCrew() ? 'timesheets' : 'employees');
-        $allowedTabs = $payrollPeriod->isCrew()
-            ? ['timesheets', 'payroll']
-            : ['employees', 'payroll'];
 
         $company = Company::query()->findOrFail($companyId);
         $payslipSummary = PayslipSummary::forPeriod($payrollPeriod);
@@ -340,7 +313,6 @@ class PayrollController extends Controller
                 ])
                 ->values()
                 ->all(),
-            'tab' => in_array($tab, $allowedTabs, true) ? $tab : $defaultTab,
             'generation_summary' => $request->session()->get('payroll_generation')
                 ?? $request->session()->get('crew_payroll_generation'),
             'search' => $search,
@@ -714,10 +686,7 @@ class PayrollController extends Controller
         }
 
         return redirect()
-            ->route('payroll.show', [
-                'payrollPeriod' => $payrollPeriod,
-                'tab' => 'timesheets',
-            ])
+            ->route('payroll.show', $payrollPeriod)
             ->with('success', $message);
     }
 
@@ -751,10 +720,7 @@ class PayrollController extends Controller
         }
 
         return redirect()
-            ->route('payroll.show', [
-                'payrollPeriod' => $payrollPeriod,
-                'tab' => 'payroll',
-            ])
+            ->route('payroll.show', $payrollPeriod)
             ->with('success', $message)
             ->with('payroll_generation', $result->toSessionArray());
     }
@@ -771,10 +737,7 @@ class PayrollController extends Controller
         $deletePayrollRecord->handle($payrollPeriod, $payrollRecord);
 
         return redirect()
-            ->route('payroll.show', [
-                'payrollPeriod' => $payrollPeriod,
-                'tab' => 'payroll',
-            ])
+            ->route('payroll.show', $payrollPeriod)
             ->with('success', 'Employee removed from this pay run.');
     }
 
@@ -788,13 +751,8 @@ class PayrollController extends Controller
 
         $revertPayrollPeriodToDraft->handle($payrollPeriod);
 
-        $defaultTab = $payrollPeriod->isCrew() ? 'timesheets' : 'employees';
-
         return redirect()
-            ->route('payroll.show', [
-                'payrollPeriod' => $payrollPeriod,
-                'tab' => $defaultTab,
-            ])
+            ->route('payroll.show', $payrollPeriod)
             ->with(
                 'success',
                 $payrollPeriod->isCrew()
@@ -817,10 +775,7 @@ class PayrollController extends Controller
         $approvePayrollPeriod->handle($payrollPeriod, $user);
 
         return redirect()
-            ->route('payroll.show', [
-                'payrollPeriod' => $payrollPeriod,
-                'tab' => 'payroll',
-            ])
+            ->route('payroll.show', $payrollPeriod)
             ->with('success', 'Pay period approved. Payslips are being generated in the background.');
     }
 
@@ -840,10 +795,7 @@ class PayrollController extends Controller
         $markPayrollPeriodPaid->handle($payrollPeriod, $proofFiles);
 
         return redirect()
-            ->route('payroll.show', [
-                'payrollPeriod' => $payrollPeriod,
-                'tab' => 'payroll',
-            ])
+            ->route('payroll.show', $payrollPeriod)
             ->with('success', 'Pay period marked as paid.');
     }
 

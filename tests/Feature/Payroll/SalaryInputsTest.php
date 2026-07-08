@@ -51,7 +51,7 @@ test('authorized users can create salary inputs for office payroll periods', fun
             'amount' => 500,
             'notes' => 'Performance bonus',
         ])
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $this->assertDatabaseHas('salary_inputs', [
@@ -221,7 +221,7 @@ test('payroll show includes salary inputs grouped by employee for office periods
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has("salary_inputs_by_employee.{$employee->id}", 1)
@@ -241,7 +241,7 @@ test('payroll show includes salary input type options for crew periods', functio
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('salary_input_type_options', 6)

@@ -33,7 +33,7 @@ test('office payroll generation creates records for all office employees with fu
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.generate', $period))
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success')
         ->assertSessionHas('payroll_generation');
 
@@ -344,7 +344,7 @@ test('processing pay period show returns payslip summary', function () {
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
@@ -370,7 +370,7 @@ test('approved pay period show includes payslip summary', function () {
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
@@ -439,11 +439,10 @@ test('payroll show includes office payroll records and leave usage on employees 
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
-            ->where('tab', 'payroll')
             ->has('payroll_records', 1)
             ->where('payroll_records.0.net_salary', '10000.00')
             ->where('payroll_records.0.payroll_category', 'office')
@@ -452,11 +451,10 @@ test('payroll show includes office payroll records and leave usage on employees 
             ->where('period.can_generate_payroll', true));
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'employees']))
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
-            ->where('tab', 'employees')
             ->has('leave_types', 1)
             ->has('rows', 1)
             ->where('rows.0.total_leave_days', 1)
@@ -482,11 +480,10 @@ test('office payroll employees tab exposes salary payment method for cash employ
     $cashEmployee = createOfficeEmployeeWithContract($company, 'CASH-001', 5000, 0, 0, 0);
     $cashEmployee->update(['salary_payment_method' => SalaryPaymentMethod::CashC3]);
 
-    $this->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'employees']))
+    $this->get(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
-            ->where('tab', 'employees')
             ->has('rows', 1)
             ->where('rows.0.salary_payment_method', SalaryPaymentMethod::CashC3->value)
             ->where('rows.0.salary_payment_method_label', 'C3'));

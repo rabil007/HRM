@@ -40,7 +40,7 @@ test('payroll show payslip poll partial reload returns summary and record paysli
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
@@ -84,7 +84,7 @@ test('payroll show full reload still returns complete page when partial data inc
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')

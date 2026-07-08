@@ -51,7 +51,7 @@ test('pay run page includes payroll records summary with aggregated totals', fun
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
@@ -93,7 +93,7 @@ test('pay run page includes crew overtime totals in payroll records summary', fu
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
@@ -114,7 +114,7 @@ test('pay run page omits payroll records summary when no records exist', functio
     createOfficeEmployeeWithContract($company, 'OFF-100', 10000, 0, 0, 0);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'employees']))
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')

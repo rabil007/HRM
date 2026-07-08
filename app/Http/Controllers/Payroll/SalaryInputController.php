@@ -123,7 +123,7 @@ class SalaryInputController extends Controller
             : $recalculateCrewPayroll->handle($payrollPeriod);
 
         return redirect()
-            ->route('payroll.show', ['payrollPeriod' => $payrollPeriod, 'tab' => 'payroll'])
+            ->route('payroll.show', $payrollPeriod)
             ->with('success', "Recalculated payroll for {$updatedCount} employee(s).");
     }
 
@@ -152,7 +152,7 @@ class SalaryInputController extends Controller
         }
 
         return redirect()
-            ->route('payroll.show', ['payrollPeriod' => $payrollPeriod, 'tab' => 'payroll'])
+            ->route('payroll.show', $payrollPeriod)
             ->with('success', $message);
     }
 }

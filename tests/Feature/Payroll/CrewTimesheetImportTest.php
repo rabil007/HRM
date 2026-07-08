@@ -175,7 +175,7 @@ test('crew timesheet import creates timesheets for valid rows', function () {
         ->post(route('payroll.timesheets.import', $period), [
             'file' => $file,
         ])
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $timesheet = CrewTimesheet::query()
@@ -228,7 +228,7 @@ test('crew timesheet import stores overtime hours from excel', function () {
         ->post(route('payroll.timesheets.import', $period), [
             'file' => $file,
         ])
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $timesheet = CrewTimesheet::query()
@@ -325,7 +325,7 @@ test('crew timesheet import stores remarks from excel', function () {
         ->post(route('payroll.timesheets.import', $period), [
             'file' => $file,
         ])
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $timesheet = CrewTimesheet::query()
@@ -365,7 +365,7 @@ test('crew timesheet import stores typed salary input from excel', function () {
         ->post(route('payroll.timesheets.import', $period), [
             'file' => $file,
         ])
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $salaryInput = SalaryInput::query()
@@ -413,7 +413,7 @@ test('crew timesheet import clears typed salary input when column is blank', fun
         ->post(route('payroll.timesheets.import', $period), [
             'file' => $file,
         ])
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     expect(SalaryInput::query()
@@ -452,7 +452,7 @@ test('crew timesheet import still accepts legacy ten column files', function () 
         ->post(route('payroll.timesheets.import', $period), [
             'file' => $file,
         ])
-        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
         ->assertSessionHas('success');
 
     $timesheet = CrewTimesheet::query()
