@@ -3,7 +3,8 @@
 namespace App\Exports;
 
 use App\Models\Employee;
-use App\Support\Departments\ResolveDepartmentEffectiveManager;
+use App\Support\Employees\EmployeeExportFieldRegistry;
+use App\Support\Employees\EmployeeExportFieldResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -14,47 +15,57 @@ class EmployeesExport implements FromQuery, WithHeadings, WithMapping, WithStric
 {
     /**
      * @param  Builder<Employee>  $query
+     * @param  list<string>  $selectedFields
      */
-    public function __construct(private readonly Builder $query) {}
+    public function __construct(
+        private readonly Builder $query,
+        private readonly array $selectedFields = EmployeeExportFieldRegistry::DEFAULT_FIELD_KEYS,
+        private readonly ?EmployeeExportFieldResolver $resolver = null,
+    ) {}
 
     public function query(): Builder
     {
         return $this->query;
     }
 
+    /**
+     * @return list<string>
+     */
     public function headings(): array
     {
-        return [
-            'ID',
-            'Employee No',
-            'Name',
-            'Branch',
-            'Department',
-            'Position',
-            'Manager',
-            'Work Email',
-            'Phone',
-            'Status',
-            'Date of hire',
-            'Created At',
-        ];
+        return array_map(
+            fn (string $key): string => EmployeeExportFieldRegistry::labelFor($key),
+            $this->selectedFields,
+        );
     }
 
+    /**
+     * @param  Employee  $employee
+     * @return list<mixed>
+     */
     public function map($employee): array
     {
-        return [
-            $employee->id,
-            $employee->employee_no,
-            $employee->name,
-            $employee->branch?->name,
-            $employee->department?->name,
-            $employee->position?->title,
-            ResolveDepartmentEffectiveManager::managerForEmployee($employee)?->name,
-            $employee->work_email,
-            $employee->phone,
-            $employee->status,
-            optional($employee->hire_date)->toDateString(),
-            optional($employee->created_at)->toDateTimeString(),
-        ];
+        $values = ($this->resolver ?? new EmployeeExportFieldResolver)->resolve(
+            $employee,
+            $this->selectedFields,
+        );
+
+        return array_map(
+            fn (string $key): mixed => $this->formatValue($values[$key] ?? null),
+            $this->selectedFields,
+        );
+    }
+
+    private function formatValue(mixed $value): mixed
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Yes' : 'No';
+        }
+
+        return $value;
     }
 }

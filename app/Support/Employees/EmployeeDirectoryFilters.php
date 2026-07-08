@@ -51,21 +51,21 @@ final class EmployeeDirectoryFilters
     public static function fromRequest(Request $request): self
     {
         return new self(
-            search: trim((string) $request->query('search', '')),
-            branchId: trim((string) $request->query('branch_id', '')),
-            departmentId: trim((string) $request->query('department_id', '')),
-            positionId: trim((string) $request->query('position_id', '')),
-            status: trim((string) $request->query('status', '')),
-            managerId: trim((string) $request->query('manager_id', '')),
-            genderId: trim((string) $request->query('gender_id', '')),
-            nationalityId: trim((string) $request->query('nationality_id', '')),
-            visaTypeId: trim((string) $request->query('visa_type_id', '')),
-            companyVisaTypeId: trim((string) $request->query('company_visa_type_id', '')),
-            rankId: trim((string) $request->query('rank_id', '')),
-            approvalLocationId: trim((string) $request->query('approval_location_id', '')),
-            sssaOptionId: trim((string) $request->query('sssa_option_id', '')),
-            crewStatus: trim((string) $request->query('crew_status', '')),
-            roleId: trim((string) $request->query('role_id', '')),
+            search: trim((string) $request->input('search', '')),
+            branchId: trim((string) $request->input('branch_id', '')),
+            departmentId: trim((string) $request->input('department_id', '')),
+            positionId: trim((string) $request->input('position_id', '')),
+            status: trim((string) $request->input('status', '')),
+            managerId: trim((string) $request->input('manager_id', '')),
+            genderId: trim((string) $request->input('gender_id', '')),
+            nationalityId: trim((string) $request->input('nationality_id', '')),
+            visaTypeId: trim((string) $request->input('visa_type_id', '')),
+            companyVisaTypeId: trim((string) $request->input('company_visa_type_id', '')),
+            rankId: trim((string) $request->input('rank_id', '')),
+            approvalLocationId: trim((string) $request->input('approval_location_id', '')),
+            sssaOptionId: trim((string) $request->input('sssa_option_id', '')),
+            crewStatus: trim((string) $request->input('crew_status', '')),
+            roleId: trim((string) $request->input('role_id', '')),
         );
     }
 

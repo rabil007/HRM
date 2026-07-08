@@ -18,6 +18,7 @@ use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryCrewStatusData;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
+use App\Support\Employees\EmployeeExportFieldRegistry;
 use App\Support\Employees\EmployeeFormOptions;
 use App\Support\Employees\Resources\EmployeeListResource;
 use App\Support\Employees\Services\EmployeeProfilePageData;
@@ -103,6 +104,7 @@ class EmployeeController extends Controller
             'ranks' => $formOptions['ranks'],
             'banks' => $formOptions['banks'],
             'roles' => $formOptions['roles'],
+            'export_field_options' => EmployeeExportFieldRegistry::optionsForUser(request()->user()),
             'department_tree' => BuildDepartmentEmployeeTree::for($companyId, $directoryFilters),
             'department_tree_selected_id' => $directoryFilters->departmentId !== '' ? (int) $directoryFilters->departmentId : null,
             'department_tree_selected_position_id' => $directoryFilters->positionId !== '' ? (int) $directoryFilters->positionId : null,

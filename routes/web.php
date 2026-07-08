@@ -247,6 +247,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/employees/create', [EmployeeController::class, 'create'])->middleware('can:employees.create')->name('organization.employees.create');
     Route::post('organization/employees/ensure', [EmployeeController::class, 'ensure'])->middleware('can:employees.create')->name('organization.employees.ensure');
     Route::get('organization/employees/export', [EmployeeExportController::class, 'export'])->middleware('can:employees.export')->name('organization.employees.export');
+    Route::post('organization/employees/export', [EmployeeExportController::class, 'exportSelected'])->middleware('can:employees.export')->name('organization.employees.export.selected');
     Route::get('organization/employees/import', [EmployeeImportController::class, 'importPage'])->middleware('can:employees.import')->name('organization.employees.import.page');
     Route::get('organization/employees/import/template', [EmployeeImportController::class, 'importTemplate'])->middleware('can:employees.import')->name('organization.employees.import.template');
     Route::post('organization/employees/import/preview', [EmployeeImportController::class, 'importPreview'])->middleware('can:employees.import')->name('organization.employees.import.preview');

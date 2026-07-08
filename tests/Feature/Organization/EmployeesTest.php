@@ -2,6 +2,7 @@
 
 use App\Enums\SalaryPaymentMethod;
 use App\Models\ApprovalLocation;
+use App\Models\Bank;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Company;
@@ -11,6 +12,7 @@ use App\Models\Currency;
 use App\Models\Department;
 use App\Models\DocumentType;
 use App\Models\Employee;
+use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
 use App\Models\EmployeeProfileTemplate;
 use App\Models\Gender;
@@ -21,9 +23,11 @@ use App\Models\SssaOption;
 use App\Models\User;
 use App\Models\VisaType;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
+use App\Support\Employees\EmployeeExportFieldRegistry;
 use App\Support\Employees\EmployeeImportTemplateExporter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia as Assert;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
@@ -31,6 +35,28 @@ use PhpOffice\PhpSpreadsheet\Style\Conditional;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+
+/**
+ * @return list<list<string|null>>
+ */
+function employeeExportCsvRows(TestResponse $response): array
+{
+    $baseResponse = $response->baseResponse;
+
+    if ($baseResponse instanceof BinaryFileResponse) {
+        $content = file_get_contents($baseResponse->getFile()->getPathname());
+    } else {
+        $content = $response->getContent();
+    }
+
+    $content = ltrim((string) $content, "\xEF\xBB\xBF");
+
+    return array_values(array_filter(array_map(
+        static fn (string $line): array => str_getcsv($line),
+        explode("\n", trim($content)),
+    )));
+}
 
 test('guests cannot access employees page', function () {
     $this->get('/organization/employees')->assertRedirect(route('login'));
@@ -1096,6 +1122,272 @@ test('authenticated users can export employees as csv, excel, and pdf', function
     $this->get('/organization/employees/export?format=csv')->assertOk();
     $this->get('/organization/employees/export?format=xlsx')->assertOk();
     $this->get('/organization/employees/export?format=pdf')->assertOk();
+});
+
+test('employees index exposes export field options filtered by permissions', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get('/organization/employees')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('export_field_options')
+            ->where(
+                'export_field_options',
+                fn ($options) => collect($options)->contains(
+                    fn (array $option): bool => $option['key'] === 'passport_number' && $option['allowed'] === false,
+                ),
+            )
+            ->where(
+                'export_field_options',
+                fn ($options) => collect($options)->contains(
+                    fn (array $option): bool => $option['key'] === 'name' && $option['allowed'] === true,
+                ),
+            ));
+});
+
+test('authenticated users can export employees with custom field order via post', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP0099',
+            'name' => 'Custom Export User',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.export']);
+
+    $response = $this->postJson('/organization/employees/export', [
+        'format' => 'csv',
+        'fields' => ['name', 'employee_no', 'id'],
+    ]);
+
+    $response->assertOk();
+
+    $rows = employeeExportCsvRows($response);
+    $headers = $rows[0];
+
+    expect($headers)->toBe([
+        EmployeeExportFieldRegistry::labelFor('name'),
+        EmployeeExportFieldRegistry::labelFor('employee_no'),
+        EmployeeExportFieldRegistry::labelFor('id'),
+    ]);
+});
+
+test('post employee export includes contract and primary bank columns when selected', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP0100',
+            'name' => 'Contract Bank Export',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()
+        ->where('employee_id', $employee->id)
+        ->update(['basic_salary' => 7500]);
+
+    $bank = Bank::query()->create([
+        'name' => 'Export Test Bank',
+        'is_active' => true,
+    ]);
+
+    EmployeeBankAccount::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'bank_id' => $bank->id,
+        'iban' => 'AE029010101010',
+        'account_name' => 'Export Account',
+        'is_primary' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.export']);
+
+    $response = $this->postJson('/organization/employees/export', [
+        'format' => 'csv',
+        'fields' => [
+            'name',
+            'contract_basic_salary',
+            'bank_name',
+            'bank_iban',
+        ],
+    ]);
+
+    $response->assertOk();
+
+    $rows = employeeExportCsvRows($response);
+    $data = $rows[1];
+
+    expect($data[0])->toBe('Contract Bank Export');
+    expect((float) $data[1])->toBe(7500.0);
+    expect($data[2])->toBe('Export Test Bank');
+    expect($data[3])->toBe('AE029010101010');
+});
+
+test('post employee export rejects unknown field keys', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.export']);
+
+    $this->postJson('/organization/employees/export', [
+        'format' => 'csv',
+        'fields' => ['name', 'unknown_field_key'],
+    ])->assertUnprocessable();
+});
+
+test('post employee export blocks sensitive identity fields without permission', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP0101',
+            'name' => 'Sensitive Export',
+            'passport_number' => 'P12345678',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.export']);
+
+    $this->postJson('/organization/employees/export', [
+        'format' => 'csv',
+        'fields' => ['passport_number'],
+    ])->assertStatus(422);
 });
 
 test('authenticated users with permission can download the import template', function () {

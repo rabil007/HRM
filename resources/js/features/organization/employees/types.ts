@@ -157,6 +157,13 @@ export type Employee = {
     created_at: string;
 };
 
+export type EmployeeExportFieldOption = {
+    key: string;
+    label: string;
+    group: 'employee' | 'contract' | 'bank_account';
+    allowed: boolean;
+};
+
 export type EmployeeFormData = {
     user_id: number | '';
     branch_id: number | '';

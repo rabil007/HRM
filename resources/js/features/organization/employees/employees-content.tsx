@@ -1,5 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
-import { Filter, FolderTree, Plus, Upload } from 'lucide-react';
+import { Download, Filter, FolderTree, Plus, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -11,7 +11,6 @@ import {
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
-import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { ListTableCrudActions } from '@/components/list-table-actions';
 import { PageHeader } from '@/components/page-header';
@@ -54,6 +53,7 @@ import {
     buildEmployeeShowUrl,
 } from './build-employee-show-url';
 import { DepartmentEmployeeTree } from './components/department-employee-tree';
+import { EmployeeExportDialog } from './components/employee-export-dialog';
 import { EmployeeCard } from './components/employee-card';
 import type { EmployeeFilters } from './components/employee-filters-sheet';
 import type {
@@ -63,6 +63,7 @@ import type {
     CountryOption,
     DepartmentTreeNode,
     Employee,
+    EmployeeExportFieldOption,
     GenderOption,
     ApprovalLocationOption,
     ManagerOption,
@@ -97,6 +98,7 @@ export function EmployeesContent({
     ranks,
     banks: _banks,
     roles,
+    export_field_options,
 }: {
     employees: Employee[];
     pagination: PaginationMeta;
@@ -119,6 +121,7 @@ export function EmployeesContent({
     ranks: RankOption[];
     banks: BankOption[];
     roles: RoleOption[];
+    export_field_options: EmployeeExportFieldOption[];
 }) {
     void _users;
     void _religions;
@@ -136,6 +139,7 @@ export function EmployeesContent({
     const [isDepartmentsOpen, setIsDepartmentsOpen] = useState(false);
     const [isDepartmentsPopoverOpen, setIsDepartmentsPopoverOpen] =
         useState(false);
+    const [isExportOpen, setIsExportOpen] = useState(false);
     const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(
         null,
     );
@@ -241,23 +245,10 @@ export function EmployeesContent({
         );
     };
 
-    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
-        const params = new URLSearchParams();
-
-        if (initialSearch) {
-            params.set('search', initialSearch);
-        }
-
-        const listQuery = buildEmployeeListQuery(initialSearch, initialFilters);
-
-        Object.entries(listQuery).forEach(([key, value]) => {
-            params.set(key, value);
-        });
-
-        params.set('format', format);
-
-        return `/organization/employees/export?${params.toString()}`;
-    };
+    const exportFilters = useMemo(
+        () => buildEmployeeListQuery(initialSearch, initialFilters),
+        [initialSearch, initialFilters],
+    );
 
     return (
         <Main>
@@ -281,11 +272,15 @@ export function EmployeesContent({
                                 Import
                             </Button>
                         ) : null}
-                        <ExportMenu
-                            getUrl={getExportUrl}
-                            buttonVariant="secondary"
-                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
-                        />
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
+                            onClick={() => setIsExportOpen(true)}
+                        >
+                            <Download className="mr-2 h-4 w-4" />
+                            Export
+                        </Button>
                         <Button
                             onClick={handleAdd}
                             className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
@@ -613,6 +608,14 @@ export function EmployeesContent({
                 onOpenChange={setIsDeleteOpen}
                 employee={currentEmployee}
                 onConfirm={confirmDelete}
+            />
+
+            <EmployeeExportDialog
+                open={isExportOpen}
+                onOpenChange={setIsExportOpen}
+                fieldOptions={export_field_options}
+                filters={exportFilters}
+                exportUrl="/organization/employees/export"
             />
         </Main>
     );
