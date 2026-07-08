@@ -76,7 +76,7 @@ test('authorized users can preview payslip html when requested', function () {
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('payroll.payslips.show', ['payrollRecord' => $record, 'view' => 'html']))
         ->assertOk()
-        ->assertSee('Salary Slip - '.$employee->name, false);
+        ->assertSee('Salary Slip - '.$employee->name);
 });
 
 test('inertia requests to payslip show force a full page visit', function () {
