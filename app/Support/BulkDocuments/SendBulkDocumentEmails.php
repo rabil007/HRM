@@ -98,9 +98,11 @@ final class SendBulkDocumentEmails
             try {
                 Mail::to($recipient)->queue(new BulkDocumentMail(
                     subjectLine: $subject,
-                    bodyHtml: $body,
+                    bodyMessage: $body,
+                    organizationName: (string) $company->name,
                     attachmentPath: (string) $document->file_path,
                     attachmentName: $filename,
+                    includeCompanyFooter: (bool) $template->include_company_footer,
                     ccRecipients: $cc,
                 ));
 

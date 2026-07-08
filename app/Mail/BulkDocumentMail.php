@@ -14,11 +14,16 @@ class BulkDocumentMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
+    /**
+     * @param  list<string>  $ccRecipients
+     */
     public function __construct(
         public string $subjectLine,
-        public string $bodyHtml,
+        public string $bodyMessage,
+        public string $organizationName,
         public string $attachmentPath,
         public string $attachmentName,
+        public bool $includeCompanyFooter = true,
         public array $ccRecipients = [],
     ) {}
 
@@ -33,7 +38,13 @@ class BulkDocumentMail extends Mailable implements ShouldQueue
     public function content(): Content
     {
         return new Content(
-            htmlString: $this->bodyHtml,
+            view: 'mail.bulk-document',
+            with: [
+                'subjectLine' => $this->subjectLine,
+                'bodyMessage' => $this->bodyMessage,
+                'organizationName' => $this->organizationName,
+                'includeCompanyFooter' => $this->includeCompanyFooter,
+            ],
         );
     }
 
