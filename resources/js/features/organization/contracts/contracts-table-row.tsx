@@ -95,6 +95,26 @@ export function ContractsTableRow({
                     </TableCell>
                 </>
             ) : null}
+            {showCrewColumns ? (
+                <>
+                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+                        {formatContractMoney(
+                            contract.supplementary_allowance,
+                        )}
+                    </TableCell>
+                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+                        {formatContractMoney(contract.site_allowance)}
+                    </TableCell>
+                    <TableCell
+                        className={cn(
+                            dataTableCellClass(),
+                            'text-right font-semibold text-foreground',
+                        )}
+                    >
+                        {formatContractMoney(contractCrewSalaryTotal(contract))}
+                    </TableCell>
+                </>
+            ) : null}
             <TableCell className={dataTableCellClass()}>
                 {formatSalaryStructure(contract.salary_structure)}
             </TableCell>
@@ -117,26 +137,6 @@ export function ContractsTableRow({
             <TableCell className={dataTableCellClass()}>
                 {formatDisplayDate(contract.end_date)}
             </TableCell>
-            {showCrewColumns ? (
-                <>
-                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
-                        {formatContractMoney(
-                            contract.supplementary_allowance,
-                        )}
-                    </TableCell>
-                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
-                        {formatContractMoney(contract.site_allowance)}
-                    </TableCell>
-                    <TableCell
-                        className={cn(
-                            dataTableCellClass(),
-                            'text-right font-semibold text-foreground',
-                        )}
-                    >
-                        {formatContractMoney(contractCrewSalaryTotal(contract))}
-                    </TableCell>
-                </>
-            ) : null}
         </TableRow>
     );
 }

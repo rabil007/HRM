@@ -41,6 +41,11 @@ export function ContractsContent({
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
     const activePayrollCategory =
         initialPayrollCategory === 'crew' ? 'crew' : 'office';
+    const activeSalaryStructure =
+        activePayrollCategory === 'crew' &&
+        initialSalaryStructure === 'monthly'
+            ? 'monthly'
+            : 'daily';
 
     const {
         searchInput,
@@ -57,7 +62,8 @@ export function ContractsContent({
         initialLifecycle,
         initialStatus,
         initialPayrollCategory: activePayrollCategory,
-        initialSalaryStructure,
+        initialSalaryStructure:
+            activePayrollCategory === 'crew' ? activeSalaryStructure : '',
         initialDepartmentId,
         perPage: pagination.per_page,
     });
@@ -69,7 +75,10 @@ export function ContractsContent({
                 lifecycle: initialLifecycle === 'all' ? undefined : initialLifecycle,
                 status: initialStatus || undefined,
                 payroll_category: activePayrollCategory,
-                salary_structure: initialSalaryStructure || undefined,
+                salary_structure:
+                    activePayrollCategory === 'crew'
+                        ? activeSalaryStructure
+                        : undefined,
                 branch_id: initialBranchId || undefined,
                 department_id: initialDepartmentId || undefined,
                 format,
@@ -95,13 +104,14 @@ export function ContractsContent({
             lifecycle: initialLifecycle,
             status: initialStatus,
             payroll_category: activePayrollCategory,
-            salary_structure: initialSalaryStructure,
+            salary_structure:
+                activePayrollCategory === 'crew' ? activeSalaryStructure : '',
             page: pagination.current_page,
         }),
         [
             activePayrollCategory,
+            activeSalaryStructure,
             initialLifecycle,
-            initialSalaryStructure,
             initialSearch,
             initialStatus,
             pagination.current_page,
@@ -179,19 +189,15 @@ export function ContractsContent({
                         </div>
                         {showCrewColumns ? (
                             <div className="flex items-center rounded-xl glass-card p-1">
-                                {(['', 'daily', 'monthly'] as const).map((value) => {
+                                {(['daily', 'monthly'] as const).map((value) => {
                                     const label =
-                                        value === ''
-                                            ? 'All structures'
-                                            : value === 'daily'
-                                              ? 'Daily'
-                                              : 'Monthly';
+                                        value === 'daily' ? 'Daily' : 'Monthly';
                                     const isActive =
-                                        initialSalaryStructure === value;
+                                        activeSalaryStructure === value;
 
                                     return (
                                         <Button
-                                            key={value || 'all-structures'}
+                                            key={value}
                                             type="button"
                                             variant={
                                                 isActive ? 'default' : 'ghost'
@@ -250,11 +256,6 @@ export function ContractsContent({
                                         </DataTableHead>
                                     </>
                                 ) : null}
-                                <DataTableHead>Salary structure</DataTableHead>
-                                <DataTableHead>Labor contract ID</DataTableHead>
-                                <DataTableHead># Contracts</DataTableHead>
-                                <DataTableHead>Start</DataTableHead>
-                                <DataTableHead>End</DataTableHead>
                                 {showCrewColumns ? (
                                     <>
                                         <DataTableHead className="text-right">
@@ -268,6 +269,11 @@ export function ContractsContent({
                                         </DataTableHead>
                                     </>
                                 ) : null}
+                                <DataTableHead>Salary structure</DataTableHead>
+                                <DataTableHead>Labor contract ID</DataTableHead>
+                                <DataTableHead># Contracts</DataTableHead>
+                                <DataTableHead>Start</DataTableHead>
+                                <DataTableHead>End</DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>

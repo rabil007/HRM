@@ -246,6 +246,7 @@ test('contracts index filters by lifecycle and workforce department scope', func
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('payroll_category', 'crew')
+            ->where('salary_structure', 'daily')
             ->has('contracts', 1)
             ->where('contracts.0.payroll_category', 'crew')
             ->where('contracts.0.salary_structure', 'daily'));

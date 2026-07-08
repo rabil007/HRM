@@ -39,6 +39,8 @@ final class ContractDirectoryFilters
 
         if ($payrollCategory === PayrollCategory::Office->value) {
             $salaryStructure = '';
+        } elseif ($salaryStructure === '' || ! ContractSalaryStructureFilter::isValid($salaryStructure)) {
+            $salaryStructure = ContractSalaryStructureFilter::DAILY;
         }
 
         return new self(

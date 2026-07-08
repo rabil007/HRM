@@ -58,7 +58,12 @@ export function useContractsIndexFilters({
                 initialLifecycle === 'all' ? undefined : initialLifecycle,
             status: initialStatus || undefined,
             payroll_category: initialPayrollCategory || 'office',
-            salary_structure: initialSalaryStructure || undefined,
+            salary_structure:
+                initialPayrollCategory === 'crew'
+                    ? initialSalaryStructure === 'monthly'
+                        ? 'monthly'
+                        : 'daily'
+                    : undefined,
             department_id: initialDepartmentId || undefined,
             per_page: perPage,
         }),
@@ -140,7 +145,11 @@ export function useContractsIndexFilters({
                 ...baseParams(),
                 payroll_category: payrollCategory,
                 salary_structure:
-                    payrollCategory === 'office' ? undefined : initialSalaryStructure || undefined,
+                    payrollCategory === 'office'
+                        ? undefined
+                        : initialSalaryStructure === 'monthly'
+                          ? 'monthly'
+                          : 'daily',
                 page: null,
             });
         },
@@ -148,10 +157,10 @@ export function useContractsIndexFilters({
     );
 
     const onSalaryStructureChange = useCallback(
-        (salaryStructure: ContractSalaryStructureFilter) => {
+        (salaryStructure: 'daily' | 'monthly') => {
             visit({
                 ...baseParams(),
-                salary_structure: salaryStructure || undefined,
+                salary_structure: salaryStructure,
                 page: null,
             });
         },
