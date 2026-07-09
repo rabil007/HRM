@@ -81,7 +81,6 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default function PositionDetails({
     position,
-    companies,
     departments,
     recent_activity,
     can_view_audit,
@@ -97,7 +96,6 @@ export default function PositionDetails({
         Record<number, boolean>
     >({});
     const form = useForm<PositionFormData>({
-        company_id: position.company.id ?? '',
         department_id: position.department?.id ?? '',
         title: position.title ?? '',
         grade: position.grade ?? '',
@@ -412,7 +410,6 @@ export default function PositionDetails({
                     open={open}
                     onOpenChange={setOpen}
                     position={position}
-                    companies={companies}
                     departments={departments}
                     form={form}
                     onSubmit={() => {

@@ -44,12 +44,12 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { BulkDocumentsHistoryTable } from '@/features/organization/documents/bulk/bulk-documents-history-table';
-import { BulkEmailBatchSendsSheet } from '@/features/organization/documents/bulk/bulk-email-batch-sends-sheet';
 import {
     BulkDocumentsViewSwitcher
     
 } from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
 import type {BulkDocumentsView} from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
+import { BulkEmailBatchSendsSheet } from '@/features/organization/documents/bulk/bulk-email-batch-sends-sheet';
 import { BulkDocumentsEmailModal } from '@/features/organization/documents/bulk/bulk-email-modal';
 import { BulkSignaturesTable } from '@/features/organization/documents/bulk/bulk-signatures-table';
 import { SignatureStatusBadge } from '@/features/organization/documents/bulk/signature-status-badge';
@@ -62,7 +62,7 @@ import { EmployeeProfileLink } from '@/features/organization/employees/component
 import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { documents } from '@/routes/organization';
+import documentRoutes from '@/routes/organization/documents';
 import {
     EMPTY_BULK_DOCUMENT_FILTERS
 } from './types';
@@ -591,7 +591,6 @@ export function BulkDocumentsContent({
                 'pagination',
                 'flash',
             ],
-            preserveScroll: true,
         },
         { autoStart: false },
     );
@@ -1725,7 +1724,7 @@ function BulkRosterRow({
                         asChild
                     >
                         <Link
-                            href={documents.employee.url({
+                            href={documentRoutes.employee.url({
                                 employee: employee.id,
                             })}
                             title="View document folder"

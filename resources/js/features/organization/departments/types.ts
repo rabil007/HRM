@@ -20,6 +20,7 @@ export type DepartmentParentOption = {
     id: number;
     company_id: number;
     name: string;
+    parent_id: number | null;
 };
 
 export type Department = {

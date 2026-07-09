@@ -14,7 +14,7 @@ export function EmployeeProfileLink({
     className?: string;
     stopRowNavigation?: boolean;
 }): ReactElement {
-    const handleClick = (event: MouseEvent<HTMLAnchorElement>): void => {
+    const handleClick = (event: MouseEvent): void => {
         if (stopRowNavigation) {
             event.stopPropagation();
         }

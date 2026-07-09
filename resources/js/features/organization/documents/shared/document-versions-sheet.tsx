@@ -48,10 +48,8 @@ export function DocumentVersionsSheet({
         )
             .then((res) => {
                 if (!cancelled) {
-                    setVersions(
-                        (res.data as { versions: DocumentVersionItem[] })
-                            .versions ?? [],
-                    );
+                    const data = res as { versions: DocumentVersionItem[] };
+                    setVersions(data.versions ?? []);
                 }
             })
             .finally(() => {

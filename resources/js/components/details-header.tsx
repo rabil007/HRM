@@ -11,7 +11,7 @@ export function DetailsHeader({
 }: {
     kicker?: string;
     title: ReactNode;
-    description?: string;
+    description?: ReactNode;
     backHref: string;
     backLabel: string;
     actions?: ReactNode;

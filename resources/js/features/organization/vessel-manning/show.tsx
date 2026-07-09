@@ -155,7 +155,7 @@ export function VesselManningShowContent({
                     vesselManningHasWriteActions(can) ? (
                         <Button
                             type="button"
-                            className={actions.primary}
+                            className={actions.dialogPrimary}
                             onClick={openEdit}
                         >
                             <Pencil className="mr-2 h-4 w-4" />

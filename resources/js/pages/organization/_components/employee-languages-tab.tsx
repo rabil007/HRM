@@ -54,7 +54,7 @@ import type {
 const LANGUAGES_RELOAD = {
     preserveScroll: true,
     only: ['languages'],
-} as const;
+};
 
 const LANGUAGE_BOOLEAN_FIELDS = [
     'is_spoken',

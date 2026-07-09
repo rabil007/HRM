@@ -169,7 +169,7 @@ export function ContractsNoContractContent({
                         {department_tree && department_tree.length > 0 ? (
                             <DepartmentFilterControls
                                 department_tree={department_tree}
-                                department_tree_selected_id={department_tree_selected_id}
+                                department_tree_selected_id={department_tree_selected_id ?? null}
                                 department_tree_selected_position_id={null}
                                 onSelectDepartment={onDepartmentChange}
                                 onSelectPosition={(_, depId) =>

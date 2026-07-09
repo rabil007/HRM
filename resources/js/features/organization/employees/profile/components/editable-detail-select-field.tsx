@@ -10,7 +10,7 @@ import type {
 } from '@/lib/master-data/creatable-registry';
 
 export type EditableSelectOption = {
-    id: number;
+    id: number | string;
     label: string;
     value: string;
 };

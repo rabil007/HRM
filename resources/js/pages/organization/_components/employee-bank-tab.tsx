@@ -59,7 +59,7 @@ import type {
 const BANK_ACCOUNTS_RELOAD = {
     preserveScroll: true,
     only: ['bank_accounts', 'employee'],
-} as const;
+};
 
 export type EmployeeBankTabProps = {
     employeeId: number | null;

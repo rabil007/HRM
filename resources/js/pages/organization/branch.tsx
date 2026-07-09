@@ -96,7 +96,6 @@ function Field({ label, value }: { label: string; value: string }) {
 
 export default function BranchDetails({
     branch,
-    companies,
     countries,
     recent_activity,
     companies_count,
@@ -117,7 +116,6 @@ export default function BranchDetails({
     >({});
 
     const form = useForm<BranchFormData>({
-        company_id: branch.company.id ?? '',
         name: branch.name ?? '',
         code: branch.code ?? '',
         address: branch.address ?? '',
@@ -470,7 +468,6 @@ export default function BranchDetails({
                     open={editOpen}
                     onOpenChange={setEditOpen}
                     branch={sheetBranch}
-                    companies={companies}
                     countries={countries}
                     form={form}
                     onSubmit={submit}

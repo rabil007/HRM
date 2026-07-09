@@ -59,7 +59,7 @@ export function DepartmentsContent({
     pagination: PaginationMeta;
     search: string;
     filters: {
-        id: string;
+        id?: string;
         branch_id: string;
         parent_id: string;
         manager_id: string;
@@ -88,7 +88,7 @@ export function DepartmentsContent({
         branch_id: initialFilters.branch_id,
         parent_id: initialFilters.parent_id,
         manager_id: initialFilters.manager_id,
-        status: initialFilters.status,
+        status: initialFilters.status as DepartmentFilters['status'],
         code: initialFilters.code,
     };
 
@@ -408,6 +408,7 @@ export function DepartmentsContent({
                 onChange={handleFiltersChange}
                 onReset={() =>
                     handleFiltersChange({
+                        id: '',
                         branch_id: '',
                         parent_id: '',
                         manager_id: '',

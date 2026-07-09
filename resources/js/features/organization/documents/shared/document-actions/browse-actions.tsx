@@ -6,7 +6,7 @@ import type { DocumentBrowseItem } from '@/features/organization/documents/share
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
-import { documents } from '@/routes/organization';
+import documentRoutes from '@/routes/organization/documents';
 
 export function BrowseDocumentActions({
     doc,
@@ -44,7 +44,7 @@ export function BrowseDocumentActions({
                     {
                         label: 'Download',
                         icon: Download,
-                        href: documents.files.download.url({
+                        href: documentRoutes.files.download.url({
                             document: doc.id,
                         }),
                         hidden: !canDownload,

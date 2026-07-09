@@ -24,6 +24,7 @@ import { formatDisplayDate } from '@/lib/format-date';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { formatBytes } from '@/lib/utils';
 import { documents } from '@/routes/organization';
+import documentRoutes from '@/routes/organization/documents';
 import { show as employeeShow } from '@/routes/organization/employees';
 
 type Props = {
@@ -93,7 +94,7 @@ export default function DocumentShow({
                         { title: 'Documents', href: documents.url() },
                         {
                             title: employee.name,
-                            href: documents.employee.url({
+                            href: documentRoutes.employee.url({
                                 employee: employee.id,
                             }),
                         },

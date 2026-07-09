@@ -1,3 +1,4 @@
+import type { RequestPayload } from '@inertiajs/core';
 import { router } from '@inertiajs/react';
 import { FileText, UploadCloud } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
@@ -25,6 +26,7 @@ import {
 } from '@/features/organization/documents/upload/document-upload-progress';
 import type { DocumentUploadProgressState } from '@/features/organization/documents/upload/document-upload-progress';
 import { PDF_COMPRESS_THRESHOLD_LABEL } from '@/features/organization/documents/upload/upload-draft';
+import type { UploadDraft } from '@/features/organization/documents/upload/upload-draft';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { AddTrainingCertificateListItem } from '@/features/organization/training/add-training/add-training-certificate-list-item';
@@ -72,7 +74,7 @@ import type {
 const TRAINING_RELOAD = {
     preserveScroll: true,
     only: ['trainings'],
-} as const;
+};
 
 function emptyTrainingMetadata(): TrainingDraftMetadata {
     return {
@@ -329,7 +331,7 @@ export function AddTrainingDialog({
                         break;
                     }
 
-                    if (fileMatchesExistingDraft(next, file)) {
+                    if (fileMatchesExistingDraft(next as unknown as UploadDraft[], file)) {
                         continue;
                     }
 
@@ -481,7 +483,7 @@ export function AddTrainingDialog({
         if (drafts.length > 0) {
             router.post(
                 bulkStoreTraining.url({ employee: resolvedEmployeeId }),
-                buildBulkTrainingSubmitPayload(drafts, templateFields),
+                buildBulkTrainingSubmitPayload(drafts, templateFields) as RequestPayload,
                 {
                     forceFormData: true,
                     ...TRAINING_RELOAD,
@@ -520,7 +522,7 @@ export function AddTrainingDialog({
 
         router.post(
             storeTraining.url({ employee: resolvedEmployeeId }),
-            buildTrainingSubmitPayload(standaloneMetadata, { templateFields }),
+            buildTrainingSubmitPayload(standaloneMetadata, { templateFields }) as RequestPayload,
             {
                 forceFormData: true,
                 ...TRAINING_RELOAD,
@@ -599,7 +601,7 @@ export function AddTrainingDialog({
                 templateFields,
                 certificate: selectedDraft?.file ?? null,
                 removeCertificate,
-            }),
+            }) as RequestPayload,
             {
                 forceFormData: true,
                 ...TRAINING_RELOAD,

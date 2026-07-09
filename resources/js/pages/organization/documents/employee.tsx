@@ -58,6 +58,7 @@ import type { WhatsAppTemplateOption } from '@/features/organization/documents/w
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
+import documentRoutes from '@/routes/organization/documents';
 import { shareLinks } from '@/routes/organization/documents/employee/files';
 import { show } from '@/routes/organization/employees';
 
@@ -162,7 +163,7 @@ export default function EmployeeDocumentsBrowse({
         setIsBulkDownloading(true);
 
         try {
-            await downloadBulkZip(documents.files.bulkDownload.url(), {
+            await downloadBulkZip(documentRoutes.files.bulkDownload.url(), {
                 document_ids: selectedDocumentIds,
             });
             clearDocumentSelection();
@@ -270,7 +271,7 @@ export default function EmployeeDocumentsBrowse({
         setIsDeleting(true);
 
         router.delete(
-            documents.employee.files.bulkDestroy.url({ employee: employee.id }),
+            documentRoutes.employee.files.bulkDestroy.url({ employee: employee.id }),
             {
                 data: { document_ids: selectedDocumentIds },
                 preserveScroll: true,
@@ -503,8 +504,12 @@ export default function EmployeeDocumentsBrowse({
                                 canDownload={canDownloadDocuments}
                                 canUpload={canUploadDocuments}
                                 canDelete={canDeleteDocuments}
-                                onEdit={setEditDoc}
-                                onReplace={setReplaceDoc}
+                                onEdit={(document) =>
+                                    setEditDoc(document as DocumentProfileItem)
+                                }
+                                onReplace={(document) =>
+                                    setReplaceDoc(document as DocumentProfileItem)
+                                }
                                 onDelete={(document) =>
                                     setDeleteDocId(document.id)
                                 }

@@ -155,8 +155,8 @@ export default function Vessels({
         };
 
         if (current) {
+            form.transform(() => payload);
             form.put(`/settings/master-data/vessels/${current.id}`, {
-                data: payload,
                 preserveScroll: true,
                 onSuccess: () => setSheetOpen(false),
             });
@@ -164,8 +164,8 @@ export default function Vessels({
             return;
         }
 
+        form.transform(() => payload);
         form.post('/settings/master-data/vessels', {
-            data: payload,
             preserveScroll: true,
             onSuccess: () => setSheetOpen(false),
         });

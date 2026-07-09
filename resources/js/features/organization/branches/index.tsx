@@ -71,7 +71,7 @@ export function BranchesContent({
 
     const filters: BranchFilters = {
         country: initialFilters.country,
-        status: initialFilters.status,
+        status: initialFilters.status as BranchFilters['status'],
         city: initialFilters.city,
         headquartersOnly: initialFilters.headquartersOnly,
         hasEmail: initialFilters.hasEmail,

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { EmployeeFolder } from '@/features/organization/documents/types';
 import { cn } from '@/lib/utils';
-import { documents } from '@/routes/organization';
+import documentRoutes from '@/routes/organization/documents';
 
 export type { EmployeeFolder };
 
@@ -26,7 +26,7 @@ export function EmployeeFolderItem({
             ? '1 file'
             : `${employee.document_count} files`;
 
-    const downloadUrl = documents.employee.download.url({
+    const downloadUrl = documentRoutes.employee.download.url({
         employee: employee.employee_id,
     });
 
@@ -54,7 +54,7 @@ export function EmployeeFolderItem({
             ) : null}
 
             <Link
-                href={documents.employee.url({
+                href={documentRoutes.employee.url({
                     employee: employee.employee_id,
                 })}
                 title={`${employee.employee_name} (${employee.employee_no})`}

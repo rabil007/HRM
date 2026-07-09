@@ -59,7 +59,7 @@ import type {
 const VACCINATION_RELOAD = {
     preserveScroll: true,
     only: ['vaccinations'],
-} as const;
+};
 
 export type EmployeeVaccinationTabProps = {
     employeeId: number | null;

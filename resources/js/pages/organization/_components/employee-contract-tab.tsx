@@ -1,3 +1,4 @@
+import type { RequestPayload } from '@inertiajs/core';
 import { router, useForm } from '@inertiajs/react';
 import {
     Banknote,
@@ -64,7 +65,7 @@ import type {
 const CONTRACTS_RELOAD = {
     preserveScroll: true,
     only: ['contracts', 'employee'],
-} as const;
+};
 
 const STATUS_LABELS: Record<string, string> = {
     active: 'Active',
@@ -167,7 +168,7 @@ function contractTotalSalary(row: EmployeeContractDetails): number {
         row.other_allowances,
         row.supplementary_allowance,
         row.site_allowance,
-    ].reduce(
+    ].reduce<number>(
         (sum, value) => sum + (Number(value) || 0),
         0,
     );
@@ -540,9 +541,9 @@ export function EmployeeContractTab({
         };
 
         if (editingContract) {
-            router.put(url, payload, options);
+            router.put(url, payload as RequestPayload, options);
         } else {
-            router.post(url, payload, options);
+            router.post(url, payload as RequestPayload, options);
         }
     };
 

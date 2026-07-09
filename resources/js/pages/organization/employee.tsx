@@ -624,7 +624,7 @@ function EmployeeDetailsPage({
                             open={createUserOpen}
                             onOpenChange={setCreateUserOpen}
                             employee={employee}
-                            roles={roles}
+                            roles={roles ?? []}
                             onSuccess={() => {
                                 router.reload({ only: ['employee'] });
                             }}

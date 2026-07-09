@@ -1,3 +1,4 @@
+import type { RequestPayload } from '@inertiajs/core';
 import { router } from '@inertiajs/react';
 import { FileText, UploadCloud } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
@@ -68,7 +69,7 @@ function uploadDraftToFormData(draft: UploadDraft): Record<string, unknown> {
 const DOCUMENTS_RELOAD = {
     preserveScroll: true,
     only: ['documents'],
-} as const;
+};
 
 export function UploadDocumentDialog({
     open,
@@ -386,7 +387,7 @@ export function UploadDocumentDialog({
                         templateFields,
                     ),
                 ),
-            },
+            } as RequestPayload,
             {
                 forceFormData: true,
                 ...DOCUMENTS_RELOAD,

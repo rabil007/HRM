@@ -57,7 +57,7 @@ import type {
 const WORK_EXPERIENCE_RELOAD = {
     preserveScroll: true,
     only: ['work_experiences'],
-} as const;
+};
 
 export type EmployeeWorkExperienceTabProps = {
     employeeId: number | null;

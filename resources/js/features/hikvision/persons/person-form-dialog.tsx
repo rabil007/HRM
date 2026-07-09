@@ -272,9 +272,9 @@ export function HikvisionPersonFormDialog({
                         </div>
                     </div>
 
-                    {form.errors.person ? (
+                    {'person' in form.errors && form.errors.person ? (
                         <p className="text-xs text-destructive">
-                            {form.errors.person}
+                            {String(form.errors.person)}
                         </p>
                     ) : null}
 

@@ -34,7 +34,7 @@ export function ContractsEmployeeContent({
                         {employee.name}
                     </EmployeeProfileLink>
                 }
-                subtitle={employee.employee_no}
+                description={employee.employee_no}
                 backHref={back.href}
                 backLabel={back.label}
                 actions={

@@ -65,7 +65,7 @@ export function RolesContent({
     const [currentRole, setCurrentRole] = useState<Role | null>(null);
 
     const filters: RoleFilters = {
-        has_permissions: initialFilters.has_permissions,
+        has_permissions: initialFilters.has_permissions as RoleFilters['has_permissions'],
     };
 
     const activeFiltersCount = [initialFilters.has_permissions].filter(

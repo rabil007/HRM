@@ -101,6 +101,7 @@ import type {
     OfficePayrollRecordListItem,
     PayrollPeriod,
     PayrollRecordListItem,
+    PayrollPeriodStatus,
     PayrollShowFilters,
     PayrollShowProps,
     SalaryInput,
@@ -325,7 +326,7 @@ export function PayrollShowContent({
     });
 
     const { isLiveUpdating: isPayslipGenerationLive } = usePayslipGenerationPoll({
-        periodStatus: period.status,
+        periodStatus: period.status as PayrollPeriodStatus,
         payslipSummary: payslip_summary,
     });
 

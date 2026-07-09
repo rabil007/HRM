@@ -390,7 +390,9 @@ export function HikvisionPersonsContent({
                                 <DataTableHead>Credentials</DataTableHead>
                                 <DataTableHead>Last synced</DataTableHead>
                                 {can.update || can.delete || can.link ? (
-                                    <DataTableHead className="w-12" />
+                                    <DataTableHead className="w-12">
+                                        <span className="sr-only">Actions</span>
+                                    </DataTableHead>
                                 ) : null}
                             </DataTableHeaderRow>
                         </TableHeader>
@@ -398,10 +400,10 @@ export function HikvisionPersonsContent({
                             {persons.map((person) => (
                                 <TableRow
                                     key={person.id}
-                                    className={dataTableBodyRowClass}
+                                    className={dataTableBodyRowClass()}
                                 >
                                     <TableCell
-                                        className={dataTableCellPrimaryClass}
+                                        className={dataTableCellPrimaryClass()}
                                     >
                                         <div className="flex items-center gap-3">
                                             {person.photo_url ? (
@@ -422,13 +424,13 @@ export function HikvisionPersonsContent({
                                             </span>
                                         </div>
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {person.person_code ?? '—'}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {person.group_name ?? '—'}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {person.linked_employee ? (
                                             can.link ? (
                                                 <button
@@ -471,10 +473,10 @@ export function HikvisionPersonsContent({
                                             '—'
                                         )}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {person.email ?? '—'}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         <div className="flex flex-wrap gap-1">
                                             {person.has_fingerprint ? (
                                                 <Badge
@@ -502,7 +504,7 @@ export function HikvisionPersonsContent({
                                             ) : null}
                                         </div>
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {person.synced_at
                                             ? formatDisplayDateTime(
                                                   person.synced_at,
@@ -511,7 +513,7 @@ export function HikvisionPersonsContent({
                                     </TableCell>
                                     {can.update || can.delete || can.link ? (
                                         <TableCell
-                                            className={dataTableCellClass}
+                                            className={dataTableCellClass()}
                                         >
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>

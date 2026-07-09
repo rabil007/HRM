@@ -553,16 +553,16 @@ export function HikvisionAccessEventsContent({
                             {events.map((event) => (
                                 <TableRow
                                     key={event.id}
-                                    className={dataTableBodyRowClass}
+                                    className={dataTableBodyRowClass()}
                                 >
                                     <TableCell
-                                        className={dataTableCellPrimaryClass}
+                                        className={dataTableCellPrimaryClass()}
                                     >
                                         {formatDisplayDateTime12h(
                                             event.occurrence_time,
                                         )}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         <div className="flex flex-col gap-0.5">
                                             <span>
                                                 {event.person_name ?? '—'}
@@ -577,35 +577,35 @@ export function HikvisionAccessEventsContent({
                                             ) : null}
                                         </div>
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         <AccessEventPhoto
                                             personPhotoUrl={
                                                 event.person_photo_url
                                             }
                                         />
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {event.device_name ?? '—'}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {event.resource_name ??
                                             (event.door_no
                                                 ? `Door ${event.door_no}`
                                                 : '—')}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {event.card_reader_no
                                             ? `Reader ${event.card_reader_no}`
                                             : '—'}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         <span className="text-xs">
                                             {formatVerifyMode(
                                                 event.verify_mode,
                                             )}
                                         </span>
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {event.attendance_status ? (
                                             <Badge variant="outline">
                                                 {formatAttendanceStatus(
@@ -616,7 +616,7 @@ export function HikvisionAccessEventsContent({
                                             '—'
                                         )}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {event.transaction_source ? (
                                             <Badge variant="secondary">
                                                 {formatTransactionSource(

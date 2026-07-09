@@ -24,6 +24,7 @@ import { useContractsIndexFilters } from '@/features/organization/contracts/use-
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { cn } from '@/lib/utils';
 import { contracts } from '@/routes/organization';
+import { exportMethod as exportContracts } from '@/routes/organization/contracts';
 
 const LIFECYCLE_BADGE_STYLE: Record<string, string> = {
     active: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
@@ -79,7 +80,7 @@ export function ContractsContent({
     });
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
-        return contracts.export.url({
+        return exportContracts.url({
             query: {
                 search: initialSearch || undefined,
                 lifecycle: initialLifecycle === 'all' ? undefined : initialLifecycle,
@@ -101,7 +102,7 @@ export function ContractsContent({
 
     const minWidth = useMemo(() => {
         if (showCrewColumns) {
-            return 'min-w-[1640px]';
+            return 'min-w-[1460px]';
         }
 
         return 'min-w-[1920px]';
@@ -183,7 +184,7 @@ export function ContractsContent({
                         {department_tree && department_tree.length > 0 ? (
                             <DepartmentFilterControls
                                 department_tree={department_tree}
-                                department_tree_selected_id={department_tree_selected_id}
+                                department_tree_selected_id={department_tree_selected_id ?? null}
                                 department_tree_selected_position_id={null}
                                 onSelectDepartment={onDepartmentChange}
                                 onSelectPosition={(_, departmentId) =>
@@ -298,7 +299,6 @@ export function ContractsContent({
                                         </DataTableHead>
                                     </>
                                 ) : null}
-                                <DataTableHead>Salary structure</DataTableHead>
                                 <DataTableHead>Labor contract ID</DataTableHead>
                                 <DataTableHead># Contracts</DataTableHead>
                                 <DataTableHead>Start</DataTableHead>

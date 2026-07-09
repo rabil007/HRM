@@ -115,8 +115,8 @@ export default function Banks({
         };
 
         if (current) {
+            form.transform(() => payload);
             form.put(`/settings/master-data/banks/${current.id}`, {
-                data: payload,
                 preserveScroll: true,
                 onSuccess: () => setSheetOpen(false),
             });
@@ -124,8 +124,8 @@ export default function Banks({
             return;
         }
 
+        form.transform(() => payload);
         form.post('/settings/master-data/banks', {
-            data: payload,
             preserveScroll: true,
             onSuccess: () => setSheetOpen(false),
         });

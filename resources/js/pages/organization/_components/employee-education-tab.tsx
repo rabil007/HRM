@@ -55,7 +55,7 @@ import type {
 const EDUCATION_RELOAD = {
     preserveScroll: true,
     only: ['education_qualifications'],
-} as const;
+};
 
 export type EmployeeEducationTabProps = {
     employeeId: number | null;

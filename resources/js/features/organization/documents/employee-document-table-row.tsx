@@ -15,7 +15,7 @@ import {
 } from '@/features/organization/documents/shared/document-expiry-display';
 import { DocumentFileIcon } from '@/features/organization/documents/shared/document-file-icon';
 import { DocumentUploadedDisplay } from '@/features/organization/documents/shared/document-uploaded-display';
-import type { DocumentProfileItem } from '@/features/organization/documents/shared/types';
+import type { DocumentBrowseItem } from '@/features/organization/documents/shared/types';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
@@ -44,7 +44,7 @@ export function EmployeeDocumentTableRow({
     onSelectedChange,
     selectionMode = false,
 }: {
-    doc: DocumentProfileItem;
+    doc: DocumentBrowseItem;
     employeeId: number;
     employeeName: string;
     employeePhone?: string | null;
@@ -52,9 +52,9 @@ export function EmployeeDocumentTableRow({
     canDownload?: boolean;
     canUpload?: boolean;
     canDelete?: boolean;
-    onEdit?: (doc: DocumentProfileItem) => void;
-    onReplace?: (doc: DocumentProfileItem) => void;
-    onDelete?: (doc: DocumentProfileItem) => void;
+    onEdit?: (doc: DocumentBrowseItem) => void;
+    onReplace?: (doc: DocumentBrowseItem) => void;
+    onDelete?: (doc: DocumentBrowseItem) => void;
     canSendWhatsAppTemplate?: boolean;
     whatsappTemplates?: WhatsAppTemplateOption[];
     countries: PhoneCountryOption[];

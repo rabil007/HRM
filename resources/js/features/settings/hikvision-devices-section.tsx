@@ -182,34 +182,32 @@ export function HikvisionDevicesSection({
                                 {devices.items.map((device) => (
                                     <TableRow
                                         key={device.id}
-                                        className={dataTableBodyRowClass}
+                                        className={dataTableBodyRowClass()}
                                     >
                                         <TableCell
-                                            className={
-                                                dataTableCellPrimaryClass
-                                            }
+                                            className={dataTableCellPrimaryClass()}
                                         >
                                             {device.name ?? '—'}
                                         </TableCell>
                                         <TableCell
-                                            className={dataTableCellClass}
+                                            className={dataTableCellClass()}
                                         >
                                             <span className="font-mono text-xs">
                                                 {device.serial_no}
                                             </span>
                                         </TableCell>
                                         <TableCell
-                                            className={dataTableCellClass}
+                                            className={dataTableCellClass()}
                                         >
                                             {device.category ?? '—'}
                                         </TableCell>
                                         <TableCell
-                                            className={dataTableCellClass}
+                                            className={dataTableCellClass()}
                                         >
                                             {device.type ?? '—'}
                                         </TableCell>
                                         <TableCell
-                                            className={dataTableCellClass}
+                                            className={dataTableCellClass()}
                                         >
                                             {device.online_status === 1 ? (
                                                 <Badge variant="outline">
@@ -222,7 +220,7 @@ export function HikvisionDevicesSection({
                                             )}
                                         </TableCell>
                                         <TableCell
-                                            className={dataTableCellClass}
+                                            className={dataTableCellClass()}
                                         >
                                             {formatDisplayDateTime(
                                                 device.synced_at,

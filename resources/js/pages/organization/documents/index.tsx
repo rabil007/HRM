@@ -33,6 +33,7 @@ import { useBulkSelection } from '@/features/organization/documents/shared/use-b
 import { useDocumentsIndexFilters } from '@/features/organization/documents/use-documents-index-filters';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
+import documentRoutes from '@/routes/organization/documents';
 
 type Props = {
     summary: DocumentExpirySummary;
@@ -101,7 +102,7 @@ export default function DocumentsIndex({
         setIsBulkDownloading(true);
 
         try {
-            await downloadBulkZip(documents.folders.bulkDownload.url(), {
+            await downloadBulkZip(documentRoutes.folders.bulkDownload.url(), {
                 employee_ids: selectedFolderIds,
             });
             clearFolderSelection();

@@ -71,7 +71,7 @@ export function PositionsContent({
 
     const filters: PositionFilters = {
         department_id: initialFilters.department_id,
-        status: initialFilters.status,
+        status: initialFilters.status as PositionFilters['status'],
         grade: initialFilters.grade,
     };
 

@@ -23,6 +23,7 @@ export default function Departments({
     pagination: PaginationMeta;
     search: string;
     filters: {
+        id?: string;
         branch_id: string;
         parent_id: string;
         manager_id: string;

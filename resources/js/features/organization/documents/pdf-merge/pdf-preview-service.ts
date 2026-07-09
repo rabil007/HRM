@@ -2,7 +2,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 import type { PdfPreviewData } from '@/features/organization/documents/pdf-merge/types';
 import { getPdfJs } from '@/lib/pdfjs';
-import { documents } from '@/routes/organization';
+import documentRoutes from '@/routes/organization/documents';
 
 const previewCache = new Map<number, PdfPreviewData>();
 const loadingPromises = new Map<number, Promise<PdfPreviewData>>();
@@ -11,7 +11,7 @@ const THUMBNAIL_SCALE = 0.35;
 
 async function fetchPdfBytes(documentId: number): Promise<ArrayBuffer> {
     const response = await fetch(
-        documents.files.download.url({ document: documentId }),
+        documentRoutes.files.download.url({ document: documentId }),
         {
             credentials: 'same-origin',
         },

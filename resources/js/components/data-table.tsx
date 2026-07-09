@@ -10,11 +10,13 @@ export function OrganizationDataTable({
     minWidth = 'min-w-[980px]',
     compact = false,
     header,
+    tableClassName,
 }: {
     children: ReactNode;
     minWidth?: string;
     compact?: boolean;
     header?: ReactNode;
+    tableClassName?: string;
 }): ReactElement {
     return (
         <Card
@@ -34,7 +36,7 @@ export function OrganizationDataTable({
                     compact ? 'min-h-0' : 'min-h-[360px]',
                 )}
             >
-                <Table className={minWidth}>{children}</Table>
+                <Table className={cn(minWidth, tableClassName)}>{children}</Table>
             </CardContent>
         </Card>
     );

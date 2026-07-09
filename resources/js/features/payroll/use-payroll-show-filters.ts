@@ -4,7 +4,7 @@ import type { PayrollShowFilters } from '@/features/payroll/types';
 import type { PaginationMeta } from '@/types/pagination';
 
 function cleanParams(
-    params: Record<string, string | number | null | undefined>,
+    params: Record<string, string | number | boolean | null | undefined>,
 ): Record<string, string> {
     const clean: Record<string, string> = {};
 

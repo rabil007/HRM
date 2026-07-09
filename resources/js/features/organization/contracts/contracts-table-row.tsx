@@ -10,7 +10,6 @@ import {
     contractCrewSalaryTotal,
     contractOfficeSalaryTotal,
     formatContractMoney,
-    formatSalaryStructure,
 } from '@/features/organization/contracts/contracts-format';
 import type { ContractListItem } from '@/features/organization/contracts/types';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
@@ -181,9 +180,6 @@ export function ContractsTableRow({
                     </TableCell>
                 </>
             ) : null}
-            <TableCell className={dataTableCellClass()}>
-                {formatSalaryStructure(contract.salary_structure)}
-            </TableCell>
             <TableCell className={dataTableCellClass()}>
                 <span
                     className="max-w-[160px] truncate font-mono text-xs text-foreground/90 block"

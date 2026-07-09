@@ -10,7 +10,6 @@ import type {
 } from '@/features/organization/documents/shared/types';
 
 type FolderGridProps = {
-    employees: EmployeeFolder[];
     canDownload: boolean;
     isSearching: boolean;
     isFolderSelected: (id: number) => boolean;

@@ -279,7 +279,6 @@ export function DashboardContent({
                             ? 'from-red-500/15 to-rose-500/5'
                             : 'from-muted/40 dark:from-white/5 to-transparent'
                     }
-                    icon={FileText}
                     iconBg={
                         documentCompliance.expired > 0
                             ? 'bg-red-500/10 border-red-500/20'

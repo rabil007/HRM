@@ -38,7 +38,7 @@ import { employee as employeeDocumentsBrowse } from '@/routes/organization/docum
 const DOCUMENTS_RELOAD = {
     preserveScroll: true,
     only: ['documents'],
-} as const;
+};
 
 export type EmployeeDocumentsTabProps = {
     employee: Pick<EmployeeDetails, 'id' | 'name'> & {

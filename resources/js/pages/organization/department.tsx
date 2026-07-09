@@ -107,7 +107,6 @@ function Field({ label, value }: { label: string; value: string }) {
 export default function DepartmentDetails({
     department,
     child_departments,
-    companies,
     branches,
     parents,
     managers,
@@ -129,7 +128,6 @@ export default function DepartmentDetails({
     >({});
 
     const form = useForm<DepartmentFormData>({
-        company_id: department.company.id ?? '',
         branch_id: department.branch?.id ?? '',
         parent_id: department.parent?.id ?? '',
         manager_id: department.manager?.id ?? '',
@@ -524,7 +522,6 @@ export default function DepartmentDetails({
                 open={editOpen}
                 onOpenChange={setEditOpen}
                 department={sheetDepartment}
-                companies={companies}
                 branches={branches}
                 parents={parents}
                 managers={managers}

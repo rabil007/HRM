@@ -332,7 +332,7 @@ export default function CrewDeploymentsIndex({
                     {can.create ? (
                         <Button
                             size="sm"
-                            className={cn(actions.primary, 'h-9')}
+                            className={cn(actions.dialogPrimary, 'h-9')}
                             onClick={openCreate}
                         >
                             <Plus className="mr-2 h-4 w-4" />

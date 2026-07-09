@@ -1,3 +1,4 @@
+import type { RequestPayload } from '@inertiajs/core';
 import { router, useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useCallback, useMemo, useState } from 'react';
@@ -71,7 +72,7 @@ import type {
 const SEA_SERVICE_RELOAD = {
     preserveScroll: true,
     only: ['sea_services'],
-} as const;
+};
 
 function buildSeaServicePayload(
     data: {
@@ -1365,9 +1366,9 @@ export function EmployeeSeaServiceTab({
                                 };
 
                                 if (editingRow) {
-                                    router.put(url, payload, options);
+                                    router.put(url, payload as RequestPayload, options);
                                 } else {
-                                    router.post(url, payload, options);
+                                    router.post(url, payload as RequestPayload, options);
                                 }
                             }}
                         >

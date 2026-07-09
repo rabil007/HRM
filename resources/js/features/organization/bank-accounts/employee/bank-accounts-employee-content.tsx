@@ -35,7 +35,7 @@ export function BankAccountsEmployeeContent({
                         {employee.name}
                     </EmployeeProfileLink>
                 }
-                subtitle={employee.employee_no}
+                description={employee.employee_no}
                 backHref={back.href}
                 backLabel={back.label}
                 actions={
@@ -56,7 +56,7 @@ export function BankAccountsEmployeeContent({
                 employeeId={employee.id}
                 bank_accounts={bank_accounts}
                 banks={banks}
-                canManage={can.manage || (can.create && can.update && can.delete)}
+                canManage={can.create && can.update && can.delete}
                 templateFields={template_bank_account_fields}
                 standalone
             />

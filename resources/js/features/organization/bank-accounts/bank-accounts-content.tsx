@@ -22,6 +22,7 @@ import type { BankAccountsIndexProps } from '@/features/organization/bank-accoun
 import { useBankAccountsIndexFilters } from '@/features/organization/bank-accounts/use-bank-accounts-index-filters';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { bankAccounts } from '@/routes/organization';
+import { exportMethod as exportBankAccounts } from '@/routes/organization/bank-accounts';
 
 export function BankAccountsContent({
     summary,
@@ -81,7 +82,7 @@ export function BankAccountsContent({
     );
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
-        return bankAccounts.export.url({
+        return exportBankAccounts.url({
             query: {
                 search: initialSearch || undefined,
                 bank_id: initialBankId || undefined,

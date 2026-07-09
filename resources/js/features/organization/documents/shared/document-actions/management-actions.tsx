@@ -10,7 +10,7 @@ import {
 import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { documents } from '@/routes/organization';
+import documentRoutes from '@/routes/organization/documents';
 
 const iconButtonClass =
     'h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-100';
@@ -84,7 +84,7 @@ export function ManagementDocumentActions({
                     aria-label="Download"
                 >
                     <a
-                        href={documents.files.download.url({
+                        href={documentRoutes.files.download.url({
                             document: documentId,
                         })}
                     >

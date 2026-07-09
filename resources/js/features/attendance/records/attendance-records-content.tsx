@@ -457,41 +457,41 @@ export function AttendanceRecordsContent({
                             {records.map((record) => (
                                 <TableRow
                                     key={record.id}
-                                    className={dataTableBodyRowClass}
+                                    className={dataTableBodyRowClass()}
                                 >
                                     <TableCell
-                                        className={dataTableCellPrimaryClass}
+                                        className={dataTableCellPrimaryClass()}
                                     >
                                         {record.employee?.name ?? '—'}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {formatDisplayDate(record.date)}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {formatDisplayDateTime12h(
                                             record.clock_in,
                                         )}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {formatDisplayDateTime12h(
                                             record.clock_out,
                                         )}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {record.hours_worked ?? '—'}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         <RecordStatusBadge
                                             status={record.status}
                                         />
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {record.clock_in || record.clock_out
                                             ? (record.source ?? '—')
                                             : '—'}
                                     </TableCell>
                                     <TableCell
-                                        className={dataTableActionsCellClass}
+                                        className={dataTableActionsCellClass()}
                                     >
                                         <TableRowActions
                                             actions={[

@@ -1,9 +1,11 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { PAGINATION_PER_PAGE_OPTIONS } from '@/types/pagination';
 
 type PaginationProps = {
+    className?: string;
     currentPage: number;
     lastPage: number;
     from: number | null;
@@ -32,6 +34,7 @@ function buildPages(current: number, last: number): (number | '...')[] {
 }
 
 export function Pagination({
+    className,
     currentPage,
     lastPage,
     from,
@@ -55,7 +58,7 @@ export function Pagination({
             : perPageOptions;
 
     return (
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className={cn('mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between', className)}>
             <div className="flex flex-wrap items-center gap-3">
                 {onPerPageChange && perPage !== undefined ? (
                     <div className="flex items-center gap-2">

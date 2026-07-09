@@ -31,7 +31,6 @@ export function usePayslipGenerationPoll({
         2500,
         {
             only: [...PAYSLIP_POLL_PROPS],
-            preserveScroll: true,
         },
         {
             autoStart: false,

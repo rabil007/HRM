@@ -41,7 +41,7 @@ import type {
 const TRAINING_RELOAD = {
     preserveScroll: true,
     only: ['trainings'],
-} as const;
+};
 
 const CERTIFICATE_TEMPLATE_FIELD = 'certificate_path';
 
@@ -286,7 +286,7 @@ export function EmployeeTrainingTab({
                                             employeeRecordsTableTdClass(),
                                             'max-w-[200px] truncate text-muted-foreground',
                                         )}
-                                        title={row.institute_center}
+                                        title={row.institute_center ?? undefined}
                                     >
                                         {row.institute_center}
                                     </td>

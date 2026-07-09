@@ -315,9 +315,9 @@ export type OfficePayrollRecordListItem = PayrollRecordDeliveryFields & {
     payroll_category: 'office';
     employee: PayrollEmployeeIdentity;
     basic_salary: string;
-    housing_allowance: string;
-    transport_allowance: string;
-    other_allowances: string;
+    housing_allowance?: string;
+    transport_allowance?: string;
+    other_allowances?: string;
     primary_account: OfficePrimaryAccount | null;
     overtime_pay: string;
     additional_amount: string;

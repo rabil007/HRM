@@ -9,7 +9,7 @@ export function PageHeader({
     className,
 }: {
     kicker?: string;
-    title: string;
+    title: ReactNode;
     description?: string;
     right?: ReactNode;
     className?: string;

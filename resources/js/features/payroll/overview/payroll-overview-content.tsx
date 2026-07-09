@@ -189,6 +189,9 @@ return `${(amount / 1_000).toFixed(1)}K`;
     const fmtFull = (amount: number) =>
         `${currency} ${fmtCompact(amount)}`;
 
+    const tooltipNumber = (value: unknown): number =>
+        typeof value === 'number' ? value : 0;
+
     const today = new Date().toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
@@ -660,10 +663,10 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                             />
                                             <Tooltip
                                                 formatter={(
-                                                    value: number,
-                                                    name: string,
+                                                    value,
+                                                    name,
                                                 ) => [
-                                                    fmt(value),
+                                                    fmt(tooltipNumber(value)),
                                                     name === 'total'
                                                         ? 'Net Total'
                                                         : 'Avg / Employee',
@@ -881,10 +884,10 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                             />
                                             <Tooltip
                                                 formatter={(
-                                                    value: number,
-                                                    name: string,
+                                                    value,
+                                                    name,
                                                 ) => [
-                                                    fmt(value),
+                                                    fmt(tooltipNumber(value)),
                                                     name === 'gross'
                                                         ? 'Gross'
                                                         : 'Net',
@@ -1008,10 +1011,10 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                             />
                                             <Tooltip
                                                 formatter={(
-                                                    value: number,
-                                                    name: string,
+                                                    value,
+                                                    name,
                                                 ) => [
-                                                    fmt(value),
+                                                    fmt(tooltipNumber(value)),
                                                     name === 'deductions'
                                                         ? 'Deductions'
                                                         : 'Overtime',
@@ -1124,10 +1127,10 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                             />
                                             <Tooltip
                                                 formatter={(
-                                                    value: number,
-                                                    name: string,
+                                                    value,
+                                                    name,
                                                 ) => [
-                                                    fmt(value),
+                                                    fmt(tooltipNumber(value)),
                                                     name === 'crew'
                                                         ? 'Crew'
                                                         : 'Office',
@@ -1245,8 +1248,8 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                                     ))}
                                                 </Pie>
                                                 <Tooltip
-                                                    formatter={(v: number) =>
-                                                        fmt(v)
+                                                    formatter={(v) =>
+                                                        fmt(tooltipNumber(v))
                                                     }
                                                     contentStyle={TOOLTIP_STYLE}
                                                 />
@@ -1327,8 +1330,8 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                                     )}
                                                 </Pie>
                                                 <Tooltip
-                                                    formatter={(v: number) =>
-                                                        fmt(v)
+                                                    formatter={(v) =>
+                                                        fmt(tooltipNumber(v))
                                                     }
                                                     contentStyle={TOOLTIP_STYLE}
                                                 />
@@ -1409,12 +1412,17 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                                 </Pie>
                                                 <Tooltip
                                                     formatter={(
-                                                        v: number,
-                                                        name: string,
-                                                    ) => [
-                                                        `${v} emp${v !== 1 ? 's' : ''}`,
+                                                        v,
                                                         name,
-                                                    ]}
+                                                    ) => {
+                                                        const count =
+                                                            tooltipNumber(v);
+
+                                                        return [
+                                                            `${count} emp${count !== 1 ? 's' : ''}`,
+                                                            name,
+                                                        ];
+                                                    }}
                                                     contentStyle={TOOLTIP_STYLE}
                                                 />
                                             </PieChart>
@@ -1495,8 +1503,8 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                                     tickLine={false}
                                                 />
                                                 <Tooltip
-                                                    formatter={(v: number) =>
-                                                        fmt(v)
+                                                    formatter={(v) =>
+                                                        fmt(tooltipNumber(v))
                                                     }
                                                     cursor={{
                                                         fill: 'rgba(0,0,0,0.04)',
