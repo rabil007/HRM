@@ -64,8 +64,9 @@ export default function DocumentEsignPage({
                             {documentLabel}
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            Review your declaration, sign below, or download the
-                            unsigned PDF to sign manually.
+                            Review your declaration, then draw or upload your
+                            signature, or download the unsigned PDF to sign
+                            manually.
                         </p>
                     </div>
 

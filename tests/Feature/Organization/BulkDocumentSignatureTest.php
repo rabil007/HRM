@@ -175,6 +175,37 @@ test('guest can submit electronic signature without replacing employee document'
         ->and($document->file_path)->toBe($originalPath);
 });
 
+test('guest can submit uploaded signature image data url', function () {
+    $user = User::factory()->create();
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Upload Signer',
+    ]);
+
+    $document = createSalaryDeclarationDocument($company, $employee);
+    $request = createAwaitingSignatureRequest($company, $employee, $document);
+
+    $submitUrl = URL::temporarySignedRoute(
+        'public.esign.submit',
+        now()->addDay(),
+        ['token' => $request->token],
+    );
+
+    $this->post($submitUrl, [
+        'signed_name' => 'Upload Signer',
+        'signature_data' => minimalSignatureDataUrl(),
+        'consent' => '1',
+    ])->assertRedirect();
+
+    $request->refresh();
+
+    expect($request->status)->toBe(BulkDocumentSignatureRequestStatus::Submitted)
+        ->and($request->signature_image_path)->not->toBeNull()
+        ->and($request->signed_pdf_path)->not->toBeNull();
+});
+
 test('hr can approve submitted signature and replace employee document', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { SignaturePad } from '@/components/signature-pad';
 import { Button } from '@/components/ui/button';
 import { formatSignedDate } from '@/features/esign/format-signed-date';
+import { SignatureCapture } from '@/features/esign/signature-capture';
 import {
     placementPercentOverlaysFromConfig,
     type SignaturePlacementConfig,
@@ -41,6 +42,7 @@ export function PdfSignatureViewer({
     const [signaturePreview, setSignaturePreview] = useState<string | null>(
         null,
     );
+    const [captureMode, setCaptureMode] = useState<'draw' | 'upload'>('draw');
     const [renderWidth, setRenderWidth] = useState(0);
 
     const overlays = useMemo(
@@ -48,6 +50,7 @@ export function PdfSignatureViewer({
         [placement],
     );
     const signedDate = formatSignedDate();
+    const useOverlayPad = !isMobile && captureMode === 'draw';
 
     useEffect(() => {
         const viewport = viewportRef.current;
@@ -157,12 +160,19 @@ export function PdfSignatureViewer({
         onSignatureChange(null);
     };
 
+    const handleModeChange = (mode: 'draw' | 'upload') => {
+        setCaptureMode(mode);
+        setClearToken((value) => value + 1);
+        setSignaturePreview(null);
+        onSignatureChange(null);
+    };
+
     return (
         <div className="space-y-4">
             {isMobile ? (
                 <p className="text-sm text-muted-foreground">
-                    Scroll the document to review it, then sign in the large pad
-                    below. Today&apos;s date ({signedDate}) is applied
+                    Scroll the document to review it, then draw or upload your
+                    signature below. Today&apos;s date ({signedDate}) is applied
                     automatically.
                 </p>
             ) : null}
@@ -238,9 +248,9 @@ export function PdfSignatureViewer({
 
                             <div
                                 className={
-                                    isMobile
-                                        ? 'pointer-events-none absolute overflow-hidden border-2 border-dashed border-primary/60 bg-primary/5'
-                                        : 'absolute border-2 border-dashed border-primary/60 bg-primary/5'
+                                    useOverlayPad
+                                        ? 'absolute border-2 border-dashed border-primary/60 bg-primary/5'
+                                        : 'pointer-events-none absolute overflow-hidden border-2 border-dashed border-primary/60 bg-primary/5'
                                 }
                                 style={{
                                     left: overlays.signature.left,
@@ -249,19 +259,7 @@ export function PdfSignatureViewer({
                                     height: overlays.signature.height,
                                 }}
                             >
-                                {isMobile ? (
-                                    signaturePreview ? (
-                                        <img
-                                            src={signaturePreview}
-                                            alt="Signature preview"
-                                            className="h-full w-full object-contain p-1"
-                                        />
-                                    ) : (
-                                        <span className="flex h-full items-center justify-center px-1 text-center text-[10px] font-medium text-primary">
-                                            Sign below
-                                        </span>
-                                    )
-                                ) : (
+                                {useOverlayPad ? (
                                     <SignaturePad
                                         key={clearToken}
                                         fill
@@ -269,6 +267,18 @@ export function PdfSignatureViewer({
                                         onChange={handleSignatureChange}
                                         className="h-full"
                                     />
+                                ) : signaturePreview ? (
+                                    <img
+                                        src={signaturePreview}
+                                        alt="Signature preview"
+                                        className="h-full w-full object-contain p-1"
+                                    />
+                                ) : (
+                                    <span className="flex h-full items-center justify-center px-1 text-center text-[10px] font-medium text-primary">
+                                        {captureMode === 'upload'
+                                            ? 'Upload below'
+                                            : 'Sign below'}
+                                    </span>
                                 )}
                             </div>
 
@@ -294,33 +304,26 @@ export function PdfSignatureViewer({
                 </div>
             </div>
 
-            {isMobile && !isLoading && !error ? (
+            {!isLoading && !error ? (
                 <div className="space-y-3 rounded-xl border bg-background p-3 shadow-sm">
                     <div className="space-y-1">
                         <p className="text-sm font-medium">Your signature</p>
                         <p className="text-xs text-muted-foreground">
-                            Draw with your finger in the box. It will appear on
-                            both signature lines in the document.
+                            Draw or upload a signature image. It appears in both
+                            placeholders, and today&apos;s date ({signedDate}) is
+                            applied automatically.
                         </p>
                     </div>
-                    <SignaturePad
-                        key={clearToken}
+                    <SignatureCapture
+                        clearToken={clearToken}
                         onChange={handleSignatureChange}
-                        className="w-full"
-                        canvasClassName="h-48"
-                        lineWidth={3}
-                        hideClear
+                        onModeChange={handleModeChange}
+                        previewUrl={signaturePreview}
+                        showDrawPad={isMobile}
+                        drawCanvasClassName={isMobile ? 'h-48' : 'h-40'}
+                        drawLineWidth={isMobile ? 3 : 2}
                     />
                 </div>
-            ) : null}
-
-            {!isMobile && !isLoading && !error ? (
-                <p className="text-xs text-muted-foreground">
-                    Draw your signature in the highlighted English area. The
-                    same signature preview appears on the Arabic side, and
-                    today&apos;s date ({signedDate}) is shown in both date
-                    fields.
-                </p>
             ) : null}
 
             {!isLoading && !error ? (
