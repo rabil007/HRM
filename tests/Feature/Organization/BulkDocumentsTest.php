@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Jobs\GenerateBulkDocumentsJob;
 use App\Mail\BulkDocumentMail;
 use App\Models\BulkDocumentEmailBatch;
 use App\Models\BulkDocumentGenerationRun;
+use App\Models\BulkDocumentSignatureRequest;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
@@ -16,6 +18,7 @@ use App\Services\BulkDocuments\RendersEmployeeDocumentPdf;
 use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\BulkDocuments\CreateBulkDocumentSignatureRequest;
 use App\Support\BulkDocuments\SendBulkDocumentEmails;
 use App\Support\EmployeeDocuments\DocumentDeletionService;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
@@ -527,6 +530,58 @@ test('users can delete selected bulk documents', function () {
         ->assertSessionHas('success');
 
     expect(EmployeeDocument::query()->find($document->id))->toBeNull();
+});
+
+test('deleting bulk documents cancels pending signature requests', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view', 'bulk_documents.delete']);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+
+    $document = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $documentType->id,
+        "employee-documents/{$company->id}/{$employee->id}/awaiting.pdf",
+        'awaiting.pdf',
+    );
+
+    $awaitingRequest = app(CreateBulkDocumentSignatureRequest::class)->handle(
+        $company->id,
+        $employee->id,
+        $document,
+        'salary_declaration',
+    );
+
+    $submittedDocument = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $documentType->id,
+        "employee-documents/{$company->id}/{$employee->id}/submitted.pdf",
+        'submitted.pdf',
+    );
+
+    $submittedRequest = BulkDocumentSignatureRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_document_id' => $submittedDocument->id,
+        'document_type_key' => 'salary_declaration',
+        'token' => str_repeat('c', 48),
+        'status' => BulkDocumentSignatureRequestStatus::Submitted,
+        'expires_at' => now()->addDays(14),
+    ]);
+
+    $this->delete(route('organization.documents.bulk.documents.destroy'), [
+        'document_type_key' => 'salary_declaration',
+        'document_ids' => [$document->id, $submittedDocument->id],
+    ])->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect($awaitingRequest->fresh()->status)->toBe(BulkDocumentSignatureRequestStatus::Cancelled)
+        ->and($submittedRequest->fresh()->status)->toBe(BulkDocumentSignatureRequestStatus::Cancelled);
 });
 
 test('bulk email uses work email with personal fallback and records history', function () {

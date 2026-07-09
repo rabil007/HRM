@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
-import { Eye, Loader2 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { Download, FileUp, Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -14,12 +14,14 @@ import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
     TableBody,
     TableCell,
@@ -31,6 +33,26 @@ import type { BulkSignatureRequest } from '@/features/organization/documents/bul
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { formatDisplayDateTime12h } from '@/lib/format-date';
+
+function reviewDescription(request: BulkSignatureRequest): string {
+    if (request.status === 'submitted') {
+        return 'Review the signed PDF below, then approve or reject with a reason.';
+    }
+
+    if (request.status === 'awaiting_signature') {
+        return 'Waiting for the employee to sign electronically, or upload a scanned signed PDF.';
+    }
+
+    if (request.status === 'rejected') {
+        return 'This request was rejected. Upload a new scanned signed PDF to resubmit.';
+    }
+
+    if (request.status === 'approved') {
+        return 'This signature has been approved and applied to the employee file.';
+    }
+
+    return 'Signature request details.';
+}
 
 export function SignatureReviewDialog({
     request,
@@ -47,16 +69,30 @@ export function SignatureReviewDialog({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    useEffect(() => {
+        if (!open) {
+            setRejectReason('');
+            setIsSubmitting(false);
+
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    }, [open]);
+
     if (!request) {
         return null;
     }
 
-    const unsignedUrl = request.unsigned_document_id
-        ? `/organization/documents/files/${request.unsigned_document_id}/download`
-        : null;
     const signedUrl = request.signed_pdf_path
         ? `/organization/documents/bulk/signatures/${request.id}/download`
         : null;
+
+    const canUploadManual =
+        canReview &&
+        (request.status === 'awaiting_signature' || request.status === 'rejected');
+
+    const canApproveOrReject = canReview && request.status === 'submitted';
 
     const approve = () => {
         setIsSubmitting(true);
@@ -114,96 +150,148 @@ export function SignatureReviewDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl">
-                <DialogHeader>
-                    <DialogTitle>
-                        Review signature — {request.employee.name}
-                    </DialogTitle>
+            <DialogContent className="max-w-lg gap-0 overflow-hidden p-0">
+                <DialogHeader className="space-y-4 border-b border-border/80 px-6 py-5">
+                    <div className="flex items-start gap-3">
+                        <EmployeeAvatar
+                            name={request.employee.name}
+                            image={request.employee.image}
+                            size="md"
+                        />
+                        <div className="min-w-0 flex-1 space-y-1">
+                            <DialogTitle className="text-left text-lg">
+                                {request.employee.name}
+                            </DialogTitle>
+                            <DialogDescription className="text-left">
+                                {reviewDescription(request)}
+                            </DialogDescription>
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                                <SignatureStatusBadge status={request.status} />
+                                {request.employee.employee_no ? (
+                                    <span className="text-xs text-muted-foreground">
+                                        {request.employee.employee_no}
+                                    </span>
+                                ) : null}
+                            </div>
+                        </div>
+                    </div>
                 </DialogHeader>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                        <Label>Unsigned document</Label>
-                        {unsignedUrl ? (
-                            <Button variant="outline" size="sm" asChild>
-                                <a href={unsignedUrl} target="_blank" rel="noreferrer">
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    View unsigned PDF
-                                </a>
-                            </Button>
-                        ) : (
-                            <p className="text-sm text-muted-foreground">Not available</p>
-                        )}
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Signed submission</Label>
-                        {signedUrl ? (
-                            <Button variant="outline" size="sm" asChild>
-                                <a href={signedUrl} target="_blank" rel="noreferrer">
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    View signed PDF
-                                </a>
-                            </Button>
-                        ) : (
-                            <p className="text-sm text-muted-foreground">
-                                No signed PDF uploaded yet.
+                <div className="space-y-4 px-6 py-5">
+                    {(request.signed_name || request.signed_at) && (
+                        <div className="rounded-xl border border-border/80 bg-muted/20 px-4 py-3 text-sm">
+                            {request.signed_name ? (
+                                <p>
+                                    <span className="text-muted-foreground">
+                                        Signed as{' '}
+                                    </span>
+                                    <span className="font-medium text-foreground">
+                                        {request.signed_name}
+                                    </span>
+                                </p>
+                            ) : null}
+                            {request.signed_at ? (
+                                <p className="text-muted-foreground">
+                                    Submitted{' '}
+                                    {formatDisplayDateTime12h(request.signed_at)}
+                                </p>
+                            ) : null}
+                        </div>
+                    )}
+
+                    {request.rejection_reason ? (
+                        <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm">
+                            <p className="font-medium text-destructive">
+                                Rejection reason
                             </p>
-                        )}
-                    </div>
+                            <p className="mt-1 text-muted-foreground">
+                                {request.rejection_reason}
+                            </p>
+                        </div>
+                    ) : null}
+
+                    {signedUrl ? (
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-card px-4 py-3">
+                            <div className="min-w-0">
+                                <p className="text-sm font-medium">
+                                    Signed PDF
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    Open the employee&apos;s submission before
+                                    approving.
+                                </p>
+                            </div>
+                            <Button variant="outline" size="sm" asChild>
+                                <a
+                                    href={signedUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Download
+                                </a>
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="rounded-xl border border-dashed border-border/80 bg-muted/10 px-4 py-6 text-center text-sm text-muted-foreground">
+                            No signed PDF has been submitted yet.
+                        </div>
+                    )}
+
+                    {canUploadManual ? (
+                        <div className="space-y-2 rounded-xl border border-dashed border-border/80 bg-muted/10 p-4">
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                                <FileUp className="h-4 w-4 text-muted-foreground" />
+                                Upload scanned signed PDF
+                            </div>
+                            <Input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="application/pdf"
+                                disabled={isSubmitting}
+                                onChange={(event) => {
+                                    const file = event.target.files?.[0];
+
+                                    if (file) {
+                                        uploadManual(file);
+                                    }
+                                }}
+                            />
+                        </div>
+                    ) : null}
+
+                    {canApproveOrReject ? (
+                        <div className="space-y-2">
+                            <Label
+                                htmlFor="reject_reason"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
+                                Rejection reason
+                            </Label>
+                            <Textarea
+                                id="reject_reason"
+                                value={rejectReason}
+                                onChange={(event) =>
+                                    setRejectReason(event.target.value)
+                                }
+                                disabled={isSubmitting}
+                                className="min-h-20 rounded-xl"
+                                placeholder="Required only when rejecting"
+                            />
+                        </div>
+                    ) : null}
                 </div>
 
-                {request.signed_name ? (
-                    <p className="text-sm text-muted-foreground">
-                        Signed as <strong>{request.signed_name}</strong>
-                        {request.signed_at
-                            ? ` on ${formatDisplayDateTime12h(request.signed_at)}`
-                            : ''}
-                    </p>
-                ) : null}
-
-                {canReview &&
-                (request.status === 'awaiting_signature' ||
-                    request.status === 'rejected') ? (
-                    <div className="space-y-2 rounded-lg border border-dashed p-4">
-                        <Label>Upload scanned signed PDF</Label>
-                        <Input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="application/pdf"
-                            onChange={(event) => {
-                                const file = event.target.files?.[0];
-
-                                if (file) {
-                                    uploadManual(file);
-                                }
-                            }}
-                        />
-                    </div>
-                ) : null}
-
-                {canReview && request.status === 'submitted' ? (
-                    <div className="space-y-2">
-                        <Label htmlFor="reject_reason">Rejection reason</Label>
-                        <Input
-                            id="reject_reason"
-                            value={rejectReason}
-                            onChange={(event) =>
-                                setRejectReason(event.target.value)
-                            }
-                            placeholder="Required only when rejecting"
-                        />
-                    </div>
-                ) : null}
-
-                <DialogFooter className="gap-2 sm:justify-between">
+                <DialogFooter className="gap-2 border-t border-border/80 px-6 py-4 sm:justify-between">
                     <Button
                         type="button"
                         variant="outline"
                         onClick={() => onOpenChange(false)}
+                        disabled={isSubmitting}
                     >
                         Close
                     </Button>
-                    {canReview && request.status === 'submitted' ? (
+                    {canApproveOrReject ? (
                         <div className="flex gap-2">
                             <Button
                                 type="button"
@@ -216,7 +304,9 @@ export function SignatureReviewDialog({
                             </Button>
                             <Button
                                 type="button"
-                                disabled={isSubmitting || !request.signed_pdf_path}
+                                disabled={
+                                    isSubmitting || !request.signed_pdf_path
+                                }
                                 onClick={approve}
                             >
                                 {isSubmitting ? (
