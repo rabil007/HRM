@@ -75,10 +75,24 @@
 
         .col { font-size: 12.5px; line-height: 1.5; }
 
+        .col.en {
+            padding-left: 5mm;
+            padding-right: 2mm;
+        }
+
+        .col.en .field .fill {
+            text-align: left;
+        }
+
         .col.ar {
             direction: rtl;
             text-align: right;
             padding-right: 5mm;
+            padding-left: 2mm;
+        }
+
+        .col.ar .field .fill {
+            text-align: right;
         }
 
         body.pdf-embedded-fonts .col.ar {
@@ -109,13 +123,20 @@
         ol {
             margin: 0 0 18px;
             list-style-position: outside;
-            padding-left: 1.5em;
+            padding-left: 0;
+            padding-right: 0;
         }
 
         ol li { margin-bottom: 9px; }
 
+        .col.en ol {
+            padding-left: 2.2em;
+            padding-right: 0;
+        }
+
         .col.en ol li {
-            padding-left: 0.35em;
+            padding-left: 0.75em;
+            padding-right: 0;
         }
 
         .col.ar ol {
@@ -129,6 +150,10 @@
         }
 
         .sign-block { margin-top: 26px; }
+
+        .sign-block .field {
+            margin-bottom: 10px;
+        }
 
         .sign-block .field--signature,
         .sign-block .field--date {
