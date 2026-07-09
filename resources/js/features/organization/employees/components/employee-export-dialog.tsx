@@ -10,7 +10,6 @@ import {
     X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -167,6 +166,7 @@ export function EmployeeExportDialog({
 
         if (option?.excel_only && format === 'csv') {
             toast.error('This field is only available in XLSX format.');
+
             return;
         }
 
