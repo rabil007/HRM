@@ -31,6 +31,7 @@ export function PdfSignatureViewer({
 }: Props) {
     const containerRef = useRef<HTMLDivElement>(null);
     const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
+    const dateEnRef = useRef<HTMLDivElement>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [clearToken, setClearToken] = useState(0);
@@ -109,6 +110,18 @@ export function PdfSignatureViewer({
         };
     }, [page, pdfUrl]);
 
+    useEffect(() => {
+        if (isLoading || error || !dateEnRef.current) {
+            return;
+        }
+
+        const style = getComputedStyle(dateEnRef.current);
+
+        // #region agent log
+        fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9313b6'},body:JSON.stringify({sessionId:'9313b6',location:'pdf-signature-viewer.tsx:date-style',message:'Computed date overlay styles',data:{color:style.color,htmlDark:document.documentElement.classList.contains('dark'),signedDate},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+    }, [error, isLoading, signedDate]);
+
     const handleSignatureChange = (dataUrl: string | null) => {
         setSignaturePreview(dataUrl);
         onSignatureChange(dataUrl);
@@ -152,7 +165,8 @@ export function PdfSignatureViewer({
                 {!isLoading && !error ? (
                     <>
                         <div
-                            className="pointer-events-none absolute flex items-center px-1 text-sm font-semibold text-foreground"
+                            ref={dateEnRef}
+                            className="pointer-events-none absolute flex items-center px-1 text-sm font-semibold text-[#1a1a1a]"
                             style={{
                                 left: overlays.date.left,
                                 top: overlays.date.top,
@@ -164,7 +178,7 @@ export function PdfSignatureViewer({
                         </div>
 
                         <div
-                            className="pointer-events-none absolute flex items-center px-1 text-sm font-semibold text-foreground"
+                            className="pointer-events-none absolute flex items-center px-1 text-sm font-semibold text-[#1a1a1a]"
                             style={{
                                 left: overlays.date_ar.left,
                                 top: overlays.date_ar.top,

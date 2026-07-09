@@ -253,7 +253,7 @@ export function EsignPlacementSamplePreviewDialog({
                                                       className="h-full w-full object-contain p-1"
                                                   />
                                               ) : (
-                                                  <div className="flex h-full items-center px-2 text-sm font-semibold text-foreground">
+                                                  <div className="flex h-full items-center px-2 text-sm font-semibold text-[#1a1a1a]">
                                                       {sampleDate}
                                                   </div>
                                               )}
