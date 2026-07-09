@@ -7,7 +7,7 @@ use App\Models\BulkDocumentSignatureRequest;
 use App\Models\EmployeeDocument;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 final class ReviewBulkDocumentSignature
@@ -22,17 +22,19 @@ final class ReviewBulkDocumentSignature
 
         $signedPath = (string) $request->signed_pdf_path;
 
-        if ($signedPath === '' || ! Storage::disk('public')->exists($signedPath)) {
+        if ($signedPath === '' || ! BulkDocumentSignatureStorage::exists($signedPath)) {
             throw ValidationException::withMessages([
                 'request' => 'Signed document file is missing.',
             ]);
         }
 
         $document = EmployeeDocument::query()->findOrFail($request->employee_document_id);
-        $absolutePath = Storage::disk('public')->path($signedPath);
+        $absolutePath = BulkDocumentSignatureStorage::path($signedPath);
+        $label = BulkDocumentTypeRegistry::find($request->document_type_key)['label'];
+        $filename = (Str::slug($label) ?: 'signed-document').'.pdf';
         $uploadedFile = new UploadedFile(
             $absolutePath,
-            'signed-salary-declaration.pdf',
+            $filename,
             'application/pdf',
             null,
             true,

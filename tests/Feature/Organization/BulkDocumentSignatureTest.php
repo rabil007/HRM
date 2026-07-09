@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\URL;
 beforeEach(function () {
     $this->seed(PermissionsSeeder::class);
     Storage::fake('public');
+    Storage::fake('local');
     EmailTemplatesSeeder::seedBulkSalaryDeclarationTemplate();
 });
 
@@ -172,7 +173,9 @@ test('guest can submit electronic signature without replacing employee document'
 
     expect($request->status)->toBe(BulkDocumentSignatureRequestStatus::Submitted)
         ->and($request->signed_pdf_path)->not->toBeNull()
-        ->and($document->file_path)->toBe($originalPath);
+        ->and($document->file_path)->toBe($originalPath)
+        ->and(Storage::disk('local')->exists((string) $request->signed_pdf_path))->toBeTrue()
+        ->and(Storage::disk('public')->exists((string) $request->signed_pdf_path))->toBeFalse();
 });
 
 test('guest can submit uploaded signature image data url', function () {
@@ -215,7 +218,7 @@ test('hr can approve submitted signature and replace employee document', functio
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
     $document = createSalaryDeclarationDocument($company, $employee);
     $signedPath = "bulk-document-signatures/{$company->id}/{$employee->id}/signed.pdf";
-    Storage::disk('public')->put($signedPath, minimalPdfBytes());
+    Storage::disk('local')->put($signedPath, minimalPdfBytes());
 
     $request = BulkDocumentSignatureRequest::query()->create([
         'company_id' => $company->id,
@@ -252,7 +255,7 @@ test('hr can reject submitted signature without replacing employee document', fu
     $document = createSalaryDeclarationDocument($company, $employee);
     $originalPath = $document->file_path;
     $signedPath = "bulk-document-signatures/{$company->id}/{$employee->id}/signed.pdf";
-    Storage::disk('public')->put($signedPath, minimalPdfBytes());
+    Storage::disk('local')->put($signedPath, minimalPdfBytes());
 
     $request = BulkDocumentSignatureRequest::query()->create([
         'company_id' => $company->id,
@@ -300,7 +303,8 @@ test('hr can upload manual signed pdf into review queue', function () {
 
     expect($request->status)->toBe(BulkDocumentSignatureRequestStatus::Submitted)
         ->and($request->signed_pdf_path)->not->toBeNull()
-        ->and($request->signature_image_path)->toBeNull();
+        ->and($request->signature_image_path)->toBeNull()
+        ->and(Storage::disk('local')->exists((string) $request->signed_pdf_path))->toBeTrue();
 });
 
 test('signature review endpoints require review permission', function () {

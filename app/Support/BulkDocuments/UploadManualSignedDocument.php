@@ -4,18 +4,12 @@ namespace App\Support\BulkDocuments;
 
 use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Models\BulkDocumentSignatureRequest;
-use App\Models\EmployeeDocument;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 final class UploadManualSignedDocument
 {
-    public function __construct(
-        private CreateBulkDocumentSignatureRequest $createRequest,
-    ) {}
-
     public function handle(
         BulkDocumentSignatureRequest $request,
         UploadedFile $file,
@@ -43,7 +37,7 @@ final class UploadManualSignedDocument
             Str::uuid(),
         );
 
-        Storage::disk('public')->put($path, $file->get());
+        BulkDocumentSignatureStorage::put($path, $file->get());
 
         $request->update([
             'status' => BulkDocumentSignatureRequestStatus::Submitted,
@@ -59,33 +53,5 @@ final class UploadManualSignedDocument
         ]);
 
         return $request->refresh();
-    }
-
-    public function createOrRefreshForDocument(
-        int $companyId,
-        EmployeeDocument $document,
-        string $documentTypeKey,
-    ): BulkDocumentSignatureRequest {
-        $existing = BulkDocumentSignatureRequest::query()
-            ->where('company_id', $companyId)
-            ->where('employee_id', $document->employee_id)
-            ->where('document_type_key', $documentTypeKey)
-            ->whereIn('status', [
-                BulkDocumentSignatureRequestStatus::AwaitingSignature,
-                BulkDocumentSignatureRequestStatus::Rejected,
-            ])
-            ->latest('id')
-            ->first();
-
-        if ($existing !== null) {
-            return $existing;
-        }
-
-        return $this->createRequest->handle(
-            $companyId,
-            $document->employee_id,
-            $document,
-            $documentTypeKey,
-        );
     }
 }

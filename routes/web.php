@@ -102,7 +102,7 @@ Route::match(['get', 'post'], 'organization/documents/share/{document}', Documen
     ->middleware('signed')
     ->name('organization.documents.share');
 
-Route::middleware('signed')->prefix('esign')->group(function () {
+Route::middleware(['signed', 'throttle:30,1'])->prefix('esign')->group(function () {
     Route::get('{token}', ShowDocumentEsignController::class)
         ->name('public.esign.show');
     Route::post('{token}', SubmitDocumentEsignController::class)

@@ -39,11 +39,13 @@ class ShowDocumentEsignController extends Controller
             $signatureRequest->document_type_key,
         );
 
+        $documentLabel = BulkDocumentTypeRegistry::find($signatureRequest->document_type_key)['label'];
+
         return Inertia::render('esign/index', [
             'employeeName' => (string) ($signatureRequest->employee?->name ?? ''),
             'employeeNo' => $signatureRequest->employee?->employee_no,
             'companyName' => (string) ($signatureRequest->company?->name ?? ''),
-            'documentLabel' => 'Salary Declaration',
+            'documentLabel' => $documentLabel,
             'expiresAt' => $signatureRequest->expires_at?->toIso8601String(),
             'status' => $signatureRequest->status->value,
             'alreadySubmitted' => $alreadySubmitted,

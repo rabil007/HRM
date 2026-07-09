@@ -40,13 +40,13 @@ final class StampSignedBulkDocumentPdf
             ]);
         }
 
-        $signatureBinary = $this->decodeSignatureImage($data['signature_data']);
-        $signatureTempPath = $this->writeTempSignature($signatureBinary);
+        [$signatureBinary, $imageType] = $this->decodeSignatureImage($data['signature_data']);
+        $signatureTempPath = $this->writeTempSignature($signatureBinary, $imageType);
         $sourcePath = Storage::disk('public')->path($document->file_path);
         $signedDate = now()->format('d M Y');
 
         try {
-            return $this->stamp($sourcePath, $signatureTempPath, $signedDate, $placements);
+            return $this->stamp($sourcePath, $signatureTempPath, $imageType, $signedDate, $placements);
         } catch (CrossReferenceException|PdfParserException|FpdiException $exception) {
             throw ValidationException::withMessages([
                 'signature_data' => 'Unable to produce signed PDF: '.$exception->getMessage(),
@@ -66,6 +66,7 @@ final class StampSignedBulkDocumentPdf
     private function stamp(
         string $sourcePath,
         string $signatureTempPath,
+        string $imageType,
         string $signedDate,
         array $placements,
     ): string {
@@ -93,7 +94,7 @@ final class StampSignedBulkDocumentPdf
                     $stamp['y'],
                     $stamp['w'] ?? 0,
                     $stamp['h'] ?? 0,
-                    'PNG',
+                    $imageType,
                 );
 
                 continue;
@@ -108,9 +109,12 @@ final class StampSignedBulkDocumentPdf
         return $pdf->Output('S');
     }
 
-    private function decodeSignatureImage(string $signatureData): string
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function decodeSignatureImage(string $signatureData): array
     {
-        if (! preg_match('#^data:image/(png|jpeg);base64,#i', $signatureData)) {
+        if (! preg_match('#^data:image/(png|jpeg);base64,#i', $signatureData, $matches)) {
             throw ValidationException::withMessages([
                 'signature_data' => 'A valid signature image is required.',
             ]);
@@ -124,10 +128,12 @@ final class StampSignedBulkDocumentPdf
             ]);
         }
 
-        return $binary;
+        $imageType = strtolower($matches[1]) === 'jpeg' ? 'JPEG' : 'PNG';
+
+        return [$binary, $imageType];
     }
 
-    private function writeTempSignature(string $binary): string
+    private function writeTempSignature(string $binary, string $imageType): string
     {
         $tempPath = tempnam(sys_get_temp_dir(), 'esign_sig_');
 
@@ -137,10 +143,11 @@ final class StampSignedBulkDocumentPdf
             ]);
         }
 
-        $pngPath = $tempPath.'.png';
-        rename($tempPath, $pngPath);
-        file_put_contents($pngPath, $binary);
+        $extension = $imageType === 'JPEG' ? '.jpg' : '.png';
+        $finalPath = $tempPath.$extension;
+        rename($tempPath, $finalPath);
+        file_put_contents($finalPath, $binary);
 
-        return $pngPath;
+        return $finalPath;
     }
 }

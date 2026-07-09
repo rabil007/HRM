@@ -2,20 +2,13 @@
 
 namespace App\Jobs;
 
-use App\Mail\BulkDocumentMail;
 use App\Models\BulkDocumentEmailBatch;
-use App\Models\BulkDocumentEmailSend;
 use App\Models\Company;
 use App\Models\Employee;
-use App\Models\EmployeeDocument;
-use App\Support\BulkDocuments\BulkDocumentSignatureLinkService;
+use App\Support\BulkDocuments\BulkDocumentEmailComposer;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
-use App\Support\BulkDocuments\CreateBulkDocumentSignatureRequest;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Throwable;
 
 class SendBulkDocumentEmailsJob implements ShouldQueue
@@ -44,10 +37,8 @@ class SendBulkDocumentEmailsJob implements ShouldQueue
         public int $cumulativeSkipped = 0,
     ) {}
 
-    public function handle(
-        CreateBulkDocumentSignatureRequest $createSignatureRequest,
-        BulkDocumentSignatureLinkService $signatureLinks,
-    ): void {
+    public function handle(BulkDocumentEmailComposer $composer): void
+    {
         $batch = BulkDocumentEmailBatch::query()->find($this->batchId);
 
         if ($batch === null) {
@@ -89,95 +80,21 @@ class SendBulkDocumentEmailsJob implements ShouldQueue
         foreach ($employees as $employee) {
             $lastProcessedEmployeeId = $employee->id;
 
-            $recipient = filled($employee->work_email)
-                ? (string) $employee->work_email
-                : (filled($employee->personal_email) ? (string) $employee->personal_email : null);
+            $result = $composer->sendForEmployee(
+                $this->companyId,
+                $this->batchId,
+                $this->documentTypeKey,
+                $employee,
+                $company,
+                $template,
+                $definition['label'],
+                $documentType->id,
+                $this->ccRecipients,
+            );
 
-            if ($recipient === null) {
-                $skippedNoEmail++;
-                BulkDocumentEmailSend::query()->create([
-                    'batch_id' => $this->batchId,
-                    'employee_id' => $employee->id,
-                    'status' => 'skipped',
-                    'error' => 'No email address',
-                ]);
-
-                continue;
-            }
-
-            $document = EmployeeDocument::query()
-                ->where('company_id', $this->companyId)
-                ->where('employee_id', $employee->id)
-                ->where('document_type_id', $documentType->id)
-                ->orderByDesc('id')
-                ->first();
-
-            if ($document === null || ! Storage::disk('public')->exists((string) $document->file_path)) {
-                $failed++;
-                BulkDocumentEmailSend::query()->create([
-                    'batch_id' => $this->batchId,
-                    'employee_id' => $employee->id,
-                    'employee_document_id' => $document?->id,
-                    'recipient_email' => $recipient,
-                    'status' => 'failed',
-                    'error' => 'Document not found',
-                ]);
-
-                continue;
-            }
-
-            $signatureRequest = null;
-            $signatureUrl = '';
-
-            if (BulkDocumentTypeRegistry::supportsEsignature($this->documentTypeKey)) {
-                $signatureRequest = $createSignatureRequest->handle(
-                    $this->companyId,
-                    $employee->id,
-                    $document,
-                    $this->documentTypeKey,
-                    $this->batchId,
-                );
-                $signatureUrl = $signatureLinks->signUrl($signatureRequest);
-            }
-
-            $subject = $this->substitute($template->subject, $employee, $company, $definition['label'], $signatureUrl);
-            $body = $this->substitute($template->body_html, $employee, $company, $definition['label'], $signatureUrl);
-            $filename = $this->buildFilename($employee);
-            $cc = $this->normalizeCcRecipients($recipient);
-
-            try {
-                Mail::to($recipient)->queue(new BulkDocumentMail(
-                    subjectLine: $subject,
-                    bodyMessage: $body,
-                    organizationName: (string) $company->name,
-                    attachmentPath: (string) $document->file_path,
-                    attachmentName: $filename,
-                    includeCompanyFooter: (bool) $template->include_company_footer,
-                    ccRecipients: $cc,
-                ));
-
-                $sent++;
-                BulkDocumentEmailSend::query()->create([
-                    'batch_id' => $this->batchId,
-                    'employee_id' => $employee->id,
-                    'employee_document_id' => $document->id,
-                    'recipient_email' => $recipient,
-                    'status' => 'sent',
-                    'sent_at' => now(),
-                ]);
-            } catch (Throwable $exception) {
-                $failed++;
-                report($exception);
-
-                BulkDocumentEmailSend::query()->create([
-                    'batch_id' => $this->batchId,
-                    'employee_id' => $employee->id,
-                    'employee_document_id' => $document->id,
-                    'recipient_email' => $recipient,
-                    'status' => 'failed',
-                    'error' => $exception->getMessage(),
-                ]);
-            }
+            $sent += $result['sent'];
+            $failed += $result['failed'];
+            $skippedNoEmail += $result['skipped'];
         }
 
         $totalSent = $this->cumulativeSent + $sent;
@@ -224,41 +141,5 @@ class SendBulkDocumentEmailsJob implements ShouldQueue
             ]);
 
         report($exception);
-    }
-
-    private function substitute(string $template, Employee $employee, Company $company, string $documentTypeLabel, string $signatureUrl = ''): string
-    {
-        return strtr($template, [
-            '{{employee_name}}' => (string) $employee->name,
-            '{{employee_no}}' => (string) ($employee->employee_no ?? ''),
-            '{{company_name}}' => (string) $company->name,
-            '{{document_type}}' => $documentTypeLabel,
-            '{{signature_url}}' => $signatureUrl,
-        ]);
-    }
-
-    private function buildFilename(Employee $employee): string
-    {
-        $slug = Str::slug($employee->employee_no ?: (string) $employee->id);
-
-        return match ($this->documentTypeKey) {
-            'salary_certificate' => "salary-certificate-{$slug}.pdf",
-            default => "salary-declaration-{$slug}.pdf",
-        };
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function normalizeCcRecipients(string $recipient): array
-    {
-        $recipientLower = strtolower(trim($recipient));
-
-        return collect($this->ccRecipients)
-            ->map(fn (string $email) => trim($email))
-            ->filter(fn (string $email) => $email !== '' && strtolower($email) !== $recipientLower)
-            ->unique(fn (string $email) => strtolower($email))
-            ->values()
-            ->all();
     }
 }

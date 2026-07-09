@@ -247,10 +247,12 @@ export function PdfSignatureViewer({
                     ref={viewportRef}
                     className={
                         isMobile
-                            ? cn(
-                                  'w-full overflow-auto rounded-xl border shadow-sm touch-pan-x touch-pan-y',
-                                  isReview ? 'max-h-[42svh]' : 'max-h-[30svh]',
-                              )
+                        ? cn(
+                              'w-full overflow-auto rounded-xl border shadow-sm touch-pan-x touch-pan-y',
+                              isReview
+                                  ? 'h-[calc(100svh-14rem)] max-h-[calc(100svh-14rem)]'
+                                  : 'max-h-[30svh]',
+                          )
                             : cn(
                                   'w-full overflow-hidden rounded-xl border shadow-sm',
                                   !isReview && 'max-h-[420px] overflow-auto',

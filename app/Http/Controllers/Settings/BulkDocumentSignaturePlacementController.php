@@ -154,10 +154,14 @@ class BulkDocumentSignaturePlacementController extends Controller
 
         $company = Company::query()->findOrFail($companyId);
 
-        return Employee::factory()->forCompany($company)->create([
+        $sample = new Employee([
+            'company_id' => $companyId,
             'name' => 'Jane Smith',
             'status' => 'active',
             'emirates_id' => '784-1990-0000000-1',
         ]);
+        $sample->setRelation('company', $company);
+
+        return $sample;
     }
 }

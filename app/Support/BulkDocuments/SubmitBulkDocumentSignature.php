@@ -4,7 +4,6 @@ namespace App\Support\BulkDocuments;
 
 use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Models\BulkDocumentSignatureRequest;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -86,7 +85,7 @@ final class SubmitBulkDocumentSignature
             $extension,
         );
 
-        Storage::disk('public')->put($path, $binary);
+        BulkDocumentSignatureStorage::put($path, $binary);
 
         return $path;
     }
@@ -100,7 +99,7 @@ final class SubmitBulkDocumentSignature
             Str::uuid(),
         );
 
-        Storage::disk('public')->put($path, $pdfBinary);
+        BulkDocumentSignatureStorage::put($path, $pdfBinary);
 
         return $path;
     }
