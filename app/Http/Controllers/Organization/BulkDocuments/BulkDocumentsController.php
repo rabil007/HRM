@@ -57,6 +57,7 @@ class BulkDocumentsController extends Controller
             $activityPaginator = BulkDocumentActivityQuery::paginate(
                 $companyId,
                 $documentTypeKey,
+                $filters,
                 $perPage,
                 $page,
             );
@@ -83,6 +84,7 @@ class BulkDocumentsController extends Controller
             $signaturesPaginator = BulkDocumentSignatureRosterQuery::paginate(
                 $companyId,
                 $documentTypeKey,
+                $filters,
                 $perPage,
                 $page,
                 $signatureFilter === 'all' ? null : $signatureFilter,

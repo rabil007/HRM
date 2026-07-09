@@ -4,13 +4,17 @@ namespace App\Support\BulkDocuments;
 
 use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Models\BulkDocumentSignatureRequest;
+use App\Support\Employees\EmployeeDirectoryFilters;
+use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 
 final class BulkDocumentSignatureRosterQuery
 {
     public static function paginate(
         int $companyId,
         string $documentTypeKey,
+        EmployeeDirectoryFilters $filters,
         int $perPage,
         int $page,
         ?string $statusFilter = null,
@@ -18,6 +22,9 @@ final class BulkDocumentSignatureRosterQuery
         $query = BulkDocumentSignatureRequest::query()
             ->forCompany($companyId)
             ->where('document_type_key', $documentTypeKey)
+            ->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters): void {
+                EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters);
+            })
             ->with([
                 'employee:id,name,employee_no,image,department_id,position_id',
                 'employee.department:id,name',

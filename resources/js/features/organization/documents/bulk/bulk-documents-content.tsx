@@ -400,6 +400,9 @@ export function BulkDocumentsContent({
 }: BulkDocumentsPageProps) {
     const isRosterView = view === 'roster';
     const isSignaturesView = view === 'signatures';
+    const isHistoryView = view === 'history';
+    const showEmployeeFilters =
+        isRosterView || isSignaturesView || isHistoryView;
     const supportsEsignature = document_type_key === 'salary_declaration';
     const [searchInput, setSearchInput] = useState(initialSearch);
     const [filters, setFilters] = useState<BulkDocumentFilters>({
@@ -773,7 +776,7 @@ export function BulkDocumentsContent({
     );
 
     useEffect(() => {
-        if (!isRosterView) {
+        if (!showEmployeeFilters) {
             return;
         }
 
@@ -788,9 +791,9 @@ export function BulkDocumentsContent({
         document_type_key,
         filters,
         initialSearch,
-        isRosterView,
         navigate,
         searchInput,
+        showEmployeeFilters,
     ]);
 
     const handleGenerate = () => {
@@ -887,13 +890,16 @@ export function BulkDocumentsContent({
         [document_type_key, filters, navigate, searchInput],
     );
 
-    const activeFilterCount = [
+    const employeeFilterCount = [
         filters.department_id,
         filters.position_id,
         filters.company_visa_type_id,
         searchInput.trim(),
-        generation_filter !== 'all',
     ].filter(Boolean).length;
+
+    const activeFilterCount = isRosterView
+        ? employeeFilterCount + (generation_filter !== 'all' ? 1 : 0)
+        : employeeFilterCount;
 
     const clearAllFilters = useCallback(() => {
         const nextFilters = { ...EMPTY_BULK_DOCUMENT_FILTERS };
@@ -1025,7 +1031,7 @@ export function BulkDocumentsContent({
             ) : null}
 
             {/* Search / view controls */}
-            {isRosterView ? (
+            {showEmployeeFilters ? (
                 <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center">
                     <SearchBar
                         placeholder="Search employees by name or employee no…"
@@ -1148,7 +1154,7 @@ export function BulkDocumentsContent({
             ) : null}
 
             {/* Active filter chips */}
-            {isRosterView && activeFilterCount > 0 ? (
+            {showEmployeeFilters && activeFilterCount > 0 ? (
                 <div className="mb-4 flex flex-wrap items-center gap-2">
                     <span className="text-xs font-medium text-muted-foreground/80">
                         Active filters
@@ -1239,7 +1245,7 @@ export function BulkDocumentsContent({
                         </Badge>
                     ) : null}
 
-                    {generation_filter === 'generated' ? (
+                    {isRosterView && generation_filter === 'generated' ? (
                         <Badge
                             variant="outline"
                             className="gap-1 border-emerald-500/25 bg-emerald-500/5 pr-1 pl-2.5 font-normal"
@@ -1258,7 +1264,7 @@ export function BulkDocumentsContent({
                         </Badge>
                     ) : null}
 
-                    {generation_filter === 'missing' ? (
+                    {isRosterView && generation_filter === 'missing' ? (
                         <Badge
                             variant="outline"
                             className="gap-1 border-amber-500/25 bg-amber-500/5 pr-1 pl-2.5 font-normal"

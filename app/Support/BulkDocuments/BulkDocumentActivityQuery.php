@@ -4,6 +4,8 @@ namespace App\Support\BulkDocuments;
 
 use App\Models\BulkDocumentEmailBatch;
 use App\Models\BulkDocumentGenerationRun;
+use App\Support\Employees\EmployeeDirectoryFilters;
+use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Collection;
@@ -13,10 +15,11 @@ final class BulkDocumentActivityQuery
     public static function paginate(
         int $companyId,
         string $documentTypeKey,
+        EmployeeDirectoryFilters $filters,
         int $perPage,
         int $page,
     ): LengthAwarePaginator {
-        $items = self::items($companyId, $documentTypeKey);
+        $items = self::items($companyId, $documentTypeKey, $filters);
         $total = $items->count();
         $page = max(1, $page);
 
@@ -40,13 +43,27 @@ final class BulkDocumentActivityQuery
     /**
      * @return Collection<int, array<string, mixed>>
      */
-    private static function items(int $companyId, string $documentTypeKey): Collection
-    {
+    private static function items(
+        int $companyId,
+        string $documentTypeKey,
+        EmployeeDirectoryFilters $filters,
+    ): Collection {
+        $hasEmployeeFilters = self::hasEmployeeFilters($filters);
+
         $runs = BulkDocumentGenerationRun::query()
             ->where('company_id', $companyId)
             ->where('document_type_key', $documentTypeKey)
             ->with('triggeredBy:id,name')
             ->get()
+            ->when(
+                $hasEmployeeFilters,
+                fn (Collection $collection): Collection => $collection->filter(
+                    fn (BulkDocumentGenerationRun $run): bool => self::runMatchesEmployeeFilters(
+                        is_array($run->filters) ? $run->filters : [],
+                        $filters,
+                    ),
+                ),
+            )
             ->map(fn (BulkDocumentGenerationRun $run): array => [
                 'kind' => 'generation',
                 'id' => $run->id,
@@ -61,10 +78,20 @@ final class BulkDocumentActivityQuery
                 'triggered_by' => $run->triggeredBy?->name,
             ]);
 
-        $batches = BulkDocumentEmailBatch::query()
+        $batchesQuery = BulkDocumentEmailBatch::query()
             ->where('company_id', $companyId)
             ->where('document_type_key', $documentTypeKey)
-            ->with(['triggeredBy:id,name', 'emailTemplate:id,label'])
+            ->with(['triggeredBy:id,name', 'emailTemplate:id,label']);
+
+        if ($hasEmployeeFilters) {
+            $batchesQuery->whereHas('sends', function ($sendQuery) use ($companyId, $filters): void {
+                $sendQuery->whereHas('employee', function ($employeeQuery) use ($companyId, $filters): void {
+                    EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters);
+                });
+            });
+        }
+
+        $batches = $batchesQuery
             ->get()
             ->map(fn (BulkDocumentEmailBatch $batch): array => [
                 'kind' => 'email',
@@ -83,6 +110,56 @@ final class BulkDocumentActivityQuery
             ->concat($batches)
             ->sortByDesc(fn (array $item): string => (string) ($item['created_at'] ?? ''))
             ->values();
+    }
+
+    private static function hasEmployeeFilters(EmployeeDirectoryFilters $filters): bool
+    {
+        return $filters->search !== ''
+            || $filters->departmentId !== ''
+            || $filters->positionId !== ''
+            || $filters->companyVisaTypeId !== '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $runFilters
+     */
+    private static function runMatchesEmployeeFilters(
+        array $runFilters,
+        EmployeeDirectoryFilters $filters,
+    ): bool {
+        if ($filters->search !== '') {
+            $runSearch = strtolower((string) ($runFilters['search'] ?? ''));
+
+            if ($runSearch !== '' && ! str_contains($runSearch, strtolower($filters->search))) {
+                return false;
+            }
+        }
+
+        if ($filters->departmentId !== '') {
+            $runDepartmentId = (string) ($runFilters['department_id'] ?? '');
+
+            if ($runDepartmentId !== '' && $runDepartmentId !== $filters->departmentId) {
+                return false;
+            }
+        }
+
+        if ($filters->positionId !== '') {
+            $runPositionId = (string) ($runFilters['position_id'] ?? '');
+
+            if ($runPositionId !== '' && $runPositionId !== $filters->positionId) {
+                return false;
+            }
+        }
+
+        if ($filters->companyVisaTypeId !== '') {
+            $runSponsorId = (string) ($runFilters['company_visa_type_id'] ?? '');
+
+            if ($runSponsorId !== '' && $runSponsorId !== $filters->companyVisaTypeId) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static function labelForKey(string $key): string

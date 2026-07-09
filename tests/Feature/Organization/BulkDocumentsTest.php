@@ -4,11 +4,13 @@ use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Jobs\GenerateBulkDocumentsJob;
 use App\Mail\BulkDocumentMail;
 use App\Models\BulkDocumentEmailBatch;
+use App\Models\BulkDocumentEmailSend;
 use App\Models\BulkDocumentGenerationRun;
 use App\Models\BulkDocumentSignatureRequest;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Department;
 use App\Models\DocumentType;
 use App\Models\EmailTemplate;
 use App\Models\Employee;
@@ -279,6 +281,176 @@ test('bulk documents history view returns paginated activity', function () {
             ->where('activity.0.kind', 'generation')
             ->where('activity.0.generated_count', 2)
             ->has('pagination'));
+});
+
+test('bulk documents signatures view respects employee filters', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $operationsDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Operations',
+        'code' => 'OPS',
+        'status' => 'active',
+    ]);
+
+    $hrDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Human Resources',
+        'code' => 'HR',
+        'status' => 'active',
+    ]);
+
+    $operationsEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Alice Operations',
+        'department_id' => $operationsDepartment->id,
+    ]);
+
+    $hrEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Bob Human Resources',
+        'department_id' => $hrDepartment->id,
+    ]);
+
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+
+    foreach ([$operationsEmployee, $hrEmployee] as $employee) {
+        $document = createEmployeePdfDocument(
+            $company->id,
+            $employee->id,
+            $documentType->id,
+            "employee-documents/{$company->id}/{$employee->id}/declaration.pdf",
+            'declaration.pdf',
+        );
+
+        BulkDocumentSignatureRequest::query()->create([
+            'company_id' => $company->id,
+            'employee_id' => $employee->id,
+            'employee_document_id' => $document->id,
+            'document_type_key' => 'salary_declaration',
+            'token' => str_repeat((string) $employee->id, 48),
+            'status' => 'awaiting_signature',
+            'expires_at' => now()->addDays(14),
+        ]);
+    }
+
+    $this->get(route('organization.documents.bulk', [
+        'view' => 'signatures',
+        'department_id' => $operationsDepartment->id,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('view', 'signatures')
+            ->has('signature_requests', 1)
+            ->where('signature_requests.0.employee.name', 'Alice Operations'));
+
+    $this->get(route('organization.documents.bulk', [
+        'view' => 'signatures',
+        'search' => 'Bob',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('signature_requests', 1)
+            ->where('signature_requests.0.employee.name', 'Bob Human Resources'));
+});
+
+test('bulk documents history view respects employee filters for email batches', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $operationsDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Operations',
+        'code' => 'OPS',
+        'status' => 'active',
+    ]);
+
+    $hrDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Human Resources',
+        'code' => 'HR',
+        'status' => 'active',
+    ]);
+
+    $operationsEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Alice Operations',
+        'department_id' => $operationsDepartment->id,
+    ]);
+
+    $hrEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Bob Human Resources',
+        'department_id' => $hrDepartment->id,
+    ]);
+
+    $batch = BulkDocumentEmailBatch::query()->create([
+        'company_id' => $company->id,
+        'document_type_key' => 'salary_declaration',
+        'subject' => 'Salary declaration',
+        'total_selected' => 2,
+        'sent_count' => 2,
+        'failed_count' => 0,
+        'skipped_no_email_count' => 0,
+        'triggered_by' => $user->id,
+    ]);
+
+    foreach ([$operationsEmployee, $hrEmployee] as $employee) {
+        BulkDocumentEmailSend::query()->create([
+            'batch_id' => $batch->id,
+            'employee_id' => $employee->id,
+            'recipient_email' => 'employee@example.com',
+            'status' => 'sent',
+            'sent_at' => now(),
+        ]);
+    }
+
+    BulkDocumentGenerationRun::query()->create([
+        'company_id' => $company->id,
+        'document_type_key' => 'salary_declaration',
+        'filters' => ['department_id' => (string) $hrDepartment->id],
+        'status' => 'completed',
+        'total_targeted' => 1,
+        'generated_count' => 1,
+        'replaced_count' => 0,
+        'skipped_count' => 0,
+        'failed_count' => 0,
+        'triggered_by' => $user->id,
+    ]);
+
+    $this->get(route('organization.documents.bulk', [
+        'view' => 'history',
+        'department_id' => $operationsDepartment->id,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('view', 'history')
+            ->has('activity', 1)
+            ->where('activity.0.kind', 'email')
+            ->where('activity.0.id', $batch->id));
+
+    $this->get(route('organization.documents.bulk', [
+        'view' => 'history',
+        'department_id' => $hrDepartment->id,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('activity', 2)
+            ->where('activity', function ($activity) use ($batch): bool {
+                $items = collect($activity);
+
+                return $items->count() === 2
+                    && $items->pluck('kind')->contains('email')
+                    && $items->pluck('kind')->contains('generation')
+                    && $items->contains(
+                        fn (array $item): bool => $item['kind'] === 'email' && $item['id'] === $batch->id,
+                    );
+            }));
 });
 
 test('bulk email batch sends endpoint returns recipient rows for history drill-down', function () {
