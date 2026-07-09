@@ -5,11 +5,20 @@ use App\Models\User;
 use App\Services\BulkDocuments\RendersEmployeeDocumentPdf;
 use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\BulkDocuments\EsignPreviewPdfCache;
 use App\Support\BulkDocuments\SalaryDeclarationSignaturePlacements;
 use Database\Seeders\PermissionsSeeder;
 
 beforeEach(function () {
     $this->seed(PermissionsSeeder::class);
+
+    foreach ([true, false] as $showGuides) {
+        $path = EsignPreviewPdfCache::path('salary_declaration', $showGuides);
+
+        if (is_file($path)) {
+            unlink($path);
+        }
+    }
 });
 
 test('authorized user can fetch placement json', function () {
@@ -67,6 +76,29 @@ test('authorized user can preview placement pdf without guides', function () {
         ->assertHeader('content-type', 'application/pdf');
 
     expect($renderer->showPlacementGuides)->toBeFalse();
+});
+
+test('authorized user receives cached preview pdf without rendering', function () {
+    $user = User::factory()->create();
+    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+
+    $cachedPdf = minimalPdfBytes();
+    EsignPreviewPdfCache::put('salary_declaration', true, $cachedPdf);
+
+    $renderer = new class implements RendersEmployeeDocumentPdf
+    {
+        public function render(Employee $employee, int $companyId, ?array $signature = null, bool $showPlacementGuides = false): string
+        {
+            throw new RuntimeException('Renderer should not be called when cache exists.');
+        }
+    };
+
+    app()->instance(SalaryDeclarationPdfRenderer::class, $renderer);
+
+    $this->actingAs($user)
+        ->get(route('application.esign-preview', 'salary_declaration'))
+        ->assertSuccessful()
+        ->assertHeader('content-type', 'application/pdf');
 });
 
 test('authorized user can save placement coordinates', function () {

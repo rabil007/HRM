@@ -110,6 +110,7 @@ jobs:
             npm ci --omit=dev
             php artisan browsershot:install
             php artisan browsershot:doctor
+            php artisan esign-preview:cache salary_declaration
 
             php artisan migrate --force
             php artisan leave-balances:sync

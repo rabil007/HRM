@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
 use App\Support\BulkDocuments\BulkDocumentSignaturePlacementService;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\BulkDocuments\EsignPreviewPdfCache;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\Process\Exception\ProcessFailedException;
@@ -29,6 +30,37 @@ class BulkDocumentSignaturePlacementController extends Controller
         $employee = $this->resolvePreviewEmployee($companyId);
         $showGuides = request()->boolean('guides', true);
 
+        $cachedPdf = EsignPreviewPdfCache::get($documentType, $showGuides);
+
+        // #region agent log
+        @file_put_contents(
+            storage_path('logs/esign-preview-debug.ndjson'),
+            json_encode([
+                'sessionId' => 'aa4780',
+                'location' => 'BulkDocumentSignaturePlacementController.php:preview',
+                'message' => 'E-sign preview request',
+                'data' => [
+                    'documentType' => $documentType,
+                    'showGuides' => $showGuides,
+                    'cacheHit' => $cachedPdf !== null,
+                    'cachePath' => EsignPreviewPdfCache::path($documentType, $showGuides),
+                    'sapi' => PHP_SAPI,
+                ],
+                'timestamp' => (int) (microtime(true) * 1000),
+                'hypothesisId' => 'A',
+                'runId' => 'pre-fix',
+            ]).PHP_EOL,
+            FILE_APPEND,
+        );
+        // #endregion
+
+        if ($cachedPdf !== null) {
+            return response($cachedPdf, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="esign-preview.pdf"',
+            ]);
+        }
+
         try {
             $pdf = app(SalaryDeclarationPdfRenderer::class)->render(
                 $employee,
@@ -36,10 +68,33 @@ class BulkDocumentSignaturePlacementController extends Controller
                 null,
                 $showGuides,
             );
+
+            EsignPreviewPdfCache::put($documentType, $showGuides, $pdf);
         } catch (ProcessFailedException|Throwable $exception) {
+            // #region agent log
+            @file_put_contents(
+                storage_path('logs/esign-preview-debug.ndjson'),
+                json_encode([
+                    'sessionId' => 'aa4780',
+                    'location' => 'BulkDocumentSignaturePlacementController.php:preview:failed',
+                    'message' => 'Live Browsershot preview failed',
+                    'data' => [
+                        'error' => $exception->getMessage(),
+                        'exceptionClass' => $exception::class,
+                        'documentType' => $documentType,
+                        'sapi' => PHP_SAPI,
+                    ],
+                    'timestamp' => (int) (microtime(true) * 1000),
+                    'hypothesisId' => 'B',
+                    'runId' => 'pre-fix',
+                ]).PHP_EOL,
+                FILE_APPEND,
+            );
+            // #endregion
+
             abort(
                 503,
-                'PDF preview is unavailable on this server. SSH in and run: php artisan browsershot:doctor',
+                'PDF preview is unavailable on this server. SSH in and run: php artisan esign-preview:cache',
             );
         }
 
