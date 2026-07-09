@@ -50,7 +50,6 @@ import {
 } from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
 import type {BulkDocumentsView} from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
 import { BulkDocumentsEmailModal } from '@/features/organization/documents/bulk/bulk-email-modal';
-import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
@@ -856,13 +855,6 @@ export function BulkDocumentsContent({
 
     return (
         <Main>
-            <DocumentsBreadcrumbs
-                items={[
-                    { title: 'Documents', href: documents.url() },
-                    { title: 'Bulk generate' },
-                ]}
-            />
-
             <PageHeader
                 title="Bulk generate"
                 description={`Generate and manage ${selectedTypeLabel} documents for multiple employees.`}
