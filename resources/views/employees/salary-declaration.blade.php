@@ -75,7 +75,11 @@
 
         .col { font-size: 12.5px; line-height: 1.5; }
 
-        .col.ar { direction: rtl; text-align: right; }
+        .col.ar {
+            direction: rtl;
+            text-align: right;
+            padding-right: 5mm;
+        }
 
         body.pdf-embedded-fonts .col.ar {
             font-family: 'DejaVu Sans';
@@ -102,13 +106,44 @@
 
         .declare-lead { font-weight: bold; margin: 18px 0 10px; }
 
-        ol { margin: 0 0 18px; padding-inline-start: 20px; }
+        ol {
+            margin: 0 0 18px;
+            list-style-position: outside;
+            padding-left: 1.5em;
+        }
 
         ol li { margin-bottom: 9px; }
 
-        .ar ol { padding-inline-start: 0; padding-inline-end: 4px; }
+        .col.en ol li {
+            padding-left: 0.35em;
+        }
+
+        .col.ar ol {
+            padding-right: 2.2em;
+            padding-left: 0;
+        }
+
+        .col.ar ol li {
+            padding-right: 0.75em;
+            padding-left: 0;
+        }
 
         .sign-block { margin-top: 26px; }
+
+        .sign-block .field--signature,
+        .sign-block .field--date {
+            align-items: center;
+        }
+
+        .sign-block .field--signature .fill,
+        .sign-block .field--date .fill {
+            border-bottom: none;
+            min-height: 40px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+        }
+
         .sign-block img.signature {
             display: block;
             max-height: 48px;
@@ -120,7 +155,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 36px;
+            width: 100%;
+            min-height: 40px;
             border: 1px dashed #94a3b8;
             color: #64748b;
             font: 600 10px/1.2 system-ui, sans-serif;
@@ -177,8 +213,8 @@
 
                     <div class="sign-block">
                         <div class="field"><span class="label">Employee Name:</span><span class="fill">{{ $signed_name ?? $employee_name }}</span></div>
-                        <div class="field"><span class="label">Signature:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">Signature (EN)</span>@elseif (! empty($signature_image_url))<img src="{{ $signature_image_url }}" alt="Signature" class="signature">@endif</span></div>
-                        <div class="field"><span class="label">Date:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">Date (EN)</span>@else{{ $signed_date ?? '' }}@endif</span></div>
+                        <div class="field field--signature"><span class="label">Signature:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">Signature (EN)</span>@elseif (! empty($signature_image_url))<img src="{{ $signature_image_url }}" alt="Signature" class="signature">@endif</span></div>
+                        <div class="field field--date"><span class="label">Date:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">Date (EN)</span>@else{{ $signed_date ?? '' }}@endif</span></div>
                     </div>
                 </section>
 
@@ -207,8 +243,8 @@
 
                     <div class="sign-block">
                         <div class="field"><span class="label">اسم الموظف:</span><span class="fill">{{ $signed_name ?? $employee_name }}</span></div>
-                        <div class="field"><span class="label">التوقيع:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">التوقيع (عربي)</span>@elseif (! empty($signature_image_url))<img src="{{ $signature_image_url }}" alt="Signature" class="signature">@endif</span></div>
-                        <div class="field"><span class="label">التاريخ:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">التاريخ (عربي)</span>@else{{ $signed_date ?? '' }}@endif</span></div>
+                        <div class="field field--signature"><span class="label">التوقيع:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">التوقيع (عربي)</span>@elseif (! empty($signature_image_url))<img src="{{ $signature_image_url }}" alt="Signature" class="signature">@endif</span></div>
+                        <div class="field field--date"><span class="label">التاريخ:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">التاريخ (عربي)</span>@else{{ $signed_date ?? '' }}@endif</span></div>
                     </div>
                 </section>
             </div>

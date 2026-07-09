@@ -26,6 +26,8 @@ test('salary declaration pdf renderer view includes embedded font styles', funct
         ->toContain('pdf-embedded-fonts')
         ->toContain('html, body { background: #fff; }')
         ->toContain('.sheet { min-height: auto; }')
+        ->toContain('.sign-block .field--signature .fill')
+        ->toContain('border-bottom: none')
         ->toContain('DejaVu Serif')
         ->toContain('DejaVu Sans')
         ->toContain('Employee Declaration and Acknowledgment')
