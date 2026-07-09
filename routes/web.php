@@ -18,6 +18,7 @@ use App\Http\Controllers\Organization\BankAccountsIndexController;
 use App\Http\Controllers\Organization\BankAccountsNoAccountController;
 use App\Http\Controllers\Organization\BranchController;
 use App\Http\Controllers\Organization\BulkDocuments\ApproveBulkDocumentSignatureController;
+use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentEmailBatchSendsController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentEmployeeSearchController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentSelectionController;
@@ -292,6 +293,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('organization.documents.bulk');
         Route::get('organization/documents/bulk/selection', BulkDocumentSelectionController::class)
             ->name('organization.documents.bulk.selection');
+        Route::get('organization/documents/bulk/email-batches/{batch}/sends', BulkDocumentEmailBatchSendsController::class)
+            ->name('organization.documents.bulk.email-batches.sends');
     });
     Route::post('organization/documents/bulk/generate', [GenerateBulkDocumentsController::class, 'store'])
         ->middleware('can:bulk_documents.generate')

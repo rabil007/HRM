@@ -86,9 +86,11 @@ function generationStatusBadge(status: string) {
 export function BulkDocumentsHistoryTable({
     activity,
     header,
+    onEmailBatchClick,
 }: {
     activity: BulkActivityItem[];
     header?: ReactNode;
+    onEmailBatchClick?: (batchId: number) => void;
 }) {
     return (
         <OrganizationDataTable minWidth="min-w-[920px]" header={header}>
@@ -114,11 +116,22 @@ export function BulkDocumentsHistoryTable({
                 ) : (
                     activity.map((item) => {
                         const isGeneration = item.kind === 'generation';
+                        const isClickable =
+                            !isGeneration && onEmailBatchClick !== undefined;
 
                         return (
                             <TableRow
                                 key={`${item.kind}-${item.id}`}
-                                className={dataTableBodyRowClass(false)}
+                                className={cn(
+                                    dataTableBodyRowClass(false),
+                                    isClickable &&
+                                        'cursor-pointer hover:bg-muted/40',
+                                )}
+                                onClick={
+                                    isClickable
+                                        ? () => onEmailBatchClick(item.id)
+                                        : undefined
+                                }
                             >
                                 <TableCell
                                     className={cn(

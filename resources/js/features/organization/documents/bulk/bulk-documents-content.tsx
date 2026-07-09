@@ -44,6 +44,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { BulkDocumentsHistoryTable } from '@/features/organization/documents/bulk/bulk-documents-history-table';
+import { BulkEmailBatchSendsSheet } from '@/features/organization/documents/bulk/bulk-email-batch-sends-sheet';
 import {
     BulkDocumentsViewSwitcher
     
@@ -409,6 +410,9 @@ export function BulkDocumentsContent({
     const [deptPopoverOpen, setDeptPopoverOpen] = useState(false);
     const [emailOpen, setEmailOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
+    const [selectedEmailBatchId, setSelectedEmailBatchId] = useState<
+        number | null
+    >(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
@@ -1483,6 +1487,7 @@ export function BulkDocumentsContent({
                 <>
                     <BulkDocumentsHistoryTable
                         activity={activity}
+                        onEmailBatchClick={setSelectedEmailBatchId}
                         header={
                             <>
                                 <span className="text-sm text-muted-foreground/80">
@@ -1532,6 +1537,15 @@ export function BulkDocumentsContent({
                     onSendComplete={clearSelection}
                 />
             ) : null}
+
+            <BulkEmailBatchSendsSheet
+                batchId={selectedEmailBatchId}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setSelectedEmailBatchId(null);
+                    }
+                }}
+            />
 
             <ConfirmDeleteDialog
                 open={deleteOpen}

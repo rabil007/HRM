@@ -281,6 +281,83 @@ test('bulk documents history view returns paginated activity', function () {
             ->has('pagination'));
 });
 
+test('bulk email batch sends endpoint returns recipient rows for history drill-down', function () {
+    Mail::fake();
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'work_email' => 'work@example.com',
+    ]);
+
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+
+    createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $documentType->id,
+        "employee-documents/{$company->id}/{$employee->id}/doc.pdf",
+        'doc.pdf',
+    );
+
+    $template = EmailTemplate::factory()->create([
+        'subject' => 'Hello {{employee_name}}',
+        'body_html' => '<p>{{document_type}}</p>',
+        'enabled' => true,
+        'category' => 'document',
+    ]);
+
+    $batchId = app(SendBulkDocumentEmails::class)->handle(
+        $company->id,
+        $user->id,
+        'salary_declaration',
+        collect([$employee]),
+        $template,
+    )['batch_id'];
+
+    $this->getJson(route('organization.documents.bulk.email-batches.sends', ['batch' => $batchId]))
+        ->assertOk()
+        ->assertJsonPath('batch.id', $batchId)
+        ->assertJsonPath('sends.0.employee.id', $employee->id)
+        ->assertJsonPath('sends.0.recipient_email', 'work@example.com')
+        ->assertJsonPath('sends.0.status', 'sent');
+});
+
+test('bulk email batch sends endpoint returns not found for other company batches', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Bulk Docs Co',
+        'slug' => 'other-bulk-docs-co-'.fake()->unique()->numerify('###'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $company->country_id,
+        'currency_id' => $company->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $batch = BulkDocumentEmailBatch::query()->create([
+        'company_id' => $otherCompany->id,
+        'document_type_key' => 'salary_declaration',
+        'subject' => 'Test',
+        'total_selected' => 1,
+        'sent_count' => 0,
+        'failed_count' => 0,
+        'skipped_no_email_count' => 0,
+        'triggered_by' => $user->id,
+    ]);
+
+    $this->getJson(route('organization.documents.bulk.email-batches.sends', ['batch' => $batch->id]))
+        ->assertNotFound();
+});
+
 test('bulk documents page excludes inactive employees even when status filter is requested', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

@@ -118,6 +118,39 @@ export type BulkActivityItem =
           triggered_by: string | null;
       };
 
+export type BulkEmailBatchSend = {
+    id: number;
+    employee: {
+        id: number;
+        name: string | null;
+        employee_no: string | null;
+    };
+    recipient_email: string | null;
+    status: 'sent' | 'failed' | 'skipped';
+    error: string | null;
+    sent_at: string | null;
+};
+
+export type BulkEmailBatchDetail = {
+    id: number;
+    document_type_key: string;
+    document_type_label: string;
+    subject: string;
+    template_label: string | null;
+    status: string;
+    total_selected: number;
+    sent_count: number;
+    failed_count: number;
+    skipped_no_email_count: number;
+    created_at: string | null;
+    triggered_by: string | null;
+};
+
+export type BulkEmailBatchSendsResponse = {
+    batch: BulkEmailBatchDetail;
+    sends: BulkEmailBatchSend[];
+};
+
 export type BulkGenerationFilter = 'all' | 'missing' | 'generated';
 
 export type BulkSignatureFilter = 'all' | 'submitted' | 'awaiting_signature';

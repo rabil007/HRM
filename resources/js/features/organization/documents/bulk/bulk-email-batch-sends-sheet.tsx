@@ -1,0 +1,243 @@
+import { useHttp } from '@inertiajs/react';
+import { Loader2, Mail } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import {
+    OrganizationDataTable,
+    DataTableHead,
+    DataTableHeaderRow,
+    dataTableBodyRowClass,
+    dataTableCellClass,
+    dataTableCellPrimaryClass,
+} from '@/components/data-table';
+import { EmptyState } from '@/components/empty-state';
+import { Badge } from '@/components/ui/badge';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
+import { formatDisplayDateTime12h } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
+import { sends as bulkEmailBatchSends } from '@/routes/organization/documents/bulk/email-batches';
+import type {
+    BulkEmailBatchDetail,
+    BulkEmailBatchSend,
+    BulkEmailBatchSendsResponse,
+} from './types';
+
+function sendStatusBadge(status: BulkEmailBatchSend['status']) {
+    if (status === 'sent') {
+        return (
+            <Badge className="border-0 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                Sent
+            </Badge>
+        );
+    }
+
+    if (status === 'failed') {
+        return (
+            <Badge className="border-0 bg-destructive/10 text-destructive">
+                Failed
+            </Badge>
+        );
+    }
+
+    return (
+        <Badge className="border-0 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            Skipped
+        </Badge>
+    );
+}
+
+export function BulkEmailBatchSendsSheet({
+    batchId,
+    onOpenChange,
+}: {
+    batchId: number | null;
+    onOpenChange: (open: boolean) => void;
+}) {
+    const open = batchId !== null;
+    const [batch, setBatch] = useState<BulkEmailBatchDetail | null>(null);
+    const [sends, setSends] = useState<BulkEmailBatchSend[]>([]);
+    const [loading, setLoading] = useState(false);
+    const http = useHttp();
+
+    useEffect(() => {
+        if (!open || batchId === null) {
+            return;
+        }
+
+        let cancelled = false;
+        setLoading(true);
+        setBatch(null);
+        setSends([]);
+
+        http.get(bulkEmailBatchSends.url({ batch: batchId }))
+            .then((res) => {
+                if (cancelled) {
+                    return;
+                }
+
+                const data = res.data as BulkEmailBatchSendsResponse;
+                setBatch(data.batch);
+                setSends(data.sends);
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, batchId]);
+
+    return (
+        <Sheet
+            open={open}
+            onOpenChange={(next) => {
+                if (!next) {
+                    onOpenChange(false);
+                }
+            }}
+        >
+            <SheetContent className="w-full overflow-y-auto sm:max-w-3xl">
+                <SheetHeader className="mb-6">
+                    <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <SheetTitle className="text-base">
+                            Email batch recipients
+                        </SheetTitle>
+                    </div>
+                    {batch ? (
+                        <div className="space-y-1 text-sm text-muted-foreground">
+                            <p className="font-medium text-foreground">
+                                {batch.document_type_label}
+                            </p>
+                            <p className="truncate">{batch.subject}</p>
+                            <p>
+                                {batch.sent_count} sent
+                                {batch.failed_count > 0
+                                    ? ` · ${batch.failed_count} failed`
+                                    : ''}
+                                {batch.skipped_no_email_count > 0
+                                    ? ` · ${batch.skipped_no_email_count} skipped`
+                                    : ''}
+                            </p>
+                            {batch.created_at ? (
+                                <p>
+                                    {formatDisplayDateTime12h(batch.created_at)}
+                                    {batch.triggered_by
+                                        ? ` · ${batch.triggered_by}`
+                                        : ''}
+                                </p>
+                            ) : null}
+                        </div>
+                    ) : null}
+                </SheetHeader>
+
+                {loading ? (
+                    <div className="flex items-center justify-center py-16 text-muted-foreground">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                    </div>
+                ) : (
+                    <OrganizationDataTable minWidth="min-w-[720px]">
+                        <TableHeader>
+                            <DataTableHeaderRow>
+                                <DataTableHead>Employee</DataTableHead>
+                                <DataTableHead>Recipient</DataTableHead>
+                                <DataTableHead>Status</DataTableHead>
+                                <DataTableHead>Sent at</DataTableHead>
+                                <DataTableHead>Details</DataTableHead>
+                            </DataTableHeaderRow>
+                        </TableHeader>
+                        <TableBody>
+                            {sends.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="p-0">
+                                        <EmptyState
+                                            title="No recipients recorded."
+                                            description="This batch has no email send rows yet."
+                                        />
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                sends.map((send) => (
+                                    <TableRow
+                                        key={send.id}
+                                        className={dataTableBodyRowClass(false)}
+                                    >
+                                        <TableCell
+                                            className={dataTableCellPrimaryClass()}
+                                        >
+                                            {send.employee.id ? (
+                                                <EmployeeProfileLink
+                                                    employeeId={send.employee.id}
+                                                    stopRowNavigation
+                                                    className="truncate"
+                                                >
+                                                    {send.employee.name ?? '—'}
+                                                </EmployeeProfileLink>
+                                            ) : (
+                                                <span>—</span>
+                                            )}
+                                            {send.employee.employee_no ? (
+                                                <div className="text-xs text-muted-foreground/70">
+                                                    {send.employee.employee_no}
+                                                </div>
+                                            ) : null}
+                                        </TableCell>
+                                        <TableCell className={dataTableCellClass()}>
+                                            {send.recipient_email ? (
+                                                <a
+                                                    href={`mailto:${send.recipient_email}`}
+                                                    className="text-sm text-primary hover:underline"
+                                                >
+                                                    {send.recipient_email}
+                                                </a>
+                                            ) : (
+                                                <span className="text-muted-foreground/70">
+                                                    —
+                                                </span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className={dataTableCellClass()}>
+                                            {sendStatusBadge(send.status)}
+                                        </TableCell>
+                                        <TableCell
+                                            className={cn(
+                                                dataTableCellClass(),
+                                                'whitespace-nowrap text-sm',
+                                            )}
+                                        >
+                                            {send.sent_at
+                                                ? formatDisplayDateTime12h(
+                                                      send.sent_at,
+                                                  )
+                                                : '—'}
+                                        </TableCell>
+                                        <TableCell className={dataTableCellClass()}>
+                                            <span className="text-sm text-muted-foreground/90">
+                                                {send.error ?? '—'}
+                                            </span>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </OrganizationDataTable>
+                )}
+            </SheetContent>
+        </Sheet>
+    );
+}
