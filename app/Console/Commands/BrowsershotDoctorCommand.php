@@ -80,47 +80,8 @@ class BrowsershotDoctorCommand extends Command
 
             $pdf = $shot->pdf();
 
-            // #region agent log
-            file_put_contents(
-                base_path('.cursor/debug-9313b6.log'),
-                json_encode([
-                    'sessionId' => '9313b6',
-                    'location' => 'BrowsershotDoctorCommand.php:smokeTestPdfGeneration',
-                    'message' => 'Browsershot smoke test succeeded',
-                    'data' => [
-                        'pdfPrefix' => substr($pdf, 0, 8),
-                        'pdfLength' => strlen($pdf),
-                    ],
-                    'timestamp' => (int) (microtime(true) * 1000),
-                    'hypothesisId' => 'C',
-                    'runId' => 'doctor-smoke',
-                ]).PHP_EOL,
-                FILE_APPEND,
-            );
-            // #endregion
-
             return str_starts_with($pdf, '%PDF');
         } catch (Throwable $exception) {
-            // #region agent log
-            file_put_contents(
-                base_path('.cursor/debug-9313b6.log'),
-                json_encode([
-                    'sessionId' => '9313b6',
-                    'location' => 'BrowsershotDoctorCommand.php:smokeTestPdfGeneration',
-                    'message' => 'Browsershot smoke test failed',
-                    'data' => [
-                        'error' => $exception->getMessage(),
-                        'chromePath' => ResolvesBrowsershotBinaries::chromePath(),
-                        'home' => getenv('HOME') ?: null,
-                    ],
-                    'timestamp' => (int) (microtime(true) * 1000),
-                    'hypothesisId' => 'A',
-                    'runId' => 'doctor-smoke',
-                ]).PHP_EOL,
-                FILE_APPEND,
-            );
-            // #endregion
-
             $this->components->error($exception->getMessage());
 
             return false;
