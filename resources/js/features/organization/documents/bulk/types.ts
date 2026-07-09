@@ -153,6 +153,8 @@ export type BulkEmailBatchSendsResponse = {
 
 export type BulkGenerationFilter = 'all' | 'missing' | 'generated';
 
+export type BulkEmailFilter = 'all' | 'emailed' | 'not_emailed';
+
 export type BulkSignatureFilter = 'all' | 'submitted' | 'awaiting_signature';
 
 export type LatestEmailBatch = {
@@ -184,6 +186,7 @@ export type BulkDocumentsPageProps = {
     activity: BulkActivityItem[];
     pagination: PaginationMeta;
     generation_filter: BulkGenerationFilter;
+    email_filter: BulkEmailFilter;
     signature_filter: BulkSignatureFilter;
     departments: { id: number; name: string }[];
     positions: { id: number; title: string }[];

@@ -35,12 +35,19 @@ class BulkDocumentSelectionController extends Controller
             default => 'all',
         };
 
+        $emailFilter = match ($request->query('email_filter')) {
+            'emailed' => 'emailed',
+            'not_emailed' => 'not_emailed',
+            default => 'all',
+        };
+
         return response()->json(
             BulkDocumentRosterQuery::matchingSelection(
                 $companyId,
                 $documentTypeKey,
                 $filters,
                 $generationFilter,
+                $emailFilter,
             ),
         );
     }

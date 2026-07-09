@@ -253,6 +253,60 @@ test('generated generation filter paginates only employees with documents', func
             ->where('generation_filter', 'generated'));
 });
 
+test('emailed filter paginates only employees with sent bulk document emails', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $emailedEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Emailed Employee',
+    ]);
+
+    $notEmailedEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Not Emailed Employee',
+    ]);
+
+    $batch = BulkDocumentEmailBatch::query()->create([
+        'company_id' => $company->id,
+        'document_type_key' => 'salary_declaration',
+        'subject' => 'Salary declaration',
+        'total_selected' => 1,
+        'sent_count' => 1,
+        'failed_count' => 0,
+        'skipped_no_email_count' => 0,
+        'triggered_by' => $user->id,
+    ]);
+
+    BulkDocumentEmailSend::query()->create([
+        'batch_id' => $batch->id,
+        'employee_id' => $emailedEmployee->id,
+        'recipient_email' => 'emailed@example.com',
+        'status' => 'sent',
+        'sent_at' => now(),
+    ]);
+
+    $this->get(route('organization.documents.bulk', [
+        'email_filter' => 'emailed',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.name', 'Emailed Employee')
+            ->where('email_filter', 'emailed'));
+
+    $this->get(route('organization.documents.bulk', [
+        'email_filter' => 'not_emailed',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.name', 'Not Emailed Employee')
+            ->where('email_filter', 'not_emailed'));
+});
+
 test('bulk documents history view returns paginated activity', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

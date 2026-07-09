@@ -46,6 +46,11 @@ class BulkDocumentsController extends Controller
             'awaiting_signature' => 'awaiting_signature',
             default => 'all',
         };
+        $emailFilter = match ($request->query('email_filter')) {
+            'emailed' => 'emailed',
+            'not_emailed' => 'not_emailed',
+            default => 'all',
+        };
         $view = match ($request->query('view')) {
             'history' => 'history',
             'signatures' => 'signatures',
@@ -76,6 +81,7 @@ class BulkDocumentsController extends Controller
                 'pagination' => $this->paginationMeta($activityPaginator),
                 'generation_filter' => $generationFilter,
                 'signature_filter' => $signatureFilter,
+                'email_filter' => $emailFilter,
                 'signature_requests' => [],
             ]);
         }
@@ -88,6 +94,7 @@ class BulkDocumentsController extends Controller
                 $perPage,
                 $page,
                 $signatureFilter === 'all' ? null : $signatureFilter,
+                $emailFilter,
             );
 
             return Inertia::render('organization/documents/bulk/index', $this->sharedPayload(
@@ -105,6 +112,7 @@ class BulkDocumentsController extends Controller
                 'pagination' => $this->paginationMeta($signaturesPaginator),
                 'generation_filter' => $generationFilter,
                 'signature_filter' => $signatureFilter,
+                'email_filter' => $emailFilter,
             ]);
         }
 
@@ -114,6 +122,7 @@ class BulkDocumentsController extends Controller
             $filters,
             $perPage,
             $generationFilter,
+            $emailFilter,
         );
 
         return Inertia::render('organization/documents/bulk/index', $this->sharedPayload(
@@ -130,6 +139,7 @@ class BulkDocumentsController extends Controller
             'pagination' => $this->paginationMeta($paginator),
             'generation_filter' => $generationFilter,
             'signature_filter' => $signatureFilter,
+            'email_filter' => $emailFilter,
             'signature_requests' => [],
         ]);
     }

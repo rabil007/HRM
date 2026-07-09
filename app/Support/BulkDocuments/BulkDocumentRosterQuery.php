@@ -83,6 +83,7 @@ final class BulkDocumentRosterQuery
         EmployeeDirectoryFilters $filters,
         int $perPage,
         string $generationFilter = 'all',
+        string $emailFilter = 'all',
     ): LengthAwarePaginator {
         $documentType = BulkDocumentTypeRegistry::resolveDocumentType($documentTypeKey);
 
@@ -93,6 +94,7 @@ final class BulkDocumentRosterQuery
             ]);
 
         self::applyGenerationFilter($query, $companyId, $documentType->id, $generationFilter);
+        self::applyEmailFilter($query, $companyId, $documentTypeKey, $emailFilter);
 
         $paginator = $query
             ->orderBy('name')
@@ -147,14 +149,17 @@ final class BulkDocumentRosterQuery
         string $documentTypeKey,
         EmployeeDirectoryFilters $filters,
         string $generationFilter = 'all',
+        string $emailFilter = 'all',
     ): array {
         $documentType = BulkDocumentTypeRegistry::resolveDocumentType($documentTypeKey);
 
         $employeeIds = self::filteredEmployeeQuery(
             $companyId,
             $documentType->id,
+            $documentTypeKey,
             $filters,
             $generationFilter,
+            $emailFilter,
         )
             ->orderBy('name')
             ->pluck('id')
@@ -178,14 +183,52 @@ final class BulkDocumentRosterQuery
     private static function filteredEmployeeQuery(
         int $companyId,
         int $documentTypeId,
+        string $documentTypeKey,
         EmployeeDirectoryFilters $filters,
         string $generationFilter,
+        string $emailFilter = 'all',
     ): Builder {
         $query = self::baseEmployeeQuery($companyId, $filters);
 
         self::applyGenerationFilter($query, $companyId, $documentTypeId, $generationFilter);
+        self::applyEmailFilter($query, $companyId, $documentTypeKey, $emailFilter);
 
         return $query;
+    }
+
+    public static function applyEmailFilter(
+        Builder $query,
+        int $companyId,
+        string $documentTypeKey,
+        string $emailFilter,
+    ): void {
+        if ($emailFilter === 'emailed') {
+            $query->whereIn('id', self::emailedEmployeeIdsQuery($companyId, $documentTypeKey));
+
+            return;
+        }
+
+        if ($emailFilter === 'not_emailed') {
+            $query->whereNotIn('id', self::emailedEmployeeIdsQuery($companyId, $documentTypeKey));
+        }
+    }
+
+    /**
+     * @return Builder<BulkDocumentEmailSend>
+     */
+    private static function emailedEmployeeIdsQuery(
+        int $companyId,
+        string $documentTypeKey,
+    ): Builder {
+        return BulkDocumentEmailSend::query()
+            ->select('employee_id')
+            ->where('status', 'sent')
+            ->whereHas('batch', function (Builder $batchQuery) use ($companyId, $documentTypeKey): void {
+                $batchQuery
+                    ->where('company_id', $companyId)
+                    ->where('document_type_key', $documentTypeKey);
+            })
+            ->distinct();
     }
 
     private static function applyGenerationFilter(

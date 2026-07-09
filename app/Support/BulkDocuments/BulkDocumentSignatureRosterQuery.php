@@ -18,12 +18,14 @@ final class BulkDocumentSignatureRosterQuery
         int $perPage,
         int $page,
         ?string $statusFilter = null,
+        string $emailFilter = 'all',
     ): LengthAwarePaginator {
         $query = BulkDocumentSignatureRequest::query()
             ->forCompany($companyId)
             ->where('document_type_key', $documentTypeKey)
-            ->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters): void {
+            ->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters, $documentTypeKey, $emailFilter): void {
                 EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters);
+                BulkDocumentRosterQuery::applyEmailFilter($employeeQuery, $companyId, $documentTypeKey, $emailFilter);
             })
             ->with([
                 'employee:id,name,employee_no,image,department_id,position_id',

@@ -66,7 +66,7 @@ import { documents } from '@/routes/organization';
 import {
     EMPTY_BULK_DOCUMENT_FILTERS
 } from './types';
-import type {BulkDocumentFilters, BulkDocumentsPageProps, BulkGenerationFilter, BulkRosterEmployee, BulkSignatureFilter, LatestEmailBatch} from './types';
+import type {BulkDocumentFilters, BulkDocumentsPageProps, BulkEmailFilter, BulkGenerationFilter, BulkRosterEmployee, BulkSignatureFilter, LatestEmailBatch} from './types';
 
 const BULK_URL = '/organization/documents/bulk';
 
@@ -77,6 +77,7 @@ function buildQuery(
     generationFilter: BulkGenerationFilter,
     view: BulkDocumentsView,
     signatureFilter: BulkSignatureFilter = 'all',
+    emailFilter: BulkEmailFilter = 'all',
     pagination?: { page?: number | null; perPage: number },
 ): Record<string, string> {
     const query: Record<string, string> = {
@@ -108,6 +109,10 @@ function buildQuery(
 
     if (generationFilter === 'missing' || generationFilter === 'generated') {
         query.generation_filter = generationFilter;
+    }
+
+    if (emailFilter === 'emailed' || emailFilter === 'not_emailed') {
+        query.email_filter = emailFilter;
     }
 
     if (pagination?.page) {
@@ -387,8 +392,8 @@ export function BulkDocumentsContent({
     activity,
     pagination,
     generation_filter,
+    email_filter,
     signature_filter,
-    company_visa_types,
     department_tree,
     department_tree_selected_id,
     department_tree_selected_position_id,
@@ -506,6 +511,7 @@ export function BulkDocumentsContent({
                     generation_filter,
                     'roster',
                     signature_filter,
+                    email_filter,
                     { perPage: pagination.per_page },
                 ),
             );
@@ -654,6 +660,7 @@ export function BulkDocumentsContent({
             nextGenerationFilter = generation_filter,
             nextView: BulkDocumentsView = view,
             nextSignatureFilter: BulkSignatureFilter = signature_filter,
+            nextEmailFilter: BulkEmailFilter = email_filter,
             page: number | null = null,
         ) => {
             router.get(
@@ -665,6 +672,7 @@ export function BulkDocumentsContent({
                     nextGenerationFilter,
                     nextView,
                     nextSignatureFilter,
+                    nextEmailFilter,
                     {
                         page,
                         perPage: pagination.per_page,
@@ -675,6 +683,7 @@ export function BulkDocumentsContent({
         },
         [
             document_type_key,
+            email_filter,
             filters,
             generation_filter,
             signature_filter,
@@ -694,12 +703,14 @@ export function BulkDocumentsContent({
                 generation_filter,
                 nextView,
                 signature_filter,
+                email_filter,
                 null,
             );
         },
         [
             clearSelection,
             document_type_key,
+            email_filter,
             filters,
             generation_filter,
             signature_filter,
@@ -716,10 +727,12 @@ export function BulkDocumentsContent({
             generation_filter,
             'signatures',
             'submitted',
+            email_filter,
             null,
         );
     }, [
         document_type_key,
+        email_filter,
         filters,
         generation_filter,
         navigate,
@@ -735,11 +748,13 @@ export function BulkDocumentsContent({
                 generation_filter,
                 view,
                 signature_filter,
+                email_filter,
                 page,
             );
         },
         [
             document_type_key,
+            email_filter,
             filters,
             generation_filter,
             navigate,
@@ -760,6 +775,7 @@ export function BulkDocumentsContent({
                     generation_filter,
                     view,
                     signature_filter,
+                    email_filter,
                     { perPage },
                 ),
                 { preserveState: true, preserveScroll: true, replace: true },
@@ -767,6 +783,7 @@ export function BulkDocumentsContent({
         },
         [
             document_type_key,
+            email_filter,
             filters,
             generation_filter,
             searchInput,
@@ -890,11 +907,34 @@ export function BulkDocumentsContent({
         [document_type_key, filters, navigate, searchInput],
     );
 
+    const setEmailFilter = useCallback(
+        (next: BulkEmailFilter) => {
+            navigate(
+                document_type_key,
+                filters,
+                searchInput,
+                generation_filter,
+                view,
+                signature_filter,
+                next,
+            );
+        },
+        [
+            document_type_key,
+            filters,
+            generation_filter,
+            navigate,
+            searchInput,
+            signature_filter,
+            view,
+        ],
+    );
+
     const employeeFilterCount = [
         filters.department_id,
         filters.position_id,
-        filters.company_visa_type_id,
         searchInput.trim(),
+        email_filter !== 'all',
     ].filter(Boolean).length;
 
     const activeFilterCount = isRosterView
@@ -906,12 +946,16 @@ export function BulkDocumentsContent({
 
         setFilters(nextFilters);
         setSearchInput('');
-        navigate(document_type_key, nextFilters, '', 'all');
-    }, [document_type_key, navigate]);
-
-    const selectedSponsorLabel = company_visa_types.find(
-        (sponsor) => String(sponsor.id) === filters.company_visa_type_id,
-    )?.name;
+        navigate(
+            document_type_key,
+            nextFilters,
+            '',
+            'all',
+            view,
+            signature_filter,
+            'all',
+        );
+    }, [document_type_key, navigate, signature_filter, view]);
 
     return (
         <Main>
@@ -1111,31 +1155,20 @@ export function BulkDocumentsContent({
                             </PopoverContent>
                         </Popover>
 
-                        {/* Sponsor quick filter */}
                         <AppSelect
-                            value={filters.company_visa_type_id || 'all'}
-                            onValueChange={(value) => {
-                                const next = {
-                                    ...filters,
-                                    company_visa_type_id:
-                                        value === 'all' ? '' : value,
-                                };
-                                setFilters(next);
-                                navigate(document_type_key, next, searchInput);
-                            }}
+                            value={email_filter}
+                            onValueChange={(value) =>
+                                setEmailFilter(value as BulkEmailFilter)
+                            }
                             className="h-12 w-full rounded-xl glass-card sm:w-56"
                         >
                             <AppSelectItem value="all">
-                                All sponsors
+                                All email status
                             </AppSelectItem>
-                            {company_visa_types.map((sponsor) => (
-                                <AppSelectItem
-                                    key={sponsor.id}
-                                    value={String(sponsor.id)}
-                                >
-                                    {sponsor.name}
-                                </AppSelectItem>
-                            ))}
+                            <AppSelectItem value="emailed">Emailed</AppSelectItem>
+                            <AppSelectItem value="not_emailed">
+                                Not emailed
+                            </AppSelectItem>
                         </AppSelect>
 
                         {activeFilterCount > 0 ? (
@@ -1193,36 +1226,6 @@ export function BulkDocumentsContent({
                         </Badge>
                     ) : null}
 
-                    {filters.company_visa_type_id ? (
-                        <Badge
-                            variant="outline"
-                            className="gap-1 pr-1 pl-2.5 font-normal"
-                        >
-                            Sponsor: {selectedSponsorLabel ?? 'Selected'}
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 rounded-full hover:bg-muted"
-                                onClick={() => {
-                                    const next = {
-                                        ...filters,
-                                        company_visa_type_id: '',
-                                    };
-                                    setFilters(next);
-                                    navigate(
-                                        document_type_key,
-                                        next,
-                                        searchInput,
-                                    );
-                                }}
-                                aria-label="Clear sponsor filter"
-                            >
-                                <X className="h-3 w-3" />
-                            </Button>
-                        </Badge>
-                    ) : null}
-
                     {searchInput.trim() ? (
                         <Badge
                             variant="outline"
@@ -1239,6 +1242,44 @@ export function BulkDocumentsContent({
                                     navigate(document_type_key, filters, '');
                                 }}
                                 aria-label="Clear search"
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </Badge>
+                    ) : null}
+
+                    {email_filter === 'emailed' ? (
+                        <Badge
+                            variant="outline"
+                            className="gap-1 border-sky-500/25 bg-sky-500/5 pr-1 pl-2.5 font-normal"
+                        >
+                            Emailed only
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 rounded-full hover:bg-sky-500/10"
+                                onClick={() => setEmailFilter('all')}
+                                aria-label="Clear emailed filter"
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </Badge>
+                    ) : null}
+
+                    {email_filter === 'not_emailed' ? (
+                        <Badge
+                            variant="outline"
+                            className="gap-1 border-dashed pr-1 pl-2.5 font-normal"
+                        >
+                            Not emailed only
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 rounded-full hover:bg-muted"
+                                onClick={() => setEmailFilter('all')}
+                                aria-label="Clear not emailed filter"
                             >
                                 <X className="h-3 w-3" />
                             </Button>
