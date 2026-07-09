@@ -29,6 +29,20 @@ export type EditorPlacementRects = {
     date_ar: EditorRect;
 };
 
+export type PercentOverlayRect = {
+    left: string;
+    top: string;
+    width: string;
+    height: string;
+};
+
+export type PlacementPercentOverlays = {
+    signature: PercentOverlayRect;
+    signature_ar: PercentOverlayRect;
+    date: PercentOverlayRect;
+    date_ar: PercentOverlayRect;
+};
+
 const PAGE_WIDTH_MM = 210;
 const PAGE_HEIGHT_MM = 297;
 
@@ -113,6 +127,32 @@ export function scalePlacementRects(
         date: scaleRect(rects.date),
         signature_ar: scaleRect(rects.signature_ar),
         date_ar: scaleRect(rects.date_ar),
+    };
+}
+
+export function placementPercentOverlaysFromConfig(
+    config: SignaturePlacementConfig,
+): PlacementPercentOverlays {
+    const referenceWidth = 800;
+    const referenceHeight = 1131;
+    const rects = editorRectsFromConfig(
+        config,
+        referenceWidth,
+        referenceHeight,
+    );
+
+    const toPercentRect = (rect: EditorRect): PercentOverlayRect => ({
+        left: `${(rect.left / referenceWidth) * 100}%`,
+        top: `${(rect.top / referenceHeight) * 100}%`,
+        width: `${(rect.width / referenceWidth) * 100}%`,
+        height: `${(rect.height / referenceHeight) * 100}%`,
+    });
+
+    return {
+        signature: config.overlay,
+        signature_ar: toPercentRect(rects.signature_ar),
+        date: toPercentRect(rects.date),
+        date_ar: toPercentRect(rects.date_ar),
     };
 }
 

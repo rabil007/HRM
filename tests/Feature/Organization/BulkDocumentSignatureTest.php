@@ -122,8 +122,10 @@ test('guest can open valid signed signing page', function () {
             ->component('esign/index')
             ->where('employeeName', $employee->name)
             ->where('alreadySubmitted', false)
-            ->has('signatureOverlay')
-            ->has('signaturePage'));
+            ->has('placement')
+            ->where('placement.page', 1)
+            ->has('placement.overlay')
+            ->has('placement.stamps'));
 });
 
 test('guest cannot open signing page with invalid signature', function () {

@@ -3,11 +3,8 @@ import { CheckCircle2, Download } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-    PdfSignatureViewer
-    
-} from '@/features/esign/pdf-signature-viewer';
-import type {SignatureOverlayRect} from '@/features/esign/pdf-signature-viewer';
+import { PdfSignatureViewer } from '@/features/esign/pdf-signature-viewer';
+import type { SignaturePlacementConfig } from '@/features/settings/esign-placement/esign-placement-coordinates';
 
 type Props = {
     employeeName: string;
@@ -19,8 +16,7 @@ type Props = {
     alreadySubmitted: boolean;
     submitUrl: string;
     downloadUrl: string;
-    signatureOverlay: SignatureOverlayRect;
-    signaturePage: number;
+    placement: SignaturePlacementConfig;
 };
 
 export default function DocumentEsignPage({
@@ -31,8 +27,7 @@ export default function DocumentEsignPage({
     alreadySubmitted,
     submitUrl,
     downloadUrl,
-    signatureOverlay,
-    signaturePage,
+    placement,
 }: Props) {
     const [signatureData, setSignatureData] = useState<string | null>(null);
     const [consent, setConsent] = useState(false);
@@ -104,8 +99,8 @@ export default function DocumentEsignPage({
                     >
                         <PdfSignatureViewer
                             pdfUrl={downloadUrl}
-                            page={signaturePage}
-                            overlay={signatureOverlay}
+                            page={placement.page}
+                            placement={placement}
                             onSignatureChange={setSignatureData}
                         />
 

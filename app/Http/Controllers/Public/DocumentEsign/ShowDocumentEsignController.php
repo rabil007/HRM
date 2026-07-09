@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Support\BulkDocuments\BulkDocumentSignatureLinkService;
 use App\Support\BulkDocuments\BulkDocumentSignatureRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\BulkDocuments\SalaryDeclarationSignaturePlacements;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -48,13 +49,7 @@ class ShowDocumentEsignController extends Controller
             'alreadySubmitted' => $alreadySubmitted,
             'submitUrl' => $links->submitUrl($signatureRequest),
             'downloadUrl' => $links->downloadUnsignedUrl($signatureRequest),
-            'signatureOverlay' => ($placements ?? [])['overlay'] ?? [
-                'left' => '8%',
-                'top' => '76%',
-                'width' => '38%',
-                'height' => '9%',
-            ],
-            'signaturePage' => ($placements ?? [])['page'] ?? 1,
+            'placement' => $placements ?? SalaryDeclarationSignaturePlacements::config(),
         ]);
     }
 }

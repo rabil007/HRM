@@ -1,7 +1,12 @@
 import { Loader2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SignaturePad } from '@/components/signature-pad';
 import { Button } from '@/components/ui/button';
+import { formatSignedDate } from '@/features/esign/format-signed-date';
+import {
+    placementPercentOverlaysFromConfig,
+    type SignaturePlacementConfig,
+} from '@/features/settings/esign-placement/esign-placement-coordinates';
 import { getPdfJs } from '@/lib/pdfjs';
 
 export type SignatureOverlayRect = {
@@ -14,14 +19,14 @@ export type SignatureOverlayRect = {
 type Props = {
     pdfUrl: string;
     page?: number;
-    overlay: SignatureOverlayRect;
+    placement: SignaturePlacementConfig;
     onSignatureChange: (dataUrl: string | null) => void;
 };
 
 export function PdfSignatureViewer({
     pdfUrl,
     page = 1,
-    overlay,
+    placement,
     onSignatureChange,
 }: Props) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -29,6 +34,15 @@ export function PdfSignatureViewer({
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [clearToken, setClearToken] = useState(0);
+    const [signaturePreview, setSignaturePreview] = useState<string | null>(
+        null,
+    );
+
+    const overlays = useMemo(
+        () => placementPercentOverlaysFromConfig(placement),
+        [placement],
+    );
+    const signedDate = formatSignedDate();
 
     useEffect(() => {
         let cancelled = false;
@@ -95,6 +109,17 @@ export function PdfSignatureViewer({
         };
     }, [page, pdfUrl]);
 
+    const handleSignatureChange = (dataUrl: string | null) => {
+        setSignaturePreview(dataUrl);
+        onSignatureChange(dataUrl);
+    };
+
+    const handleClear = () => {
+        setClearToken((value) => value + 1);
+        setSignaturePreview(null);
+        onSignatureChange(null);
+    };
+
     return (
         <div className="space-y-3">
             <div
@@ -102,7 +127,7 @@ export function PdfSignatureViewer({
                 className="relative w-full overflow-hidden rounded-lg border bg-muted/20"
             >
                 {isLoading ? (
-                    <div className="flex min-h-[420px] items-center justify-center">
+                    <div className="absolute inset-0 z-10 flex min-h-[420px] items-center justify-center bg-muted/20">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
                 ) : null}
@@ -115,34 +140,85 @@ export function PdfSignatureViewer({
 
                 <canvas
                     ref={pdfCanvasRef}
-                    className={isLoading || error ? 'hidden' : 'block h-auto w-full'}
+                    className={
+                        error
+                            ? 'hidden'
+                            : isLoading
+                              ? 'invisible block h-auto w-full'
+                              : 'block h-auto w-full'
+                    }
                 />
 
                 {!isLoading && !error ? (
-                    <div
-                        className="absolute border-2 border-dashed border-primary/60 bg-primary/5"
-                        style={{
-                            left: overlay.left,
-                            top: overlay.top,
-                            width: overlay.width,
-                            height: overlay.height,
-                        }}
-                    >
-                        <SignaturePad
-                            key={clearToken}
-                            fill
-                            onChange={onSignatureChange}
-                            className="h-full"
-                        />
-                    </div>
+                    <>
+                        <div
+                            className="pointer-events-none absolute flex items-center px-1 text-sm font-semibold text-foreground"
+                            style={{
+                                left: overlays.date.left,
+                                top: overlays.date.top,
+                                width: overlays.date.width,
+                                height: overlays.date.height,
+                            }}
+                        >
+                            {signedDate}
+                        </div>
+
+                        <div
+                            className="pointer-events-none absolute flex items-center px-1 text-sm font-semibold text-foreground"
+                            style={{
+                                left: overlays.date_ar.left,
+                                top: overlays.date_ar.top,
+                                width: overlays.date_ar.width,
+                                height: overlays.date_ar.height,
+                            }}
+                        >
+                            {signedDate}
+                        </div>
+
+                        <div
+                            className="absolute border-2 border-dashed border-primary/60 bg-primary/5"
+                            style={{
+                                left: overlays.signature.left,
+                                top: overlays.signature.top,
+                                width: overlays.signature.width,
+                                height: overlays.signature.height,
+                            }}
+                        >
+                            <SignaturePad
+                                key={clearToken}
+                                fill
+                                onChange={handleSignatureChange}
+                                className="h-full"
+                            />
+                        </div>
+
+                        <div
+                            className="pointer-events-none absolute overflow-hidden border border-dashed border-muted-foreground/50 bg-background/40"
+                            style={{
+                                left: overlays.signature_ar.left,
+                                top: overlays.signature_ar.top,
+                                width: overlays.signature_ar.width,
+                                height: overlays.signature_ar.height,
+                            }}
+                        >
+                            {signaturePreview ? (
+                                <img
+                                    src={signaturePreview}
+                                    alt="Arabic signature preview"
+                                    className="h-full w-full object-contain p-1"
+                                />
+                            ) : null}
+                        </div>
+                    </>
                 ) : null}
             </div>
 
             {!isLoading && !error ? (
                 <p className="text-xs text-muted-foreground">
-                    Draw your signature in the highlighted area on the English
-                    signature line. The same signature will appear on both
-                    language columns after submission.
+                    Draw your signature in the highlighted English area. The
+                    same signature preview appears on the Arabic side, and
+                    today&apos;s date ({signedDate}) is shown in both date
+                    fields.
                 </p>
             ) : null}
 
@@ -151,10 +227,7 @@ export function PdfSignatureViewer({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                        setClearToken((value) => value + 1);
-                        onSignatureChange(null);
-                    }}
+                    onClick={handleClear}
                 >
                     Clear signature
                 </Button>
