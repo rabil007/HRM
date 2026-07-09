@@ -29,7 +29,7 @@ test('authorized user can preview placement pdf', function () {
 
     $renderer = new class implements RendersEmployeeDocumentPdf
     {
-        public function render(Employee $employee, int $companyId, ?array $signature = null): string
+        public function render(Employee $employee, int $companyId, ?array $signature = null, bool $showPlacementGuides = false): string
         {
             return minimalPdfBytes();
         }
@@ -62,6 +62,18 @@ test('authorized user can save placement coordinates', function () {
         ],
         'date' => [
             'left' => 40,
+            'top' => 580,
+            'width' => 160,
+            'height' => 30,
+        ],
+        'signature_ar' => [
+            'left' => 480,
+            'top' => 500,
+            'width' => 280,
+            'height' => 60,
+        ],
+        'date_ar' => [
+            'left' => 480,
             'top' => 580,
             'width' => 160,
             'height' => 30,
@@ -105,6 +117,18 @@ test('authorized user can reset placement to defaults', function () {
                 'width' => 160,
                 'height' => 30,
             ],
+            'signature_ar' => [
+                'left' => 480,
+                'top' => 500,
+                'width' => 280,
+                'height' => 60,
+            ],
+            'date_ar' => [
+                'left' => 480,
+                'top' => 580,
+                'width' => 160,
+                'height' => 30,
+            ],
         ])
         ->assertSuccessful();
 
@@ -142,6 +166,18 @@ test('user without permission cannot update placement', function () {
             ],
             'date' => [
                 'left' => 40,
+                'top' => 580,
+                'width' => 160,
+                'height' => 30,
+            ],
+            'signature_ar' => [
+                'left' => 480,
+                'top' => 500,
+                'width' => 280,
+                'height' => 60,
+            ],
+            'date_ar' => [
+                'left' => 480,
                 'top' => 580,
                 'width' => 160,
                 'height' => 30,

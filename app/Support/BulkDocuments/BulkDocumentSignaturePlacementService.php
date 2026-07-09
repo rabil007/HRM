@@ -66,6 +66,10 @@ final class BulkDocumentSignaturePlacementService
     }
 
     /**
+     * @param  array{left: float, top: float, width: float, height: float}  $signature
+     * @param  array{left: float, top: float, width: float, height: float}  $date
+     * @param  array{left: float, top: float, width: float, height: float}  $signatureAr
+     * @param  array{left: float, top: float, width: float, height: float}  $dateAr
      * @return array{
      *     page: int,
      *     overlay: array{left: string, top: string, width: string, height: string},
@@ -73,58 +77,30 @@ final class BulkDocumentSignaturePlacementService
      * }
      */
     public function fromEditorRects(
-        float $signatureLeft,
-        float $signatureTop,
-        float $signatureWidth,
-        float $signatureHeight,
-        float $dateLeft,
-        float $dateTop,
-        float $dateWidth,
-        float $dateHeight,
+        array $signature,
+        array $date,
+        array $signatureAr,
+        array $dateAr,
         float $canvasWidth,
         float $canvasHeight,
         int $page = 1,
     ): array {
         $overlay = [
-            'left' => $this->toPercent($signatureLeft, $canvasWidth),
-            'top' => $this->toPercent($signatureTop, $canvasHeight),
-            'width' => $this->toPercent($signatureWidth, $canvasWidth),
-            'height' => $this->toPercent($signatureHeight, $canvasHeight),
-        ];
-
-        $enImage = [
-            'type' => 'image',
-            'x' => $this->toMmX($signatureLeft, $canvasWidth),
-            'y' => $this->toMmY($signatureTop, $canvasHeight),
-            'w' => $this->toMmX($signatureWidth, $canvasWidth),
-            'h' => $this->toMmY($signatureHeight, $canvasHeight),
-        ];
-
-        $arImage = [
-            'type' => 'image',
-            'x' => $this->mirrorMmX($enImage['x'], $enImage['w']),
-            'y' => $enImage['y'],
-            'w' => $enImage['w'],
-            'h' => $enImage['h'],
-        ];
-
-        $enDate = [
-            'type' => 'date',
-            'x' => $this->toMmX($dateLeft, $canvasWidth),
-            'y' => $this->toMmY($dateTop + $dateHeight, $canvasHeight),
-        ];
-
-        $dateWidthMm = $this->toMmX($dateWidth, $canvasWidth);
-        $arDate = [
-            'type' => 'date',
-            'x' => $this->mirrorMmX($enDate['x'], $dateWidthMm),
-            'y' => $enDate['y'],
+            'left' => $this->toPercent((float) $signature['left'], $canvasWidth),
+            'top' => $this->toPercent((float) $signature['top'], $canvasHeight),
+            'width' => $this->toPercent((float) $signature['width'], $canvasWidth),
+            'height' => $this->toPercent((float) $signature['height'], $canvasHeight),
         ];
 
         return [
             'page' => $page,
             'overlay' => $overlay,
-            'stamps' => [$enImage, $arImage, $enDate, $arDate],
+            'stamps' => [
+                $this->rectToImageStamp($signature, $canvasWidth, $canvasHeight),
+                $this->rectToImageStamp($signatureAr, $canvasWidth, $canvasHeight),
+                $this->rectToDateStamp($date, $canvasWidth, $canvasHeight),
+                $this->rectToDateStamp($dateAr, $canvasWidth, $canvasHeight),
+            ],
         ];
     }
 
@@ -136,7 +112,9 @@ final class BulkDocumentSignaturePlacementService
      * }  $config
      * @return array{
      *     signature: array{left: float, top: float, width: float, height: float},
-     *     date: array{left: float, top: float, width: float, height: float}
+     *     date: array{left: float, top: float, width: float, height: float},
+     *     signature_ar: array{left: float, top: float, width: float, height: float},
+     *     date_ar: array{left: float, top: float, width: float, height: float}
      * }
      */
     public function editorRectsFromConfig(
@@ -152,36 +130,40 @@ final class BulkDocumentSignaturePlacementService
             'height' => $this->fromPercent($overlay['height'], $canvasHeight),
         ];
 
-        $enDate = collect($config['stamps'])->first(
+        $imageStamps = array_values(array_filter(
+            $config['stamps'],
+            fn (array $stamp): bool => $stamp['type'] === 'image',
+        ));
+        $dateStamps = array_values(array_filter(
+            $config['stamps'],
             fn (array $stamp): bool => $stamp['type'] === 'date',
-        );
+        ));
 
-        $dateWidth = max($signature['width'] * 0.6, 40.0);
-        $dateHeight = max($signature['height'] * 0.5, 16.0);
+        $defaultDateWidth = max($signature['width'] * 0.6, 40.0);
+        $defaultDateHeight = max($signature['height'] * 0.5, 16.0);
 
-        if ($enDate === null) {
-            return [
-                'signature' => $signature,
-                'date' => [
-                    'left' => $signature['left'],
-                    'top' => $signature['top'] + $signature['height'] + 8,
-                    'width' => $dateWidth,
-                    'height' => $dateHeight,
-                ],
+        $signatureAr = isset($imageStamps[1])
+            ? $this->imageStampToRect($imageStamps[1], $canvasWidth, $canvasHeight)
+            : $this->mirrorRect($signature, $canvasWidth);
+
+        $date = isset($dateStamps[0])
+            ? $this->dateStampToRect($dateStamps[0], $defaultDateWidth, $defaultDateHeight, $canvasWidth, $canvasHeight)
+            : [
+                'left' => $signature['left'],
+                'top' => $signature['top'] + $signature['height'] + 8,
+                'width' => $defaultDateWidth,
+                'height' => $defaultDateHeight,
             ];
-        }
 
-        $dateLeft = $this->fromMmX((float) $enDate['x'], $canvasWidth);
-        $dateBottom = $this->fromMmY((float) $enDate['y'], $canvasHeight);
+        $dateAr = isset($dateStamps[1])
+            ? $this->dateStampToRect($dateStamps[1], $defaultDateWidth, $defaultDateHeight, $canvasWidth, $canvasHeight)
+            : $this->mirrorRect($date, $canvasWidth);
 
         return [
             'signature' => $signature,
-            'date' => [
-                'left' => $dateLeft,
-                'top' => max(0, $dateBottom - $dateHeight),
-                'width' => $dateWidth,
-                'height' => $dateHeight,
-            ],
+            'date' => $date,
+            'signature_ar' => $signatureAr,
+            'date_ar' => $dateAr,
         ];
     }
 
@@ -266,6 +248,88 @@ final class BulkDocumentSignaturePlacementService
         return $config;
     }
 
+    /**
+     * @param  array{left: float|int, top: float|int, width: float|int, height: float|int}  $rect
+     * @return array{type: string, x: float, y: float, w: float, h: float}
+     */
+    private function rectToImageStamp(array $rect, float $canvasWidth, float $canvasHeight): array
+    {
+        return [
+            'type' => 'image',
+            'x' => $this->toMmX((float) $rect['left'], $canvasWidth),
+            'y' => $this->toMmY((float) $rect['top'], $canvasHeight),
+            'w' => $this->toMmX((float) $rect['width'], $canvasWidth),
+            'h' => $this->toMmY((float) $rect['height'], $canvasHeight),
+        ];
+    }
+
+    /**
+     * @param  array{left: float|int, top: float|int, width: float|int, height: float|int}  $rect
+     * @return array{type: string, x: float, y: float}
+     */
+    private function rectToDateStamp(array $rect, float $canvasWidth, float $canvasHeight): array
+    {
+        return [
+            'type' => 'date',
+            'x' => $this->toMmX((float) $rect['left'], $canvasWidth),
+            'y' => $this->toMmY((float) $rect['top'] + (float) $rect['height'], $canvasHeight),
+        ];
+    }
+
+    /**
+     * @param  array{type: string, x: float, y: float, w?: float, h?: float}  $stamp
+     * @return array{left: float, top: float, width: float, height: float}
+     */
+    private function imageStampToRect(array $stamp, float $canvasWidth, float $canvasHeight): array
+    {
+        return [
+            'left' => $this->fromMmX((float) $stamp['x'], $canvasWidth),
+            'top' => $this->fromMmY((float) $stamp['y'], $canvasHeight),
+            'width' => $this->fromMmX((float) ($stamp['w'] ?? 0), $canvasWidth),
+            'height' => $this->fromMmY((float) ($stamp['h'] ?? 0), $canvasHeight),
+        ];
+    }
+
+    /**
+     * @param  array{type: string, x: float, y: float}  $stamp
+     * @return array{left: float, top: float, width: float, height: float}
+     */
+    private function dateStampToRect(
+        array $stamp,
+        float $defaultWidth,
+        float $defaultHeight,
+        float $canvasWidth,
+        float $canvasHeight,
+    ): array {
+        $dateLeft = $this->fromMmX((float) $stamp['x'], $canvasWidth);
+        $dateBottom = $this->fromMmY((float) $stamp['y'], $canvasHeight);
+
+        return [
+            'left' => $dateLeft,
+            'top' => max(0, $dateBottom - $defaultHeight),
+            'width' => $defaultWidth,
+            'height' => $defaultHeight,
+        ];
+    }
+
+    /**
+     * @param  array{left: float, top: float, width: float, height: float}  $rect
+     * @return array{left: float, top: float, width: float, height: float}
+     */
+    private function mirrorRect(array $rect, float $canvasWidth): array
+    {
+        $widthMm = $this->toMmX($rect['width'], $canvasWidth);
+        $leftMm = $this->toMmX($rect['left'], $canvasWidth);
+        $mirroredLeftMm = self::PAGE_WIDTH_MM - $leftMm - $widthMm;
+
+        return [
+            'left' => $this->fromMmX($mirroredLeftMm, $canvasWidth),
+            'top' => $rect['top'],
+            'width' => $rect['width'],
+            'height' => $rect['height'],
+        ];
+    }
+
     private function toPercent(float $value, float $total): string
     {
         if ($total <= 0) {
@@ -308,10 +372,5 @@ final class BulkDocumentSignaturePlacementService
     private function fromMmY(float $mm, float $canvasHeight): float
     {
         return ($mm / self::PAGE_HEIGHT_MM) * $canvasHeight;
-    }
-
-    private function mirrorMmX(float $x, float $width): float
-    {
-        return round(self::PAGE_WIDTH_MM - $x - $width, 2);
     }
 }

@@ -4,15 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     editorRectsFromConfig,
+    type EditorPlacementRects,
     type EditorRect,
     type SignaturePlacementConfig,
 } from '@/features/settings/esign-placement/esign-placement-coordinates';
 import { getPdfJs } from '@/lib/pdfjs';
-
-type PlacementRects = {
-    signature: EditorRect;
-    date: EditorRect;
-};
 
 type Props = {
     pdfUrl: string;
@@ -25,14 +21,49 @@ type Props = {
         canvas_height: number;
         signature: EditorRect;
         date: EditorRect;
+        signature_ar: EditorRect;
+        date_ar: EditorRect;
     }) => Promise<void>;
     onReset: () => Promise<void>;
     isSaving: boolean;
     isResetting: boolean;
 };
 
-const SIGNATURE_ID = 'signature_en';
-const DATE_ID = 'date_en';
+const SIGNATURE_EN_ID = 'signature_en';
+const DATE_EN_ID = 'date_en';
+const SIGNATURE_AR_ID = 'signature_ar';
+const DATE_AR_ID = 'date_ar';
+
+const PLACEMENT_FIELDS = [
+    {
+        id: SIGNATURE_EN_ID,
+        label: 'Signature (EN)',
+        color: '#1d4ed8',
+        fill: 'rgba(59, 130, 246, 0.35)',
+        rectKey: 'signature' as const,
+    },
+    {
+        id: DATE_EN_ID,
+        label: 'Date (EN)',
+        color: '#047857',
+        fill: 'rgba(16, 185, 129, 0.35)',
+        rectKey: 'date' as const,
+    },
+    {
+        id: SIGNATURE_AR_ID,
+        label: 'Signature (AR)',
+        color: '#c2410c',
+        fill: 'rgba(249, 115, 22, 0.35)',
+        rectKey: 'signature_ar' as const,
+    },
+    {
+        id: DATE_AR_ID,
+        label: 'Date (AR)',
+        color: '#7c3aed',
+        fill: 'rgba(139, 92, 246, 0.35)',
+        rectKey: 'date_ar' as const,
+    },
+];
 
 function createPlacementRect(
     id: string,
@@ -79,7 +110,7 @@ export function FabricSignaturePlacementEditor({
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
-    const [rects, setRects] = useState<PlacementRects | null>(null);
+    const [rects, setRects] = useState<EditorPlacementRects | null>(null);
 
     const syncLabels = useCallback((canvas: Canvas) => {
         labelRefs.current.forEach((label) => {
@@ -113,10 +144,6 @@ export function FabricSignaturePlacementEditor({
         const loadPdf = async () => {
             setIsLoading(true);
             setError(null);
-
-            // #region agent log
-            fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9313b6'},body:JSON.stringify({sessionId:'9313b6',location:'fabric-signature-placement-editor.tsx:loadPdf:start',message:'loadPdf started',data:{pdfUrl,page},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-            // #endregion
 
             try {
                 const response = await fetch(pdfUrl, {
@@ -174,10 +201,6 @@ export function FabricSignaturePlacementEditor({
                 setRects(nextRects);
                 setIsLoading(false);
 
-                // #region agent log
-                fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9313b6'},body:JSON.stringify({sessionId:'9313b6',location:'fabric-signature-placement-editor.tsx:loadPdf:pdfRendered',message:'PDF rendered to offscreen canvas',data:{viewportWidth:viewport.width,viewportHeight:viewport.height},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-                // #endregion
-
                 requestAnimationFrame(() => {
                     if (cancelled || !canvasElementRef.current) {
                         return;
@@ -196,103 +219,78 @@ export function FabricSignaturePlacementEditor({
 
                     FabricImage.fromURL(backgroundUrl)
                         .then((image) => {
-                        if (cancelled) {
-                            return;
-                        }
+                            if (cancelled) {
+                                return;
+                            }
 
-                        // #region agent log
-                        fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9313b6'},body:JSON.stringify({sessionId:'9313b6',location:'fabric-signature-placement-editor.tsx:fabricImage:loaded',message:'FabricImage.fromURL resolved',data:{imageType:image?.constructor?.name},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-                        // #endregion
+                            image.set({
+                                selectable: false,
+                                evented: false,
+                                originX: 'left',
+                                originY: 'top',
+                            });
 
-                        image.set({
-                            selectable: false,
-                            evented: false,
-                            originX: 'left',
-                            originY: 'top',
-                        });
+                            image.scaleToWidth(viewport.width);
+                            canvas.backgroundImage = image;
 
-                        image.scaleToWidth(viewport.width);
-                        canvas.backgroundImage = image;
+                            const objects: Array<Rect | FabricText> = [];
 
-                        const signatureRect = createPlacementRect(
-                            SIGNATURE_ID,
-                            nextRects.signature,
-                            'rgba(59, 130, 246, 0.35)',
-                            canEdit,
-                        );
-                        const dateRect = createPlacementRect(
-                            DATE_ID,
-                            nextRects.date,
-                            'rgba(16, 185, 129, 0.35)',
-                            canEdit,
-                        );
+                            for (const field of PLACEMENT_FIELDS) {
+                                const rect = nextRects[field.rectKey];
+                                const placementRect = createPlacementRect(
+                                    field.id,
+                                    rect,
+                                    field.fill,
+                                    canEdit,
+                                );
+                                const label = new FabricText(field.label, {
+                                    left: rect.left + 6,
+                                    top: rect.top + 6,
+                                    fontSize: 12,
+                                    fontFamily: 'system-ui, sans-serif',
+                                    fill: field.color,
+                                    selectable: false,
+                                    evented: false,
+                                });
+                                label.set('data', { parentId: field.id });
+                                labelRefs.current.push(label);
+                                objects.push(placementRect, label);
+                            }
 
-                        const signatureLabel = new FabricText('Signature (EN)', {
-                            left: nextRects.signature.left + 6,
-                            top: nextRects.signature.top + 6,
-                            fontSize: 12,
-                            fontFamily: 'system-ui, sans-serif',
-                            fill: '#1d4ed8',
-                            selectable: false,
-                            evented: false,
-                        });
-                        signatureLabel.set('data', { parentId: SIGNATURE_ID });
+                            canvas.add(...objects);
 
-                        const dateLabel = new FabricText('Date (EN)', {
-                            left: nextRects.date.left + 6,
-                            top: nextRects.date.top + 6,
-                            fontSize: 12,
-                            fontFamily: 'system-ui, sans-serif',
-                            fill: '#047857',
-                            selectable: false,
-                            evented: false,
-                        });
-                        dateLabel.set('data', { parentId: DATE_ID });
+                            canvas.on('object:moving', () =>
+                                syncLabels(canvas),
+                            );
+                            canvas.on('object:scaling', () =>
+                                syncLabels(canvas),
+                            );
+                            canvas.on('object:modified', () =>
+                                syncLabels(canvas),
+                            );
 
-                        labelRefs.current = [signatureLabel, dateLabel];
-
-                        canvas.add(signatureRect, dateRect, signatureLabel, dateLabel);
-
-                        canvas.on('object:moving', () => syncLabels(canvas));
-                        canvas.on('object:scaling', () => syncLabels(canvas));
-                        canvas.on('object:modified', () => syncLabels(canvas));
-
-                        canvas.renderAll();
-
-                        // #region agent log
-                        fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9313b6'},body:JSON.stringify({sessionId:'9313b6',location:'fabric-signature-placement-editor.tsx:fabricCanvas:ready',message:'Fabric canvas initialized with placement rects',data:{objectCount:canvas.getObjects().length},timestamp:Date.now(),hypothesisId:'H1',runId:'post-fix'})}).catch(()=>{});
-                        // #endregion
-                    })
+                            canvas.renderAll();
+                        })
                         .catch((fabricError: unknown) => {
                             if (cancelled) {
                                 return;
                             }
 
-                            const message =
+                            setError(
                                 fabricError instanceof Error
                                     ? fabricError.message
-                                    : 'Failed to initialize placement editor.';
-
-                            // #region agent log
-                            fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9313b6'},body:JSON.stringify({sessionId:'9313b6',location:'fabric-signature-placement-editor.tsx:fabricImage:error',message:'FabricImage or canvas setup failed',data:{errorMessage:message},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-                            // #endregion
-
-                            setError(message);
+                                    : 'Failed to initialize placement editor.',
+                            );
                             setIsLoading(false);
                         });
                 });
             } catch (loadError) {
                 if (!cancelled) {
-                    const message =
+                    setError(
                         loadError instanceof Error
                             ? loadError.message
-                            : 'Failed to load preview PDF.';
-
-                    // #region agent log
-                    fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9313b6'},body:JSON.stringify({sessionId:'9313b6',location:'fabric-signature-placement-editor.tsx:loadPdf:error',message:'loadPdf catch',data:{errorMessage:message},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-                    // #endregion
-
-                    setError(message);
+                            : 'Failed to load preview PDF.',
+                    );
                     setIsLoading(false);
                 }
             }
@@ -307,48 +305,50 @@ export function FabricSignaturePlacementEditor({
         };
     }, [canEdit, page, pdfUrl, placement, syncLabels]);
 
-    const readRectsFromCanvas = (): PlacementRects | null => {
+    const readRectById = (id: string): EditorRect | null => {
         const canvas = fabricCanvasRef.current;
 
         if (!canvas) {
             return null;
         }
 
-        const signatureObject = canvas
+        const object = canvas
             .getObjects()
             .find(
                 (item) =>
                     (item.get('data') as { id?: string } | undefined)?.id ===
-                    SIGNATURE_ID,
-            );
-        const dateObject = canvas
-            .getObjects()
-            .find(
-                (item) =>
-                    (item.get('data') as { id?: string } | undefined)?.id ===
-                    DATE_ID,
+                    id,
             );
 
-        if (!signatureObject || !dateObject) {
+        if (!object) {
             return null;
         }
 
-        const signatureBounds = signatureObject.getBoundingRect();
-        const dateBounds = dateObject.getBoundingRect();
+        const bounds = object.getBoundingRect();
 
         return {
-            signature: {
-                left: signatureBounds.left,
-                top: signatureBounds.top,
-                width: signatureBounds.width,
-                height: signatureBounds.height,
-            },
-            date: {
-                left: dateBounds.left,
-                top: dateBounds.top,
-                width: dateBounds.width,
-                height: dateBounds.height,
-            },
+            left: bounds.left,
+            top: bounds.top,
+            width: bounds.width,
+            height: bounds.height,
+        };
+    };
+
+    const readRectsFromCanvas = (): EditorPlacementRects | null => {
+        const signature = readRectById(SIGNATURE_EN_ID);
+        const date = readRectById(DATE_EN_ID);
+        const signatureAr = readRectById(SIGNATURE_AR_ID);
+        const dateAr = readRectById(DATE_AR_ID);
+
+        if (!signature || !date || !signatureAr || !dateAr) {
+            return null;
+        }
+
+        return {
+            signature,
+            date,
+            signature_ar: signatureAr,
+            date_ar: dateAr,
         };
     };
 
@@ -365,6 +365,8 @@ export function FabricSignaturePlacementEditor({
             canvas_height: canvasSize.height,
             signature: currentRects.signature,
             date: currentRects.date,
+            signature_ar: currentRects.signature_ar,
+            date_ar: currentRects.date_ar,
         });
     };
 
@@ -393,9 +395,9 @@ export function FabricSignaturePlacementEditor({
             </div>
 
             <p className="text-xs text-muted-foreground">
-                Drag the English signature and date boxes onto the matching lines.
-                Arabic positions mirror automatically when employees sign and when
-                PDFs are stamped.
+                Drag all four boxes onto the matching English and Arabic
+                signature and date lines. Dashed guides in the preview PDF show
+                the template placeholder areas.
             </p>
 
             {canEdit ? (

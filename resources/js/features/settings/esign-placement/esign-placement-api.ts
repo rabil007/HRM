@@ -43,6 +43,18 @@ type SavePayload = {
         width: number;
         height: number;
     };
+    signature_ar: {
+        left: number;
+        top: number;
+        width: number;
+        height: number;
+    };
+    date_ar: {
+        left: number;
+        top: number;
+        width: number;
+        height: number;
+    };
 };
 
 export async function saveSignaturePlacement(

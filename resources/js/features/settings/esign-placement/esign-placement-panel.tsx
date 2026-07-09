@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { FabricSignaturePlacementEditor } from '@/features/settings/esign-placement/fabric-signature-placement-editor';
-import type { SignaturePlacementConfig } from '@/features/settings/esign-placement/esign-placement-coordinates';
+import type {
+    EditorRect,
+    SignaturePlacementConfig,
+} from '@/features/settings/esign-placement/esign-placement-coordinates';
 import {
     resetSignaturePlacement,
     saveSignaturePlacement,
@@ -32,18 +35,10 @@ export function EsignPlacementPanel({
         page: number;
         canvas_width: number;
         canvas_height: number;
-        signature: {
-            left: number;
-            top: number;
-            width: number;
-            height: number;
-        };
-        date: {
-            left: number;
-            top: number;
-            width: number;
-            height: number;
-        };
+        signature: EditorRect;
+        date: EditorRect;
+        signature_ar: EditorRect;
+        date_ar: EditorRect;
     }) => {
         setIsSaving(true);
 
@@ -87,8 +82,8 @@ export function EsignPlacementPanel({
                     {label}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    Position the employee signature overlay and stamped date for
-                    bulk salary declaration e-signatures.
+                    Position the English and Arabic signature overlays and stamped
+                    dates for bulk salary declaration e-signatures.
                 </p>
             </div>
 

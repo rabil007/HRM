@@ -6,6 +6,44 @@ use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\BulkDocuments\SalaryDeclarationSignaturePlacements;
 use App\Support\Settings\SettingKey;
 
+/**
+ * @return array{
+ *     signature: array{left: float, top: float, width: float, height: float},
+ *     date: array{left: float, top: float, width: float, height: float},
+ *     signature_ar: array{left: float, top: float, width: float, height: float},
+ *     date_ar: array{left: float, top: float, width: float, height: float}
+ * }
+ */
+function sampleEditorRects(): array
+{
+    return [
+        'signature' => [
+            'left' => 40.0,
+            'top' => 500.0,
+            'width' => 280.0,
+            'height' => 60.0,
+        ],
+        'date' => [
+            'left' => 40.0,
+            'top' => 580.0,
+            'width' => 160.0,
+            'height' => 30.0,
+        ],
+        'signature_ar' => [
+            'left' => 480.0,
+            'top' => 500.0,
+            'width' => 280.0,
+            'height' => 60.0,
+        ],
+        'date_ar' => [
+            'left' => 480.0,
+            'top' => 580.0,
+            'width' => 160.0,
+            'height' => 30.0,
+        ],
+    ];
+}
+
 test('defaults are used when placement setting is empty', function () {
     $service = app(BulkDocumentSignaturePlacementService::class);
 
@@ -16,16 +54,13 @@ test('defaults are used when placement setting is empty', function () {
 
 test('save and resolve round-trip custom placement', function () {
     $service = app(BulkDocumentSignaturePlacementService::class);
+    $rects = sampleEditorRects();
 
     $config = $service->fromEditorRects(
-        signatureLeft: 40,
-        signatureTop: 500,
-        signatureWidth: 280,
-        signatureHeight: 60,
-        dateLeft: 40,
-        dateTop: 580,
-        dateWidth: 160,
-        dateHeight: 30,
+        signature: $rects['signature'],
+        date: $rects['date'],
+        signatureAr: $rects['signature_ar'],
+        dateAr: $rects['date_ar'],
         canvasWidth: 800,
         canvasHeight: 1131,
         page: 1,
@@ -37,18 +72,15 @@ test('save and resolve round-trip custom placement', function () {
         ->toBe($config);
 });
 
-test('fromEditorRects produces overlay percentages and mirrored arabic stamps', function () {
+test('fromEditorRects stores explicit english and arabic stamp positions', function () {
     $service = app(BulkDocumentSignaturePlacementService::class);
+    $rects = sampleEditorRects();
 
     $config = $service->fromEditorRects(
-        signatureLeft: 40,
-        signatureTop: 500,
-        signatureWidth: 280,
-        signatureHeight: 60,
-        dateLeft: 40,
-        dateTop: 580,
-        dateWidth: 160,
-        dateHeight: 30,
+        signature: $rects['signature'],
+        date: $rects['date'],
+        signatureAr: $rects['signature_ar'],
+        dateAr: $rects['date_ar'],
         canvasWidth: 800,
         canvasHeight: 1131,
     );
@@ -72,29 +104,46 @@ test('fromEditorRects produces overlay percentages and mirrored arabic stamps', 
         ->and($enDate['type'])->toBe('date')
         ->and($arDate['type'])->toBe('date');
 
-    expect($arImage['x'])->toBe(round(210 - $enImage['x'] - $enImage['w'], 2))
+    expect($arImage['x'])->toBe(126.0)
         ->and($arImage['y'])->toBe($enImage['y'])
         ->and($arImage['w'])->toBe($enImage['w'])
         ->and($arImage['h'])->toBe($enImage['h']);
 
-    expect($arDate['x'])->toBe(round(210 - $enDate['x'] - 42.0, 2))
+    expect($arDate['x'])->toBe(126.0)
         ->and($arDate['y'])->toBe($enDate['y']);
+});
+
+test('editorRectsFromConfig restores all four placement boxes', function () {
+    $service = app(BulkDocumentSignaturePlacementService::class);
+    $rects = sampleEditorRects();
+
+    $config = $service->fromEditorRects(
+        signature: $rects['signature'],
+        date: $rects['date'],
+        signatureAr: $rects['signature_ar'],
+        dateAr: $rects['date_ar'],
+        canvasWidth: 800,
+        canvasHeight: 1131,
+    );
+
+    $restored = $service->editorRectsFromConfig($config, 800, 1131);
+
+    expect($restored['signature']['left'])->toBe(40.0)
+        ->and($restored['signature_ar']['left'])->toBe(480.0)
+        ->and($restored['date_ar']['left'])->toBe(480.0);
 });
 
 test('reset restores defaults', function () {
     $service = app(BulkDocumentSignaturePlacementService::class);
+    $rects = sampleEditorRects();
 
     $service->save(
         SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY,
         $service->fromEditorRects(
-            signatureLeft: 10,
-            signatureTop: 10,
-            signatureWidth: 100,
-            signatureHeight: 40,
-            dateLeft: 10,
-            dateTop: 60,
-            dateWidth: 80,
-            dateHeight: 20,
+            signature: $rects['signature'],
+            date: $rects['date'],
+            signatureAr: $rects['signature_ar'],
+            dateAr: $rects['date_ar'],
             canvasWidth: 400,
             canvasHeight: 600,
         ),
@@ -109,16 +158,33 @@ test('reset restores defaults', function () {
 
 test('bulk document type registry resolves saved placement', function () {
     $service = app(BulkDocumentSignaturePlacementService::class);
+    $rects = sampleEditorRects();
 
     $config = $service->fromEditorRects(
-        signatureLeft: 20,
-        signatureTop: 300,
-        signatureWidth: 200,
-        signatureHeight: 50,
-        dateLeft: 20,
-        dateTop: 360,
-        dateWidth: 120,
-        dateHeight: 24,
+        signature: [
+            'left' => 20,
+            'top' => 300,
+            'width' => 200,
+            'height' => 50,
+        ],
+        date: [
+            'left' => 20,
+            'top' => 360,
+            'width' => 120,
+            'height' => 24,
+        ],
+        signatureAr: [
+            'left' => 320,
+            'top' => 300,
+            'width' => 200,
+            'height' => 50,
+        ],
+        dateAr: [
+            'left' => 320,
+            'top' => 360,
+            'width' => 120,
+            'height' => 24,
+        ],
         canvasWidth: 600,
         canvasHeight: 900,
     );

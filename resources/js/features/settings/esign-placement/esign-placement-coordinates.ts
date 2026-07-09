@@ -22,6 +22,13 @@ export type EditorRect = {
     height: number;
 };
 
+export type EditorPlacementRects = {
+    signature: EditorRect;
+    date: EditorRect;
+    signature_ar: EditorRect;
+    date_ar: EditorRect;
+};
+
 const PAGE_WIDTH_MM = 210;
 const PAGE_HEIGHT_MM = 297;
 
@@ -39,11 +46,59 @@ function fromMmY(mm: number, canvasHeight: number): number {
     return (mm / PAGE_HEIGHT_MM) * canvasHeight;
 }
 
+function toMmX(pixels: number, canvasWidth: number): number {
+    return (pixels / canvasWidth) * PAGE_WIDTH_MM;
+}
+
+function imageStampToRect(
+    stamp: SignaturePlacementConfig['stamps'][number],
+    canvasWidth: number,
+    canvasHeight: number,
+): EditorRect {
+    return {
+        left: fromMmX(stamp.x, canvasWidth),
+        top: fromMmY(stamp.y, canvasHeight),
+        width: fromMmX(stamp.w ?? 0, canvasWidth),
+        height: fromMmY(stamp.h ?? 0, canvasHeight),
+    };
+}
+
+function dateStampToRect(
+    stamp: SignaturePlacementConfig['stamps'][number],
+    defaultWidth: number,
+    defaultHeight: number,
+    canvasWidth: number,
+    canvasHeight: number,
+): EditorRect {
+    const dateLeft = fromMmX(stamp.x, canvasWidth);
+    const dateBottom = fromMmY(stamp.y, canvasHeight);
+
+    return {
+        left: dateLeft,
+        top: Math.max(0, dateBottom - defaultHeight),
+        width: defaultWidth,
+        height: defaultHeight,
+    };
+}
+
+function mirrorRect(rect: EditorRect, canvasWidth: number): EditorRect {
+    const widthMm = toMmX(rect.width, canvasWidth);
+    const leftMm = toMmX(rect.left, canvasWidth);
+    const mirroredLeftMm = PAGE_WIDTH_MM - leftMm - widthMm;
+
+    return {
+        left: fromMmX(mirroredLeftMm, canvasWidth),
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+    };
+}
+
 export function editorRectsFromConfig(
     config: SignaturePlacementConfig,
     canvasWidth: number,
     canvasHeight: number,
-): { signature: EditorRect; date: EditorRect } {
+): EditorPlacementRects {
     const overlay = config.overlay;
     const signature: EditorRect = {
         left: fromPercent(overlay.left, canvasWidth),
@@ -52,32 +107,45 @@ export function editorRectsFromConfig(
         height: fromPercent(overlay.height, canvasHeight),
     };
 
-    const enDate = config.stamps.find((stamp) => stamp.type === 'date');
-    const dateWidth = Math.max(signature.width * 0.6, 40);
-    const dateHeight = Math.max(signature.height * 0.5, 16);
+    const imageStamps = config.stamps.filter((stamp) => stamp.type === 'image');
+    const dateStamps = config.stamps.filter((stamp) => stamp.type === 'date');
 
-    if (!enDate) {
-        return {
-            signature,
-            date: {
-                left: signature.left,
-                top: signature.top + signature.height + 8,
-                width: dateWidth,
-                height: dateHeight,
-            },
-        };
-    }
+    const defaultDateWidth = Math.max(signature.width * 0.6, 40);
+    const defaultDateHeight = Math.max(signature.height * 0.5, 16);
 
-    const dateLeft = fromMmX(enDate.x, canvasWidth);
-    const dateBottom = fromMmY(enDate.y, canvasHeight);
+    const signatureAr = imageStamps[1]
+        ? imageStampToRect(imageStamps[1], canvasWidth, canvasHeight)
+        : mirrorRect(signature, canvasWidth);
+
+    const date = dateStamps[0]
+        ? dateStampToRect(
+              dateStamps[0],
+              defaultDateWidth,
+              defaultDateHeight,
+              canvasWidth,
+              canvasHeight,
+          )
+        : {
+              left: signature.left,
+              top: signature.top + signature.height + 8,
+              width: defaultDateWidth,
+              height: defaultDateHeight,
+          };
+
+    const dateAr = dateStamps[1]
+        ? dateStampToRect(
+              dateStamps[1],
+              defaultDateWidth,
+              defaultDateHeight,
+              canvasWidth,
+              canvasHeight,
+          )
+        : mirrorRect(date, canvasWidth);
 
     return {
         signature,
-        date: {
-            left: dateLeft,
-            top: Math.max(0, dateBottom - dateHeight),
-            width: dateWidth,
-            height: dateHeight,
-        },
+        date,
+        signature_ar: signatureAr,
+        date_ar: dateAr,
     };
 }

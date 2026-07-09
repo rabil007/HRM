@@ -116,6 +116,25 @@
             margin-top: 4px;
         }
 
+        .placement-guide {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 36px;
+            border: 1px dashed #94a3b8;
+            color: #64748b;
+            font: 600 10px/1.2 system-ui, sans-serif;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            background: rgba(148, 163, 184, 0.08);
+        }
+
+        .col.ar .placement-guide {
+            font-family: 'DejaVu Sans', system-ui, sans-serif;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
         @media print {
             html, body { background: #fff; }
             .toolbar { display: none !important; }
@@ -158,8 +177,8 @@
 
                     <div class="sign-block">
                         <div class="field"><span class="label">Employee Name:</span><span class="fill">{{ $signed_name ?? $employee_name }}</span></div>
-                        <div class="field"><span class="label">Signature:</span><span class="fill">@if (! empty($signature_image_url))<img src="{{ $signature_image_url }}" alt="Signature" class="signature">@endif</span></div>
-                        <div class="field"><span class="label">Date:</span><span class="fill">{{ $signed_date ?? '' }}</span></div>
+                        <div class="field"><span class="label">Signature:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">Signature (EN)</span>@elseif (! empty($signature_image_url))<img src="{{ $signature_image_url }}" alt="Signature" class="signature">@endif</span></div>
+                        <div class="field"><span class="label">Date:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">Date (EN)</span>@else{{ $signed_date ?? '' }}@endif</span></div>
                     </div>
                 </section>
 
@@ -188,8 +207,8 @@
 
                     <div class="sign-block">
                         <div class="field"><span class="label">اسم الموظف:</span><span class="fill">{{ $signed_name ?? $employee_name }}</span></div>
-                        <div class="field"><span class="label">التوقيع:</span><span class="fill">@if (! empty($signature_image_url))<img src="{{ $signature_image_url }}" alt="Signature" class="signature">@endif</span></div>
-                        <div class="field"><span class="label">التاريخ:</span><span class="fill">{{ $signed_date ?? '___ / ___ / ___' }}</span></div>
+                        <div class="field"><span class="label">التوقيع:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">التوقيع (عربي)</span>@elseif (! empty($signature_image_url))<img src="{{ $signature_image_url }}" alt="Signature" class="signature">@endif</span></div>
+                        <div class="field"><span class="label">التاريخ:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">التاريخ (عربي)</span>@else{{ $signed_date ?? '' }}@endif</span></div>
                     </div>
                 </section>
             </div>

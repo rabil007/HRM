@@ -1304,7 +1304,7 @@ export default function ApplicationSettings({
                             <SectionHeading
                                 icon={PenLine}
                                 title="E-Signature placement"
-                                description="Calibrate signature overlay and stamped date positions on salary declaration PDFs."
+                                description="Calibrate English and Arabic signature overlay and stamped date positions on salary declaration PDFs."
                                 color="bg-blue-500/10 border-blue-500/20 text-blue-600"
                             />
                             <EsignPlacementPanel

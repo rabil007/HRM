@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\UpdateBulkDocumentSignaturePlacementRequest;
 use App\Models\Company;
 use App\Models\Employee;
+use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
 use App\Support\BulkDocuments\BulkDocumentSignaturePlacementService;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use Illuminate\Http\JsonResponse;
@@ -24,9 +25,13 @@ class BulkDocumentSignaturePlacementController extends Controller
 
         $companyId = (int) request()->attributes->get('current_company_id');
         $employee = $this->resolvePreviewEmployee($companyId);
-        $renderer = BulkDocumentTypeRegistry::resolveRenderer($documentType);
 
-        $pdf = $renderer->render($employee, $companyId);
+        $pdf = app(SalaryDeclarationPdfRenderer::class)->render(
+            $employee,
+            $companyId,
+            null,
+            true,
+        );
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
@@ -59,14 +64,10 @@ class BulkDocumentSignaturePlacementController extends Controller
         $validated = $request->validated();
 
         $config = $this->placements->fromEditorRects(
-            signatureLeft: (float) $validated['signature']['left'],
-            signatureTop: (float) $validated['signature']['top'],
-            signatureWidth: (float) $validated['signature']['width'],
-            signatureHeight: (float) $validated['signature']['height'],
-            dateLeft: (float) $validated['date']['left'],
-            dateTop: (float) $validated['date']['top'],
-            dateWidth: (float) $validated['date']['width'],
-            dateHeight: (float) $validated['date']['height'],
+            signature: $validated['signature'],
+            date: $validated['date'],
+            signatureAr: $validated['signature_ar'],
+            dateAr: $validated['date_ar'],
             canvasWidth: (float) $validated['canvas_width'],
             canvasHeight: (float) $validated['canvas_height'],
             page: (int) $validated['page'],
