@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/table';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { formatDisplayDateTime12h } from '@/lib/format-date';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { sends as bulkEmailBatchSends } from '@/routes/organization/documents/bulk/email-batches';
 import type {
@@ -81,14 +82,19 @@ export function BulkEmailBatchSendsSheet({
         setSends([]);
 
         http.get(bulkEmailBatchSends.url({ batch: batchId }))
-            .then((res) => {
+            .then((data) => {
                 if (cancelled) {
                     return;
                 }
 
-                const data = res.data as BulkEmailBatchSendsResponse;
-                setBatch(data.batch);
-                setSends(data.sends);
+                const payload = data as BulkEmailBatchSendsResponse;
+                setBatch(payload.batch);
+                setSends(payload.sends);
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    toast.error('Could not load email batch recipients.');
+                }
             })
             .finally(() => {
                 if (!cancelled) {
