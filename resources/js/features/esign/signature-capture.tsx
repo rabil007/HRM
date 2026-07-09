@@ -51,7 +51,7 @@ export function SignatureCapture({
         }
 
         if (!isAllowedSignatureImage(file)) {
-            setUploadError('Use a PNG, JPG, or WebP image.');
+            setUploadError('Please choose a PNG, JPG, or WebP image.');
             return;
         }
 
@@ -66,7 +66,7 @@ export function SignatureCapture({
             setUploadError(
                 error instanceof Error
                     ? error.message
-                    : 'Could not read signature image.',
+                    : 'Could not read that image. Try another file.',
             );
         } finally {
             setIsReading(false);
@@ -80,23 +80,22 @@ export function SignatureCapture({
     return (
         <div className={cn('space-y-3', className)}>
             <Tabs value={mode} onValueChange={handleModeChange}>
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="draw" className="gap-1.5">
+                <TabsList className="grid h-11 w-full grid-cols-2">
+                    <TabsTrigger value="draw" className="gap-1.5 text-sm">
                         <PenLine className="size-4" />
                         Draw
                     </TabsTrigger>
-                    <TabsTrigger value="upload" className="gap-1.5">
+                    <TabsTrigger value="upload" className="gap-1.5 text-sm">
                         <ImageUp className="size-4" />
-                        Upload
+                        Upload image
                     </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="draw" className="mt-3 space-y-2">
                     {showDrawPad ? (
                         <>
-                            <p className="text-xs text-muted-foreground">
-                                Draw with your finger or mouse. It appears on both
-                                signature lines in the document.
+                            <p className="text-sm text-muted-foreground">
+                                Sign inside the white box below.
                             </p>
                             <SignaturePad
                                 key={`draw-${clearToken}`}
@@ -108,17 +107,17 @@ export function SignatureCapture({
                             />
                         </>
                     ) : (
-                        <p className="text-xs text-muted-foreground">
-                            Draw directly on the highlighted signature area in the
-                            document above.
+                        <p className="text-sm text-muted-foreground">
+                            Draw on the highlighted signature area in the
+                            document.
                         </p>
                     )}
                 </TabsContent>
 
                 <TabsContent value="upload" className="mt-3 space-y-3">
-                    <p className="text-xs text-muted-foreground">
-                        Upload a PNG, JPG, or WebP of your signature. It will show
-                        in the signature placeholders.
+                    <p className="text-sm text-muted-foreground">
+                        Use a clear photo or scan of your signature (PNG, JPG,
+                        or WebP).
                     </p>
 
                     <input
@@ -134,12 +133,16 @@ export function SignatureCapture({
                     <Button
                         type="button"
                         variant="outline"
-                        className="h-11 w-full"
+                        className="h-12 w-full text-base"
                         disabled={isReading}
                         onClick={() => inputRef.current?.click()}
                     >
                         <ImageUp className="mr-2 size-4" />
-                        {isReading ? 'Reading image…' : 'Choose signature image'}
+                        {isReading
+                            ? 'Reading image…'
+                            : previewUrl
+                              ? 'Replace signature image'
+                              : 'Choose signature image'}
                     </Button>
 
                     {uploadError ? (
@@ -147,11 +150,14 @@ export function SignatureCapture({
                     ) : null}
 
                     {previewUrl ? (
-                        <div className="overflow-hidden rounded-lg border bg-white p-3">
+                        <div className="overflow-hidden rounded-xl border bg-white p-4">
+                            <p className="mb-2 text-xs font-medium text-muted-foreground">
+                                Preview
+                            </p>
                             <img
                                 src={previewUrl}
                                 alt="Uploaded signature preview"
-                                className="mx-auto h-24 w-full object-contain"
+                                className="mx-auto h-28 w-full object-contain"
                             />
                         </div>
                     ) : null}

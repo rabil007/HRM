@@ -1,6 +1,5 @@
-import { Loader2 } from 'lucide-react';
+import { CheckCircle2, FileText, Loader2, PenLine } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { SignaturePad } from '@/components/signature-pad';
 import { Button } from '@/components/ui/button';
 import { formatSignedDate } from '@/features/esign/format-signed-date';
 import { SignatureCapture } from '@/features/esign/signature-capture';
@@ -10,6 +9,7 @@ import {
 } from '@/features/settings/esign-placement/esign-placement-coordinates';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getPdfJs } from '@/lib/pdfjs';
+import { cn } from '@/lib/utils';
 
 export type SignatureOverlayRect = {
     left: string;
@@ -22,6 +22,8 @@ type Props = {
     pdfUrl: string;
     page?: number;
     placement: SignaturePlacementConfig;
+    mode: 'review' | 'sign';
+    signatureData: string | null;
     onSignatureChange: (dataUrl: string | null) => void;
 };
 
@@ -31,6 +33,8 @@ export function PdfSignatureViewer({
     pdfUrl,
     page = 1,
     placement,
+    mode,
+    signatureData,
     onSignatureChange,
 }: Props) {
     const isMobile = useIsMobile();
@@ -39,10 +43,6 @@ export function PdfSignatureViewer({
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [clearToken, setClearToken] = useState(0);
-    const [signaturePreview, setSignaturePreview] = useState<string | null>(
-        null,
-    );
-    const [captureMode, setCaptureMode] = useState<'draw' | 'upload'>('draw');
     const [renderWidth, setRenderWidth] = useState(0);
 
     const overlays = useMemo(
@@ -50,7 +50,7 @@ export function PdfSignatureViewer({
         [placement],
     );
     const signedDate = formatSignedDate();
-    const useOverlayPad = !isMobile && captureMode === 'draw';
+    const isReview = mode === 'review';
 
     useEffect(() => {
         const viewport = viewportRef.current;
@@ -79,7 +79,7 @@ export function PdfSignatureViewer({
         observer.observe(viewport);
 
         return () => observer.disconnect();
-    }, [isMobile]);
+    }, [isMobile, mode]);
 
     useEffect(() => {
         if (renderWidth <= 0) {
@@ -150,47 +150,78 @@ export function PdfSignatureViewer({
     }, [page, pdfUrl, renderWidth]);
 
     const handleSignatureChange = (dataUrl: string | null) => {
-        setSignaturePreview(dataUrl);
         onSignatureChange(dataUrl);
     };
 
     const handleClear = () => {
         setClearToken((value) => value + 1);
-        setSignaturePreview(null);
         onSignatureChange(null);
     };
 
-    const handleModeChange = (mode: 'draw' | 'upload') => {
-        setCaptureMode(mode);
+    const handleModeChange = () => {
         setClearToken((value) => value + 1);
-        setSignaturePreview(null);
         onSignatureChange(null);
     };
 
     return (
         <div className="space-y-4">
-            {isMobile ? (
-                <p className="text-sm text-muted-foreground">
-                    Scroll the document to review it, then draw or upload your
-                    signature below. Today&apos;s date ({signedDate}) is applied
-                    automatically.
-                </p>
-            ) : null}
+            <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted">
+                    {isReview ? (
+                        <FileText className="size-4 text-muted-foreground" />
+                    ) : (
+                        <PenLine className="size-4 text-muted-foreground" />
+                    )}
+                </span>
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-sm font-semibold sm:text-base">
+                            {isReview
+                                ? 'Review the document'
+                                : 'Add your signature'}
+                        </h2>
+                        {!isReview ? (
+                            <span
+                                className={cn(
+                                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                                    signatureData
+                                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+                                        : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100',
+                                )}
+                            >
+                                {signatureData ? (
+                                    <CheckCircle2 className="size-3" />
+                                ) : null}
+                                {signatureData ? 'Added' : 'Required'}
+                            </span>
+                        ) : null}
+                    </div>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                        {isReview
+                            ? isMobile
+                                ? 'Scroll to read the full declaration. Highlighted boxes show where your signature and date will go.'
+                                : "Highlighted boxes show where your signature and today's date will appear."
+                            : `Draw or upload your signature. It fills both signature boxes. Date ${signedDate} is added automatically.`}
+                    </p>
+                </div>
+            </div>
 
             <div
                 ref={viewportRef}
                 className={
                     isMobile
-                        ? 'max-h-[55svh] w-full overflow-auto overscroll-contain rounded-lg border bg-muted/20 touch-pan-x touch-pan-y'
-                        : 'w-full'
+                        ? cn(
+                              'w-full overflow-auto overscroll-contain rounded-xl border bg-muted/20 touch-pan-x touch-pan-y',
+                              isReview ? 'max-h-[58svh]' : 'max-h-[32svh]',
+                          )
+                        : cn(
+                              'w-full overflow-hidden rounded-xl border bg-muted/20',
+                              !isReview && 'max-h-[420px] overflow-auto',
+                          )
                 }
             >
                 <div
-                    className={
-                        isMobile
-                            ? 'relative bg-muted/20'
-                            : 'relative w-full overflow-hidden rounded-lg border bg-muted/20'
-                    }
+                    className="relative bg-white"
                     style={
                         isMobile && renderWidth > 0
                             ? { width: renderWidth }
@@ -198,8 +229,11 @@ export function PdfSignatureViewer({
                     }
                 >
                     {isLoading ? (
-                        <div className="absolute inset-0 z-10 flex min-h-[280px] items-center justify-center bg-muted/20 sm:min-h-[420px]">
-                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        <div className="absolute inset-0 z-10 flex min-h-[240px] items-center justify-center bg-muted/20 sm:min-h-[360px]">
+                            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                                <Loader2 className="h-8 w-8 animate-spin" />
+                                <p className="text-sm">Loading document…</p>
+                            </div>
                         </div>
                     ) : null}
 
@@ -247,11 +281,7 @@ export function PdfSignatureViewer({
                             </div>
 
                             <div
-                                className={
-                                    useOverlayPad
-                                        ? 'absolute border-2 border-dashed border-primary/60 bg-primary/5'
-                                        : 'pointer-events-none absolute overflow-hidden border-2 border-dashed border-primary/60 bg-primary/5'
-                                }
+                                className="pointer-events-none absolute overflow-hidden border-2 border-dashed border-primary/60 bg-primary/5"
                                 style={{
                                     left: overlays.signature.left,
                                     top: overlays.signature.top,
@@ -259,25 +289,15 @@ export function PdfSignatureViewer({
                                     height: overlays.signature.height,
                                 }}
                             >
-                                {useOverlayPad ? (
-                                    <SignaturePad
-                                        key={clearToken}
-                                        fill
-                                        hideClear
-                                        onChange={handleSignatureChange}
-                                        className="h-full"
-                                    />
-                                ) : signaturePreview ? (
+                                {signatureData ? (
                                     <img
-                                        src={signaturePreview}
+                                        src={signatureData}
                                         alt="Signature preview"
                                         className="h-full w-full object-contain p-1"
                                     />
                                 ) : (
                                     <span className="flex h-full items-center justify-center px-1 text-center text-[10px] font-medium text-primary">
-                                        {captureMode === 'upload'
-                                            ? 'Upload below'
-                                            : 'Sign below'}
+                                        Signature
                                     </span>
                                 )}
                             </div>
@@ -291,9 +311,9 @@ export function PdfSignatureViewer({
                                     height: overlays.signature_ar.height,
                                 }}
                             >
-                                {signaturePreview ? (
+                                {signatureData ? (
                                     <img
-                                        src={signaturePreview}
+                                        src={signatureData}
                                         alt="Arabic signature preview"
                                         className="h-full w-full object-contain p-1"
                                     />
@@ -304,38 +324,36 @@ export function PdfSignatureViewer({
                 </div>
             </div>
 
-            {!isLoading && !error ? (
-                <div className="space-y-3 rounded-xl border bg-background p-3 shadow-sm">
-                    <div className="space-y-1">
-                        <p className="text-sm font-medium">Your signature</p>
-                        <p className="text-xs text-muted-foreground">
-                            Draw or upload a signature image. It appears in both
-                            placeholders, and today&apos;s date ({signedDate}) is
-                            applied automatically.
-                        </p>
-                    </div>
+            {isMobile && isReview && !isLoading && !error ? (
+                <p className="text-xs text-muted-foreground">
+                    Tip: drag the document to read the text clearly, then tap
+                    Continue.
+                </p>
+            ) : null}
+
+            {!isReview && !isLoading && !error ? (
+                <div className="space-y-3">
                     <SignatureCapture
                         clearToken={clearToken}
                         onChange={handleSignatureChange}
                         onModeChange={handleModeChange}
-                        previewUrl={signaturePreview}
-                        showDrawPad={isMobile}
-                        drawCanvasClassName={isMobile ? 'h-48' : 'h-40'}
+                        previewUrl={signatureData}
+                        showDrawPad
+                        drawCanvasClassName={isMobile ? 'h-48' : 'h-44'}
                         drawLineWidth={isMobile ? 3 : 2}
                     />
-                </div>
-            ) : null}
 
-            {!isLoading && !error ? (
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full sm:w-auto"
-                    onClick={handleClear}
-                >
-                    Clear signature
-                </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        onClick={handleClear}
+                        disabled={!signatureData}
+                    >
+                        Clear signature
+                    </Button>
+                </div>
             ) : null}
         </div>
     );
