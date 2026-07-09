@@ -37,7 +37,7 @@ export function substituteBulkEmailTemplate(
     employee: BulkEmailPreviewEmployee,
     companyName: string,
     documentTypeLabel: string,
-    signatureUrl = 'https://example.com/sign/sample-link',
+    signatureUrl = 'https://example.com/esign/sample-link',
 ): string {
     return template
         .replaceAll('{{employee_name}}', employee.name)

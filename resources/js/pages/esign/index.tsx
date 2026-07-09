@@ -19,7 +19,7 @@ type Props = {
     downloadUrl: string;
 };
 
-export default function BulkDocumentSignPage({
+export default function DocumentEsignPage({
     employeeName,
     employeeNo,
     companyName,

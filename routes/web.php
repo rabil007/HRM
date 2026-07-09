@@ -28,9 +28,6 @@ use App\Http\Controllers\Organization\BulkDocuments\EmailBulkDocumentsController
 use App\Http\Controllers\Organization\BulkDocuments\GenerateBulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\RejectBulkDocumentSignatureController;
 use App\Http\Controllers\Organization\BulkDocuments\UploadBulkDocumentSignatureController;
-use App\Http\Controllers\Organization\BulkDocumentSignature\DownloadUnsignedBulkDocumentController;
-use App\Http\Controllers\Organization\BulkDocumentSignature\ShowBulkDocumentSignatureController;
-use App\Http\Controllers\Organization\BulkDocumentSignature\SubmitBulkDocumentSignatureController;
 use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\CompanySwitchController;
 use App\Http\Controllers\Organization\ContractsExportController;
@@ -90,6 +87,9 @@ use App\Http\Controllers\Payroll\PayslipController;
 use App\Http\Controllers\Payroll\SalaryInputController;
 use App\Http\Controllers\Payroll\SalaryInputTypeController;
 use App\Http\Controllers\Payroll\WpsExportController;
+use App\Http\Controllers\Public\DocumentEsign\DownloadDocumentEsignController;
+use App\Http\Controllers\Public\DocumentEsign\ShowDocumentEsignController;
+use App\Http\Controllers\Public\DocumentEsign\SubmitDocumentEsignController;
 use App\Http\Controllers\Webhooks\HikvisionWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use App\Models\PayrollPeriod;
@@ -102,14 +102,14 @@ Route::match(['get', 'post'], 'organization/documents/share/{document}', Documen
     ->middleware('signed')
     ->name('organization.documents.share');
 
-Route::middleware('signed')->group(function () {
-    Route::get('organization/documents/sign/{token}', ShowBulkDocumentSignatureController::class)
-        ->name('organization.documents.bulk.sign.show');
-    Route::post('organization/documents/sign/{token}', SubmitBulkDocumentSignatureController::class)
+Route::middleware('signed')->prefix('esign')->group(function () {
+    Route::get('{token}', ShowDocumentEsignController::class)
+        ->name('public.esign.show');
+    Route::post('{token}', SubmitDocumentEsignController::class)
         ->middleware('throttle:10,1')
-        ->name('organization.documents.bulk.sign.submit');
-    Route::get('organization/documents/sign/{token}/download', DownloadUnsignedBulkDocumentController::class)
-        ->name('organization.documents.bulk.sign.download');
+        ->name('public.esign.submit');
+    Route::get('{token}/download', DownloadDocumentEsignController::class)
+        ->name('public.esign.download');
 });
 
 Route::match(['get', 'post'], 'whatsapp/webhook', WhatsAppWebhookController::class)

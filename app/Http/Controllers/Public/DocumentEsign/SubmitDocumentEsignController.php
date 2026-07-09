@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Organization\BulkDocumentSignature;
+namespace App\Http\Controllers\Public\DocumentEsign;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\BulkDocumentSignature\SubmitBulkDocumentSignatureRequest;
@@ -8,7 +8,7 @@ use App\Support\BulkDocuments\BulkDocumentSignatureRosterQuery;
 use App\Support\BulkDocuments\SubmitBulkDocumentSignature;
 use Illuminate\Http\RedirectResponse;
 
-class SubmitBulkDocumentSignatureController extends Controller
+class SubmitDocumentEsignController extends Controller
 {
     public function __invoke(
         SubmitBulkDocumentSignatureRequest $request,

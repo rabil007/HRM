@@ -10,7 +10,7 @@ final class BulkDocumentSignatureLinkService
     public function signUrl(BulkDocumentSignatureRequest $request): string
     {
         return URL::temporarySignedRoute(
-            'organization.documents.bulk.sign.show',
+            'public.esign.show',
             $request->expires_at,
             ['token' => $request->token],
         );
@@ -19,7 +19,7 @@ final class BulkDocumentSignatureLinkService
     public function downloadUnsignedUrl(BulkDocumentSignatureRequest $request): string
     {
         return URL::temporarySignedRoute(
-            'organization.documents.bulk.sign.download',
+            'public.esign.download',
             $request->expires_at,
             ['token' => $request->token],
         );
@@ -28,7 +28,7 @@ final class BulkDocumentSignatureLinkService
     public function submitUrl(BulkDocumentSignatureRequest $request): string
     {
         return URL::temporarySignedRoute(
-            'organization.documents.bulk.sign.submit',
+            'public.esign.submit',
             $request->expires_at,
             ['token' => $request->token],
         );

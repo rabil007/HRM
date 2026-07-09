@@ -222,7 +222,16 @@ TEXT;
         return <<<'HTML'
 <p style="margin:0 0 16px;">Dear {{employee_name}},</p>
 <p style="margin:0 0 16px;">Please find your Salary Declaration attached to this email.</p>
-<p style="margin:0 0 16px;">You may sign electronically using this link: <a href="{{signature_url}}">{{signature_url}}</a></p>
+<p style="margin:0 0 16px;">You may sign electronically using the button below:</p>
+<table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto 24px;">
+    <tr>
+        <td class="email-btn-cell" align="center" style="border-radius:12px;background-color:#2563eb;">
+            <a href="{{signature_url}}" class="email-btn-link" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;border-radius:12px;background-color:#2563eb;border:1px solid #2563eb;">
+                Sign declaration
+            </a>
+        </td>
+    </tr>
+</table>
 <p style="margin:0 0 16px;">Alternatively, download the attached PDF, sign it manually, and return the signed copy to HR.</p>
 <p style="margin:0 0 16px;">We kindly ask you to review the document carefully, sign it according to company standards, and return the signed copy to the HR department at your earliest convenience.</p>
 <p style="margin:0 0 16px;"><strong>Employee no.:</strong> {{employee_no}}</p>

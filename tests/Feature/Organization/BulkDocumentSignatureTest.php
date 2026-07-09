@@ -97,7 +97,9 @@ test('bulk email send creates signature request and substitutes signing url', fu
     $signUrl = app(BulkDocumentSignatureLinkService::class)->signUrl($request);
 
     Mail::assertQueued(BulkDocumentMail::class, function ($mail) use ($signUrl) {
-        return str_contains($mail->bodyMessage, $signUrl);
+        return str_contains($mail->bodyMessage, $signUrl)
+            && str_contains($mail->bodyMessage, 'Sign declaration')
+            && str_contains($mail->bodyMessage, '/esign/');
     });
 });
 
@@ -109,7 +111,7 @@ test('guest can open valid signed signing page', function () {
     $request = createAwaitingSignatureRequest($company, $employee);
 
     $url = URL::temporarySignedRoute(
-        'organization.documents.bulk.sign.show',
+        'public.esign.show',
         now()->addDay(),
         ['token' => $request->token],
     );
@@ -117,7 +119,7 @@ test('guest can open valid signed signing page', function () {
     $this->get($url)
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('organization/documents/sign/index')
+            ->component('esign/index')
             ->where('employeeName', $employee->name)
             ->where('alreadySubmitted', false));
 });
@@ -129,7 +131,7 @@ test('guest cannot open signing page with invalid signature', function () {
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
     $request = createAwaitingSignatureRequest($company, $employee);
 
-    $this->get('/organization/documents/sign/'.$request->token)
+    $this->get('/esign/'.$request->token)
         ->assertForbidden();
 });
 
@@ -157,7 +159,7 @@ test('guest can submit electronic signature without replacing employee document'
     app()->instance(SalaryDeclarationPdfRenderer::class, $renderer);
 
     $submitUrl = URL::temporarySignedRoute(
-        'organization.documents.bulk.sign.submit',
+        'public.esign.submit',
         now()->addDay(),
         ['token' => $request->token],
     );

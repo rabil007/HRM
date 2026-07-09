@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Organization\BulkDocumentSignature;
+namespace App\Http\Controllers\Public\DocumentEsign;
 
 use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Http\Controllers\Controller;
@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class ShowBulkDocumentSignatureController extends Controller
+class ShowDocumentEsignController extends Controller
 {
     public function __invoke(
         Request $request,
@@ -33,7 +33,7 @@ class ShowBulkDocumentSignatureController extends Controller
             BulkDocumentSignatureRequestStatus::Approved,
         ], true);
 
-        return Inertia::render('organization/documents/sign/index', [
+        return Inertia::render('esign/index', [
             'employeeName' => (string) ($signatureRequest->employee?->name ?? ''),
             'employeeNo' => $signatureRequest->employee?->employee_no,
             'companyName' => (string) ($signatureRequest->company?->name ?? ''),

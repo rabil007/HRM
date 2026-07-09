@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Http\Controllers\Organization\BulkDocumentSignature;
+namespace App\Http\Controllers\Public\DocumentEsign;
 
 use App\Http\Controllers\Controller;
 use App\Support\BulkDocuments\BulkDocumentSignatureRosterQuery;
 use App\Support\EmployeeDocuments\DocumentDownloadService;
 use Symfony\Component\HttpFoundation\Response;
 
-class DownloadUnsignedBulkDocumentController extends Controller
+class DownloadDocumentEsignController extends Controller
 {
     public function __invoke(
         string $token,
