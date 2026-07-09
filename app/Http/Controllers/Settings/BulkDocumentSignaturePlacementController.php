@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
 use App\Support\BulkDocuments\BulkDocumentSignaturePlacementService;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\BulkDocuments\ResolvesBrowsershotBinaries;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\Process\Exception\ProcessFailedException;
@@ -29,6 +30,36 @@ class BulkDocumentSignaturePlacementController extends Controller
         $employee = $this->resolvePreviewEmployee($companyId);
         $showGuides = request()->boolean('guides', true);
 
+        // #region agent log
+        $nodeBinary = ResolvesBrowsershotBinaries::nodeBinary();
+        $npmBinary = ResolvesBrowsershotBinaries::npmBinary();
+        $chromePath = ResolvesBrowsershotBinaries::chromePath();
+        file_put_contents(
+            base_path('.cursor/debug-aa4780.log'),
+            json_encode([
+                'sessionId' => 'aa4780',
+                'location' => 'BulkDocumentSignaturePlacementController.php:preview:pre-render',
+                'message' => 'E-sign preview render starting',
+                'data' => [
+                    'documentType' => $documentType,
+                    'companyId' => $companyId,
+                    'employeeId' => $employee->id,
+                    'showGuides' => $showGuides,
+                    'nodeBinary' => $nodeBinary,
+                    'npmBinary' => $npmBinary,
+                    'chromePath' => $chromePath,
+                    'chromeExecutable' => is_string($chromePath) && is_executable($chromePath),
+                    'path' => getenv('PATH') ?: null,
+                    'home' => getenv('HOME') ?: null,
+                ],
+                'timestamp' => (int) (microtime(true) * 1000),
+                'hypothesisId' => 'B',
+                'runId' => 'pre-fix',
+            ]).PHP_EOL,
+            FILE_APPEND,
+        );
+        // #endregion
+
         try {
             $pdf = app(SalaryDeclarationPdfRenderer::class)->render(
                 $employee,
@@ -39,17 +70,26 @@ class BulkDocumentSignaturePlacementController extends Controller
         } catch (ProcessFailedException|Throwable $exception) {
             // #region agent log
             file_put_contents(
-                base_path('.cursor/debug-9313b6.log'),
+                base_path('.cursor/debug-aa4780.log'),
                 json_encode([
-                    'sessionId' => '9313b6',
+                    'sessionId' => 'aa4780',
                     'location' => 'BulkDocumentSignaturePlacementController.php:preview',
                     'message' => 'E-sign preview PDF generation failed',
                     'data' => [
                         'error' => $exception->getMessage(),
+                        'exceptionClass' => $exception::class,
                         'documentType' => $documentType,
+                        'companyId' => $companyId,
+                        'employeeId' => $employee->id,
+                        'nodeBinary' => $nodeBinary,
+                        'npmBinary' => $npmBinary,
+                        'chromePath' => $chromePath,
+                        'path' => getenv('PATH') ?: null,
+                        'home' => getenv('HOME') ?: null,
                     ],
                     'timestamp' => (int) (microtime(true) * 1000),
                     'hypothesisId' => 'A',
+                    'runId' => 'pre-fix',
                 ]).PHP_EOL,
                 FILE_APPEND,
             );
