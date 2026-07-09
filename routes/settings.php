@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Settings\ApplicationSettingsController;
+use App\Http\Controllers\Settings\BulkDocumentSignaturePlacementController;
 use App\Http\Controllers\Settings\EmailTemplateController;
 use App\Http\Controllers\Settings\Integrations\HikvisionIntegrationController;
 use App\Http\Controllers\Settings\Integrations\WhatsAppIntegrationController;
@@ -63,6 +64,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('settings/application/smtp/test', [ApplicationSettingsController::class, 'sendTestMail'])
         ->middleware('can:settings.application.update')
         ->name('application.smtp.test');
+
+    Route::get('settings/application/esign-preview/{documentType}', [BulkDocumentSignaturePlacementController::class, 'preview'])
+        ->middleware('can:settings.application.view')
+        ->name('application.esign-preview');
+
+    Route::get('settings/application/esign-placement/{documentType}', [BulkDocumentSignaturePlacementController::class, 'show'])
+        ->middleware('can:settings.application.view')
+        ->name('application.esign-placement.show');
+
+    Route::put('settings/application/esign-placement/{documentType}', [BulkDocumentSignaturePlacementController::class, 'update'])
+        ->middleware('can:settings.application.update')
+        ->name('application.esign-placement.update');
+
+    Route::delete('settings/application/esign-placement/{documentType}', [BulkDocumentSignaturePlacementController::class, 'destroy'])
+        ->middleware('can:settings.application.update')
+        ->name('application.esign-placement.destroy');
 
     Route::redirect('settings/integrations/whatsapp', '/settings/application?tab=whatsapp')
         ->name('integrations.whatsapp.edit');

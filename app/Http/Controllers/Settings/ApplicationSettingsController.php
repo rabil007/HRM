@@ -12,6 +12,9 @@ use App\Http\Requests\Settings\UpdateApplicationSmtpRequest;
 use App\Models\Currency;
 use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
+use App\Support\BulkDocuments\BulkDocumentSignaturePlacementService;
+use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\BulkDocuments\SalaryDeclarationSignaturePlacements;
 use App\Support\Settings\SettingKey;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -77,6 +80,15 @@ class ApplicationSettingsController extends Controller
             'smtp' => $this->mailSettings->forSettingsPage(),
             'whatsapp' => WhatsAppIntegrationController::pageProps($user),
             'hikvision' => HikvisionIntegrationController::pageProps($user),
+            'esign_placement' => $user?->can('settings.application.view')
+                ? [
+                    'document_type' => SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY,
+                    'label' => BulkDocumentTypeRegistry::find(SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY)['label'],
+                    'placement' => app(BulkDocumentSignaturePlacementService::class)->resolve(
+                        SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY,
+                    ),
+                ]
+                : null,
         ]);
     }
 

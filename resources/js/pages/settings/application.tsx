@@ -8,6 +8,7 @@ import {
     Mail,
     MessageCircle,
     Palette,
+    PenLine,
     Send,
     Settings2,
     ScrollText,
@@ -32,6 +33,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { HikvisionSettingsPanel } from '@/features/settings/hikvision-settings-panel';
 import type { HikvisionSettingsPanelProps } from '@/features/settings/hikvision-settings-panel';
+import { EsignPlacementPanel } from '@/features/settings/esign-placement/esign-placement-panel';
+import type { SignaturePlacementConfig } from '@/features/settings/esign-placement/esign-placement-coordinates';
 import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
 import { WhatsAppSettingsPanel } from '@/features/settings/whatsapp-settings-panel';
 import type { WhatsAppSettingsPanelProps } from '@/features/settings/whatsapp-settings-panel';
@@ -88,6 +91,11 @@ type Props = {
     };
     whatsapp: WhatsAppSettingsPanelProps | null;
     hikvision: HikvisionSettingsPanelProps | null;
+    esign_placement: {
+        document_type: string;
+        label: string;
+        placement: SignaturePlacementConfig;
+    } | null;
 };
 
 const ALL_NAV_ITEMS = [
@@ -125,6 +133,13 @@ const ALL_NAV_ITEMS = [
         icon: Camera,
         description: 'Access control API',
         permission: 'settings.integrations.hikvision.view',
+    },
+    {
+        id: 'esign',
+        label: 'E-Signature',
+        icon: PenLine,
+        description: 'Signature placement',
+        permission: 'settings.application.view',
     },
     {
         id: 'preferences',
@@ -245,6 +260,7 @@ export default function ApplicationSettings({
     smtp,
     whatsapp,
     hikvision,
+    esign_placement,
 }: Props) {
     const auth = usePage().props.auth;
     const authUser = auth?.user as { email?: string } | undefined;
@@ -274,6 +290,10 @@ export default function ApplicationSettings({
     const [tab, setTab] = useState<NavId>(() =>
         resolveInitialTab(navItems, requestedTab),
     );
+    const [esignPlacement, setEsignPlacement] =
+        useState<SignaturePlacementConfig | null>(
+            esign_placement?.placement ?? null,
+        );
     const [testRecipient, setTestRecipient] = useState('');
     const [testSubject, setTestSubject] = useState(
         () => `${general.app_name || 'HRM'} — SMTP test`,
@@ -1276,6 +1296,25 @@ export default function ApplicationSettings({
                     {/* ══ HIKVISION ══ */}
                     {tab === 'hikvision' && hikvision ? (
                         <HikvisionSettingsPanel {...hikvision} />
+                    ) : null}
+
+                    {/* ══ E-SIGNATURE ══ */}
+                    {tab === 'esign' && esign_placement && esignPlacement ? (
+                        <SettingsCard>
+                            <SectionHeading
+                                icon={PenLine}
+                                title="E-Signature placement"
+                                description="Calibrate signature overlay and stamped date positions on salary declaration PDFs."
+                                color="bg-blue-500/10 border-blue-500/20 text-blue-600"
+                            />
+                            <EsignPlacementPanel
+                                documentType={esign_placement.document_type}
+                                label={esign_placement.label}
+                                placement={esignPlacement}
+                                canEdit={canUpdateApplication}
+                                onPlacementChange={setEsignPlacement}
+                            />
+                        </SettingsCard>
                     ) : null}
 
                     {/* ══ PREFERENCES ══ */}

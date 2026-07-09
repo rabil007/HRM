@@ -20,7 +20,8 @@ test('application settings page is displayed', function () {
             ->component('settings/application')
             ->has('general')
             ->has('branding')
-            ->has('preferences'),
+            ->has('preferences')
+            ->has('esign_placement'),
         );
 });
 

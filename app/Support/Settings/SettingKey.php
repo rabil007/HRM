@@ -62,6 +62,8 @@ final class SettingKey
 
     public const MailFooterCertifications = 'mail_footer_certifications';
 
+    public const BulkDocumentSignaturePlacementSalaryDeclaration = 'bulk_document_signature_placement_salary_declaration';
+
     /** @return list<string> */
     public static function encryptedKeys(): array
     {

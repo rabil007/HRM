@@ -82,7 +82,11 @@ final class BulkDocumentTypeRegistry
      */
     public static function resolveSignaturePlacements(string $key): ?array
     {
-        return SalaryDeclarationSignaturePlacements::forDocumentType($key);
+        if (! self::supportsEsignature($key)) {
+            return null;
+        }
+
+        return app(BulkDocumentSignaturePlacementService::class)->resolve($key);
     }
 
     public static function resolveEmailTemplate(string $key): ?EmailTemplate
