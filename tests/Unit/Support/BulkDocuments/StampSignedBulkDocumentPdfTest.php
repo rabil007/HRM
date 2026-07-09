@@ -5,9 +5,11 @@ use App\Models\Company;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Services\BulkDocuments\RendersEmployeeDocumentPdf;
+use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
 use App\Support\BulkDocuments\StampSignedBulkDocumentPdf;
 use Illuminate\Support\Facades\Storage;
-use setasign\Fpdi\Fpdi;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     Storage::fake('public');
@@ -36,7 +38,7 @@ function createStampTestDocument(Company $company, Employee $employee): Employee
     ]);
 }
 
-test('stamp signed bulk document pdf embeds signature on source pdf', function () {
+test('stamp signed bulk document pdf re-renders template with signature', function () {
     $fixtures = makeDocumentFixtures();
     $company = $fixtures['company'];
     $employee = $fixtures['employee'];
@@ -52,7 +54,21 @@ test('stamp signed bulk document pdf embeds signature on source pdf', function (
         'expires_at' => now()->addDays(14),
     ]);
 
-    $sourceSize = strlen((string) Storage::disk('public')->get($document->file_path));
+    $renderer = new class implements RendersEmployeeDocumentPdf
+    {
+        /** @var array{signed_name?: string, signature_image_url?: string, signed_date?: string}|null */
+        public ?array $capturedSignature = null;
+
+        public function render(Employee $employee, int $companyId, ?array $signature = null, bool $showPlacementGuides = false): string
+        {
+            $this->capturedSignature = $signature;
+
+            return '%PDF-1.4 signed-with-template';
+        }
+    };
+
+    app()->instance(SalaryDeclarationPdfRenderer::class, $renderer);
+
     $signatureData = 'data:image/png;base64,'.base64_encode(minimalSignaturePngBytes());
 
     $output = app(StampSignedBulkDocumentPdf::class)->handle($request, [
@@ -61,18 +77,36 @@ test('stamp signed bulk document pdf embeds signature on source pdf', function (
         'consent' => true,
     ]);
 
-    expect(strlen($output))->toBeGreaterThan($sourceSize);
-
-    $tempPath = tempnam(sys_get_temp_dir(), 'stamped_pdf_');
-    expect($tempPath)->not->toBeFalse();
-
-    file_put_contents($tempPath, $output);
-
-    $pdf = new Fpdi;
-    expect($pdf->setSourceFile($tempPath))->toBe(1);
-
-    @unlink($tempPath);
+    expect($output)->toBe('%PDF-1.4 signed-with-template')
+        ->and($renderer->capturedSignature)->toMatchArray([
+            'signed_name' => $employee->name,
+            'signature_image_url' => $signatureData,
+        ])
+        ->and($renderer->capturedSignature['signed_date'] ?? null)->not->toBeNull();
 });
+
+test('stamp signed bulk document pdf rejects invalid signature image', function () {
+    $fixtures = makeDocumentFixtures();
+    $company = $fixtures['company'];
+    $employee = $fixtures['employee'];
+    $document = createStampTestDocument($company, $employee);
+
+    $request = BulkDocumentSignatureRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_document_id' => $document->id,
+        'document_type_key' => 'salary_declaration',
+        'token' => str_repeat('a', 48),
+        'status' => 'awaiting_signature',
+        'expires_at' => now()->addDays(14),
+    ]);
+
+    app(StampSignedBulkDocumentPdf::class)->handle($request, [
+        'signed_name' => $employee->name,
+        'signature_data' => 'not-an-image',
+        'consent' => true,
+    ]);
+})->throws(ValidationException::class);
 
 function minimalSignaturePngBytes(): string
 {
