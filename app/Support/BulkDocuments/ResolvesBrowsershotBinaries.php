@@ -94,10 +94,16 @@ final class ResolvesBrowsershotBinaries
 
         rsort($paths);
 
+        $paths[] = '/opt/homebrew/bin/'.$name;
+
         $home = getenv('HOME') ?: ($_SERVER['HOME'] ?? null);
 
         if (is_string($home) && $home !== '') {
             foreach (glob($home.'/.nvm/versions/node/*/bin/'.$name) ?: [] as $path) {
+                $paths[] = $path;
+            }
+
+            foreach (glob($home.'/Library/Application Support/Herd/config/nvm/versions/node/*/bin/'.$name) ?: [] as $path) {
                 $paths[] = $path;
             }
 

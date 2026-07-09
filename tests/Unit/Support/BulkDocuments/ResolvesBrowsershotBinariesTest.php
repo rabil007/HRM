@@ -28,6 +28,16 @@ test('resolve returns node and npm binaries when available on the host', functio
         ->and($binaries['npm'])->not->toBeEmpty();
 });
 
+test('candidate paths include homebrew node without relying on home env', function () {
+    $reflection = new ReflectionClass(ResolvesBrowsershotBinaries::class);
+    $method = $reflection->getMethod('candidatePaths');
+    $method->setAccessible(true);
+
+    $paths = $method->invoke(null, 'node');
+
+    expect($paths)->toContain('/opt/homebrew/bin/node');
+});
+
 test('resolves chrome headless shell from puppeteer cache directory', function () {
     $cacheDir = storage_path('app/testing-puppeteer-chrome-'.uniqid());
     $chromeDir = $cacheDir.'/chrome-headless-shell/linux-150.0.7871.24/chrome-headless-shell-linux64';
