@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Public\DocumentEsign;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\BulkDocumentSignature\SubmitBulkDocumentSignatureRequest;
+use App\Support\BulkDocuments\BulkDocumentSignatureLinkService;
 use App\Support\BulkDocuments\BulkDocumentSignatureRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\BulkDocuments\SubmitBulkDocumentSignature;
@@ -15,6 +16,7 @@ class SubmitDocumentEsignController extends Controller
         SubmitBulkDocumentSignatureRequest $request,
         string $token,
         SubmitBulkDocumentSignature $submit,
+        BulkDocumentSignatureLinkService $links,
     ): RedirectResponse {
         $signatureRequest = BulkDocumentSignatureRosterQuery::findByToken($token);
 
@@ -22,17 +24,17 @@ class SubmitDocumentEsignController extends Controller
             abort(404);
         }
 
-        $submit->handle(
+        $submitted = $submit->handle(
             $signatureRequest,
             $request->validated(),
             $request->ip(),
             $request->userAgent(),
         );
 
-        $label = BulkDocumentTypeRegistry::find($signatureRequest->document_type_key)['label'];
+        $label = BulkDocumentTypeRegistry::find($submitted->document_type_key)['label'];
 
         return redirect()
-            ->back()
+            ->to($links->signUrl($submitted))
             ->with('success', "Your signed {$label} has been submitted for HR review.");
     }
 }

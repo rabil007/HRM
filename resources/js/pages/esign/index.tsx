@@ -1,4 +1,4 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, usePage } from '@inertiajs/react';
 import { ArrowLeft, CheckCircle2, Download, PenLine } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -49,7 +49,14 @@ export default function DocumentEsignPage({
     downloadUrl,
     placement,
 }: Props) {
-    const [step, setStep] = useState<WizardStep>(1);
+    const { errors } = usePage().props;
+    const submitError =
+        (typeof errors.signature_data === 'string' ? errors.signature_data : null) ??
+        (typeof errors.consent === 'string' ? errors.consent : null) ??
+        (typeof errors.signed_name === 'string' ? errors.signed_name : null) ??
+        (typeof errors.token === 'string' ? errors.token : null) ??
+        null;
+    const [step, setStep] = useState<WizardStep>(submitError ? 3 : 1);
     const [signatureData, setSignatureData] = useState<string | null>(null);
     const [consent, setConsent] = useState(false);
     const signedDate = formatSignedDate();
@@ -236,151 +243,163 @@ export default function DocumentEsignPage({
                             if (step !== 3 || !canSubmit) event.preventDefault();
                         }}
                     >
-                        <input type="hidden" name="signed_name" value={employeeName} />
-                        <input type="hidden" name="signature_data" value={signatureData ?? ''} />
-                        {consent ? <input type="hidden" name="consent" value="1" /> : null}
+                        {({ processing }) => (
+                            <>
+                                <input type="hidden" name="signed_name" value={employeeName} />
+                                <input type="hidden" name="signature_data" value={signatureData ?? ''} />
+                                {consent ? <input type="hidden" name="consent" value="1" /> : null}
 
-                        {/* ── Main content ──────────────────────────────── */}
-                        <section className="bg-background px-4 py-4 sm:rounded-2xl sm:border sm:p-6 sm:shadow-sm">
-                            {step === 1 || step === 2 ? (
-                                <PdfSignatureViewer
-                                    pdfUrl={downloadUrl}
-                                    page={placement.page}
-                                    placement={placement}
-                                    mode={step === 1 ? 'review' : 'sign'}
-                                    signatureData={signatureData}
-                                    onSignatureChange={setSignatureData}
-                                />
-                            ) : null}
-
-                            {step === 1 ? (
-                                <div className="mt-3 flex items-center justify-between border-t pt-3">
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
-                                        asChild
-                                    >
-                                        <a href={downloadUrl}>
-                                            <Download className="size-3.5" />
-                                            Download unsigned PDF
-                                        </a>
-                                    </Button>
-                                </div>
-                            ) : null}
-
-                            {step === 3 ? (
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/40">
-                                            <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
-                                        </div>
-                                        <div>
-                                            <h2 className="text-sm font-semibold">Almost done</h2>
-                                            <p className="text-xs text-muted-foreground">
-                                                Review and confirm your signature below.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="overflow-hidden rounded-xl border">
-                                        <div className="bg-muted/30 px-3 py-2">
-                                            <p className="text-xs font-medium text-muted-foreground">
-                                                Your signature
-                                            </p>
-                                        </div>
-                                        {signatureData ? (
-                                            <div className="bg-white p-4">
-                                                <img
-                                                    src={signatureData}
-                                                    alt="Signature preview"
-                                                    className="mx-auto h-20 w-full max-w-xs object-contain"
-                                                />
-                                            </div>
-                                        ) : null}
-                                        <div className="border-t bg-muted/10 px-3 py-2">
-                                            <p className="text-center text-xs text-muted-foreground">
-                                                {employeeName} · {signedDate}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/20 p-3.5 transition-colors hover:bg-muted/30">
-                                        <Checkbox
-                                            checked={consent}
-                                            onCheckedChange={(checked) => setConsent(checked === true)}
-                                            className="mt-0.5 size-5"
+                                <section className="bg-background px-4 py-4 sm:rounded-2xl sm:border sm:p-6 sm:shadow-sm">
+                                    {step === 1 || step === 2 ? (
+                                        <PdfSignatureViewer
+                                            pdfUrl={downloadUrl}
+                                            page={placement.page}
+                                            placement={placement}
+                                            mode={step === 1 ? 'review' : 'sign'}
+                                            signatureData={signatureData}
+                                            onSignatureChange={setSignatureData}
                                         />
-                                        <span className="text-sm leading-snug">
-                                            I confirm this declaration is correct and I am signing voluntarily.
-                                        </span>
-                                    </label>
-                                </div>
-                            ) : null}
-                        </section>
+                                    ) : null}
 
-                        {/* ── Fixed bottom action bar ───────────────────── */}
-                        <div
-                            className={cn(
-                                'fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 pt-2.5 backdrop-blur',
-                                'pb-[max(0.625rem,env(safe-area-inset-bottom))]',
-                                'sm:static sm:z-auto sm:rounded-2xl sm:border sm:bg-background sm:p-4 sm:shadow-sm sm:backdrop-blur-none',
-                            )}
-                        >
-                            {step === 2 && !hasSignature ? (
-                                <div className="mb-2 flex items-center gap-1.5">
-                                    <PenLine className="size-3.5 shrink-0 text-amber-500" />
-                                    <p className="text-xs text-muted-foreground">
-                                        Draw or upload your signature to continue.
-                                    </p>
-                                </div>
-                            ) : null}
-                            {step === 3 && canSubmit ? (
-                                <div className="mb-2 flex items-center gap-1.5">
-                                    <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
-                                    <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                                        Ready — tap Submit to send to HR.
-                                    </p>
-                                </div>
-                            ) : null}
+                                    {step === 1 ? (
+                                        <div className="mt-3 flex items-center justify-between border-t pt-3">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                                asChild
+                                            >
+                                                <a href={downloadUrl}>
+                                                    <Download className="size-3.5" />
+                                                    Download unsigned PDF
+                                                </a>
+                                            </Button>
+                                        </div>
+                                    ) : null}
 
-                            <div className="flex gap-2">
-                                {step > 1 ? (
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="lg"
-                                        className="h-11 w-24 shrink-0 gap-1.5 sm:flex-1"
-                                        onClick={goBack}
-                                    >
-                                        <ArrowLeft className="size-4" />
-                                        Back
-                                    </Button>
-                                ) : null}
+                                    {step === 3 ? (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/40">
+                                                    <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
+                                                </div>
+                                                <div>
+                                                    <h2 className="text-sm font-semibold">Almost done</h2>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Review and confirm your signature below.
+                                                    </p>
+                                                </div>
+                                            </div>
 
-                                {step < 3 ? (
-                                    <Button
-                                        type="button"
-                                        size="lg"
-                                        className="h-11 flex-1 text-[15px] font-semibold"
-                                        disabled={step === 2 && !hasSignature}
-                                        onClick={goNext}
-                                    >
-                                        Continue
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        type="submit"
-                                        size="lg"
-                                        className="h-11 flex-1 bg-emerald-600 text-[15px] font-semibold text-white hover:bg-emerald-700 disabled:bg-muted"
-                                        disabled={!canSubmit}
-                                    >
-                                        Submit for HR review
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
+                                            {submitError ? (
+                                                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+                                                    {submitError}
+                                                </div>
+                                            ) : null}
+
+                                            <div className="overflow-hidden rounded-xl border">
+                                                <div className="bg-muted/30 px-3 py-2">
+                                                    <p className="text-xs font-medium text-muted-foreground">
+                                                        Your signature
+                                                    </p>
+                                                </div>
+                                                {signatureData ? (
+                                                    <div className="bg-white p-4">
+                                                        <img
+                                                            src={signatureData}
+                                                            alt="Signature preview"
+                                                            className="mx-auto h-20 w-full max-w-xs object-contain"
+                                                        />
+                                                    </div>
+                                                ) : null}
+                                                <div className="border-t bg-muted/10 px-3 py-2">
+                                                    <p className="text-center text-xs text-muted-foreground">
+                                                        {employeeName} · {signedDate}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/20 p-3.5 transition-colors hover:bg-muted/30">
+                                                <Checkbox
+                                                    checked={consent}
+                                                    onCheckedChange={(checked) => setConsent(checked === true)}
+                                                    className="mt-0.5 size-5"
+                                                />
+                                                <span className="text-sm leading-snug">
+                                                    I confirm this declaration is correct and I am signing voluntarily.
+                                                </span>
+                                            </label>
+                                        </div>
+                                    ) : null}
+                                </section>
+
+                                <div
+                                    className={cn(
+                                        'fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 pt-2.5 backdrop-blur',
+                                        'pb-[max(0.625rem,env(safe-area-inset-bottom))]',
+                                        'sm:static sm:z-auto sm:rounded-2xl sm:border sm:bg-background sm:p-4 sm:shadow-sm sm:backdrop-blur-none',
+                                    )}
+                                >
+                                    {step === 2 && !hasSignature ? (
+                                        <div className="mb-2 flex items-center gap-1.5">
+                                            <PenLine className="size-3.5 shrink-0 text-amber-500" />
+                                            <p className="text-xs text-muted-foreground">
+                                                Draw or upload your signature to continue.
+                                            </p>
+                                        </div>
+                                    ) : null}
+                                    {step === 3 && submitError ? (
+                                        <p className="mb-2 text-xs text-destructive">{submitError}</p>
+                                    ) : null}
+                                    {step === 3 && canSubmit && !submitError ? (
+                                        <div className="mb-2 flex items-center gap-1.5">
+                                            <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
+                                            <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                                                Ready — tap Submit to send to HR.
+                                            </p>
+                                        </div>
+                                    ) : null}
+
+                                    <div className="flex gap-2">
+                                        {step > 1 ? (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="lg"
+                                                className="h-11 w-24 shrink-0 gap-1.5 sm:flex-1"
+                                                disabled={processing}
+                                                onClick={goBack}
+                                            >
+                                                <ArrowLeft className="size-4" />
+                                                Back
+                                            </Button>
+                                        ) : null}
+
+                                        {step < 3 ? (
+                                            <Button
+                                                type="button"
+                                                size="lg"
+                                                className="h-11 flex-1 text-[15px] font-semibold"
+                                                disabled={step === 2 && !hasSignature}
+                                                onClick={goNext}
+                                            >
+                                                Continue
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                type="submit"
+                                                size="lg"
+                                                className="h-11 flex-1 bg-emerald-600 text-[15px] font-semibold text-white hover:bg-emerald-700 disabled:bg-muted"
+                                                disabled={!canSubmit || processing}
+                                            >
+                                                {processing ? 'Submitting…' : 'Submit for HR review'}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </Form>
                 </div>
             </div>
