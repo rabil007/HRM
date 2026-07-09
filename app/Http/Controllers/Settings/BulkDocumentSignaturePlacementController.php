@@ -25,12 +25,13 @@ class BulkDocumentSignaturePlacementController extends Controller
 
         $companyId = (int) request()->attributes->get('current_company_id');
         $employee = $this->resolvePreviewEmployee($companyId);
+        $showGuides = request()->boolean('guides', true);
 
         $pdf = app(SalaryDeclarationPdfRenderer::class)->render(
             $employee,
             $companyId,
             null,
-            true,
+            $showGuides,
         );
 
         return response($pdf, 200, [

@@ -1,7 +1,8 @@
 import { Canvas, FabricImage, FabricText, Rect } from 'fabric';
-import { Loader2 } from 'lucide-react';
+import { Eye, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { EsignPlacementSamplePreviewDialog } from '@/features/settings/esign-placement/esign-placement-sample-preview-dialog';
 import {
     editorRectsFromConfig,
     type EditorPlacementRects,
@@ -12,6 +13,7 @@ import { getPdfJs } from '@/lib/pdfjs';
 
 type Props = {
     pdfUrl: string;
+    samplePdfUrl: string;
     placement: SignaturePlacementConfig;
     page?: number;
     canEdit: boolean;
@@ -95,6 +97,7 @@ function createPlacementRect(
 
 export function FabricSignaturePlacementEditor({
     pdfUrl,
+    samplePdfUrl,
     placement,
     page = 1,
     canEdit,
@@ -111,6 +114,9 @@ export function FabricSignaturePlacementEditor({
     const [error, setError] = useState<string | null>(null);
     const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
     const [rects, setRects] = useState<EditorPlacementRects | null>(null);
+    const [samplePreviewOpen, setSamplePreviewOpen] = useState(false);
+    const [samplePreviewRects, setSamplePreviewRects] =
+        useState<EditorPlacementRects | null>(null);
 
     const syncLabels = useCallback((canvas: Canvas) => {
         labelRefs.current.forEach((label) => {
@@ -352,6 +358,17 @@ export function FabricSignaturePlacementEditor({
         };
     };
 
+    const handleOpenSamplePreview = () => {
+        const currentRects = readRectsFromCanvas() ?? rects;
+
+        if (!currentRects) {
+            return;
+        }
+
+        setSamplePreviewRects(currentRects);
+        setSamplePreviewOpen(true);
+    };
+
     const handleSave = async () => {
         const currentRects = readRectsFromCanvas();
 
@@ -419,6 +436,15 @@ export function FabricSignaturePlacementEditor({
                     <Button
                         type="button"
                         variant="outline"
+                        onClick={handleOpenSamplePreview}
+                        disabled={isLoading || !!error || !rects}
+                    >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Preview sample data
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
                         onClick={() => void onReset()}
                         disabled={isSaving || isResetting || isLoading || !!error}
                     >
@@ -432,7 +458,30 @@ export function FabricSignaturePlacementEditor({
                         )}
                     </Button>
                 </div>
-            ) : null}
+            ) : (
+                <div className="flex flex-wrap gap-3">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleOpenSamplePreview}
+                        disabled={isLoading || !!error || !rects}
+                    >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Preview sample data
+                    </Button>
+                </div>
+            )}
+
+            <EsignPlacementSamplePreviewDialog
+                open={samplePreviewOpen}
+                onOpenChange={setSamplePreviewOpen}
+                pdfUrl={samplePdfUrl}
+                rects={samplePreviewRects}
+                sourceCanvasSize={
+                    canvasSize.width > 0 ? canvasSize : undefined
+                }
+                page={page}
+            />
 
             {rects ? (
                 <p className="sr-only">

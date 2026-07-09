@@ -43,6 +43,32 @@ test('authorized user can preview placement pdf', function () {
         ->assertHeader('content-type', 'application/pdf');
 });
 
+test('authorized user can preview placement pdf without guides', function () {
+    $user = User::factory()->create();
+    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+
+    $renderer = new class implements RendersEmployeeDocumentPdf
+    {
+        public bool $showPlacementGuides = true;
+
+        public function render(Employee $employee, int $companyId, ?array $signature = null, bool $showPlacementGuides = false): string
+        {
+            $this->showPlacementGuides = $showPlacementGuides;
+
+            return minimalPdfBytes();
+        }
+    };
+
+    app()->instance(SalaryDeclarationPdfRenderer::class, $renderer);
+
+    $this->actingAs($user)
+        ->get(route('application.esign-preview', ['documentType' => 'salary_declaration', 'guides' => '0']))
+        ->assertSuccessful()
+        ->assertHeader('content-type', 'application/pdf');
+
+    expect($renderer->showPlacementGuides)->toBeFalse();
+});
+
 test('authorized user can save placement coordinates', function () {
     $user = User::factory()->create();
     setupCompanyWithApplicationSettingsPermissions($user, [

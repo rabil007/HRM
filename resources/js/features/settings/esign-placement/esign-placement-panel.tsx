@@ -30,6 +30,9 @@ export function EsignPlacementPanel({
     const [isResetting, setIsResetting] = useState(false);
 
     const previewUrl = esignPreview.url(documentType);
+    const samplePdfUrl = esignPreview.url(documentType, {
+        query: { guides: '0' },
+    });
 
     const handleSave = async (payload: {
         page: number;
@@ -90,6 +93,7 @@ export function EsignPlacementPanel({
             <FabricSignaturePlacementEditor
                 key={`${documentType}-${JSON.stringify(placement)}`}
                 pdfUrl={previewUrl}
+                samplePdfUrl={samplePdfUrl}
                 placement={placement}
                 canEdit={canEdit}
                 onSave={handleSave}

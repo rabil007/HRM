@@ -94,6 +94,28 @@ function mirrorRect(rect: EditorRect, canvasWidth: number): EditorRect {
     };
 }
 
+export function scalePlacementRects(
+    rects: EditorPlacementRects,
+    fromWidth: number,
+    fromHeight: number,
+    toWidth: number,
+    toHeight: number,
+): EditorPlacementRects {
+    const scaleRect = (rect: EditorRect): EditorRect => ({
+        left: (rect.left / fromWidth) * toWidth,
+        top: (rect.top / fromHeight) * toHeight,
+        width: (rect.width / fromWidth) * toWidth,
+        height: (rect.height / fromHeight) * toHeight,
+    });
+
+    return {
+        signature: scaleRect(rects.signature),
+        date: scaleRect(rects.date),
+        signature_ar: scaleRect(rects.signature_ar),
+        date_ar: scaleRect(rects.date_ar),
+    };
+}
+
 export function editorRectsFromConfig(
     config: SignaturePlacementConfig,
     canvasWidth: number,
