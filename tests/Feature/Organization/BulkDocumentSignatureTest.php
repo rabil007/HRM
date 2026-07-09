@@ -121,7 +121,9 @@ test('guest can open valid signed signing page', function () {
         ->assertInertia(fn ($page) => $page
             ->component('esign/index')
             ->where('employeeName', $employee->name)
-            ->where('alreadySubmitted', false));
+            ->where('alreadySubmitted', false)
+            ->has('signatureOverlay')
+            ->has('signaturePage'));
 });
 
 test('guest cannot open signing page with invalid signature', function () {
@@ -147,16 +149,6 @@ test('guest can submit electronic signature without replacing employee document'
     $document = createSalaryDeclarationDocument($company, $employee);
     $request = createAwaitingSignatureRequest($company, $employee, $document);
     $originalPath = $document->file_path;
-
-    $renderer = new class implements RendersEmployeeDocumentPdf
-    {
-        public function render(Employee $employee, int $companyId, ?array $signature = null): string
-        {
-            return minimalPdfBytes();
-        }
-    };
-
-    app()->instance(SalaryDeclarationPdfRenderer::class, $renderer);
 
     $submitUrl = URL::temporarySignedRoute(
         'public.esign.submit',

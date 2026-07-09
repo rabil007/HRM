@@ -1,33 +1,13 @@
-import type * as PdfJs from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 import type { PdfPreviewData } from '@/features/organization/documents/pdf-merge/types';
+import { getPdfJs } from '@/lib/pdfjs';
 import { documents } from '@/routes/organization';
 
 const previewCache = new Map<number, PdfPreviewData>();
 const loadingPromises = new Map<number, Promise<PdfPreviewData>>();
 
 const THUMBNAIL_SCALE = 0.35;
-
-let pdfjsModule: typeof PdfJs | null = null;
-
-async function getPdfJs(): Promise<typeof PdfJs> {
-    if (typeof window === 'undefined') {
-        throw new Error('PDF preview is only available in the browser.');
-    }
-
-    if (!pdfjsModule) {
-        const [pdfjs, workerModule] = await Promise.all([
-            import('pdfjs-dist'),
-            import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
-        ]);
-
-        pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default;
-        pdfjsModule = pdfjs;
-    }
-
-    return pdfjsModule;
-}
 
 async function fetchPdfBytes(documentId: number): Promise<ArrayBuffer> {
     const response = await fetch(

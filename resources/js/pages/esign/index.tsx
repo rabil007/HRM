@@ -1,11 +1,13 @@
 import { Form, Head } from '@inertiajs/react';
 import { CheckCircle2, Download } from 'lucide-react';
 import { useState } from 'react';
-import { SignaturePad } from '@/components/signature-pad';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {
+    PdfSignatureViewer
+    
+} from '@/features/esign/pdf-signature-viewer';
+import type {SignatureOverlayRect} from '@/features/esign/pdf-signature-viewer';
 
 type Props = {
     employeeName: string;
@@ -17,6 +19,8 @@ type Props = {
     alreadySubmitted: boolean;
     submitUrl: string;
     downloadUrl: string;
+    signatureOverlay: SignatureOverlayRect;
+    signaturePage: number;
 };
 
 export default function DocumentEsignPage({
@@ -27,8 +31,9 @@ export default function DocumentEsignPage({
     alreadySubmitted,
     submitUrl,
     downloadUrl,
+    signatureOverlay,
+    signaturePage,
 }: Props) {
-    const [signedName, setSignedName] = useState(employeeName);
     const [signatureData, setSignatureData] = useState<string | null>(null);
     const [consent, setConsent] = useState(false);
 
@@ -54,30 +59,35 @@ export default function DocumentEsignPage({
     return (
         <>
             <Head title={`Sign ${documentLabel}`} />
-            <div className="flex min-h-svh items-center justify-center bg-muted/30 px-4 py-10">
-                <div className="w-full max-w-xl rounded-2xl border bg-background p-6 shadow-sm sm:p-8">
-                    <div className="mb-6 space-y-1">
+            <div className="min-h-svh bg-muted/30 px-4 py-8">
+                <div className="mx-auto w-full max-w-3xl space-y-6 rounded-2xl border bg-background p-6 shadow-sm sm:p-8">
+                    <div className="space-y-1">
                         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                             {companyName}
                         </p>
                         <h1 className="text-2xl font-semibold">{documentLabel}</h1>
                         <p className="text-sm text-muted-foreground">
-                            Please review and sign your declaration electronically,
-                            or download the unsigned PDF to sign manually.
+                            Review your declaration below and sign on the
+                            highlighted signature line, or download the unsigned
+                            PDF to sign manually.
                         </p>
                     </div>
 
-                    <div className="mb-6 grid gap-3 rounded-lg border bg-muted/20 p-4 text-sm">
-                        <div className="flex justify-between gap-4">
+                    <div className="grid gap-3 rounded-lg border bg-muted/20 p-4 text-sm sm:grid-cols-2">
+                        <div className="flex justify-between gap-4 sm:block">
                             <span className="text-muted-foreground">Employee</span>
-                            <span className="font-medium">{employeeName}</span>
+                            <span className="font-medium sm:mt-1 sm:block">
+                                {employeeName}
+                            </span>
                         </div>
                         {employeeNo ? (
-                            <div className="flex justify-between gap-4">
+                            <div className="flex justify-between gap-4 sm:block">
                                 <span className="text-muted-foreground">
                                     Employee no.
                                 </span>
-                                <span className="font-medium">{employeeNo}</span>
+                                <span className="font-medium sm:mt-1 sm:block">
+                                    {employeeNo}
+                                </span>
                             </div>
                         ) : null}
                     </div>
@@ -87,33 +97,28 @@ export default function DocumentEsignPage({
                         method="post"
                         className="space-y-5"
                         onSubmit={(event) => {
-                            if (!signatureData || !consent || !signedName.trim()) {
+                            if (!signatureData || !consent) {
                                 event.preventDefault();
                             }
                         }}
                     >
-                        <div className="grid gap-2">
-                            <Label htmlFor="signed_name">Full name</Label>
-                            <Input
-                                id="signed_name"
-                                name="signed_name"
-                                value={signedName}
-                                onChange={(event) =>
-                                    setSignedName(event.target.value)
-                                }
-                                required
-                            />
-                        </div>
+                        <PdfSignatureViewer
+                            pdfUrl={downloadUrl}
+                            page={signaturePage}
+                            overlay={signatureOverlay}
+                            onSignatureChange={setSignatureData}
+                        />
 
-                        <div className="grid gap-2">
-                            <Label>Signature</Label>
-                            <SignaturePad onChange={setSignatureData} />
-                            <input
-                                type="hidden"
-                                name="signature_data"
-                                value={signatureData ?? ''}
-                            />
-                        </div>
+                        <input
+                            type="hidden"
+                            name="signed_name"
+                            value={employeeName}
+                        />
+                        <input
+                            type="hidden"
+                            name="signature_data"
+                            value={signatureData ?? ''}
+                        />
 
                         <label className="flex items-start gap-3 text-sm">
                             <Checkbox
@@ -135,9 +140,7 @@ export default function DocumentEsignPage({
                             <Button
                                 type="submit"
                                 className="flex-1"
-                                disabled={
-                                    !signatureData || !consent || !signedName.trim()
-                                }
+                                disabled={!signatureData || !consent}
                             >
                                 Submit signature
                             </Button>

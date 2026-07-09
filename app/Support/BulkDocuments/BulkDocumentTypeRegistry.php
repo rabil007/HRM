@@ -73,6 +73,18 @@ final class BulkDocumentTypeRegistry
         return (bool) self::find($key)['supports_esignature'];
     }
 
+    /**
+     * @return array{
+     *     page: int,
+     *     overlay: array{left: string, top: string, width: string, height: string},
+     *     stamps: list<array{type: string, x: float, y: float, w?: float, h?: float}>
+     * }|null
+     */
+    public static function resolveSignaturePlacements(string $key): ?array
+    {
+        return SalaryDeclarationSignaturePlacements::forDocumentType($key);
+    }
+
     public static function resolveEmailTemplate(string $key): ?EmailTemplate
     {
         $definition = self::find($key);

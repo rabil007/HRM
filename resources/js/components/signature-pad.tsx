@@ -5,9 +5,11 @@ import { cn } from '@/lib/utils';
 export function SignaturePad({
     onChange,
     className,
+    fill = false,
 }: {
     onChange: (dataUrl: string | null) => void;
     className?: string;
+    fill?: boolean;
 }) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const drawingRef = useRef(false);
@@ -138,10 +140,13 @@ export function SignaturePad({
 
     return (
         <div className={cn('space-y-2', className)}>
-            <div className="overflow-hidden rounded-lg border bg-white">
+            <div className={cn('overflow-hidden rounded-lg border bg-white', fill && 'h-full rounded-none border-0')}>
                 <canvas
                     ref={canvasRef}
-                    className="h-40 w-full touch-none"
+                    className={cn(
+                        'w-full touch-none',
+                        fill ? 'h-full min-h-[48px]' : 'h-40',
+                    )}
                     onMouseDown={startDrawing}
                     onMouseMove={draw}
                     onMouseUp={stopDrawing}
@@ -151,7 +156,7 @@ export function SignaturePad({
                     onTouchEnd={stopDrawing}
                 />
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={clear}>
+            <Button type="button" variant="outline" size="sm" onClick={clear} className={fill ? 'sr-only' : undefined}>
                 Clear signature
             </Button>
         </div>

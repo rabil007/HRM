@@ -4,13 +4,16 @@ namespace App\Support\BulkDocuments;
 
 use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Models\BulkDocumentSignatureRequest;
-use App\Models\Employee;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 final class SubmitBulkDocumentSignature
 {
+    public function __construct(
+        private StampSignedBulkDocumentPdf $stampSignedPdf,
+    ) {}
+
     /**
      * @param  array{signed_name: string, signature_data: string, consent: bool}  $data
      */
@@ -24,17 +27,8 @@ final class SubmitBulkDocumentSignature
             ]);
         }
 
-        $employee = Employee::query()->findOrFail($request->employee_id);
         $signaturePath = $this->storeSignatureImage($request, $data['signature_data']);
-        $signedDate = now()->format('d M Y');
-        $renderer = BulkDocumentTypeRegistry::resolveRenderer($request->document_type_key);
-
-        $pdfBinary = $renderer->render($employee, $request->company_id, [
-            'signed_name' => $data['signed_name'],
-            'signature_image_url' => $data['signature_data'],
-            'signed_date' => $signedDate,
-        ]);
-
+        $pdfBinary = $this->stampSignedPdf->handle($request, $data);
         $signedPdfPath = $this->storeSignedPdf($request, $pdfBinary);
 
         $request->update([

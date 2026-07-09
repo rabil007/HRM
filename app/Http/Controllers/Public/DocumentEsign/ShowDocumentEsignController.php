@@ -6,6 +6,7 @@ use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Http\Controllers\Controller;
 use App\Support\BulkDocuments\BulkDocumentSignatureLinkService;
 use App\Support\BulkDocuments\BulkDocumentSignatureRosterQuery;
+use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -33,6 +34,10 @@ class ShowDocumentEsignController extends Controller
             BulkDocumentSignatureRequestStatus::Approved,
         ], true);
 
+        $placements = BulkDocumentTypeRegistry::resolveSignaturePlacements(
+            $signatureRequest->document_type_key,
+        );
+
         return Inertia::render('esign/index', [
             'employeeName' => (string) ($signatureRequest->employee?->name ?? ''),
             'employeeNo' => $signatureRequest->employee?->employee_no,
@@ -43,6 +48,13 @@ class ShowDocumentEsignController extends Controller
             'alreadySubmitted' => $alreadySubmitted,
             'submitUrl' => $links->submitUrl($signatureRequest),
             'downloadUrl' => $links->downloadUnsignedUrl($signatureRequest),
+            'signatureOverlay' => ($placements ?? [])['overlay'] ?? [
+                'left' => '8%',
+                'top' => '76%',
+                'width' => '38%',
+                'height' => '9%',
+            ],
+            'signaturePage' => ($placements ?? [])['page'] ?? 1,
         ]);
     }
 }
