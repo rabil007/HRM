@@ -156,6 +156,16 @@ test('guest can submit electronic signature without replacing employee document'
     $request = createAwaitingSignatureRequest($company, $employee, $document);
     $originalPath = $document->file_path;
 
+    $renderer = new class implements RendersEmployeeDocumentPdf
+    {
+        public function render(Employee $employee, int $companyId, ?array $signature = null, bool $showPlacementGuides = false): string
+        {
+            return minimalPdfBytes();
+        }
+    };
+
+    app()->instance(SalaryDeclarationPdfRenderer::class, $renderer);
+
     $submitUrl = URL::temporarySignedRoute(
         'public.esign.submit',
         now()->addDay(),
@@ -189,6 +199,16 @@ test('guest can submit uploaded signature image data url', function () {
 
     $document = createSalaryDeclarationDocument($company, $employee);
     $request = createAwaitingSignatureRequest($company, $employee, $document);
+
+    $renderer = new class implements RendersEmployeeDocumentPdf
+    {
+        public function render(Employee $employee, int $companyId, ?array $signature = null, bool $showPlacementGuides = false): string
+        {
+            return minimalPdfBytes();
+        }
+    };
+
+    app()->instance(SalaryDeclarationPdfRenderer::class, $renderer);
 
     $submitUrl = URL::temporarySignedRoute(
         'public.esign.submit',
