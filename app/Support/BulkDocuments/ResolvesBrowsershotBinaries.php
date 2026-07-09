@@ -52,14 +52,16 @@ final class ResolvesBrowsershotBinaries
             return $configured;
         }
 
-        $configuredCacheDir = config('services.browsershot.puppeteer_cache_dir');
-        $cacheDir = is_string($configuredCacheDir) && $configuredCacheDir !== ''
-            ? $configuredCacheDir
-            : storage_path('app/puppeteer');
+        $cacheDirs = array_values(array_unique([
+            ConfiguresBrowsershotEnvironment::resolveCacheDir(),
+            storage_path('app/puppeteer'),
+        ]));
 
-        foreach (glob($cacheDir.'/chrome-headless-shell/*/chrome-headless-shell-*/chrome-headless-shell') ?: [] as $path) {
-            if (is_executable($path)) {
-                return $path;
+        foreach ($cacheDirs as $cacheDir) {
+            foreach (glob($cacheDir.'/chrome-headless-shell/*/chrome-headless-shell-*/chrome-headless-shell') ?: [] as $path) {
+                if (is_executable($path)) {
+                    return $path;
+                }
             }
         }
 
