@@ -164,8 +164,9 @@ export function PdfSignatureViewer({
     };
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-start gap-3">
+        <div className="space-y-3">
+            {/* Heading — hidden on mobile (the fixed top bar provides context) */}
+            <div className="hidden items-start gap-3 sm:flex">
                 <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted">
                     {isReview ? (
                         <FileText className="size-4 text-muted-foreground" />
@@ -175,10 +176,8 @@ export function PdfSignatureViewer({
                 </span>
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-sm font-semibold sm:text-base">
-                            {isReview
-                                ? 'Review the document'
-                                : 'Add your signature'}
+                        <h2 className="text-base font-semibold">
+                            {isReview ? 'Review the document' : 'Add your signature'}
                         </h2>
                         {!isReview ? (
                             <span
@@ -189,21 +188,37 @@ export function PdfSignatureViewer({
                                         : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100',
                                 )}
                             >
-                                {signatureData ? (
-                                    <CheckCircle2 className="size-3" />
-                                ) : null}
+                                {signatureData ? <CheckCircle2 className="size-3" /> : null}
                                 {signatureData ? 'Added' : 'Required'}
                             </span>
                         ) : null}
                     </div>
                     <p className="mt-0.5 text-sm text-muted-foreground">
                         {isReview
-                            ? isMobile
-                                ? 'Scroll to read the full declaration. Highlighted boxes show where your signature and date will go.'
-                                : "Highlighted boxes show where your signature and today's date will appear."
-                            : `Draw or upload your signature. It fills both signature boxes. Date ${signedDate} is added automatically.`}
+                            ? "Highlighted boxes show where your signature and today's date will appear."
+                            : `Draw or upload your signature. Date ${signedDate} is added automatically.`}
                     </p>
                 </div>
+            </div>
+
+            {/* Mobile-only condensed label */}
+            <div className="flex items-center gap-2 sm:hidden">
+                <p className="text-sm font-semibold">
+                    {isReview ? 'Read the document' : 'Add your signature'}
+                </p>
+                {!isReview ? (
+                    <span
+                        className={cn(
+                            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                            signatureData
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+                                : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100',
+                        )}
+                    >
+                        {signatureData ? <CheckCircle2 className="size-3" /> : null}
+                        {signatureData ? 'Added' : 'Required'}
+                    </span>
+                ) : null}
             </div>
 
             <div
@@ -211,8 +226,8 @@ export function PdfSignatureViewer({
                 className={
                     isMobile
                         ? cn(
-                              'w-full overflow-auto overscroll-contain rounded-xl border bg-muted/20 touch-pan-x touch-pan-y',
-                              isReview ? 'max-h-[58svh]' : 'max-h-[32svh]',
+                              'w-full overflow-auto rounded-xl border bg-muted/20 touch-pan-x touch-pan-y',
+                              isReview ? 'max-h-[42svh]' : 'max-h-[30svh]',
                           )
                         : cn(
                               'w-full overflow-hidden rounded-xl border bg-muted/20',
@@ -229,16 +244,16 @@ export function PdfSignatureViewer({
                     }
                 >
                     {isLoading ? (
-                        <div className="absolute inset-0 z-10 flex min-h-[240px] items-center justify-center bg-muted/20 sm:min-h-[360px]">
+                        <div className="absolute inset-0 z-10 flex min-h-[160px] items-center justify-center bg-muted/20 sm:min-h-[360px]">
                             <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                                <Loader2 className="h-8 w-8 animate-spin" />
-                                <p className="text-sm">Loading document…</p>
+                                <Loader2 className="h-6 w-6 animate-spin sm:h-8 sm:w-8" />
+                                <p className="text-sm">Loading…</p>
                             </div>
                         </div>
                     ) : null}
 
                     {error ? (
-                        <div className="flex min-h-[200px] items-center justify-center p-6 text-center text-sm text-destructive">
+                        <div className="flex min-h-[160px] items-center justify-center p-6 text-center text-sm text-destructive">
                             {error}
                         </div>
                     ) : null}
@@ -326,20 +341,19 @@ export function PdfSignatureViewer({
 
             {isMobile && isReview && !isLoading && !error ? (
                 <p className="text-xs text-muted-foreground">
-                    Tip: drag the document to read the text clearly, then tap
-                    Continue.
+                    Scroll to read, then tap Continue.
                 </p>
             ) : null}
 
             {!isReview && !isLoading && !error ? (
-                <div className="space-y-3">
+                <div className="space-y-2">
                     <SignatureCapture
                         clearToken={clearToken}
                         onChange={handleSignatureChange}
                         onModeChange={handleModeChange}
                         previewUrl={signatureData}
                         showDrawPad
-                        drawCanvasClassName={isMobile ? 'h-48' : 'h-44'}
+                        drawCanvasClassName={isMobile ? 'h-44' : 'h-44'}
                         drawLineWidth={isMobile ? 3 : 2}
                     />
 
