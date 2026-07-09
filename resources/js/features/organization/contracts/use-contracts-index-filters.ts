@@ -57,7 +57,7 @@ export function useContractsIndexFilters({
             lifecycle:
                 initialLifecycle === 'all' ? undefined : initialLifecycle,
             status: initialStatus || undefined,
-            payroll_category: initialPayrollCategory || 'office',
+            payroll_category: initialPayrollCategory || 'crew',
             salary_structure:
                 initialPayrollCategory === 'crew'
                     ? initialSalaryStructure === 'monthly'

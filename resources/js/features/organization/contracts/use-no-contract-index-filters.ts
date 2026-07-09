@@ -33,7 +33,7 @@ export function useNoContractIndexFilters({
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const searchInput = pendingSearch ?? initialSearch;
     const activePayrollCategory =
-        initialPayrollCategory === 'crew' ? 'crew' : 'office';
+        initialPayrollCategory === 'office' ? 'office' : 'crew';
 
     useEffect(() => {
         return () => {

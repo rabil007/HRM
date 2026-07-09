@@ -25,10 +25,10 @@ final class ContractDirectoryFilters
             $lifecycle = ContractLifecycleFilter::ALL;
         }
 
-        $payrollCategory = (string) $request->query('payroll_category', PayrollCategory::Office->value);
+        $payrollCategory = (string) $request->query('payroll_category', PayrollCategory::Crew->value);
 
         if (! in_array($payrollCategory, PayrollCategory::values(), true)) {
-            $payrollCategory = PayrollCategory::Office->value;
+            $payrollCategory = PayrollCategory::Crew->value;
         }
 
         $salaryStructure = (string) $request->query('salary_structure', '');

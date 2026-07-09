@@ -50,7 +50,7 @@ export function ContractsContent({
 }: ContractsIndexProps) {
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
     const activePayrollCategory =
-        initialPayrollCategory === 'crew' ? 'crew' : 'office';
+        initialPayrollCategory === 'office' ? 'office' : 'crew';
     const activeSalaryStructure =
         activePayrollCategory === 'crew' &&
         initialSalaryStructure === 'monthly'
@@ -192,7 +192,7 @@ export function ContractsContent({
                             />
                         ) : null}
                         <div className="flex items-center rounded-xl glass-card p-1">
-                            {(['office', 'crew'] as const).map((value) => {
+                            {(['crew', 'office'] as const).map((value) => {
                                 const label =
                                     value === 'office' ? 'Office' : 'Crew';
                                 const isActive =

@@ -127,14 +127,14 @@ test('contracts index returns paginated contracts with summary', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/contracts/index')
             ->where('lifecycle', 'all')
-            ->where('payroll_category', 'office')
+            ->where('payroll_category', 'crew')
+            ->where('salary_structure', 'daily')
             ->where('summary.total_contracts', 1)
-            ->where('summary.active', 1)
-            ->where('summary.ended', 0)
+            ->where('summary.active', 0)
+            ->where('summary.ended', 1)
             ->has('contracts', 1)
-            ->where('contracts.0.employee_name', 'Contract Employee')
-            ->where('contracts.0.salary_structure', 'monthly')
-            ->where('contracts.0.basic_salary', '5000.00')
+            ->where('contracts.0.employee_name', 'Ended Contract Employee')
+            ->where('contracts.0.payroll_category', 'crew')
             ->where('contracts.0.total_contracts', 1)
             ->where('can.view', true)
             ->where('can.create', false)
@@ -170,7 +170,7 @@ test('contracts index returns employee image with each contract row', function (
         'status' => 'active',
     ]);
 
-    $this->get(route('organization.contracts'))
+    $this->get(route('organization.contracts', ['payroll_category' => 'office']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('contracts', 1)
@@ -235,6 +235,17 @@ test('contracts index filters by lifecycle and workforce department scope', func
     ]);
 
     $this->get(route('organization.contracts', ['lifecycle' => 'active']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('lifecycle', 'active')
+            ->where('payroll_category', 'crew')
+            ->where('salary_structure', 'daily')
+            ->has('contracts', 0));
+
+    $this->get(route('organization.contracts', [
+        'lifecycle' => 'active',
+        'payroll_category' => 'office',
+    ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('lifecycle', 'active')
@@ -393,11 +404,17 @@ test('contracts index supports search by employee name and labor contract id', f
         'labor_contract_id' => 'LAB-9001',
     ]);
 
-    $this->get(route('organization.contracts', ['search' => 'Contract Employee']))
+    $this->get(route('organization.contracts', [
+        'search' => 'Contract Employee',
+        'payroll_category' => 'office',
+    ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('contracts', 1));
 
-    $this->get(route('organization.contracts', ['search' => 'LAB-9001']))
+    $this->get(route('organization.contracts', [
+        'search' => 'LAB-9001',
+        'payroll_category' => 'office',
+    ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('contracts', 1)
@@ -463,7 +480,7 @@ test('contracts index scopes data to current company', function () {
         'status' => 'active',
     ]);
 
-    $this->get(route('organization.contracts'))
+    $this->get(route('organization.contracts', ['payroll_category' => 'office']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('contracts', 1));
 });
@@ -512,7 +529,7 @@ test('users can view employees without contracts on no-contract page with positi
 
     grantCompanyPermissions($user, $company, ['contracts.view']);
 
-    $this->get(route('organization.contracts.no-contract'))
+    $this->get(route('organization.contracts.no-contract', ['payroll_category' => 'office']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/contracts/no-contract')

@@ -178,7 +178,7 @@ export function ContractsNoContractContent({
                             />
                         ) : null}
                         <div className="flex items-center rounded-xl glass-card p-1">
-                            {(['office', 'crew'] as const).map((value) => {
+                            {(['crew', 'office'] as const).map((value) => {
                                 const label =
                                     value === 'office' ? 'Office' : 'Crew';
                                 const isActive =
