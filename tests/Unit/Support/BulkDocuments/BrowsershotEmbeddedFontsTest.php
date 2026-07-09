@@ -35,6 +35,7 @@ test('salary declaration pdf renderer view includes embedded font styles', funct
         ->toContain('border-bottom: none')
         ->toContain('DejaVu Serif')
         ->toContain('DejaVu Sans')
+        ->toContain("font-family: 'DejaVu Sans', Arial, sans-serif")
         ->toContain('Employee Declaration and Acknowledgment')
         ->toContain('إقرار وموافقة الموظف');
 });

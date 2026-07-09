@@ -253,7 +253,7 @@ export function FabricSignaturePlacementEditor({
                                     left: rect.left + 6,
                                     top: rect.top + 6,
                                     fontSize: 12,
-                                    fontFamily: 'system-ui, sans-serif',
+                                    fontFamily: 'Arial, Helvetica, sans-serif',
                                     fill: field.color,
                                     selectable: false,
                                     evented: false,

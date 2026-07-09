@@ -189,14 +189,16 @@
             min-height: 40px;
             border: 1px dashed #94a3b8;
             color: #64748b;
-            font: 600 10px/1.2 system-ui, sans-serif;
+            font-family: 'DejaVu Sans', Arial, sans-serif;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.2;
             letter-spacing: 0.04em;
             text-transform: uppercase;
             background: rgba(148, 163, 184, 0.08);
         }
 
         .col.ar .placement-guide {
-            font-family: 'DejaVu Sans', system-ui, sans-serif;
             text-transform: none;
             letter-spacing: 0;
         }
