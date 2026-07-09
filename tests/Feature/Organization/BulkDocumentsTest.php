@@ -307,6 +307,74 @@ test('emailed filter paginates only employees with sent bulk document emails', f
             ->where('email_filter', 'not_emailed'));
 });
 
+test('bulk document counts respect department and emailed filters', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $operationsDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Operations',
+        'code' => 'OPS',
+        'status' => 'active',
+    ]);
+
+    $hrDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Human Resources',
+        'code' => 'HR',
+        'status' => 'active',
+    ]);
+
+    $emailedInOps = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'department_id' => $operationsDepartment->id,
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'department_id' => $hrDepartment->id,
+    ]);
+
+    $batch = BulkDocumentEmailBatch::query()->create([
+        'company_id' => $company->id,
+        'document_type_key' => 'salary_declaration',
+        'subject' => 'Salary declaration',
+        'total_selected' => 1,
+        'sent_count' => 1,
+        'failed_count' => 0,
+        'skipped_no_email_count' => 0,
+        'triggered_by' => $user->id,
+    ]);
+
+    BulkDocumentEmailSend::query()->create([
+        'batch_id' => $batch->id,
+        'employee_id' => $emailedInOps->id,
+        'recipient_email' => 'ops@example.com',
+        'status' => 'sent',
+        'sent_at' => now(),
+    ]);
+
+    $this->get(route('organization.documents.bulk', [
+        'department_id' => $operationsDepartment->id,
+        'email_filter' => 'emailed',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('counts.targeted', 1)
+            ->where('counts.generated', 0)
+            ->where('counts.not_generated', 1));
+
+    $this->get(route('organization.documents.bulk', [
+        'department_id' => $hrDepartment->id,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('counts.targeted', 1)
+            ->where('counts.not_generated', 1));
+});
+
 test('bulk documents history view returns paginated activity', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

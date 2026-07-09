@@ -53,9 +53,12 @@ final class BulkDocumentRosterQuery
         string $documentTypeKey,
         EmployeeDirectoryFilters $filters,
         ?array $employeeIds = null,
+        string $emailFilter = 'all',
     ): array {
         $documentType = BulkDocumentTypeRegistry::resolveDocumentType($documentTypeKey);
         $query = self::baseEmployeeQuery($companyId, $filters, $employeeIds);
+
+        self::applyEmailFilter($query, $companyId, $documentTypeKey, $emailFilter);
 
         $targeted = (clone $query)->count();
 
@@ -66,7 +69,12 @@ final class BulkDocumentRosterQuery
         })->count();
 
         $pendingReview = BulkDocumentTypeRegistry::supportsEsignature($documentTypeKey)
-            ? BulkDocumentSignatureRosterQuery::pendingReviewCount($companyId, $documentTypeKey)
+            ? BulkDocumentSignatureRosterQuery::pendingReviewCount(
+                $companyId,
+                $documentTypeKey,
+                $filters,
+                $emailFilter,
+            )
             : 0;
 
         return [

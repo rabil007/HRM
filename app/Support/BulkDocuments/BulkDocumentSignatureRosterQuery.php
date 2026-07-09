@@ -45,13 +45,25 @@ final class BulkDocumentSignatureRosterQuery
         );
     }
 
-    public static function pendingReviewCount(int $companyId, string $documentTypeKey): int
-    {
-        return BulkDocumentSignatureRequest::query()
+    public static function pendingReviewCount(
+        int $companyId,
+        string $documentTypeKey,
+        ?EmployeeDirectoryFilters $filters = null,
+        string $emailFilter = 'all',
+    ): int {
+        $query = BulkDocumentSignatureRequest::query()
             ->forCompany($companyId)
             ->where('document_type_key', $documentTypeKey)
-            ->where('status', BulkDocumentSignatureRequestStatus::Submitted)
-            ->count();
+            ->where('status', BulkDocumentSignatureRequestStatus::Submitted);
+
+        if ($filters !== null) {
+            $query->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters, $documentTypeKey, $emailFilter): void {
+                EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters);
+                BulkDocumentRosterQuery::applyEmailFilter($employeeQuery, $companyId, $documentTypeKey, $emailFilter);
+            });
+        }
+
+        return $query->count();
     }
 
     /**
