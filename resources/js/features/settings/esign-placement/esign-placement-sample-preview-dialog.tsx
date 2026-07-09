@@ -67,18 +67,10 @@ export function EsignPlacementSamplePreviewDialog({
             setIsLoading(true);
             setError(null);
 
-            // #region agent log
-            fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9313b6'},body:JSON.stringify({sessionId:'9313b6',location:'esign-placement-sample-preview-dialog.tsx:render-start',message:'Sample preview render started',data:{open,page,pdfUrl,hasRects:!!rects},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
-
             try {
                 const response = await fetch(pdfUrl, {
                     credentials: 'same-origin',
                 });
-
-                // #region agent log
-                fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9313b6'},body:JSON.stringify({sessionId:'9313b6',location:'esign-placement-sample-preview-dialog.tsx:fetch-done',message:'PDF fetch completed',data:{status:response.status,ok:response.ok},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
-                // #endregion
 
                 if (!response.ok) {
                     throw new Error('Failed to load preview PDF.');
@@ -91,14 +83,7 @@ export function EsignPlacementSamplePreviewDialog({
                 const container = containerRef.current;
                 const canvas = canvasRef.current;
 
-                // #region agent log
-                fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9313b6'},body:JSON.stringify({sessionId:'9313b6',location:'esign-placement-sample-preview-dialog.tsx:refs-check',message:'Container and canvas refs before render',data:{hasContainer:!!container,hasCanvas:!!canvas,containerWidth:container?.clientWidth??0,isLoadingState:true,cancelled},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-                // #endregion
-
                 if (!container || !canvas || cancelled) {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9313b6'},body:JSON.stringify({sessionId:'9313b6',location:'esign-placement-sample-preview-dialog.tsx:early-return',message:'Early return - missing refs or cancelled',data:{hasContainer:!!container,hasCanvas:!!canvas,cancelled},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-                    // #endregion
                     return;
                 }
 
@@ -126,15 +111,9 @@ export function EsignPlacementSamplePreviewDialog({
                         height: viewport.height,
                     });
                     setIsLoading(false);
-                    // #region agent log
-                    fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9313b6'},body:JSON.stringify({sessionId:'9313b6',location:'esign-placement-sample-preview-dialog.tsx:render-success',message:'PDF render succeeded',data:{width:viewport.width,height:viewport.height,scale,sourceCanvasSize,rectSignature:rects?.signature},timestamp:Date.now(),hypothesisId:'F',runId:'post-fix'})}).catch(()=>{});
-                    // #endregion
                 }
             } catch (loadError) {
                 if (!cancelled) {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9313b6'},body:JSON.stringify({sessionId:'9313b6',location:'esign-placement-sample-preview-dialog.tsx:render-error',message:'PDF render failed',data:{error:loadError instanceof Error?loadError.message:String(loadError)},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
-                    // #endregion
                     setError(
                         loadError instanceof Error
                             ? loadError.message
