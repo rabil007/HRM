@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Support\BulkDocuments\BulkDocumentActivityQuery;
 use App\Support\BulkDocuments\BulkDocumentPagePermissions;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
+use App\Support\BulkDocuments\BulkDocumentSignatureRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
@@ -40,7 +41,16 @@ class BulkDocumentsController extends Controller
             'generated' => 'generated',
             default => 'all',
         };
-        $view = $request->query('view') === 'history' ? 'history' : 'roster';
+        $signatureFilter = match ($request->query('signature_filter')) {
+            'submitted', 'pending_review' => 'submitted',
+            'awaiting_signature' => 'awaiting_signature',
+            default => 'all',
+        };
+        $view = match ($request->query('view')) {
+            'history' => 'history',
+            'signatures' => 'signatures',
+            default => 'roster',
+        };
         $formOptions = EmployeeFormOptions::for($companyId);
 
         if ($view === 'history') {
@@ -64,6 +74,35 @@ class BulkDocumentsController extends Controller
                 'counts' => BulkDocumentRosterQuery::counts($companyId, $documentTypeKey, $filters),
                 'pagination' => $this->paginationMeta($activityPaginator),
                 'generation_filter' => $generationFilter,
+                'signature_filter' => $signatureFilter,
+                'signature_requests' => [],
+            ]);
+        }
+
+        if ($view === 'signatures') {
+            $signaturesPaginator = BulkDocumentSignatureRosterQuery::paginate(
+                $companyId,
+                $documentTypeKey,
+                $perPage,
+                $page,
+                $signatureFilter === 'all' ? null : $signatureFilter,
+            );
+
+            return Inertia::render('organization/documents/bulk/index', $this->sharedPayload(
+                $request,
+                $companyId,
+                $documentTypeKey,
+                $filters,
+                $formOptions,
+            ) + [
+                'view' => 'signatures',
+                'signature_requests' => $signaturesPaginator->items(),
+                'activity' => [],
+                'employees' => [],
+                'counts' => BulkDocumentRosterQuery::counts($companyId, $documentTypeKey, $filters),
+                'pagination' => $this->paginationMeta($signaturesPaginator),
+                'generation_filter' => $generationFilter,
+                'signature_filter' => $signatureFilter,
             ]);
         }
 
@@ -88,6 +127,8 @@ class BulkDocumentsController extends Controller
             'employees' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
             'generation_filter' => $generationFilter,
+            'signature_filter' => $signatureFilter,
+            'signature_requests' => [],
         ]);
     }
 

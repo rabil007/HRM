@@ -8,7 +8,9 @@ use App\Models\BulkDocumentEmailSend;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Support\BulkDocuments\BulkDocumentSignatureLinkService;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
+use App\Support\BulkDocuments\CreateBulkDocumentSignatureRequest;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Mail;
@@ -42,8 +44,10 @@ class SendBulkDocumentEmailsJob implements ShouldQueue
         public int $cumulativeSkipped = 0,
     ) {}
 
-    public function handle(): void
-    {
+    public function handle(
+        CreateBulkDocumentSignatureRequest $createSignatureRequest,
+        BulkDocumentSignatureLinkService $signatureLinks,
+    ): void {
         $batch = BulkDocumentEmailBatch::query()->find($this->batchId);
 
         if ($batch === null) {
@@ -122,8 +126,22 @@ class SendBulkDocumentEmailsJob implements ShouldQueue
                 continue;
             }
 
-            $subject = $this->substitute($template->subject, $employee, $company, $definition['label']);
-            $body = $this->substitute($template->body_html, $employee, $company, $definition['label']);
+            $signatureRequest = null;
+            $signatureUrl = '';
+
+            if (BulkDocumentTypeRegistry::supportsEsignature($this->documentTypeKey)) {
+                $signatureRequest = $createSignatureRequest->handle(
+                    $this->companyId,
+                    $employee->id,
+                    $document,
+                    $this->documentTypeKey,
+                    $this->batchId,
+                );
+                $signatureUrl = $signatureLinks->signUrl($signatureRequest);
+            }
+
+            $subject = $this->substitute($template->subject, $employee, $company, $definition['label'], $signatureUrl);
+            $body = $this->substitute($template->body_html, $employee, $company, $definition['label'], $signatureUrl);
             $filename = $this->buildFilename($employee);
             $cc = $this->normalizeCcRecipients($recipient);
 
@@ -208,13 +226,14 @@ class SendBulkDocumentEmailsJob implements ShouldQueue
         report($exception);
     }
 
-    private function substitute(string $template, Employee $employee, Company $company, string $documentTypeLabel): string
+    private function substitute(string $template, Employee $employee, Company $company, string $documentTypeLabel, string $signatureUrl = ''): string
     {
         return strtr($template, [
             '{{employee_name}}' => (string) $employee->name,
             '{{employee_no}}' => (string) ($employee->employee_no ?? ''),
             '{{company_name}}' => (string) $company->name,
             '{{document_type}}' => $documentTypeLabel,
+            '{{signature_url}}' => $signatureUrl,
         ]);
     }
 

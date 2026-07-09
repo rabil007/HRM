@@ -10,9 +10,10 @@ use App\Support\Settings\SettingKey;
 final class SalaryDeclarationData
 {
     /**
+     * @param  array{signed_name?: string, signature_image_url?: string, signed_date?: string}|null  $signature
      * @return array<string, mixed>
      */
-    public static function for(Employee $employee, int $companyId): array
+    public static function for(Employee $employee, int $companyId, ?array $signature = null): array
     {
         $employee->load([
             'company:id,name',
@@ -38,6 +39,9 @@ final class SalaryDeclarationData
             'eid_or_passport' => $identifier,
             'job_title' => (string) ($employee->position?->title ?? $employee->rank?->name ?? ''),
             'company_name' => $companyName,
+            'signed_name' => $signature['signed_name'] ?? null,
+            'signature_image_url' => $signature['signature_image_url'] ?? null,
+            'signed_date' => $signature['signed_date'] ?? null,
         ];
     }
 }

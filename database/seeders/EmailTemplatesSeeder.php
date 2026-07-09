@@ -222,6 +222,8 @@ TEXT;
         return <<<'HTML'
 <p style="margin:0 0 16px;">Dear {{employee_name}},</p>
 <p style="margin:0 0 16px;">Please find your Salary Declaration attached to this email.</p>
+<p style="margin:0 0 16px;">You may sign electronically using this link: <a href="{{signature_url}}">{{signature_url}}</a></p>
+<p style="margin:0 0 16px;">Alternatively, download the attached PDF, sign it manually, and return the signed copy to HR.</p>
 <p style="margin:0 0 16px;">We kindly ask you to review the document carefully, sign it according to company standards, and return the signed copy to the HR department at your earliest convenience.</p>
 <p style="margin:0 0 16px;"><strong>Employee no.:</strong> {{employee_no}}</p>
 <p style="margin:0 0 16px;">If you have any questions, please contact HR.</p>

@@ -18,6 +18,11 @@ use Throwable;
 
 final class SendBulkDocumentEmails
 {
+    public function __construct(
+        private CreateBulkDocumentSignatureRequest $createSignatureRequest,
+        private BulkDocumentSignatureLinkService $signatureLinks,
+    ) {}
+
     /**
      * @param  Collection<int, Employee>  $employees
      * @return array{
@@ -90,8 +95,22 @@ final class SendBulkDocumentEmails
                 continue;
             }
 
-            $subject = $this->substitute($template->subject, $employee, $company, $definition['label']);
-            $body = $this->substitute($template->body_html, $employee, $company, $definition['label']);
+            $signatureRequest = null;
+            $signatureUrl = '';
+
+            if (BulkDocumentTypeRegistry::supportsEsignature($documentTypeKey)) {
+                $signatureRequest = $this->createSignatureRequest->handle(
+                    $companyId,
+                    $employee->id,
+                    $document,
+                    $documentTypeKey,
+                    $batch->id,
+                );
+                $signatureUrl = $this->signatureLinks->signUrl($signatureRequest);
+            }
+
+            $subject = $this->substitute($template->subject, $employee, $company, $definition['label'], $signatureUrl);
+            $body = $this->substitute($template->body_html, $employee, $company, $definition['label'], $signatureUrl);
             $filename = $this->attachmentFilename($documentTypeKey, $employee);
             $cc = $this->normalizeCcRecipients($ccRecipients, $recipient);
 
@@ -177,13 +196,14 @@ final class SendBulkDocumentEmails
         return $template;
     }
 
-    private function substitute(string $template, Employee $employee, Company $company, string $documentTypeLabel): string
+    private function substitute(string $template, Employee $employee, Company $company, string $documentTypeLabel, string $signatureUrl = ''): string
     {
         return strtr($template, [
             '{{employee_name}}' => (string) $employee->name,
             '{{employee_no}}' => (string) ($employee->employee_no ?? ''),
             '{{company_name}}' => (string) $company->name,
             '{{document_type}}' => $documentTypeLabel,
+            '{{signature_url}}' => $signatureUrl,
         ]);
     }
 

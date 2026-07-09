@@ -12,7 +12,7 @@ use Spatie\Browsershot\Browsershot;
 
 final class SalaryCertificatePdfRenderer implements RendersEmployeeDocumentPdf
 {
-    public function render(Employee $employee, int $companyId): string
+    public function render(Employee $employee, int $companyId, ?array $signature = null): string
     {
         ConfiguresBrowsershotEnvironment::apply();
 

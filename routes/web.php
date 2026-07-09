@@ -17,13 +17,20 @@ use App\Http\Controllers\Organization\BankAccountsImportController;
 use App\Http\Controllers\Organization\BankAccountsIndexController;
 use App\Http\Controllers\Organization\BankAccountsNoAccountController;
 use App\Http\Controllers\Organization\BranchController;
+use App\Http\Controllers\Organization\BulkDocuments\ApproveBulkDocumentSignatureController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentEmployeeSearchController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentSelectionController;
 use App\Http\Controllers\Organization\BulkDocuments\DeleteBulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\DownloadBulkDocumentsController;
+use App\Http\Controllers\Organization\BulkDocuments\DownloadSignedBulkDocumentController;
 use App\Http\Controllers\Organization\BulkDocuments\EmailBulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\GenerateBulkDocumentsController;
+use App\Http\Controllers\Organization\BulkDocuments\RejectBulkDocumentSignatureController;
+use App\Http\Controllers\Organization\BulkDocuments\UploadBulkDocumentSignatureController;
+use App\Http\Controllers\Organization\BulkDocumentSignature\DownloadUnsignedBulkDocumentController;
+use App\Http\Controllers\Organization\BulkDocumentSignature\ShowBulkDocumentSignatureController;
+use App\Http\Controllers\Organization\BulkDocumentSignature\SubmitBulkDocumentSignatureController;
 use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\CompanySwitchController;
 use App\Http\Controllers\Organization\ContractsExportController;
@@ -94,6 +101,16 @@ Route::get('/', fn () => redirect()->route('login'))->name('home');
 Route::match(['get', 'post'], 'organization/documents/share/{document}', DocumentShareController::class)
     ->middleware('signed')
     ->name('organization.documents.share');
+
+Route::middleware('signed')->group(function () {
+    Route::get('organization/documents/sign/{token}', ShowBulkDocumentSignatureController::class)
+        ->name('organization.documents.bulk.sign.show');
+    Route::post('organization/documents/sign/{token}', SubmitBulkDocumentSignatureController::class)
+        ->middleware('throttle:10,1')
+        ->name('organization.documents.bulk.sign.submit');
+    Route::get('organization/documents/sign/{token}/download', DownloadUnsignedBulkDocumentController::class)
+        ->name('organization.documents.bulk.sign.download');
+});
 
 Route::match(['get', 'post'], 'whatsapp/webhook', WhatsAppWebhookController::class)
     ->name('whatsapp.webhook');
@@ -291,6 +308,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/documents/bulk/recipients-search', BulkDocumentEmployeeSearchController::class)
         ->middleware('can:bulk_documents.email')
         ->name('organization.documents.bulk.recipients-search');
+    Route::middleware('can:bulk_documents.signatures.review')->group(function () {
+        Route::post('organization/documents/bulk/signatures/{signatureRequest}/approve', ApproveBulkDocumentSignatureController::class)
+            ->name('organization.documents.bulk.signatures.approve');
+        Route::post('organization/documents/bulk/signatures/{signatureRequest}/reject', RejectBulkDocumentSignatureController::class)
+            ->name('organization.documents.bulk.signatures.reject');
+        Route::post('organization/documents/bulk/signatures/{signatureRequest}/upload', UploadBulkDocumentSignatureController::class)
+            ->name('organization.documents.bulk.signatures.upload');
+        Route::get('organization/documents/bulk/signatures/{signatureRequest}/download', DownloadSignedBulkDocumentController::class)
+            ->name('organization.documents.bulk.signatures.download');
+    });
     Route::middleware('can:documents.share')->group(function () {
         Route::post('organization/documents/employees/{employee}/files/share-links', DocumentBulkShareLinksController::class)
             ->name('organization.documents.employee.files.share-links');

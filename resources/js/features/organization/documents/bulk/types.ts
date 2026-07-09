@@ -33,12 +33,38 @@ export type BulkRosterEmployee = {
         created_at: string | null;
     } | null;
     email_sent_at: string | null;
+    signature_status: string | null;
+};
+
+export type BulkSignatureRequest = {
+    id: number;
+    employee: {
+        id: number;
+        name: string;
+        employee_no: string | null;
+        image: string | null;
+        department: string | null;
+        position: string | null;
+    };
+    status: string;
+    status_label: string;
+    signed_name: string | null;
+    signed_at: string | null;
+    created_at: string | null;
+    reviewed_at: string | null;
+    reviewed_by: string | null;
+    rejection_reason: string | null;
+    unsigned_document_id: number;
+    unsigned_file_path: string | null;
+    signed_pdf_path: string | null;
+    expires_at: string | null;
 };
 
 export type BulkDocumentCounts = {
     targeted: number;
     generated: number;
     not_generated: number;
+    pending_review: number;
 };
 
 export type BulkGenerationRun = {
@@ -94,6 +120,8 @@ export type BulkActivityItem =
 
 export type BulkGenerationFilter = 'all' | 'missing' | 'generated';
 
+export type BulkSignatureFilter = 'all' | 'submitted' | 'awaiting_signature';
+
 export type LatestEmailBatch = {
     id: number;
     status: 'queued' | 'running' | 'completed' | 'failed';
@@ -109,7 +137,7 @@ export type LatestEmailBatch = {
 export type BulkDocumentsPageProps = {
     document_type_key: string;
     document_type_options: BulkDocumentTypeOption[];
-    view: 'roster' | 'history';
+    view: 'roster' | 'signatures' | 'history';
     filters: {
         department_id: string;
         position_id: string;
@@ -119,9 +147,11 @@ export type BulkDocumentsPageProps = {
     search: string;
     counts: BulkDocumentCounts;
     employees: BulkRosterEmployee[];
+    signature_requests: BulkSignatureRequest[];
     activity: BulkActivityItem[];
     pagination: PaginationMeta;
     generation_filter: BulkGenerationFilter;
+    signature_filter: BulkSignatureFilter;
     departments: { id: number; name: string }[];
     positions: { id: number; title: string }[];
     company_visa_types: { id: number; name: string }[];
@@ -137,5 +167,6 @@ export type BulkDocumentsPageProps = {
         download: boolean;
         delete: boolean;
         email: boolean;
+        review_signatures: boolean;
     };
 };

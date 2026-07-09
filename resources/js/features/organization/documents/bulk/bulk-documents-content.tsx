@@ -50,6 +50,8 @@ import {
 } from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
 import type {BulkDocumentsView} from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
 import { BulkDocumentsEmailModal } from '@/features/organization/documents/bulk/bulk-email-modal';
+import { BulkSignaturesTable } from '@/features/organization/documents/bulk/bulk-signatures-table';
+import { SignatureStatusBadge } from '@/features/organization/documents/bulk/signature-status-badge';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
@@ -63,7 +65,7 @@ import { documents } from '@/routes/organization';
 import {
     EMPTY_BULK_DOCUMENT_FILTERS
 } from './types';
-import type {BulkDocumentFilters, BulkDocumentsPageProps, BulkGenerationFilter, BulkRosterEmployee, LatestEmailBatch} from './types';
+import type {BulkDocumentFilters, BulkDocumentsPageProps, BulkGenerationFilter, BulkRosterEmployee, BulkSignatureFilter, LatestEmailBatch} from './types';
 
 const BULK_URL = '/organization/documents/bulk';
 
@@ -73,6 +75,7 @@ function buildQuery(
     search: string,
     generationFilter: BulkGenerationFilter,
     view: BulkDocumentsView,
+    signatureFilter: BulkSignatureFilter = 'all',
     pagination?: { page?: number | null; perPage: number },
 ): Record<string, string> {
     const query: Record<string, string> = {
@@ -82,6 +85,14 @@ function buildQuery(
 
     if (view === 'history') {
         query.view = 'history';
+    }
+
+    if (view === 'signatures') {
+        query.view = 'signatures';
+    }
+
+    if (signatureFilter !== 'all') {
+        query.signature_filter = signatureFilter;
     }
 
     if (search.trim()) {
@@ -371,9 +382,11 @@ export function BulkDocumentsContent({
     search: initialSearch,
     counts,
     employees,
+    signature_requests,
     activity,
     pagination,
     generation_filter,
+    signature_filter,
     company_visa_types,
     department_tree,
     department_tree_selected_id,
@@ -385,6 +398,8 @@ export function BulkDocumentsContent({
     can,
 }: BulkDocumentsPageProps) {
     const isRosterView = view === 'roster';
+    const isSignaturesView = view === 'signatures';
+    const supportsEsignature = document_type_key === 'salary_declaration';
     const [searchInput, setSearchInput] = useState(initialSearch);
     const [filters, setFilters] = useState<BulkDocumentFilters>({
         department_id: initialFilters.department_id,
@@ -630,6 +645,7 @@ export function BulkDocumentsContent({
             nextSearch = searchInput,
             nextGenerationFilter = generation_filter,
             nextView: BulkDocumentsView = view,
+            nextSignatureFilter: BulkSignatureFilter = signature_filter,
             page: number | null = null,
         ) => {
             router.get(
@@ -640,6 +656,7 @@ export function BulkDocumentsContent({
                     nextSearch,
                     nextGenerationFilter,
                     nextView,
+                    nextSignatureFilter,
                     {
                         page,
                         perPage: pagination.per_page,
@@ -652,6 +669,7 @@ export function BulkDocumentsContent({
             document_type_key,
             filters,
             generation_filter,
+            signature_filter,
             pagination.per_page,
             searchInput,
             view,
@@ -667,6 +685,7 @@ export function BulkDocumentsContent({
                 searchInput,
                 generation_filter,
                 nextView,
+                signature_filter,
                 null,
             );
         },
@@ -675,10 +694,29 @@ export function BulkDocumentsContent({
             document_type_key,
             filters,
             generation_filter,
+            signature_filter,
             navigate,
             searchInput,
         ],
     );
+
+    const openSignaturesReview = useCallback(() => {
+        navigate(
+            document_type_key,
+            filters,
+            searchInput,
+            generation_filter,
+            'signatures',
+            'submitted',
+            null,
+        );
+    }, [
+        document_type_key,
+        filters,
+        generation_filter,
+        navigate,
+        searchInput,
+    ]);
 
     const goToPage = useCallback(
         (page: number) => {
@@ -899,7 +937,46 @@ export function BulkDocumentsContent({
             />
 
             {/* Summary cards */}
-            {isRosterView ? (
+            {isRosterView && supportsEsignature ? (
+                <div className="mb-8 grid gap-4 sm:grid-cols-4">
+                    <SummaryCard
+                        label="In this list"
+                        value={counts.targeted}
+                        active={generation_filter === 'all'}
+                        onClick={() => setGenerationFilter('all')}
+                        cardClass="border-border bg-muted/20 hover:border-border dark:border-white/10 dark:hover:border-white/20"
+                        activeClass="border-primary/30 ring-1 ring-primary/10 dark:border-white/20 dark:ring-white/10"
+                        valueClass="text-foreground"
+                    />
+                    <SummaryCard
+                        label="Already generated"
+                        value={counts.generated}
+                        active={generation_filter === 'generated'}
+                        onClick={() => setGenerationFilter('generated')}
+                        cardClass="border-emerald-500/15 bg-emerald-500/[0.04] hover:border-emerald-500/30"
+                        activeClass="border-emerald-500/40 ring-1 ring-emerald-500/25"
+                        valueClass="text-emerald-500 dark:text-emerald-400"
+                    />
+                    <SummaryCard
+                        label="Missing document"
+                        value={counts.not_generated}
+                        active={generation_filter === 'missing'}
+                        onClick={() => setGenerationFilter('missing')}
+                        cardClass="border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30"
+                        activeClass="border-amber-500/40 ring-1 ring-amber-500/25"
+                        valueClass="text-amber-500 dark:text-amber-400"
+                    />
+                    <SummaryCard
+                        label="Pending review"
+                        value={counts.pending_review}
+                        active={false}
+                        onClick={openSignaturesReview}
+                        cardClass="border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30"
+                        activeClass="border-violet-500/40 ring-1 ring-violet-500/25"
+                        valueClass="text-violet-600 dark:text-violet-400"
+                    />
+                </div>
+            ) : isRosterView ? (
                 <div className="mb-8 grid gap-4 sm:grid-cols-3">
                     <SummaryCard
                         label="In this list"
@@ -1292,7 +1369,11 @@ export function BulkDocumentsContent({
                 header={
                     <>
                         <span />
-                        <BulkDocumentsViewSwitcher value={view} onChange={setView} />
+                        <BulkDocumentsViewSwitcher
+                            value={view}
+                            onChange={setView}
+                            showSignatures={supportsEsignature}
+                        />
                     </>
                 }
             >
@@ -1309,6 +1390,9 @@ export function BulkDocumentsContent({
                         <DataTableHead>Email</DataTableHead>
                         <DataTableHead>Emailed</DataTableHead>
                         <DataTableHead>Document</DataTableHead>
+                        {supportsEsignature ? (
+                            <DataTableHead>Signature</DataTableHead>
+                        ) : null}
                         <DataTableHead className="text-right">
                             Actions
                         </DataTableHead>
@@ -1317,7 +1401,7 @@ export function BulkDocumentsContent({
                 <TableBody>
                     {employees.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={6} className="p-0">
+                            <TableCell colSpan={supportsEsignature ? 7 : 6} className="p-0">
                                 <EmptyState
                                     title="No employees match the current filters."
                                     description="Try adjusting your search or filters."
@@ -1332,6 +1416,7 @@ export function BulkDocumentsContent({
                                 checked={isEmployeeRowSelected(employee.id)}
                                 onToggle={() => handleToggleEmployee(employee.id)}
                                 canDownload={can.download}
+                                showSignature={supportsEsignature}
                             />
                         ))
                     )}
@@ -1350,6 +1435,38 @@ export function BulkDocumentsContent({
                 label="employees"
             />
                 </>
+            ) : isSignaturesView ? (
+                <>
+                    <BulkSignaturesTable
+                        requests={signature_requests}
+                        canReview={can.review_signatures}
+                        header={
+                            <>
+                                <span className="text-sm text-muted-foreground/80">
+                                    Review employee signature submissions for{' '}
+                                    {selectedTypeLabel}.
+                                </span>
+                                <BulkDocumentsViewSwitcher
+                                    value={view}
+                                    onChange={setView}
+                                    showSignatures={supportsEsignature}
+                                />
+                            </>
+                        }
+                    />
+
+                    <Pagination
+                        currentPage={pagination.current_page}
+                        lastPage={pagination.last_page}
+                        from={pagination.from}
+                        to={pagination.to}
+                        total={pagination.total}
+                        perPage={pagination.per_page}
+                        onPageChange={goToPage}
+                        onPerPageChange={setPerPage}
+                        label="signature requests"
+                    />
+                </>
             ) : (
                 <>
                     <BulkDocumentsHistoryTable
@@ -1363,6 +1480,7 @@ export function BulkDocumentsContent({
                                 <BulkDocumentsViewSwitcher
                                     value={view}
                                     onChange={setView}
+                                    showSignatures={supportsEsignature}
                                 />
                             </>
                         }
@@ -1419,11 +1537,13 @@ function BulkRosterRow({
     checked,
     onToggle,
     canDownload,
+    showSignature = false,
 }: {
     employee: BulkRosterEmployee;
     checked: boolean;
     onToggle: () => void;
     canDownload: boolean;
+    showSignature?: boolean;
 }) {
     const hasDocument = employee.document !== null;
     const assignment = [employee.department, employee.position]
@@ -1512,6 +1632,13 @@ function BulkRosterRow({
                     {hasDocument ? 'Generated' : 'Missing'}
                 </Badge>
             </TableCell>
+            {showSignature ? (
+                <TableCell className={dataTableCellClass()}>
+                    <SignatureStatusBadge
+                        status={employee.signature_status}
+                    />
+                </TableCell>
+            ) : null}
             <TableCell
                 className={dataTableActionsCellClass()}
                 onClick={(e) => e.stopPropagation()}

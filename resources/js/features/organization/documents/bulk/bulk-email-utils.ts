@@ -37,12 +37,14 @@ export function substituteBulkEmailTemplate(
     employee: BulkEmailPreviewEmployee,
     companyName: string,
     documentTypeLabel: string,
+    signatureUrl = 'https://example.com/sign/sample-link',
 ): string {
     return template
         .replaceAll('{{employee_name}}', employee.name)
         .replaceAll('{{employee_no}}', employee.employee_no ?? '')
         .replaceAll('{{company_name}}', companyName)
-        .replaceAll('{{document_type}}', documentTypeLabel);
+        .replaceAll('{{document_type}}', documentTypeLabel)
+        .replaceAll('{{signature_url}}', signatureUrl);
 }
 
 function escapeHtml(value: string): string {

@@ -12,11 +12,11 @@ use Spatie\Browsershot\Browsershot;
 
 final class SalaryDeclarationPdfRenderer implements RendersEmployeeDocumentPdf, RendersSalaryDeclarationPdf
 {
-    public function render(Employee $employee, int $companyId): string
+    public function render(Employee $employee, int $companyId, ?array $signature = null): string
     {
         ConfiguresBrowsershotEnvironment::apply();
 
-        $data = SalaryDeclarationData::for($employee, $companyId);
+        $data = SalaryDeclarationData::for($employee, $companyId, $signature);
         $data['printable'] = false;
         $data['embedded_font_styles'] = BrowsershotEmbeddedFonts::dejaVuStyles();
 

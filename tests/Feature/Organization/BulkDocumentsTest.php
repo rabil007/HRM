@@ -74,6 +74,7 @@ test('bulk documents permissions are registered and legacy permission removed', 
         'bulk_documents.generate',
         'bulk_documents.delete',
         'bulk_documents.email',
+        'bulk_documents.signatures.review',
     ] as $permission) {
         expect(Permission::query()->where('name', $permission)->exists())->toBeTrue();
     }
@@ -426,7 +427,7 @@ test('bulk generation job skips existing documents in fill gaps mode', function 
 
     $renderer = new class implements RendersEmployeeDocumentPdf
     {
-        public function render(Employee $employee, int $companyId): string
+        public function render(Employee $employee, int $companyId, ?array $signature = null): string
         {
             return minimalPdfBytes();
         }
@@ -477,7 +478,7 @@ test('bulk generation job replaces existing documents for selected employees', f
 
     $renderer = new class implements RendersEmployeeDocumentPdf
     {
-        public function render(Employee $employee, int $companyId): string
+        public function render(Employee $employee, int $companyId, ?array $signature = null): string
         {
             return minimalPdfBytes();
         }

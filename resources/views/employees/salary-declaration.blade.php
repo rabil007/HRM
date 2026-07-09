@@ -109,6 +109,12 @@
         .ar ol { padding-inline-start: 0; padding-inline-end: 4px; }
 
         .sign-block { margin-top: 26px; }
+        .sign-block img.signature {
+            display: block;
+            max-height: 48px;
+            max-width: 180px;
+            margin-top: 4px;
+        }
 
         @media print {
             html, body { background: #fff; }
@@ -151,9 +157,9 @@
                     </ol>
 
                     <div class="sign-block">
-                        <div class="field"><span class="label">Employee Name:</span><span class="fill">{{ $employee_name }}</span></div>
-                        <div class="field"><span class="label">Signature:</span><span class="fill"></span></div>
-                        <div class="field"><span class="label">Date:</span><span class="fill"></span></div>
+                        <div class="field"><span class="label">Employee Name:</span><span class="fill">{{ $signed_name ?? $employee_name }}</span></div>
+                        <div class="field"><span class="label">Signature:</span><span class="fill">@if (! empty($signature_image_url))<img src="{{ $signature_image_url }}" alt="Signature" class="signature">@endif</span></div>
+                        <div class="field"><span class="label">Date:</span><span class="fill">{{ $signed_date ?? '' }}</span></div>
                     </div>
                 </section>
 
@@ -181,9 +187,9 @@
                     </ol>
 
                     <div class="sign-block">
-                        <div class="field"><span class="label">اسم الموظف:</span><span class="fill">{{ $employee_name }}</span></div>
-                        <div class="field"><span class="label">التوقيع:</span><span class="fill"></span></div>
-                        <div class="field"><span class="label">التاريخ:</span><span class="fill">___ / ___ / ___</span></div>
+                        <div class="field"><span class="label">اسم الموظف:</span><span class="fill">{{ $signed_name ?? $employee_name }}</span></div>
+                        <div class="field"><span class="label">التوقيع:</span><span class="fill">@if (! empty($signature_image_url))<img src="{{ $signature_image_url }}" alt="Signature" class="signature">@endif</span></div>
+                        <div class="field"><span class="label">التاريخ:</span><span class="fill">{{ $signed_date ?? '___ / ___ / ___' }}</span></div>
                     </div>
                 </section>
             </div>

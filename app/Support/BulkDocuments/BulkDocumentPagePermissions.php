@@ -11,7 +11,8 @@ final class BulkDocumentPagePermissions
      *     generate: bool,
      *     download: bool,
      *     delete: bool,
-     *     email: bool
+     *     email: bool,
+     *     review_signatures: bool
      * }
      */
     public static function for(?User $user): array
@@ -21,6 +22,7 @@ final class BulkDocumentPagePermissions
             'download' => $user?->can('documents.download') ?? false,
             'delete' => $user?->can('bulk_documents.delete') ?? false,
             'email' => $user?->can('bulk_documents.email') ?? false,
+            'review_signatures' => $user?->can('bulk_documents.signatures.review') ?? false,
         ];
     }
 }

@@ -46,7 +46,7 @@ final class BulkDocumentRosterQuery
 
     /**
      * @param  list<int>|null  $employeeIds
-     * @return array{targeted: int, generated: int, not_generated: int}
+     * @return array{targeted: int, generated: int, not_generated: int, pending_review: int}
      */
     public static function counts(
         int $companyId,
@@ -65,10 +65,15 @@ final class BulkDocumentRosterQuery
                 ->where('document_type_id', $documentType->id);
         })->count();
 
+        $pendingReview = BulkDocumentTypeRegistry::supportsEsignature($documentTypeKey)
+            ? BulkDocumentSignatureRosterQuery::pendingReviewCount($companyId, $documentTypeKey)
+            : 0;
+
         return [
             'targeted' => $targeted,
             'generated' => $generated,
             'not_generated' => $targeted - $generated,
+            'pending_review' => $pendingReview,
         ];
     }
 
@@ -108,11 +113,16 @@ final class BulkDocumentRosterQuery
             $employeeIdList,
         );
 
+        $signatureStatusByEmployee = BulkDocumentTypeRegistry::supportsEsignature($documentTypeKey)
+            ? BulkDocumentSignatureRosterQuery::latestStatusByEmployee($companyId, $documentTypeKey, $employeeIdList)
+            : [];
+
         return $paginator->through(
             fn (Employee $employee): array => self::mapEmployee(
                 $employee,
                 $documentsByEmployee->get($employee->id),
                 $emailSentAtByEmployee->get($employee->id),
+                $signatureStatusByEmployee[$employee->id] ?? null,
             ),
         );
     }
@@ -350,10 +360,11 @@ final class BulkDocumentRosterQuery
      *     email: string|null,
      *     status: string,
      *     document: array{id: int, file_path: string, created_at: string|null}|null,
-     *     email_sent_at: string|null
+     *     email_sent_at: string|null,
+     *     signature_status: string|null
      * }
      */
-    private static function mapEmployee(Employee $employee, ?EmployeeDocument $document, ?CarbonInterface $emailSentAt = null): array
+    private static function mapEmployee(Employee $employee, ?EmployeeDocument $document, ?CarbonInterface $emailSentAt = null, ?string $signatureStatus = null): array
     {
         return [
             'id' => $employee->id,
@@ -370,6 +381,7 @@ final class BulkDocumentRosterQuery
                 'created_at' => $document->created_at?->toIso8601String(),
             ] : null,
             'email_sent_at' => $emailSentAt?->toIso8601String(),
+            'signature_status' => $signatureStatus,
         ];
     }
 }

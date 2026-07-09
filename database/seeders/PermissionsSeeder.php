@@ -25,6 +25,7 @@ class PermissionsSeeder extends Seeder
             'bulk_documents.generate',
             'bulk_documents.delete',
             'bulk_documents.email',
+            'bulk_documents.signatures.review',
             'settings.integrations.whatsapp.view',
             'settings.integrations.whatsapp.update',
             'settings.integrations.hikvision.view',

@@ -13,7 +13,7 @@ use InvalidArgumentException;
 final class BulkDocumentTypeRegistry
 {
     /**
-     * @return list<array{key: string, label: string, document_type_title: string, email_template_slug: string, renderer: class-string<RendersEmployeeDocumentPdf>}>
+     * @return list<array{key: string, label: string, document_type_title: string, email_template_slug: string, supports_esignature: bool, renderer: class-string<RendersEmployeeDocumentPdf>}>
      */
     public static function definitions(): array
     {
@@ -23,6 +23,7 @@ final class BulkDocumentTypeRegistry
                 'label' => 'Salary Declaration',
                 'document_type_title' => 'Salary Declaration',
                 'email_template_slug' => 'bulk_salary_declaration',
+                'supports_esignature' => true,
                 'renderer' => SalaryDeclarationPdfRenderer::class,
             ],
             [
@@ -30,13 +31,14 @@ final class BulkDocumentTypeRegistry
                 'label' => 'Salary Certificate',
                 'document_type_title' => 'Salary Certificate',
                 'email_template_slug' => 'bulk_salary_certificate',
+                'supports_esignature' => false,
                 'renderer' => SalaryCertificatePdfRenderer::class,
             ],
         ];
     }
 
     /**
-     * @return array{key: string, label: string, document_type_title: string, email_template_slug: string, renderer: class-string<RendersEmployeeDocumentPdf>}
+     * @return array{key: string, label: string, document_type_title: string, email_template_slug: string, supports_esignature: bool, renderer: class-string<RendersEmployeeDocumentPdf>}
      */
     public static function find(string $key): array
     {
@@ -64,6 +66,11 @@ final class BulkDocumentTypeRegistry
         $definition = self::find($key);
 
         return app($definition['renderer']);
+    }
+
+    public static function supportsEsignature(string $key): bool
+    {
+        return (bool) self::find($key)['supports_esignature'];
     }
 
     public static function resolveEmailTemplate(string $key): ?EmailTemplate
