@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Company;
+use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\User;
 use App\Services\BulkDocuments\RendersEmployeeDocumentPdf;
@@ -90,6 +92,45 @@ test('authorized user receives cached preview pdf without rendering', function (
         public function render(Employee $employee, int $companyId, ?array $signature = null, bool $showPlacementGuides = false): string
         {
             throw new RuntimeException('Renderer should not be called when cache exists.');
+        }
+    };
+
+    app()->instance(SalaryDeclarationPdfRenderer::class, $renderer);
+
+    $this->actingAs($user)
+        ->get(route('application.esign-preview', 'salary_declaration'))
+        ->assertSuccessful()
+        ->assertHeader('content-type', 'application/pdf');
+});
+
+test('authorized user receives fallback preview pdf when browsershot fails', function () {
+    $user = User::factory()->create();
+    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+
+    $company = Company::query()->where('slug', 'acme-app-settings')->firstOrFail();
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+    ]);
+
+    $documentType = DocumentType::query()->firstOrCreate(
+        ['title' => 'Salary Declaration'],
+        ['is_active' => true],
+    );
+
+    createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $documentType->id,
+        'documents/salary-declaration-preview-fallback.pdf',
+        'salary-declaration.pdf',
+    );
+
+    $renderer = new class implements RendersEmployeeDocumentPdf
+    {
+        public function render(Employee $employee, int $companyId, ?array $signature = null, bool $showPlacementGuides = false): string
+        {
+            throw new RuntimeException('Browsershot unavailable.');
         }
     };
 

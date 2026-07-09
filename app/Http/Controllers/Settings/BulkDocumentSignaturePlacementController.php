@@ -10,6 +10,7 @@ use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
 use App\Support\BulkDocuments\BulkDocumentSignaturePlacementService;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\BulkDocuments\EsignPreviewPdfCache;
+use App\Support\BulkDocuments\EsignPreviewPdfFallback;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\Process\Exception\ProcessFailedException;
@@ -91,6 +92,35 @@ class BulkDocumentSignaturePlacementController extends Controller
                 FILE_APPEND,
             );
             // #endregion
+
+            $fallbackPdf = EsignPreviewPdfFallback::resolve($companyId, $documentType);
+
+            // #region agent log
+            @file_put_contents(
+                storage_path('logs/esign-preview-debug.ndjson'),
+                json_encode([
+                    'sessionId' => 'aa4780',
+                    'location' => 'BulkDocumentSignaturePlacementController.php:preview:fallback',
+                    'message' => 'Attempted bulk document fallback preview',
+                    'data' => [
+                        'documentType' => $documentType,
+                        'companyId' => $companyId,
+                        'fallbackHit' => $fallbackPdf !== null,
+                    ],
+                    'timestamp' => (int) (microtime(true) * 1000),
+                    'hypothesisId' => 'C',
+                    'runId' => 'post-fix',
+                ]).PHP_EOL,
+                FILE_APPEND,
+            );
+            // #endregion
+
+            if ($fallbackPdf !== null) {
+                return response($fallbackPdf, 200, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="esign-preview.pdf"',
+                ]);
+            }
 
             abort(
                 503,
