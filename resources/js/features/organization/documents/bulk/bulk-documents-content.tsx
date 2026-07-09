@@ -498,6 +498,7 @@ export function BulkDocumentsContent({
                     searchInput,
                     generation_filter,
                     'roster',
+                    signature_filter,
                     { perPage: pagination.per_page },
                 ),
             );
@@ -536,6 +537,9 @@ export function BulkDocumentsContent({
     };
 
     const handleToggleAllEmployees = () => {
+        // #region agent log
+        fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'808034'},body:JSON.stringify({sessionId:'808034',runId:'pre-fix',hypothesisId:'H3',location:'bulk-documents-content.tsx:handleToggleAllEmployees',message:'toggle all clicked',data:{hadMatchingSelection:Boolean(matchingSelection),isAllSelected,selectedCount,employeeIdsCount:employeeIds.length,paginationTotal:pagination.total,currentPage:pagination.current_page},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         if (matchingSelection) {
             clearSelection();
 
@@ -648,20 +652,24 @@ export function BulkDocumentsContent({
             nextSignatureFilter: BulkSignatureFilter = signature_filter,
             page: number | null = null,
         ) => {
+            const query = buildQuery(
+                nextType,
+                nextFilters,
+                nextSearch,
+                nextGenerationFilter,
+                nextView,
+                nextSignatureFilter,
+                {
+                    page,
+                    perPage: pagination.per_page,
+                },
+            );
+            // #region agent log
+            fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'808034'},body:JSON.stringify({sessionId:'808034',runId:'post-fix',hypothesisId:'H1',location:'bulk-documents-content.tsx:navigate',message:'navigate called',data:{nextType,nextGenerationFilter,nextView,nextSignatureFilter,pageArg:page,queryPage:query.page??null,querySignatureFilter:query.signature_filter??null,queryPerPage:query.per_page,isAllSelected,selectedCount,matchingSelectionTotal:matchingSelection?.total??null,currentPage:pagination.current_page},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
             router.get(
                 BULK_URL,
-                buildQuery(
-                    nextType,
-                    nextFilters,
-                    nextSearch,
-                    nextGenerationFilter,
-                    nextView,
-                    nextSignatureFilter,
-                    {
-                        page,
-                        perPage: pagination.per_page,
-                    },
-                ),
+                query,
                 { preserveState: true, preserveScroll: true, replace: true },
             );
         },
@@ -670,8 +678,12 @@ export function BulkDocumentsContent({
             filters,
             generation_filter,
             signature_filter,
+            isAllSelected,
+            matchingSelection,
+            pagination.current_page,
             pagination.per_page,
             searchInput,
+            selectedCount,
             view,
         ],
     );
@@ -720,30 +732,39 @@ export function BulkDocumentsContent({
 
     const goToPage = useCallback(
         (page: number) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'808034'},body:JSON.stringify({sessionId:'808034',runId:'post-fix',hypothesisId:'H1',location:'bulk-documents-content.tsx:goToPage',message:'goToPage invoked',data:{requestedPage:page,currentPage:pagination.current_page,lastPage:pagination.last_page,isAllSelected,selectedCount,matchingSelectionTotal:matchingSelection?.total??null,view,signature_filter},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
             navigate(
                 document_type_key,
                 filters,
                 searchInput,
                 generation_filter,
                 view,
+                signature_filter,
                 page,
             );
         },
-        [document_type_key, filters, generation_filter, navigate, searchInput, view],
+        [document_type_key, filters, generation_filter, isAllSelected, matchingSelection, navigate, pagination.current_page, pagination.last_page, searchInput, selectedCount, signature_filter, view],
     );
 
     const setPerPage = useCallback(
         (perPage: number) => {
+            const query = buildQuery(
+                document_type_key,
+                filters,
+                searchInput,
+                generation_filter,
+                view,
+                signature_filter,
+                { perPage },
+            );
+            // #region agent log
+            fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'808034'},body:JSON.stringify({sessionId:'808034',runId:'post-fix',hypothesisId:'H4',location:'bulk-documents-content.tsx:setPerPage',message:'setPerPage invoked',data:{requestedPerPage:perPage,query,isAllSelected,selectedCount},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
             router.get(
                 BULK_URL,
-                buildQuery(
-                    document_type_key,
-                    filters,
-                    searchInput,
-                    generation_filter,
-                    view,
-                    { perPage },
-                ),
+                query,
                 { preserveState: true, preserveScroll: true, replace: true },
             );
         },
@@ -751,7 +772,10 @@ export function BulkDocumentsContent({
             document_type_key,
             filters,
             generation_filter,
+            isAllSelected,
             searchInput,
+            selectedCount,
+            signature_filter,
             view,
         ],
     );
