@@ -155,6 +155,12 @@
             margin-bottom: 10px;
         }
 
+        .sign-block .field--name .fill,
+        .sign-block .field--signature .fill,
+        .sign-block .field--date .fill {
+            border-bottom: none;
+        }
+
         .sign-block .field--signature,
         .sign-block .field--date {
             align-items: center;
@@ -162,7 +168,6 @@
 
         .sign-block .field--signature .fill,
         .sign-block .field--date .fill {
-            border-bottom: none;
             min-height: 40px;
             padding: 0;
             display: flex;
@@ -237,7 +242,7 @@
                     </ol>
 
                     <div class="sign-block">
-                        <div class="field"><span class="label">Employee Name:</span><span class="fill">{{ $signed_name ?? $employee_name }}</span></div>
+                        <div class="field field--name"><span class="label">Employee Name:</span><span class="fill">{{ $signed_name ?? $employee_name }}</span></div>
                         <div class="field field--signature"><span class="label">Signature:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">Signature (EN)</span>@elseif (! empty($signature_image_url))<img src="{{ $signature_image_url }}" alt="Signature" class="signature">@endif</span></div>
                         <div class="field field--date"><span class="label">Date:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">Date (EN)</span>@else{{ $signed_date ?? '' }}@endif</span></div>
                     </div>
@@ -267,7 +272,7 @@
                     </ol>
 
                     <div class="sign-block">
-                        <div class="field"><span class="label">اسم الموظف:</span><span class="fill">{{ $signed_name ?? $employee_name }}</span></div>
+                        <div class="field field--name"><span class="label">اسم الموظف:</span><span class="fill">{{ $signed_name ?? $employee_name }}</span></div>
                         <div class="field field--signature"><span class="label">التوقيع:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">التوقيع (عربي)</span>@elseif (! empty($signature_image_url))<img src="{{ $signature_image_url }}" alt="Signature" class="signature">@endif</span></div>
                         <div class="field field--date"><span class="label">التاريخ:</span><span class="fill">@if ($show_placement_guides ?? false)<span class="placement-guide">التاريخ (عربي)</span>@else{{ $signed_date ?? '' }}@endif</span></div>
                     </div>

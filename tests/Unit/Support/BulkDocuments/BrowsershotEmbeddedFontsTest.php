@@ -30,6 +30,7 @@ test('salary declaration pdf renderer view includes embedded font styles', funct
         ->toContain('padding-left: 5mm')
         ->toContain('.col.ar {')
         ->toContain('padding-right: 5mm')
+        ->toContain('.sign-block .field--name .fill')
         ->toContain('.sign-block .field--signature .fill')
         ->toContain('border-bottom: none')
         ->toContain('DejaVu Serif')
