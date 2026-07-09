@@ -31,10 +31,10 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import type { SignaturePlacementConfig } from '@/features/settings/esign-placement/esign-placement-coordinates';
+import { EsignPlacementPanel } from '@/features/settings/esign-placement/esign-placement-panel';
 import { HikvisionSettingsPanel } from '@/features/settings/hikvision-settings-panel';
 import type { HikvisionSettingsPanelProps } from '@/features/settings/hikvision-settings-panel';
-import { EsignPlacementPanel } from '@/features/settings/esign-placement/esign-placement-panel';
-import type { SignaturePlacementConfig } from '@/features/settings/esign-placement/esign-placement-coordinates';
 import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
 import { WhatsAppSettingsPanel } from '@/features/settings/whatsapp-settings-panel';
 import type { WhatsAppSettingsPanelProps } from '@/features/settings/whatsapp-settings-panel';

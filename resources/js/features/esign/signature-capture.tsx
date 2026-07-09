@@ -52,6 +52,7 @@ export function SignatureCapture({
 
         if (!isAllowedSignatureImage(file)) {
             setUploadError('Please choose a PNG, JPG, or WebP image.');
+
             return;
         }
 

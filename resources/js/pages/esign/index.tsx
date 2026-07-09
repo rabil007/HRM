@@ -33,8 +33,14 @@ function stepState(
     step: WizardStep,
     current: WizardStep,
 ): 'done' | 'current' | 'todo' {
-    if (step < current) return 'done';
-    if (step === current) return 'current';
+    if (step < current) {
+return 'done';
+}
+
+    if (step === current) {
+return 'current';
+}
+
     return 'todo';
 }
 
@@ -64,9 +70,16 @@ export default function DocumentEsignPage({
     const canSubmit = hasSignature && consent;
 
     const expiryLabel = useMemo(() => {
-        if (!expiresAt) return null;
+        if (!expiresAt) {
+return null;
+}
+
         const date = new Date(expiresAt);
-        if (Number.isNaN(date.getTime())) return null;
+
+        if (Number.isNaN(date.getTime())) {
+return null;
+}
+
         return date.toLocaleDateString('en-GB', {
             day: '2-digit',
             month: 'short',
@@ -75,13 +88,27 @@ export default function DocumentEsignPage({
     }, [expiresAt]);
 
     const goNext = () => {
-        if (step === 1) { setStep(2); return; }
-        if (step === 2 && hasSignature) setStep(3);
+        if (step === 1) {
+ setStep(2);
+
+ return; 
+}
+
+        if (step === 2 && hasSignature) {
+setStep(3);
+}
     };
 
     const goBack = () => {
-        if (step === 2) { setStep(1); return; }
-        if (step === 3) setStep(2);
+        if (step === 2) {
+ setStep(1);
+
+ return; 
+}
+
+        if (step === 3) {
+setStep(2);
+}
     };
 
     if (alreadySubmitted) {
@@ -124,6 +151,7 @@ export default function DocumentEsignPage({
                     <div className="flex shrink-0 items-center gap-0">
                         {STEPS.map((item, idx) => {
                             const state = stepState(item.id, step);
+
                             return (
                                 <div key={item.id} className="flex items-center">
                                     {idx > 0 ? (
@@ -183,6 +211,7 @@ export default function DocumentEsignPage({
                         <div className="mt-4 flex items-center gap-1.5">
                             {STEPS.map((item, idx) => {
                                 const state = stepState(item.id, step);
+
                                 return (
                                     <div key={item.id} className="flex flex-1 items-center gap-1.5">
                                         {idx > 0 ? (
@@ -240,7 +269,9 @@ export default function DocumentEsignPage({
                         method="post"
                         className="sm:space-y-4"
                         onSubmit={(event) => {
-                            if (step !== 3 || !canSubmit) event.preventDefault();
+                            if (step !== 3 || !canSubmit) {
+event.preventDefault();
+}
                         }}
                     >
                         {({ processing }) => (

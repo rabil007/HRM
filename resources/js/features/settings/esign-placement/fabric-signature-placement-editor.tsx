@@ -2,13 +2,14 @@ import { Canvas, FabricImage, FabricText, Rect } from 'fabric';
 import { Eye, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { EsignPlacementSamplePreviewDialog } from '@/features/settings/esign-placement/esign-placement-sample-preview-dialog';
 import {
-    editorRectsFromConfig,
-    type EditorPlacementRects,
-    type EditorRect,
-    type SignaturePlacementConfig,
+    editorRectsFromConfig
+    
+    
+    
 } from '@/features/settings/esign-placement/esign-placement-coordinates';
+import type {EditorPlacementRects, EditorRect, SignaturePlacementConfig} from '@/features/settings/esign-placement/esign-placement-coordinates';
+import { EsignPlacementSamplePreviewDialog } from '@/features/settings/esign-placement/esign-placement-sample-preview-dialog';
 import { getPdfJs } from '@/lib/pdfjs';
 
 type Props = {

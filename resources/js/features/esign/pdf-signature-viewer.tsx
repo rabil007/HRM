@@ -1,12 +1,13 @@
-import { CheckCircle2, FileText, Loader2, PenLine } from 'lucide-react';
+import { CheckCircle2, FileText, PenLine } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatSignedDate } from '@/features/esign/format-signed-date';
 import { SignatureCapture } from '@/features/esign/signature-capture';
 import {
-    placementPercentOverlaysFromConfig,
-    type SignaturePlacementConfig,
+    placementPercentOverlaysFromConfig
+    
 } from '@/features/settings/esign-placement/esign-placement-coordinates';
+import type {SignaturePlacementConfig} from '@/features/settings/esign-placement/esign-placement-coordinates';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getPdfJs } from '@/lib/pdfjs';
 import { cn } from '@/lib/utils';

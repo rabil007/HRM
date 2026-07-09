@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { FabricSignaturePlacementEditor } from '@/features/settings/esign-placement/fabric-signature-placement-editor';
-import type {
-    EditorRect,
-    SignaturePlacementConfig,
-} from '@/features/settings/esign-placement/esign-placement-coordinates';
 import {
     resetSignaturePlacement,
     saveSignaturePlacement,
 } from '@/features/settings/esign-placement/esign-placement-api';
-import { esignPreview } from '@/routes/application';
+import type {
+    EditorRect,
+    SignaturePlacementConfig,
+} from '@/features/settings/esign-placement/esign-placement-coordinates';
+import { FabricSignaturePlacementEditor } from '@/features/settings/esign-placement/fabric-signature-placement-editor';
 import { toast } from '@/lib/toast';
+import { esignPreview } from '@/routes/application';
 
 type Props = {
     documentType: string;
@@ -45,8 +45,15 @@ export function EsignPlacementPanel({
     }) => {
         setIsSaving(true);
 
+        // #region agent log
+        fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1787de'},body:JSON.stringify({sessionId:'1787de',runId:'post-fix',hypothesisId:'C',location:'esign-placement-panel.tsx:handleSave',message:'frontend save payload rects',data:{signature:payload.signature,date:payload.date,signature_ar:payload.signature_ar,date_ar:payload.date_ar,canvas_width:payload.canvas_width,canvas_height:payload.canvas_height},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+
         try {
             const result = await saveSignaturePlacement(documentType, payload);
+            // #region agent log
+            fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1787de'},body:JSON.stringify({sessionId:'1787de',runId:'post-fix',hypothesisId:'D',location:'esign-placement-panel.tsx:handleSave:response',message:'save response placement stamps',data:{overlay:result.placement.overlay,stamps:result.placement.stamps,payload_ar_top:payload.signature_ar.top,stamp_ar_y:result.placement.stamps[1]?.y,stamp_en_y:result.placement.stamps[0]?.y},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
             toast.success(result.message);
             onPlacementChange(result.placement);
         } catch (error) {

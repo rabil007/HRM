@@ -1,5 +1,5 @@
-import { destroy, update } from '@/routes/application/esign-placement';
 import type { SignaturePlacementConfig } from '@/features/settings/esign-placement/esign-placement-coordinates';
+import { destroy, update } from '@/routes/application/esign-placement';
 
 function csrfToken(): string {
     return (

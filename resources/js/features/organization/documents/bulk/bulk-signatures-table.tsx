@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { Download, FileUp, Loader2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -21,13 +21,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
     TableBody,
     TableCell,
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import { SignatureStatusBadge } from '@/features/organization/documents/bulk/signature-status-badge';
 import type { BulkSignatureRequest } from '@/features/organization/documents/bulk/types';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
@@ -69,16 +69,22 @@ export function SignatureReviewDialog({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
-        if (!open) {
-            setRejectReason('');
-            setIsSubmitting(false);
+    const resetDialogState = () => {
+        setRejectReason('');
+        setIsSubmitting(false);
 
-            if (fileInputRef.current) {
-                fileInputRef.current.value = '';
-            }
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
         }
-    }, [open]);
+    };
+
+    const handleOpenChange = (nextOpen: boolean) => {
+        if (!nextOpen) {
+            resetDialogState();
+        }
+
+        onOpenChange(nextOpen);
+    };
 
     if (!request) {
         return null;
@@ -103,7 +109,7 @@ export function SignatureReviewDialog({
                 preserveScroll: true,
                 onFinish: () => {
                     setIsSubmitting(false);
-                    onOpenChange(false);
+                    handleOpenChange(false);
                 },
             },
         );
@@ -122,8 +128,7 @@ export function SignatureReviewDialog({
                 preserveScroll: true,
                 onFinish: () => {
                     setIsSubmitting(false);
-                    setRejectReason('');
-                    onOpenChange(false);
+                    handleOpenChange(false);
                 },
             },
         );
@@ -142,14 +147,14 @@ export function SignatureReviewDialog({
                 forceFormData: true,
                 onFinish: () => {
                     setIsSubmitting(false);
-                    onOpenChange(false);
+                    handleOpenChange(false);
                 },
             },
         );
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="max-w-lg gap-0 overflow-hidden p-0">
                 <DialogHeader className="space-y-4 border-b border-border/80 px-6 py-5">
                     <div className="flex items-start gap-3">
@@ -286,7 +291,7 @@ export function SignatureReviewDialog({
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={() => onOpenChange(false)}
+                        onClick={() => handleOpenChange(false)}
                         disabled={isSubmitting}
                     >
                         Close
