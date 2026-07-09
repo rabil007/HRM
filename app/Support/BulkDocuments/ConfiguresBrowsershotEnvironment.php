@@ -15,9 +15,19 @@ final class ConfiguresBrowsershotEnvironment
             mkdir($cacheDir, 0755, true);
         }
 
+        $homeDir = $cacheDir.'/home';
+
+        if (! is_dir($homeDir)) {
+            mkdir($homeDir, 0755, true);
+        }
+
         putenv("PUPPETEER_CACHE_DIR={$cacheDir}");
         $_ENV['PUPPETEER_CACHE_DIR'] = $cacheDir;
         $_SERVER['PUPPETEER_CACHE_DIR'] = $cacheDir;
+
+        putenv("HOME={$homeDir}");
+        $_ENV['HOME'] = $homeDir;
+        $_SERVER['HOME'] = $homeDir;
 
         return $cacheDir;
     }

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Support\BulkDocuments\ConfiguresBrowsershotEnvironment;
+use App\Support\BulkDocuments\EnsuresBrowsershotChromePermissions;
 use App\Support\BulkDocuments\ResolvesBrowsershotBinaries;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
@@ -48,6 +49,8 @@ class InstallBrowsershotCommand extends Command
 
             return self::FAILURE;
         }
+
+        EnsuresBrowsershotChromePermissions::apply($cacheDir);
 
         $this->components->info('Browsershot chrome-headless-shell installed successfully.');
 

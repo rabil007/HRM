@@ -11,6 +11,8 @@ use App\Support\BulkDocuments\BulkDocumentSignaturePlacementService;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
+use Symfony\Component\Process\Exception\ProcessFailedException;
+use Throwable;
 
 class BulkDocumentSignaturePlacementController extends Controller
 {
@@ -27,12 +29,37 @@ class BulkDocumentSignaturePlacementController extends Controller
         $employee = $this->resolvePreviewEmployee($companyId);
         $showGuides = request()->boolean('guides', true);
 
-        $pdf = app(SalaryDeclarationPdfRenderer::class)->render(
-            $employee,
-            $companyId,
-            null,
-            $showGuides,
-        );
+        try {
+            $pdf = app(SalaryDeclarationPdfRenderer::class)->render(
+                $employee,
+                $companyId,
+                null,
+                $showGuides,
+            );
+        } catch (ProcessFailedException|Throwable $exception) {
+            // #region agent log
+            file_put_contents(
+                base_path('.cursor/debug-9313b6.log'),
+                json_encode([
+                    'sessionId' => '9313b6',
+                    'location' => 'BulkDocumentSignaturePlacementController.php:preview',
+                    'message' => 'E-sign preview PDF generation failed',
+                    'data' => [
+                        'error' => $exception->getMessage(),
+                        'documentType' => $documentType,
+                    ],
+                    'timestamp' => (int) (microtime(true) * 1000),
+                    'hypothesisId' => 'A',
+                ]).PHP_EOL,
+                FILE_APPEND,
+            );
+            // #endregion
+
+            abort(
+                503,
+                'PDF preview is unavailable on this server. SSH in and run: php artisan browsershot:doctor',
+            );
+        }
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
