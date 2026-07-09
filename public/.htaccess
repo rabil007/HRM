@@ -3,6 +3,10 @@
         Options -MultiViews -Indexes
     </IfModule>
 
+    <IfModule mod_mime.c>
+        AddType application/javascript .mjs
+    </IfModule>
+
     RewriteEngine On
 
     # Handle Authorization Header

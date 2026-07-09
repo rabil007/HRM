@@ -3,7 +3,28 @@ import { wayfinder } from '@laravel/vite-plugin-wayfinder';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
-import { defineConfig } from 'vite';
+import { cpSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { defineConfig, type Plugin } from 'vite';
+
+const pdfWorkerSource = resolve('node_modules/pdfjs-dist/build/pdf.worker.min.mjs');
+const pdfWorkerDest = resolve('public/pdf.worker.min.js');
+
+function copyPdfWorker(): Plugin {
+    const copy = (): void => {
+        cpSync(pdfWorkerSource, pdfWorkerDest);
+    };
+
+    return {
+        name: 'copy-pdf-worker',
+        buildStart() {
+            copy();
+        },
+        configureServer() {
+            copy();
+        },
+    };
+}
 
 export default defineConfig({
     server: {
@@ -24,6 +45,7 @@ export default defineConfig({
         },
     },
     plugins: [
+        copyPdfWorker(),
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
             refresh: true,
