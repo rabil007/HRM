@@ -72,6 +72,31 @@ test('save and resolve round-trip custom placement', function () {
         ->toBe($config);
 });
 
+test('fromEditorRects mirrors arabic row positions from english even when editor sends different tops', function () {
+    $service = app(BulkDocumentSignaturePlacementService::class);
+    $rects = sampleEditorRects();
+
+    $rects['signature_ar']['top'] = 300.0;
+    $rects['date_ar']['top'] = 400.0;
+
+    $config = $service->fromEditorRects(
+        signature: $rects['signature'],
+        date: $rects['date'],
+        signatureAr: $rects['signature_ar'],
+        dateAr: $rects['date_ar'],
+        canvasWidth: 800,
+        canvasHeight: 1131,
+    );
+
+    $enImage = $config['stamps'][0];
+    $arImage = $config['stamps'][1];
+    $enDate = $config['stamps'][2];
+    $arDate = $config['stamps'][3];
+
+    expect($arImage['y'])->toBe($enImage['y'])
+        ->and($arDate['y'])->toBe($enDate['y']);
+});
+
 test('fromEditorRects stores explicit english and arabic stamp positions', function () {
     $service = app(BulkDocumentSignaturePlacementService::class);
     $rects = sampleEditorRects();
@@ -109,7 +134,7 @@ test('fromEditorRects stores explicit english and arabic stamp positions', funct
         ->and($arImage['w'])->toBe($enImage['w'])
         ->and($arImage['h'])->toBe($enImage['h']);
 
-    expect($arDate['x'])->toBe(126.0)
+    expect($arDate['x'])->toBe(157.5)
         ->and($arDate['y'])->toBe($enDate['y']);
 });
 
@@ -130,7 +155,7 @@ test('editorRectsFromConfig restores all four placement boxes', function () {
 
     expect($restored['signature']['left'])->toBe(40.0)
         ->and($restored['signature_ar']['left'])->toBe(480.0)
-        ->and($restored['date_ar']['left'])->toBe(480.0);
+        ->and($restored['date_ar']['left'])->toBe(600.0);
 });
 
 test('reset restores defaults', function () {
@@ -154,6 +179,28 @@ test('reset restores defaults', function () {
     expect(app(SettingService::class)->get(SettingKey::BulkDocumentSignaturePlacementSalaryDeclaration))->toBeNull()
         ->and($service->resolve(SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY))
         ->toBe(SalaryDeclarationSignaturePlacements::config());
+});
+
+test('resolve aligns legacy arabic date row when y is offset from english', function () {
+    $service = app(BulkDocumentSignaturePlacementService::class);
+    $rects = sampleEditorRects();
+
+    $config = $service->fromEditorRects(
+        signature: $rects['signature'],
+        date: $rects['date'],
+        signatureAr: $rects['signature_ar'],
+        dateAr: $rects['date_ar'],
+        canvasWidth: 800,
+        canvasHeight: 1131,
+    );
+
+    $config['stamps'][3]['y'] = 175.68;
+
+    $service->save(SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY, $config);
+
+    $resolved = $service->resolve(SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY);
+
+    expect($resolved['stamps'][3]['y'])->toBe($config['stamps'][2]['y']);
 });
 
 test('bulk document type registry resolves saved placement', function () {

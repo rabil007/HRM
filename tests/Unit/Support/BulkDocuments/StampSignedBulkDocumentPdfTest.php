@@ -39,7 +39,7 @@ function createStampTestDocument(Company $company, Employee $employee): Employee
     ]);
 }
 
-test('stamp signed bulk document pdf re-renders template with signature', function () {
+test('stamp signed bulk document pdf stamps placements onto source document', function () {
     $fixtures = makeDocumentFixtures();
     $company = $fixtures['company'];
     $employee = $fixtures['employee'];
@@ -51,6 +51,62 @@ test('stamp signed bulk document pdf re-renders template with signature', functi
         'employee_document_id' => $document->id,
         'document_type_key' => 'salary_declaration',
         'token' => str_repeat('a', 48),
+        'status' => 'awaiting_signature',
+        'expires_at' => now()->addDays(14),
+    ]);
+
+    $renderer = new class implements RendersEmployeeDocumentPdf
+    {
+        public bool $called = false;
+
+        public function render(Employee $employee, int $companyId, ?array $signature = null, bool $showPlacementGuides = false): string
+        {
+            $this->called = true;
+
+            return '%PDF-1.4 signed-with-template';
+        }
+    };
+
+    app()->instance(SalaryDeclarationPdfRenderer::class, $renderer);
+
+    $signatureData = 'data:image/png;base64,'.base64_encode(minimalSignaturePngBytes());
+
+    $output = app(StampSignedBulkDocumentPdf::class)->handle($request, [
+        'signed_name' => $employee->name,
+        'signature_data' => $signatureData,
+        'consent' => true,
+    ]);
+
+    expect($renderer->called)->toBeFalse()
+        ->and(strlen($output))->toBeGreaterThan(strlen(minimalPdfBytes()));
+
+    $tempPath = tempnam(sys_get_temp_dir(), 'stamped_pdf_');
+    expect($tempPath)->not->toBeFalse();
+    file_put_contents($tempPath, $output);
+
+    $pdf = new Fpdi;
+    expect($pdf->setSourceFile($tempPath))->toBe(1);
+
+    @unlink($tempPath);
+});
+
+test('stamp signed bulk document pdf falls back to renderer when source stamp fails', function () {
+    $fixtures = makeDocumentFixtures();
+    $company = $fixtures['company'];
+    $employee = $fixtures['employee'];
+    $document = createStampTestDocument($company, $employee);
+
+    Storage::disk('public')->put(
+        (string) $document->file_path,
+        '%PDF-1.4 corrupt-source',
+    );
+
+    $request = BulkDocumentSignatureRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_document_id' => $document->id,
+        'document_type_key' => 'salary_declaration',
+        'token' => str_repeat('b', 48),
         'status' => 'awaiting_signature',
         'expires_at' => now()->addDays(14),
     ]);
@@ -86,52 +142,6 @@ test('stamp signed bulk document pdf re-renders template with signature', functi
         ->and($renderer->capturedSignature['signed_date'] ?? null)->not->toBeNull();
 });
 
-test('stamp signed bulk document pdf falls back to source stamp when renderer fails', function () {
-    $fixtures = makeDocumentFixtures();
-    $company = $fixtures['company'];
-    $employee = $fixtures['employee'];
-    $document = createStampTestDocument($company, $employee);
-
-    $request = BulkDocumentSignatureRequest::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'employee_document_id' => $document->id,
-        'document_type_key' => 'salary_declaration',
-        'token' => str_repeat('b', 48),
-        'status' => 'awaiting_signature',
-        'expires_at' => now()->addDays(14),
-    ]);
-
-    $renderer = new class implements RendersEmployeeDocumentPdf
-    {
-        public function render(Employee $employee, int $companyId, ?array $signature = null, bool $showPlacementGuides = false): string
-        {
-            throw new RuntimeException('Browsershot unavailable');
-        }
-    };
-
-    app()->instance(SalaryDeclarationPdfRenderer::class, $renderer);
-
-    $signatureData = 'data:image/png;base64,'.base64_encode(minimalSignaturePngBytes());
-
-    $output = app(StampSignedBulkDocumentPdf::class)->handle($request, [
-        'signed_name' => $employee->name,
-        'signature_data' => $signatureData,
-        'consent' => true,
-    ]);
-
-    expect(strlen($output))->toBeGreaterThan(strlen(minimalPdfBytes()));
-
-    $tempPath = tempnam(sys_get_temp_dir(), 'stamped_pdf_');
-    expect($tempPath)->not->toBeFalse();
-    file_put_contents($tempPath, $output);
-
-    $pdf = new Fpdi;
-    expect($pdf->setSourceFile($tempPath))->toBe(1);
-
-    @unlink($tempPath);
-});
-
 test('stamp signed bulk document pdf rejects invalid signature image', function () {
     $fixtures = makeDocumentFixtures();
     $company = $fixtures['company'];
@@ -143,7 +153,7 @@ test('stamp signed bulk document pdf rejects invalid signature image', function 
         'employee_id' => $employee->id,
         'employee_document_id' => $document->id,
         'document_type_key' => 'salary_declaration',
-        'token' => str_repeat('a', 48),
+        'token' => str_repeat('b', 48),
         'status' => 'awaiting_signature',
         'expires_at' => now()->addDays(14),
     ]);

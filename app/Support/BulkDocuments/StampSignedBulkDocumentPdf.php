@@ -39,8 +39,35 @@ final class StampSignedBulkDocumentPdf
         [$signatureBinary, $imageType] = $this->decodeSignatureImage($data['signature_data']);
         $signedDate = now()->format('d M Y');
 
+        if ($this->canStampOntoSourcePdf($request)) {
+            try {
+                $pdf = $this->stampOntoSourcePdf($request, $signatureBinary, $imageType, $signedDate);
+
+                // #region agent log
+                $this->debugLog('placement_stamp_succeeded', 'H5', [
+                    'document_type_key' => $request->document_type_key,
+                    'signed_date' => $signedDate,
+                    'pdf_bytes' => strlen($pdf),
+                    'placements' => BulkDocumentTypeRegistry::resolveSignaturePlacements($request->document_type_key),
+                ]);
+                // #endregion
+
+                return $pdf;
+            } catch (CrossReferenceException|PdfParserException|FpdiException $exception) {
+                report($exception);
+
+                // #region agent log
+                $this->debugLog('placement_stamp_failed_using_renderer', 'H5', [
+                    'document_type_key' => $request->document_type_key,
+                    'exception_class' => $exception::class,
+                    'exception_message' => $exception->getMessage(),
+                ]);
+                // #endregion
+            }
+        }
+
         try {
-            return BulkDocumentTypeRegistry::resolveRenderer($request->document_type_key)->render(
+            $pdf = BulkDocumentTypeRegistry::resolveRenderer($request->document_type_key)->render(
                 $employee,
                 $request->company_id,
                 [
@@ -49,11 +76,46 @@ final class StampSignedBulkDocumentPdf
                     'signed_date' => $signedDate,
                 ],
             );
+
+            // #region agent log
+            $this->debugLog('renderer_path_succeeded', 'H2', [
+                'document_type_key' => $request->document_type_key,
+                'signed_date' => $signedDate,
+                'pdf_bytes' => strlen($pdf),
+            ]);
+            // #endregion
+
+            return $pdf;
         } catch (ProcessFailedException|Throwable $exception) {
             report($exception);
 
-            return $this->stampOntoSourcePdf($request, $signatureBinary, $imageType, $signedDate);
+            // #region agent log
+            $this->debugLog('renderer_failed_no_signed_pdf', 'H2', [
+                'document_type_key' => $request->document_type_key,
+                'exception_class' => $exception::class,
+                'exception_message' => $exception->getMessage(),
+            ]);
+            // #endregion
+
+            throw ValidationException::withMessages([
+                'signature_data' => 'Unable to produce signed PDF. Please try again.',
+            ]);
         }
+    }
+
+    private function canStampOntoSourcePdf(BulkDocumentSignatureRequest $request): bool
+    {
+        if (BulkDocumentTypeRegistry::resolveSignaturePlacements($request->document_type_key) === null) {
+            return false;
+        }
+
+        $document = $request->employeeDocument;
+
+        if ($document === null || $document->file_path === null) {
+            return false;
+        }
+
+        return Storage::disk('public')->exists($document->file_path);
     }
 
     private function stampOntoSourcePdf(
@@ -89,12 +151,6 @@ final class StampSignedBulkDocumentPdf
 
         try {
             return $this->stamp($sourcePath, $signatureTempPath, $imageType, $signedDate, $placements);
-        } catch (CrossReferenceException|PdfParserException|FpdiException $exception) {
-            report($exception);
-
-            throw ValidationException::withMessages([
-                'signature_data' => 'Unable to produce signed PDF. Please try again.',
-            ]);
         } finally {
             @unlink($signatureTempPath);
         }
@@ -145,13 +201,50 @@ final class StampSignedBulkDocumentPdf
             }
 
             if ($stamp['type'] === 'date') {
+                $boxHeight = (float) ($stamp['h'] ?? 6.0);
+                $textTop = $stamp['y'] - $boxHeight;
+
+                // #region agent log
+                $this->debugLog('stamping_date', 'H1', [
+                    'stamp_x' => $stamp['x'],
+                    'stamp_y_bottom' => $stamp['y'],
+                    'box_height_mm' => $boxHeight,
+                    'text_top' => $textTop,
+                ]);
+                // #endregion
+
                 $pdf->SetFont('Helvetica', '', 10);
-                $pdf->SetXY($stamp['x'], $stamp['y'] - 3.5);
-                $pdf->Cell(40, 5, $signedDate, 0, 0, 'L');
+                $pdf->SetXY($stamp['x'], $textTop);
+                $pdf->Cell(40, $boxHeight, $signedDate, 0, 0, 'L');
             }
         }
 
         return $pdf->Output('S');
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function debugLog(string $message, string $hypothesisId, array $data): void
+    {
+        $payload = json_encode([
+            'sessionId' => 'f9eedb',
+            'runId' => 'post-fix',
+            'hypothesisId' => $hypothesisId,
+            'location' => 'StampSignedBulkDocumentPdf.php',
+            'message' => $message,
+            'data' => $data,
+            'timestamp' => (int) (microtime(true) * 1000),
+        ], JSON_UNESCAPED_SLASHES);
+
+        if ($payload === false) {
+            return;
+        }
+
+        $line = $payload."\n";
+
+        @file_put_contents(base_path('.cursor/debug-f9eedb.log'), $line, FILE_APPEND);
+        @file_put_contents(storage_path('logs/debug-f9eedb.log'), $line, FILE_APPEND);
     }
 
     /**
