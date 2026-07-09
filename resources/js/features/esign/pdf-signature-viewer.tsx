@@ -7,6 +7,7 @@ import {
     placementPercentOverlaysFromConfig,
     type SignaturePlacementConfig,
 } from '@/features/settings/esign-placement/esign-placement-coordinates';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { getPdfJs } from '@/lib/pdfjs';
 
 export type SignatureOverlayRect = {
@@ -23,13 +24,16 @@ type Props = {
     onSignatureChange: (dataUrl: string | null) => void;
 };
 
+const MOBILE_PDF_MIN_WIDTH = 720;
+
 export function PdfSignatureViewer({
     pdfUrl,
     page = 1,
     placement,
     onSignatureChange,
 }: Props) {
-    const containerRef = useRef<HTMLDivElement>(null);
+    const isMobile = useIsMobile();
+    const viewportRef = useRef<HTMLDivElement>(null);
     const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -37,6 +41,7 @@ export function PdfSignatureViewer({
     const [signaturePreview, setSignaturePreview] = useState<string | null>(
         null,
     );
+    const [renderWidth, setRenderWidth] = useState(0);
 
     const overlays = useMemo(
         () => placementPercentOverlaysFromConfig(placement),
@@ -45,6 +50,39 @@ export function PdfSignatureViewer({
     const signedDate = formatSignedDate();
 
     useEffect(() => {
+        const viewport = viewportRef.current;
+
+        if (!viewport) {
+            return;
+        }
+
+        const updateWidth = () => {
+            const available = viewport.clientWidth;
+
+            if (available <= 0) {
+                return;
+            }
+
+            setRenderWidth(
+                isMobile
+                    ? Math.max(available, MOBILE_PDF_MIN_WIDTH)
+                    : available,
+            );
+        };
+
+        updateWidth();
+
+        const observer = new ResizeObserver(updateWidth);
+        observer.observe(viewport);
+
+        return () => observer.disconnect();
+    }, [isMobile]);
+
+    useEffect(() => {
+        if (renderWidth <= 0) {
+            return;
+        }
+
         let cancelled = false;
 
         const render = async () => {
@@ -62,15 +100,14 @@ export function PdfSignatureViewer({
                 const pdfjs = await getPdfJs();
                 const pdf = await pdfjs.getDocument({ data }).promise;
                 const pdfPage = await pdf.getPage(page);
-                const container = containerRef.current;
                 const canvas = pdfCanvasRef.current;
 
-                if (!container || !canvas || cancelled) {
+                if (!canvas || cancelled) {
                     return;
                 }
 
                 const baseViewport = pdfPage.getViewport({ scale: 1 });
-                const scale = container.clientWidth / baseViewport.width;
+                const scale = renderWidth / baseViewport.width;
                 const viewport = pdfPage.getViewport({ scale });
                 const context = canvas.getContext('2d');
 
@@ -107,7 +144,7 @@ export function PdfSignatureViewer({
         return () => {
             cancelled = true;
         };
-    }, [page, pdfUrl]);
+    }, [page, pdfUrl, renderWidth]);
 
     const handleSignatureChange = (dataUrl: string | null) => {
         setSignaturePreview(dataUrl);
@@ -121,99 +158,163 @@ export function PdfSignatureViewer({
     };
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-4">
+            {isMobile ? (
+                <p className="text-sm text-muted-foreground">
+                    Scroll the document to review it, then sign in the large pad
+                    below. Today&apos;s date ({signedDate}) is applied
+                    automatically.
+                </p>
+            ) : null}
+
             <div
-                ref={containerRef}
-                className="relative w-full overflow-hidden rounded-lg border bg-muted/20"
+                ref={viewportRef}
+                className={
+                    isMobile
+                        ? 'max-h-[55svh] w-full overflow-auto overscroll-contain rounded-lg border bg-muted/20 touch-pan-x touch-pan-y'
+                        : 'w-full'
+                }
             >
-                {isLoading ? (
-                    <div className="absolute inset-0 z-10 flex min-h-[420px] items-center justify-center bg-muted/20">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    </div>
-                ) : null}
-
-                {error ? (
-                    <div className="flex min-h-[200px] items-center justify-center p-6 text-center text-sm text-destructive">
-                        {error}
-                    </div>
-                ) : null}
-
-                <canvas
-                    ref={pdfCanvasRef}
+                <div
                     className={
-                        error
-                            ? 'hidden'
-                            : isLoading
-                              ? 'invisible block h-auto w-full'
-                              : 'block h-auto w-full'
+                        isMobile
+                            ? 'relative bg-muted/20'
+                            : 'relative w-full overflow-hidden rounded-lg border bg-muted/20'
                     }
-                />
-
-                {!isLoading && !error ? (
-                    <>
-                        <div
-                            className="pointer-events-none absolute flex items-center px-1 text-sm font-semibold text-[#1a1a1a]"
-                            style={{
-                                left: overlays.date.left,
-                                top: overlays.date.top,
-                                width: overlays.date.width,
-                                height: overlays.date.height,
-                            }}
-                        >
-                            {signedDate}
+                    style={
+                        isMobile && renderWidth > 0
+                            ? { width: renderWidth }
+                            : undefined
+                    }
+                >
+                    {isLoading ? (
+                        <div className="absolute inset-0 z-10 flex min-h-[280px] items-center justify-center bg-muted/20 sm:min-h-[420px]">
+                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                         </div>
+                    ) : null}
 
-                        <div
-                            className="pointer-events-none absolute flex items-center px-1 text-sm font-semibold text-[#1a1a1a]"
-                            style={{
-                                left: overlays.date_ar.left,
-                                top: overlays.date_ar.top,
-                                width: overlays.date_ar.width,
-                                height: overlays.date_ar.height,
-                            }}
-                        >
-                            {signedDate}
+                    {error ? (
+                        <div className="flex min-h-[200px] items-center justify-center p-6 text-center text-sm text-destructive">
+                            {error}
                         </div>
+                    ) : null}
 
-                        <div
-                            className="absolute border-2 border-dashed border-primary/60 bg-primary/5"
-                            style={{
-                                left: overlays.signature.left,
-                                top: overlays.signature.top,
-                                width: overlays.signature.width,
-                                height: overlays.signature.height,
-                            }}
-                        >
-                            <SignaturePad
-                                key={clearToken}
-                                fill
-                                onChange={handleSignatureChange}
-                                className="h-full"
-                            />
-                        </div>
+                    <canvas
+                        ref={pdfCanvasRef}
+                        className={
+                            error
+                                ? 'hidden'
+                                : isLoading
+                                  ? 'invisible block h-auto w-full'
+                                  : 'block h-auto w-full'
+                        }
+                    />
 
-                        <div
-                            className="pointer-events-none absolute overflow-hidden border border-dashed border-muted-foreground/50 bg-background/40"
-                            style={{
-                                left: overlays.signature_ar.left,
-                                top: overlays.signature_ar.top,
-                                width: overlays.signature_ar.width,
-                                height: overlays.signature_ar.height,
-                            }}
-                        >
-                            {signaturePreview ? (
-                                <img
-                                    src={signaturePreview}
-                                    alt="Arabic signature preview"
-                                    className="h-full w-full object-contain p-1"
-                                />
-                            ) : null}
-                        </div>
-                    </>
-                ) : null}
+                    {!isLoading && !error ? (
+                        <>
+                            <div
+                                className="pointer-events-none absolute flex items-center px-1 text-sm font-semibold text-[#1a1a1a]"
+                                style={{
+                                    left: overlays.date.left,
+                                    top: overlays.date.top,
+                                    width: overlays.date.width,
+                                    height: overlays.date.height,
+                                }}
+                            >
+                                {signedDate}
+                            </div>
+
+                            <div
+                                className="pointer-events-none absolute flex items-center px-1 text-sm font-semibold text-[#1a1a1a]"
+                                style={{
+                                    left: overlays.date_ar.left,
+                                    top: overlays.date_ar.top,
+                                    width: overlays.date_ar.width,
+                                    height: overlays.date_ar.height,
+                                }}
+                            >
+                                {signedDate}
+                            </div>
+
+                            <div
+                                className={
+                                    isMobile
+                                        ? 'pointer-events-none absolute overflow-hidden border-2 border-dashed border-primary/60 bg-primary/5'
+                                        : 'absolute border-2 border-dashed border-primary/60 bg-primary/5'
+                                }
+                                style={{
+                                    left: overlays.signature.left,
+                                    top: overlays.signature.top,
+                                    width: overlays.signature.width,
+                                    height: overlays.signature.height,
+                                }}
+                            >
+                                {isMobile ? (
+                                    signaturePreview ? (
+                                        <img
+                                            src={signaturePreview}
+                                            alt="Signature preview"
+                                            className="h-full w-full object-contain p-1"
+                                        />
+                                    ) : (
+                                        <span className="flex h-full items-center justify-center px-1 text-center text-[10px] font-medium text-primary">
+                                            Sign below
+                                        </span>
+                                    )
+                                ) : (
+                                    <SignaturePad
+                                        key={clearToken}
+                                        fill
+                                        hideClear
+                                        onChange={handleSignatureChange}
+                                        className="h-full"
+                                    />
+                                )}
+                            </div>
+
+                            <div
+                                className="pointer-events-none absolute overflow-hidden border border-dashed border-muted-foreground/50 bg-background/40"
+                                style={{
+                                    left: overlays.signature_ar.left,
+                                    top: overlays.signature_ar.top,
+                                    width: overlays.signature_ar.width,
+                                    height: overlays.signature_ar.height,
+                                }}
+                            >
+                                {signaturePreview ? (
+                                    <img
+                                        src={signaturePreview}
+                                        alt="Arabic signature preview"
+                                        className="h-full w-full object-contain p-1"
+                                    />
+                                ) : null}
+                            </div>
+                        </>
+                    ) : null}
+                </div>
             </div>
 
-            {!isLoading && !error ? (
+            {isMobile && !isLoading && !error ? (
+                <div className="space-y-3 rounded-xl border bg-background p-3 shadow-sm">
+                    <div className="space-y-1">
+                        <p className="text-sm font-medium">Your signature</p>
+                        <p className="text-xs text-muted-foreground">
+                            Draw with your finger in the box. It will appear on
+                            both signature lines in the document.
+                        </p>
+                    </div>
+                    <SignaturePad
+                        key={clearToken}
+                        onChange={handleSignatureChange}
+                        className="w-full"
+                        canvasClassName="h-48"
+                        lineWidth={3}
+                        hideClear
+                    />
+                </div>
+            ) : null}
+
+            {!isMobile && !isLoading && !error ? (
                 <p className="text-xs text-muted-foreground">
                     Draw your signature in the highlighted English area. The
                     same signature preview appears on the Arabic side, and
@@ -227,6 +328,7 @@ export function PdfSignatureViewer({
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="w-full sm:w-auto"
                     onClick={handleClear}
                 >
                     Clear signature

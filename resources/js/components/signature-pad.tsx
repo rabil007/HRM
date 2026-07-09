@@ -6,10 +6,16 @@ export function SignaturePad({
     onChange,
     className,
     fill = false,
+    canvasClassName,
+    lineWidth = 2,
+    hideClear = false,
 }: {
     onChange: (dataUrl: string | null) => void;
     className?: string;
     fill?: boolean;
+    canvasClassName?: string;
+    lineWidth?: number;
+    hideClear?: boolean;
 }) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const drawingRef = useRef(false);
@@ -31,10 +37,11 @@ export function SignaturePad({
             const rect = canvas.getBoundingClientRect();
             canvas.width = rect.width * window.devicePixelRatio;
             canvas.height = rect.height * window.devicePixelRatio;
+            context.setTransform(1, 0, 0, 1, 0, 0);
             context.scale(window.devicePixelRatio, window.devicePixelRatio);
             context.lineCap = 'round';
             context.lineJoin = 'round';
-            context.lineWidth = 2;
+            context.lineWidth = lineWidth;
             context.strokeStyle = '#111827';
         };
 
@@ -42,7 +49,7 @@ export function SignaturePad({
         window.addEventListener('resize', resize);
 
         return () => window.removeEventListener('resize', resize);
-    }, []);
+    }, [lineWidth]);
 
     const getPoint = (
         event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
@@ -140,12 +147,18 @@ export function SignaturePad({
 
     return (
         <div className={cn('space-y-2', className)}>
-            <div className={cn('overflow-hidden rounded-lg border bg-white', fill && 'h-full rounded-none border-0')}>
+            <div
+                className={cn(
+                    'overflow-hidden rounded-lg border bg-white',
+                    fill && 'h-full rounded-none border-0',
+                )}
+            >
                 <canvas
                     ref={canvasRef}
                     className={cn(
                         'w-full touch-none',
                         fill ? 'h-full min-h-[48px]' : 'h-40',
+                        canvasClassName,
                     )}
                     onMouseDown={startDrawing}
                     onMouseMove={draw}
@@ -156,9 +169,21 @@ export function SignaturePad({
                     onTouchEnd={stopDrawing}
                 />
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={clear} className={fill ? 'sr-only' : undefined}>
-                Clear signature
-            </Button>
+            {hideClear || fill ? (
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={clear}
+                    className="sr-only"
+                >
+                    Clear signature
+                </Button>
+            ) : (
+                <Button type="button" variant="outline" size="sm" onClick={clear}>
+                    Clear signature
+                </Button>
+            )}
         </div>
     );
 }

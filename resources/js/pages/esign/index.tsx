@@ -54,24 +54,25 @@ export default function DocumentEsignPage({
     return (
         <>
             <Head title={`Sign ${documentLabel}`} />
-            <div className="min-h-svh bg-muted/30 px-4 py-8">
-                <div className="mx-auto w-full max-w-3xl space-y-6 rounded-2xl border bg-background p-6 shadow-sm sm:p-8">
+            <div className="min-h-svh bg-muted/30 px-3 py-4 sm:px-4 sm:py-8">
+                <div className="mx-auto w-full max-w-3xl space-y-5 rounded-2xl border bg-background p-4 shadow-sm sm:space-y-6 sm:p-8">
                     <div className="space-y-1">
                         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                             {companyName}
                         </p>
-                        <h1 className="text-2xl font-semibold">{documentLabel}</h1>
+                        <h1 className="text-xl font-semibold sm:text-2xl">
+                            {documentLabel}
+                        </h1>
                         <p className="text-sm text-muted-foreground">
-                            Review your declaration below and sign on the
-                            highlighted signature line, or download the unsigned
-                            PDF to sign manually.
+                            Review your declaration, sign below, or download the
+                            unsigned PDF to sign manually.
                         </p>
                     </div>
 
-                    <div className="grid gap-3 rounded-lg border bg-muted/20 p-4 text-sm sm:grid-cols-2">
+                    <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 text-sm sm:grid-cols-2 sm:p-4">
                         <div className="flex justify-between gap-4 sm:block">
                             <span className="text-muted-foreground">Employee</span>
-                            <span className="font-medium sm:mt-1 sm:block">
+                            <span className="text-right font-medium sm:mt-1 sm:block sm:text-left">
                                 {employeeName}
                             </span>
                         </div>
@@ -80,7 +81,7 @@ export default function DocumentEsignPage({
                                 <span className="text-muted-foreground">
                                     Employee no.
                                 </span>
-                                <span className="font-medium sm:mt-1 sm:block">
+                                <span className="text-right font-medium sm:mt-1 sm:block sm:text-left">
                                     {employeeNo}
                                 </span>
                             </div>
@@ -121,6 +122,7 @@ export default function DocumentEsignPage({
                                 onCheckedChange={(checked) =>
                                     setConsent(checked === true)
                                 }
+                                className="mt-0.5 size-5"
                             />
                             {consent ? (
                                 <input type="hidden" name="consent" value="1" />
@@ -131,25 +133,29 @@ export default function DocumentEsignPage({
                             </span>
                         </label>
 
-                        <div className="flex flex-col gap-3 sm:flex-row">
-                            <Button
-                                type="submit"
-                                className="flex-1"
-                                disabled={!signatureData || !consent}
-                            >
-                                Submit signature
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="flex-1"
-                                asChild
-                            >
-                                <a href={downloadUrl}>
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Download unsigned PDF
-                                </a>
-                            </Button>
+                        <div className="sticky bottom-0 -mx-4 space-y-3 border-t bg-background/95 p-4 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+                            <div className="flex flex-col gap-3 sm:flex-row">
+                                <Button
+                                    type="submit"
+                                    size="lg"
+                                    className="h-12 flex-1 text-base"
+                                    disabled={!signatureData || !consent}
+                                >
+                                    Submit signature
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="lg"
+                                    className="h-12 flex-1"
+                                    asChild
+                                >
+                                    <a href={downloadUrl}>
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Download unsigned PDF
+                                    </a>
+                                </Button>
+                            </div>
                         </div>
                     </Form>
                 </div>
