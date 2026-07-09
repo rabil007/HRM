@@ -1,8 +1,8 @@
 import { router } from '@inertiajs/react';
 import { Cake, CalendarDays, Eye, Mail, Phone, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/deployment-status-badge';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
+import { EmployeeStatusBadge } from '@/features/organization/employees/components/employee-status-badge';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { Employee } from '../types';
@@ -59,14 +59,9 @@ export function EmployeeCard({
                             {employee.employee_no}
                         </span>
                     </div>
-                    {employee.crew_status ? (
-                        <div className="shrink-0">
-                            <DeploymentStatusBadge
-                                status={employee.crew_status.status}
-                                label={employee.crew_status.label}
-                            />
-                        </div>
-                    ) : null}
+                    <div className="shrink-0">
+                        <EmployeeStatusBadge status={employee.status} />
+                    </div>
                 </div>
 
                 {/* Contact rows */}
