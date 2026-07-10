@@ -170,7 +170,6 @@ export function buildTrainingSubmitPayload(
     options: {
         templateFields?: Record<string, TemplateFieldConfig> | null;
         certificate?: File | null;
-        removeCertificate?: boolean;
     } = {},
 ): Record<string, unknown> {
     const payload: Record<string, unknown> = {
@@ -183,10 +182,6 @@ export function buildTrainingSubmitPayload(
 
     if (options.certificate !== undefined) {
         payload.certificate = options.certificate;
-    }
-
-    if (options.removeCertificate !== undefined) {
-        payload.remove_certificate = options.removeCertificate;
     }
 
     return omitHiddenTemplateRecordFields(

@@ -7,6 +7,7 @@ use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\EmployeeTraining;
+use App\Models\EmployeeTrainingVersion;
 use App\Models\User;
 use App\Support\EmployeeDocuments\DocumentUploadOptimizer;
 use App\Support\EmployeeDocuments\PreparedDocumentUpload;
@@ -914,4 +915,330 @@ test('users without permission cannot bulk delete training records', function ()
     ])->assertForbidden();
 
     expect(EmployeeTraining::query()->whereKey($record->id)->exists())->toBeTrue();
+});
+
+test('users with permission can replace a training certificate and keep version history', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TRR',
+        'name' => 'Training Replace Land',
+        'dial_code' => '+987',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TRR',
+        'name' => 'Training Replace Currency',
+        'symbol' => 'R$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Replace Co',
+        'slug' => 'training-replace-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP9011',
+            'name' => 'Replace Trainee',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.training.manage',
+    ]);
+
+    $course = Course::query()->create([
+        'name' => 'STCW Basic Safety',
+        'is_active' => true,
+    ]);
+
+    $oldPath = 'employees/'.$company->id.'/training-certificates/old.pdf';
+    Storage::disk('public')->put($oldPath, 'old certificate');
+
+    $training = EmployeeTraining::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'course_id' => $course->id,
+        'sort_order' => 0,
+        'issue_date' => '2024-01-01',
+        'expiry_date' => '2029-01-01',
+        'institute_center' => 'MTC',
+        'certificate_path' => $oldPath,
+        'certificate_original_filename' => 'old.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'current_version' => 1,
+    ]);
+
+    $this->post(route('organization.employees.training.replace', [$employee, $training]), [
+        'file' => UploadedFile::fake()->create('new.pdf', 100, 'application/pdf'),
+        'issue_date' => '2024-01-01',
+        'expiry_date' => '2029-01-01',
+    ])->assertRedirect();
+
+    $training->refresh();
+
+    expect($training->current_version)->toBe(2);
+    expect($training->certificate_path)->not->toBe($oldPath);
+
+    $this->assertDatabaseHas('employee_training_versions', [
+        'employee_training_id' => $training->id,
+        'version' => 1,
+        'file_path' => $oldPath,
+    ]);
+
+    Storage::disk('public')->assertExists($oldPath);
+    Storage::disk('public')->assertExists($training->certificate_path);
+});
+
+test('users with permission can replace a training certificate and update issue and expiry dates', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TRD',
+        'name' => 'Training Dates Land',
+        'dial_code' => '+986',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TRD',
+        'name' => 'Training Dates Currency',
+        'symbol' => 'D$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Dates Co',
+        'slug' => 'training-dates-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP9012',
+            'name' => 'Dates Trainee',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.training.manage',
+    ]);
+
+    $course = Course::query()->create([
+        'name' => 'ECDIS',
+        'is_active' => true,
+    ]);
+
+    $training = EmployeeTraining::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'course_id' => $course->id,
+        'sort_order' => 0,
+        'issue_date' => '2024-01-01',
+        'expiry_date' => '2029-01-01',
+        'institute_center' => 'MTC',
+        'certificate_path' => 'employees/'.$company->id.'/training-certificates/old.pdf',
+        'current_version' => 1,
+    ]);
+
+    Storage::disk('public')->put($training->certificate_path, 'old certificate');
+
+    $this->post(route('organization.employees.training.replace', [$employee, $training]), [
+        'file' => UploadedFile::fake()->create('new.pdf', 100, 'application/pdf'),
+        'issue_date' => '2026-06-01',
+        'expiry_date' => '2028-02-02',
+    ])->assertRedirect();
+
+    $training->refresh();
+
+    expect($training->current_version)->toBe(2);
+    expect($training->issue_date->toDateString())->toBe('2026-06-01');
+    expect($training->expiry_date->toDateString())->toBe('2028-02-02');
+});
+
+test('training update ignores certificate file uploads', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TRU',
+        'name' => 'Training Update Land',
+        'dial_code' => '+985',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TRU',
+        'name' => 'Training Update Currency',
+        'symbol' => 'U$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Update Co',
+        'slug' => 'training-update-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP9013',
+            'name' => 'Update Trainee',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.training.manage',
+    ]);
+
+    $course = Course::query()->create([
+        'name' => 'Radar / ARPA',
+        'is_active' => true,
+    ]);
+
+    $existingPath = 'employees/'.$company->id.'/training-certificates/existing.pdf';
+    Storage::disk('public')->put($existingPath, 'existing certificate');
+
+    $training = EmployeeTraining::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'course_id' => $course->id,
+        'sort_order' => 0,
+        'issue_date' => '2024-01-01',
+        'expiry_date' => '2029-01-01',
+        'institute_center' => 'MTC',
+        'certificate_path' => $existingPath,
+        'current_version' => 1,
+    ]);
+
+    $this->put(route('organization.employees.training.update', [$employee, $training]), [
+        'course_id' => $course->id,
+        'issue_date' => '2025-01-01',
+        'expiry_date' => '2030-01-01',
+        'institute_center' => 'Updated MTC',
+        'certificate' => UploadedFile::fake()->create('ignored.pdf', 100, 'application/pdf'),
+    ])->assertRedirect();
+
+    $training->refresh();
+
+    expect($training->certificate_path)->toBe($existingPath);
+    expect($training->institute_center)->toBe('Updated MTC');
+    Storage::disk('public')->assertExists($existingPath);
+    Storage::disk('public')->assertMissing('employees/'.$company->id.'/training-certificates/ignored.pdf');
+});
+
+test('destroying a training record deletes current and version certificate files', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TRV',
+        'name' => 'Training Version Land',
+        'dial_code' => '+983',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TRV',
+        'name' => 'Training Version Currency',
+        'symbol' => 'V$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Version Co',
+        'slug' => 'training-version-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP9015',
+            'name' => 'Version Trainee',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.training.manage',
+    ]);
+
+    $course = Course::query()->create([
+        'name' => 'STCW Basic Safety',
+        'is_active' => true,
+    ]);
+
+    $oldPath = 'employees/'.$company->id.'/training-certificates/old-version.pdf';
+    $currentPath = 'employees/'.$company->id.'/training-certificates/current-version.pdf';
+    Storage::disk('public')->put($oldPath, 'old version');
+    Storage::disk('public')->put($currentPath, 'current version');
+
+    $training = EmployeeTraining::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'course_id' => $course->id,
+        'sort_order' => 0,
+        'issue_date' => '2024-01-01',
+        'expiry_date' => '2029-01-01',
+        'institute_center' => 'MTC',
+        'certificate_path' => $currentPath,
+        'current_version' => 2,
+    ]);
+
+    EmployeeTrainingVersion::query()->create([
+        'employee_training_id' => $training->id,
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'version' => 1,
+        'file_path' => $oldPath,
+        'original_filename' => 'old-version.pdf',
+        'mime_type' => 'application/pdf',
+    ]);
+
+    $this->delete(route('organization.employees.training.destroy', [$employee, $training]))
+        ->assertRedirect();
+
+    Storage::disk('public')->assertMissing($oldPath);
+    Storage::disk('public')->assertMissing($currentPath);
 });

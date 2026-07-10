@@ -6,25 +6,23 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\BulkDestroyEmployeeTrainingsRequest;
 use App\Http\Requests\Organization\Employee\BulkStoreEmployeeTrainingRequest;
 use App\Http\Requests\Organization\Employee\ImportEmployeeTrainingRequest;
+use App\Http\Requests\Organization\Employee\ReplaceEmployeeTrainingCertificateRequest;
 use App\Models\Country;
 use App\Models\Course;
 use App\Models\Employee;
 use App\Models\EmployeeTraining;
-use App\Support\EmployeeDocuments\DocumentUploadOptimizer;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
-use App\Support\Uploads\UploadedFileStorage;
+use App\Support\EmployeeTrainings\StoresEmployeeTrainingCertificate;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class EmployeeTrainingController extends Controller
 {
-    public function __construct(private DocumentUploadOptimizer $uploadOptimizer) {}
+    public function __construct(private StoresEmployeeTrainingCertificate $certificateStore) {}
 
     /** @var array<string, string> */
     private const TRAINING_REQUEST_FIELD_ALIASES = [
@@ -79,13 +77,14 @@ class EmployeeTrainingController extends Controller
         ]);
 
         if ($request->hasFile('certificate')) {
-            $training->update([
-                'certificate_path' => $this->storeCertificate(
+            $training->update(
+                $this->certificateStore->store(
                     $request->file('certificate'),
                     $companyId,
                     $employee->id,
+                    trainingId: $training->id,
                 ),
-            ]);
+            );
         }
 
         return back()->with('success', 'Training record added.');
@@ -133,14 +132,14 @@ class EmployeeTrainingController extends Controller
             $nextSort++;
 
             if ($hasCertificate) {
-                $training->update([
-                    'certificate_path' => $this->storeCertificate(
+                $training->update(
+                    $this->certificateStore->store(
                         $request->file("trainings.{$index}.certificate"),
                         $companyId,
                         $employee->id,
                         $index,
                     ),
-                ]);
+                );
             }
         }
 
@@ -162,7 +161,7 @@ class EmployeeTrainingController extends Controller
             $request,
             $employee,
             'employee_trainings',
-            $this->trainingRules(),
+            $this->updateTrainingRules(),
             self::TRAINING_REQUEST_FIELD_ALIASES,
         );
 
@@ -176,12 +175,6 @@ class EmployeeTrainingController extends Controller
 
         $certificatePath = $training->certificate_path;
 
-        if ($request->boolean('remove_certificate')) {
-            $this->deleteCertificate($certificatePath);
-            $certificatePath = null;
-            $attributes['certificate_path'] = null;
-        }
-
         EmployeeProfileTemplateRequestRules::assertRequiredFilePresent(
             $request,
             $employee,
@@ -191,19 +184,35 @@ class EmployeeTrainingController extends Controller
             $certificatePath,
         );
 
-        if ($request->hasFile('certificate')) {
-            $this->deleteCertificate($certificatePath);
-            $attributes['certificate_path'] = $this->storeCertificate(
-                $request->file('certificate'),
-                $companyId,
-                $employee->id,
-                trainingId: $training->id,
-            );
-        }
-
         $training->update($attributes);
 
         return back()->with('success', 'Training record updated.');
+    }
+
+    public function replace(
+        ReplaceEmployeeTrainingCertificateRequest $request,
+        Employee $employee,
+        EmployeeTraining $training,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+
+        abort_unless(
+            $employee->company_id === $companyId
+            && $training->employee_id === $employee->id
+            && $training->company_id === $companyId,
+            403,
+        );
+
+        $this->certificateStore->replace(
+            $training,
+            $request->file('file'),
+            $companyId,
+            $employee->id,
+            $request->user()?->id,
+            $request->validated(),
+        );
+
+        return back()->with('success', 'Training certificate replaced.');
     }
 
     public function destroy(Request $request, Employee $employee, EmployeeTraining $training): RedirectResponse
@@ -217,7 +226,7 @@ class EmployeeTrainingController extends Controller
             403,
         );
 
-        $this->deleteCertificate($training->certificate_path);
+        $this->certificateStore->deleteForTraining($training);
         $training->delete();
 
         return back()->with('success', 'Training record removed.');
@@ -242,7 +251,7 @@ class EmployeeTrainingController extends Controller
         }
 
         foreach ($trainings as $training) {
-            $this->deleteCertificate($training->certificate_path);
+            $this->certificateStore->deleteForTraining($training);
             $training->delete();
         }
 
@@ -464,6 +473,24 @@ class EmployeeTrainingController extends Controller
     /**
      * @return array<string, mixed>
      */
+    private function updateTrainingRules(): array
+    {
+        return [
+            'course_id' => [
+                'required',
+                'integer',
+                Rule::exists('courses', 'id')->where(fn ($query) => $query->where('is_active', true)),
+            ],
+            'issue_date' => ['required', 'date'],
+            'expiry_date' => ['nullable', 'date', 'after_or_equal:issue_date'],
+            'institute_center' => ['required', 'string', 'max:255'],
+            'country_id' => ['nullable', 'integer', 'exists:countries,id'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function trainingRules(): array
     {
         return [
@@ -477,7 +504,6 @@ class EmployeeTrainingController extends Controller
             'institute_center' => ['required', 'string', 'max:255'],
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'certificate' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
-            'remove_certificate' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -641,55 +667,6 @@ class EmployeeTrainingController extends Controller
         }
 
         return true;
-    }
-
-    private function storeCertificate(
-        UploadedFile $file,
-        int $companyId,
-        int $employeeId,
-        ?int $trainingIndex = null,
-        ?int $trainingId = null,
-    ): string {
-        $prepared = $this->uploadOptimizer->prepare($file);
-
-        $logContext = [
-            'upload_module' => 'employee_training_certificate',
-            'employee_id' => $employeeId,
-        ];
-
-        if ($trainingIndex !== null) {
-            $logContext['training_index'] = $trainingIndex;
-        }
-
-        if ($trainingId !== null) {
-            $logContext['training_id'] = $trainingId;
-        }
-
-        $storagePath = "employees/{$companyId}/training-certificates";
-
-        try {
-            $storedPath = UploadedFileStorage::storePublicly(
-                $prepared->file,
-                $storagePath,
-                [
-                    'disk' => 'public',
-                    'log_context' => $logContext,
-                ],
-            );
-
-            return $storedPath;
-        } finally {
-            $prepared->cleanup();
-        }
-    }
-
-    private function deleteCertificate(?string $path): void
-    {
-        if ($path === null || $path === '') {
-            return;
-        }
-
-        Storage::disk('public')->delete($path);
     }
 
     /**

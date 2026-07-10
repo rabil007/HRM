@@ -3,21 +3,20 @@ import type { ReactElement } from 'react';
 import { useMemo, useState } from 'react';
 import {
     bulkDestroy as bulkDestroyTrainings,
-    destroy as destroyTraining,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
-import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TabsContent } from '@/components/ui/tabs';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
-import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
 import { trainingImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import { resolveRecordImportUrls } from '@/features/organization/employees/profile/resolve-record-import-urls';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { AddTrainingDialog } from '@/features/organization/training/add-training/add-training-dialog';
+import { TrainingListRowActions } from '@/features/organization/training/training-list-row-actions';
+import { TrainingManagementDialogs } from '@/features/organization/training/training-management-dialogs';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import {
@@ -73,7 +72,8 @@ export function EmployeeTrainingTab({
 
     const [trainingDialogOpen, setTrainingDialogOpen] = useState(false);
     const [trainingImportOpen, setTrainingImportOpen] = useState(false);
-    const [editingTraining, setEditingTraining] = useState<TrainingItem | null>(
+    const [editTraining, setEditTraining] = useState<TrainingItem | null>(null);
+    const [replaceTraining, setReplaceTraining] = useState<TrainingItem | null>(
         null,
     );
     const [deleteTrainingId, setDeleteTrainingId] = useState<number | null>(
@@ -110,13 +110,15 @@ export function EmployeeTrainingTab({
     const canImportRecords = employeeId !== null && employeeId > 0;
 
     const openCreateDialog = () => {
-        setEditingTraining(null);
         setTrainingDialogOpen(true);
     };
 
     const openEditDialog = (row: TrainingItem) => {
-        setEditingTraining(row);
-        setTrainingDialogOpen(true);
+        setEditTraining(row);
+    };
+
+    const openReplaceDialog = (row: TrainingItem) => {
+        setReplaceTraining(row);
     };
 
     return (
@@ -333,9 +335,15 @@ export function EmployeeTrainingTab({
                                         )}
                                     >
                                         <div className="flex items-center justify-end gap-2">
-                                            <EmployeeRecordRowActions
+                                            <TrainingListRowActions
                                                 onEdit={() =>
                                                     openEditDialog(row)
+                                                }
+                                                onReplace={() =>
+                                                    openReplaceDialog(row)
+                                                }
+                                                showReplace={
+                                                    !!row.certificate_url
                                                 }
                                                 onDelete={() =>
                                                     setDeleteTrainingId(row.id)
@@ -352,21 +360,30 @@ export function EmployeeTrainingTab({
 
             <AddTrainingDialog
                 open={trainingDialogOpen}
-                onOpenChange={(openDialog) => {
-                    setTrainingDialogOpen(openDialog);
-
-                    if (!openDialog) {
-                        setEditingTraining(null);
-                    }
-                }}
+                onOpenChange={setTrainingDialogOpen}
                 employeeId={employeeId}
                 employeeName={employeeName}
                 ensureEmployee={ensureEmployee}
                 courses={courses}
                 countries={countries}
                 templateFields={templateFields}
-                editingTraining={editingTraining}
             />
+
+            {employeeId !== null && employeeId > 0 ? (
+                <TrainingManagementDialogs
+                    employeeId={employeeId}
+                    courses={courses}
+                    countries={countries}
+                    editTraining={editTraining}
+                    onEditTrainingChange={setEditTraining}
+                    replaceTraining={replaceTraining}
+                    onReplaceTrainingChange={setReplaceTraining}
+                    deleteTrainingId={deleteTrainingId}
+                    onDeleteTrainingIdChange={setDeleteTrainingId}
+                    templateFields={templateFields}
+                    partialReloadKeys={TRAINING_RELOAD.only}
+                />
+            ) : null}
 
             <ConfirmDeleteDialog
                 open={bulkDeleteOpen}
@@ -402,26 +419,6 @@ export function EmployeeTrainingTab({
                 contentClassName="sm:max-w-sm"
                 cancelButtonClassName="border-border bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-zinc-100"
                 confirmButtonClassName="bg-red-600 text-white hover:bg-red-500"
-            />
-
-            <EmployeeRecordDeleteDialog
-                open={!!deleteTrainingId}
-                onOpenChange={(openDialog) => {
-                    if (!openDialog) {
-                        setDeleteTrainingId(null);
-                    }
-                }}
-                title="Remove training record?"
-                description="This entry will be permanently removed."
-                destroyUrl={
-                    deleteTrainingId && employeeId
-                        ? destroyTraining.url({
-                              employee: employeeId,
-                              training: deleteTrainingId,
-                          })
-                        : null
-                }
-                reloadOptions={TRAINING_RELOAD}
             />
 
             <EmployeeRecordImportDialog

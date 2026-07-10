@@ -6,7 +6,6 @@ import type { ReactElement } from 'react';
 import {
     bulkStore as bulkStoreTraining,
     store as storeTraining,
-    update as updateTraining,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
 import { Button } from '@/components/ui/button';
 import {
@@ -46,7 +45,6 @@ import {
     MAX_TRAINING_CERTIFICATE_FILES,
     parseBulkTrainingErrors,
     trainingDraftToFormData,
-    trainingMetadataFromItem,
 } from '@/features/organization/training/add-training/training-draft';
 import type {
     TrainingDraft,
@@ -68,7 +66,6 @@ import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/temp
 import type {
     CourseOption,
     TemplateFieldConfig,
-    TrainingItem,
 } from '@/pages/organization/employee-page.types';
 
 const TRAINING_RELOAD = {
@@ -119,7 +116,6 @@ export function AddTrainingDialog({
     courses,
     countries,
     templateFields = null,
-    editingTraining = null,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -129,10 +125,7 @@ export function AddTrainingDialog({
     courses: CourseOption[];
     countries: CountryOption[];
     templateFields?: Record<string, TemplateFieldConfig> | null;
-    editingTraining?: TrainingItem | null;
 }): ReactElement {
-    const isEdit = editingTraining !== null;
-
     const {
         showField,
         isFieldRequired,
@@ -173,7 +166,6 @@ export function AddTrainingDialog({
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] =
         useState<DocumentUploadProgressState>(null);
-    const [removeCertificate, setRemoveCertificate] = useState(false);
 
     const uploadProgressPhase = resolveDocumentUploadPhase({
         isPreparing: isCompressingFiles,
@@ -203,24 +195,15 @@ export function AddTrainingDialog({
         return fieldErrors;
     }, [drafts.length, fieldErrors, fieldErrorsByIndex, selectedDraftIndex]);
 
-    const activeFormData = useMemo(() => {
-        const existingCertificate =
-            isEdit && !removeCertificate && editingTraining?.certificate_url
-                ? 'existing'
-                : null;
-
-        return trainingDraftToFormData(
-            activeMetadata,
-            selectedDraft?.file ?? null,
-            existingCertificate,
-        );
-    }, [
-        activeMetadata,
-        editingTraining?.certificate_url,
-        isEdit,
-        removeCertificate,
-        selectedDraft?.file,
-    ]);
+    const activeFormData = useMemo(
+        () =>
+            trainingDraftToFormData(
+                activeMetadata,
+                selectedDraft?.file ?? null,
+                null,
+            ),
+        [activeMetadata, selectedDraft?.file],
+    );
 
     useClearMissingOnFormChange(activeFormData, syncMissingFromFormData);
 
@@ -234,37 +217,15 @@ export function AddTrainingDialog({
         setIsCompressingFiles(false);
         setIsUploading(false);
         setUploadProgress(null);
-        setRemoveCertificate(false);
         clearMissingRequired();
     }, [clearMissingRequired]);
-
-    const initializeForOpen = useCallback(() => {
-        if (isEdit && editingTraining) {
-            setStandaloneMetadata(trainingMetadataFromItem(editingTraining));
-            setDrafts([]);
-            setSelectedDraftId(null);
-            setRemoveCertificate(false);
-            setFieldErrors({});
-            clearMissingRequired();
-
-            return;
-        }
-
-        resetDialog();
-    }, [clearMissingRequired, editingTraining, isEdit, resetDialog]);
 
     const draftMeetsRequired = useCallback(
         (
             metadata: TrainingDraftMetadata,
             certificate: File | null,
         ): boolean => {
-            const data = trainingDraftToFormData(
-                metadata,
-                certificate,
-                isEdit && !removeCertificate && editingTraining?.certificate_url
-                    ? 'existing'
-                    : null,
-            );
+            const data = trainingDraftToFormData(metadata, certificate, null);
 
             for (const field of requiredFields) {
                 if (!showField(field)) {
@@ -278,13 +239,7 @@ export function AddTrainingDialog({
 
             return true;
         },
-        [
-            editingTraining?.certificate_url,
-            isEdit,
-            removeCertificate,
-            requiredFields,
-            showField,
-        ],
+        [requiredFields, showField],
     );
 
     const addCertificateFiles = useCallback(
@@ -316,14 +271,11 @@ export function AddTrainingDialog({
             }
 
             setDrafts((current) => {
-                const next = isEdit ? [] : [...current];
+                const next = [...current];
                 let addedId: string | null = null;
 
                 for (const file of preparedFiles) {
-                    if (
-                        !isEdit &&
-                        next.length >= MAX_TRAINING_CERTIFICATE_FILES
-                    ) {
+                    if (next.length >= MAX_TRAINING_CERTIFICATE_FILES) {
                         toast.error(
                             `You can add up to ${MAX_TRAINING_CERTIFICATE_FILES} certificates at once.`,
                         );
@@ -331,7 +283,12 @@ export function AddTrainingDialog({
                         break;
                     }
 
-                    if (fileMatchesExistingDraft(next as unknown as UploadDraft[], file)) {
+                    if (
+                        fileMatchesExistingDraft(
+                            next as unknown as UploadDraft[],
+                            file,
+                        )
+                    ) {
                         continue;
                     }
 
@@ -350,7 +307,7 @@ export function AddTrainingDialog({
                 return next;
             });
         },
-        [activeMetadata, isEdit],
+        [activeMetadata],
     );
 
     const removeDraft = useCallback((draftId: string) => {
@@ -410,17 +367,8 @@ export function AddTrainingDialog({
             hasVisibleTrainingContent(metadata, {
                 templateFields,
                 certificate,
-                existingCertificate:
-                    isEdit && !removeCertificate
-                        ? (editingTraining?.certificate_url ?? null)
-                        : null,
             }),
-        [
-            editingTraining?.certificate_url,
-            isEdit,
-            removeCertificate,
-            templateFields,
-        ],
+        [templateFields],
     );
 
     const canSaveCreate =
@@ -433,11 +381,6 @@ export function AddTrainingDialog({
               )
             : draftMeetsRequired(standaloneMetadata, null) &&
               draftHasVisibleContent(standaloneMetadata, null));
-
-    const canSaveEdit =
-        !isBusy &&
-        draftMeetsRequired(standaloneMetadata, selectedDraft?.file ?? null) &&
-        draftHasVisibleContent(standaloneMetadata, selectedDraft?.file ?? null);
 
     const submitCreate = useCallback(async () => {
         if (isBusy) {
@@ -483,7 +426,10 @@ export function AddTrainingDialog({
         if (drafts.length > 0) {
             router.post(
                 bulkStoreTraining.url({ employee: resolvedEmployeeId }),
-                buildBulkTrainingSubmitPayload(drafts, templateFields) as RequestPayload,
+                buildBulkTrainingSubmitPayload(
+                    drafts,
+                    templateFields,
+                ) as RequestPayload,
                 {
                     forceFormData: true,
                     ...TRAINING_RELOAD,
@@ -522,7 +468,9 @@ export function AddTrainingDialog({
 
         router.post(
             storeTraining.url({ employee: resolvedEmployeeId }),
-            buildTrainingSubmitPayload(standaloneMetadata, { templateFields }) as RequestPayload,
+            buildTrainingSubmitPayload(standaloneMetadata, {
+                templateFields,
+            }) as RequestPayload,
             {
                 forceFormData: true,
                 ...TRAINING_RELOAD,
@@ -558,87 +506,6 @@ export function AddTrainingDialog({
         validateRequired,
     ]);
 
-    const submitEdit = useCallback(async () => {
-        if (!editingTraining || isBusy) {
-            return;
-        }
-
-        if (
-            !validateRequired(
-                trainingDraftToFormData(
-                    standaloneMetadata,
-                    selectedDraft?.file ?? null,
-                    !removeCertificate && editingTraining.certificate_url
-                        ? 'existing'
-                        : null,
-                ),
-            )
-        ) {
-            return;
-        }
-
-        let resolvedEmployeeId: number;
-
-        try {
-            resolvedEmployeeId = await resolveEmployeeIdForSave(
-                employeeId,
-                ensureEmployee,
-            );
-        } catch {
-            return;
-        }
-
-        setIsUploading(true);
-        setUploadProgress({ percentage: 0 });
-        setFieldErrors({});
-
-        router.put(
-            updateTraining.url({
-                employee: resolvedEmployeeId,
-                training: editingTraining.id,
-            }),
-            buildTrainingSubmitPayload(standaloneMetadata, {
-                templateFields,
-                certificate: selectedDraft?.file ?? null,
-                removeCertificate,
-            }) as RequestPayload,
-            {
-                forceFormData: true,
-                ...TRAINING_RELOAD,
-                onProgress: (event) => {
-                    setUploadProgress({
-                        percentage: event?.percentage ?? 0,
-                        loaded: event?.loaded,
-                        total: event?.total,
-                    });
-                },
-                onSuccess: () => {
-                    onOpenChange(false);
-                    resetDialog();
-                },
-                onError: (errors) => {
-                    setFieldErrors(parseTrainingFieldErrors(errors));
-                },
-                onFinish: () => {
-                    setIsUploading(false);
-                    setUploadProgress(null);
-                },
-            },
-        );
-    }, [
-        editingTraining,
-        employeeId,
-        ensureEmployee,
-        isBusy,
-        onOpenChange,
-        removeCertificate,
-        resetDialog,
-        selectedDraft?.file,
-        standaloneMetadata,
-        templateFields,
-        validateRequired,
-    ]);
-
     const courseLabelForDraft = useCallback(
         (draft: TrainingDraft) =>
             courses.find((course) => String(course.id) === draft.course_id)
@@ -646,38 +513,23 @@ export function AddTrainingDialog({
         [courses],
     );
 
-    const showRightForm =
-        isEdit || drafts.length === 0 || selectedDraft !== null;
+    const showRightForm = drafts.length === 0 || selectedDraft !== null;
 
     const formPanel = (
         <div className="space-y-4 rounded-2xl border border-border bg-card/40 p-4">
             <AddTrainingDraftForm
-                draft={isEdit ? standaloneMetadata : activeMetadata}
+                draft={activeMetadata}
                 courses={courses}
                 countries={countries}
                 onChange={(patch) =>
-                    updateDraftMetadata(
-                        isEdit ? null : (selectedDraft?.id ?? null),
-                        patch,
-                    )
+                    updateDraftMetadata(selectedDraft?.id ?? null, patch)
                 }
                 fieldErrors={activeFieldErrors}
-                showApplyToAll={!isEdit && drafts.length > 1}
+                showApplyToAll={drafts.length > 1}
                 onApplyToAll={applyMetadataToAll}
                 showField={showField}
                 isFieldRequired={isFieldRequired}
                 isMissingRequired={isMissingRequired}
-                existingCertificateUrl={
-                    isEdit && !removeCertificate
-                        ? (editingTraining?.certificate_url ?? null)
-                        : null
-                }
-                removeCertificate={removeCertificate}
-                onRemoveCertificateChange={
-                    isEdit && editingTraining?.certificate_url
-                        ? setRemoveCertificate
-                        : undefined
-                }
                 certificateError={activeFieldErrors.certificate}
             />
         </div>
@@ -705,7 +557,7 @@ export function AddTrainingDialog({
                 }
 
                 if (nextOpen) {
-                    initializeForOpen();
+                    resetDialog();
                 }
 
                 onOpenChange(nextOpen);
@@ -722,25 +574,19 @@ export function AddTrainingDialog({
                         phase={uploadProgressPhase ?? 'uploading'}
                         progress={uploadProgress}
                         fileLabel={
-                            isEdit && selectedDraft
-                                ? selectedDraft.file.name
-                                : drafts.length === 1
-                                  ? drafts[0]?.file.name
-                                  : drafts.length > 1
-                                    ? `${drafts.length} files · ${formatUploadFileSize(uploadFileSize)}`
-                                    : null
+                            drafts.length === 1
+                                ? drafts[0]?.file.name
+                                : drafts.length > 1
+                                  ? `${drafts.length} files · ${formatUploadFileSize(uploadFileSize)}`
+                                  : null
                         }
                     />
                     <DialogHeader>
-                        <DialogTitle>
-                            {isEdit ? 'Edit training' : 'Add training'}
-                        </DialogTitle>
+                        <DialogTitle>Add training</DialogTitle>
                         <p className="text-sm text-muted-foreground">
-                            {isEdit
-                                ? `Update training details for ${employeeName}.`
-                                : showCertificatePanel
-                                  ? `Add training records for ${employeeName}. Select a certificate on the left, then enter its details on the right.`
-                                  : `Add a training record for ${employeeName}.`}
+                            {showCertificatePanel
+                                ? `Add training records for ${employeeName}. Select a certificate on the left, then enter its details on the right.`
+                                : `Add a training record for ${employeeName}.`}
                         </p>
                     </DialogHeader>
 
@@ -805,7 +651,7 @@ export function AddTrainingDialog({
                                             <input
                                                 type="file"
                                                 accept=".pdf,.jpg,.jpeg,.png"
-                                                multiple={!isEdit}
+                                                multiple
                                                 disabled={isBusy}
                                                 className="sr-only"
                                                 onChange={(event) => {
@@ -853,13 +699,11 @@ export function AddTrainingDialog({
                                     <div className="max-h-56 space-y-2 overflow-y-auto p-3">
                                         {drafts.length === 0 ? (
                                             <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-                                                {isEdit
-                                                    ? 'No replacement file selected. The current certificate is kept unless removed.'
-                                                    : isFieldRequired(
-                                                            CERTIFICATE_TEMPLATE_FIELD,
-                                                        )
-                                                      ? 'Add a certificate file to continue.'
-                                                      : 'No certificate selected yet (optional).'}
+                                                {isFieldRequired(
+                                                    CERTIFICATE_TEMPLATE_FIELD,
+                                                )
+                                                    ? 'Add a certificate file to continue.'
+                                                    : 'No certificate selected yet (optional).'}
                                             </div>
                                         ) : (
                                             drafts.map((draft, index) => (
@@ -900,13 +744,11 @@ export function AddTrainingDialog({
 
                     <DialogFooter className="items-center border-t border-border/60 pt-4 sm:justify-between">
                         <div className="text-xs text-muted-foreground">
-                            {isEdit
-                                ? 'Save updates to this training record.'
-                                : drafts.length === 0
-                                  ? 'Enter training details to create a record.'
-                                  : drafts.length > 1
-                                    ? 'Each certificate will create its own training record.'
-                                    : 'One training record will be created.'}
+                            {drafts.length === 0
+                                ? 'Enter training details to create a record.'
+                                : drafts.length > 1
+                                  ? 'Each certificate will create its own training record.'
+                                  : 'One training record will be created.'}
                         </div>
                         <div className="flex gap-2">
                             <Button
@@ -921,18 +763,14 @@ export function AddTrainingDialog({
                             <Button
                                 size="sm"
                                 className={actions.dialogPrimary}
-                                disabled={
-                                    isEdit ? !canSaveEdit : !canSaveCreate
-                                }
-                                onClick={isEdit ? submitEdit : submitCreate}
+                                disabled={!canSaveCreate}
+                                onClick={submitCreate}
                             >
                                 {isBusy
                                     ? 'Saving…'
-                                    : isEdit
-                                      ? 'Save'
-                                      : drafts.length > 1
-                                        ? `Add ${drafts.length} trainings`
-                                        : 'Add training'}
+                                    : drafts.length > 1
+                                      ? `Add ${drafts.length} trainings`
+                                      : 'Add training'}
                             </Button>
                         </div>
                     </DialogFooter>

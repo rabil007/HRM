@@ -6,6 +6,7 @@ use Database\Factories\EmployeeTrainingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EmployeeTraining extends Model
@@ -23,7 +24,13 @@ class EmployeeTraining extends Model
             'issue_date' => 'date',
             'expiry_date' => 'date',
             'sort_order' => 'integer',
+            'replaced_at' => 'datetime',
         ];
+    }
+
+    public function versions(): HasMany
+    {
+        return $this->hasMany(EmployeeTrainingVersion::class);
     }
 
     public function employee(): BelongsTo

@@ -2,7 +2,6 @@ import { Copy } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { CreatableSelect } from '@/components/ui/creatable-select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,9 +34,6 @@ export function AddTrainingDraftForm({
     showField = () => true,
     isFieldRequired = () => false,
     isMissingRequired = () => false,
-    existingCertificateUrl = null,
-    removeCertificate = false,
-    onRemoveCertificateChange,
     certificateError,
 }: {
     draft: TrainingDraftMetadata;
@@ -50,9 +46,6 @@ export function AddTrainingDraftForm({
     showField?: (fieldKey: string) => boolean;
     isFieldRequired?: (fieldKey: string) => boolean;
     isMissingRequired?: (fieldKey: string) => boolean;
-    existingCertificateUrl?: string | null;
-    removeCertificate?: boolean;
-    onRemoveCertificateChange?: (remove: boolean) => void;
     certificateError?: string;
 }): ReactElement {
     const {
@@ -343,35 +336,6 @@ export function AddTrainingDraftForm({
                                 ) : null}
                             </div>
                         </RecordFormField>
-                    ) : null}
-
-                    {existingCertificateUrl && onRemoveCertificateChange ? (
-                        <div className="space-y-2 rounded-xl border border-border/60 bg-muted/20 p-3">
-                            <p className="text-xs text-muted-foreground">
-                                <a
-                                    href={existingCertificateUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="font-medium text-primary hover:underline"
-                                >
-                                    View current certificate
-                                </a>
-                                {!removeCertificate
-                                    ? ' — upload a new file on the left to replace it.'
-                                    : ' — will be removed when you save.'}
-                            </p>
-                            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                                <Checkbox
-                                    checked={removeCertificate}
-                                    onCheckedChange={(checked) =>
-                                        onRemoveCertificateChange(
-                                            checked === true,
-                                        )
-                                    }
-                                />
-                                Remove current certificate
-                            </label>
-                        </div>
                     ) : null}
 
                     {certificateError ? (
