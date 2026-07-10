@@ -18,8 +18,12 @@ final class StampSignedBulkDocumentPdf
     /**
      * @param  array{signed_name: string, signature_data: string, consent: bool}  $data
      */
-    public function handle(BulkDocumentSignatureRequest $request, array $data, ?string $signedDate = null): string
-    {
+    public function handle(
+        BulkDocumentSignatureRequest $request,
+        array $data,
+        ?string $signedDate = null,
+        bool $forceTemplateRender = false,
+    ): string {
         if (! BulkDocumentTypeRegistry::supportsEsignature($request->document_type_key)) {
             throw ValidationException::withMessages([
                 'signature_data' => 'Electronic signing is not configured for this document type.',
@@ -39,7 +43,7 @@ final class StampSignedBulkDocumentPdf
         [$signatureBinary, $imageType] = $this->decodeSignatureImage($data['signature_data']);
         $signedDate ??= now()->format('d M Y');
 
-        if ($this->canStampOntoSourcePdf($request)) {
+        if (! $forceTemplateRender && $this->canStampOntoSourcePdf($request)) {
             try {
                 return $this->stampOntoSourcePdf($request, $signatureBinary, $imageType, $signedDate);
             } catch (CrossReferenceException|PdfParserException|FpdiException $exception) {

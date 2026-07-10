@@ -11,6 +11,7 @@ import {
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -365,19 +366,47 @@ export function SignatureReviewDialog({
     );
 }
 
+export function canRegenerateSignatureAlignment(
+    request: BulkSignatureRequest,
+): boolean {
+    return (
+        Boolean(request.signed_pdf_path) &&
+        Boolean(request.signature_image_path) &&
+        (request.status === 'submitted' || request.status === 'approved')
+    );
+}
+
 export function BulkSignaturesTable({
     requests,
     canReview,
     canDownload,
     header,
+    selectable = false,
+    isSelected,
+    isAllSelected,
+    isPartiallySelected,
+    onToggle,
+    onToggleAll,
 }: {
     requests: BulkSignatureRequest[];
     canReview: boolean;
     canDownload: boolean;
     header?: React.ReactNode;
+    selectable?: boolean;
+    isSelected?: (id: number) => boolean;
+    isAllSelected?: boolean;
+    isPartiallySelected?: boolean;
+    onToggle?: (id: number) => void;
+    onToggleAll?: () => void;
 }) {
     const [reviewRequest, setReviewRequest] =
         useState<BulkSignatureRequest | null>(null);
+
+    const selectableIds = requests
+        .filter(canRegenerateSignatureAlignment)
+        .map((request) => request.id);
+
+    const columnCount = selectable ? 6 : 5;
 
     return (
         <>
@@ -387,6 +416,22 @@ export function BulkSignaturesTable({
             >
                 <TableHeader>
                     <DataTableHeaderRow>
+                        {selectable ? (
+                            <DataTableHead className="w-10">
+                                <Checkbox
+                                    checked={
+                                        isAllSelected
+                                            ? true
+                                            : isPartiallySelected
+                                              ? 'indeterminate'
+                                              : false
+                                    }
+                                    onCheckedChange={() => onToggleAll?.()}
+                                    disabled={selectableIds.length === 0}
+                                    aria-label="Select all eligible signature requests"
+                                />
+                            </DataTableHead>
+                        ) : null}
                         <DataTableHead>Employee</DataTableHead>
                         <DataTableHead>Status</DataTableHead>
                         <DataTableHead>Submitted</DataTableHead>
@@ -397,7 +442,7 @@ export function BulkSignaturesTable({
                 <TableBody>
                     {requests.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={5} className="p-0">
+                            <TableCell colSpan={columnCount} className="p-0">
                                 <EmptyState
                                     title="No signature requests yet."
                                     description="Send bulk emails with signing links to create requests."
@@ -411,12 +456,36 @@ export function BulkSignaturesTable({
                                 canReview,
                                 canDownload,
                             );
+                            const canSelect =
+                                selectable &&
+                                canRegenerateSignatureAlignment(request);
 
                             return (
                             <TableRow
                                 key={request.id}
                                 className={dataTableBodyRowClass(false)}
                             >
+                                {selectable ? (
+                                    <TableCell className={dataTableCellClass()}>
+                                        <Checkbox
+                                            checked={
+                                                canSelect
+                                                    ? Boolean(
+                                                          isSelected?.(
+                                                              request.id,
+                                                          ),
+                                                      )
+                                                    : false
+                                            }
+                                            disabled={!canSelect}
+                                            onCheckedChange={() =>
+                                                canSelect &&
+                                                onToggle?.(request.id)
+                                            }
+                                            aria-label={`Select ${request.employee.name}`}
+                                        />
+                                    </TableCell>
+                                ) : null}
                                 <TableCell className={dataTableCellPrimaryClass()}>
                                     <div className="flex items-center gap-3">
                                         <EmployeeAvatar

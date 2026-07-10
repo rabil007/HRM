@@ -148,6 +148,7 @@ final class BulkDocumentSignatureRosterQuery
             'unsigned_document_id' => $request->employee_document_id,
             'unsigned_file_path' => $request->employeeDocument?->file_path,
             'signed_pdf_path' => $request->signed_pdf_path,
+            'signature_image_path' => $request->signature_image_path,
             'expires_at' => $request->expires_at?->toIso8601String(),
         ];
     }

@@ -84,6 +84,23 @@ final class JobRegistry
             ],
             [
                 'type' => 'job',
+                'name' => 'RegenerateAlignedSignedBulkDocumentPdfsJob',
+                'class' => 'App\Jobs\RegenerateAlignedSignedBulkDocumentPdfsJob',
+                'purpose' => 'Re-renders selected signed salary declaration PDFs via HTML template for correct signature alignment.',
+                'trigger' => 'Manually from Organization → Documents → Bulk → Signatures (Regenerate alignment).',
+                'queue' => 'default',
+                'connection' => 'database',
+                'parameters' => [
+                    'companyId' => 'Integer company ID.',
+                    'userId' => 'Integer user ID who initiated the repair.',
+                    'repairRunId' => 'BulkDocumentSignatureRepairRun row to update with progress.',
+                    'requestIds' => 'List of BulkDocumentSignatureRequest IDs to repair.',
+                ],
+                'details' => 'Forces template render (Browsershot) instead of FPDI stamp. Does not change the public e-sign submit path. Processes requests in chunks.',
+                'code_snippet' => 'RegenerateAlignedSignedBulkDocumentPdfsJob::dispatch($companyId, $userId, $runId, $requestIds);',
+            ],
+            [
+                'type' => 'job',
                 'name' => 'SendDocumentExpiryAlertJob',
                 'class' => 'App\Jobs\SendDocumentExpiryAlertJob',
                 'purpose' => 'Checks for expiring employee/company documents (visas, passports, licenses) and sends email alerts to HR managers.',

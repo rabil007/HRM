@@ -52,7 +52,7 @@ import {
 import type {BulkDocumentsView} from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
 import { BulkEmailBatchSendsSheet } from '@/features/organization/documents/bulk/bulk-email-batch-sends-sheet';
 import { BulkDocumentsEmailModal } from '@/features/organization/documents/bulk/bulk-email-modal';
-import { BulkSignaturesTable } from '@/features/organization/documents/bulk/bulk-signatures-table';
+import { BulkSignaturesTable, canRegenerateSignatureAlignment } from '@/features/organization/documents/bulk/bulk-signatures-table';
 import { employeeDocumentViewUrl } from '@/features/organization/documents/bulk/bulk-document-urls';
 import { SignatureStatusBadge } from '@/features/organization/documents/bulk/signature-status-badge';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
@@ -61,6 +61,7 @@ import { useBulkSelection } from '@/features/organization/documents/shared/use-b
 import { DepartmentEmployeeTree } from '@/features/organization/employees/components/department-employee-tree';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
+import RegenerateAlignedBulkDocumentSignaturesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/RegenerateAlignedBulkDocumentSignaturesController';
 import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -68,7 +69,7 @@ import documentRoutes from '@/routes/organization/documents';
 import {
     EMPTY_BULK_DOCUMENT_FILTERS
 } from './types';
-import type {BulkDocumentFilters, BulkDocumentsPageProps, BulkEmailFilter, BulkGenerationFilter, BulkRosterEmployee, BulkSignatureFilter, LatestEmailBatch} from './types';
+import type {BulkDocumentFilters, BulkDocumentsPageProps, BulkEmailFilter, BulkGenerationFilter, BulkRosterEmployee, BulkSignatureFilter, LatestEmailBatch, LatestSignatureRepairRun} from './types';
 
 const BULK_URL = '/organization/documents/bulk';
 
@@ -382,6 +383,108 @@ function EmailProgressBanner({
     );
 }
 
+function SignatureRepairProgressBanner({
+    latestRepairRun,
+}: {
+    latestRepairRun: LatestSignatureRepairRun | null;
+}) {
+    const [dismissedRunId, setDismissedRunId] = useState<number | null>(null);
+
+    const status = latestRepairRun?.status;
+    const isRunning = status === 'running' || status === 'queued';
+    const isFailed = status === 'failed';
+    const isCompleted = status === 'completed';
+
+    useEffect(() => {
+        if (!latestRepairRun || !isCompleted) {
+            return;
+        }
+
+        const runId = latestRepairRun.id;
+        const timeout = window.setTimeout(() => {
+            setDismissedRunId(runId);
+        }, 6000);
+
+        return () => window.clearTimeout(timeout);
+    }, [isCompleted, latestRepairRun]);
+
+    if (!latestRepairRun) {
+        return null;
+    }
+
+    if (!isRunning && !isFailed && !isCompleted) {
+        return null;
+    }
+
+    if (!isRunning && dismissedRunId === latestRepairRun.id) {
+        return null;
+    }
+
+    const processed =
+        latestRepairRun.repaired_count +
+        latestRepairRun.skipped_count +
+        latestRepairRun.failed_count;
+
+    let message = '';
+
+    if (isRunning) {
+        message = `Regenerating alignment… ${processed} of ${latestRepairRun.total_count} processed`;
+    } else if (isCompleted) {
+        const parts = [`${latestRepairRun.repaired_count} repaired`];
+
+        if (latestRepairRun.skipped_count > 0) {
+            parts.push(`${latestRepairRun.skipped_count} skipped`);
+        }
+
+        if (latestRepairRun.failed_count > 0) {
+            parts.push(`${latestRepairRun.failed_count} failed`);
+        }
+
+        message = parts.join(' · ');
+    } else {
+        message = 'Alignment regeneration failed. Please try again.';
+    }
+
+    return (
+        <div
+            className={cn(
+                'mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm',
+                isRunning &&
+                    'border-amber-500/25 bg-amber-500/6 text-amber-700 dark:text-amber-400',
+                isCompleted &&
+                    'border-emerald-500/25 bg-emerald-500/6 text-emerald-700 dark:text-emerald-400',
+                isFailed &&
+                    'border-destructive/25 bg-destructive/6 text-destructive',
+            )}
+        >
+            {isRunning ? (
+                <Spinner className="h-4 w-4 shrink-0" />
+            ) : (
+                <span
+                    className={cn(
+                        'flex h-2 w-2 shrink-0 rounded-full',
+                        isCompleted && 'bg-emerald-500',
+                        isFailed && 'bg-destructive',
+                    )}
+                />
+            )}
+            <span className="font-medium">{message}</span>
+            {!isRunning ? (
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="ml-auto h-6 w-6 shrink-0 rounded-full hover:bg-foreground/10"
+                    onClick={() => setDismissedRunId(latestRepairRun.id)}
+                    aria-label="Dismiss"
+                >
+                    <X className="h-3.5 w-3.5" />
+                </Button>
+            ) : null}
+        </div>
+    );
+}
+
 export function BulkDocumentsContent({
     document_type_key,
     document_type_options,
@@ -403,6 +506,7 @@ export function BulkDocumentsContent({
     email_template,
     latest_run,
     latest_email_batch,
+    latest_signature_repair_run,
     can,
 }: BulkDocumentsPageProps) {
     const isRosterView = view === 'roster';
@@ -448,6 +552,28 @@ export function BulkDocumentsContent({
         toggleAll,
         clear,
     } = useBulkSelection(employeeIds);
+
+    const regenerableSignatureIds = useMemo(
+        () =>
+            signature_requests
+                .filter(canRegenerateSignatureAlignment)
+                .map((request) => request.id),
+        [signature_requests],
+    );
+
+    const {
+        selectedIds: selectedSignatureIds,
+        selectedCount: selectedSignatureCount,
+        isSelected: isSignatureSelected,
+        isAllSelected: isAllSignaturesSelected,
+        isPartiallySelected: isSignaturesPartiallySelected,
+        toggle: toggleSignature,
+        toggleAll: toggleAllSignatures,
+        clear: clearSignatureSelection,
+    } = useBulkSelection(regenerableSignatureIds);
+
+    const [isRegeneratingAlignment, setIsRegeneratingAlignment] =
+        useState(false);
 
     const selectedEmployees = useMemo(
         () => employees.filter((employee) => selectedIds.includes(employee.id)),
@@ -581,14 +707,20 @@ export function BulkDocumentsContent({
         latest_email_batch?.status === 'running' ||
         latest_email_batch?.status === 'queued';
 
+    const isSignatureRepairActive =
+        latest_signature_repair_run?.status === 'running' ||
+        latest_signature_repair_run?.status === 'queued';
+
     const { start, stop } = usePoll(
         3000,
         {
             only: [
                 'latest_run',
                 'latest_email_batch',
+                'latest_signature_repair_run',
                 'counts',
                 'employees',
+                'signature_requests',
                 'activity',
                 'pagination',
                 'flash',
@@ -598,7 +730,12 @@ export function BulkDocumentsContent({
     );
 
     useEffect(() => {
-        if ((!isRunActive && !isEmailBatchActive) || !isRosterView) {
+        const shouldPollRoster =
+            isRosterView && (isRunActive || isEmailBatchActive);
+        const shouldPollSignatures =
+            isSignaturesView && isSignatureRepairActive;
+
+        if (!shouldPollRoster && !shouldPollSignatures) {
             stop();
 
             return;
@@ -609,7 +746,15 @@ export function BulkDocumentsContent({
         return () => {
             stop();
         };
-    }, [isRunActive, isEmailBatchActive, isRosterView, start, stop]);
+    }, [
+        isRunActive,
+        isEmailBatchActive,
+        isSignatureRepairActive,
+        isRosterView,
+        isSignaturesView,
+        start,
+        stop,
+    ]);
 
     const previousRunStatus = useRef(latest_run?.status);
     useEffect(() => {
@@ -652,6 +797,57 @@ export function BulkDocumentsContent({
 
         previousEmailBatchStatus.current = latest_email_batch?.status;
     }, [latest_email_batch?.status]);
+
+    const previousSignatureRepairStatus = useRef(
+        latest_signature_repair_run?.status,
+    );
+    useEffect(() => {
+        const previous = previousSignatureRepairStatus.current;
+
+        if (
+            (previous === 'running' || previous === 'queued') &&
+            latest_signature_repair_run?.status === 'completed'
+        ) {
+            toast.success('Signature alignment regeneration completed.');
+        }
+
+        if (
+            (previous === 'running' || previous === 'queued') &&
+            latest_signature_repair_run?.status === 'failed'
+        ) {
+            toast.error('Signature alignment regeneration failed.');
+        }
+
+        previousSignatureRepairStatus.current =
+            latest_signature_repair_run?.status;
+    }, [latest_signature_repair_run?.status]);
+
+    const regenerateSelectedAlignment = useCallback(() => {
+        if (selectedSignatureIds.length === 0) {
+            return;
+        }
+
+        setIsRegeneratingAlignment(true);
+
+        router.post(
+            RegenerateAlignedBulkDocumentSignaturesController.url(),
+            {
+                signature_request_ids: selectedSignatureIds,
+                document_type_key,
+            },
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setIsRegeneratingAlignment(false);
+                    clearSignatureSelection();
+                },
+            },
+        );
+    }, [
+        clearSignatureSelection,
+        document_type_key,
+        selectedSignatureIds,
+    ]);
 
     const navigate = useCallback(
         (
@@ -1576,10 +1772,45 @@ export function BulkDocumentsContent({
                 </>
             ) : isSignaturesView ? (
                 <>
+                    {can.review_signatures && selectedSignatureCount > 0 ? (
+                        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                            <span className="text-sm text-muted-foreground">
+                                {selectedSignatureCount} selected for alignment
+                                repair
+                            </span>
+                            <Button
+                                type="button"
+                                size="sm"
+                                disabled={
+                                    isRegeneratingAlignment ||
+                                    isSignatureRepairActive
+                                }
+                                onClick={regenerateSelectedAlignment}
+                            >
+                                {isRegeneratingAlignment ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <RotateCcw className="mr-2 h-4 w-4" />
+                                )}
+                                Regenerate alignment
+                            </Button>
+                        </div>
+                    ) : null}
+
+                    <SignatureRepairProgressBanner
+                        latestRepairRun={latest_signature_repair_run}
+                    />
+
                     <BulkSignaturesTable
                         requests={signature_requests}
                         canReview={can.review_signatures}
                         canDownload={can.download}
+                        selectable={can.review_signatures}
+                        isSelected={isSignatureSelected}
+                        isAllSelected={isAllSignaturesSelected}
+                        isPartiallySelected={isSignaturesPartiallySelected}
+                        onToggle={toggleSignature}
+                        onToggleAll={toggleAllSignatures}
                         header={
                             <>
                                 <span className="text-sm text-muted-foreground/80">

@@ -57,6 +57,7 @@ export type BulkSignatureRequest = {
     unsigned_document_id: number;
     unsigned_file_path: string | null;
     signed_pdf_path: string | null;
+    signature_image_path: string | null;
     expires_at: string | null;
 };
 
@@ -170,6 +171,19 @@ export type LatestEmailBatch = {
     triggered_by: string | null;
 };
 
+export type LatestSignatureRepairRun = {
+    id: number;
+    status: 'queued' | 'running' | 'completed' | 'failed';
+    document_type_key: string;
+    total_count: number;
+    repaired_count: number;
+    skipped_count: number;
+    failed_count: number;
+    started_at: string | null;
+    finished_at: string | null;
+    initiated_by: string | null;
+};
+
 export type BulkDocumentsPageProps = {
     document_type_key: string;
     document_type_options: BulkDocumentTypeOption[];
@@ -199,6 +213,7 @@ export type BulkDocumentsPageProps = {
     email_template: WiredEmailTemplate | null;
     latest_run: BulkGenerationRun | null;
     latest_email_batch: LatestEmailBatch | null;
+    latest_signature_repair_run: LatestSignatureRepairRun | null;
     can: {
         generate: boolean;
         download: boolean;

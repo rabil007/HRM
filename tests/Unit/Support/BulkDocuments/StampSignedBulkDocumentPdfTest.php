@@ -179,6 +179,48 @@ test('stamp signed bulk document pdf reloads full employee when request was load
         ->and($output)->toStartWith('%PDF');
 });
 
+test('stamp signed bulk document pdf forces template render when requested', function () {
+    $fixtures = makeDocumentFixtures();
+    $company = $fixtures['company'];
+    $employee = $fixtures['employee'];
+    $document = createStampTestDocument($company, $employee);
+
+    $request = BulkDocumentSignatureRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_document_id' => $document->id,
+        'document_type_key' => 'salary_declaration',
+        'token' => str_repeat('d', 48),
+        'status' => 'awaiting_signature',
+        'expires_at' => now()->addDays(14),
+    ]);
+
+    $renderer = new class implements RendersEmployeeDocumentPdf
+    {
+        public bool $called = false;
+
+        public function render(Employee $employee, int $companyId, ?array $signature = null, bool $showPlacementGuides = false): string
+        {
+            $this->called = true;
+
+            return '%PDF-1.4 forced-template';
+        }
+    };
+
+    app()->instance(SalaryDeclarationPdfRenderer::class, $renderer);
+
+    $signatureData = 'data:image/png;base64,'.base64_encode(minimalSignaturePngBytes());
+
+    $output = app(StampSignedBulkDocumentPdf::class)->handle($request, [
+        'signed_name' => $employee->name,
+        'signature_data' => $signatureData,
+        'consent' => true,
+    ], null, true);
+
+    expect($renderer->called)->toBeTrue()
+        ->and($output)->toBe('%PDF-1.4 forced-template');
+});
+
 test('stamp signed bulk document pdf rejects invalid signature image', function () {
     $fixtures = makeDocumentFixtures();
     $company = $fixtures['company'];

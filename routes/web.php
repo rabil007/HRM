@@ -27,6 +27,7 @@ use App\Http\Controllers\Organization\BulkDocuments\DownloadBulkDocumentsControl
 use App\Http\Controllers\Organization\BulkDocuments\DownloadSignedBulkDocumentController;
 use App\Http\Controllers\Organization\BulkDocuments\EmailBulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\GenerateBulkDocumentsController;
+use App\Http\Controllers\Organization\BulkDocuments\RegenerateAlignedBulkDocumentSignaturesController;
 use App\Http\Controllers\Organization\BulkDocuments\RejectBulkDocumentSignatureController;
 use App\Http\Controllers\Organization\BulkDocuments\UploadBulkDocumentSignatureController;
 use App\Http\Controllers\Organization\CompanyController;
@@ -313,6 +314,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:bulk_documents.email')
         ->name('organization.documents.bulk.recipients-search');
     Route::middleware('can:bulk_documents.signatures.review')->group(function () {
+        Route::post('organization/documents/bulk/signatures/regenerate-alignment', RegenerateAlignedBulkDocumentSignaturesController::class)
+            ->name('organization.documents.bulk.signatures.regenerate-alignment');
         Route::post('organization/documents/bulk/signatures/{signatureRequest}/approve', ApproveBulkDocumentSignatureController::class)
             ->name('organization.documents.bulk.signatures.approve');
         Route::post('organization/documents/bulk/signatures/{signatureRequest}/reject', RejectBulkDocumentSignatureController::class)

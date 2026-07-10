@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization\BulkDocuments;
 use App\Http\Controllers\Controller;
 use App\Models\BulkDocumentEmailBatch;
 use App\Models\BulkDocumentGenerationRun;
+use App\Models\BulkDocumentSignatureRepairRun;
 use App\Models\Company;
 use App\Support\BulkDocuments\BulkDocumentActivityQuery;
 use App\Support\BulkDocuments\BulkDocumentPagePermissions;
@@ -169,6 +170,7 @@ class BulkDocumentsController extends Controller
             'email_template' => $this->emailTemplatePayload($documentTypeKey),
             'latest_run' => $this->latestRunPayload($companyId, $documentTypeKey),
             'latest_email_batch' => $this->latestEmailBatchPayload($companyId, $documentTypeKey),
+            'latest_signature_repair_run' => $this->latestSignatureRepairRunPayload($companyId, $documentTypeKey),
             'can' => BulkDocumentPagePermissions::for($request->user()),
         ];
     }
@@ -245,6 +247,36 @@ class BulkDocumentsController extends Controller
             'started_at' => $batch->started_at?->toIso8601String(),
             'finished_at' => $batch->finished_at?->toIso8601String(),
             'triggered_by' => $batch->triggeredBy?->name,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function latestSignatureRepairRunPayload(int $companyId, string $documentTypeKey): ?array
+    {
+        $run = BulkDocumentSignatureRepairRun::query()
+            ->where('company_id', $companyId)
+            ->where('document_type_key', $documentTypeKey)
+            ->latest('id')
+            ->with('initiatedBy:id,name')
+            ->first();
+
+        if ($run === null) {
+            return null;
+        }
+
+        return [
+            'id' => $run->id,
+            'status' => $run->status,
+            'document_type_key' => $run->document_type_key,
+            'total_count' => $run->total_count,
+            'repaired_count' => $run->repaired_count,
+            'skipped_count' => $run->skipped_count,
+            'failed_count' => $run->failed_count,
+            'started_at' => $run->started_at?->toIso8601String(),
+            'finished_at' => $run->finished_at?->toIso8601String(),
+            'initiated_by' => $run->initiatedBy?->name,
         ];
     }
 
