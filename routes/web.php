@@ -24,6 +24,8 @@ use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentEmployeeSearchCo
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentSelectionController;
 use App\Http\Controllers\Organization\BulkDocuments\DeleteBulkDocumentsController;
+use App\Http\Controllers\Organization\BulkDocuments\DownloadApprovedBulkDocumentSignaturesPdfController;
+use App\Http\Controllers\Organization\BulkDocuments\DownloadApprovedBulkDocumentSignaturesZipController;
 use App\Http\Controllers\Organization\BulkDocuments\DownloadBulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\DownloadSignedBulkDocumentController;
 use App\Http\Controllers\Organization\BulkDocuments\EmailBulkDocumentsController;
@@ -308,6 +310,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/documents/bulk/download', [DownloadBulkDocumentsController::class, 'store'])
         ->middleware('can:documents.download')
         ->name('organization.documents.bulk.download');
+    Route::post('organization/documents/bulk/signatures/download-zip', DownloadApprovedBulkDocumentSignaturesZipController::class)
+        ->middleware('can:documents.download')
+        ->name('organization.documents.bulk.signatures.download-zip');
+    Route::post('organization/documents/bulk/signatures/download-pdf', DownloadApprovedBulkDocumentSignaturesPdfController::class)
+        ->middleware('can:documents.download')
+        ->name('organization.documents.bulk.signatures.download-pdf');
     Route::post('organization/documents/bulk/email', [EmailBulkDocumentsController::class, 'store'])
         ->middleware('can:bulk_documents.email')
         ->name('organization.documents.bulk.email');

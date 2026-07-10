@@ -3,6 +3,7 @@ import {
     Download,
     Eye,
     FileStack,
+    FileText,
     Folder,
     FolderTree,
     Loader2,
@@ -57,13 +58,16 @@ import { BulkSignaturesTable, canRegenerateSignatureAlignment } from '@/features
 import { employeeDocumentViewUrl } from '@/features/organization/documents/bulk/bulk-document-urls';
 import { SignatureStatusBadge } from '@/features/organization/documents/bulk/signature-status-badge';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
+import { downloadBinaryExport } from '@/features/organization/documents/shared/download-binary-export';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { DepartmentEmployeeTree } from '@/features/organization/employees/components/department-employee-tree';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
-import RegenerateAlignedBulkDocumentSignaturesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/RegenerateAlignedBulkDocumentSignaturesController';
 import ApproveBulkDocumentSignaturesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/ApproveBulkDocumentSignaturesController';
+import DownloadApprovedBulkDocumentSignaturesPdfController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/DownloadApprovedBulkDocumentSignaturesPdfController';
+import DownloadApprovedBulkDocumentSignaturesZipController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/DownloadApprovedBulkDocumentSignaturesZipController';
+import RegenerateAlignedBulkDocumentSignaturesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/RegenerateAlignedBulkDocumentSignaturesController';
 import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -589,6 +593,10 @@ export function BulkDocumentsContent({
         useState(false);
     const [approveOpen, setApproveOpen] = useState(false);
     const [isApprovingSignatures, setIsApprovingSignatures] = useState(false);
+    const [isDownloadingApprovedZip, setIsDownloadingApprovedZip] =
+        useState(false);
+    const [isDownloadingApprovedPdf, setIsDownloadingApprovedPdf] =
+        useState(false);
 
     const effectiveSignatureCount =
         matchingSignatureSelection?.total ?? selectedSignatureCount;
@@ -647,6 +655,30 @@ export function BulkDocumentsContent({
                 (request) =>
                     selectedSignatureIds.includes(request.id) &&
                     request.status === 'submitted' &&
+                    Boolean(request.signed_pdf_path),
+            )
+            .map((request) => request.id);
+    }, [
+        matchingSignatureSelection,
+        selectedSignatureIds,
+        signature_filter,
+        signature_requests,
+    ]);
+
+    const downloadableApprovedSignatureIds = useMemo(() => {
+        if (matchingSignatureSelection) {
+            if (signature_filter !== 'approved') {
+                return [];
+            }
+
+            return matchingSignatureSelection.signature_request_ids;
+        }
+
+        return signature_requests
+            .filter(
+                (request) =>
+                    selectedSignatureIds.includes(request.id) &&
+                    request.status === 'approved' &&
                     Boolean(request.signed_pdf_path),
             )
             .map((request) => request.id);
@@ -1068,6 +1100,75 @@ export function BulkDocumentsContent({
         approvableSelectedSignatureIds,
         clearSignatureSelectionState,
         document_type_key,
+    ]);
+
+    const downloadApprovedSignaturesZip = useCallback(async () => {
+        if (
+            !can.download ||
+            downloadableApprovedSignatureIds.length === 0 ||
+            isDownloadingApprovedZip
+        ) {
+            return;
+        }
+
+        setIsDownloadingApprovedZip(true);
+
+        try {
+            await downloadBulkZip(
+                DownloadApprovedBulkDocumentSignaturesZipController.url(),
+                {
+                    signature_request_ids: downloadableApprovedSignatureIds,
+                    document_type_key,
+                },
+                'approved-signed.zip',
+            );
+        } catch (error) {
+            toast.error(
+                error instanceof Error ? error.message : 'Download failed.',
+            );
+        } finally {
+            setIsDownloadingApprovedZip(false);
+        }
+    }, [
+        can.download,
+        document_type_key,
+        downloadableApprovedSignatureIds,
+        isDownloadingApprovedZip,
+    ]);
+
+    const downloadApprovedSignaturesPdf = useCallback(async () => {
+        if (
+            !can.download ||
+            downloadableApprovedSignatureIds.length === 0 ||
+            isDownloadingApprovedPdf
+        ) {
+            return;
+        }
+
+        setIsDownloadingApprovedPdf(true);
+
+        try {
+            await downloadBinaryExport(
+                DownloadApprovedBulkDocumentSignaturesPdfController.url(),
+                {
+                    signature_request_ids: downloadableApprovedSignatureIds,
+                    document_type_key,
+                },
+                'application/pdf',
+                'approved-signed.pdf',
+            );
+        } catch (error) {
+            toast.error(
+                error instanceof Error ? error.message : 'Download failed.',
+            );
+        } finally {
+            setIsDownloadingApprovedPdf(false);
+        }
+    }, [
+        can.download,
+        document_type_key,
+        downloadableApprovedSignatureIds,
+        isDownloadingApprovedPdf,
     ]);
 
     const navigate = useCallback(
@@ -2117,6 +2218,50 @@ export function BulkDocumentsContent({
                                             }
                                             )
                                         </Button>
+                                    ) : null}
+                                    {can.download &&
+                                    downloadableApprovedSignatureIds.length >
+                                        0 ? (
+                                        <>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={
+                                                    isDownloadingApprovedZip ||
+                                                    isDownloadingApprovedPdf
+                                                }
+                                                onClick={() =>
+                                                    void downloadApprovedSignaturesZip()
+                                                }
+                                            >
+                                                {isDownloadingApprovedZip ? (
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Download className="mr-2 h-4 w-4" />
+                                                )}
+                                                Download ZIP
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={
+                                                    isDownloadingApprovedZip ||
+                                                    isDownloadingApprovedPdf
+                                                }
+                                                onClick={() =>
+                                                    void downloadApprovedSignaturesPdf()
+                                                }
+                                            >
+                                                {isDownloadingApprovedPdf ? (
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <FileText className="mr-2 h-4 w-4" />
+                                                )}
+                                                Download PDF
+                                            </Button>
+                                        </>
                                     ) : null}
                                     {can.email &&
                                     signature_filter ===

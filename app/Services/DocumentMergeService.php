@@ -28,6 +28,86 @@ class DocumentMergeService
         $tempPath = $this->buildMergedPdf($documents);
         $downloadName = $this->resolveDownloadName($employee, $downloadName);
 
+        return $this->streamTempPdf($tempPath, $downloadName);
+    }
+
+    /**
+     * @param  list<string>  $absolutePaths
+     */
+    public function streamMergedPdfFromPaths(array $absolutePaths, string $downloadName): StreamedResponse
+    {
+        abort_if($absolutePaths === [], 404, 'No downloadable files found.');
+
+        if (count($absolutePaths) === 1) {
+            $sourcePath = $absolutePaths[0];
+
+            abort_unless(is_readable($sourcePath), 404, 'No downloadable files found.');
+
+            return response()->streamDownload(function () use ($sourcePath): void {
+                $handle = fopen($sourcePath, 'rb');
+
+                if ($handle !== false) {
+                    fpassthru($handle);
+                    fclose($handle);
+                }
+            }, $downloadName, [
+                'Content-Type' => 'application/pdf',
+            ]);
+        }
+
+        $tempPath = $this->buildMergedPdfFromPaths($absolutePaths);
+
+        return $this->streamTempPdf($tempPath, $downloadName);
+    }
+
+    /**
+     * @param  Collection<int, EmployeeDocument>  $documents
+     */
+    public function buildMergedPdf(Collection $documents): string
+    {
+        $this->assertMergeable($documents);
+
+        $sourcePaths = $this->resolveSourcePaths($documents);
+
+        try {
+            return $this->mergePathsWithFpdi($sourcePaths);
+        } catch (CrossReferenceException|PdfParserException|FpdiException $exception) {
+            if (Ghostscript::available()) {
+                return $this->mergeWithGhostscript($sourcePaths);
+            }
+
+            throw ValidationException::withMessages([
+                'document_ids' => $this->unsupportedPdfMessage($exception),
+            ]);
+        }
+    }
+
+    /**
+     * @param  list<string>  $absolutePaths
+     */
+    public function buildMergedPdfFromPaths(array $absolutePaths): string
+    {
+        abort_if($absolutePaths === [], 404, 'No downloadable files found.');
+
+        foreach ($absolutePaths as $path) {
+            abort_unless(is_readable($path), 404, 'One or more selected files could not be read.');
+        }
+
+        try {
+            return $this->mergePathsWithFpdi($absolutePaths);
+        } catch (CrossReferenceException|PdfParserException|FpdiException $exception) {
+            if (Ghostscript::available()) {
+                return $this->mergeWithGhostscript($absolutePaths);
+            }
+
+            throw ValidationException::withMessages([
+                'signature_request_ids' => $this->unsupportedPdfMessage($exception),
+            ]);
+        }
+    }
+
+    private function streamTempPdf(string $tempPath, string $downloadName): StreamedResponse
+    {
         return response()->streamDownload(function () use ($tempPath): void {
             $handle = fopen($tempPath, 'rb');
 
@@ -43,38 +123,15 @@ class DocumentMergeService
     }
 
     /**
-     * @param  Collection<int, EmployeeDocument>  $documents
-     */
-    public function buildMergedPdf(Collection $documents): string
-    {
-        $this->assertMergeable($documents);
-
-        $sourcePaths = $this->resolveSourcePaths($documents);
-
-        try {
-            return $this->mergeWithFpdi($documents, $sourcePaths);
-        } catch (CrossReferenceException|PdfParserException|FpdiException $exception) {
-            if (Ghostscript::available()) {
-                return $this->mergeWithGhostscript($sourcePaths);
-            }
-
-            throw ValidationException::withMessages([
-                'document_ids' => $this->unsupportedPdfMessage($exception),
-            ]);
-        }
-    }
-
-    /**
-     * @param  Collection<int, EmployeeDocument>  $documents
      * @param  list<string>  $sourcePaths
      */
-    private function mergeWithFpdi(Collection $documents, array $sourcePaths): string
+    private function mergePathsWithFpdi(array $sourcePaths): string
     {
         $pdf = new Fpdi;
 
-        foreach ($documents as $index => $document) {
+        foreach ($sourcePaths as $index => $sourcePath) {
             try {
-                $pageCount = $pdf->setSourceFile($sourcePaths[$index]);
+                $pageCount = $pdf->setSourceFile($sourcePath);
 
                 for ($pageNumber = 1; $pageNumber <= $pageCount; $pageNumber++) {
                     $templateId = $pdf->importPage($pageNumber);
@@ -84,9 +141,7 @@ class DocumentMergeService
                     $pdf->useTemplate($templateId);
                 }
             } catch (CrossReferenceException|PdfParserException|FpdiException $exception) {
-                $label = $document->original_filename
-                    ?? $document->title
-                    ?? "document-{$document->id}";
+                $label = basename($sourcePath) ?: 'document-'.((int) $index + 1);
 
                 throw new PdfParserException(
                     "Unable to read \"{$label}\": ".$exception->getMessage(),
