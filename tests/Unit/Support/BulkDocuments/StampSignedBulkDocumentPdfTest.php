@@ -151,7 +151,7 @@ test('stamp signed bulk document pdf reloads full employee when request was load
 
     $loadedRequest = BulkDocumentSignatureRosterQuery::findByToken($signatureRequest->token);
 
-    expect($loadedRequest?->employee?->company_id)->toBeNull();
+    expect($loadedRequest?->employee?->company_id)->toBe($company->id);
 
     $renderer = new class implements RendersEmployeeDocumentPdf
     {

@@ -20,6 +20,10 @@ final class StampSignedBulkDocumentPdf
      */
     public function handle(BulkDocumentSignatureRequest $request, array $data, ?string $signedDate = null): string
     {
+        // #region agent log
+        @file_put_contents(base_path('.cursor/debug-46bd53.log'), json_encode(['sessionId' => '46bd53', 'runId' => 'verify', 'hypothesisId' => 'A', 'location' => 'StampSignedBulkDocumentPdf.php:handle:entry', 'message' => 'stamp signed pdf entry', 'data' => ['document_type_key' => $request->document_type_key, 'employee_id' => $request->employee_id, 'request_company_id' => $request->company_id, 'relation_employee_company_id' => $request->employee?->company_id, 'signature_data_length' => strlen($data['signature_data'])], 'timestamp' => (int) round(microtime(true) * 1000)])."\n", FILE_APPEND);
+        // #endregion
+
         if (! BulkDocumentTypeRegistry::supportsEsignature($request->document_type_key)) {
             throw ValidationException::withMessages([
                 'signature_data' => 'Electronic signing is not configured for this document type.',
@@ -29,6 +33,10 @@ final class StampSignedBulkDocumentPdf
         $request->loadMissing(['employeeDocument']);
 
         $employee = Employee::query()->find($request->employee_id);
+
+        // #region agent log
+        @file_put_contents(base_path('.cursor/debug-46bd53.log'), json_encode(['sessionId' => '46bd53', 'runId' => 'verify', 'hypothesisId' => 'A', 'location' => 'StampSignedBulkDocumentPdf.php:handle:employee-loaded', 'message' => 'full employee loaded', 'data' => ['employee_found' => $employee instanceof Employee, 'employee_company_id' => $employee instanceof Employee ? $employee->company_id : null, 'company_match' => $employee instanceof Employee ? ((int) $employee->company_id === (int) $request->company_id) : false], 'timestamp' => (int) round(microtime(true) * 1000)])."\n", FILE_APPEND);
+        // #endregion
 
         if (! $employee instanceof Employee) {
             throw ValidationException::withMessages([
@@ -69,7 +77,7 @@ final class StampSignedBulkDocumentPdf
         string $signedDate,
     ): string {
         try {
-            return BulkDocumentTypeRegistry::resolveRenderer($request->document_type_key)->render(
+            $pdf = BulkDocumentTypeRegistry::resolveRenderer($request->document_type_key)->render(
                 $employee,
                 $request->company_id,
                 [
@@ -78,7 +86,17 @@ final class StampSignedBulkDocumentPdf
                     'signed_date' => $signedDate,
                 ],
             );
+
+            // #region agent log
+            @file_put_contents(base_path('.cursor/debug-46bd53.log'), json_encode(['sessionId' => '46bd53', 'runId' => 'verify', 'hypothesisId' => 'B', 'location' => 'StampSignedBulkDocumentPdf.php:renderViaTemplate:success', 'message' => 'template render succeeded', 'data' => ['pdf_length' => strlen($pdf), 'pdf_prefix' => substr($pdf, 0, 8)], 'timestamp' => (int) round(microtime(true) * 1000)])."\n", FILE_APPEND);
+            // #endregion
+
+            return $pdf;
         } catch (ProcessFailedException|Throwable $exception) {
+            // #region agent log
+            @file_put_contents(base_path('.cursor/debug-46bd53.log'), json_encode(['sessionId' => '46bd53', 'runId' => 'verify', 'hypothesisId' => 'B', 'location' => 'StampSignedBulkDocumentPdf.php:renderViaTemplate:catch', 'message' => 'template render failed', 'data' => ['exception_class' => $exception::class, 'exception_message' => $exception->getMessage(), 'exception_file' => $exception->getFile(), 'exception_line' => $exception->getLine()], 'timestamp' => (int) round(microtime(true) * 1000)])."\n", FILE_APPEND);
+            // #endregion
+
             report($exception);
 
             throw ValidationException::withMessages([

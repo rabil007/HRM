@@ -118,7 +118,7 @@ final class BulkDocumentSignatureRosterQuery
     {
         return BulkDocumentSignatureRequest::query()
             ->where('token', $token)
-            ->with(['employee:id,name,employee_no', 'employeeDocument', 'company:id,name'])
+            ->with(['employee:id,name,employee_no,company_id', 'employeeDocument', 'company:id,name'])
             ->first();
     }
 
