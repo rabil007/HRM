@@ -9,6 +9,7 @@ use App\Support\BulkDocuments\BulkDocumentSignatureStorage;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DownloadSignedBulkDocumentController extends Controller
@@ -16,7 +17,7 @@ class DownloadSignedBulkDocumentController extends Controller
     public function __invoke(
         Request $request,
         BulkDocumentSignatureRequest $signatureRequest,
-    ): StreamedResponse {
+    ): StreamedResponse|BinaryFileResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($signatureRequest->company_id === $companyId, 404);
@@ -35,6 +36,10 @@ class DownloadSignedBulkDocumentController extends Controller
 
         $label = BulkDocumentTypeRegistry::find($signatureRequest->document_type_key)['label'];
         $filename = 'signed-'.(Str::slug($label) ?: 'document').'.pdf';
+
+        if ($request->boolean('inline')) {
+            return BulkDocumentSignatureStorage::inline($path, $filename);
+        }
 
         return BulkDocumentSignatureStorage::download(
             $path,

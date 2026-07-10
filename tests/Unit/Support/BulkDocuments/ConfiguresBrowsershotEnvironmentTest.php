@@ -3,6 +3,28 @@
 use App\Support\BulkDocuments\ConfiguresBrowsershotEnvironment;
 use App\Support\BulkDocuments\ResolvesBrowsershotBinaries;
 
+function makePuppeteerChromeInCache(string $cacheDir): string
+{
+    $chromeDir = $cacheDir.'/chrome-headless-shell/linux-'.uniqid().'/chrome-headless-shell-linux64';
+    mkdir($chromeDir, 0755, true);
+
+    $chromePath = $chromeDir.'/chrome-headless-shell';
+    file_put_contents($chromePath, "#!/bin/sh\necho ok\n");
+    chmod($chromePath, 0755);
+
+    return $chromePath;
+}
+
+function removePuppeteerChrome(string $chromePath): void
+{
+    $chromeDir = dirname($chromePath);
+
+    @unlink($chromePath);
+    @rmdir($chromeDir);
+    @rmdir(dirname($chromeDir));
+    @rmdir(dirname(dirname($chromeDir)));
+}
+
 test('configures browsershot environment uses default puppeteer cache directory', function () {
     config()->set('services.browsershot.puppeteer_cache_dir', null);
 
@@ -46,21 +68,28 @@ test('configures browsershot environment respects configured puppeteer cache dir
 });
 
 test('configures browsershot environment falls back when configured cache has no chrome', function () {
+    $default = storage_path('app/puppeteer');
     $emptyCache = storage_path('app/empty-puppeteer-cache-'.uniqid());
     mkdir($emptyCache, 0755, true);
+
+    $defaultChrome = makePuppeteerChromeInCache($default);
 
     config()->set('services.browsershot.puppeteer_cache_dir', $emptyCache);
 
     $resolved = ConfiguresBrowsershotEnvironment::resolveCacheDir();
 
-    expect($resolved)->toBe(storage_path('app/puppeteer'));
+    expect($resolved)->toBe($default);
 
+    removePuppeteerChrome($defaultChrome);
     @rmdir($emptyCache);
 });
 
 test('resolves chrome from default cache when configured cache is empty', function () {
+    $default = storage_path('app/puppeteer');
     $emptyCache = storage_path('app/empty-puppeteer-cache-'.uniqid());
     mkdir($emptyCache, 0755, true);
+
+    $defaultChrome = makePuppeteerChromeInCache($default);
 
     config()->set('services.browsershot.puppeteer_cache_dir', $emptyCache);
     config()->set('services.browsershot.chrome_path', null);
@@ -68,9 +97,10 @@ test('resolves chrome from default cache when configured cache is empty', functi
     $chrome = ResolvesBrowsershotBinaries::chromePath();
 
     expect($chrome)->not->toBeNull()
-        ->and(str_contains((string) $chrome, storage_path('app/puppeteer')))->toBeTrue()
+        ->and(str_contains((string) $chrome, $default))->toBeTrue()
         ->and(is_executable((string) $chrome))->toBeTrue();
 
+    removePuppeteerChrome($defaultChrome);
     @rmdir($emptyCache);
 });
 

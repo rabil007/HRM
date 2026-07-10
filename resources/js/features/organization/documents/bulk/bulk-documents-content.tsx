@@ -738,6 +738,49 @@ export function BulkDocumentsContent({
         searchInput,
     ]);
 
+    const openSignaturesAwaiting = useCallback(() => {
+        navigate(
+            document_type_key,
+            filters,
+            searchInput,
+            generation_filter,
+            'signatures',
+            'awaiting_signature',
+            email_filter,
+            null,
+        );
+    }, [
+        document_type_key,
+        email_filter,
+        filters,
+        generation_filter,
+        navigate,
+        searchInput,
+    ]);
+
+    const setSignatureFilter = useCallback(
+        (nextSignatureFilter: BulkSignatureFilter) => {
+            navigate(
+                document_type_key,
+                filters,
+                searchInput,
+                generation_filter,
+                'signatures',
+                nextSignatureFilter,
+                email_filter,
+                null,
+            );
+        },
+        [
+            document_type_key,
+            email_filter,
+            filters,
+            generation_filter,
+            navigate,
+            searchInput,
+        ],
+    );
+
     const goToPage = useCallback(
         (page: number) => {
             navigate(
@@ -1003,7 +1046,7 @@ export function BulkDocumentsContent({
 
             {/* Summary cards */}
             {isRosterView && supportsEsignature ? (
-                <div className="mb-8 grid gap-4 sm:grid-cols-4">
+                <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                     <SummaryCard
                         label="In this list"
                         value={counts.targeted}
@@ -1040,6 +1083,15 @@ export function BulkDocumentsContent({
                         activeClass="border-violet-500/40 ring-1 ring-violet-500/25"
                         valueClass="text-violet-600 dark:text-violet-400"
                     />
+                    <SummaryCard
+                        label="Awaiting signature"
+                        value={counts.awaiting_signature}
+                        active={false}
+                        onClick={openSignaturesAwaiting}
+                        cardClass="border-sky-500/15 bg-sky-500/[0.04] hover:border-sky-500/30"
+                        activeClass="border-sky-500/40 ring-1 ring-sky-500/25"
+                        valueClass="text-sky-600 dark:text-sky-400"
+                    />
                 </div>
             ) : isRosterView ? (
                 <div className="mb-8 grid gap-4 sm:grid-cols-3">
@@ -1069,6 +1121,29 @@ export function BulkDocumentsContent({
                         cardClass="border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30"
                         activeClass="border-amber-500/40 ring-1 ring-amber-500/25"
                         valueClass="text-amber-500 dark:text-amber-400"
+                    />
+                </div>
+            ) : null}
+
+            {isSignaturesView && supportsEsignature ? (
+                <div className="mb-8 grid gap-4 sm:grid-cols-2">
+                    <SummaryCard
+                        label="Pending review"
+                        value={counts.pending_review}
+                        active={signature_filter === 'submitted'}
+                        onClick={() => setSignatureFilter('submitted')}
+                        cardClass="border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30"
+                        activeClass="border-violet-500/40 ring-1 ring-violet-500/25"
+                        valueClass="text-violet-600 dark:text-violet-400"
+                    />
+                    <SummaryCard
+                        label="Awaiting signature"
+                        value={counts.awaiting_signature}
+                        active={signature_filter === 'awaiting_signature'}
+                        onClick={() => setSignatureFilter('awaiting_signature')}
+                        cardClass="border-sky-500/15 bg-sky-500/[0.04] hover:border-sky-500/30"
+                        activeClass="border-sky-500/40 ring-1 ring-sky-500/25"
+                        valueClass="text-sky-600 dark:text-sky-400"
                     />
                 </div>
             ) : null}

@@ -350,3 +350,61 @@ test('signature review endpoints require review permission', function () {
     $this->post(route('organization.documents.bulk.signatures.approve', $request))
         ->assertForbidden();
 });
+
+test('hr can view signed pdf inline from bulk signatures table', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.signatures.review']);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $document = createSalaryDeclarationDocument($company, $employee);
+    $signedPath = "bulk-document-signatures/{$company->id}/{$employee->id}/signed.pdf";
+    Storage::disk('local')->put($signedPath, minimalPdfBytes());
+
+    $request = BulkDocumentSignatureRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_document_id' => $document->id,
+        'document_type_key' => 'salary_declaration',
+        'token' => 'test-token-view-inline',
+        'status' => BulkDocumentSignatureRequestStatus::Submitted,
+        'signed_pdf_path' => $signedPath,
+        'signed_at' => now(),
+        'expires_at' => now()->addDays(14),
+    ]);
+
+    $this->get(route('organization.documents.bulk.signatures.download', [
+        'signatureRequest' => $request,
+        'inline' => 1,
+    ]))
+        ->assertOk()
+        ->assertHeader('Content-Disposition', 'inline; filename="signed-salary-declaration.pdf"');
+});
+
+test('signed pdf download requires review permission', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $document = createSalaryDeclarationDocument($company, $employee);
+    $signedPath = "bulk-document-signatures/{$company->id}/{$employee->id}/signed.pdf";
+    Storage::disk('local')->put($signedPath, minimalPdfBytes());
+
+    $request = BulkDocumentSignatureRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_document_id' => $document->id,
+        'document_type_key' => 'salary_declaration',
+        'token' => 'test-token-download-permission',
+        'status' => BulkDocumentSignatureRequestStatus::Submitted,
+        'signed_pdf_path' => $signedPath,
+        'signed_at' => now(),
+        'expires_at' => now()->addDays(14),
+    ]);
+
+    $this->get(route('organization.documents.bulk.signatures.download', $request))
+        ->assertForbidden();
+});

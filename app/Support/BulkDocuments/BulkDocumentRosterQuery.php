@@ -46,7 +46,7 @@ final class BulkDocumentRosterQuery
 
     /**
      * @param  list<int>|null  $employeeIds
-     * @return array{targeted: int, generated: int, not_generated: int, pending_review: int}
+     * @return array{targeted: int, generated: int, not_generated: int, pending_review: int, awaiting_signature: int}
      */
     public static function counts(
         int $companyId,
@@ -77,11 +77,21 @@ final class BulkDocumentRosterQuery
             )
             : 0;
 
+        $awaitingSignature = BulkDocumentTypeRegistry::supportsEsignature($documentTypeKey)
+            ? BulkDocumentSignatureRosterQuery::awaitingSignatureCount(
+                $companyId,
+                $documentTypeKey,
+                $filters,
+                $emailFilter,
+            )
+            : 0;
+
         return [
             'targeted' => $targeted,
             'generated' => $generated,
             'not_generated' => $targeted - $generated,
             'pending_review' => $pendingReview,
+            'awaiting_signature' => $awaitingSignature,
         ];
     }
 

@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Download, FileUp, Loader2 } from 'lucide-react';
+import { Download, Eye, FileUp, Loader2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -33,6 +33,14 @@ import type { BulkSignatureRequest } from '@/features/organization/documents/bul
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { formatDisplayDateTime12h } from '@/lib/format-date';
+
+function signedPdfViewUrl(requestId: number): string {
+    return `/organization/documents/bulk/signatures/${requestId}/download?inline=1`;
+}
+
+function signedPdfDownloadUrl(requestId: number): string {
+    return `/organization/documents/bulk/signatures/${requestId}/download`;
+}
 
 function reviewDescription(request: BulkSignatureRequest): string {
     if (request.status === 'submitted') {
@@ -90,8 +98,11 @@ export function SignatureReviewDialog({
         return null;
     }
 
-    const signedUrl = request.signed_pdf_path
-        ? `/organization/documents/bulk/signatures/${request.id}/download`
+    const signedViewUrl = request.signed_pdf_path
+        ? signedPdfViewUrl(request.id)
+        : null;
+    const signedDownloadUrl = request.signed_pdf_path
+        ? signedPdfDownloadUrl(request.id)
         : null;
 
     const canUploadManual =
@@ -215,7 +226,7 @@ export function SignatureReviewDialog({
                         </div>
                     ) : null}
 
-                    {signedUrl ? (
+                    {signedViewUrl ? (
                         <div className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-card px-4 py-3">
                             <div className="min-w-0">
                                 <p className="text-sm font-medium">
@@ -226,16 +237,30 @@ export function SignatureReviewDialog({
                                     approving.
                                 </p>
                             </div>
-                            <Button variant="outline" size="sm" asChild>
-                                <a
-                                    href={signedUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                >
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Download
-                                </a>
-                            </Button>
+                            <div className="flex shrink-0 gap-2">
+                                <Button variant="outline" size="sm" asChild>
+                                    <a
+                                        href={signedViewUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        <Eye className="mr-2 h-4 w-4" />
+                                        View
+                                    </a>
+                                </Button>
+                                {signedDownloadUrl ? (
+                                    <Button variant="outline" size="sm" asChild>
+                                        <a
+                                            href={signedDownloadUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                        >
+                                            <Download className="mr-2 h-4 w-4" />
+                                            Download
+                                        </a>
+                                    </Button>
+                                ) : null}
+                            </div>
                         </div>
                     ) : (
                         <div className="rounded-xl border border-dashed border-border/80 bg-muted/10 px-4 py-6 text-center text-sm text-muted-foreground">
@@ -404,12 +429,35 @@ export function BulkSignaturesTable({
                                         : '—'}
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
-                                    <div className="flex justify-end">
+                                    <div className="flex justify-end gap-2">
+                                        {request.signed_pdf_path && canReview ? (
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                asChild
+                                            >
+                                                <a
+                                                    href={signedPdfViewUrl(
+                                                        request.id,
+                                                    )}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    onClick={(event) =>
+                                                        event.stopPropagation()
+                                                    }
+                                                >
+                                                    <Eye className="mr-2 h-4 w-4" />
+                                                    View
+                                                </a>
+                                            </Button>
+                                        ) : null}
                                         <Button
                                             type="button"
                                             size="sm"
                                             variant="outline"
-                                            onClick={() => setReviewRequest(request)}
+                                            onClick={() =>
+                                                setReviewRequest(request)
+                                            }
                                         >
                                             Review
                                         </Button>

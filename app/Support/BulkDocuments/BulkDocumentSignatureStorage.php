@@ -4,6 +4,7 @@ namespace App\Support\BulkDocuments;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class BulkDocumentSignatureStorage
@@ -49,5 +50,13 @@ final class BulkDocumentSignatureStorage
         }
 
         return Storage::disk('public')->download($path, $name, $headers);
+    }
+
+    public static function inline(string $path, string $name, array $headers = []): BinaryFileResponse
+    {
+        return response()->file(self::path($path), array_merge([
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$name.'"',
+        ], $headers));
     }
 }

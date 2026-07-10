@@ -65,6 +65,7 @@ export type BulkDocumentCounts = {
     generated: number;
     not_generated: number;
     pending_review: number;
+    awaiting_signature: number;
 };
 
 export type BulkGenerationRun = {
