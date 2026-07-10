@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\JobRun;
-use App\Services\HikvisionService;
+use App\Support\Attendance\DispatchHikvisionAttendanceSync;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
@@ -14,32 +14,43 @@ class SyncHikvisionAttendanceJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 600;
+    public int $timeout = 60;
 
     public function __construct(public ?string $date = null) {}
 
-    public function handle(HikvisionService $hikvision): void
+    public function handle(DispatchHikvisionAttendanceSync $dispatch): void
     {
         $timezone = (string) config('app.timezone', 'UTC');
-        $synced = 0;
+        $dispatched = 0;
 
         if (filled($this->date)) {
             $day = Carbon::parse($this->date, $timezone)->startOfDay();
-            $synced += $hikvision->syncAttendanceForDay($day);
+            $dispatched += $dispatch->dispatchForWindow(
+                $day->copy()->startOfDay(),
+                $day->copy()->endOfDay(),
+            );
 
             if ($day->isToday()) {
-                $synced += $hikvision->syncAttendanceForDay($day->copy()->subDay());
+                $yesterday = $day->copy()->subDay();
+                $dispatched += $dispatch->dispatchForWindow(
+                    $yesterday->copy()->startOfDay(),
+                    $yesterday->copy()->endOfDay(),
+                );
             }
         } else {
-            $synced += $hikvision->syncAttendanceForYesterday();
+            $yesterday = now($timezone)->copy()->subDay()->startOfDay();
+            $dispatched += $dispatch->dispatchForWindow(
+                $yesterday->copy()->startOfDay(),
+                $yesterday->copy()->endOfDay(),
+            );
         }
 
         $jobId = $this->job ? $this->job->uuid() : null;
         if ($jobId) {
             JobRun::query()->where('correlation_id', $jobId)->update([
-                'message' => "Successfully synchronized {$synced} attendance record(s).",
+                'message' => "Dispatched {$dispatched} company attendance sync job(s).",
                 'context' => [
-                    'synced_records_count' => $synced,
+                    'dispatched_jobs_count' => $dispatched,
                     'date' => $this->date,
                 ],
             ]);

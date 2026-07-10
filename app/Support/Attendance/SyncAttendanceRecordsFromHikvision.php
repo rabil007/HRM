@@ -38,6 +38,35 @@ final class SyncAttendanceRecordsFromHikvision
             fn (HikvisionAccessEvent $event): string => (string) ($event->person_hikvision_id ?? ''),
         );
 
+        $employeeIds = $employees->pluck('id');
+
+        /** @var Collection<int, Collection<int, LeaveRequest>> $leavesByEmployee */
+        $leavesByEmployee = $employeeIds->isEmpty()
+            ? collect()
+            : LeaveRequest::query()
+                ->whereIn('employee_id', $employeeIds)
+                ->where('status', 'approved')
+                ->whereDate('start_date', '<=', $rangeEnd->toDateString())
+                ->whereDate('end_date', '>=', $rangeStart->toDateString())
+                ->get(['employee_id', 'start_date', 'end_date'])
+                ->groupBy('employee_id');
+
+        /** @var Collection<int, Collection<string, AttendanceRecord>> $recordsByEmployee */
+        $recordsByEmployee = $employeeIds->isEmpty()
+            ? collect()
+            : AttendanceRecord::query()
+                ->where('company_id', $companyId)
+                ->whereIn('employee_id', $employeeIds)
+                ->whereDate('date', '>=', $rangeStart->toDateString())
+                ->whereDate('date', '<=', $rangeEnd->toDateString())
+                ->get()
+                ->groupBy('employee_id')
+                ->map(
+                    fn (Collection $records): Collection => $records->keyBy(
+                        fn (AttendanceRecord $record): string => $record->date->toDateString(),
+                    ),
+                );
+
         foreach ($employees as $employee) {
             $employeeEvents = $this->resolveEmployeeEvents($employee, $eventsByPersonId, $companyEvents);
 
@@ -48,6 +77,8 @@ final class SyncAttendanceRecordsFromHikvision
                 $timezone,
                 $workingDays,
                 $employeeEvents,
+                $leavesByEmployee->get($employee->id, collect()),
+                $recordsByEmployee->get($employee->id, collect()),
             );
         }
 
@@ -188,6 +219,8 @@ final class SyncAttendanceRecordsFromHikvision
     /**
      * @param  list<int>  $workingDays
      * @param  Collection<int, HikvisionAccessEvent>  $events
+     * @param  Collection<int, LeaveRequest>  $approvedLeaves
+     * @param  Collection<string, AttendanceRecord>  $existingRecords
      */
     private function syncEmployee(
         Employee $employee,
@@ -196,6 +229,8 @@ final class SyncAttendanceRecordsFromHikvision
         string $timezone,
         array $workingDays,
         Collection $events,
+        Collection $approvedLeaves,
+        Collection $existingRecords,
     ): int {
         $synced = 0;
 
@@ -205,22 +240,6 @@ final class SyncAttendanceRecordsFromHikvision
                 ?->timezone($timezone)
                 ->toDateString() ?? '',
         );
-
-        $approvedLeaves = LeaveRequest::query()
-            ->where('employee_id', $employee->id)
-            ->where('status', 'approved')
-            ->whereDate('start_date', '<=', $rangeEnd->toDateString())
-            ->whereDate('end_date', '>=', $rangeStart->toDateString())
-            ->get(['start_date', 'end_date']);
-
-        /** @var Collection<string, AttendanceRecord> $existingRecords */
-        $existingRecords = AttendanceRecord::query()
-            ->where('company_id', $employee->company_id)
-            ->where('employee_id', $employee->id)
-            ->whereDate('date', '>=', $rangeStart->toDateString())
-            ->whereDate('date', '<=', $rangeEnd->toDateString())
-            ->get()
-            ->keyBy(fn (AttendanceRecord $record): string => $record->date->toDateString());
 
         $current = $rangeStart->copy();
 

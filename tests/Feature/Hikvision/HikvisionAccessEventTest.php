@@ -9,6 +9,7 @@ use App\Models\HikvisionPerson;
 use App\Models\HikvisionSetting;
 use App\Models\User;
 use App\Services\HikvisionService;
+use App\Support\Attendance\DispatchHikvisionAttendanceSync;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -41,7 +42,7 @@ function runHikvisionAccessEventsFetchJob(?string $date = null): void
     $hikvision = app(HikvisionService::class);
 
     (new FetchHikvisionAccessEventsJob($date))->handle($hikvision);
-    (new SyncHikvisionAttendanceJob($date))->handle($hikvision);
+    (new SyncHikvisionAttendanceJob($date))->handle(app(DispatchHikvisionAttendanceSync::class));
 }
 
 function fakeHikvisionAcsEventsFetch(array $attendanceReportDataList = []): void
