@@ -359,3 +359,59 @@ test('authorized users can download all generated payslips as a ZIP file', funct
         ->assertOk()
         ->assertHeader('content-disposition');
 });
+
+test('authorized users can download all generated payslips as one merged pdf', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.records.view']);
+
+    Storage::fake('local');
+
+    $period = PayrollPeriod::factory()->for($company)->create();
+
+    $firstEmployee = Employee::factory()->forCompany($company)->create(['employee_no' => 'PAY-PDF-1']);
+    $secondEmployee = Employee::factory()->forCompany($company)->create(['employee_no' => 'PAY-PDF-2']);
+
+    $firstPath = "payslips/{$company->id}/{$period->id}/{$firstEmployee->id}.pdf";
+    $secondPath = "payslips/{$company->id}/{$period->id}/{$secondEmployee->id}.pdf";
+
+    Storage::disk('local')->put($firstPath, minimalPdfBytes());
+    Storage::disk('local')->put($secondPath, minimalPdfBytes());
+
+    PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $firstEmployee->id,
+        'period_id' => $period->id,
+        'status' => 'approved',
+        'payslip_path' => $firstPath,
+    ]);
+
+    PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $secondEmployee->id,
+        'period_id' => $period->id,
+        'status' => 'approved',
+        'payslip_path' => $secondPath,
+    ]);
+
+    $response = $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.payslips.download-pdf', ['period_id' => $period->id]));
+
+    $response->assertOk();
+    expect($response->headers->get('Content-Type'))->toContain('application/pdf');
+    expect(str_starts_with($response->streamedContent(), '%PDF'))->toBeTrue();
+});
+
+test('merged payslip pdf download redirects when no generated payslips exist', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.records.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->create();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->from(route('payroll.show', $period))
+        ->get(route('payroll.payslips.download-pdf', ['period_id' => $period->id]))
+        ->assertRedirect(route('payroll.show', $period))
+        ->assertSessionHas('error', 'No generated payslips found for this period.');
+});

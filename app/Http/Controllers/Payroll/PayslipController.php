@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Payroll;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Payroll\BulkPayslipActionRequest;
 use App\Models\PayrollRecord;
+use App\Services\DocumentMergeService;
 use App\Support\Payroll\Actions\GeneratePayslip;
 use App\Support\Payroll\Actions\SendPayslipEmails;
 use App\Support\Payroll\PayslipData;
@@ -117,6 +118,45 @@ class PayslipController extends Controller
         }
 
         return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
+    }
+
+    public function downloadPdf(Request $request, DocumentMergeService $documentMergeService): StreamedResponse|RedirectResponse
+    {
+        $this->authorizeAccess($request);
+
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $periodId = $request->query('period_id');
+
+        abort_unless(filled($periodId), 400, 'Period ID is required.');
+
+        $records = PayrollRecord::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', (int) $periodId)
+            ->whereNotNull('payslip_path')
+            ->with('employee')
+            ->orderBy('id')
+            ->get();
+
+        if ($records->isEmpty()) {
+            return back()->with('error', 'No generated payslips found for this period.');
+        }
+
+        $paths = [];
+
+        foreach ($records as $record) {
+            if (filled($record->payslip_path) && Storage::disk('local')->exists($record->payslip_path)) {
+                $paths[] = Storage::disk('local')->path($record->payslip_path);
+            }
+        }
+
+        if ($paths === []) {
+            return back()->with('error', 'No generated payslip files found on disk.');
+        }
+
+        return $documentMergeService->streamMergedPdfFromPaths(
+            $paths,
+            'payslips-'.$periodId.'-'.time().'.pdf',
+        );
     }
 
     public function generate(

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import {
+    downloadPdf as downloadMergedPayslipsPdf,
     downloadZip as downloadZipPayslips,
     email as emailPayslips,
 } from '@/actions/App/Http/Controllers/Payroll/PayslipController';
@@ -189,31 +190,63 @@ export function PayslipDeliveryCard({
 
                 <div className="flex flex-wrap gap-2 pt-1">
                     {summary.generated > 0 ? (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="rounded-xl"
-                            asChild
-                        >
-                            <a
-                                href={downloadZipPayslips.url({
-                                    query: { period_id: String(periodId) },
-                                })}
+                        <>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl"
+                                asChild
+                            >
+                                <a
+                                    href={downloadMergedPayslipsPdf.url({
+                                        query: {
+                                            period_id: String(periodId),
+                                        },
+                                    })}
+                                >
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Download PDF
+                                </a>
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl"
+                                asChild
+                            >
+                                <a
+                                    href={downloadZipPayslips.url({
+                                        query: {
+                                            period_id: String(periodId),
+                                        },
+                                    })}
+                                >
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Download ZIP
+                                </a>
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl"
+                                disabled
+                            >
+                                <FileText className="mr-2 h-4 w-4" />
+                                Download PDF
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl"
+                                disabled
                             >
                                 <Download className="mr-2 h-4 w-4" />
                                 Download ZIP
-                            </a>
-                        </Button>
-                    ) : (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="rounded-xl"
-                            disabled
-                        >
-                            <Download className="mr-2 h-4 w-4" />
-                            Download ZIP
-                        </Button>
+                            </Button>
+                        </>
                     )}
                     {canEmail ? (
                         <Button
