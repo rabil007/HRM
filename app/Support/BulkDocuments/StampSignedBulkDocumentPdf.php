@@ -47,24 +47,25 @@ final class StampSignedBulkDocumentPdf
         [$signatureBinary, $imageType] = $this->decodeSignatureImage($data['signature_data']);
         $signedDate ??= now()->format('d M Y');
 
-        if ($this->shouldRenderInlineSignature($request)) {
-            return $this->renderViaTemplate($request, $employee, $data, $signedDate);
-        }
-
         if ($this->canStampOntoSourcePdf($request)) {
             try {
-                return $this->stampOntoSourcePdf($request, $signatureBinary, $imageType, $signedDate);
+                $stamped = $this->stampOntoSourcePdf($request, $signatureBinary, $imageType, $signedDate);
+
+                // #region agent log
+                @file_put_contents(base_path('.cursor/debug-46bd53.log'), json_encode(['sessionId' => '46bd53', 'runId' => 'post-fix', 'hypothesisId' => 'B', 'location' => 'StampSignedBulkDocumentPdf.php:handle:stamp-success', 'message' => 'stamped onto source pdf', 'data' => ['pdf_length' => strlen($stamped), 'pdf_prefix' => substr($stamped, 0, 8)], 'timestamp' => (int) round(microtime(true) * 1000)])."\n", FILE_APPEND);
+                // #endregion
+
+                return $stamped;
             } catch (CrossReferenceException|PdfParserException|FpdiException $exception) {
+                // #region agent log
+                @file_put_contents(base_path('.cursor/debug-46bd53.log'), json_encode(['sessionId' => '46bd53', 'runId' => 'post-fix', 'hypothesisId' => 'B', 'location' => 'StampSignedBulkDocumentPdf.php:handle:stamp-failed', 'message' => 'source stamp failed, falling back to template', 'data' => ['exception_class' => $exception::class, 'exception_message' => $exception->getMessage()], 'timestamp' => (int) round(microtime(true) * 1000)])."\n", FILE_APPEND);
+                // #endregion
+
                 report($exception);
             }
         }
 
         return $this->renderViaTemplate($request, $employee, $data, $signedDate);
-    }
-
-    private function shouldRenderInlineSignature(BulkDocumentSignatureRequest $request): bool
-    {
-        return $request->document_type_key === 'salary_declaration';
     }
 
     /**

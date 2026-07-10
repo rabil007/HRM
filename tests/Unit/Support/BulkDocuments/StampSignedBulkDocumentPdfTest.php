@@ -39,7 +39,7 @@ function createStampTestDocument(Company $company, Employee $employee): Employee
     ]);
 }
 
-test('stamp signed bulk document pdf uses inline renderer for salary declaration', function () {
+test('stamp signed bulk document pdf stamps onto source pdf for salary declaration', function () {
     $fixtures = makeDocumentFixtures();
     $company = $fixtures['company'];
     $employee = $fixtures['employee'];
@@ -77,8 +77,8 @@ test('stamp signed bulk document pdf uses inline renderer for salary declaration
         'consent' => true,
     ]);
 
-    expect($renderer->called)->toBeTrue()
-        ->and($output)->toBe('%PDF-1.4 signed-with-template');
+    expect($renderer->called)->toBeFalse()
+        ->and($output)->toStartWith('%PDF');
 });
 
 test('stamp signed bulk document pdf falls back to renderer when source stamp fails', function () {
@@ -175,8 +175,8 @@ test('stamp signed bulk document pdf reloads full employee when request was load
         'consent' => true,
     ]);
 
-    expect($renderer->called)->toBeTrue()
-        ->and($output)->toBe('%PDF-1.4 signed-with-template');
+    expect($renderer->called)->toBeFalse()
+        ->and($output)->toStartWith('%PDF');
 });
 
 test('stamp signed bulk document pdf rejects invalid signature image', function () {
