@@ -20,10 +20,6 @@ final class StampSignedBulkDocumentPdf
      */
     public function handle(BulkDocumentSignatureRequest $request, array $data, ?string $signedDate = null): string
     {
-        // #region agent log
-        @file_put_contents(base_path('.cursor/debug-46bd53.log'), json_encode(['sessionId' => '46bd53', 'runId' => 'pre-fix', 'hypothesisId' => 'C', 'location' => 'StampSignedBulkDocumentPdf.php:handle:entry', 'message' => 'stamp signed pdf entry', 'data' => ['document_type_key' => $request->document_type_key, 'employee_id' => $request->employee_id, 'company_id' => $request->company_id, 'signature_data_length' => strlen($data['signature_data']), 'use_inline_template' => $this->shouldRenderInlineSignature($request), 'can_stamp_source' => $this->canStampOntoSourcePdf($request)], 'timestamp' => (int) round(microtime(true) * 1000)])."\n", FILE_APPEND);
-        // #endregion
-
         if (! BulkDocumentTypeRegistry::supportsEsignature($request->document_type_key)) {
             throw ValidationException::withMessages([
                 'signature_data' => 'Electronic signing is not configured for this document type.',
@@ -83,10 +79,6 @@ final class StampSignedBulkDocumentPdf
                 ],
             );
         } catch (ProcessFailedException|Throwable $exception) {
-            // #region agent log
-            @file_put_contents(base_path('.cursor/debug-46bd53.log'), json_encode(['sessionId' => '46bd53', 'runId' => 'pre-fix', 'hypothesisId' => 'A,B,C,D,E', 'location' => 'StampSignedBulkDocumentPdf.php:renderViaTemplate:catch', 'message' => 'template render failed', 'data' => ['exception_class' => $exception::class, 'exception_message' => $exception->getMessage(), 'exception_file' => $exception->getFile(), 'exception_line' => $exception->getLine(), 'previous_class' => $exception->getPrevious() ? $exception->getPrevious()::class : null, 'previous_message' => $exception->getPrevious()?->getMessage()], 'timestamp' => (int) round(microtime(true) * 1000)])."\n", FILE_APPEND);
-            // #endregion
-
             report($exception);
 
             throw ValidationException::withMessages([
