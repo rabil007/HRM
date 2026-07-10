@@ -15,6 +15,7 @@ import { trainingImportConfig } from '@/features/organization/employees/profile/
 import { resolveRecordImportUrls } from '@/features/organization/employees/profile/resolve-record-import-urls';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { AddTrainingDialog } from '@/features/organization/training/add-training/add-training-dialog';
+import { buildTrainingShowUrl } from '@/features/organization/training/shared/training-show-url';
 import { TrainingListRowActions } from '@/features/organization/training/training-list-row-actions';
 import { TrainingManagementDialogs } from '@/features/organization/training/training-management-dialogs';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -23,6 +24,7 @@ import {
     EmployeeRecordsActionsHeader,
     EmployeeRecordsPanel,
     EmployeeRecordsTable,
+    employeeRecordsActionsTdClass,
     employeeRecordsTableHeadClass,
     employeeRecordsTableRowClass,
     employeeRecordsTableTdClass,
@@ -41,8 +43,6 @@ const TRAINING_RELOAD = {
     preserveScroll: true,
     only: ['trainings'],
 };
-
-const CERTIFICATE_TEMPLATE_FIELD = 'certificate_path';
 
 export type EmployeeTrainingTabProps = {
     employeeId: number | null;
@@ -108,6 +108,7 @@ export function EmployeeTrainingTab({
         [employeeId],
     );
     const canImportRecords = employeeId !== null && employeeId > 0;
+    const hasEmployeeId = employeeId !== null && employeeId > 0;
 
     const openCreateDialog = () => {
         setTrainingDialogOpen(true);
@@ -216,16 +217,11 @@ export function EmployeeTrainingTab({
                                     Institute/Center
                                 </th>
                             ) : null}
-                            {showField(CERTIFICATE_TEMPLATE_FIELD) ? (
-                                <th className={employeeRecordsTableThClass()}>
-                                    Certificate
-                                </th>
-                            ) : null}
                             <th className={employeeRecordsTableThClass()}>
                                 Created on
                             </th>
-                            {canManage ? (
-                                <EmployeeRecordsActionsHeader />
+                            {hasEmployeeId ? (
+                                <EmployeeRecordsActionsHeader className="min-w-[13.5rem]" />
                             ) : null}
                         </tr>
                     </thead>
@@ -233,7 +229,19 @@ export function EmployeeTrainingTab({
                         {trainings.map((row) => (
                             <tr
                                 key={row.id}
-                                className={employeeRecordsTableRowClass()}
+                                className={cn(
+                                    employeeRecordsTableRowClass(),
+                                    hasEmployeeId && 'cursor-pointer',
+                                )}
+                                onClick={() => {
+                                    if (!hasEmployeeId) {
+                                        return;
+                                    }
+
+                                    router.visit(
+                                        buildTrainingShowUrl(employeeId, row.id),
+                                    );
+                                }}
                             >
                                 {canManage ? (
                                     <td
@@ -293,32 +301,6 @@ export function EmployeeTrainingTab({
                                         {row.institute_center}
                                     </td>
                                 ) : null}
-                                {showField(CERTIFICATE_TEMPLATE_FIELD) ? (
-                                    <td
-                                        className={employeeRecordsTableTdClass()}
-                                    >
-                                        {row.certificate_url ? (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-7 text-xs"
-                                                asChild
-                                            >
-                                                <a
-                                                    href={row.certificate_url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                >
-                                                    View
-                                                </a>
-                                            </Button>
-                                        ) : (
-                                            <span className="text-xs text-muted-foreground">
-                                                —
-                                            </span>
-                                        )}
-                                    </td>
-                                ) : null}
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
@@ -327,29 +309,31 @@ export function EmployeeTrainingTab({
                                 >
                                     {formatDisplayDate(row.created_at)}
                                 </td>
-                                {canManage ? (
+                                {hasEmployeeId ? (
                                     <td
-                                        className={cn(
-                                            employeeRecordsTableTdClass(),
-                                            'text-right',
+                                        className={employeeRecordsActionsTdClass(
+                                            'min-w-[13.5rem]',
                                         )}
                                     >
-                                        <div className="flex items-center justify-end gap-2">
-                                            <TrainingListRowActions
-                                                onEdit={() =>
-                                                    openEditDialog(row)
-                                                }
-                                                onReplace={() =>
-                                                    openReplaceDialog(row)
-                                                }
-                                                showReplace={
-                                                    !!row.certificate_url
-                                                }
-                                                onDelete={() =>
-                                                    setDeleteTrainingId(row.id)
-                                                }
-                                            />
-                                        </div>
+                                        <TrainingListRowActions
+                                            viewHref={buildTrainingShowUrl(
+                                                employeeId,
+                                                row.id,
+                                            )}
+                                            certificateUrl={row.certificate_url}
+                                            showEdit={canManage}
+                                            onEdit={() => openEditDialog(row)}
+                                            showReplace={
+                                                canManage && !!row.certificate_url
+                                            }
+                                            onReplace={() =>
+                                                openReplaceDialog(row)
+                                            }
+                                            showDelete={canManage}
+                                            onDelete={() =>
+                                                setDeleteTrainingId(row.id)
+                                            }
+                                        />
                                     </td>
                                 ) : null}
                             </tr>

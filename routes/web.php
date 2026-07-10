@@ -73,6 +73,7 @@ use App\Http\Controllers\Organization\EmployeeSalaryCertificatePrintController;
 use App\Http\Controllers\Organization\EmployeeSalaryDeclarationPrintController;
 use App\Http\Controllers\Organization\EmployeeSeaServiceController;
 use App\Http\Controllers\Organization\EmployeeTrainingController;
+use App\Http\Controllers\Organization\EmployeeTrainingShowController;
 use App\Http\Controllers\Organization\EmployeeUserController;
 use App\Http\Controllers\Organization\EmployeeVaccinationController;
 use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
@@ -402,6 +403,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/employees/{employee}/languages/{language}', [EmployeeLanguageController::class, 'update'])->middleware('can:employees.languages.manage')->name('organization.employees.languages.update');
     Route::delete('organization/employees/{employee}/languages/{language}', [EmployeeLanguageController::class, 'destroy'])->middleware('can:employees.languages.manage')->name('organization.employees.languages.destroy');
 
+    Route::get('organization/employees/{employee}/training/{training}', EmployeeTrainingShowController::class)->middleware('can:employees.view')->name('organization.employees.training.show');
     Route::get('organization/employees/{employee}/training/import/template', [EmployeeTrainingController::class, 'importTemplate'])->middleware('can:employees.training.manage')->name('organization.employees.training.import.template');
     Route::post('organization/employees/{employee}/training/import', [EmployeeTrainingController::class, 'import'])->middleware('can:employees.training.manage')->name('organization.employees.training.import');
     Route::post('organization/employees/{employee}/training/bulk', [EmployeeTrainingController::class, 'bulkStore'])->middleware('can:employees.training.manage')->name('organization.employees.training.bulk-store');

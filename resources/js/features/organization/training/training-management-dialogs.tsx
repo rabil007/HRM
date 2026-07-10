@@ -23,6 +23,7 @@ type TrainingManagementDialogsProps = {
     onDeleteTrainingIdChange: (id: number | null) => void;
     templateFields?: Record<string, TemplateFieldConfig> | null;
     partialReloadKeys?: string[];
+    deleteRedirectUrl?: string;
 };
 
 export function TrainingManagementDialogs({
@@ -37,6 +38,7 @@ export function TrainingManagementDialogs({
     onDeleteTrainingIdChange,
     templateFields = null,
     partialReloadKeys = ['trainings'],
+    deleteRedirectUrl,
 }: TrainingManagementDialogsProps): ReactElement {
     return (
         <>
@@ -78,8 +80,18 @@ export function TrainingManagementDialogs({
                         }),
                         {
                             preserveScroll: true,
-                            only: partialReloadKeys,
-                            onSuccess: () => onDeleteTrainingIdChange(null),
+                            ...(deleteRedirectUrl
+                                ? {}
+                                : partialReloadKeys.length > 0
+                                  ? { only: partialReloadKeys }
+                                  : {}),
+                            onSuccess: () => {
+                                onDeleteTrainingIdChange(null);
+
+                                if (deleteRedirectUrl) {
+                                    router.visit(deleteRedirectUrl);
+                                }
+                            },
                         },
                     );
                 }}

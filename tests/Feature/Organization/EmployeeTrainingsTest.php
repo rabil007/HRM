@@ -27,6 +27,11 @@ test('guests cannot manage training records', function () {
 
     $this->get(route('organization.employees.training.import.template', $employee))
         ->assertRedirect(route('login'));
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create();
+
+    $this->get(route('organization.employees.training.show', [$employee, $training]))
+        ->assertRedirect(route('login'));
 });
 
 test('users without permission cannot manage training records', function () {
@@ -1254,4 +1259,288 @@ test('destroying a training record deletes current and version certificate files
 
     Storage::disk('public')->assertMissing($oldPath);
     Storage::disk('public')->assertMissing($currentPath);
+});
+
+test('authorized user can load training show page with metadata and versions', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TSW',
+        'name' => 'Training Show Land',
+        'dial_code' => '+984',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TSW',
+        'name' => 'Training Show Currency',
+        'symbol' => 'S$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Show Co',
+        'slug' => 'training-show-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP9010',
+            'name' => 'Show Trainee',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    $course = Course::query()->create([
+        'name' => 'STCW Basic Safety',
+        'is_active' => true,
+    ]);
+
+    $training = EmployeeTraining::factory()
+        ->forEmployee($employee)
+        ->create([
+            'course_id' => $course->id,
+            'issue_date' => '2024-03-01',
+            'expiry_date' => '2029-03-01',
+            'institute_center' => 'Maritime Academy',
+            'country_id' => $country->id,
+            'certificate_path' => 'employees/'.$company->id.'/training-certificates/show.pdf',
+            'certificate_original_filename' => 'show.pdf',
+            'certificate_mime_type' => 'application/pdf',
+            'certificate_size_bytes' => 1024,
+            'current_version' => 2,
+        ]);
+
+    $training->versions()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'version' => 1,
+        'file_path' => 'employees/'.$company->id.'/training-certificates/show-v1.pdf',
+        'original_filename' => 'show-v1.pdf',
+        'mime_type' => 'application/pdf',
+        'replaced_by' => $user->id,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get(route('organization.employees.training.show', [$employee, $training]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/training/show')
+            ->where('training.id', $training->id)
+            ->where('training.course_name', 'STCW Basic Safety')
+            ->where('training.institute_center', 'Maritime Academy')
+            ->where('training.country_name', 'Training Show Land')
+            ->where('training.can_preview', true)
+            ->where('training.current_version', 2)
+            ->has('training.versions', 1)
+            ->where('training.versions.0.version', 1)
+            ->where('training.versions.0.replaced_by', $user->name)
+            ->where('employee.id', $employee->id)
+            ->where('employee.name', 'Show Trainee')
+            ->where('back.label', 'Back to employee profile')
+            ->where('back.href', route('organization.employees.show', $employee).'#training')
+            ->where('can.manage', false)
+        );
+});
+
+test('training show page returns 404 for wrong company or employee pairing', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TNF',
+        'name' => 'Training Not Found Land',
+        'dial_code' => '+985',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TNF',
+        'name' => 'Training Not Found Currency',
+        'symbol' => 'N$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training NF Co',
+        'slug' => 'training-nf-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Training Co',
+        'slug' => 'other-training-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create(['status' => 'active']);
+
+    $otherEmployee = Employee::factory()
+        ->forCompany($otherCompany)
+        ->create(['status' => 'active']);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $otherCompany->id,
+        'employee_id' => $otherEmployee->id,
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create();
+
+    $this->get(route('organization.employees.training.show', [$otherEmployee, $training]))
+        ->assertNotFound();
+
+    $this->get(route('organization.employees.training.show', [$employee, 999999]))
+        ->assertNotFound();
+});
+
+test('training show page exposes manage permission', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TPM',
+        'name' => 'Training Perm Land',
+        'dial_code' => '+986',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TPM',
+        'name' => 'Training Perm Currency',
+        'symbol' => 'P$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Perm Co',
+        'slug' => 'training-perm-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create(['status' => 'active']);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.training.manage',
+    ]);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create();
+
+    $this->get(route('organization.employees.training.show', [$employee, $training]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('can.manage', true));
+});
+
+test('training show page hides recent activity without audit permission', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TAU',
+        'name' => 'Training Audit Land',
+        'dial_code' => '+987',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TAU',
+        'name' => 'Training Audit Currency',
+        'symbol' => 'A$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Audit Co',
+        'slug' => 'training-audit-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create(['status' => 'active']);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create();
+
+    $this->get(route('organization.employees.training.show', [$employee, $training]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can_view_audit', false)
+            ->where('recent_activity', [])
+        );
 });

@@ -31,4 +31,13 @@ class EmployeeTrainingVersion extends Model
     {
         return $this->belongsTo(User::class, 'replaced_by');
     }
+
+    public function getFileUrlAttribute(): string
+    {
+        if (str_starts_with($this->file_path, 'http')) {
+            return $this->file_path;
+        }
+
+        return asset('storage/'.ltrim($this->file_path, '/'));
+    }
 }
