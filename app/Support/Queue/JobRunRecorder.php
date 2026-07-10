@@ -3,6 +3,7 @@
 namespace App\Support\Queue;
 
 use App\Jobs\FetchHikvisionAccessEventsJob;
+use App\Mail\FailedQueueJobMail;
 use App\Models\JobRun;
 use Carbon\CarbonInterface;
 use Illuminate\Console\Events\ScheduledTaskFailed;
@@ -11,6 +12,8 @@ use Illuminate\Console\Events\ScheduledTaskStarting;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 final class JobRunRecorder
 {
@@ -88,6 +91,14 @@ final class JobRunRecorder
                 'duration_ms' => 0,
             ]);
 
+            $this->sendFailedJobAlert(
+                $name,
+                (string) $event->job->getQueue(),
+                (string) $event->connectionName,
+                $exception,
+                $uuid,
+            );
+
             return;
         }
 
@@ -98,6 +109,14 @@ final class JobRunRecorder
             'finished_at' => $finishedAt,
             'duration_ms' => $this->durationMs($run->started_at, $finishedAt),
         ]);
+
+        $this->sendFailedJobAlert(
+            $name,
+            (string) $event->job->getQueue(),
+            (string) $event->connectionName,
+            $exception,
+            $uuid,
+        );
     }
 
     public function recordScheduledStarting(ScheduledTaskStarting $event): void
@@ -200,7 +219,7 @@ final class JobRunRecorder
 
         try {
             $instance = unserialize($command, ['allowed_classes' => true]);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return [];
         }
 
@@ -290,5 +309,32 @@ final class JobRunRecorder
         }
 
         return mb_strlen($line) > 255 ? mb_substr($line, 0, 252).'...' : $line;
+    }
+
+    private function sendFailedJobAlert(
+        string $jobName,
+        string $queue,
+        string $connection,
+        string $exception,
+        ?string $jobUuid,
+    ): void {
+        $recipient = (string) config('queue.failed_job_alert_email', '');
+
+        if ($recipient === '') {
+            return;
+        }
+
+        try {
+            Mail::to($recipient)->send(new FailedQueueJobMail(
+                jobName: $jobName,
+                queueName: $queue,
+                queueConnection: $connection,
+                exceptionSummary: $this->exceptionSummary($exception),
+                exceptionDetails: mb_substr($exception, 0, 8000),
+                jobUuid: $jobUuid,
+            ));
+        } catch (Throwable $mailException) {
+            report($mailException);
+        }
     }
 }

@@ -126,4 +126,6 @@ return [
         'table' => 'failed_jobs',
     ],
 
+    'failed_job_alert_email' => env('QUEUE_FAILED_ALERT_EMAIL', 'rabil@overseas-ms.com'),
+
 ];
