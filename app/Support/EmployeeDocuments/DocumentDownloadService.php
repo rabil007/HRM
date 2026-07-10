@@ -221,8 +221,11 @@ class DocumentDownloadService
         return $diskPath !== null && Storage::disk('public')->exists($diskPath);
     }
 
-    public function downloadSingleDocument(EmployeeDocument $document, int $companyId): Response
-    {
+    public function downloadSingleDocument(
+        EmployeeDocument $document,
+        int $companyId,
+        bool $inline = false,
+    ): Response {
         $this->assertDocumentAccessible($document, $companyId);
 
         $downloadName = $this->downloadFilename($document);
@@ -234,6 +237,16 @@ class DocumentDownloadService
         $diskPath = $this->validatedDiskPath((string) $document->file_path, $companyId);
 
         abort_if($diskPath === null || ! Storage::disk('public')->exists($diskPath), 404, 'File not found.');
+
+        if ($inline) {
+            return response()->file(
+                Storage::disk('public')->path($diskPath),
+                [
+                    'Content-Type' => (string) ($document->mime_type ?: 'application/pdf'),
+                    'Content-Disposition' => 'inline; filename="'.$downloadName.'"',
+                ],
+            );
+        }
 
         return Storage::disk('public')->download(
             $diskPath,

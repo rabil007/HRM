@@ -28,18 +28,31 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    employeeDocumentViewUrl,
+    signedPdfDownloadUrl,
+    signedPdfViewUrl,
+} from '@/features/organization/documents/bulk/bulk-document-urls';
 import { SignatureStatusBadge } from '@/features/organization/documents/bulk/signature-status-badge';
 import type { BulkSignatureRequest } from '@/features/organization/documents/bulk/types';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { formatDisplayDateTime12h } from '@/lib/format-date';
 
-function signedPdfViewUrl(requestId: number): string {
-    return `/organization/documents/bulk/signatures/${requestId}/download?inline=1`;
-}
+function signatureRequestViewUrl(
+    request: BulkSignatureRequest,
+    canReview: boolean,
+    canDownload: boolean,
+): string | null {
+    if (request.signed_pdf_path && canReview) {
+        return signedPdfViewUrl(request.id);
+    }
 
-function signedPdfDownloadUrl(requestId: number): string {
-    return `/organization/documents/bulk/signatures/${requestId}/download`;
+    if (request.unsigned_document_id && canDownload) {
+        return employeeDocumentViewUrl(request.unsigned_document_id);
+    }
+
+    return null;
 }
 
 function reviewDescription(request: BulkSignatureRequest): string {
@@ -355,10 +368,12 @@ export function SignatureReviewDialog({
 export function BulkSignaturesTable({
     requests,
     canReview,
+    canDownload,
     header,
 }: {
     requests: BulkSignatureRequest[];
     canReview: boolean;
+    canDownload: boolean;
     header?: React.ReactNode;
 }) {
     const [reviewRequest, setReviewRequest] =
@@ -390,7 +405,14 @@ export function BulkSignaturesTable({
                             </TableCell>
                         </TableRow>
                     ) : (
-                        requests.map((request) => (
+                        requests.map((request) => {
+                            const viewUrl = signatureRequestViewUrl(
+                                request,
+                                canReview,
+                                canDownload,
+                            );
+
+                            return (
                             <TableRow
                                 key={request.id}
                                 className={dataTableBodyRowClass(false)}
@@ -430,16 +452,14 @@ export function BulkSignaturesTable({
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     <div className="flex justify-end gap-2">
-                                        {request.signed_pdf_path && canReview ? (
+                                        {viewUrl ? (
                                             <Button
                                                 size="sm"
                                                 variant="ghost"
                                                 asChild
                                             >
                                                 <a
-                                                    href={signedPdfViewUrl(
-                                                        request.id,
-                                                    )}
+                                                    href={viewUrl}
                                                     target="_blank"
                                                     rel="noreferrer"
                                                     onClick={(event) =>
@@ -464,7 +484,8 @@ export function BulkSignaturesTable({
                                     </div>
                                 </TableCell>
                             </TableRow>
-                        ))
+                            );
+                        })
                     )}
                 </TableBody>
             </OrganizationDataTable>

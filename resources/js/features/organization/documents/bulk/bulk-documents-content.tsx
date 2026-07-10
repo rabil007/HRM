@@ -1,6 +1,7 @@
 import { Link, router, usePoll } from '@inertiajs/react';
 import {
     Download,
+    Eye,
     FileStack,
     Folder,
     FolderTree,
@@ -52,6 +53,7 @@ import type {BulkDocumentsView} from '@/features/organization/documents/bulk/bul
 import { BulkEmailBatchSendsSheet } from '@/features/organization/documents/bulk/bulk-email-batch-sends-sheet';
 import { BulkDocumentsEmailModal } from '@/features/organization/documents/bulk/bulk-email-modal';
 import { BulkSignaturesTable } from '@/features/organization/documents/bulk/bulk-signatures-table';
+import { employeeDocumentViewUrl } from '@/features/organization/documents/bulk/bulk-document-urls';
 import { SignatureStatusBadge } from '@/features/organization/documents/bulk/signature-status-badge';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
@@ -1577,6 +1579,7 @@ export function BulkDocumentsContent({
                     <BulkSignaturesTable
                         requests={signature_requests}
                         canReview={can.review_signatures}
+                        canDownload={can.download}
                         header={
                             <>
                                 <span className="text-sm text-muted-foreground/80">
@@ -1790,7 +1793,28 @@ function BulkRosterRow({
                 className={dataTableActionsCellClass()}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex items-center justify-end gap-1">
+                <div className="flex items-center justify-end gap-2">
+                    {hasDocument && canDownload ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            asChild
+                        >
+                            <a
+                                href={employeeDocumentViewUrl(
+                                    employee.document!.id,
+                                )}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="View document"
+                                aria-label={`View document for ${employee.name}`}
+                            >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View
+                            </a>
+                        </Button>
+                    ) : null}
                     <Button
                         type="button"
                         variant="ghost"

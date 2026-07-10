@@ -17,6 +17,10 @@ class DocumentFileDownloadController extends Controller
     ): Response {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        return $downloads->downloadSingleDocument($document, $companyId);
+        return $downloads->downloadSingleDocument(
+            $document,
+            $companyId,
+            $request->boolean('inline'),
+        );
     }
 }

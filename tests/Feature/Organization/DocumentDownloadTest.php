@@ -68,6 +68,39 @@ test('users can download a single document file with original filename', functio
         ->assertDownload('Passport_Copy.pdf');
 });
 
+test('users can view a single document file inline', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.download']);
+
+    $path = 'employee-documents/'.$company->id.'/'.$employee->id.'/passport/report.pdf';
+    Storage::disk('public')->put($path, '%PDF-1.4 sample');
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => $path,
+        'original_filename' => 'Passport Copy.pdf',
+        'mime_type' => 'application/pdf',
+        'status' => 'valid',
+    ]);
+
+    $this->get(route('organization.documents.files.download', [
+        'document' => $document,
+        'inline' => 1,
+    ]))
+        ->assertOk()
+        ->assertHeader('Content-Disposition', 'inline; filename="Passport_Copy.pdf"');
+});
+
 test('users can download employee folder as zip with expected filename', function () {
     Storage::fake('public');
 
