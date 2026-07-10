@@ -1963,7 +1963,9 @@ export function BulkDocumentsContent({
                             }
                             actions={
                                 <>
-                                    {can.email ? (
+                                    {can.email &&
+                                    signature_filter ===
+                                        'awaiting_signature' ? (
                                         <Button
                                             type="button"
                                             size="sm"
