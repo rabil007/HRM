@@ -18,6 +18,7 @@ use App\Http\Controllers\Organization\BankAccountsIndexController;
 use App\Http\Controllers\Organization\BankAccountsNoAccountController;
 use App\Http\Controllers\Organization\BranchController;
 use App\Http\Controllers\Organization\BulkDocuments\ApproveBulkDocumentSignatureController;
+use App\Http\Controllers\Organization\BulkDocuments\ApproveBulkDocumentSignaturesController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentEmailBatchSendsController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentEmployeeSearchController;
 use App\Http\Controllers\Organization\BulkDocuments\BulkDocumentsController;
@@ -316,6 +317,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('can:bulk_documents.signatures.review')->group(function () {
         Route::post('organization/documents/bulk/signatures/regenerate-alignment', RegenerateAlignedBulkDocumentSignaturesController::class)
             ->name('organization.documents.bulk.signatures.regenerate-alignment');
+        Route::post('organization/documents/bulk/signatures/approve', ApproveBulkDocumentSignaturesController::class)
+            ->name('organization.documents.bulk.signatures.approve-many');
         Route::post('organization/documents/bulk/signatures/{signatureRequest}/approve', ApproveBulkDocumentSignatureController::class)
             ->name('organization.documents.bulk.signatures.approve');
         Route::post('organization/documents/bulk/signatures/{signatureRequest}/reject', RejectBulkDocumentSignatureController::class)

@@ -9,6 +9,7 @@ import {
     Mail,
     RotateCcw,
     Trash2,
+    CheckCircle2,
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -62,6 +63,7 @@ import { DepartmentEmployeeTree } from '@/features/organization/employees/compon
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import RegenerateAlignedBulkDocumentSignaturesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/RegenerateAlignedBulkDocumentSignaturesController';
+import ApproveBulkDocumentSignaturesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/ApproveBulkDocumentSignaturesController';
 import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -585,6 +587,8 @@ export function BulkDocumentsContent({
 
     const [isRegeneratingAlignment, setIsRegeneratingAlignment] =
         useState(false);
+    const [approveOpen, setApproveOpen] = useState(false);
+    const [isApprovingSignatures, setIsApprovingSignatures] = useState(false);
 
     const effectiveSignatureCount =
         matchingSignatureSelection?.total ?? selectedSignatureCount;
@@ -617,6 +621,33 @@ export function BulkDocumentsContent({
                 (request) =>
                     selectedSignatureIds.includes(request.id) &&
                     canRegenerateSignatureAlignment(request),
+            )
+            .map((request) => request.id);
+    }, [
+        matchingSignatureSelection,
+        selectedSignatureIds,
+        signature_filter,
+        signature_requests,
+    ]);
+
+    const approvableSelectedSignatureIds = useMemo(() => {
+        if (matchingSignatureSelection) {
+            if (
+                signature_filter === 'awaiting_signature' ||
+                signature_filter === 'approved'
+            ) {
+                return [];
+            }
+
+            return matchingSignatureSelection.signature_request_ids;
+        }
+
+        return signature_requests
+            .filter(
+                (request) =>
+                    selectedSignatureIds.includes(request.id) &&
+                    request.status === 'submitted' &&
+                    Boolean(request.signed_pdf_path),
             )
             .map((request) => request.id);
     }, [
@@ -1009,6 +1040,34 @@ export function BulkDocumentsContent({
         clearSignatureSelectionState,
         document_type_key,
         regenerableSelectedSignatureIds,
+    ]);
+
+    const approveSelectedSignatures = useCallback(() => {
+        if (approvableSelectedSignatureIds.length === 0) {
+            return;
+        }
+
+        setIsApprovingSignatures(true);
+
+        router.post(
+            ApproveBulkDocumentSignaturesController.url(),
+            {
+                signature_request_ids: approvableSelectedSignatureIds,
+                document_type_key,
+            },
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setIsApprovingSignatures(false);
+                    setApproveOpen(false);
+                    clearSignatureSelectionState();
+                },
+            },
+        );
+    }, [
+        approvableSelectedSignatureIds,
+        clearSignatureSelectionState,
+        document_type_key,
     ]);
 
     const navigate = useCallback(
@@ -2039,6 +2098,26 @@ export function BulkDocumentsContent({
                             }
                             actions={
                                 <>
+                                    {approvableSelectedSignatureIds.length >
+                                    0 ? (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            disabled={isApprovingSignatures}
+                                            onClick={() => setApproveOpen(true)}
+                                        >
+                                            {isApprovingSignatures ? (
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                                            )}
+                                            Approve (
+                                            {
+                                                approvableSelectedSignatureIds.length
+                                            }
+                                            )
+                                        </Button>
+                                    ) : null}
                                     {can.email &&
                                     signature_filter ===
                                         'awaiting_signature' ? (
@@ -2064,6 +2143,7 @@ export function BulkDocumentsContent({
                                         <Button
                                             type="button"
                                             size="sm"
+                                            variant="outline"
                                             disabled={
                                                 isRegeneratingAlignment ||
                                                 isSignatureRepairActive
@@ -2216,6 +2296,18 @@ export function BulkDocumentsContent({
                 title="Delete selected documents?"
                 description={`This will permanently remove ${effectiveDocumentIds.length} document(s) from employee profiles.`}
                 onConfirm={handleDelete}
+            />
+
+            <ConfirmDeleteDialog
+                open={approveOpen}
+                onOpenChange={setApproveOpen}
+                title="Approve selected signatures?"
+                description={`This will approve ${approvableSelectedSignatureIds.length} submitted signature(s) and replace each employee document with the signed PDF.`}
+                confirmText={
+                    isApprovingSignatures ? 'Approving…' : 'Approve'
+                }
+                confirmButtonClassName="h-11 rounded-xl bg-primary px-6 text-primary-foreground hover:bg-primary/90"
+                onConfirm={approveSelectedSignatures}
             />
         </Main>
     );
