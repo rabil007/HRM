@@ -276,7 +276,7 @@ test('office payslip earnings always include core salary components even when ze
         ]);
 });
 
-test('crew payslip includes overtime calculation breakdown', function () {
+test('crew payslip shows overtime in earnings without calculation breakdown', function () {
     ['company' => $company] = makePayrollFixtures();
 
     $period = PayrollPeriod::factory()->for($company)->create([
@@ -318,20 +318,18 @@ test('crew payslip includes overtime calculation breakdown', function () {
 
     $data = PayslipData::for($record, $company->id);
 
-    expect($data['overtime'])->not->toBeNull()
-        ->and($data['overtime']['hours'])->toBe('98')
-        ->and($data['overtime']['monthly_salary'])->toBe('10500.00')
-        ->and($data['overtime']['monthly_base_formula'])->toBe('30 × 350.00')
-        ->and($data['overtime']['overtime_formula'])->toBe('98 × 35.96')
-        ->and($data['overtime']['overtime_pay'])->toBe('3523.97')
-        ->and(collect($data['earnings'])->firstWhere('label', 'Overtime (98 hrs)'))->not->toBeNull();
+    expect($data)->not->toHaveKey('overtime')
+        ->and(collect($data['earnings'])->firstWhere('label', 'Overtime (98 hrs)'))->not->toBeNull()
+        ->and(collect($data['earnings'])->firstWhere('label', 'Overtime (98 hrs)')['amount'])->toBe('3523.97');
 
     $html = view('payroll.payslip', $data)->render();
 
     expect($html)
-        ->toContain('Overtime Calculation')
-        ->toContain('30 × 350.00 = 10500.00')
-        ->toContain('98 × 35.96')
+        ->not->toContain('Overtime Calculation')
+        ->not->toContain('Monthly base (days × daily onsite rate)')
+        ->not->toContain('Hour rate (monthly base ÷ 365)')
+        ->not->toContain('Overtime hourly rate (hour rate × 1.25)')
+        ->toContain('Overtime (98 hrs)')
         ->toContain('3523.97')
         ->toContain('Crew Attendance');
 });

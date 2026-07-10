@@ -89,8 +89,6 @@ final class PayslipData
                 ]);
             }
 
-            $overtime = is_array($breakdown['overtime'] ?? null) ? $breakdown['overtime'] : [];
-
             return array_merge($base, [
                 'salary_structure' => 'daily',
                 'earnings' => self::crewEarnings($record, $lines),
@@ -101,7 +99,6 @@ final class PayslipData
                     'standby_label' => 'Standby days',
                     'onsite_label' => 'On-site days',
                 ],
-                'overtime' => self::crewOvertimeBreakdown($record, $overtime),
             ]);
         }
 
@@ -283,47 +280,6 @@ final class PayslipData
         return self::filterPositiveLines([
             ['label' => 'Deductions', 'amount' => self::formatAmount($record->total_deductions)],
         ]);
-    }
-
-    /**
-     * @param  array<string, mixed>  $overtime
-     * @return array<string, mixed>|null
-     */
-    private static function crewOvertimeBreakdown(PayrollRecord $record, array $overtime): ?array
-    {
-        $hours = (float) ($record->overtime_hours ?? 0);
-        $overtimePay = (float) ($record->overtime_pay ?? 0);
-
-        if ($hours <= 0 && $overtimePay <= 0) {
-            return null;
-        }
-
-        $periodDays = (int) ($overtime['period_days'] ?? 0);
-        $dailyOnsiteRate = self::formatAmount($overtime['daily_onsite_rate'] ?? 0);
-        $monthlySalary = self::formatAmount($overtime['monthly_salary'] ?? 0);
-        $hourRate = self::formatAmount($overtime['hour_rate'] ?? 0);
-        $overtimeHourlyRate = self::formatAmount($overtime['overtime_hourly_rate'] ?? 0);
-        $overtimePayFormatted = self::formatAmount($overtimePay);
-
-        $monthlyBaseFormula = $periodDays > 0 && (float) $dailyOnsiteRate > 0
-            ? sprintf('%d × %s', $periodDays, $dailyOnsiteRate)
-            : null;
-
-        $overtimeFormula = $hours > 0 && (float) $overtimeHourlyRate > 0
-            ? sprintf('%s × %s', self::formatDayCount($hours), $overtimeHourlyRate)
-            : null;
-
-        return [
-            'hours' => self::formatDayCount($hours),
-            'period_days' => $periodDays > 0 ? (string) $periodDays : null,
-            'daily_onsite_rate' => $dailyOnsiteRate,
-            'monthly_salary' => $monthlySalary,
-            'monthly_base_formula' => $monthlyBaseFormula,
-            'hour_rate' => $hourRate,
-            'overtime_hourly_rate' => $overtimeHourlyRate,
-            'overtime_pay' => $overtimePayFormatted,
-            'overtime_formula' => $overtimeFormula,
-        ];
     }
 
     private static function formatDayCount(mixed $value): string
