@@ -14,6 +14,7 @@ use App\Models\DocumentType;
 use App\Models\EmailTemplate;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Models\Position;
 use App\Models\User;
 use App\Services\BulkDocuments\RendersEmployeeDocumentPdf;
 use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
@@ -176,6 +177,44 @@ test('bulk documents page paginates employee roster', function () {
         ->assertInertia(fn ($page) => $page
             ->has('employees', 10)
             ->where('pagination.current_page', 2));
+});
+
+test('bulk documents roster includes employee department and position', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Operations',
+        'code' => 'OPS',
+        'status' => 'active',
+    ]);
+
+    $position = Position::query()->create([
+        'company_id' => $company->id,
+        'department_id' => $department->id,
+        'title' => 'Deck Officer',
+        'status' => 'active',
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Assigned Employee',
+        'employee_no' => 'EMP-100',
+        'department_id' => $department->id,
+        'position_id' => $position->id,
+    ]);
+
+    $this->get(route('organization.documents.bulk'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.name', 'Assigned Employee')
+            ->where('employees.0.employee_no', 'EMP-100')
+            ->where('employees.0.department', 'Operations')
+            ->where('employees.0.position', 'Deck Officer'));
 });
 
 test('missing generation filter paginates only employees without documents', function () {
@@ -496,7 +535,8 @@ test('bulk documents signatures view respects employee filters', function () {
         ->assertInertia(fn ($page) => $page
             ->where('view', 'signatures')
             ->has('signature_requests', 1)
-            ->where('signature_requests.0.employee.name', 'Alice Operations'));
+            ->where('signature_requests.0.employee.name', 'Alice Operations')
+            ->where('signature_requests.0.employee.department', 'Operations'));
 
     $this->get(route('organization.documents.bulk', [
         'view' => 'signatures',
@@ -505,7 +545,8 @@ test('bulk documents signatures view respects employee filters', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->has('signature_requests', 1)
-            ->where('signature_requests.0.employee.name', 'Bob Human Resources'));
+            ->where('signature_requests.0.employee.name', 'Bob Human Resources')
+            ->where('signature_requests.0.employee.department', 'Human Resources'));
 });
 
 test('bulk documents signatures view orders submitted requests by signed date descending', function () {

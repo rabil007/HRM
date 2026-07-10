@@ -2251,28 +2251,36 @@ function BulkRosterRow({
                     aria-label={`Select ${employee.name}`}
                 />
             </TableCell>
-            <TableCell className={dataTableCellPrimaryClass()}>
-                <div className="flex items-center gap-3">
-                    <EmployeeAvatar
-                        name={employee.name}
-                        image={employee.image}
-                        size="sm"
-                    />
+            <TableCell
+                className={cn(dataTableCellPrimaryClass(), 'min-w-[200px]')}
+            >
+                <div className="flex min-w-0 items-center gap-3">
+                    <EmployeeProfileLink
+                        employeeId={employee.id}
+                        stopRowNavigation
+                        className="shrink-0"
+                    >
+                        <EmployeeAvatar
+                            name={employee.name}
+                            image={employee.image}
+                            size="sm"
+                        />
+                    </EmployeeProfileLink>
                     <div className="min-w-0">
                         <EmployeeProfileLink
                             employeeId={employee.id}
+                            className="block truncate text-sm font-semibold text-foreground hover:text-primary"
                             stopRowNavigation
-                            className="truncate"
                         >
                             {employee.name}
                         </EmployeeProfileLink>
-                        <div className="text-xs text-muted-foreground/70">
+                        <p className="truncate font-mono text-[11px] text-muted-foreground/75">
                             {employee.employee_no ?? '—'}
-                        </div>
+                        </p>
                         {assignment ? (
-                            <div className="text-xs text-muted-foreground/70">
+                            <p className="truncate text-[11px] text-muted-foreground/60">
                                 {assignment}
-                            </div>
+                            </p>
                         ) : null}
                     </div>
                 </div>

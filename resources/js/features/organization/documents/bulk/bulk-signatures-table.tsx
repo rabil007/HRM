@@ -39,6 +39,7 @@ import type { BulkSignatureRequest } from '@/features/organization/documents/bul
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { formatDisplayDateTime12h } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 
 function signatureRequestViewUrl(
     request: BulkSignatureRequest,
@@ -473,23 +474,49 @@ export function BulkSignaturesTable({
                                         />
                                     </TableCell>
                                 ) : null}
-                                <TableCell className={dataTableCellPrimaryClass()}>
-                                    <div className="flex items-center gap-3">
-                                        <EmployeeAvatar
-                                            name={request.employee.name}
-                                            image={request.employee.image}
-                                            size="sm"
-                                        />
-                                        <div>
+                                <TableCell
+                                    className={cn(
+                                        dataTableCellPrimaryClass(),
+                                        'min-w-[200px]',
+                                    )}
+                                >
+                                    <div className="flex min-w-0 items-center gap-3">
+                                        <EmployeeProfileLink
+                                            employeeId={request.employee.id}
+                                            stopRowNavigation
+                                            className="shrink-0"
+                                        >
+                                            <EmployeeAvatar
+                                                name={request.employee.name}
+                                                image={request.employee.image}
+                                                size="sm"
+                                            />
+                                        </EmployeeProfileLink>
+                                        <div className="min-w-0">
                                             <EmployeeProfileLink
                                                 employeeId={request.employee.id}
+                                                className="block truncate text-sm font-semibold text-foreground hover:text-primary"
                                                 stopRowNavigation
                                             >
                                                 {request.employee.name}
                                             </EmployeeProfileLink>
-                                            <div className="text-xs text-muted-foreground/70">
-                                                {request.employee.employee_no ?? '—'}
-                                            </div>
+                                            <p className="truncate font-mono text-[11px] text-muted-foreground/75">
+                                                {request.employee.employee_no ??
+                                                    '—'}
+                                            </p>
+                                            {(request.employee.department ||
+                                                request.employee.position) && (
+                                                <p className="truncate text-[11px] text-muted-foreground/60">
+                                                    {[
+                                                        request.employee
+                                                            .department,
+                                                        request.employee
+                                                            .position,
+                                                    ]
+                                                        .filter(Boolean)
+                                                        .join(' · ')}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 </TableCell>
