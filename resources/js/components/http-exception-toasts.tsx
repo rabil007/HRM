@@ -3,20 +3,25 @@ import { useEffect } from 'react';
 import { toast } from '@/lib/toast';
 
 /** Single place for server flash toasts after Inertia visits — do not duplicate with manual toast.success in onSuccess. */
-let lastFlashToast: { key: string; at: number } | null = null;
+const lastShownFlash: Partial<
+    Record<'success' | 'error' | 'info', string>
+> = {};
 
 function showFlashToast(
     type: 'success' | 'error' | 'info',
     message: string,
 ): void {
-    const key = `${type}:${message}`;
-    const now = Date.now();
+    if (!message) {
+        delete lastShownFlash[type];
 
-    if (lastFlashToast?.key === key && now - lastFlashToast.at < 750) {
         return;
     }
 
-    lastFlashToast = { key, at: now };
+    if (lastShownFlash[type] === message) {
+        return;
+    }
+
+    lastShownFlash[type] = message;
     toast[type](message);
 }
 
@@ -32,17 +37,9 @@ export function HttpExceptionToasts() {
             const info =
                 typeof flash.info === 'string' ? flash.info.trim() : '';
 
-            if (success) {
-                showFlashToast('success', success);
-            }
-
-            if (error) {
-                showFlashToast('error', error);
-            }
-
-            if (info) {
-                showFlashToast('info', info);
-            }
+            showFlashToast('success', success);
+            showFlashToast('error', error);
+            showFlashToast('info', info);
         });
 
         const removeHttpException = router.on(

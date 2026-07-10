@@ -45,11 +45,14 @@ test('payroll show payslip poll partial reload returns summary and record paysli
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
             ->reloadOnly(
-                'payslip_summary,payroll_records,payroll_records_pagination',
+                'payslip_summary,payroll_records,payroll_records_pagination,flash',
                 fn (Assert $partial) => $partial
                     ->where('payslip_summary.total', 2)
                     ->where('payslip_summary.generated', 1)
                     ->where('payslip_summary.pending', 1)
+                    ->where('flash.success', null)
+                    ->where('flash.error', null)
+                    ->where('flash.info', null)
                     ->has('payroll_records', 2)
                     ->where('payroll_records', function ($records) use ($generatedRecord, $pendingRecord): bool {
                         $byId = collect($records)->keyBy('id');
@@ -59,6 +62,46 @@ test('payroll show payslip poll partial reload returns summary and record paysli
                     })
                     ->missing('rows')
                     ->missing('department_tree'),
+            ));
+});
+
+test('payroll show payslip poll clears leftover approval flash so toasts do not repeat', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Approved,
+        'payroll_category' => PayrollCategory::Office,
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    PayrollRecord::factory()->for($company)->create([
+        'period_id' => $period->id,
+        'employee_id' => $employee->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'approved',
+        'payslip_path' => null,
+    ]);
+
+    $this->withSession([
+        'current_company_id' => $company->id,
+        'success' => 'Pay period approved. Payslips are being generated in the background.',
+    ])
+        ->get(route('payroll.show', ['payrollPeriod' => $period]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('flash.success', 'Pay period approved. Payslips are being generated in the background.')
+            ->reloadOnly(
+                'payslip_summary,payroll_records,payroll_records_pagination,payroll_records_monthly,payroll_records_monthly_pagination,flash',
+                fn (Assert $partial) => $partial
+                    ->where('flash.success', null)
+                    ->where('payslip_summary.pending', 1),
             ));
 });
 

@@ -9,6 +9,7 @@ const PAYSLIP_POLL_PROPS = [
     'payroll_records_pagination',
     'payroll_records_monthly',
     'payroll_records_monthly_pagination',
+    'flash',
 ] as const;
 
 export function usePayslipGenerationPoll({
