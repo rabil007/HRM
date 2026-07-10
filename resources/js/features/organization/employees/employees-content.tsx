@@ -58,7 +58,6 @@ import { EmployeeExportDialog } from './components/employee-export-dialog';
 import type { EmployeeFilters } from './components/employee-filters-sheet';
 import type {
     BankOption,
-    BranchOption,
     CompanyVisaTypeOption,
     CountryOption,
     DepartmentTreeNode,
@@ -84,7 +83,6 @@ export function EmployeesContent({
     department_tree,
     department_tree_selected_id,
     department_tree_selected_position_id,
-    branches,
     positions,
     managers,
     users: _users,
@@ -107,7 +105,6 @@ export function EmployeesContent({
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
     department_tree_selected_position_id: number | null;
-    branches: BranchOption[];
     positions: PositionOption[];
     managers: ManagerOption[];
     users: UserOption[];
@@ -145,7 +142,6 @@ export function EmployeesContent({
     );
 
     const filters: EmployeeFilters = {
-        branch_id: initialFilters.branch_id ?? '',
         department_id: initialFilters.department_id ?? '',
         position_id: initialFilters.position_id ?? '',
         status: initialFilters.status ?? '',
@@ -590,7 +586,6 @@ export function EmployeesContent({
                 value={filters}
                 onChange={handleFiltersChange}
                 onReset={() => handleFiltersChange(EMPTY_EMPLOYEE_FILTERS)}
-                branches={branches}
                 positions={positions}
                 managers={managers}
                 genders={genders}

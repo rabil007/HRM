@@ -1487,7 +1487,7 @@ export function BulkDocumentsContent({
             ) : null}
 
             {isSignaturesView && supportsEsignature ? (
-                <div className="mb-8 grid gap-4 sm:grid-cols-2">
+                <div className="mb-8 grid gap-4 sm:grid-cols-3">
                     <SummaryCard
                         label="Pending review"
                         value={counts.pending_review}
@@ -1505,6 +1505,15 @@ export function BulkDocumentsContent({
                         cardClass="border-sky-500/15 bg-sky-500/[0.04] hover:border-sky-500/30"
                         activeClass="border-sky-500/40 ring-1 ring-sky-500/25"
                         valueClass="text-sky-600 dark:text-sky-400"
+                    />
+                    <SummaryCard
+                        label="Approved"
+                        value={counts.approved}
+                        active={signature_filter === 'approved'}
+                        onClick={() => setSignatureFilter('approved')}
+                        cardClass="border-emerald-500/15 bg-emerald-500/[0.04] hover:border-emerald-500/30"
+                        activeClass="border-emerald-500/40 ring-1 ring-emerald-500/25"
+                        valueClass="text-emerald-600 dark:text-emerald-400"
                     />
                 </div>
             ) : null}

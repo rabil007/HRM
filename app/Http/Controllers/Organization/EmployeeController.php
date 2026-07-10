@@ -74,7 +74,6 @@ class EmployeeController extends Controller
             'pagination' => $this->paginationMeta($paginator),
             'search' => $directoryFilters->search,
             'filters' => [
-                'branch_id' => $directoryFilters->branchId,
                 'department_id' => $directoryFilters->departmentId,
                 'position_id' => $directoryFilters->positionId,
                 'status' => $directoryFilters->status,
@@ -89,7 +88,6 @@ class EmployeeController extends Controller
                 'crew_status' => $directoryFilters->crewStatus,
                 'role_id' => $directoryFilters->roleId,
             ],
-            'branches' => $formOptions['branches'],
             'departments' => $formOptions['departments'],
             'positions' => $formOptions['positions'],
             'managers' => EmployeeFormOptions::departmentManagersForFilter($companyId),

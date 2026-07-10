@@ -40,6 +40,7 @@ class BulkDocumentSelectionController extends Controller
             $signatureFilter = match ($request->query('signature_filter')) {
                 'submitted' => 'submitted',
                 'awaiting_signature' => 'awaiting_signature',
+                'approved' => 'approved',
                 default => 'all',
             };
 

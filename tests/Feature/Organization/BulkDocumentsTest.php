@@ -815,18 +815,20 @@ test('roster counts reflect generated and missing documents', function () {
     ]);
 });
 
-test('bulk document counts include pending review and awaiting signature totals', function () {
+test('bulk document counts include pending review awaiting and approved totals', function () {
     $user = User::factory()->create();
     $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
 
     $submittedEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
     $awaitingEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $approvedEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
 
     $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
 
     foreach ([
         [$submittedEmployee, BulkDocumentSignatureRequestStatus::Submitted],
         [$awaitingEmployee, BulkDocumentSignatureRequestStatus::AwaitingSignature],
+        [$approvedEmployee, BulkDocumentSignatureRequestStatus::Approved],
     ] as [$employee, $status]) {
         $document = createEmployeePdfDocument(
             $company->id,
@@ -856,6 +858,7 @@ test('bulk document counts include pending review and awaiting signature totals'
     expect($counts)->toMatchArray([
         'pending_review' => 1,
         'awaiting_signature' => 1,
+        'approved' => 1,
     ]);
 
     $this->actingAs($user)
@@ -867,8 +870,21 @@ test('bulk document counts include pending review and awaiting signature totals'
         ->assertInertia(fn ($page) => $page
             ->where('counts.awaiting_signature', 1)
             ->where('counts.pending_review', 1)
+            ->where('counts.approved', 1)
             ->has('signature_requests', 1)
             ->where('signature_requests.0.status', 'awaiting_signature'));
+
+    $this->actingAs($user)
+        ->get(route('organization.documents.bulk', [
+            'view' => 'signatures',
+            'signature_filter' => 'approved',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('signature_filter', 'approved')
+            ->has('signature_requests', 1)
+            ->where('signature_requests.0.status', 'approved')
+            ->where('signature_requests.0.employee.id', $approvedEmployee->id));
 });
 
 test('bulk generation job skips existing documents in fill gaps mode', function () {

@@ -2,7 +2,6 @@ import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeContro
 
 export type EmployeeListQuery = {
     search?: string;
-    branch_id?: string;
     department_id?: string;
     position_id?: string;
     status?: string;
@@ -26,10 +25,6 @@ export function buildEmployeeListQuery(
 
     if (search.trim() !== '') {
         query.search = search.trim();
-    }
-
-    if (filters.branch_id) {
-        query.branch_id = filters.branch_id;
     }
 
     if (filters.department_id) {

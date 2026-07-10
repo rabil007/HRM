@@ -45,6 +45,7 @@ class BulkDocumentsController extends Controller
         $signatureFilter = match ($request->query('signature_filter')) {
             'submitted', 'pending_review' => 'submitted',
             'awaiting_signature' => 'awaiting_signature',
+            'approved' => 'approved',
             default => 'all',
         };
         $emailFilter = match ($request->query('email_filter')) {

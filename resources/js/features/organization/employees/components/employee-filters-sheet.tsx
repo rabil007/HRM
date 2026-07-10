@@ -8,7 +8,6 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import type {
-    BranchOption,
     CompanyVisaTypeOption,
     CountryOption,
     GenderOption,
@@ -22,7 +21,6 @@ import type {
 } from '../types';
 
 export type EmployeeFilters = {
-    branch_id: string;
     department_id: string;
     position_id: string;
     status: string;
@@ -39,7 +37,6 @@ export type EmployeeFilters = {
 };
 
 export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
-    branch_id: '',
     department_id: '',
     position_id: '',
     status: '',
@@ -83,7 +80,6 @@ export function EmployeeFiltersSheet({
     value,
     onChange,
     onReset,
-    branches,
     positions,
     managers,
     genders,
@@ -100,7 +96,6 @@ export function EmployeeFiltersSheet({
     value: EmployeeFilters;
     onChange: (next: EmployeeFilters) => void;
     onReset: () => void;
-    branches: BranchOption[];
     positions: PositionOption[];
     managers: ManagerOption[];
     genders: GenderOption[];
@@ -123,27 +118,6 @@ export function EmployeeFiltersSheet({
                     <span className="text-[11px] font-bold tracking-wider text-primary uppercase">
                         Employment
                     </span>
-                </div>
-
-                <div className="space-y-2">
-                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                        Branch
-                    </Label>
-                    <AppSelect
-                        value={value.branch_id}
-                        onValueChange={(v) =>
-                            onChange({ ...value, branch_id: v })
-                        }
-                        variant="dark"
-                        placeholder="All"
-                    >
-                        <AppSelectItem value="">All</AppSelectItem>
-                        {branches.map((b) => (
-                            <AppSelectItem key={b.id} value={String(b.id)}>
-                                {b.name ?? `#${b.id}`}
-                            </AppSelectItem>
-                        ))}
-                    </AppSelect>
                 </div>
 
                 <div className="space-y-2">
@@ -209,7 +183,7 @@ export function EmployeeFiltersSheet({
                     </AppSelect>
                 </div>
 
-                <div className="space-y-2 sm:col-span-2">
+                <div className="space-y-2">
                     <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                         Manager
                     </Label>
