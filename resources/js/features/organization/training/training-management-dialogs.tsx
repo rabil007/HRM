@@ -55,6 +55,7 @@ export function TrainingManagementDialogs({
                 training={replaceTraining}
                 employeeId={employeeId}
                 onOpenChange={(open) => !open && onReplaceTrainingChange(null)}
+                countries={countries}
                 templateFields={templateFields}
                 partialReloadKeys={partialReloadKeys}
             />

@@ -2,6 +2,7 @@ import { useForm } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 import * as EmployeeTrainingController from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -18,6 +19,7 @@ import {
     resolveDocumentUploadPhase,
 } from '@/features/organization/documents/upload/document-upload-progress';
 import { formatUploadFileSize } from '@/features/organization/documents/upload/upload-draft';
+import type { CountryOption } from '@/features/organization/employees/types';
 import { actions } from '@/lib/design-system';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -38,12 +40,14 @@ export function ReplaceTrainingCertificateDialog({
     training,
     employeeId,
     onOpenChange,
+    countries,
     templateFields = null,
     partialReloadKeys = ['trainings'],
 }: {
     training: TrainingItem | null;
     employeeId: number;
     onOpenChange: (open: boolean) => void;
+    countries: CountryOption[];
     templateFields?: Record<string, TemplateFieldConfig> | null;
     partialReloadKeys?: string[];
 }): ReactElement {
@@ -62,6 +66,11 @@ export function ReplaceTrainingCertificateDialog({
         file: null as File | null,
         issue_date: training?.issue_date ?? '',
         expiry_date: training?.expiry_date ?? '',
+        institute_center: training?.institute_center ?? '',
+        country_id:
+            training?.country_id !== null && training?.country_id !== undefined
+                ? String(training.country_id)
+                : '',
     });
     const [isPreparingFile, setIsPreparingFile] = useState(false);
 
@@ -81,6 +90,12 @@ export function ReplaceTrainingCertificateDialog({
 
     const isBusy = uploadProgressPhase !== null;
 
+    const showMetadataFields =
+        showField('issue_date') ||
+        showField('expiry_date') ||
+        showField('institute_center') ||
+        showField('country_id');
+
     useEffect(() => {
         if (!training) {
             return;
@@ -90,6 +105,11 @@ export function ReplaceTrainingCertificateDialog({
             file: null,
             issue_date: training.issue_date ?? '',
             expiry_date: training.expiry_date ?? '',
+            institute_center: training.institute_center ?? '',
+            country_id:
+                training.country_id !== null
+                    ? String(training.country_id)
+                    : '',
         });
         replaceForm.clearErrors();
         clearMissingRequired();
@@ -130,7 +150,7 @@ export function ReplaceTrainingCertificateDialog({
 
     return (
         <Dialog open={!!training} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
                 <div className="relative">
                     <DocumentUploadProgressOverlay
                         open={isBusy}
@@ -187,7 +207,7 @@ export function ReplaceTrainingCertificateDialog({
                             ) : null}
                         </div>
 
-                        {showField('issue_date') || showField('expiry_date') ? (
+                        {showMetadataFields ? (
                             <div className="grid gap-4 border-t border-border/40 pt-4">
                                 {showField('issue_date') ||
                                 showField('expiry_date') ? (
@@ -307,6 +327,121 @@ export function ReplaceTrainingCertificateDialog({
                                         ) : null}
                                     </div>
                                 ) : null}
+
+                                {showField('institute_center') ? (
+                                    <RecordFormField
+                                        field="institute_center"
+                                        highlightMissing={isMissingRequired(
+                                            'institute_center',
+                                        )}
+                                    >
+                                        <div className="space-y-1.5">
+                                            <Label
+                                                className={recordFieldLabelClass(
+                                                    isMissingRequired(
+                                                        'institute_center',
+                                                    ),
+                                                )}
+                                            >
+                                                Institute/Center
+                                                <RequiredIndicator
+                                                    show={isFieldRequired(
+                                                        'institute_center',
+                                                    )}
+                                                />
+                                            </Label>
+                                            <Input
+                                                className={cn(
+                                                    recordFieldInputClass(
+                                                        isMissingRequired(
+                                                            'institute_center',
+                                                        ),
+                                                    ),
+                                                    'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
+                                                )}
+                                                placeholder="e.g. BINA SENA MTC"
+                                                value={
+                                                    replaceForm.data
+                                                        .institute_center
+                                                }
+                                                onChange={(e) =>
+                                                    replaceForm.setData(
+                                                        'institute_center',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                            />
+                                            {replaceForm.errors
+                                                .institute_center ? (
+                                                <p className="text-xs text-destructive">
+                                                    {
+                                                        replaceForm.errors
+                                                            .institute_center
+                                                    }
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                    </RecordFormField>
+                                ) : null}
+
+                                {showField('country_id') ? (
+                                    <RecordFormField
+                                        field="country_id"
+                                        highlightMissing={isMissingRequired(
+                                            'country_id',
+                                        )}
+                                    >
+                                        <div className="space-y-1.5">
+                                            <Label
+                                                className={recordFieldLabelClass(
+                                                    isMissingRequired(
+                                                        'country_id',
+                                                    ),
+                                                )}
+                                            >
+                                                Country
+                                                <RequiredIndicator
+                                                    show={isFieldRequired(
+                                                        'country_id',
+                                                    )}
+                                                />
+                                            </Label>
+                                            <AppSelect
+                                                value={replaceForm.data.country_id}
+                                                onValueChange={(value) =>
+                                                    replaceForm.setData(
+                                                        'country_id',
+                                                        value,
+                                                    )
+                                                }
+                                                variant="card"
+                                                placeholder="Select country…"
+                                            >
+                                                <AppSelectItem value="">
+                                                    Select country…
+                                                </AppSelectItem>
+                                                {countries.map((country) => (
+                                                    <AppSelectItem
+                                                        key={country.id}
+                                                        value={String(
+                                                            country.id,
+                                                        )}
+                                                    >
+                                                        {country.name}
+                                                    </AppSelectItem>
+                                                ))}
+                                            </AppSelect>
+                                            {replaceForm.errors.country_id ? (
+                                                <p className="text-xs text-destructive">
+                                                    {
+                                                        replaceForm.errors
+                                                            .country_id
+                                                    }
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                    </RecordFormField>
+                                ) : null}
                             </div>
                         ) : null}
                     </div>
@@ -334,6 +469,9 @@ export function ReplaceTrainingCertificateDialog({
                                         issue_date: replaceForm.data.issue_date,
                                         expiry_date:
                                             replaceForm.data.expiry_date,
+                                        institute_center:
+                                            replaceForm.data.institute_center,
+                                        country_id: replaceForm.data.country_id,
                                     })
                                 ) {
                                     return;
@@ -344,6 +482,12 @@ export function ReplaceTrainingCertificateDialog({
                                     ...data,
                                     issue_date: data.issue_date || null,
                                     expiry_date: data.expiry_date || null,
+                                    institute_center:
+                                        data.institute_center.trim() || null,
+                                    country_id:
+                                        data.country_id === ''
+                                            ? null
+                                            : data.country_id,
                                 }));
 
                                 replaceForm.post(

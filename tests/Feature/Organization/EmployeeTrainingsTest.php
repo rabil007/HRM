@@ -987,6 +987,7 @@ test('users with permission can replace a training certificate and keep version 
         'file' => UploadedFile::fake()->create('new.pdf', 100, 'application/pdf'),
         'issue_date' => '2024-01-01',
         'expiry_date' => '2029-01-01',
+        'institute_center' => 'MTC',
     ])->assertRedirect();
 
     $training->refresh();
@@ -1004,7 +1005,7 @@ test('users with permission can replace a training certificate and keep version 
     Storage::disk('public')->assertExists($training->certificate_path);
 });
 
-test('users with permission can replace a training certificate and update issue and expiry dates', function () {
+test('users with permission can replace a training certificate and update metadata fields', function () {
     Storage::fake('public');
 
     $user = User::factory()->create();
@@ -1053,6 +1054,13 @@ test('users with permission can replace a training certificate and update issue 
         'is_active' => true,
     ]);
 
+    $updatedCountry = Country::query()->create([
+        'code' => 'TDC',
+        'name' => 'Updated Training Country',
+        'dial_code' => '+985',
+        'is_active' => true,
+    ]);
+
     $training = EmployeeTraining::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
@@ -1060,7 +1068,8 @@ test('users with permission can replace a training certificate and update issue 
         'sort_order' => 0,
         'issue_date' => '2024-01-01',
         'expiry_date' => '2029-01-01',
-        'institute_center' => 'MTC',
+        'institute_center' => 'Old MTC',
+        'country_id' => $country->id,
         'certificate_path' => 'employees/'.$company->id.'/training-certificates/old.pdf',
         'current_version' => 1,
     ]);
@@ -1071,6 +1080,8 @@ test('users with permission can replace a training certificate and update issue 
         'file' => UploadedFile::fake()->create('new.pdf', 100, 'application/pdf'),
         'issue_date' => '2026-06-01',
         'expiry_date' => '2028-02-02',
+        'institute_center' => 'BINA SENA MTC',
+        'country_id' => $updatedCountry->id,
     ])->assertRedirect();
 
     $training->refresh();
@@ -1078,6 +1089,8 @@ test('users with permission can replace a training certificate and update issue 
     expect($training->current_version)->toBe(2);
     expect($training->issue_date->toDateString())->toBe('2026-06-01');
     expect($training->expiry_date->toDateString())->toBe('2028-02-02');
+    expect($training->institute_center)->toBe('BINA SENA MTC');
+    expect($training->country_id)->toBe($updatedCountry->id);
 });
 
 test('training update ignores certificate file uploads', function () {

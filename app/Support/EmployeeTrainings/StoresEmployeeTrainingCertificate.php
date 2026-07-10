@@ -94,6 +94,14 @@ class StoresEmployeeTrainingCertificate
                     $attributes['expiry_date'] = $data['expiry_date'] ?? null;
                 }
 
+                if (array_key_exists('institute_center', $data)) {
+                    $attributes['institute_center'] = $data['institute_center'] ?? null;
+                }
+
+                if (array_key_exists('country_id', $data)) {
+                    $attributes['country_id'] = $data['country_id'] ?? null;
+                }
+
                 $training->update($attributes);
 
                 return $training->refresh();
