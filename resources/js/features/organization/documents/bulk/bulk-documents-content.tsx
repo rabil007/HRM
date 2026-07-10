@@ -14,6 +14,10 @@ import {
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ApproveBulkDocumentSignaturesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/ApproveBulkDocumentSignaturesController';
+import DownloadApprovedBulkDocumentSignaturesPdfController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/DownloadApprovedBulkDocumentSignaturesPdfController';
+import DownloadApprovedBulkDocumentSignaturesZipController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/DownloadApprovedBulkDocumentSignaturesZipController';
+import RegenerateAlignedBulkDocumentSignaturesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/RegenerateAlignedBulkDocumentSignaturesController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import {
@@ -46,6 +50,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { employeeDocumentViewUrl } from '@/features/organization/documents/bulk/bulk-document-urls';
 import { BulkDocumentsHistoryTable } from '@/features/organization/documents/bulk/bulk-documents-history-table';
 import {
     BulkDocumentsViewSwitcher
@@ -55,7 +60,6 @@ import type {BulkDocumentsView} from '@/features/organization/documents/bulk/bul
 import { BulkEmailBatchSendsSheet } from '@/features/organization/documents/bulk/bulk-email-batch-sends-sheet';
 import { BulkDocumentsEmailModal } from '@/features/organization/documents/bulk/bulk-email-modal';
 import { BulkSignaturesTable, canRegenerateSignatureAlignment } from '@/features/organization/documents/bulk/bulk-signatures-table';
-import { employeeDocumentViewUrl } from '@/features/organization/documents/bulk/bulk-document-urls';
 import { SignatureStatusBadge } from '@/features/organization/documents/bulk/signature-status-badge';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { downloadBinaryExport } from '@/features/organization/documents/shared/download-binary-export';
@@ -64,10 +68,6 @@ import { useBulkSelection } from '@/features/organization/documents/shared/use-b
 import { DepartmentEmployeeTree } from '@/features/organization/employees/components/department-employee-tree';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
-import ApproveBulkDocumentSignaturesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/ApproveBulkDocumentSignaturesController';
-import DownloadApprovedBulkDocumentSignaturesPdfController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/DownloadApprovedBulkDocumentSignaturesPdfController';
-import DownloadApprovedBulkDocumentSignaturesZipController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/DownloadApprovedBulkDocumentSignaturesZipController';
-import RegenerateAlignedBulkDocumentSignaturesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/RegenerateAlignedBulkDocumentSignaturesController';
 import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';

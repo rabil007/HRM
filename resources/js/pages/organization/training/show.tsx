@@ -11,12 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DocumentPreviewPanel } from '@/features/organization/documents/shared/document-preview-panel';
 import { DocumentVersionHistory } from '@/features/organization/documents/shared/document-version-history';
 import type { CountryOption } from '@/features/organization/employees/types';
-import { TrainingManagementDialogs } from '@/features/organization/training/training-management-dialogs';
-import { TrainingShowHeaderActions } from '@/features/organization/training/training-list-row-actions';
 import type {
     TrainingEmployeeSummary,
     TrainingShowItem,
 } from '@/features/organization/training/shared/types';
+import { TrainingShowHeaderActions } from '@/features/organization/training/training-list-row-actions';
+import { TrainingManagementDialogs } from '@/features/organization/training/training-management-dialogs';
 import { formatDisplayDate } from '@/lib/format-date';
 import { formatBytes } from '@/lib/utils';
 import type {
@@ -260,9 +260,13 @@ export default function TrainingShow({
                 courses={courses}
                 countries={countries}
                 editTraining={editTraining}
-                onEditTrainingChange={setEditTraining}
+                onEditTrainingChange={(training) =>
+                    setEditTraining(training as TrainingShowItem | null)
+                }
                 replaceTraining={replaceTraining}
-                onReplaceTrainingChange={setReplaceTraining}
+                onReplaceTrainingChange={(training) =>
+                    setReplaceTraining(training as TrainingShowItem | null)
+                }
                 deleteTrainingId={deleteTrainingId}
                 onDeleteTrainingIdChange={setDeleteTrainingId}
                 templateFields={template_fields}
