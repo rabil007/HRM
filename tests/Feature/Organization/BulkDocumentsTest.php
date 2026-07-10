@@ -479,6 +479,60 @@ test('bulk documents signatures view respects employee filters', function () {
             ->where('signature_requests.0.employee.name', 'Bob Human Resources'));
 });
 
+test('bulk documents signatures view orders submitted requests by signed date descending', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $olderEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Older Submission',
+    ]);
+
+    $newerEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Newer Submission',
+    ]);
+
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+
+    foreach ([
+        [$olderEmployee, now()->subDays(2)],
+        [$newerEmployee, now()->subDay()],
+    ] as [$employee, $signedAt]) {
+        $document = createEmployeePdfDocument(
+            $company->id,
+            $employee->id,
+            $documentType->id,
+            "employee-documents/{$company->id}/{$employee->id}/declaration-{$employee->id}.pdf",
+            'declaration.pdf',
+        );
+
+        BulkDocumentSignatureRequest::query()->create([
+            'company_id' => $company->id,
+            'employee_id' => $employee->id,
+            'employee_document_id' => $document->id,
+            'document_type_key' => 'salary_declaration',
+            'token' => str_repeat((string) $employee->id, 48),
+            'status' => BulkDocumentSignatureRequestStatus::Submitted,
+            'signed_at' => $signedAt,
+            'expires_at' => now()->addDays(14),
+        ]);
+    }
+
+    $this->get(route('organization.documents.bulk', [
+        'view' => 'signatures',
+        'signature_filter' => 'submitted',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('view', 'signatures')
+            ->has('signature_requests', 2)
+            ->where('signature_requests.0.employee.name', 'Newer Submission')
+            ->where('signature_requests.1.employee.name', 'Older Submission'));
+});
+
 test('bulk documents history view respects employee filters for email batches', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

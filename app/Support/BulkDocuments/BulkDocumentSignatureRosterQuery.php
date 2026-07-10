@@ -34,7 +34,8 @@ final class BulkDocumentSignatureRosterQuery
                 'employeeDocument:id,file_path',
                 'reviewedBy:id,name',
             ])
-            ->latest('updated_at');
+            ->latest('signed_at')
+            ->latest('id');
 
         if ($statusFilter !== null && $statusFilter !== '' && $statusFilter !== 'all') {
             $query->where('status', $statusFilter);
