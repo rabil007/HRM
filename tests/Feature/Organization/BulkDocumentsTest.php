@@ -75,18 +75,25 @@ test('users with view permission can open bulk documents page', function () {
 
 test('bulk document email templates are seeded', function () {
     EmailTemplatesSeeder::seedBulkSalaryDeclarationTemplate();
+    EmailTemplatesSeeder::seedBulkSalaryDeclarationSignReminderTemplate();
     EmailTemplatesSeeder::seedBulkSalaryCertificateTemplate();
 
     expect(EmailTemplate::query()->where('slug', 'bulk_salary_declaration')->exists())->toBeTrue()
+        ->and(EmailTemplate::query()->where('slug', 'bulk_salary_declaration_sign_reminder')->exists())->toBeTrue()
         ->and(EmailTemplate::query()->where('slug', 'bulk_salary_certificate')->exists())->toBeTrue();
 });
 
 test('bulk document email templates use structured html paragraphs', function () {
     EmailTemplatesSeeder::seedBulkSalaryDeclarationTemplate();
+    EmailTemplatesSeeder::seedBulkSalaryDeclarationSignReminderTemplate();
     EmailTemplatesSeeder::seedBulkSalaryCertificateTemplate();
 
     $declarationBody = EmailTemplate::query()
         ->where('slug', 'bulk_salary_declaration')
+        ->value('body_html');
+
+    $reminderBody = EmailTemplate::query()
+        ->where('slug', 'bulk_salary_declaration_sign_reminder')
         ->value('body_html');
 
     $certificateBody = EmailTemplate::query()
@@ -95,23 +102,33 @@ test('bulk document email templates use structured html paragraphs', function ()
 
     expect($declarationBody)
         ->toContain('<p style="margin:0 0 16px;">Dear {{employee_name}},</p>')
+        ->and($reminderBody)
+        ->toContain('still awaiting your signature')
+        ->toContain('{{signature_url}}')
+        ->toContain('Sign declaration')
         ->and($certificateBody)
         ->toContain('<p style="margin:0 0 16px;">Dear {{employee_name}},</p>');
 });
 
 test('resolve email template returns wired template per document type', function () {
     EmailTemplatesSeeder::seedBulkSalaryDeclarationTemplate();
+    EmailTemplatesSeeder::seedBulkSalaryDeclarationSignReminderTemplate();
     EmailTemplatesSeeder::seedBulkSalaryCertificateTemplate();
 
     $declaration = BulkDocumentTypeRegistry::resolveEmailTemplate('salary_declaration');
+    $reminder = BulkDocumentTypeRegistry::resolveEmailTemplate('salary_declaration', 'reminder');
     $certificate = BulkDocumentTypeRegistry::resolveEmailTemplate('salary_certificate');
+    $certificateReminder = BulkDocumentTypeRegistry::resolveEmailTemplate('salary_certificate', 'reminder');
 
     expect($declaration?->slug)->toBe('bulk_salary_declaration')
-        ->and($certificate?->slug)->toBe('bulk_salary_certificate');
+        ->and($reminder?->slug)->toBe('bulk_salary_declaration_sign_reminder')
+        ->and($certificate?->slug)->toBe('bulk_salary_certificate')
+        ->and($certificateReminder?->slug)->toBe('bulk_salary_certificate');
 });
 
 test('bulk documents page exposes wired email template for active document type', function () {
     EmailTemplatesSeeder::seedBulkSalaryDeclarationTemplate();
+    EmailTemplatesSeeder::seedBulkSalaryDeclarationSignReminderTemplate();
     EmailTemplatesSeeder::seedBulkSalaryCertificateTemplate();
 
     $user = User::factory()->create();
@@ -123,7 +140,14 @@ test('bulk documents page exposes wired email template for active document type'
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('email_template.slug', 'bulk_salary_certificate')
+            ->where('reminder_email_template', null)
             ->where('company_name', 'Bulk Docs Co'));
+
+    $this->get(route('organization.documents.bulk', ['document_type_key' => 'salary_declaration']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('email_template.slug', 'bulk_salary_declaration')
+            ->where('reminder_email_template.slug', 'bulk_salary_declaration_sign_reminder'));
 });
 
 test('bulk documents page paginates employee roster', function () {
@@ -1167,9 +1191,67 @@ test('bulk email send resolves template from registry and accepts cc', function 
     ])->assertRedirect()
         ->assertSessionHas('success');
 
+    $batch = BulkDocumentEmailBatch::query()->latest('id')->first();
+
+    expect($batch?->email_template_id)->toBe(
+        EmailTemplate::query()->where('slug', 'bulk_salary_declaration')->value('id'),
+    );
+
     Mail::assertQueued(BulkDocumentMail::class, function (BulkDocumentMail $mail) {
-        return $mail->ccRecipients === ['hr@example.com'];
+        return $mail->ccRecipients === ['hr@example.com']
+            && str_contains($mail->subjectLine, 'Your Salary Declaration');
     });
+});
+
+test('bulk email reminder intent stores and sends reminder template', function () {
+    Mail::fake();
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.email']);
+
+    EmailTemplatesSeeder::seedBulkSalaryDeclarationTemplate();
+    $reminder = EmailTemplatesSeeder::seedBulkSalaryDeclarationSignReminderTemplate();
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'work_email' => 'employee@example.com',
+    ]);
+
+    $documentType = DocumentType::query()->firstOrCreate(['title' => 'Salary Declaration'], ['is_active' => true]);
+
+    createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $documentType->id,
+        "employee-documents/{$company->id}/{$employee->id}/doc.pdf",
+        'doc.pdf',
+    );
+
+    $this->post(route('organization.documents.bulk.email'), [
+        'document_type_key' => 'salary_declaration',
+        'employee_ids' => [$employee->id],
+        'email_intent' => 'reminder',
+    ])->assertRedirect()
+        ->assertSessionHas('success');
+
+    $batch = BulkDocumentEmailBatch::query()->latest('id')->first();
+
+    expect($batch?->email_template_id)->toBe($reminder->id)
+        ->and($batch?->subject)->toContain('Reminder: please sign');
+
+    Mail::assertQueued(BulkDocumentMail::class, function (BulkDocumentMail $mail) {
+        return str_contains($mail->subjectLine, 'Reminder: please sign')
+            && str_contains($mail->bodyMessage, 'still awaiting your signature');
+    });
+});
+
+test('bulk document email template slugs include reminder template', function () {
+    expect(BulkDocumentTypeRegistry::emailTemplateSlugs())
+        ->toContain('bulk_salary_declaration')
+        ->toContain('bulk_salary_declaration_sign_reminder')
+        ->toContain('bulk_salary_certificate');
 });
 
 test('bulk document recipients search returns employees with resolved email', function () {

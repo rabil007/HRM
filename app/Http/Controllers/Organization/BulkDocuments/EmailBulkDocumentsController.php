@@ -20,7 +20,10 @@ class EmailBulkDocumentsController extends Controller
 
         BulkDocumentTypeRegistry::find($documentTypeKey);
 
-        $template = BulkDocumentTypeRegistry::resolveEmailTemplate($documentTypeKey);
+        $template = BulkDocumentTypeRegistry::resolveEmailTemplate(
+            $documentTypeKey,
+            $request->emailIntent(),
+        );
 
         if ($template === null) {
             return back()->withErrors([

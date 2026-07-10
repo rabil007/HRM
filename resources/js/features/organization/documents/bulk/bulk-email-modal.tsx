@@ -36,6 +36,7 @@ export function BulkDocumentsEmailModal({
     documentTypeLabel,
     employeeIds,
     emailTemplate,
+    emailIntent = 'initial',
     companyName,
     previewEmployee,
     onSendComplete,
@@ -45,6 +46,7 @@ export function BulkDocumentsEmailModal({
     documentTypeLabel: string;
     employeeIds: number[];
     emailTemplate: WiredEmailTemplate | null;
+    emailIntent?: 'initial' | 'reminder';
     companyName: string;
     previewEmployee: BulkEmailPreviewEmployee | null;
     onSendComplete: () => void;
@@ -198,6 +200,7 @@ export function BulkDocumentsEmailModal({
                 document_type_key: documentTypeKey,
                 employee_ids: employeeIds,
                 email_template_id: emailTemplate.id,
+                email_intent: emailIntent,
                 cc: ccEmails,
             },
             {

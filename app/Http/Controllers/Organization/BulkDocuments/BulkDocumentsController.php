@@ -168,6 +168,7 @@ class BulkDocumentsController extends Controller
             'department_tree_selected_position_id' => $filters->positionId !== '' ? (int) $filters->positionId : null,
             'company_name' => (string) Company::query()->whereKey($companyId)->value('name'),
             'email_template' => $this->emailTemplatePayload($documentTypeKey),
+            'reminder_email_template' => $this->emailTemplatePayload($documentTypeKey, 'reminder'),
             'latest_run' => $this->latestRunPayload($companyId, $documentTypeKey),
             'latest_email_batch' => $this->latestEmailBatchPayload($companyId, $documentTypeKey),
             'latest_signature_repair_run' => $this->latestSignatureRepairRunPayload($companyId, $documentTypeKey),
@@ -202,11 +203,21 @@ class BulkDocumentsController extends Controller
     /**
      * @return array<string, mixed>|null
      */
-    private function emailTemplatePayload(string $documentTypeKey): ?array
+    private function emailTemplatePayload(string $documentTypeKey, string $intent = 'initial'): ?array
     {
-        $template = BulkDocumentTypeRegistry::resolveEmailTemplate($documentTypeKey);
+        $definition = BulkDocumentTypeRegistry::find($documentTypeKey);
+
+        if ($intent === 'reminder' && ($definition['reminder_email_template_slug'] ?? null) === null) {
+            return null;
+        }
+
+        $template = BulkDocumentTypeRegistry::resolveEmailTemplate($documentTypeKey, $intent);
 
         if ($template === null) {
+            return null;
+        }
+
+        if ($intent === 'reminder' && $template->slug !== $definition['reminder_email_template_slug']) {
             return null;
         }
 

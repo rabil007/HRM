@@ -504,6 +504,7 @@ export function BulkDocumentsContent({
     department_tree_selected_position_id,
     company_name,
     email_template,
+    reminder_email_template,
     latest_run,
     latest_email_batch,
     latest_signature_repair_run,
@@ -523,6 +524,9 @@ export function BulkDocumentsContent({
     });
     const [deptPopoverOpen, setDeptPopoverOpen] = useState(false);
     const [emailOpen, setEmailOpen] = useState(false);
+    const [emailIntent, setEmailIntent] = useState<'initial' | 'reminder'>(
+        'initial',
+    );
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [selectedEmailBatchId, setSelectedEmailBatchId] = useState<
         number | null
@@ -1827,7 +1831,10 @@ export function BulkDocumentsContent({
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                onClick={() => setEmailOpen(true)}
+                                onClick={() => {
+                                    setEmailIntent('initial');
+                                    setEmailOpen(true);
+                                }}
                             >
                                 <Mail className="mr-2 h-3.5 w-3.5" />
                                 Send email
@@ -1961,7 +1968,10 @@ export function BulkDocumentsContent({
                                             type="button"
                                             size="sm"
                                             variant="outline"
-                                            onClick={() => setEmailOpen(true)}
+                                            onClick={() => {
+                                                setEmailIntent('reminder');
+                                                setEmailOpen(true);
+                                            }}
                                             disabled={
                                                 effectiveSignatureEmployeeIds.length ===
                                                 0
@@ -2086,7 +2096,12 @@ export function BulkDocumentsContent({
                             ? effectiveSignatureEmployeeIds
                             : effectiveSelectedIds
                     }
-                    emailTemplate={email_template}
+                    emailTemplate={
+                        emailIntent === 'reminder'
+                            ? (reminder_email_template ?? email_template)
+                            : email_template
+                    }
+                    emailIntent={emailIntent}
                     companyName={company_name}
                     previewEmployee={
                         isSignaturesView

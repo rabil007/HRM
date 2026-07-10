@@ -16,6 +16,7 @@ class EmailTemplatesSeeder extends Seeder
         self::seedLeaveRequestRejectedTemplate();
         self::seedPasswordResetTemplate();
         self::seedBulkSalaryDeclarationTemplate();
+        self::seedBulkSalaryDeclarationSignReminderTemplate();
         self::seedBulkSalaryCertificateTemplate();
     }
 
@@ -198,6 +199,25 @@ TEXT;
         )->fresh();
     }
 
+    public static function seedBulkSalaryDeclarationSignReminderTemplate(): EmailTemplate
+    {
+        return EmailTemplate::query()->updateOrCreate(
+            ['slug' => 'bulk_salary_declaration_sign_reminder'],
+            [
+                'label' => 'Bulk salary declaration sign reminder',
+                'category' => EmailTemplateCategory::Document,
+                'to_preset' => null,
+                'cc_preset' => null,
+                'dispatch_at' => null,
+                'subject' => 'Reminder: please sign your Salary Declaration from {{company_name}}',
+                'body_html' => self::bulkSalaryDeclarationSignReminderBody(),
+                'enabled' => true,
+                'is_default' => false,
+                'sort_order' => 12,
+            ],
+        )->fresh();
+    }
+
     public static function seedBulkSalaryCertificateTemplate(): EmailTemplate
     {
         return EmailTemplate::query()->updateOrCreate(
@@ -236,6 +256,28 @@ TEXT;
 <p style="margin:0 0 16px;">We kindly ask you to review the document carefully, sign it according to company standards, and return the signed copy to the HR department at your earliest convenience.</p>
 <p style="margin:0 0 16px;"><strong>Employee no.:</strong> {{employee_no}}</p>
 <p style="margin:0 0 16px;">If you have any questions, please contact HR.</p>
+<p style="margin:0;">Thank you,<br>{{company_name}}</p>
+HTML;
+    }
+
+    private static function bulkSalaryDeclarationSignReminderBody(): string
+    {
+        return <<<'HTML'
+<p style="margin:0 0 16px;">Dear {{employee_name}},</p>
+<p style="margin:0 0 16px;">This is a friendly reminder that your Salary Declaration from {{company_name}} is still awaiting your signature.</p>
+<p style="margin:0 0 16px;">If you missed the earlier email or forgot to sign, you can complete the electronic signature using the button below:</p>
+<table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto 24px;">
+    <tr>
+        <td class="email-btn-cell" align="center" style="border-radius:12px;background-color:#2563eb;">
+            <a href="{{signature_url}}" class="email-btn-link" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;border-radius:12px;background-color:#2563eb;border:1px solid #2563eb;">
+                Sign declaration
+            </a>
+        </td>
+    </tr>
+</table>
+<p style="margin:0 0 16px;">Alternatively, download the attached PDF, sign it manually, and return the signed copy to HR.</p>
+<p style="margin:0 0 16px;"><strong>Employee no.:</strong> {{employee_no}}</p>
+<p style="margin:0 0 16px;">If you have already signed, please disregard this reminder. For any questions, contact HR.</p>
 <p style="margin:0;">Thank you,<br>{{company_name}}</p>
 HTML;
     }

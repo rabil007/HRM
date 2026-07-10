@@ -13,7 +13,7 @@ use InvalidArgumentException;
 final class BulkDocumentTypeRegistry
 {
     /**
-     * @return list<array{key: string, label: string, document_type_title: string, email_template_slug: string, supports_esignature: bool, renderer: class-string<RendersEmployeeDocumentPdf>}>
+     * @return list<array{key: string, label: string, document_type_title: string, email_template_slug: string, reminder_email_template_slug: ?string, supports_esignature: bool, renderer: class-string<RendersEmployeeDocumentPdf>}>
      */
     public static function definitions(): array
     {
@@ -23,6 +23,7 @@ final class BulkDocumentTypeRegistry
                 'label' => 'Salary Declaration',
                 'document_type_title' => 'Salary Declaration',
                 'email_template_slug' => 'bulk_salary_declaration',
+                'reminder_email_template_slug' => 'bulk_salary_declaration_sign_reminder',
                 'supports_esignature' => true,
                 'renderer' => SalaryDeclarationPdfRenderer::class,
             ],
@@ -31,6 +32,7 @@ final class BulkDocumentTypeRegistry
                 'label' => 'Salary Certificate',
                 'document_type_title' => 'Salary Certificate',
                 'email_template_slug' => 'bulk_salary_certificate',
+                'reminder_email_template_slug' => null,
                 'supports_esignature' => false,
                 'renderer' => SalaryCertificatePdfRenderer::class,
             ],
@@ -38,7 +40,7 @@ final class BulkDocumentTypeRegistry
     }
 
     /**
-     * @return array{key: string, label: string, document_type_title: string, email_template_slug: string, supports_esignature: bool, renderer: class-string<RendersEmployeeDocumentPdf>}
+     * @return array{key: string, label: string, document_type_title: string, email_template_slug: string, reminder_email_template_slug: ?string, supports_esignature: bool, renderer: class-string<RendersEmployeeDocumentPdf>}
      */
     public static function find(string $key): array
     {
@@ -89,17 +91,31 @@ final class BulkDocumentTypeRegistry
         return app(BulkDocumentSignaturePlacementService::class)->resolve($key);
     }
 
-    public static function resolveEmailTemplate(string $key): ?EmailTemplate
+    public static function resolveEmailTemplate(string $key, string $intent = 'initial'): ?EmailTemplate
     {
         $definition = self::find($key);
 
+        $slug = $intent === 'reminder'
+            ? ($definition['reminder_email_template_slug'] ?? null)
+            : $definition['email_template_slug'];
+
+        if ($slug === null || $slug === '') {
+            if ($intent === 'reminder') {
+                $slug = $definition['email_template_slug'];
+            }
+        }
+
         $template = EmailTemplate::query()
             ->enabled()
-            ->where('slug', $definition['email_template_slug'])
+            ->where('slug', $slug)
             ->first();
 
         if ($template !== null) {
             return $template;
+        }
+
+        if ($intent === 'reminder') {
+            return self::resolveEmailTemplate($key, 'initial');
         }
 
         return EmailTemplate::query()
@@ -116,7 +132,11 @@ final class BulkDocumentTypeRegistry
     public static function emailTemplateSlugs(): array
     {
         return collect(self::definitions())
-            ->pluck('email_template_slug')
+            ->flatMap(fn (array $definition): array => array_values(array_filter([
+                $definition['email_template_slug'],
+                $definition['reminder_email_template_slug'] ?? null,
+            ])))
+            ->unique()
             ->values()
             ->all();
     }

@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\BulkDocumentEmailBatch;
 use App\Models\Company;
+use App\Models\EmailTemplate;
 use App\Models\Employee;
 use App\Support\BulkDocuments\BulkDocumentEmailComposer;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
@@ -55,7 +56,7 @@ class SendBulkDocumentEmailsJob implements ShouldQueue
         $definition = BulkDocumentTypeRegistry::find($this->documentTypeKey);
         $documentType = BulkDocumentTypeRegistry::resolveDocumentType($this->documentTypeKey);
         $company = Company::query()->findOrFail($this->companyId);
-        $template = BulkDocumentTypeRegistry::resolveEmailTemplate($this->documentTypeKey);
+        $template = $this->resolveTemplate($batch);
 
         if ($template === null) {
             $batch->update(['status' => 'failed', 'finished_at' => now()]);
@@ -129,6 +130,22 @@ class SendBulkDocumentEmailsJob implements ShouldQueue
             'status' => 'completed',
             'finished_at' => now(),
         ]);
+    }
+
+    private function resolveTemplate(BulkDocumentEmailBatch $batch): ?EmailTemplate
+    {
+        if ($batch->email_template_id !== null) {
+            $template = EmailTemplate::query()
+                ->enabled()
+                ->whereKey($batch->email_template_id)
+                ->first();
+
+            if ($template !== null) {
+                return $template;
+            }
+        }
+
+        return BulkDocumentTypeRegistry::resolveEmailTemplate($this->documentTypeKey);
     }
 
     public function failed(Throwable $exception): void

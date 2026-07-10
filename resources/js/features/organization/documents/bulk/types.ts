@@ -211,6 +211,7 @@ export type BulkDocumentsPageProps = {
     department_tree_selected_position_id: number | null;
     company_name: string;
     email_template: WiredEmailTemplate | null;
+    reminder_email_template: WiredEmailTemplate | null;
     latest_run: BulkGenerationRun | null;
     latest_email_batch: LatestEmailBatch | null;
     latest_signature_repair_run: LatestSignatureRepairRun | null;

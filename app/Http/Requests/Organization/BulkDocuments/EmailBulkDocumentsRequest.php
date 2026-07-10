@@ -16,9 +16,17 @@ class EmailBulkDocumentsRequest extends BulkDocumentActionRequest
     {
         return array_merge(parent::rules(), [
             'email_template_id' => ['nullable', 'integer', 'exists:email_templates,id'],
+            'email_intent' => ['nullable', 'string', 'in:initial,reminder'],
             'cc' => ['nullable', 'array'],
             'cc.*' => ['email', 'max:255'],
         ]);
+    }
+
+    public function emailIntent(): string
+    {
+        $intent = $this->validated('email_intent');
+
+        return is_string($intent) && $intent !== '' ? $intent : 'initial';
     }
 
     /**
