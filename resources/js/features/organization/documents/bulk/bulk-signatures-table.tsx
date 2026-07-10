@@ -402,9 +402,7 @@ export function BulkSignaturesTable({
     const [reviewRequest, setReviewRequest] =
         useState<BulkSignatureRequest | null>(null);
 
-    const selectableIds = requests
-        .filter(canRegenerateSignatureAlignment)
-        .map((request) => request.id);
+    const selectableIds = requests.map((request) => request.id);
 
     const columnCount = selectable ? 6 : 5;
 
@@ -428,7 +426,7 @@ export function BulkSignaturesTable({
                                     }
                                     onCheckedChange={() => onToggleAll?.()}
                                     disabled={selectableIds.length === 0}
-                                    aria-label="Select all eligible signature requests"
+                                    aria-label="Select all signature requests"
                                 />
                             </DataTableHead>
                         ) : null}
@@ -456,9 +454,6 @@ export function BulkSignaturesTable({
                                 canReview,
                                 canDownload,
                             );
-                            const canSelect =
-                                selectable &&
-                                canRegenerateSignatureAlignment(request);
 
                             return (
                             <TableRow
@@ -468,18 +463,10 @@ export function BulkSignaturesTable({
                                 {selectable ? (
                                     <TableCell className={dataTableCellClass()}>
                                         <Checkbox
-                                            checked={
-                                                canSelect
-                                                    ? Boolean(
-                                                          isSelected?.(
-                                                              request.id,
-                                                          ),
-                                                      )
-                                                    : false
-                                            }
-                                            disabled={!canSelect}
+                                            checked={Boolean(
+                                                isSelected?.(request.id),
+                                            )}
                                             onCheckedChange={() =>
-                                                canSelect &&
                                                 onToggle?.(request.id)
                                             }
                                             aria-label={`Select ${request.employee.name}`}

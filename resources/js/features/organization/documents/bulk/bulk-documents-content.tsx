@@ -553,11 +553,8 @@ export function BulkDocumentsContent({
         clear,
     } = useBulkSelection(employeeIds);
 
-    const regenerableSignatureIds = useMemo(
-        () =>
-            signature_requests
-                .filter(canRegenerateSignatureAlignment)
-                .map((request) => request.id),
+    const signatureRequestIds = useMemo(
+        () => signature_requests.map((request) => request.id),
         [signature_requests],
     );
 
@@ -570,11 +567,12 @@ export function BulkDocumentsContent({
         toggle: toggleSignature,
         toggleAll: toggleAllSignatures,
         clear: clearSignatureSelection,
-    } = useBulkSelection(regenerableSignatureIds);
+    } = useBulkSelection(signatureRequestIds);
 
     const [matchingSignatureSelection, setMatchingSignatureSelection] =
         useState<{
             signature_request_ids: number[];
+            employee_ids: number[];
             total: number;
         } | null>(null);
     const [isSelectingAllMatchingSignatures, setIsSelectingAllMatchingSignatures] =
@@ -583,11 +581,66 @@ export function BulkDocumentsContent({
     const [isRegeneratingAlignment, setIsRegeneratingAlignment] =
         useState(false);
 
-    const effectiveSignatureIds =
-        matchingSignatureSelection?.signature_request_ids ??
-        selectedSignatureIds;
     const effectiveSignatureCount =
         matchingSignatureSelection?.total ?? selectedSignatureCount;
+
+    const effectiveSignatureEmployeeIds = useMemo(() => {
+        if (matchingSignatureSelection) {
+            return matchingSignatureSelection.employee_ids;
+        }
+
+        return signature_requests
+            .filter((request) => selectedSignatureIds.includes(request.id))
+            .map((request) => request.employee.id);
+    }, [
+        matchingSignatureSelection,
+        selectedSignatureIds,
+        signature_requests,
+    ]);
+
+    const regenerableSelectedSignatureIds = useMemo(() => {
+        if (matchingSignatureSelection) {
+            if (signature_filter === 'awaiting_signature') {
+                return [];
+            }
+
+            return matchingSignatureSelection.signature_request_ids;
+        }
+
+        return signature_requests
+            .filter(
+                (request) =>
+                    selectedSignatureIds.includes(request.id) &&
+                    canRegenerateSignatureAlignment(request),
+            )
+            .map((request) => request.id);
+    }, [
+        matchingSignatureSelection,
+        selectedSignatureIds,
+        signature_filter,
+        signature_requests,
+    ]);
+
+    const signaturePreviewEmployee = useMemo(() => {
+        if (effectiveSignatureEmployeeIds.length === 0) {
+            return null;
+        }
+
+        const previewId = effectiveSignatureEmployeeIds[0];
+        const request = signature_requests.find(
+            (item) => item.employee.id === previewId,
+        );
+
+        if (!request) {
+            return null;
+        }
+
+        return {
+            name: request.employee.name,
+            employee_no: request.employee.employee_no,
+            email: null as string | null,
+        };
+    }, [effectiveSignatureEmployeeIds, signature_requests]);
 
     const clearSignatureSelectionState = useCallback(() => {
         clearSignatureSelection();
@@ -637,6 +690,7 @@ export function BulkDocumentsContent({
 
             const data = (await response.json()) as {
                 signature_request_ids: number[];
+                employee_ids: number[];
                 total: number;
             };
 
@@ -926,7 +980,7 @@ export function BulkDocumentsContent({
     }, [latest_signature_repair_run?.status]);
 
     const regenerateSelectedAlignment = useCallback(() => {
-        if (effectiveSignatureIds.length === 0) {
+        if (regenerableSelectedSignatureIds.length === 0) {
             return;
         }
 
@@ -935,7 +989,7 @@ export function BulkDocumentsContent({
         router.post(
             RegenerateAlignedBulkDocumentSignaturesController.url(),
             {
-                signature_request_ids: effectiveSignatureIds,
+                signature_request_ids: regenerableSelectedSignatureIds,
                 document_type_key,
             },
             {
@@ -949,7 +1003,7 @@ export function BulkDocumentsContent({
     }, [
         clearSignatureSelectionState,
         document_type_key,
-        effectiveSignatureIds,
+        regenerableSelectedSignatureIds,
     ]);
 
     const navigate = useCallback(
@@ -1897,26 +1951,46 @@ export function BulkDocumentsContent({
                                 <Checkbox
                                     checked={isSignatureHeaderCheckboxChecked}
                                     onCheckedChange={handleToggleAllSignatures}
-                                    aria-label="Select all eligible signature requests"
+                                    aria-label="Select all signature requests"
                                 />
                             }
                             actions={
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    disabled={
-                                        isRegeneratingAlignment ||
-                                        isSignatureRepairActive
-                                    }
-                                    onClick={regenerateSelectedAlignment}
-                                >
-                                    {isRegeneratingAlignment ? (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <RotateCcw className="mr-2 h-4 w-4" />
-                                    )}
-                                    Regenerate alignment
-                                </Button>
+                                <>
+                                    {can.email ? (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setEmailOpen(true)}
+                                            disabled={
+                                                effectiveSignatureEmployeeIds.length ===
+                                                0
+                                            }
+                                        >
+                                            <Mail className="mr-2 h-4 w-4" />
+                                            Send email
+                                        </Button>
+                                    ) : null}
+                                    {regenerableSelectedSignatureIds.length >
+                                    0 ? (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            disabled={
+                                                isRegeneratingAlignment ||
+                                                isSignatureRepairActive
+                                            }
+                                            onClick={regenerateSelectedAlignment}
+                                        >
+                                            {isRegeneratingAlignment ? (
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <RotateCcw className="mr-2 h-4 w-4" />
+                                            )}
+                                            Regenerate alignment
+                                        </Button>
+                                    ) : null}
+                                </>
                             }
                         />
                     ) : null}
@@ -2007,20 +2081,30 @@ export function BulkDocumentsContent({
                 <BulkDocumentsEmailModal
                     documentTypeKey={document_type_key}
                     documentTypeLabel={selectedTypeLabel}
-                    employeeIds={effectiveSelectedIds}
+                    employeeIds={
+                        isSignaturesView
+                            ? effectiveSignatureEmployeeIds
+                            : effectiveSelectedIds
+                    }
                     emailTemplate={email_template}
                     companyName={company_name}
                     previewEmployee={
-                        previewEmployee
-                            ? {
-                                  name: previewEmployee.name,
-                                  employee_no: previewEmployee.employee_no,
-                                  email: previewEmployee.email,
-                              }
-                            : null
+                        isSignaturesView
+                            ? signaturePreviewEmployee
+                            : previewEmployee
+                              ? {
+                                    name: previewEmployee.name,
+                                    employee_no: previewEmployee.employee_no,
+                                    email: previewEmployee.email,
+                                }
+                              : null
                     }
                     onOpenChange={setEmailOpen}
-                    onSendComplete={clearSelection}
+                    onSendComplete={
+                        isSignaturesView
+                            ? clearSignatureSelectionState
+                            : clearSelection
+                    }
                 />
             ) : null}
 

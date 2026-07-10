@@ -45,6 +45,7 @@ final class BulkDocumentSignatureRosterQuery
     /**
      * @return array{
      *     signature_request_ids: list<int>,
+     *     employee_ids: list<int>,
      *     total: int
      * }
      */
@@ -55,28 +56,33 @@ final class BulkDocumentSignatureRosterQuery
         ?string $statusFilter = null,
         string $emailFilter = 'all',
     ): array {
-        $ids = self::filteredQuery(
+        $rows = self::filteredQuery(
             $companyId,
             $documentTypeKey,
             $filters,
             $statusFilter,
             $emailFilter,
         )
-            ->whereIn('status', [
-                BulkDocumentSignatureRequestStatus::Submitted,
-                BulkDocumentSignatureRequestStatus::Approved,
-            ])
-            ->whereNotNull('signature_image_path')
-            ->whereNotNull('signed_pdf_path')
             ->orderBy('id')
+            ->get(['id', 'employee_id']);
+
+        $signatureRequestIds = $rows
             ->pluck('id')
             ->map(fn ($id): int => (int) $id)
             ->values()
             ->all();
 
+        $employeeIds = $rows
+            ->pluck('employee_id')
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
         return [
-            'signature_request_ids' => $ids,
-            'total' => count($ids),
+            'signature_request_ids' => $signatureRequestIds,
+            'employee_ids' => $employeeIds,
+            'total' => count($signatureRequestIds),
         ];
     }
 

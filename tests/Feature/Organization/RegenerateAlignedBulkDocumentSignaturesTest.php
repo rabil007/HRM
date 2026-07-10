@@ -219,7 +219,7 @@ test('bulk signature selection returns regenerable request ids across pages', fu
     });
 
     $ineligibleEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
-    createSubmittedSignatureRequestForRepair($company, $ineligibleEmployee, withSignatureImage: false);
+    $ineligible = createSubmittedSignatureRequestForRepair($company, $ineligibleEmployee, withSignatureImage: false);
 
     $awaitingEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
     $awaiting = createSubmittedSignatureRequestForRepair($company, $awaitingEmployee);
@@ -235,10 +235,11 @@ test('bulk signature selection returns regenerable request ids across pages', fu
         'signature_filter' => 'submitted',
     ]))
         ->assertOk()
-        ->assertJsonPath('total', 25)
+        ->assertJsonPath('total', 26)
         ->assertJson(fn ($json) => $json
-            ->where('total', 25)
-            ->has('signature_request_ids', 25)
+            ->where('total', 26)
+            ->has('signature_request_ids', 26)
+            ->has('employee_ids', 26)
             ->etc());
 
     $ids = $this->get(route('organization.documents.bulk.selection', [
@@ -247,7 +248,7 @@ test('bulk signature selection returns regenerable request ids across pages', fu
     ]))->json('signature_request_ids');
 
     expect($ids)
-        ->toEqualCanonicalizing($eligible->pluck('id')->all())
+        ->toEqualCanonicalizing($eligible->pluck('id')->push($ineligible->id)->all())
         ->not->toContain($awaiting->id);
 });
 
@@ -274,8 +275,9 @@ test('bulk signature selection respects signature filter', function () {
         'signature_filter' => 'awaiting_signature',
     ]))
         ->assertOk()
-        ->assertJsonPath('total', 0)
-        ->assertJsonPath('signature_request_ids', []);
+        ->assertJsonPath('total', 1)
+        ->assertJsonPath('signature_request_ids.0', $awaiting->id)
+        ->assertJsonPath('employee_ids.0', $awaitingEmployee->id);
 
     $this->get(route('organization.documents.bulk.selection', [
         'view' => 'signatures',
