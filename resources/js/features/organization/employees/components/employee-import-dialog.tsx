@@ -297,11 +297,6 @@ export function EmployeeImportDialog({
                 <DialogFooter className="mt-2 flex flex-row items-center justify-between gap-2 border-t border-border/40 px-6 py-4 sm:flex-row sm:justify-between">
                     <a
                         href={TEMPLATE_URL}
-                        onClick={() => {
-                            // #region agent log
-                            fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'351a82'},body:JSON.stringify({sessionId:'351a82',runId:'sponsor-ui',hypothesisId:'C',location:'employee-import-dialog.tsx:download',message:'dialog download template clicked',data:{templateUrl:TEMPLATE_URL,hasTemplateId:TEMPLATE_URL.includes('template_id')},timestamp:Date.now()})}).catch(()=>{});
-                            // #endregion
-                        }}
                         className="inline-flex items-center gap-2 text-sm text-muted-foreground/80 hover:text-foreground"
                     >
                         <Download className="h-4 w-4" /> Download template

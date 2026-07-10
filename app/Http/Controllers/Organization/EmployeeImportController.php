@@ -23,10 +23,6 @@ class EmployeeImportController extends Controller
         $headers = $this->importOrchestrator->importColumnsForRequest($request);
         $template = $this->importOrchestrator->resolveProfileTemplateForImport($request);
 
-        // #region agent log
-        @file_put_contents(base_path('.cursor/debug-351a82.log'), json_encode(['sessionId' => '351a82', 'runId' => 'post-fix', 'hypothesisId' => 'A', 'location' => 'EmployeeImportController.php:importTemplate', 'message' => 'import template download headers', 'data' => ['company_id' => $companyId, 'query_template_id' => $request->query('template_id'), 'resolved_template_id' => $template?->id, 'resolved_template_name' => $template?->name, 'headers' => $headers, 'has_company_visa_type' => in_array('company_visa_type', $headers, true), 'has_sponsor' => in_array('sponsor', $headers, true), 'header_index_company_visa_type' => array_search('company_visa_type', $headers, true), 'header_index_sponsor' => array_search('sponsor', $headers, true)], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND);
-        // #endregion
-
         $result = $this->templateExporter->export($companyId, $headers, $template);
 
         return response()->download($result['path'], $result['filename'], [
