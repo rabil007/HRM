@@ -18,7 +18,7 @@ final class StampSignedBulkDocumentPdf
     /**
      * @param  array{signed_name: string, signature_data: string, consent: bool}  $data
      */
-    public function handle(BulkDocumentSignatureRequest $request, array $data): string
+    public function handle(BulkDocumentSignatureRequest $request, array $data, ?string $signedDate = null): string
     {
         if (! BulkDocumentTypeRegistry::supportsEsignature($request->document_type_key)) {
             throw ValidationException::withMessages([
@@ -37,7 +37,22 @@ final class StampSignedBulkDocumentPdf
         }
 
         [$signatureBinary, $imageType] = $this->decodeSignatureImage($data['signature_data']);
-        $signedDate = now()->format('d M Y');
+        $signedDate ??= now()->format('d M Y');
+        $employeeNameLength = strlen((string) ($employee->name ?? ''));
+
+        // #region agent log
+        $this->debugLog('sign_pdf_generation_started', 'H1', [
+            'document_type_key' => $request->document_type_key,
+            'employee_name_length' => $employeeNameLength,
+            'signed_name_length' => strlen($data['signed_name']),
+            'uses_inline_renderer' => $this->shouldRenderInlineSignature($request),
+            'can_stamp_onto_source' => $this->canStampOntoSourcePdf($request),
+        ]);
+        // #endregion
+
+        if ($this->shouldRenderInlineSignature($request)) {
+            return $this->renderViaTemplate($request, $employee, $data, $signedDate);
+        }
 
         if ($this->canStampOntoSourcePdf($request)) {
             try {
@@ -66,6 +81,23 @@ final class StampSignedBulkDocumentPdf
             }
         }
 
+        return $this->renderViaTemplate($request, $employee, $data, $signedDate);
+    }
+
+    private function shouldRenderInlineSignature(BulkDocumentSignatureRequest $request): bool
+    {
+        return $request->document_type_key === 'salary_declaration';
+    }
+
+    /**
+     * @param  array{signed_name: string, signature_data: string, consent: bool}  $data
+     */
+    private function renderViaTemplate(
+        BulkDocumentSignatureRequest $request,
+        Employee $employee,
+        array $data,
+        string $signedDate,
+    ): string {
         try {
             $pdf = BulkDocumentTypeRegistry::resolveRenderer($request->document_type_key)->render(
                 $employee,
@@ -82,6 +114,7 @@ final class StampSignedBulkDocumentPdf
                 'document_type_key' => $request->document_type_key,
                 'signed_date' => $signedDate,
                 'pdf_bytes' => strlen($pdf),
+                'employee_name_length' => strlen((string) ($employee->name ?? '')),
             ]);
             // #endregion
 
@@ -228,7 +261,7 @@ final class StampSignedBulkDocumentPdf
     private function debugLog(string $message, string $hypothesisId, array $data): void
     {
         $payload = json_encode([
-            'sessionId' => 'f9eedb',
+            'sessionId' => '351a82',
             'runId' => 'post-fix',
             'hypothesisId' => $hypothesisId,
             'location' => 'StampSignedBulkDocumentPdf.php',
@@ -243,6 +276,7 @@ final class StampSignedBulkDocumentPdf
 
         $line = $payload."\n";
 
+        @file_put_contents(base_path('.cursor/debug-351a82.log'), $line, FILE_APPEND);
         @file_put_contents(base_path('.cursor/debug-f9eedb.log'), $line, FILE_APPEND);
         @file_put_contents(storage_path('logs/debug-f9eedb.log'), $line, FILE_APPEND);
     }

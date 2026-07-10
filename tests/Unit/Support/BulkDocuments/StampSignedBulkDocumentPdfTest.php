@@ -10,7 +10,6 @@ use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
 use App\Support\BulkDocuments\StampSignedBulkDocumentPdf;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
-use setasign\Fpdi\Fpdi;
 
 beforeEach(function () {
     Storage::fake('public');
@@ -39,7 +38,7 @@ function createStampTestDocument(Company $company, Employee $employee): Employee
     ]);
 }
 
-test('stamp signed bulk document pdf stamps placements onto source document', function () {
+test('stamp signed bulk document pdf uses inline renderer for salary declaration', function () {
     $fixtures = makeDocumentFixtures();
     $company = $fixtures['company'];
     $employee = $fixtures['employee'];
@@ -77,17 +76,8 @@ test('stamp signed bulk document pdf stamps placements onto source document', fu
         'consent' => true,
     ]);
 
-    expect($renderer->called)->toBeFalse()
-        ->and(strlen($output))->toBeGreaterThan(strlen(minimalPdfBytes()));
-
-    $tempPath = tempnam(sys_get_temp_dir(), 'stamped_pdf_');
-    expect($tempPath)->not->toBeFalse();
-    file_put_contents($tempPath, $output);
-
-    $pdf = new Fpdi;
-    expect($pdf->setSourceFile($tempPath))->toBe(1);
-
-    @unlink($tempPath);
+    expect($renderer->called)->toBeTrue()
+        ->and($output)->toBe('%PDF-1.4 signed-with-template');
 });
 
 test('stamp signed bulk document pdf falls back to renderer when source stamp fails', function () {
