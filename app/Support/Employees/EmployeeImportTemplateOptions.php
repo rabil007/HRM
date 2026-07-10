@@ -10,7 +10,9 @@ use App\Models\Department;
 use App\Models\Gender;
 use App\Models\Position;
 use App\Models\Project;
+use App\Models\Rank;
 use App\Models\Religion;
+use App\Models\VisaType;
 
 final class EmployeeImportTemplateOptions
 {
@@ -72,6 +74,20 @@ final class EmployeeImportTemplateOptions
                 ->values()
                 ->all(),
             'nationality' => Country::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->pluck('name')
+                ->map(fn ($name) => (string) $name)
+                ->values()
+                ->all(),
+            'rank' => Rank::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->pluck('name')
+                ->map(fn ($name) => (string) $name)
+                ->values()
+                ->all(),
+            'visa_type' => VisaType::query()
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->pluck('name')

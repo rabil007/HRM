@@ -12,7 +12,9 @@ use App\Models\EmployeeProfileTemplate;
 use App\Models\Gender;
 use App\Models\Position;
 use App\Models\Project;
+use App\Models\Rank;
 use App\Models\Religion;
+use App\Models\VisaType;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -58,6 +60,8 @@ class EmployeesImport
         'gender' => ['gender'],
         'religion' => ['religion'],
         'nationality' => ['nationality', 'country'],
+        'rank' => ['rank', 'rank name'],
+        'visa_type' => ['visa_type', 'visa type'],
         'company_visa_type' => ['company_visa_type', 'company visa type', 'sponsor', 'sponsor name'],
     ];
 
@@ -96,6 +100,8 @@ class EmployeesImport
             'gender' => ['employees', 'gender_id'],
             'religion' => ['employees', 'religion_id'],
             'nationality' => ['employees', 'nationality_id'],
+            'rank' => ['employees', 'rank_id'],
+            'visa_type' => ['employees', 'visa_type_id'],
             'company_visa_type' => ['employees', 'company_visa_type_id'],
             'status' => ['employees', 'status'],
         ];
@@ -145,6 +151,8 @@ class EmployeesImport
         'gender',
         'religion',
         'nationality',
+        'rank',
+        'visa_type',
         'company_visa_type',
         'status',
     ];
@@ -193,6 +201,16 @@ class EmployeesImport
      * @var array<string, int>|null
      */
     private ?array $companyVisaTypeMap = null;
+
+    /**
+     * @var array<string, int>|null
+     */
+    private ?array $rankMap = null;
+
+    /**
+     * @var array<string, int>|null
+     */
+    private ?array $visaTypeMap = null;
 
     public function __construct(public int $companyId, public int $actorId) {}
 
@@ -560,6 +578,8 @@ class EmployeesImport
                         'gender_id' => $resolved['gender_id'] ?? null,
                         'religion_id' => $resolved['religion_id'] ?? null,
                         'nationality_id' => $resolved['nationality_id'] ?? null,
+                        'rank_id' => $resolved['rank_id'] ?? null,
+                        'visa_type_id' => $resolved['visa_type_id'] ?? null,
                         'company_visa_type_id' => $resolved['company_visa_type_id'] ?? null,
                         'status' => $row['status'] ?: 'active',
                     ]);
@@ -741,7 +761,7 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id', 'client' => 'client_id', 'company_visa_type' => 'company_visa_type_id'] as $key => $field) {
+        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id', 'client' => 'client_id', 'rank' => 'rank_id', 'visa_type' => 'visa_type_id', 'company_visa_type' => 'company_visa_type_id'] as $key => $field) {
             if ($this->fieldHasValue($row, $key)) {
                 $payload[$field] = $resolved[$field];
             }
@@ -808,7 +828,7 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => $this->genderMap, 'religion' => $this->religionMap, 'nationality' => $this->countryMap, 'project' => $this->projectMap, 'client' => $this->clientMap, 'company_visa_type' => $this->companyVisaTypeMap] as $key => $map) {
+        foreach (['gender' => $this->genderMap, 'religion' => $this->religionMap, 'nationality' => $this->countryMap, 'project' => $this->projectMap, 'client' => $this->clientMap, 'rank' => $this->rankMap, 'visa_type' => $this->visaTypeMap, 'company_visa_type' => $this->companyVisaTypeMap] as $key => $map) {
             if (! empty($row[$key])) {
                 $name = self::normalize((string) $row[$key]);
 
@@ -836,6 +856,8 @@ class EmployeesImport
             'gender_id' => null,
             'religion_id' => null,
             'nationality_id' => null,
+            'rank_id' => null,
+            'visa_type_id' => null,
             'company_visa_type_id' => null,
         ];
 
@@ -847,7 +869,7 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id', 'client' => 'client_id', 'company_visa_type' => 'company_visa_type_id'] as $key => $field) {
+        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id', 'client' => 'client_id', 'rank' => 'rank_id', 'visa_type' => 'visa_type_id', 'company_visa_type' => 'company_visa_type_id'] as $key => $field) {
             if (! empty($row[$key])) {
                 $name = self::normalize((string) $row[$key]);
                 $map = match ($key) {
@@ -856,6 +878,8 @@ class EmployeesImport
                     'nationality' => $this->countryMap,
                     'project' => $this->projectMap,
                     'client' => $this->clientMap,
+                    'rank' => $this->rankMap,
+                    'visa_type' => $this->visaTypeMap,
                     'company_visa_type' => $this->companyVisaTypeMap,
                     default => [],
                 };
@@ -923,6 +947,18 @@ class EmployeesImport
             }, []);
 
         $this->companyVisaTypeMap = CompanyVisaType::query()
+            ->where('is_active', true)
+            ->pluck('id', 'name')
+            ->mapWithKeys(fn ($id, $name) => [self::normalize((string) $name) => (int) $id])
+            ->all();
+
+        $this->rankMap = Rank::query()
+            ->where('is_active', true)
+            ->pluck('id', 'name')
+            ->mapWithKeys(fn ($id, $name) => [self::normalize((string) $name) => (int) $id])
+            ->all();
+
+        $this->visaTypeMap = VisaType::query()
             ->where('is_active', true)
             ->pluck('id', 'name')
             ->mapWithKeys(fn ($id, $name) => [self::normalize((string) $name) => (int) $id])

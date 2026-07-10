@@ -2640,6 +2640,54 @@ test('employee import template download includes company_visa_type when sponsor 
     expect($headers)->toContain('employee_no', 'name', 'company_visa_type');
 });
 
+test('employee import template download includes rank and visa_type when visible', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'ITC4',
+        'name' => 'Import Template Columns 4',
+        'dial_code' => '+987',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'ITC4',
+        'name' => 'Import Template Columns Currency 4',
+        'symbol' => 'D$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Import Template Rank Visa Co',
+        'slug' => 'import-template-rank-visa-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $configuration = employeeProfileTemplateWithVisibleEmployeeFields([
+        'employee_no',
+        'name',
+        'rank_id',
+        'visa_type_id',
+    ]);
+
+    $template = createEmployeeProfileTemplate($company, 'Rank Visa Import', $configuration);
+
+    grantCompanyPermissions($user, $company, ['employees.import']);
+
+    $response = $this->get("/organization/employees/import/template?template_id={$template->id}");
+
+    $response->assertOk();
+    $headers = employeeImportTemplateHeaders($response);
+
+    expect($headers)->toContain('employee_no', 'name', 'rank', 'visa_type');
+});
+
 test('employee import template download includes visible personal fields such as address', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
