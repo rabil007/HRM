@@ -48,7 +48,7 @@ test('dispatch for period splits large pay runs into multiple jobs', function ()
 
     $period = PayrollPeriod::factory()->for($company)->create();
 
-    foreach (range(1, 11) as $index) {
+    foreach (range(1, 26) as $index) {
         $employee = Employee::factory()->forCompany($company)->create([
             'employee_no' => sprintf('PAY-%03d', $index),
         ]);

@@ -13,26 +13,71 @@ use Illuminate\Support\Collection;
 
 final class GeneratePayrollPayslips
 {
-    public const RECORDS_PER_JOB = 10;
+    public const RECORDS_PER_JOB = 25;
 
     public function dispatchForPeriod(PayrollPeriod $period): void
     {
+        // #region agent log
+        $debugStartedAt = microtime(true);
+        // #endregion
+
         $recordIds = $this->pendingRecordIds(
             (int) $period->company_id,
             (int) $period->id,
         );
 
         if ($recordIds === []) {
+            // #region agent log
+            @file_put_contents(base_path('.cursor/debug-ed6c6d.log'), json_encode([
+                'sessionId' => 'ed6c6d',
+                'runId' => 'post-fix',
+                'hypothesisId' => 'C',
+                'location' => 'GeneratePayrollPayslips.php:dispatchForPeriod',
+                'message' => 'No pending payslip records to dispatch',
+                'data' => [
+                    'periodId' => (int) $period->id,
+                    'companyId' => (int) $period->company_id,
+                    'elapsedMs' => (int) round((microtime(true) - $debugStartedAt) * 1000),
+                ],
+                'timestamp' => (int) round(microtime(true) * 1000),
+            ], JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND);
+            // #endregion
+
             return;
         }
 
-        foreach (array_chunk($recordIds, self::RECORDS_PER_JOB) as $chunk) {
+        $chunks = array_chunk($recordIds, self::RECORDS_PER_JOB);
+
+        foreach ($chunks as $chunk) {
             GeneratePayrollPayslipsJob::dispatch(
                 (int) $period->company_id,
                 (int) $period->id,
                 $chunk,
             );
         }
+
+        // #region agent log
+        @file_put_contents(base_path('.cursor/debug-ed6c6d.log'), json_encode([
+            'sessionId' => 'ed6c6d',
+            'runId' => 'post-fix',
+            'hypothesisId' => 'A,C,E',
+            'location' => 'GeneratePayrollPayslips.php:dispatchForPeriod',
+            'message' => 'Payslip jobs dispatched',
+            'data' => [
+                'periodId' => (int) $period->id,
+                'companyId' => (int) $period->company_id,
+                'pendingRecordCount' => count($recordIds),
+                'jobCount' => count($chunks),
+                'recordsPerJob' => self::RECORDS_PER_JOB,
+                'queueConnection' => (string) config('queue.default'),
+                'dbRetryAfter' => (int) config('queue.connections.database.retry_after'),
+                'redisRetryAfter' => (int) config('queue.connections.redis.retry_after'),
+                'elapsedMs' => (int) round((microtime(true) - $debugStartedAt) * 1000),
+                'dispatchEpochMs' => (int) round(microtime(true) * 1000),
+            ],
+            'timestamp' => (int) round(microtime(true) * 1000),
+        ], JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND);
+        // #endregion
     }
 
     /**
