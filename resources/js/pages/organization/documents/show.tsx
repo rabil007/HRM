@@ -16,6 +16,7 @@ import { DocumentPreviewPanel } from '@/features/organization/documents/shared/d
 import { DocumentVersionHistory } from '@/features/organization/documents/shared/document-version-history';
 import type {
     DocumentShowItem,
+    DocumentTypeOption,
     EmployeeSummary,
 } from '@/features/organization/documents/shared/types';
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
@@ -31,6 +32,7 @@ type Props = {
     document: DocumentShowItem;
     employee: EmployeeSummary;
     countries: PhoneCountryOption[];
+    document_types: DocumentTypeOption[];
     can: {
         download: boolean;
         share: boolean;
@@ -70,6 +72,7 @@ export default function DocumentShow({
     document: doc,
     employee,
     countries,
+    document_types,
     can,
     back,
     recent_activity,
@@ -283,6 +286,7 @@ export default function DocumentShow({
                 onDeleteDocIdChange={setDeleteDocId}
                 partialReloadKeys={['document']}
                 deleteRedirectUrl={back.href}
+                documentTypes={document_types}
             />
 
             {can.whatsapp_template ? (

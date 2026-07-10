@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import { useEffect } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 import { Button } from '@/components/ui/button';
+import { CreatableSelect } from '@/components/ui/creatable-select';
 import {
     Dialog,
     DialogContent,
@@ -12,7 +13,12 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { DocumentProfileItem } from '@/features/organization/documents/shared/types';
+import type {
+    DocumentProfileItem,
+    DocumentTypeOption,
+} from '@/features/organization/documents/shared/types';
+import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
+import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { actions } from '@/lib/design-system';
 import { cn } from '@/lib/utils';
 import { EmployeeMissingRequiredFieldsAlert } from '@/pages/organization/_components/employee-missing-required-fields-alert';
@@ -34,12 +40,14 @@ export function EditDocumentDialog({
     document,
     employeeId,
     onOpenChange,
+    documentTypes = [],
     templateFields = null,
     partialReloadKeys = ['documents'],
 }: {
     document: DocumentProfileItem | null;
     employeeId: number;
     onOpenChange: (open: boolean) => void;
+    documentTypes?: DocumentTypeOption[];
     templateFields?: Record<string, TemplateFieldConfig> | null;
     partialReloadKeys?: string[];
 }): ReactElement {
@@ -57,7 +65,26 @@ export function EditDocumentDialog({
             TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_documents,
     });
 
+    const {
+        selectOptions: documentTypeOptions,
+        appendOption: appendDocumentType,
+    } = useMutableSelectOptions(
+        documentTypes.map((type) => ({
+            id: type.id,
+            title: type.title,
+        })),
+        'title',
+    );
+    const {
+        canCreate: canCreateDocumentType,
+        createConfig: documentTypeCreateConfig,
+    } = useCreatableMasterData('documentType');
+
     const editForm = useForm({
+        document_type_id:
+            document?.document_type_id != null
+                ? String(document.document_type_id)
+                : '',
         title: document?.title ?? '',
         document_number: document?.document_number ?? '',
         issue_date: document?.issue_date ?? '',
@@ -71,6 +98,10 @@ export function EditDocumentDialog({
         }
 
         editForm.setData({
+            document_type_id:
+                document.document_type_id != null
+                    ? String(document.document_type_id)
+                    : '',
             title: document.title ?? '',
             document_number: document.document_number ?? '',
             issue_date: document.issue_date ?? '',
@@ -119,6 +150,69 @@ export function EditDocumentDialog({
                         <div className="h-px flex-1 bg-muted/50" />
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
+                        {showField('document_type_id') ? (
+                            <RecordFormField
+                                field="document_type_id"
+                                highlightMissing={isMissingRequired(
+                                    'document_type_id',
+                                )}
+                                className="sm:col-span-2"
+                            >
+                                <div className="space-y-1.5">
+                                    <Label
+                                        className={recordFieldLabelClass(
+                                            isMissingRequired(
+                                                'document_type_id',
+                                            ),
+                                        )}
+                                    >
+                                        Document Type
+                                        <RequiredIndicator
+                                            show={isFieldRequired(
+                                                'document_type_id',
+                                            )}
+                                        />
+                                    </Label>
+                                    <CreatableSelect
+                                        value={editForm.data.document_type_id}
+                                        onValueChange={(value) =>
+                                            editForm.setData(
+                                                'document_type_id',
+                                                value,
+                                            )
+                                        }
+                                        variant="card"
+                                        placeholder="Select type…"
+                                        options={documentTypeOptions}
+                                        onOptionsChange={(next) => {
+                                            const added = next.find(
+                                                (option) =>
+                                                    !documentTypeOptions.some(
+                                                        (existing) =>
+                                                            existing.value ===
+                                                            option.value,
+                                                    ),
+                                            );
+
+                                            if (added) {
+                                                appendDocumentType({
+                                                    id: added.id,
+                                                    label: added.label,
+                                                });
+                                            }
+                                        }}
+                                        creatable
+                                        canCreate={canCreateDocumentType}
+                                        createConfig={documentTypeCreateConfig}
+                                    />
+                                    {editForm.errors.document_type_id ? (
+                                        <p className="text-xs text-destructive">
+                                            {editForm.errors.document_type_id}
+                                        </p>
+                                    ) : null}
+                                </div>
+                            </RecordFormField>
+                        ) : null}
                         {showField('title') ? (
                             <RecordFormField
                                 field="title"
@@ -402,6 +496,10 @@ export function EditDocumentDialog({
                             editForm.transform((data) =>
                                 omitHiddenTemplateRecordFields(
                                     {
+                                        document_type_id:
+                                            data.document_type_id.trim() === ''
+                                                ? null
+                                                : Number(data.document_type_id),
                                         title: data.title.trim() || null,
                                         document_number:
                                             data.document_number.trim() || null,

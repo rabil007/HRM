@@ -2,7 +2,10 @@ import { router } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
-import type { DocumentProfileItem } from '@/features/organization/documents/shared/types';
+import type {
+    DocumentProfileItem,
+    DocumentTypeOption,
+} from '@/features/organization/documents/shared/types';
 import { EditDocumentDialog } from '@/pages/organization/_components/documents/edit-document-dialog';
 import { ReplaceDocumentDialog } from '@/pages/organization/_components/documents/replace-document-dialog';
 import type { TemplateFieldConfig } from '@/pages/organization/employee-page.types';
@@ -16,6 +19,7 @@ type DocumentManagementDialogsProps = {
     deleteDocId: number | null;
     onDeleteDocIdChange: (id: number | null) => void;
     templateFields?: Record<string, TemplateFieldConfig> | null;
+    documentTypes?: DocumentTypeOption[];
     partialReloadKeys?: string[];
     deleteRedirectUrl?: string;
 };
@@ -29,6 +33,7 @@ export function DocumentManagementDialogs({
     deleteDocId,
     onDeleteDocIdChange,
     templateFields = null,
+    documentTypes = [],
     partialReloadKeys = ['documents'],
     deleteRedirectUrl,
 }: DocumentManagementDialogsProps): ReactElement {
@@ -39,6 +44,7 @@ export function DocumentManagementDialogs({
                 document={editDoc}
                 employeeId={employeeId}
                 onOpenChange={(open) => !open && onEditDocChange(null)}
+                documentTypes={documentTypes}
                 templateFields={templateFields}
                 partialReloadKeys={partialReloadKeys}
             />

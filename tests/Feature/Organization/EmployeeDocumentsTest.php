@@ -197,6 +197,7 @@ test('users with permission can edit document metadata', function () {
     ]);
 
     $this->put("/organization/employees/{$employee->id}/documents/{$doc->id}", [
+        'document_type_id' => $passportType->id,
         'title' => 'Updated Title',
         'document_number' => 'P111',
         'expiry_date' => now()->addYears(5)->toDateString(),

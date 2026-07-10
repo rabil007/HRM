@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use App\Support\EmployeeDocuments\DocumentExpiry;
 use App\Support\EmployeeDocuments\DocumentPagePermissions;
+use App\Support\Employees\EmployeeFormOptions;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -30,6 +31,7 @@ class DocumentsFolderIndexController extends Controller
             'employees' => [],
             'searchDocuments' => null,
             'complianceDocuments' => null,
+            'document_types' => EmployeeFormOptions::documentTypes(),
             'can' => DocumentPagePermissions::for($request->user()),
         ];
 

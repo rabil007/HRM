@@ -20,6 +20,7 @@ class UpdateEmployeeDocumentRequest extends FormRequest
     public function rules(): array
     {
         return $this->applyEmployeeDocumentTemplateRules([
+            'document_type_id' => $this->requiredDocumentTypeIdRules(),
             'title' => ['nullable', 'string', 'max:200'],
             'document_number' => ['nullable', 'string', 'max:120'],
             'issue_date' => ['nullable', 'date'],

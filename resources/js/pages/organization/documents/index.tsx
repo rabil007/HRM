@@ -26,6 +26,7 @@ import type {
     ComplianceDocumentItem,
     DocumentExpirySummary,
     DocumentProfileItem,
+    DocumentTypeOption,
     EmployeeFolder,
     PaginatedComplianceDocuments,
 } from '@/features/organization/documents/shared/types';
@@ -42,6 +43,7 @@ type Props = {
     employees: EmployeeFolder[];
     searchDocuments: PaginatedComplianceDocuments | null;
     complianceDocuments: PaginatedComplianceDocuments | null;
+    document_types: DocumentTypeOption[];
     can: {
         download: boolean;
         upload: boolean;
@@ -66,6 +68,7 @@ export default function DocumentsIndex({
     employees,
     searchDocuments,
     complianceDocuments,
+    document_types,
     can,
 }: Props) {
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
@@ -336,6 +339,7 @@ export default function DocumentsIndex({
                     deleteDocId={deleteDocId}
                     onDeleteDocIdChange={setDeleteDocId}
                     partialReloadKeys={managementPartialReloadKeys}
+                    documentTypes={document_types}
                 />
             ) : null}
         </Main>

@@ -43,6 +43,7 @@ import { useEmployeeProfileForm } from '@/pages/organization/_hooks/use-employee
 import type { UseEmployeeProfileFormResult } from '@/pages/organization/_hooks/use-employee-profile-form';
 import { resolveTemplateTableFields } from '@/pages/organization/_lib/resolve-template-table-fields';
 import type {
+    DocumentTypeOption,
     EmployeeDetails,
     EmployeePageProps,
     EmployeeTab,
@@ -64,6 +65,8 @@ const EMPLOYEE_PAGE_TAB_HASH_KEYS: Partial<Record<string, EmployeeTab>> = {
 const EMPLOYEE_PAGE_LEGACY_HASH_KEYS = new Set(
     Object.keys(EMPLOYEE_PAGE_TAB_HASH_KEYS),
 );
+
+const EMPTY_DOCUMENT_TYPES: DocumentTypeOption[] = [];
 
 export default function EmployeeDetails(props: EmployeePageProps) {
     const pageKey =
@@ -907,7 +910,10 @@ function EmployeeDetailsPage({
                                             name: localEmployee.name,
                                         }}
                                         documents={documents ?? []}
-                                        document_types={document_types ?? []}
+                                        document_types={
+                                            document_types ??
+                                            EMPTY_DOCUMENT_TYPES
+                                        }
                                         can={{
                                             documents_upload:
                                                 can?.documents_upload ?? false,

@@ -17,9 +17,20 @@ export function useMutableSelectOptions<T extends SourceOption>(
 } {
     const [sourceItems, setSourceItems] = useState(initial);
 
+    const initialKey = initial
+        .map((item) => {
+            const label =
+                (labelKey === 'title' ? item.title : item.name) ??
+                `#${item.id}`;
+
+            return `${item.id}:${label}`;
+        })
+        .join('|');
+
     useEffect(() => {
         setSourceItems(initial);
-    }, [initial]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when option ids/labels change, not array reference
+    }, [initialKey]);
 
     const selectOptions = useMemo(
         () =>

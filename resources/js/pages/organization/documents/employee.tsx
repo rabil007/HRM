@@ -48,6 +48,7 @@ import { downloadBulkZip } from '@/features/organization/documents/shared/downlo
 import type {
     DocumentExpirySummary,
     DocumentProfileItem,
+    DocumentTypeOption,
     EmployeeSummary,
 } from '@/features/organization/documents/shared/types';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
@@ -67,6 +68,7 @@ type Props = {
     documents: DocumentProfileItem[];
     summary: DocumentExpirySummary;
     countries: PhoneCountryOption[];
+    document_types: DocumentTypeOption[];
     can: {
         download: boolean;
         share: boolean;
@@ -83,6 +85,7 @@ export default function EmployeeDocumentsBrowse({
     documents: allDocuments,
     summary,
     countries,
+    document_types,
     can,
 }: Props) {
     const { company_switcher_companies, current_company_id } = usePage()
@@ -604,6 +607,7 @@ export default function EmployeeDocumentsBrowse({
                 onReplaceDocChange={setReplaceDoc}
                 deleteDocId={deleteDocId}
                 onDeleteDocIdChange={setDeleteDocId}
+                documentTypes={document_types}
             />
         </Main>
     );

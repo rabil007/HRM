@@ -309,7 +309,7 @@ final class EmployeeFormOptions
             ->get(['id', 'name']));
     }
 
-    private static function documentTypes()
+    public static function documentTypes(): Collection
     {
         return once(fn () => DocumentType::query()
             ->where('is_active', true)

@@ -112,7 +112,7 @@ class EmployeeDocumentController extends Controller
             ? ($validated['expiry_date'] ?? null)
             : $document->expiry_date?->toDateString();
 
-        $document->update([
+        $updates = [
             'title' => EmployeeProfileTemplateRequestRules::persistedValue($validated, 'title', $document->title),
             'document_number' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'document_number')
                 ? ($validated['document_number'] ?? null)
@@ -125,7 +125,25 @@ class EmployeeDocumentController extends Controller
                 ? ($validated['notes'] ?? null)
                 : $document->notes,
             'status' => DocumentExpiry::persistedStatus($expiryDate),
-        ]);
+        ];
+
+        if (EmployeeProfileTemplateRequestRules::hasValidated($validated, 'document_type_id')) {
+            $documentType = DocumentType::query()
+                ->whereKey($validated['document_type_id'])
+                ->where('is_active', true)
+                ->first();
+
+            if (! $documentType instanceof DocumentType) {
+                throw ValidationException::withMessages([
+                    'document_type_id' => 'The selected document type is invalid.',
+                ]);
+            }
+
+            $updates['document_type_id'] = $documentType->id;
+            $updates['document_type'] = (string) $documentType->id;
+        }
+
+        $document->update($updates);
 
         return back()->with('success', 'Document updated.');
     }

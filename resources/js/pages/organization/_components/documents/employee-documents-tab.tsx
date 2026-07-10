@@ -309,6 +309,7 @@ export function EmployeeDocumentsTab({
                     document={editDoc}
                     employeeId={employeeId}
                     onOpenChange={(open) => !open && setEditDoc(null)}
+                    documentTypes={document_types}
                     templateFields={templateFields}
                 />
             ) : null}

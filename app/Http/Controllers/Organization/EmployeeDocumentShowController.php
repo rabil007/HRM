@@ -39,6 +39,7 @@ class EmployeeDocumentShowController extends Controller
                 'phone' => $employee->phone,
             ],
             'countries' => EmployeeFormOptions::for($companyId)['countries'],
+            'document_types' => EmployeeFormOptions::documentTypes(),
             'can' => DocumentPagePermissions::for($request->user()),
             'back' => DocumentShowBackNavigation::resolve($request, $employee),
             'recent_activity' => RecentActivityQuery::for(
