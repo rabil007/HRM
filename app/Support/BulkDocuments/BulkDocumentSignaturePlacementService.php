@@ -85,25 +85,6 @@ final class BulkDocumentSignaturePlacementService
         float $canvasHeight,
         int $page = 1,
     ): array {
-        // #region agent log
-        @file_put_contents(base_path('.cursor/debug-1787de.log'), json_encode([
-            'sessionId' => '1787de',
-            'runId' => 'post-fix',
-            'hypothesisId' => 'A',
-            'location' => 'BulkDocumentSignaturePlacementService.php:fromEditorRects',
-            'message' => 'arabic rects preserved from editor',
-            'data' => [
-                'signature_ar' => $signatureAr,
-                'date_ar' => $dateAr,
-                'english_signature' => $signature,
-                'english_date' => $date,
-                'ar_top_differs_from_en' => ((float) ($signatureAr['top'] ?? 0)) !== ((float) ($signature['top'] ?? 0)),
-                'ar_left_differs_from_en' => ((float) ($signatureAr['left'] ?? 0)) !== ((float) ($signature['left'] ?? 0)),
-            ],
-            'timestamp' => (int) (microtime(true) * 1000),
-        ], JSON_THROW_ON_ERROR)."\n", FILE_APPEND);
-        // #endregion
-
         $overlay = [
             'left' => $this->toPercent((float) $signature['left'], $canvasWidth),
             'top' => $this->toPercent((float) $signature['top'], $canvasHeight),
