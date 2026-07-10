@@ -499,6 +499,7 @@ export function BulkDocumentsContent({
     generation_filter,
     email_filter,
     signature_filter,
+    company_visa_types,
     department_tree,
     department_tree_selected_id,
     department_tree_selected_position_id,
@@ -1336,9 +1337,15 @@ export function BulkDocumentsContent({
     const employeeFilterCount = [
         filters.department_id,
         filters.position_id,
+        filters.company_visa_type_id,
         searchInput.trim(),
         email_filter !== 'all',
     ].filter(Boolean).length;
+
+    const selectedSponsorName =
+        company_visa_types.find(
+            (sponsor) => String(sponsor.id) === filters.company_visa_type_id,
+        )?.name ?? null;
 
     const activeFilterCount = isRosterView
         ? employeeFilterCount + (generation_filter !== 'all' ? 1 : 0)
@@ -1600,6 +1607,36 @@ export function BulkDocumentsContent({
                         </Popover>
 
                         <AppSelect
+                            value={filters.company_visa_type_id}
+                            onValueChange={(value) => {
+                                const next = {
+                                    ...filters,
+                                    company_visa_type_id: value,
+                                };
+                                setFilters(next);
+                                navigate(
+                                    document_type_key,
+                                    next,
+                                    searchInput,
+                                );
+                            }}
+                            placeholder="All sponsors"
+                            className="h-12 w-full rounded-xl glass-card sm:w-56"
+                        >
+                            <AppSelectItem value="">
+                                All sponsors
+                            </AppSelectItem>
+                            {company_visa_types.map((sponsor) => (
+                                <AppSelectItem
+                                    key={sponsor.id}
+                                    value={String(sponsor.id)}
+                                >
+                                    {sponsor.name}
+                                </AppSelectItem>
+                            ))}
+                        </AppSelect>
+
+                        <AppSelect
                             value={email_filter}
                             onValueChange={(value) =>
                                 setEmailFilter(value as BulkEmailFilter)
@@ -1664,6 +1701,36 @@ export function BulkDocumentsContent({
                                     );
                                 }}
                                 aria-label="Clear department filter"
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </Badge>
+                    ) : null}
+
+                    {filters.company_visa_type_id && selectedSponsorName ? (
+                        <Badge
+                            variant="outline"
+                            className="gap-1 pr-1 pl-2.5 font-normal"
+                        >
+                            Sponsor: {selectedSponsorName}
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 rounded-full hover:bg-muted"
+                                onClick={() => {
+                                    const next = {
+                                        ...filters,
+                                        company_visa_type_id: '',
+                                    };
+                                    setFilters(next);
+                                    navigate(
+                                        document_type_key,
+                                        next,
+                                        searchInput,
+                                    );
+                                }}
+                                aria-label="Clear sponsor filter"
                             >
                                 <X className="h-3 w-3" />
                             </Button>

@@ -8,6 +8,7 @@ use App\Models\BulkDocumentEmailSend;
 use App\Models\BulkDocumentGenerationRun;
 use App\Models\BulkDocumentSignatureRequest;
 use App\Models\Company;
+use App\Models\CompanyVisaType;
 use App\Models\Department;
 use App\Models\DocumentType;
 use App\Models\EmailTemplate;
@@ -293,6 +294,46 @@ test('emailed filter paginates only employees with sent bulk document emails', f
             ->has('employees', 1)
             ->where('employees.0.name', 'Not Emailed Employee')
             ->where('email_filter', 'not_emailed'));
+});
+
+test('sponsor filter paginates only employees with matching company visa type', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $experts = CompanyVisaType::query()->create([
+        'name' => 'EXPERTS',
+        'is_active' => true,
+    ]);
+
+    $highLand = CompanyVisaType::query()->create([
+        'name' => 'High Land',
+        'is_active' => true,
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Experts Employee',
+        'company_visa_type_id' => $experts->id,
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'High Land Employee',
+        'company_visa_type_id' => $highLand->id,
+    ]);
+
+    $this->get(route('organization.documents.bulk', [
+        'company_visa_type_id' => $experts->id,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.name', 'Experts Employee')
+            ->where('filters.company_visa_type_id', (string) $experts->id)
+            ->where('counts.targeted', 1)
+            ->has('company_visa_types'));
 });
 
 test('bulk document counts respect department and emailed filters', function () {
