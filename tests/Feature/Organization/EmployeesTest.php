@@ -2593,7 +2593,7 @@ test('employee import template download only includes fields from selected profi
         ->and($headers)->not->toContain('bank', 'iban', 'account_name', 'contract_type', 'start_date', 'status');
 });
 
-test('employee import template download includes company_visa_type when sponsor is visible', function () {
+test('employee import template download includes sponsor when sponsor is visible', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -2637,7 +2637,7 @@ test('employee import template download includes company_visa_type when sponsor 
     $response->assertOk();
     $headers = employeeImportTemplateHeaders($response);
 
-    expect($headers)->toContain('employee_no', 'name', 'company_visa_type');
+    expect($headers)->toContain('employee_no', 'name', 'sponsor');
 });
 
 test('employee import template download includes rank and visa_type when visible', function () {

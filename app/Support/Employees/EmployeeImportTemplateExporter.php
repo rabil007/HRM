@@ -39,7 +39,7 @@ final class EmployeeImportTemplateExporter
         'nationality',
         'rank',
         'visa_type',
-        'company_visa_type',
+        'sponsor',
         'marital_status',
         'status',
     ];

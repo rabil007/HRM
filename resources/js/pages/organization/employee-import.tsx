@@ -482,7 +482,14 @@ export default function EmployeeImport({
                                                 className="h-10 shrink-0 rounded-xl glass-card px-4 hover:bg-accent"
                                                 asChild
                                             >
-                                                <a href={templateDownloadUrl}>
+                                                <a
+                                                    href={templateDownloadUrl}
+                                                    onClick={() => {
+                                                        // #region agent log
+                                                        fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'351a82'},body:JSON.stringify({sessionId:'351a82',runId:'sponsor-ui',hypothesisId:'B,D',location:'employee-import.tsx:download',message:'download import template clicked',data:{selectedTemplateId,templateDownloadUrl,templateName:templates.find((t)=>t.id===selectedTemplateId)?.name??null},timestamp:Date.now()})}).catch(()=>{});
+                                                        // #endregion
+                                                    }}
+                                                >
                                                     <Download className="mr-2 h-4 w-4" />
                                                     Download import template
                                                     (.xlsx)

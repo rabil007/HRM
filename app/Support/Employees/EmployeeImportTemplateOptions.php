@@ -94,7 +94,7 @@ final class EmployeeImportTemplateOptions
                 ->map(fn ($name) => (string) $name)
                 ->values()
                 ->all(),
-            'company_visa_type' => CompanyVisaType::query()
+            'sponsor' => CompanyVisaType::query()
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->pluck('name')

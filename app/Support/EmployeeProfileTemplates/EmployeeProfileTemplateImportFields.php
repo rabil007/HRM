@@ -41,7 +41,7 @@ final class EmployeeProfileTemplateImportFields
         'nationality_id' => 'nationality',
         'rank_id' => 'rank',
         'visa_type_id' => 'visa_type',
-        'company_visa_type_id' => 'company_visa_type',
+        'company_visa_type_id' => 'sponsor',
         'status' => 'status',
     ];
 
