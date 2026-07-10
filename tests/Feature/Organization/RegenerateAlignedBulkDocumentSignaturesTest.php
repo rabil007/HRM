@@ -205,3 +205,83 @@ test('bulk documents page includes latest signature repair run', function () {
             ->where('latest_signature_repair_run.status', 'completed')
             ->where('latest_signature_repair_run.repaired_count', 2));
 });
+
+test('bulk signature selection returns regenerable request ids across pages', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $eligible = collect(range(1, 25))->map(function () use ($company) {
+        $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+        return createSubmittedSignatureRequestForRepair($company, $employee);
+    });
+
+    $ineligibleEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    createSubmittedSignatureRequestForRepair($company, $ineligibleEmployee, withSignatureImage: false);
+
+    $awaitingEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $awaiting = createSubmittedSignatureRequestForRepair($company, $awaitingEmployee);
+    $awaiting->update([
+        'status' => BulkDocumentSignatureRequestStatus::AwaitingSignature,
+        'signed_at' => null,
+        'signature_image_path' => null,
+        'signed_pdf_path' => null,
+    ]);
+
+    $this->get(route('organization.documents.bulk.selection', [
+        'view' => 'signatures',
+        'signature_filter' => 'submitted',
+    ]))
+        ->assertOk()
+        ->assertJsonPath('total', 25)
+        ->assertJson(fn ($json) => $json
+            ->where('total', 25)
+            ->has('signature_request_ids', 25)
+            ->etc());
+
+    $ids = $this->get(route('organization.documents.bulk.selection', [
+        'view' => 'signatures',
+        'signature_filter' => 'submitted',
+    ]))->json('signature_request_ids');
+
+    expect($ids)
+        ->toEqualCanonicalizing($eligible->pluck('id')->all())
+        ->not->toContain($awaiting->id);
+});
+
+test('bulk signature selection respects signature filter', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $submittedEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $submitted = createSubmittedSignatureRequestForRepair($company, $submittedEmployee);
+
+    $awaitingEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $awaiting = createSubmittedSignatureRequestForRepair($company, $awaitingEmployee);
+    $awaiting->update([
+        'status' => BulkDocumentSignatureRequestStatus::AwaitingSignature,
+        'signed_at' => null,
+        'signature_image_path' => null,
+        'signed_pdf_path' => null,
+    ]);
+
+    $this->get(route('organization.documents.bulk.selection', [
+        'view' => 'signatures',
+        'signature_filter' => 'awaiting_signature',
+    ]))
+        ->assertOk()
+        ->assertJsonPath('total', 0)
+        ->assertJsonPath('signature_request_ids', []);
+
+    $this->get(route('organization.documents.bulk.selection', [
+        'view' => 'signatures',
+        'signature_filter' => 'submitted',
+    ]))
+        ->assertOk()
+        ->assertJsonPath('total', 1)
+        ->assertJsonPath('signature_request_ids.0', $submitted->id);
+});

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Organization\BulkDocuments;
 
 use App\Http\Controllers\Controller;
 use App\Support\BulkDocuments\BulkDocumentRosterQuery;
+use App\Support\BulkDocuments\BulkDocumentSignatureRosterQuery;
 use App\Support\BulkDocuments\BulkDocumentTypeRegistry;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use Illuminate\Http\JsonResponse;
@@ -29,15 +30,33 @@ class BulkDocumentSelectionController extends Controller
             ['status' => 'active'],
         ));
 
-        $generationFilter = match ($request->query('generation_filter')) {
-            'missing' => 'missing',
-            'generated' => 'generated',
-            default => 'all',
-        };
-
         $emailFilter = match ($request->query('email_filter')) {
             'emailed' => 'emailed',
             'not_emailed' => 'not_emailed',
+            default => 'all',
+        };
+
+        if ($request->query('view') === 'signatures') {
+            $signatureFilter = match ($request->query('signature_filter')) {
+                'submitted' => 'submitted',
+                'awaiting_signature' => 'awaiting_signature',
+                default => 'all',
+            };
+
+            return response()->json(
+                BulkDocumentSignatureRosterQuery::matchingSelection(
+                    $companyId,
+                    $documentTypeKey,
+                    $filters,
+                    $signatureFilter,
+                    $emailFilter,
+                ),
+            );
+        }
+
+        $generationFilter = match ($request->query('generation_filter')) {
+            'missing' => 'missing',
+            'generated' => 'generated',
             default => 'all',
         };
 

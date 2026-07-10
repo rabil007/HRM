@@ -572,8 +572,111 @@ export function BulkDocumentsContent({
         clear: clearSignatureSelection,
     } = useBulkSelection(regenerableSignatureIds);
 
+    const [matchingSignatureSelection, setMatchingSignatureSelection] =
+        useState<{
+            signature_request_ids: number[];
+            total: number;
+        } | null>(null);
+    const [isSelectingAllMatchingSignatures, setIsSelectingAllMatchingSignatures] =
+        useState(false);
+
     const [isRegeneratingAlignment, setIsRegeneratingAlignment] =
         useState(false);
+
+    const effectiveSignatureIds =
+        matchingSignatureSelection?.signature_request_ids ??
+        selectedSignatureIds;
+    const effectiveSignatureCount =
+        matchingSignatureSelection?.total ?? selectedSignatureCount;
+
+    const clearSignatureSelectionState = useCallback(() => {
+        clearSignatureSelection();
+        setMatchingSignatureSelection(null);
+    }, [clearSignatureSelection]);
+
+    useEffect(() => {
+        setMatchingSignatureSelection(null);
+    }, [document_type_key, filters, signature_filter, email_filter, searchInput]);
+
+    const showSelectAllMatchingSignatures =
+        can.review_signatures &&
+        isAllSignaturesSelected &&
+        matchingSignatureSelection === null &&
+        pagination.total > selectedSignatureCount;
+
+    const handleSelectAllMatchingSignatures = async () => {
+        setIsSelectingAllMatchingSignatures(true);
+
+        try {
+            const params = new URLSearchParams(
+                buildQuery(
+                    document_type_key,
+                    filters,
+                    searchInput,
+                    generation_filter,
+                    'signatures',
+                    signature_filter,
+                    email_filter,
+                    { perPage: pagination.per_page },
+                ),
+            );
+
+            const response = await fetch(
+                `/organization/documents/bulk/selection?${params.toString()}`,
+                {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to load selection.');
+            }
+
+            const data = (await response.json()) as {
+                signature_request_ids: number[];
+                total: number;
+            };
+
+            setMatchingSignatureSelection(data);
+        } catch {
+            toast.error('Could not select all matching signature requests.');
+        } finally {
+            setIsSelectingAllMatchingSignatures(false);
+        }
+    };
+
+    const handleToggleSignature = (signatureId: number) => {
+        setMatchingSignatureSelection(null);
+        toggleSignature(signatureId);
+    };
+
+    const handleToggleAllSignatures = () => {
+        if (matchingSignatureSelection) {
+            clearSignatureSelectionState();
+
+            return;
+        }
+
+        toggleAllSignatures();
+    };
+
+    const isSignatureRowSelected = (signatureId: number) =>
+        matchingSignatureSelection
+            ? matchingSignatureSelection.signature_request_ids.includes(
+                  signatureId,
+              )
+            : isSignatureSelected(signatureId);
+
+    const isSignatureHeaderCheckboxChecked = matchingSignatureSelection
+        ? true
+        : isAllSignaturesSelected
+          ? true
+          : isSignaturesPartiallySelected
+            ? 'indeterminate'
+            : false;
 
     const selectedEmployees = useMemo(
         () => employees.filter((employee) => selectedIds.includes(employee.id)),
@@ -823,7 +926,7 @@ export function BulkDocumentsContent({
     }, [latest_signature_repair_run?.status]);
 
     const regenerateSelectedAlignment = useCallback(() => {
-        if (selectedSignatureIds.length === 0) {
+        if (effectiveSignatureIds.length === 0) {
             return;
         }
 
@@ -832,21 +935,21 @@ export function BulkDocumentsContent({
         router.post(
             RegenerateAlignedBulkDocumentSignaturesController.url(),
             {
-                signature_request_ids: selectedSignatureIds,
+                signature_request_ids: effectiveSignatureIds,
                 document_type_key,
             },
             {
                 preserveScroll: true,
                 onFinish: () => {
                     setIsRegeneratingAlignment(false);
-                    clearSignatureSelection();
+                    clearSignatureSelectionState();
                 },
             },
         );
     }, [
-        clearSignatureSelection,
+        clearSignatureSelectionState,
         document_type_key,
-        selectedSignatureIds,
+        effectiveSignatureIds,
     ]);
 
     const navigate = useCallback(
@@ -893,6 +996,7 @@ export function BulkDocumentsContent({
     const setView = useCallback(
         (nextView: BulkDocumentsView) => {
             clearSelection();
+            clearSignatureSelectionState();
             navigate(
                 document_type_key,
                 filters,
@@ -906,6 +1010,7 @@ export function BulkDocumentsContent({
         },
         [
             clearSelection,
+            clearSignatureSelectionState,
             document_type_key,
             email_filter,
             filters,
@@ -1772,29 +1877,48 @@ export function BulkDocumentsContent({
                 </>
             ) : isSignaturesView ? (
                 <>
-                    {can.review_signatures && selectedSignatureCount > 0 ? (
-                        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
-                            <span className="text-sm text-muted-foreground">
-                                {selectedSignatureCount} selected for alignment
-                                repair
-                            </span>
-                            <Button
-                                type="button"
-                                size="sm"
-                                disabled={
-                                    isRegeneratingAlignment ||
-                                    isSignatureRepairActive
-                                }
-                                onClick={regenerateSelectedAlignment}
-                            >
-                                {isRegeneratingAlignment ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <RotateCcw className="mr-2 h-4 w-4" />
-                                )}
-                                Regenerate alignment
-                            </Button>
-                        </div>
+                    {can.review_signatures ? (
+                        <DocumentsBulkToolbar
+                            count={effectiveSignatureCount}
+                            itemLabel="signature requests"
+                            onClear={clearSignatureSelectionState}
+                            selectAllMatching={
+                                showSelectAllMatchingSignatures
+                                    ? {
+                                          total: pagination.total,
+                                          onSelect: () =>
+                                              void handleSelectAllMatchingSignatures(),
+                                          loading:
+                                              isSelectingAllMatchingSignatures,
+                                      }
+                                    : undefined
+                            }
+                            selectAll={
+                                <Checkbox
+                                    checked={isSignatureHeaderCheckboxChecked}
+                                    onCheckedChange={handleToggleAllSignatures}
+                                    aria-label="Select all eligible signature requests"
+                                />
+                            }
+                            actions={
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    disabled={
+                                        isRegeneratingAlignment ||
+                                        isSignatureRepairActive
+                                    }
+                                    onClick={regenerateSelectedAlignment}
+                                >
+                                    {isRegeneratingAlignment ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <RotateCcw className="mr-2 h-4 w-4" />
+                                    )}
+                                    Regenerate alignment
+                                </Button>
+                            }
+                        />
                     ) : null}
 
                     <SignatureRepairProgressBanner
@@ -1806,11 +1930,18 @@ export function BulkDocumentsContent({
                         canReview={can.review_signatures}
                         canDownload={can.download}
                         selectable={can.review_signatures}
-                        isSelected={isSignatureSelected}
-                        isAllSelected={isAllSignaturesSelected}
-                        isPartiallySelected={isSignaturesPartiallySelected}
-                        onToggle={toggleSignature}
-                        onToggleAll={toggleAllSignatures}
+                        isSelected={isSignatureRowSelected}
+                        isAllSelected={Boolean(
+                            matchingSignatureSelection ||
+                                isAllSignaturesSelected,
+                        )}
+                        isPartiallySelected={
+                            matchingSignatureSelection
+                                ? false
+                                : isSignaturesPartiallySelected
+                        }
+                        onToggle={handleToggleSignature}
+                        onToggleAll={handleToggleAllSignatures}
                         header={
                             <>
                                 <span className="text-sm text-muted-foreground/80">

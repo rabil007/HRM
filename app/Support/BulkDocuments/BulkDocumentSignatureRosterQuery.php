@@ -20,13 +20,13 @@ final class BulkDocumentSignatureRosterQuery
         ?string $statusFilter = null,
         string $emailFilter = 'all',
     ): LengthAwarePaginator {
-        $query = BulkDocumentSignatureRequest::query()
-            ->forCompany($companyId)
-            ->where('document_type_key', $documentTypeKey)
-            ->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters, $documentTypeKey, $emailFilter): void {
-                EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters);
-                BulkDocumentRosterQuery::applyEmailFilter($employeeQuery, $companyId, $documentTypeKey, $emailFilter);
-            })
+        $query = self::filteredQuery(
+            $companyId,
+            $documentTypeKey,
+            $filters,
+            $statusFilter,
+            $emailFilter,
+        )
             ->with([
                 'employee:id,name,employee_no,image,department_id,position_id',
                 'employee.department:id,name',
@@ -37,13 +37,69 @@ final class BulkDocumentSignatureRosterQuery
             ->latest('signed_at')
             ->latest('id');
 
+        return $query->paginate($perPage, ['*'], 'page', $page)->withQueryString()->through(
+            fn (BulkDocumentSignatureRequest $request): array => self::mapRequest($request),
+        );
+    }
+
+    /**
+     * @return array{
+     *     signature_request_ids: list<int>,
+     *     total: int
+     * }
+     */
+    public static function matchingSelection(
+        int $companyId,
+        string $documentTypeKey,
+        EmployeeDirectoryFilters $filters,
+        ?string $statusFilter = null,
+        string $emailFilter = 'all',
+    ): array {
+        $ids = self::filteredQuery(
+            $companyId,
+            $documentTypeKey,
+            $filters,
+            $statusFilter,
+            $emailFilter,
+        )
+            ->whereIn('status', [
+                BulkDocumentSignatureRequestStatus::Submitted,
+                BulkDocumentSignatureRequestStatus::Approved,
+            ])
+            ->whereNotNull('signature_image_path')
+            ->whereNotNull('signed_pdf_path')
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
+
+        return [
+            'signature_request_ids' => $ids,
+            'total' => count($ids),
+        ];
+    }
+
+    private static function filteredQuery(
+        int $companyId,
+        string $documentTypeKey,
+        EmployeeDirectoryFilters $filters,
+        ?string $statusFilter = null,
+        string $emailFilter = 'all',
+    ): Builder {
+        $query = BulkDocumentSignatureRequest::query()
+            ->forCompany($companyId)
+            ->where('document_type_key', $documentTypeKey)
+            ->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $filters, $documentTypeKey, $emailFilter): void {
+                EmployeeDirectoryQuery::applyAttributeFilters($employeeQuery, $companyId, $filters);
+                BulkDocumentRosterQuery::applyEmailFilter($employeeQuery, $companyId, $documentTypeKey, $emailFilter);
+            });
+
         if ($statusFilter !== null && $statusFilter !== '' && $statusFilter !== 'all') {
             $query->where('status', $statusFilter);
         }
 
-        return $query->paginate($perPage, ['*'], 'page', $page)->withQueryString()->through(
-            fn (BulkDocumentSignatureRequest $request): array => self::mapRequest($request),
-        );
+        return $query;
     }
 
     public static function pendingReviewCount(
