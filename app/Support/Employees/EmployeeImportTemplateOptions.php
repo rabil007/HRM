@@ -4,6 +4,7 @@ namespace App\Support\Employees;
 
 use App\Models\Branch;
 use App\Models\Client;
+use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Department;
 use App\Models\Gender;
@@ -71,6 +72,13 @@ final class EmployeeImportTemplateOptions
                 ->values()
                 ->all(),
             'nationality' => Country::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->pluck('name')
+                ->map(fn ($name) => (string) $name)
+                ->values()
+                ->all(),
+            'company_visa_type' => CompanyVisaType::query()
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->pluck('name')

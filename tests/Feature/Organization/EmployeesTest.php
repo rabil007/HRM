@@ -2593,6 +2593,53 @@ test('employee import template download only includes fields from selected profi
         ->and($headers)->not->toContain('bank', 'iban', 'account_name', 'contract_type', 'start_date', 'status');
 });
 
+test('employee import template download includes company_visa_type when sponsor is visible', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'ITC3',
+        'name' => 'Import Template Columns 3',
+        'dial_code' => '+989',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'ITC3',
+        'name' => 'Import Template Columns Currency 3',
+        'symbol' => 'C$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Import Template Sponsor Co',
+        'slug' => 'import-template-sponsor-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $configuration = employeeProfileTemplateWithVisibleEmployeeFields([
+        'employee_no',
+        'name',
+        'company_visa_type_id',
+    ]);
+
+    $template = createEmployeeProfileTemplate($company, 'Sponsor Import', $configuration);
+
+    grantCompanyPermissions($user, $company, ['employees.import']);
+
+    $response = $this->get("/organization/employees/import/template?template_id={$template->id}");
+
+    $response->assertOk();
+    $headers = employeeImportTemplateHeaders($response);
+
+    expect($headers)->toContain('employee_no', 'name', 'company_visa_type');
+});
+
 test('employee import template download includes visible personal fields such as address', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

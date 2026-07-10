@@ -4,6 +4,7 @@ namespace App\Imports;
 
 use App\Models\Branch;
 use App\Models\Client;
+use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Department;
 use App\Models\Employee;
@@ -57,6 +58,7 @@ class EmployeesImport
         'gender' => ['gender'],
         'religion' => ['religion'],
         'nationality' => ['nationality', 'country'],
+        'company_visa_type' => ['company_visa_type', 'company visa type', 'sponsor', 'sponsor name'],
     ];
 
     public const REQUIRED_FIELDS = ['employee_no', 'name'];
@@ -94,6 +96,7 @@ class EmployeesImport
             'gender' => ['employees', 'gender_id'],
             'religion' => ['employees', 'religion_id'],
             'nationality' => ['employees', 'nationality_id'],
+            'company_visa_type' => ['employees', 'company_visa_type_id'],
             'status' => ['employees', 'status'],
         ];
     }
@@ -142,6 +145,7 @@ class EmployeesImport
         'gender',
         'religion',
         'nationality',
+        'company_visa_type',
         'status',
     ];
 
@@ -184,6 +188,11 @@ class EmployeesImport
      * @var array<string, int>|null
      */
     private ?array $clientMap = null;
+
+    /**
+     * @var array<string, int>|null
+     */
+    private ?array $companyVisaTypeMap = null;
 
     public function __construct(public int $companyId, public int $actorId) {}
 
@@ -551,6 +560,7 @@ class EmployeesImport
                         'gender_id' => $resolved['gender_id'] ?? null,
                         'religion_id' => $resolved['religion_id'] ?? null,
                         'nationality_id' => $resolved['nationality_id'] ?? null,
+                        'company_visa_type_id' => $resolved['company_visa_type_id'] ?? null,
                         'status' => $row['status'] ?: 'active',
                     ]);
 
@@ -731,7 +741,7 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id', 'client' => 'client_id'] as $key => $field) {
+        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id', 'client' => 'client_id', 'company_visa_type' => 'company_visa_type_id'] as $key => $field) {
             if ($this->fieldHasValue($row, $key)) {
                 $payload[$field] = $resolved[$field];
             }
@@ -798,7 +808,7 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => $this->genderMap, 'religion' => $this->religionMap, 'nationality' => $this->countryMap, 'project' => $this->projectMap, 'client' => $this->clientMap] as $key => $map) {
+        foreach (['gender' => $this->genderMap, 'religion' => $this->religionMap, 'nationality' => $this->countryMap, 'project' => $this->projectMap, 'client' => $this->clientMap, 'company_visa_type' => $this->companyVisaTypeMap] as $key => $map) {
             if (! empty($row[$key])) {
                 $name = self::normalize((string) $row[$key]);
 
@@ -826,6 +836,7 @@ class EmployeesImport
             'gender_id' => null,
             'religion_id' => null,
             'nationality_id' => null,
+            'company_visa_type_id' => null,
         ];
 
         foreach (['branch' => 'branch_id', 'department' => 'department_id', 'position' => 'position_id'] as $key => $field) {
@@ -836,7 +847,7 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id', 'client' => 'client_id'] as $key => $field) {
+        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'project' => 'project_id', 'client' => 'client_id', 'company_visa_type' => 'company_visa_type_id'] as $key => $field) {
             if (! empty($row[$key])) {
                 $name = self::normalize((string) $row[$key]);
                 $map = match ($key) {
@@ -845,6 +856,7 @@ class EmployeesImport
                     'nationality' => $this->countryMap,
                     'project' => $this->projectMap,
                     'client' => $this->clientMap,
+                    'company_visa_type' => $this->companyVisaTypeMap,
                     default => [],
                 };
                 $resolved[$field] = $map[$name] ?? null;
@@ -909,6 +921,12 @@ class EmployeesImport
 
                 return $carry;
             }, []);
+
+        $this->companyVisaTypeMap = CompanyVisaType::query()
+            ->where('is_active', true)
+            ->pluck('id', 'name')
+            ->mapWithKeys(fn ($id, $name) => [self::normalize((string) $name) => (int) $id])
+            ->all();
 
     }
 

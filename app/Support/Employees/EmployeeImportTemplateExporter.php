@@ -37,6 +37,7 @@ final class EmployeeImportTemplateExporter
         'gender',
         'religion',
         'nationality',
+        'company_visa_type',
         'marital_status',
         'status',
     ];
