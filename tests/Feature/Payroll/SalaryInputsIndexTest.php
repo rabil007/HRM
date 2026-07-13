@@ -120,7 +120,7 @@ test('authorized users can create update and delete salary input types', functio
         ->assertRedirect(route('payroll.salary-inputs.index'))
         ->assertSessionHas('success');
 
-    $this->assertDatabaseMissing('salary_input_types', ['id' => $type->id]);
+    $this->assertSoftDeleted('salary_input_types', ['id' => $type->id]);
 });
 
 test('deleting a default salary input type does not recreate it on index reload', function () {
@@ -142,7 +142,7 @@ test('deleting a default salary input type does not recreate it on index reload'
         ->assertRedirect(route('payroll.salary-inputs.index'))
         ->assertSessionHas('success');
 
-    $this->assertDatabaseMissing('salary_input_types', [
+    $this->assertSoftDeleted('salary_input_types', [
         'company_id' => $company->id,
         'code' => 'bonus',
     ]);

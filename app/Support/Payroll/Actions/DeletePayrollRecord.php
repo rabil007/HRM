@@ -28,13 +28,13 @@ final class DeletePayrollRecord
         DB::transaction(function () use ($period, $record): void {
             $period->salaryInputs()
                 ->where('employee_id', $record->employee_id)
-                ->delete();
+                ->forceDelete();
 
             if (filled($record->payslip_path) && Storage::disk('local')->exists($record->payslip_path)) {
                 Storage::disk('local')->delete($record->payslip_path);
             }
 
-            $record->delete();
+            $record->forceDelete();
 
             $excludedEmployeeIds = array_values(array_unique(array_merge(
                 $period->excluded_employee_ids ?? [],
@@ -47,7 +47,7 @@ final class DeletePayrollRecord
 
             if (! $period->payrollRecords()->exists()) {
                 $updates['status'] = PayrollPeriodStatus::Draft;
-                $period->salaryInputs()->delete();
+                $period->salaryInputs()->forceDelete();
             }
 
             $period->update($updates);

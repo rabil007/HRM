@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('salary_payment_method', 30)->nullable()->after('payroll_category');
         });
 
-        PayrollRecord::query()
+        PayrollRecord::withoutGlobalScopes()
             ->with('employee:id,salary_payment_method')
             ->chunkById(200, function ($records): void {
                 foreach ($records as $record) {

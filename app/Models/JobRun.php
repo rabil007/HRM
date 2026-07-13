@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class JobRun extends Model
 {
+    use SoftDeletes;
+
     public const TYPE_QUEUE = 'queue';
 
     public const TYPE_SCHEDULED = 'scheduled';

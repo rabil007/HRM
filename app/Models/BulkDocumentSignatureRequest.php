@@ -6,9 +6,12 @@ use App\Enums\BulkDocumentSignatureRequestStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class BulkDocumentSignatureRequest extends Model
 {
+    use SoftDeletes;
+
     public const EXPIRY_DAYS = 14;
 
     protected $guarded = [];

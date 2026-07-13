@@ -28,11 +28,11 @@ final class RevertPayrollPeriodToDraft
                     }
                 });
 
-            $period->payrollRecords()->delete();
-            $period->salaryInputs()->delete();
+            $period->payrollRecords()->forceDelete();
+            $period->salaryInputs()->forceDelete();
 
             if ($period->isCrew()) {
-                $period->crewTimesheets()->delete();
+                $period->crewTimesheets()->forceDelete();
             }
 
             $period->update([

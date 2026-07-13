@@ -18,8 +18,8 @@ final class CancelPayrollPeriod
         }
 
         return DB::transaction(function () use ($period): PayrollPeriod {
-            $period->payrollRecords()->delete();
-            $period->salaryInputs()->delete();
+            $period->payrollRecords()->forceDelete();
+            $period->salaryInputs()->forceDelete();
 
             $period->update([
                 'status' => PayrollPeriodStatus::Cancelled,

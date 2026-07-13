@@ -81,7 +81,7 @@ final class GenerateOfficePayroll
                 PayrollRecord::query()
                     ->where('period_id', $period->id)
                     ->whereIn('employee_id', $excludedEmployeeIds)
-                    ->delete();
+                    ->forceDelete();
             }
             foreach ($employees as $employee) {
                 /** @var Employee $employee */

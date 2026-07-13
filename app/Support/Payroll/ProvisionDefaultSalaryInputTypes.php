@@ -23,7 +23,7 @@ final class ProvisionDefaultSalaryInputTypes
 
     public function handle(int $companyId): void
     {
-        $hasExistingTypes = SalaryInputType::query()
+        $hasExistingTypes = SalaryInputType::withTrashed()
             ->where('company_id', $companyId)
             ->exists();
 

@@ -50,7 +50,7 @@ final class SyncEmployeeSalaryInputsFromImport
                 ->where('employee_id', $employee->id)
                 ->where('period_id', $period->id)
                 ->where('salary_input_type_id', $typeId)
-                ->delete();
+                ->forceDelete();
 
             return;
         }

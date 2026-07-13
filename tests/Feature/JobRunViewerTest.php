@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\JobRun;
 use App\Models\User;
 use App\Support\EmployeeDocuments\DocumentExpiryAlertSchedule;
 use App\Support\Hikvision\HikvisionAccessEventsFetchSchedule;
@@ -302,7 +303,8 @@ test('authenticated users can delete a job run history record', function () {
         ->assertRedirect()
         ->assertSessionHas('success');
 
-    expect(DB::table('job_runs')->whereKey($jobRunId)->exists())->toBeFalse();
+    expect(JobRun::query()->whereKey($jobRunId)->exists())->toBeFalse();
+    $this->assertSoftDeleted('job_runs', ['id' => $jobRunId]);
 });
 
 test('authenticated users can delete all job run history records', function () {
@@ -345,7 +347,8 @@ test('authenticated users can delete all job run history records', function () {
         ->assertRedirect()
         ->assertSessionHas('success');
 
-    expect(DB::table('job_runs')->count())->toBe(0);
+    expect(JobRun::query()->count())->toBe(0)
+        ->and(JobRun::onlyTrashed()->count())->toBe(2);
 });
 
 test('authenticated users can delete a pending queue job', function () {

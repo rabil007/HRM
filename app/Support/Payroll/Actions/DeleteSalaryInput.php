@@ -22,6 +22,6 @@ final class DeleteSalaryInput
             ]);
         }
 
-        $salaryInput->delete();
+        $salaryInput->forceDelete();
     }
 }
