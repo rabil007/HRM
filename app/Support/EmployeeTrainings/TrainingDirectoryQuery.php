@@ -55,6 +55,19 @@ final class TrainingDirectoryQuery
     /**
      * @return Builder<EmployeeTraining>
      */
+    public function summaryQuery(): Builder
+    {
+        $query = EmployeeTraining::query()
+            ->where('employee_trainings.company_id', $this->companyId);
+
+        $this->applyAttributeFilters($query);
+
+        return $query;
+    }
+
+    /**
+     * @return Builder<EmployeeTraining>
+     */
     private function baseQuery(): Builder
     {
         return EmployeeTraining::query()
@@ -77,6 +90,14 @@ final class TrainingDirectoryQuery
             TrainingExpiry::applyExpiryFilter($query, $this->filters->expiry);
         }
 
+        $this->applyAttributeFilters($query);
+    }
+
+    /**
+     * @param  Builder<EmployeeTraining>  $query
+     */
+    private function applyAttributeFilters(Builder $query): void
+    {
         $query
             ->when($this->filters->issueDate !== '', function (Builder $inner): void {
                 $inner->whereDate('employee_trainings.issue_date', $this->filters->issueDate);

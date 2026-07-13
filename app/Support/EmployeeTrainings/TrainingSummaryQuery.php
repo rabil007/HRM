@@ -15,16 +15,18 @@ final class TrainingSummaryQuery
      *     expiring_7: int
      * }
      */
-    public function forCompany(int $companyId, ?int $employeeId = null): array
+    public function forCompany(int $companyId, ?TrainingDirectoryFilters $filters = null): array
     {
         $today = now()->toDateString();
         $in7 = now()->addDays(7)->toDateString();
         $in15 = now()->addDays(15)->toDateString();
         $in30 = now()->addDays(30)->toDateString();
 
-        $row = EmployeeTraining::query()
-            ->where('company_id', $companyId)
-            ->when($employeeId !== null, fn ($query) => $query->where('employee_id', $employeeId))
+        $query = $filters !== null
+            ? (new TrainingDirectoryQuery($companyId, $filters))->summaryQuery()
+            : EmployeeTraining::query()->where('employee_trainings.company_id', $companyId);
+
+        $row = $query
             ->selectRaw('COUNT(*) as total')
             ->selectRaw(
                 'SUM(CASE WHEN expiry_date IS NOT NULL AND expiry_date < ? THEN 1 ELSE 0 END) as expired',

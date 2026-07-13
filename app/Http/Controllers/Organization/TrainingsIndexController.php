@@ -28,7 +28,7 @@ class TrainingsIndexController extends Controller
         $paginator = (new TrainingDirectoryQuery($companyId, $filters))->paginate($perPage);
 
         return Inertia::render('organization/training/index', [
-            'summary' => $summaryQuery->forCompany($companyId),
+            'summary' => $summaryQuery->forCompany($companyId, $filters),
             'expiry' => $filters->expiry,
             'search' => $filters->search,
             'issue_date' => $filters->issueDate,

@@ -275,7 +275,66 @@ test('training index search matches employee name and course', function () {
 
     $this->get(route('organization.training', ['search' => 'no-match-xyz']))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->has('trainings', 0));
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('trainings', 0)
+            ->where('summary.total', 0));
+});
+
+test('training index summary cards respect search and course filters', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'course' => $course, 'country' => $country] = makeTrainingIndexFixtures();
+
+    grantCompanyPermissions($user, $company, ['training.view']);
+
+    $otherCourse = Course::query()->create([
+        'name' => 'Other Summary Course '.uniqid(),
+        'is_active' => true,
+    ]);
+
+    EmployeeTraining::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'course_id' => $course->id,
+        'issue_date' => now()->subYear()->toDateString(),
+        'expiry_date' => now()->addDays(5)->toDateString(),
+        'institute_center' => 'Alpha Maritime',
+        'country_id' => $country->id,
+        'sort_order' => 0,
+    ]);
+
+    EmployeeTraining::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'course_id' => $otherCourse->id,
+        'issue_date' => now()->subYear()->toDateString(),
+        'expiry_date' => now()->subDay()->toDateString(),
+        'institute_center' => 'Beta School',
+        'country_id' => null,
+        'sort_order' => 1,
+    ]);
+
+    $this->get(route('organization.training'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.total', 2)
+            ->where('summary.expiring_7', 1)
+            ->where('summary.expired', 1));
+
+    $this->get(route('organization.training', ['course_id' => $course->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.total', 1)
+            ->where('summary.expiring_7', 1)
+            ->where('summary.expired', 0));
+
+    $this->get(route('organization.training', ['search' => 'Beta']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.total', 1)
+            ->where('summary.expired', 1)
+            ->where('summary.expiring_7', 0));
 });
 
 test('training index is scoped to the current company', function () {
