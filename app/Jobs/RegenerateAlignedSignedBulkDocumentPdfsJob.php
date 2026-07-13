@@ -24,7 +24,7 @@ class RegenerateAlignedSignedBulkDocumentPdfsJob implements ShouldQueue
      */
     public function __construct(
         public int $companyId,
-        public int $userId,
+        public ?int $userId,
         public int $repairRunId,
         public array $requestIds,
         public int $offset = 0,

@@ -11,6 +11,7 @@ final class SubmitBulkDocumentSignature
 {
     public function __construct(
         private StampSignedBulkDocumentPdf $stampSignedPdf,
+        private DispatchSignedBulkDocumentAlignmentRepair $dispatchAlignmentRepair,
     ) {}
 
     /**
@@ -40,7 +41,11 @@ final class SubmitBulkDocumentSignature
             'user_agent' => $userAgent,
         ]);
 
-        return $request->refresh();
+        $request = $request->refresh();
+
+        $this->dispatchAlignmentRepair->handle($request);
+
+        return $request;
     }
 
     private function assertSignable(BulkDocumentSignatureRequest $request): void

@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\BulkDocumentSignatureRequestStatus;
+use App\Jobs\RegenerateAlignedSignedBulkDocumentPdfsJob;
 use App\Mail\BulkDocumentMail;
+use App\Models\BulkDocumentSignatureRepairRun;
 use App\Models\BulkDocumentSignatureRequest;
 use App\Models\Company;
 use App\Models\DocumentType;
@@ -16,6 +18,7 @@ use Database\Seeders\EmailTemplatesSeeder;
 use Database\Seeders\PermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 
@@ -186,6 +189,63 @@ test('guest can submit electronic signature without replacing employee document'
         ->and($document->file_path)->toBe($originalPath)
         ->and(Storage::disk('local')->exists((string) $request->signed_pdf_path))->toBeTrue()
         ->and(Storage::disk('public')->exists((string) $request->signed_pdf_path))->toBeFalse();
+});
+
+test('guest e-sign submit queues alignment regeneration for the signed request', function () {
+    Queue::fake();
+
+    $user = User::factory()->create();
+    $company = setupBulkDocumentsCompany($user, ['bulk_documents.view']);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Aligned Signer',
+    ]);
+
+    $document = createSalaryDeclarationDocument($company, $employee);
+    $request = createAwaitingSignatureRequest($company, $employee, $document);
+
+    $renderer = new class implements RendersEmployeeDocumentPdf
+    {
+        public function render(Employee $employee, int $companyId, ?array $signature = null, bool $showPlacementGuides = false): string
+        {
+            return minimalPdfBytes();
+        }
+    };
+
+    app()->instance(SalaryDeclarationPdfRenderer::class, $renderer);
+
+    $submitUrl = URL::temporarySignedRoute(
+        'public.esign.submit',
+        now()->addDay(),
+        ['token' => $request->token],
+    );
+
+    $this->post($submitUrl, [
+        'signed_name' => 'Aligned Signer',
+        'signature_data' => minimalSignatureDataUrl(),
+        'consent' => '1',
+    ])->assertRedirect();
+
+    $request->refresh();
+
+    $run = BulkDocumentSignatureRepairRun::query()->first();
+
+    expect($run)->not->toBeNull()
+        ->and($run->company_id)->toBe($company->id)
+        ->and($run->document_type_key)->toBe('salary_declaration')
+        ->and($run->status)->toBe('queued')
+        ->and($run->total_count)->toBe(1)
+        ->and($run->initiated_by)->toBeNull();
+
+    Queue::assertPushed(RegenerateAlignedSignedBulkDocumentPdfsJob::class, function (
+        RegenerateAlignedSignedBulkDocumentPdfsJob $job,
+    ) use ($company, $request, $run): bool {
+        return $job->companyId === $company->id
+            && $job->userId === null
+            && $job->repairRunId === $run->id
+            && $job->requestIds === [$request->id];
+    });
 });
 
 test('guest can submit uploaded signature image data url', function () {
