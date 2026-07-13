@@ -10,6 +10,7 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
+import { Input } from '@/components/ui/input';
 import { TableBody, TableHeader } from '@/components/ui/table';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { buildTrainingEmployeeUrl } from '@/features/organization/training/build-training-employee-url';
@@ -44,6 +45,7 @@ export function TrainingContent({
     summary,
     expiry: initialExpiry,
     search: initialSearch,
+    issue_date: initialIssueDate,
     branch_id: initialBranchId,
     department_id: initialDepartmentId,
     department_tree,
@@ -69,12 +71,14 @@ export function TrainingContent({
         isSearching,
         onSearchChange,
         onExpiryChange,
+        onIssueDateChange,
         onDepartmentChange,
         onPageChange,
     } = useTrainingIndexFilters({
         url: training.url(),
         initialSearch,
         initialExpiry,
+        initialIssueDate,
         initialBranchId,
         initialDepartmentId,
         perPage: pagination.per_page,
@@ -85,6 +89,7 @@ export function TrainingContent({
             from: 'index' as const,
             search: initialSearch,
             expiry: initialExpiry,
+            issue_date: initialIssueDate,
             branch_id: initialBranchId,
             department_id: initialDepartmentId,
             page: pagination.current_page,
@@ -92,6 +97,7 @@ export function TrainingContent({
         [
             initialSearch,
             initialExpiry,
+            initialIssueDate,
             initialBranchId,
             initialDepartmentId,
             pagination.current_page,
@@ -139,6 +145,16 @@ export function TrainingContent({
                                 aria-hidden
                             />
                         ) : null}
+
+                        <Input
+                            type="date"
+                            aria-label="Filter by issue date"
+                            value={initialIssueDate}
+                            onChange={(event) =>
+                                onIssueDateChange(event.target.value)
+                            }
+                            className="h-9 w-[10.5rem] rounded-xl border-input bg-background/50 px-3 text-sm focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
+                        />
 
                         <DepartmentFilterControls
                             department_tree={department_tree}

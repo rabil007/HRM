@@ -61,6 +61,9 @@ final class TrainingDirectoryQuery
         }
 
         $query
+            ->when($this->filters->issueDate !== '', function (Builder $inner): void {
+                $inner->whereDate('employee_trainings.issue_date', $this->filters->issueDate);
+            })
             ->when($this->filters->search !== '', function (Builder $inner): void {
                 $search = $this->filters->search;
                 $like = '%'.$search.'%';

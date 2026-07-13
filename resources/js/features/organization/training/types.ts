@@ -72,6 +72,7 @@ export type TrainingsIndexProps = {
     summary: TrainingExpirySummary;
     expiry: TrainingExpiryFilter;
     search: string;
+    issue_date: string;
     branch_id: string;
     department_id: string;
     department_tree: DepartmentTreeNode[];
@@ -100,6 +101,7 @@ export type TrainingShowBackContext =
           from: 'index';
           expiry?: string;
           search?: string;
+          issue_date?: string;
           branch_id?: string;
           department_id?: string;
           page?: number;
@@ -109,6 +111,7 @@ export type TrainingEmployeeBackContext = {
     from: 'index';
     search?: string;
     expiry?: string;
+    issue_date?: string;
     branch_id?: string;
     department_id?: string;
     page?: number;

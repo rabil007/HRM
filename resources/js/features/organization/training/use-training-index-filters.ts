@@ -20,6 +20,7 @@ export function useTrainingIndexFilters({
     url,
     initialSearch,
     initialExpiry,
+    initialIssueDate,
     initialBranchId,
     initialDepartmentId,
     perPage = 25,
@@ -27,6 +28,7 @@ export function useTrainingIndexFilters({
     url: string;
     initialSearch: string;
     initialExpiry: TrainingExpiryFilter;
+    initialIssueDate: string;
     initialBranchId: string;
     initialDepartmentId: string;
     perPage?: number;
@@ -48,6 +50,7 @@ export function useTrainingIndexFilters({
         () => ({
             search: initialSearch || undefined,
             expiry: initialExpiry !== 'all' ? initialExpiry : undefined,
+            issue_date: initialIssueDate || undefined,
             branch_id: initialBranchId || undefined,
             department_id: initialDepartmentId || undefined,
             per_page: perPage,
@@ -55,6 +58,7 @@ export function useTrainingIndexFilters({
         [
             initialSearch,
             initialExpiry,
+            initialIssueDate,
             initialBranchId,
             initialDepartmentId,
             perPage,
@@ -74,6 +78,7 @@ export function useTrainingIndexFilters({
                     'summary',
                     'expiry',
                     'search',
+                    'issue_date',
                     'branch_id',
                     'department_id',
                     'department_tree',
@@ -120,6 +125,17 @@ export function useTrainingIndexFilters({
         [baseParams, visit],
     );
 
+    const onIssueDateChange = useCallback(
+        (issueDate: string) => {
+            visit({
+                ...baseParams(),
+                issue_date: issueDate || undefined,
+                page: null,
+            });
+        },
+        [baseParams, visit],
+    );
+
     const onPageChange = useCallback(
         (page: number) => {
             visit({
@@ -147,6 +163,7 @@ export function useTrainingIndexFilters({
         isSearching,
         onSearchChange,
         onExpiryChange,
+        onIssueDateChange,
         onDepartmentChange,
         onPageChange,
     };

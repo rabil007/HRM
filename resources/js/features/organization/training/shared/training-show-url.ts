@@ -19,6 +19,10 @@ export function buildTrainingShowUrl(
             query.search = back.search.trim();
         }
 
+        if (back.issue_date?.trim()) {
+            query.issue_date = back.issue_date.trim();
+        }
+
         if (back.branch_id?.trim()) {
             query.branch_id = back.branch_id.trim();
         }

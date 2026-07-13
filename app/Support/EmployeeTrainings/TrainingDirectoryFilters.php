@@ -9,6 +9,7 @@ final class TrainingDirectoryFilters
     public function __construct(
         public readonly string $search = '',
         public readonly string $expiry = 'all',
+        public readonly string $issueDate = '',
         public readonly string $branchId = '',
         public readonly string $departmentId = '',
     ) {}
@@ -21,9 +22,16 @@ final class TrainingDirectoryFilters
             $expiry = 'all';
         }
 
+        $issueDate = trim((string) $request->query('issue_date', ''));
+
+        if ($issueDate !== '' && ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDate)) {
+            $issueDate = '';
+        }
+
         return new self(
             search: trim((string) $request->query('search', '')),
             expiry: $expiry,
+            issueDate: $issueDate,
             branchId: (string) $request->query('branch_id', ''),
             departmentId: (string) $request->query('department_id', ''),
         );
@@ -42,6 +50,10 @@ final class TrainingDirectoryFilters
 
         if ($this->expiry !== 'all') {
             $query['expiry'] = $this->expiry;
+        }
+
+        if ($this->issueDate !== '') {
+            $query['issue_date'] = $this->issueDate;
         }
 
         if ($this->branchId !== '') {

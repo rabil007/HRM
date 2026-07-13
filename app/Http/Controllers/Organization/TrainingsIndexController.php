@@ -31,6 +31,7 @@ class TrainingsIndexController extends Controller
             'summary' => $summaryQuery->forCompany($companyId),
             'expiry' => $filters->expiry,
             'search' => $filters->search,
+            'issue_date' => $filters->issueDate,
             'branch_id' => $filters->branchId,
             'department_id' => $filters->departmentId,
             'department_tree' => TrainingDepartmentTree::for(

@@ -97,6 +97,7 @@ test('training index returns paginated trainings with expiry summary', function 
             ->where('summary.total', 1)
             ->where('summary.expiring_7', 1)
             ->where('expiry', 'all')
+            ->where('issue_date', '')
             ->has('trainings', 1)
             ->where('trainings.0.employee_name', 'Training Index Employee')
             ->where('trainings.0.course_name', $course->name)
@@ -146,6 +147,43 @@ test('training index filters by expiry status', function () {
             ->where('expiry', 'expired')
             ->has('trainings', 1)
             ->where('trainings.0.institute_center', 'Expired Institute'));
+});
+
+test('training index filters by issue date', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'course' => $course] = makeTrainingIndexFixtures();
+
+    grantCompanyPermissions($user, $company, ['training.view']);
+
+    EmployeeTraining::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'course_id' => $course->id,
+        'issue_date' => '2024-06-15',
+        'expiry_date' => now()->addYear()->toDateString(),
+        'institute_center' => 'June Institute',
+        'sort_order' => 0,
+    ]);
+
+    EmployeeTraining::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'course_id' => $course->id,
+        'issue_date' => '2024-08-01',
+        'expiry_date' => now()->addYear()->toDateString(),
+        'institute_center' => 'August Institute',
+        'sort_order' => 1,
+    ]);
+
+    $this->get(route('organization.training', ['issue_date' => '2024-06-15']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/training/index')
+            ->where('issue_date', '2024-06-15')
+            ->has('trainings', 1)
+            ->where('trainings.0.institute_center', 'June Institute'));
 });
 
 test('training index search matches employee name and course', function () {
