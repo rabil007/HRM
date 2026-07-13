@@ -38,6 +38,23 @@ final class TrainingDirectoryQuery
     /**
      * @return Builder<EmployeeTraining>
      */
+    public function exportQuery(): Builder
+    {
+        $query = $this->baseQuery();
+
+        $this->applyFilters($query);
+
+        $today = now()->toDateString();
+
+        return $query
+            ->orderByRaw('CASE WHEN expiry_date IS NULL THEN 1 WHEN expiry_date < ? THEN 0 ELSE 1 END', [$today])
+            ->orderBy('expiry_date')
+            ->orderByDesc('employee_trainings.id');
+    }
+
+    /**
+     * @return Builder<EmployeeTraining>
+     */
     private function baseQuery(): Builder
     {
         return EmployeeTraining::query()

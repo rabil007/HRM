@@ -1,4 +1,4 @@
-import { Filter, Loader2 } from 'lucide-react';
+import { Filter, Loader2, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -6,6 +6,7 @@ import {
     DataTableHeaderRow,
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
+import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
@@ -22,6 +23,7 @@ import { buildTrainingShowUrl } from '@/features/organization/training/shared/tr
 import { TrainingManagementDialogs } from '@/features/organization/training/training-management-dialogs';
 import { TrainingSummaryCards } from '@/features/organization/training/training-summary-cards';
 import { TrainingTableRow } from '@/features/organization/training/training-table-row';
+import { TrainingsImportDialog } from '@/features/organization/training/trainings-import-dialog';
 import type {
     TrainingListItem,
     TrainingsIndexProps,
@@ -29,6 +31,7 @@ import type {
 import { useTrainingIndexFilters } from '@/features/organization/training/use-training-index-filters';
 import type { TrainingItem } from '@/pages/organization/employee-page.types';
 import { training } from '@/routes/organization';
+import { exportMethod as exportTrainings } from '@/routes/organization/training';
 
 function toTrainingItem(row: TrainingListItem): TrainingItem {
     return {
@@ -73,6 +76,7 @@ export function TrainingContent({
         number | null
     >(null);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+    const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
     const sheetFilters: TrainingSheetFilters = {
         course_id: initialCourseId,
@@ -154,9 +158,43 @@ export function TrainingContent({
         setDeleteTrainingId(row.id);
     };
 
+    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
+        return exportTrainings.url({
+            query: {
+                search: initialSearch || undefined,
+                expiry:
+                    initialExpiry !== 'all' ? initialExpiry : undefined,
+                issue_date: initialIssueDate || undefined,
+                course_id: initialCourseId || undefined,
+                institute: initialInstitute || undefined,
+                country_id: initialCountryId || undefined,
+                branch_id: initialBranchId || undefined,
+                department_id: initialDepartmentId || undefined,
+                format,
+            },
+        });
+    };
+
     return (
         <Main>
-            <PageHeader title="Training" />
+            <PageHeader
+                title="Training"
+                right={
+                    <div className="flex items-center gap-2">
+                        {can.import ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsImportDialogOpen(true)}
+                            >
+                                <Upload className="mr-2 h-4 w-4" />
+                                Import
+                            </Button>
+                        ) : null}
+                        <ExportMenu getUrl={getExportUrl} />
+                    </div>
+                }
+            />
 
             <TrainingSummaryCards
                 summary={summary}
@@ -318,6 +356,11 @@ export function TrainingContent({
                         issue_date: '',
                     })
                 }
+            />
+
+            <TrainingsImportDialog
+                open={isImportDialogOpen}
+                onOpenChange={setIsImportDialogOpen}
             />
         </Main>
     );

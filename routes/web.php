@@ -85,6 +85,8 @@ use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
 use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\RoleController;
 use App\Http\Controllers\Organization\SendWhatsAppDocumentTemplateController;
+use App\Http\Controllers\Organization\TrainingsExportController;
+use App\Http\Controllers\Organization\TrainingsImportController;
 use App\Http\Controllers\Organization\TrainingsIndexController;
 use App\Http\Controllers\Organization\UserController;
 use App\Http\Controllers\Organization\VesselManningController;
@@ -399,6 +401,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('can:training.view')->group(function () {
         Route::get('organization/training', TrainingsIndexController::class)->name('organization.training');
         Route::get('organization/training/employees/{employee}', EmployeeTrainingsBrowseController::class)->name('organization.training.employee');
+        Route::get('organization/training/export', [TrainingsExportController::class, 'export'])->name('organization.training.export');
+        Route::get('organization/training/import/template', [TrainingsImportController::class, 'importTemplate'])
+            ->middleware('can:training.import')
+            ->name('organization.training.import.template');
+        Route::post('organization/training/import/preview', [TrainingsImportController::class, 'importPreview'])
+            ->middleware('can:training.import')
+            ->name('organization.training.import.preview');
+        Route::post('organization/training/import', [TrainingsImportController::class, 'import'])
+            ->middleware('can:training.import')
+            ->name('organization.training.import');
     });
 
     Route::post('organization/employees/{employee}/contracts', [EmployeeContractController::class, 'store'])->middleware('can:contracts.create')->name('organization.employees.contracts.store');
