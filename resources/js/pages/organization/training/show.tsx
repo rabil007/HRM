@@ -32,7 +32,11 @@ type Props = {
     countries: CountryOption[];
     template_fields: Record<string, TemplateFieldConfig> | null;
     can: {
-        manage: boolean;
+        view: boolean;
+        create: boolean;
+        update: boolean;
+        delete: boolean;
+        import: boolean;
     };
     back: {
         href: string;
@@ -121,13 +125,27 @@ export default function TrainingShow({
                     backHref={back.href}
                     backLabel={back.label}
                     actions={
-                        can.manage ? (
+                        can.update || can.delete ? (
                             <TrainingShowHeaderActions
                                 certificateUrl={training.certificate_url}
-                                showReplace={!!training.certificate_url}
-                                onReplace={() => setReplaceTraining(training)}
-                                onEdit={() => setEditTraining(training)}
-                                onDelete={() => setDeleteTrainingId(training.id)}
+                                showReplace={
+                                    can.update && !!training.certificate_url
+                                }
+                                onReplace={
+                                    can.update
+                                        ? () => setReplaceTraining(training)
+                                        : undefined
+                                }
+                                onEdit={
+                                    can.update
+                                        ? () => setEditTraining(training)
+                                        : undefined
+                                }
+                                onDelete={
+                                    can.delete
+                                        ? () => setDeleteTrainingId(training.id)
+                                        : undefined
+                                }
                             />
                         ) : training.certificate_url ? (
                             <TrainingShowHeaderActions

@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import {
     bulkDestroy as bulkDestroyTrainings,
@@ -16,6 +16,7 @@ import { resolveRecordImportUrls } from '@/features/organization/employees/profi
 import type { CountryOption } from '@/features/organization/employees/types';
 import { AddTrainingDialog } from '@/features/organization/training/add-training/add-training-dialog';
 import { buildTrainingShowUrl } from '@/features/organization/training/shared/training-show-url';
+import type { TrainingShowBackContext } from '@/features/organization/training/types';
 import { TrainingListRowActions } from '@/features/organization/training/training-list-row-actions';
 import { TrainingManagementDialogs } from '@/features/organization/training/training-management-dialogs';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -51,9 +52,32 @@ export type EmployeeTrainingTabProps = {
     trainings: TrainingItem[];
     courses: CourseOption[];
     countries: CountryOption[];
-    canManage: boolean;
+    canCreate: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
+    canImport: boolean;
     templateFields?: Record<string, TemplateFieldConfig> | null;
+    standalone?: boolean;
+    showBackFrom?: TrainingShowBackContext['from'];
 };
+
+function EmployeeTrainingTabShell({
+    standalone,
+    children,
+}: {
+    standalone?: boolean;
+    children: ReactNode;
+}): ReactElement {
+    if (standalone) {
+        return <div className="mt-6">{children}</div>;
+    }
+
+    return (
+        <TabsContent value="training" className="mt-6">
+            {children}
+        </TabsContent>
+    );
+}
 
 export function EmployeeTrainingTab({
     employeeId,
@@ -62,9 +86,20 @@ export function EmployeeTrainingTab({
     trainings,
     courses,
     countries,
-    canManage,
+    canCreate,
+    canUpdate,
+    canDelete,
+    canImport,
     templateFields = null,
+    standalone = false,
+    showBackFrom = 'profile',
 }: EmployeeTrainingTabProps): ReactElement {
+    const showBack: TrainingShowBackContext =
+        showBackFrom === 'employee-browse'
+            ? { from: 'employee-browse' }
+            : showBackFrom === 'index'
+              ? { from: 'index' }
+              : { from: 'profile' };
     const { showField } = useTemplateRecordFields(templateFields, {
         defaultRequiredFields:
             TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_trainings,
@@ -123,8 +158,8 @@ export function EmployeeTrainingTab({
     };
 
     return (
-        <TabsContent value="training" className="mt-6">
-            {canManage && trainings.length > 0 ? (
+        <EmployeeTrainingTabShell standalone={standalone}>
+            {canDelete && trainings.length > 0 ? (
                 <DocumentsBulkToolbar
                     count={selectedTrainingCount}
                     itemLabel="records"
@@ -150,26 +185,30 @@ export function EmployeeTrainingTab({
                 isEmpty={trainings.length === 0}
                 emptyMessage="No training records."
                 actions={
-                    canManage ? (
+                    canCreate || canImport ? (
                         <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 gap-1.5 text-xs"
-                                type="button"
-                                disabled={!canImportRecords}
-                                onClick={() => setTrainingImportOpen(true)}
-                            >
-                                Import CSV
-                            </Button>
-                            <Button
-                                size="sm"
-                                className="h-8 gap-1.5 text-xs"
-                                type="button"
-                                onClick={openCreateDialog}
-                            >
-                                + Add training
-                            </Button>
+                            {canImport ? (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 gap-1.5 text-xs"
+                                    type="button"
+                                    disabled={!canImportRecords}
+                                    onClick={() => setTrainingImportOpen(true)}
+                                >
+                                    Import CSV
+                                </Button>
+                            ) : null}
+                            {canCreate ? (
+                                <Button
+                                    size="sm"
+                                    className="h-8 gap-1.5 text-xs"
+                                    type="button"
+                                    onClick={openCreateDialog}
+                                >
+                                    + Add training
+                                </Button>
+                            ) : null}
                         </div>
                     ) : undefined
                 }
@@ -177,7 +216,7 @@ export function EmployeeTrainingTab({
                 <EmployeeRecordsTable className="min-w-[960px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
-                            {canManage ? (
+                            {canDelete ? (
                                 <th
                                     className={cn(
                                         employeeRecordsTableThClass(),
@@ -239,11 +278,15 @@ export function EmployeeTrainingTab({
                                     }
 
                                     router.visit(
-                                        buildTrainingShowUrl(employeeId, row.id),
+                                        buildTrainingShowUrl(
+                                            employeeId,
+                                            row.id,
+                                            showBack,
+                                        ),
                                     );
                                 }}
                             >
-                                {canManage ? (
+                                {canDelete ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
@@ -319,17 +362,18 @@ export function EmployeeTrainingTab({
                                             viewHref={buildTrainingShowUrl(
                                                 employeeId,
                                                 row.id,
+                                                showBack,
                                             )}
                                             certificateUrl={row.certificate_url}
-                                            showEdit={canManage}
+                                            showEdit={canUpdate}
                                             onEdit={() => openEditDialog(row)}
                                             showReplace={
-                                                canManage && !!row.certificate_url
+                                                canUpdate && !!row.certificate_url
                                             }
                                             onReplace={() =>
                                                 openReplaceDialog(row)
                                             }
-                                            showDelete={canManage}
+                                            showDelete={canDelete}
                                             onDelete={() =>
                                                 setDeleteTrainingId(row.id)
                                             }
@@ -417,6 +461,6 @@ export function EmployeeTrainingTab({
                 importUrl={trainingImportUrls.importUrl}
                 templateUrl={trainingImportUrls.templateUrl}
             />
-        </TabsContent>
+        </EmployeeTrainingTabShell>
     );
 }

@@ -389,7 +389,8 @@ flowchart LR
 | `employees.delete` | Remove employee |
 | `employees.export` | Export directory |
 | `employees.import` + granular `.identity.import`, `.contracts.import`, `.bank_accounts.import` | CSV import columns |
-| `employees.contracts.manage`, `.bank_accounts.manage`, `.education.manage`, `.work_experience.manage`, `.training.manage`, `.vaccination.manage`, `.languages.manage`, `.sea_service.manage` | Profile tabs |
+| `contracts.*`, `bank_accounts.*`, `training.*` (view/create/update/delete/import) | Contracts, bank accounts, training modules |
+| `employees.education.manage`, `.work_experience.manage`, `.vaccination.manage`, `.languages.manage`, `.sea_service.manage` | Profile tabs |
 
 ### Important workflows
 

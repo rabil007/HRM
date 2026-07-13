@@ -199,7 +199,7 @@ test('training store rejects certificate upload when template hides certificate_
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $this->actingAs($user)
@@ -271,7 +271,7 @@ test('training store requires certificate when template marks certificate_path r
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $this->actingAs($user)
@@ -348,7 +348,7 @@ test('training store succeeds when template hides optional training fields', fun
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $this->actingAs($user)
@@ -428,7 +428,7 @@ test('training store rejects empty record when template fields are optional', fu
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $this->actingAs($user)
@@ -566,7 +566,7 @@ test('training store rejects hidden field values from template', function () {
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $this->actingAs($user)

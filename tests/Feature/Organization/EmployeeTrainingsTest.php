@@ -148,7 +148,7 @@ test('authorized users can store update and destroy training with certificate', 
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $course = Course::query()->create([
@@ -248,7 +248,7 @@ test('authorized users can bulk store multiple training certificates', function 
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $firstCourse = Course::query()->create([
@@ -345,7 +345,7 @@ test('bulk store validation errors use indexed keys', function () {
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $validCourse = Course::query()->create([
@@ -423,7 +423,7 @@ test('storing a training certificate invokes the document upload optimizer', fun
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $course = Course::query()->create([
@@ -497,7 +497,7 @@ test('csv import appends training rows for the employee', function () {
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     Course::query()->create([
@@ -593,7 +593,10 @@ test('employee show page includes deferred trainings and courses', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => assertEmployeeProfileRecords(
             $page->component('organization/employee')
-                ->where('can.training_manage', false),
+                ->where('can.training_create', false)
+                ->where('can.training_update', false)
+                ->where('can.training_delete', false)
+                ->where('can.training_import', false),
             fn (Assert $deferred) => $deferred
                 ->has('trainings', 1)
                 ->where('trainings.0.id', $training->id)
@@ -650,7 +653,7 @@ test('cannot manage training for employee in another company', function () {
             'status' => 'active',
         ]);
 
-    grantCompanyPermissions($user, $companyA, ['employees.training.manage']);
+    grantCompanyPermissions($user, $companyA, ['training.view', 'training.create', 'training.update', 'training.delete', 'training.import']);
 
     $course = Course::query()->create([
         'name' => 'COC',
@@ -725,7 +728,7 @@ test('training csv import respects template visible fields', function () {
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     Course::query()->create([
@@ -796,7 +799,7 @@ test('users with permission can bulk delete training records', function () {
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $first = EmployeeTraining::factory()->forEmployee($employee)->create(['sort_order' => 0]);
@@ -859,7 +862,7 @@ test('bulk delete ignores training records from another employee', function () {
             'status' => 'active',
         ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.training.manage']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'training.view', 'training.create', 'training.update', 'training.delete', 'training.import']);
 
     $ownRecord = EmployeeTraining::factory()->forEmployee($employee)->create();
     $otherRecord = EmployeeTraining::factory()->forEmployee($otherEmployee)->create();
@@ -963,7 +966,7 @@ test('users with permission can replace a training certificate and keep version 
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $course = Course::query()->create([
@@ -1051,7 +1054,7 @@ test('users with permission can replace a training certificate and update metada
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $course = Course::query()->create([
@@ -1139,7 +1142,7 @@ test('training update ignores certificate file uploads', function () {
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $course = Course::query()->create([
@@ -1219,7 +1222,7 @@ test('destroying a training record deletes current and version certificate files
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $course = Course::query()->create([
@@ -1356,7 +1359,11 @@ test('authorized user can load training show page with metadata and versions', f
             ->where('employee.name', 'Show Trainee')
             ->where('back.label', 'Back to employee profile')
             ->where('back.href', route('organization.employees.show', $employee).'#training')
-            ->where('can.manage', false)
+            ->where('can.view', false)
+            ->where('can.create', false)
+            ->where('can.update', false)
+            ->where('can.delete', false)
+            ->where('can.import', false)
         );
 });
 
@@ -1481,14 +1488,19 @@ test('training show page exposes manage permission', function () {
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $training = EmployeeTraining::factory()->forEmployee($employee)->create();
 
     $this->get(route('organization.employees.training.show', [$employee, $training]))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->where('can.manage', true));
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.view', true)
+            ->where('can.create', true)
+            ->where('can.update', true)
+            ->where('can.delete', true)
+            ->where('can.import', true));
 });
 
 test('training show page hides recent activity without audit permission', function () {

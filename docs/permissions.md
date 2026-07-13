@@ -59,7 +59,7 @@ UI groups permissions by feature section in the roles matrix (not a single “IM
 | `employees.education.manage` | Education |
 | `employees.work_experience.manage` | Work experience |
 | `employees.sea_service.manage` | Sea service |
-| `employees.training.manage` | Training |
+| `training.view` / `create` / `update` / `delete` / `import` | Training module (browse + profile) |
 | `employees.vaccination.manage` | Vaccination |
 | `employees.languages.manage` | Languages |
 

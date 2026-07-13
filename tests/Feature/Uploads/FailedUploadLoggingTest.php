@@ -112,7 +112,7 @@ test('failed training certificate upload validation is logged with module contex
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $course = Course::query()->create([
@@ -187,7 +187,7 @@ test('failed training bulk certificate upload validation is logged with module c
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $course = Course::query()->create([
@@ -298,7 +298,7 @@ test('successful training certificate upload does not log success messages', fun
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $course = Course::query()->create([
@@ -371,7 +371,7 @@ test('successful training bulk certificate uploads do not log success messages',
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.training.manage',
+        'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
     ]);
 
     $firstCourse = Course::query()->create([

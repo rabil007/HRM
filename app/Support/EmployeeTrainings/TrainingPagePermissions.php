@@ -7,12 +7,16 @@ use App\Models\User;
 class TrainingPagePermissions
 {
     /**
-     * @return array{manage: bool}
+     * @return array{view: bool, create: bool, update: bool, delete: bool, import: bool}
      */
     public static function for(?User $user): array
     {
         return [
-            'manage' => $user?->can('employees.training.manage') ?? false,
+            'view' => $user?->can('training.view') ?? false,
+            'create' => $user?->can('training.create') ?? false,
+            'update' => $user?->can('training.update') ?? false,
+            'delete' => $user?->can('training.delete') ?? false,
+            'import' => $user?->can('training.import') ?? false,
         ];
     }
 }

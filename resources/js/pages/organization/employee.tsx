@@ -852,8 +852,17 @@ function EmployeeDetailsPage({
                                         trainings={trainings ?? []}
                                         courses={courses ?? []}
                                         countries={countries}
-                                        canManage={
-                                            can?.training_manage ?? false
+                                        canCreate={
+                                            can?.training_create ?? false
+                                        }
+                                        canUpdate={
+                                            can?.training_update ?? false
+                                        }
+                                        canDelete={
+                                            can?.training_delete ?? false
+                                        }
+                                        canImport={
+                                            can?.training_import ?? false
                                         }
                                         ensureEmployee={
                                             isCreateMode

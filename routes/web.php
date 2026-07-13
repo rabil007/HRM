@@ -77,6 +77,7 @@ use App\Http\Controllers\Organization\EmployeeSalaryCertificatePrintController;
 use App\Http\Controllers\Organization\EmployeeSalaryDeclarationPrintController;
 use App\Http\Controllers\Organization\EmployeeSeaServiceController;
 use App\Http\Controllers\Organization\EmployeeTrainingController;
+use App\Http\Controllers\Organization\EmployeeTrainingsBrowseController;
 use App\Http\Controllers\Organization\EmployeeTrainingShowController;
 use App\Http\Controllers\Organization\EmployeeUserController;
 use App\Http\Controllers\Organization\EmployeeVaccinationController;
@@ -84,6 +85,7 @@ use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
 use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\RoleController;
 use App\Http\Controllers\Organization\SendWhatsAppDocumentTemplateController;
+use App\Http\Controllers\Organization\TrainingsIndexController;
 use App\Http\Controllers\Organization\UserController;
 use App\Http\Controllers\Organization\VesselManningController;
 use App\Http\Controllers\Payroll\PayrollController;
@@ -394,6 +396,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('organization.bank-accounts.import');
     });
 
+    Route::middleware('can:training.view')->group(function () {
+        Route::get('organization/training', TrainingsIndexController::class)->name('organization.training');
+        Route::get('organization/training/employees/{employee}', EmployeeTrainingsBrowseController::class)->name('organization.training.employee');
+    });
+
     Route::post('organization/employees/{employee}/contracts', [EmployeeContractController::class, 'store'])->middleware('can:contracts.create')->name('organization.employees.contracts.store');
     Route::put('organization/employees/{employee}/contracts/{employeeContract}', [EmployeeContractController::class, 'update'])->middleware('can:contracts.update')->name('organization.employees.contracts.update');
     Route::delete('organization/employees/{employee}/contracts/{employeeContract}', [EmployeeContractController::class, 'destroy'])->middleware('can:contracts.delete')->name('organization.employees.contracts.destroy');
@@ -419,14 +426,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('organization/employees/{employee}/languages/{language}', [EmployeeLanguageController::class, 'destroy'])->middleware('can:employees.languages.manage')->name('organization.employees.languages.destroy');
 
     Route::get('organization/employees/{employee}/training/{training}', EmployeeTrainingShowController::class)->middleware('can:employees.view')->name('organization.employees.training.show');
-    Route::get('organization/employees/{employee}/training/import/template', [EmployeeTrainingController::class, 'importTemplate'])->middleware('can:employees.training.manage')->name('organization.employees.training.import.template');
-    Route::post('organization/employees/{employee}/training/import', [EmployeeTrainingController::class, 'import'])->middleware('can:employees.training.manage')->name('organization.employees.training.import');
-    Route::post('organization/employees/{employee}/training/bulk', [EmployeeTrainingController::class, 'bulkStore'])->middleware('can:employees.training.manage')->name('organization.employees.training.bulk-store');
-    Route::post('organization/employees/{employee}/training', [EmployeeTrainingController::class, 'store'])->middleware('can:employees.training.manage')->name('organization.employees.training.store');
-    Route::put('organization/employees/{employee}/training/{training}', [EmployeeTrainingController::class, 'update'])->middleware('can:employees.training.manage')->name('organization.employees.training.update');
-    Route::post('organization/employees/{employee}/training/{training}/replace', [EmployeeTrainingController::class, 'replace'])->middleware('can:employees.training.manage')->name('organization.employees.training.replace');
-    Route::delete('organization/employees/{employee}/training/bulk', [EmployeeTrainingController::class, 'bulkDestroy'])->middleware('can:employees.training.manage')->name('organization.employees.training.bulk-destroy');
-    Route::delete('organization/employees/{employee}/training/{training}', [EmployeeTrainingController::class, 'destroy'])->middleware('can:employees.training.manage')->name('organization.employees.training.destroy');
+    Route::get('organization/employees/{employee}/training/import/template', [EmployeeTrainingController::class, 'importTemplate'])->middleware('can:training.import')->name('organization.employees.training.import.template');
+    Route::post('organization/employees/{employee}/training/import', [EmployeeTrainingController::class, 'import'])->middleware('can:training.import')->name('organization.employees.training.import');
+    Route::post('organization/employees/{employee}/training/bulk', [EmployeeTrainingController::class, 'bulkStore'])->middleware('can:training.create')->name('organization.employees.training.bulk-store');
+    Route::post('organization/employees/{employee}/training', [EmployeeTrainingController::class, 'store'])->middleware('can:training.create')->name('organization.employees.training.store');
+    Route::put('organization/employees/{employee}/training/{training}', [EmployeeTrainingController::class, 'update'])->middleware('can:training.update')->name('organization.employees.training.update');
+    Route::post('organization/employees/{employee}/training/{training}/replace', [EmployeeTrainingController::class, 'replace'])->middleware('can:training.update')->name('organization.employees.training.replace');
+    Route::delete('organization/employees/{employee}/training/bulk', [EmployeeTrainingController::class, 'bulkDestroy'])->middleware('can:training.delete')->name('organization.employees.training.bulk-destroy');
+    Route::delete('organization/employees/{employee}/training/{training}', [EmployeeTrainingController::class, 'destroy'])->middleware('can:training.delete')->name('organization.employees.training.destroy');
 
     Route::post('organization/employees/{employee}/bank-accounts', [EmployeeBankAccountController::class, 'store'])->middleware('can:bank_accounts.create')->name('organization.employees.bank-accounts.store');
     Route::put('organization/employees/{employee}/bank-accounts/{bankAccount}', [EmployeeBankAccountController::class, 'update'])->middleware('can:bank_accounts.update')->name('organization.employees.bank-accounts.update');

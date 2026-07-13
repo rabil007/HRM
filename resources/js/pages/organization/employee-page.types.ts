@@ -349,7 +349,11 @@ export type EmployeePageProps = {
         bank_accounts_delete?: boolean;
         bank_accounts_manage: boolean;
         sea_service_manage: boolean;
-        training_manage: boolean;
+        training_view: boolean;
+        training_create: boolean;
+        training_update: boolean;
+        training_delete: boolean;
+        training_import: boolean;
         deployments_view: boolean;
     };
     branches: BranchOption[];
