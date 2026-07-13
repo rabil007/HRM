@@ -1,4 +1,5 @@
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
+import type { CompanyVisaTypeOption } from '@/features/organization/employees/types';
 import type { PaginationMeta } from '@/types/pagination';
 
 export type PayrollBoardEmployeeGroup =
@@ -12,6 +13,7 @@ export type CrewSalaryStructureView = 'daily' | 'monthly';
 export type PayrollShowFilters = {
     department_id: string;
     position_id: string;
+    company_visa_type_id: string;
     employee_group: PayrollBoardEmployeeGroup;
     crew_salary_structure: CrewSalaryStructureView;
 };
@@ -90,7 +92,6 @@ export type PayrollHubPermissions = {
 export type PayrollHubFilters = {
     category: PayrollCategory | '';
     status: PayrollPeriodStatus | '';
-    company_visa_type_id: string;
     date_from: string;
     date_to: string;
 };
@@ -415,6 +416,7 @@ export type PayrollShowProps = {
     generation_summary: PayrollGenerationSummary | null;
     search: string;
     filters: PayrollShowFilters;
+    company_visa_types: CompanyVisaTypeOption[];
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
     department_tree_selected_position_id: number | null;

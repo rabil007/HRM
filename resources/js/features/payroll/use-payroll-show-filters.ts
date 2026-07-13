@@ -86,6 +86,8 @@ export function usePayrollShowFilters({
         () => ({
             department_id: payrollFilters.department_id || undefined,
             position_id: payrollFilters.position_id || undefined,
+            company_visa_type_id:
+                payrollFilters.company_visa_type_id || undefined,
             employee_group: payrollFilters.employee_group || undefined,
             ...(supportsTimesheets
                 ? {
@@ -99,6 +101,7 @@ export function usePayrollShowFilters({
         [
             initialSearch,
             pagination.per_page,
+            payrollFilters.company_visa_type_id,
             payrollFilters.crew_salary_structure,
             payrollFilters.department_id,
             payrollFilters.employee_group,

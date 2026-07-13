@@ -100,3 +100,47 @@ test('handle skips records that already have payslip files', function () {
         ->and($pendingRecord->payslip_path)->not->toBeNull()
         ->and(Storage::disk('local')->exists((string) $pendingRecord->payslip_path))->toBeTrue();
 });
+
+test('regenerate for period clears existing payslips and queues jobs for all records', function () {
+    Queue::fake();
+    Storage::fake('local');
+
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->create();
+    $generatedEmployee = Employee::factory()->forCompany($company)->create();
+    $pendingEmployee = Employee::factory()->forCompany($company)->create();
+
+    $generatedPath = 'payslips/'.$company->id.'/'.$period->id.'/generated.pdf';
+    Storage::disk('local')->put($generatedPath, 'old-payslip');
+
+    $generatedRecord = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $generatedEmployee->id,
+        'period_id' => $period->id,
+        'payslip_path' => $generatedPath,
+    ]);
+
+    $pendingRecord = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $pendingEmployee->id,
+        'period_id' => $period->id,
+        'payslip_path' => null,
+    ]);
+
+    $queued = app(GeneratePayrollPayslips::class)->regenerateForPeriod($period);
+
+    $generatedRecord->refresh();
+    $pendingRecord->refresh();
+
+    expect($queued)->toBe(2)
+        ->and($generatedRecord->payslip_path)->toBeNull()
+        ->and($pendingRecord->payslip_path)->toBeNull()
+        ->and(Storage::disk('local')->exists($generatedPath))->toBeFalse();
+
+    Queue::assertPushed(GeneratePayrollPayslipsJob::class, 1);
+
+    Queue::assertPushed(GeneratePayrollPayslipsJob::class, function (GeneratePayrollPayslipsJob $job) use ($company, $period, $generatedRecord, $pendingRecord): bool {
+        return $job->companyId === $company->id
+            && $job->periodId === $period->id
+            && $job->recordIds === [$generatedRecord->id, $pendingRecord->id];
+    });
+});

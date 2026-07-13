@@ -1,10 +1,7 @@
 <?php
 
 use App\Enums\PayrollPeriodStatus;
-use App\Models\CompanyVisaType;
-use App\Models\Employee;
 use App\Models\PayrollPeriod;
-use App\Models\PayrollRecord;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests cannot access payroll hub', function () {
@@ -140,7 +137,6 @@ test('payroll hub can filter periods by payroll category', function () {
             ->where('periods.0.name', 'June Office')
             ->where('filters.category', 'office')
             ->where('filters.status', '')
-            ->where('filters.company_visa_type_id', '')
             ->where('filters.date_from', '')
             ->where('filters.date_to', ''));
 });
@@ -199,57 +195,6 @@ test('payroll hub can filter periods by status', function () {
             ->has('periods', 1)
             ->where('periods.0.name', 'Processing Run')
             ->where('filters.status', PayrollPeriodStatus::Processing->value));
-});
-
-test('payroll hub can filter periods by employee sponsor', function () {
-    ['user' => $user, 'company' => $company] = makePayrollFixtures();
-    $this->actingAs($user);
-
-    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
-
-    $sponsorA = CompanyVisaType::query()->create([
-        'name' => 'Sponsor Alpha '.uniqid(),
-        'is_active' => true,
-    ]);
-    $sponsorB = CompanyVisaType::query()->create([
-        'name' => 'Sponsor Beta '.uniqid(),
-        'is_active' => true,
-    ]);
-
-    $periodWithSponsorA = PayrollPeriod::factory()->for($company)->create([
-        'name' => 'Sponsor A Run',
-    ]);
-    $periodWithSponsorB = PayrollPeriod::factory()->for($company)->create([
-        'name' => 'Sponsor B Run',
-    ]);
-
-    $employeeA = Employee::factory()->forCompany($company)->create([
-        'company_visa_type_id' => $sponsorA->id,
-    ]);
-    $employeeB = Employee::factory()->forCompany($company)->create([
-        'company_visa_type_id' => $sponsorB->id,
-    ]);
-
-    PayrollRecord::factory()->for($company)->create([
-        'employee_id' => $employeeA->id,
-        'period_id' => $periodWithSponsorA->id,
-    ]);
-    PayrollRecord::factory()->for($company)->create([
-        'employee_id' => $employeeB->id,
-        'period_id' => $periodWithSponsorB->id,
-    ]);
-
-    $this->withSession(['current_company_id' => $company->id])
-        ->get(route('payroll.index', [
-            'company_visa_type_id' => (string) $sponsorA->id,
-        ]))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('payroll/index')
-            ->has('periods', 1)
-            ->where('periods.0.name', 'Sponsor A Run')
-            ->where('filters.company_visa_type_id', (string) $sponsorA->id)
-            ->has('company_visa_types'));
 });
 
 test('legacy payroll period routes redirect to payroll hub', function () {

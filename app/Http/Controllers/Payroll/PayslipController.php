@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Payroll;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Payroll\BulkPayslipActionRequest;
+use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Services\DocumentMergeService;
+use App\Support\Payroll\Actions\GeneratePayrollPayslips;
 use App\Support\Payroll\Actions\GeneratePayslip;
 use App\Support\Payroll\Actions\SendPayslipEmails;
 use App\Support\Payroll\PayslipData;
@@ -162,9 +164,26 @@ class PayslipController extends Controller
     public function generate(
         BulkPayslipActionRequest $request,
         GeneratePayslip $generatePayslip,
+        GeneratePayrollPayslips $generatePayrollPayslips,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $records = $this->resolveRecords($companyId, $request->validated());
+        $validated = $request->validated();
+
+        if (! empty($validated['period_id']) && empty($validated['record_ids'])) {
+            $period = PayrollPeriod::query()
+                ->where('company_id', $companyId)
+                ->findOrFail((int) $validated['period_id']);
+
+            $queued = $generatePayrollPayslips->regenerateForPeriod($period);
+
+            if ($queued === 0) {
+                return back()->with('error', 'No payroll records found to regenerate.');
+            }
+
+            return back()->with('success', "Re-generating {$queued} payslip(s) in the background.");
+        }
+
+        $records = $this->resolveRecords($companyId, $validated);
 
         $generated = 0;
 

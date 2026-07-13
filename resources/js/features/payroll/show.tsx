@@ -10,6 +10,7 @@ import {
     CheckSquare,
     CreditCard,
     Download,
+    Filter,
     Paperclip,
     RotateCcw,
     Upload,
@@ -68,6 +69,7 @@ import { CrewSalaryStructureToggle } from './components/crew-salary-structure-to
 import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
 import { OfficePayrollRecordsTable } from './components/office-payroll-records-table';
 import { OfficeSalaryInputsSheet } from './components/office-salary-inputs-sheet';
+import { PayrollShowFiltersSheet } from './components/payroll-show-filters-sheet';
 import { PayrollApproveDialog } from './components/payroll-approve-dialog';
 import { PayrollCancelDialog } from './components/payroll-cancel-dialog';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
@@ -125,6 +127,7 @@ export function PayrollShowContent({
     generation_summary,
     search: initialSearch,
     filters: initialFilters,
+    company_visa_types,
     department_tree,
     department_tree_selected_id,
     department_tree_selected_position_id,
@@ -151,6 +154,7 @@ export function PayrollShowContent({
     const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [salaryInputsRecord, setSalaryInputsRecord] =
         useState<PayrollRecordListItem | null>(null);
     const [excludedIds, setExcludedIds] = useState<Set<number>>(
@@ -304,6 +308,7 @@ export function PayrollShowContent({
     const payrollFilters: PayrollShowFilters = {
         department_id: initialFilters.department_id ?? '',
         position_id: initialFilters.position_id ?? '',
+        company_visa_type_id: initialFilters.company_visa_type_id ?? '',
         employee_group: initialFilters.employee_group ?? '',
         crew_salary_structure:
             initialFilters.crew_salary_structure === 'monthly'
@@ -313,6 +318,9 @@ export function PayrollShowContent({
 
     const activeCrewSalaryStructure = payrollFilters.crew_salary_structure;
     const activeEmployeeGroup = payrollFilters.employee_group;
+    const activeSheetFiltersCount = [
+        payrollFilters.company_visa_type_id,
+    ].filter(Boolean).length;
 
     const list = usePayrollShowFilters({
         url: show.url(period.id),
@@ -403,6 +411,20 @@ export function PayrollShowContent({
                         onSelectDepartment={handleDepartmentSelect}
                         onSelectPosition={handlePositionSelect}
                     />
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
+                        onClick={() => setIsFiltersOpen(true)}
+                    >
+                        <Filter className="mr-2 h-4 w-4" />
+                        Filters
+                        {activeSheetFiltersCount > 0 ? (
+                            <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
+                                {activeSheetFiltersCount}
+                            </span>
+                        ) : null}
+                    </Button>
                     {extra}
                 </div>
             }
@@ -887,6 +909,20 @@ export function PayrollShowContent({
                                     onSelectDepartment={handleDepartmentSelect}
                                     onSelectPosition={handlePositionSelect}
                                 />
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
+                                    onClick={() => setIsFiltersOpen(true)}
+                                >
+                                    <Filter className="mr-2 h-4 w-4" />
+                                    Filters
+                                    {activeSheetFiltersCount > 0 ? (
+                                        <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
+                                            {activeSheetFiltersCount}
+                                        </span>
+                                    ) : null}
+                                </Button>
                                 {period.supports_timesheets ? (
                                     <CrewSalaryStructureToggle
                                         value={activeCrewSalaryStructure}
@@ -940,6 +976,31 @@ export function PayrollShowContent({
                 canCreate={permissions.salary_inputs_create}
                 canUpdate={permissions.salary_inputs_update}
                 canDelete={permissions.salary_inputs_delete}
+            />
+
+            <PayrollShowFiltersSheet
+                open={isFiltersOpen}
+                onOpenChange={setIsFiltersOpen}
+                companyVisaTypes={company_visa_types}
+                value={{
+                    company_visa_type_id: payrollFilters.company_visa_type_id,
+                }}
+                onChange={(next) => {
+                    list.applyFilters({
+                        company_visa_type_id: next.company_visa_type_id,
+                        page: null,
+                        records_page: null,
+                        monthly_records_page: null,
+                    });
+                }}
+                onReset={() => {
+                    list.applyFilters({
+                        company_visa_type_id: '',
+                        page: null,
+                        records_page: null,
+                        monthly_records_page: null,
+                    });
+                }}
             />
 
             <PayrollGenerateDialog

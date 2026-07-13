@@ -59,6 +59,7 @@ export function PayrollPeriodDeliveryPanel({
                     periodId={period.id}
                     summary={payslip_summary}
                     canEmail={permissions.payslips_email}
+                    canGenerate={permissions.payslips_generate}
                     isLiveUpdating={isPayslipGenerationLive}
                 />
             ) : null}

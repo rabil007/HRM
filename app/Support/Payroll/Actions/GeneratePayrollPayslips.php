@@ -10,6 +10,7 @@ use App\Models\SalaryInput;
 use App\Support\Media\CompanyLogoDataUri;
 use App\Support\Payroll\SalaryInputResource;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 
 final class GeneratePayrollPayslips
 {
@@ -33,6 +34,36 @@ final class GeneratePayrollPayslips
                 $chunk,
             );
         }
+    }
+
+    public function regenerateForPeriod(PayrollPeriod $period): int
+    {
+        $companyId = (int) $period->company_id;
+        $periodId = (int) $period->id;
+
+        $records = PayrollRecord::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $periodId)
+            ->get(['id', 'payslip_path']);
+
+        if ($records->isEmpty()) {
+            return 0;
+        }
+
+        foreach ($records as $record) {
+            if (filled($record->payslip_path) && Storage::disk('local')->exists((string) $record->payslip_path)) {
+                Storage::disk('local')->delete((string) $record->payslip_path);
+            }
+        }
+
+        PayrollRecord::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $periodId)
+            ->update(['payslip_path' => null]);
+
+        $this->dispatchForPeriod($period->fresh() ?? $period);
+
+        return $records->count();
     }
 
     /**

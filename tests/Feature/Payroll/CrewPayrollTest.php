@@ -3,6 +3,7 @@
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Enums\SalaryPaymentMethod;
+use App\Models\CompanyVisaType;
 use App\Models\CrewTimesheet;
 use App\Models\Department;
 use App\Models\Employee;
@@ -213,6 +214,67 @@ test('payroll show can filter board rows by department', function () {
             ->where('rows.0.employee.id', $operationsEmployee->id)
             ->where('filters.department_id', (string) $operationsDepartment->id)
             ->where('department_tree_selected_id', $operationsDepartment->id));
+});
+
+test('payroll show can filter board rows by employee sponsor', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    $sponsorA = CompanyVisaType::query()->create([
+        'name' => 'Payroll Sponsor A '.uniqid(),
+        'is_active' => true,
+    ]);
+    $sponsorB = CompanyVisaType::query()->create([
+        'name' => 'Payroll Sponsor B '.uniqid(),
+        'is_active' => true,
+    ]);
+
+    $employeeA = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'SPN-A-001',
+        'name' => 'Sponsor A Crew',
+        'status' => 'active',
+        'company_visa_type_id' => $sponsorA->id,
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $employeeA->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'active',
+    ]);
+
+    $employeeB = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'SPN-B-001',
+        'name' => 'Sponsor B Crew',
+        'status' => 'active',
+        'company_visa_type_id' => $sponsorB->id,
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $employeeB->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'active',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', [
+            'payrollPeriod' => $period,
+            'company_visa_type_id' => $sponsorA->id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->has('rows', 1)
+            ->where('rows.0.employee.id', $employeeA->id)
+            ->where('filters.company_visa_type_id', (string) $sponsorA->id)
+            ->has('company_visa_types'));
 });
 
 test('payroll show can filter board rows by employee analytics group', function () {

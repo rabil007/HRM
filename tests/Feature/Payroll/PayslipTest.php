@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\PayrollCategory;
+use App\Jobs\GeneratePayrollPayslipsJob;
 use App\Mail\PayslipMail;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
@@ -9,6 +10,7 @@ use App\Support\Payroll\Actions\GeneratePayslip;
 use App\Support\Payroll\PayslipData;
 use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
 test('authorized users can generate payslip pdfs', function () {
@@ -183,17 +185,21 @@ test('authorized users can generate all payslips for a pay period', function () 
     ]);
 
     Storage::fake('local');
+    Queue::fake();
 
     $period = PayrollPeriod::factory()->for($company)->create();
     $firstEmployee = Employee::factory()->forCompany($company)->create(['employee_no' => 'PAY-010']);
     $secondEmployee = Employee::factory()->forCompany($company)->create(['employee_no' => 'PAY-011']);
 
-    PayrollRecord::factory()->for($company)->create([
+    $firstRecord = PayrollRecord::factory()->for($company)->create([
         'employee_id' => $firstEmployee->id,
         'period_id' => $period->id,
         'payroll_category' => PayrollCategory::Office,
         'status' => 'approved',
+        'payslip_path' => 'payslips/'.$company->id.'/'.$period->id.'/old.pdf',
     ]);
+
+    Storage::disk('local')->put((string) $firstRecord->payslip_path, 'old-payslip');
 
     PayrollRecord::factory()->for($company)->create([
         'employee_id' => $secondEmployee->id,
@@ -209,7 +215,10 @@ test('authorized users can generate all payslips for a pay period', function () 
         ->assertRedirect()
         ->assertSessionHas('success');
 
-    expect(PayrollRecord::query()->where('period_id', $period->id)->whereNotNull('payslip_path')->count())->toBe(2);
+    expect(PayrollRecord::query()->where('period_id', $period->id)->whereNotNull('payslip_path')->count())->toBe(0)
+        ->and(Storage::disk('local')->exists('payslips/'.$company->id.'/'.$period->id.'/old.pdf'))->toBeFalse();
+
+    Queue::assertPushed(GeneratePayrollPayslipsJob::class, 1);
 });
 
 test('payslip data embeds company logo as data uri for pdf rendering', function () {

@@ -87,7 +87,6 @@ class PayrollController extends Controller
         $search = trim((string) $request->query('search', ''));
         $category = trim((string) $request->query('category', ''));
         $status = trim((string) $request->query('status', ''));
-        $companyVisaTypeId = trim((string) $request->query('company_visa_type_id', ''));
         $dateFrom = trim((string) $request->query('date_from', ''));
         $dateTo = trim((string) $request->query('date_to', ''));
 
@@ -106,13 +105,6 @@ class PayrollController extends Controller
 
         if (in_array($status, PayrollPeriodStatus::values(), true)) {
             $query->where('status', $status);
-        }
-
-        if ($companyVisaTypeId !== '' && ctype_digit($companyVisaTypeId)) {
-            $query->whereHas(
-                'payrollRecords.employee',
-                fn (Builder $employeeQuery) => $employeeQuery->where('company_visa_type_id', (int) $companyVisaTypeId),
-            );
         }
 
         if ($this->isValidDateFilter($dateFrom)) {
@@ -137,17 +129,12 @@ class PayrollController extends Controller
             'filters' => [
                 'category' => $category,
                 'status' => $status,
-                'company_visa_type_id' => $companyVisaTypeId,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
             ],
             'summary' => PayrollHubSummary::forCompany($companyId),
             'payroll_categories' => $this->payrollCategoryOptions(),
             'payroll_period_statuses' => $this->payrollPeriodStatusOptions(),
-            'company_visa_types' => CompanyVisaType::query()
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name']),
             'permissions' => [
                 'create_period' => $request->user()?->can('payroll.periods.create') ?? false,
                 'view_crew_timesheets' => $request->user()?->can('payroll.crew_timesheets.view') ?? false,
@@ -188,6 +175,7 @@ class PayrollController extends Controller
         $directoryFilters = new EmployeeDirectoryFilters(
             departmentId: $boardFilters->departmentId,
             positionId: $boardFilters->positionId,
+            companyVisaTypeId: $boardFilters->companyVisaTypeId,
         );
         $payrollCategory = $payrollPeriod->payroll_category ?? PayrollCategory::Crew;
         $isFinalizedPeriod = in_array($payrollPeriod->status, [
@@ -274,6 +262,7 @@ class PayrollController extends Controller
                 new EmployeeDirectoryFilters(
                     departmentId: $boardFilters->departmentId,
                     positionId: $boardFilters->positionId,
+                    companyVisaTypeId: $boardFilters->companyVisaTypeId,
                 ),
             );
         }
@@ -337,9 +326,14 @@ class PayrollController extends Controller
             'filters' => [
                 'department_id' => $boardFilters->departmentId,
                 'position_id' => $boardFilters->positionId,
+                'company_visa_type_id' => $boardFilters->companyVisaTypeId,
                 'employee_group' => $boardFilters->employeeGroup->value,
                 'crew_salary_structure' => $crewSalaryStructure,
             ],
+            'company_visa_types' => CompanyVisaType::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name']),
             'department_tree' => PayrollPeriodDepartmentTree::for(
                 $companyId,
                 $payrollPeriod,
@@ -541,6 +535,7 @@ class PayrollController extends Controller
                     new EmployeeDirectoryFilters(
                         departmentId: $boardFilters->departmentId,
                         positionId: $boardFilters->positionId,
+                        companyVisaTypeId: $boardFilters->companyVisaTypeId,
                     ),
                 );
             });

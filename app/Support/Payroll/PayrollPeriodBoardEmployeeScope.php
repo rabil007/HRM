@@ -81,6 +81,7 @@ final class PayrollPeriodBoardEmployeeScope
             new EmployeeDirectoryFilters(
                 departmentId: $filters->departmentId,
                 positionId: $filters->positionId,
+                companyVisaTypeId: $filters->companyVisaTypeId,
             ),
             exceptDepartment: false,
             exceptPosition: false,

@@ -5,12 +5,14 @@ import {
     Download,
     FileText,
     Mail,
+    RefreshCw,
 } from 'lucide-react';
 import { useState } from 'react';
 import {
     downloadPdf as downloadMergedPayslipsPdf,
     downloadZip as downloadZipPayslips,
     email as emailPayslips,
+    generate as generatePayslips,
 } from '@/actions/App/Http/Controllers/Payroll/PayslipController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -52,14 +54,18 @@ export function PayslipDeliveryCard({
     periodId,
     summary,
     canEmail,
+    canGenerate,
     isLiveUpdating = false,
 }: {
     periodId: number;
     summary: PayslipSummary;
     canEmail: boolean;
+    canGenerate: boolean;
     isLiveUpdating?: boolean;
 }) {
-    const [processing, setProcessing] = useState(false);
+    const [processing, setProcessing] = useState<'email' | 'generate' | null>(
+        null,
+    );
 
     const progressPercent =
         summary.total === 0
@@ -91,14 +97,27 @@ export function PayslipDeliveryCard({
           : `${summary.pending} employee${summary.pending === 1 ? '' : 's'} still waiting for a payslip PDF.`;
 
     const handleEmailAll = () => {
-        setProcessing(true);
+        setProcessing('email');
 
         router.post(
             emailPayslips.url(),
             { period_id: periodId },
             {
                 preserveScroll: true,
-                onFinish: () => setProcessing(false),
+                onFinish: () => setProcessing(null),
+            },
+        );
+    };
+
+    const handleRegenerate = () => {
+        setProcessing('generate');
+
+        router.post(
+            generatePayslips.url(),
+            { period_id: periodId },
+            {
+                preserveScroll: true,
+                onFinish: () => setProcessing(null),
             },
         );
     };
@@ -248,15 +267,40 @@ export function PayslipDeliveryCard({
                             </Button>
                         </>
                     )}
+                    {canGenerate ? (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl"
+                            disabled={
+                                processing !== null ||
+                                isLiveUpdating ||
+                                summary.total === 0
+                            }
+                            onClick={handleRegenerate}
+                        >
+                            <RefreshCw
+                                className={cn(
+                                    'mr-2 h-4 w-4',
+                                    processing === 'generate' && 'animate-spin',
+                                )}
+                            />
+                            {processing === 'generate'
+                                ? 'Queuing…'
+                                : 'Re-generate'}
+                        </Button>
+                    ) : null}
                     {canEmail ? (
                         <Button
                             size="sm"
                             className="rounded-xl"
-                            disabled={processing || summary.generated === 0}
+                            disabled={
+                                processing !== null || summary.generated === 0
+                            }
                             onClick={handleEmailAll}
                         >
                             <Mail className="mr-2 h-4 w-4" />
-                            {processing ? 'Sending…' : 'Email all'}
+                            {processing === 'email' ? 'Sending…' : 'Email all'}
                         </Button>
                     ) : null}
                 </div>
