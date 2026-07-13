@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react';
+import { Filter, Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -10,10 +10,14 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { buildTrainingEmployeeUrl } from '@/features/organization/training/build-training-employee-url';
+import {
+    TrainingFiltersSheet,
+    type TrainingSheetFilters,
+} from '@/features/organization/training/components/training-filters-sheet';
 import { buildTrainingShowUrl } from '@/features/organization/training/shared/training-show-url';
 import { TrainingManagementDialogs } from '@/features/organization/training/training-management-dialogs';
 import { TrainingSummaryCards } from '@/features/organization/training/training-summary-cards';
@@ -46,6 +50,9 @@ export function TrainingContent({
     expiry: initialExpiry,
     search: initialSearch,
     issue_date: initialIssueDate,
+    course_id: initialCourseId,
+    institute: initialInstitute,
+    country_id: initialCountryId,
     branch_id: initialBranchId,
     department_id: initialDepartmentId,
     department_tree,
@@ -65,13 +72,28 @@ export function TrainingContent({
     const [managementEmployeeId, setManagementEmployeeId] = useState<
         number | null
     >(null);
+    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+
+    const sheetFilters: TrainingSheetFilters = {
+        course_id: initialCourseId,
+        institute: initialInstitute,
+        country_id: initialCountryId,
+        issue_date: initialIssueDate,
+    };
+
+    const activeFiltersCount = [
+        initialCourseId,
+        initialInstitute,
+        initialCountryId,
+        initialIssueDate,
+    ].filter(Boolean).length;
 
     const {
         searchInput,
         isSearching,
         onSearchChange,
         onExpiryChange,
-        onIssueDateChange,
+        onSheetFiltersChange,
         onDepartmentChange,
         onPageChange,
     } = useTrainingIndexFilters({
@@ -79,6 +101,9 @@ export function TrainingContent({
         initialSearch,
         initialExpiry,
         initialIssueDate,
+        initialCourseId,
+        initialInstitute,
+        initialCountryId,
         initialBranchId,
         initialDepartmentId,
         perPage: pagination.per_page,
@@ -90,6 +115,9 @@ export function TrainingContent({
             search: initialSearch,
             expiry: initialExpiry,
             issue_date: initialIssueDate,
+            course_id: initialCourseId,
+            institute: initialInstitute,
+            country_id: initialCountryId,
             branch_id: initialBranchId,
             department_id: initialDepartmentId,
             page: pagination.current_page,
@@ -98,6 +126,9 @@ export function TrainingContent({
             initialSearch,
             initialExpiry,
             initialIssueDate,
+            initialCourseId,
+            initialInstitute,
+            initialCountryId,
             initialBranchId,
             initialDepartmentId,
             pagination.current_page,
@@ -146,16 +177,6 @@ export function TrainingContent({
                             />
                         ) : null}
 
-                        <Input
-                            type="date"
-                            aria-label="Filter by issue date"
-                            value={initialIssueDate}
-                            onChange={(event) =>
-                                onIssueDateChange(event.target.value)
-                            }
-                            className="h-9 w-[10.5rem] rounded-xl border-input bg-background/50 px-3 text-sm focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
-                        />
-
                         <DepartmentFilterControls
                             department_tree={department_tree}
                             department_tree_selected_id={
@@ -167,6 +188,21 @@ export function TrainingContent({
                                 onDepartmentChange(departmentId)
                             }
                         />
+
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
+                            onClick={() => setIsFiltersOpen(true)}
+                        >
+                            <Filter className="mr-2 h-4 w-4" />
+                            Filters
+                            {activeFiltersCount ? (
+                                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
+                                    {activeFiltersCount}
+                                </span>
+                            ) : null}
+                        </Button>
                     </div>
                 }
             />
@@ -266,6 +302,23 @@ export function TrainingContent({
                     ]}
                 />
             ) : null}
+
+            <TrainingFiltersSheet
+                open={isFiltersOpen}
+                onOpenChange={setIsFiltersOpen}
+                courses={courses}
+                countries={countries}
+                value={sheetFilters}
+                onChange={onSheetFiltersChange}
+                onReset={() =>
+                    onSheetFiltersChange({
+                        course_id: '',
+                        institute: '',
+                        country_id: '',
+                        issue_date: '',
+                    })
+                }
+            />
         </Main>
     );
 }

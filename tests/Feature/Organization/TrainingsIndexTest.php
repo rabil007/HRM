@@ -186,6 +186,63 @@ test('training index filters by issue date', function () {
             ->where('trainings.0.institute_center', 'June Institute'));
 });
 
+test('training index filters by course institute and country', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'course' => $course, 'country' => $country] = makeTrainingIndexFixtures();
+
+    grantCompanyPermissions($user, $company, ['training.view']);
+
+    $otherCourse = Course::query()->create([
+        'name' => 'Other Course '.uniqid(),
+        'is_active' => true,
+    ]);
+
+    EmployeeTraining::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'course_id' => $course->id,
+        'issue_date' => '2024-01-01',
+        'expiry_date' => now()->addYear()->toDateString(),
+        'institute_center' => 'Alpha Maritime',
+        'country_id' => $country->id,
+        'sort_order' => 0,
+    ]);
+
+    EmployeeTraining::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'course_id' => $otherCourse->id,
+        'issue_date' => '2024-02-01',
+        'expiry_date' => now()->addYear()->toDateString(),
+        'institute_center' => 'Beta School',
+        'country_id' => null,
+        'sort_order' => 1,
+    ]);
+
+    $this->get(route('organization.training', ['course_id' => $course->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('course_id', (string) $course->id)
+            ->has('trainings', 1)
+            ->where('trainings.0.institute_center', 'Alpha Maritime'));
+
+    $this->get(route('organization.training', ['institute' => 'Alpha']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('institute', 'Alpha')
+            ->has('trainings', 1)
+            ->where('trainings.0.institute_center', 'Alpha Maritime'));
+
+    $this->get(route('organization.training', ['country_id' => $country->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('country_id', (string) $country->id)
+            ->has('trainings', 1)
+            ->where('trainings.0.institute_center', 'Alpha Maritime'));
+});
+
 test('training index search matches employee name and course', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

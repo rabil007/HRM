@@ -23,6 +23,18 @@ export function buildTrainingShowUrl(
             query.issue_date = back.issue_date.trim();
         }
 
+        if (back.course_id?.trim()) {
+            query.course_id = back.course_id.trim();
+        }
+
+        if (back.institute?.trim()) {
+            query.institute = back.institute.trim();
+        }
+
+        if (back.country_id?.trim()) {
+            query.country_id = back.country_id.trim();
+        }
+
         if (back.branch_id?.trim()) {
             query.branch_id = back.branch_id.trim();
         }

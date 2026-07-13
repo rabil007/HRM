@@ -64,6 +64,15 @@ final class TrainingDirectoryQuery
             ->when($this->filters->issueDate !== '', function (Builder $inner): void {
                 $inner->whereDate('employee_trainings.issue_date', $this->filters->issueDate);
             })
+            ->when($this->filters->courseId !== '', function (Builder $inner): void {
+                $inner->where('employee_trainings.course_id', (int) $this->filters->courseId);
+            })
+            ->when($this->filters->institute !== '', function (Builder $inner): void {
+                $inner->where('employee_trainings.institute_center', 'like', '%'.$this->filters->institute.'%');
+            })
+            ->when($this->filters->countryId !== '', function (Builder $inner): void {
+                $inner->where('employee_trainings.country_id', (int) $this->filters->countryId);
+            })
             ->when($this->filters->search !== '', function (Builder $inner): void {
                 $search = $this->filters->search;
                 $like = '%'.$search.'%';

@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { TrainingSheetFilters } from '@/features/organization/training/components/training-filters-sheet';
 import type { TrainingExpiryFilter } from '@/features/organization/training/types';
 
 function cleanParams(
@@ -21,6 +22,9 @@ export function useTrainingIndexFilters({
     initialSearch,
     initialExpiry,
     initialIssueDate,
+    initialCourseId,
+    initialInstitute,
+    initialCountryId,
     initialBranchId,
     initialDepartmentId,
     perPage = 25,
@@ -29,6 +33,9 @@ export function useTrainingIndexFilters({
     initialSearch: string;
     initialExpiry: TrainingExpiryFilter;
     initialIssueDate: string;
+    initialCourseId: string;
+    initialInstitute: string;
+    initialCountryId: string;
     initialBranchId: string;
     initialDepartmentId: string;
     perPage?: number;
@@ -51,6 +58,9 @@ export function useTrainingIndexFilters({
             search: initialSearch || undefined,
             expiry: initialExpiry !== 'all' ? initialExpiry : undefined,
             issue_date: initialIssueDate || undefined,
+            course_id: initialCourseId || undefined,
+            institute: initialInstitute || undefined,
+            country_id: initialCountryId || undefined,
             branch_id: initialBranchId || undefined,
             department_id: initialDepartmentId || undefined,
             per_page: perPage,
@@ -59,6 +69,9 @@ export function useTrainingIndexFilters({
             initialSearch,
             initialExpiry,
             initialIssueDate,
+            initialCourseId,
+            initialInstitute,
+            initialCountryId,
             initialBranchId,
             initialDepartmentId,
             perPage,
@@ -79,6 +92,9 @@ export function useTrainingIndexFilters({
                     'expiry',
                     'search',
                     'issue_date',
+                    'course_id',
+                    'institute',
+                    'country_id',
                     'branch_id',
                     'department_id',
                     'department_tree',
@@ -125,11 +141,14 @@ export function useTrainingIndexFilters({
         [baseParams, visit],
     );
 
-    const onIssueDateChange = useCallback(
-        (issueDate: string) => {
+    const onSheetFiltersChange = useCallback(
+        (next: TrainingSheetFilters) => {
             visit({
                 ...baseParams(),
-                issue_date: issueDate || undefined,
+                course_id: next.course_id || undefined,
+                institute: next.institute || undefined,
+                country_id: next.country_id || undefined,
+                issue_date: next.issue_date || undefined,
                 page: null,
             });
         },
@@ -163,7 +182,7 @@ export function useTrainingIndexFilters({
         isSearching,
         onSearchChange,
         onExpiryChange,
-        onIssueDateChange,
+        onSheetFiltersChange,
         onDepartmentChange,
         onPageChange,
     };

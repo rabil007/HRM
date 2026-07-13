@@ -10,6 +10,9 @@ final class TrainingDirectoryFilters
         public readonly string $search = '',
         public readonly string $expiry = 'all',
         public readonly string $issueDate = '',
+        public readonly string $courseId = '',
+        public readonly string $institute = '',
+        public readonly string $countryId = '',
         public readonly string $branchId = '',
         public readonly string $departmentId = '',
     ) {}
@@ -28,10 +31,23 @@ final class TrainingDirectoryFilters
             $issueDate = '';
         }
 
+        $courseId = trim((string) $request->query('course_id', ''));
+        if ($courseId !== '' && ! ctype_digit($courseId)) {
+            $courseId = '';
+        }
+
+        $countryId = trim((string) $request->query('country_id', ''));
+        if ($countryId !== '' && ! ctype_digit($countryId)) {
+            $countryId = '';
+        }
+
         return new self(
             search: trim((string) $request->query('search', '')),
             expiry: $expiry,
             issueDate: $issueDate,
+            courseId: $courseId,
+            institute: trim((string) $request->query('institute', '')),
+            countryId: $countryId,
             branchId: (string) $request->query('branch_id', ''),
             departmentId: (string) $request->query('department_id', ''),
         );
@@ -54,6 +70,18 @@ final class TrainingDirectoryFilters
 
         if ($this->issueDate !== '') {
             $query['issue_date'] = $this->issueDate;
+        }
+
+        if ($this->courseId !== '') {
+            $query['course_id'] = $this->courseId;
+        }
+
+        if ($this->institute !== '') {
+            $query['institute'] = $this->institute;
+        }
+
+        if ($this->countryId !== '') {
+            $query['country_id'] = $this->countryId;
         }
 
         if ($this->branchId !== '') {

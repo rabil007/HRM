@@ -48,7 +48,7 @@ class TrainingShowBackNavigation
     {
         $query = [];
 
-        foreach (['search', 'expiry', 'issue_date', 'branch_id', 'department_id', 'page'] as $key) {
+        foreach (['search', 'expiry', 'issue_date', 'course_id', 'institute', 'country_id', 'branch_id', 'department_id', 'page'] as $key) {
             $value = $request->query($key);
 
             if ($value === null || $value === '') {

@@ -32,6 +32,9 @@ class TrainingsIndexController extends Controller
             'expiry' => $filters->expiry,
             'search' => $filters->search,
             'issue_date' => $filters->issueDate,
+            'course_id' => $filters->courseId,
+            'institute' => $filters->institute,
+            'country_id' => $filters->countryId,
             'branch_id' => $filters->branchId,
             'department_id' => $filters->departmentId,
             'department_tree' => TrainingDepartmentTree::for(
