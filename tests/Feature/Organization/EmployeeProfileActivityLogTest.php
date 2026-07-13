@@ -2,13 +2,19 @@
 
 use App\Models\Bank;
 use App\Models\Company;
+use App\Models\ContractSalaryComponent;
 use App\Models\Country;
 use App\Models\Course;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
+use App\Models\EmployeeEducationQualification;
+use App\Models\EmployeeLanguage;
+use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
+use App\Models\EmployeeVaccination;
+use App\Models\EmployeeWorkExperience;
 use App\Models\User;
 use Spatie\Activitylog\Models\Activity;
 
@@ -121,5 +127,105 @@ test('activity log is recorded for employee bank account creation', function () 
         'event' => 'created',
         'subject_type' => EmployeeBankAccount::class,
         'subject_id' => $account->id,
+    ]);
+});
+
+test('activity log is recorded for employee education creation', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = makeEmployeeProfileActivityFixtures();
+    $this->actingAs($user);
+
+    $education = EmployeeEducationQualification::factory()->forEmployee($employee)->create([
+        'certificate' => 'BSc Maritime Studies',
+    ]);
+
+    $this->assertDatabaseHas('activity_log', [
+        'company_id' => $company->id,
+        'event' => 'created',
+        'subject_type' => EmployeeEducationQualification::class,
+        'subject_id' => $education->id,
+    ]);
+});
+
+test('activity log is recorded for employee work experience creation', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = makeEmployeeProfileActivityFixtures();
+    $this->actingAs($user);
+
+    $experience = EmployeeWorkExperience::factory()->forEmployee($employee)->create([
+        'company_name' => 'Activity Shipping',
+    ]);
+
+    $this->assertDatabaseHas('activity_log', [
+        'company_id' => $company->id,
+        'event' => 'created',
+        'subject_type' => EmployeeWorkExperience::class,
+        'subject_id' => $experience->id,
+    ]);
+});
+
+test('activity log is recorded for employee sea service creation', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = makeEmployeeProfileActivityFixtures();
+    $this->actingAs($user);
+
+    $seaService = EmployeeSeaService::factory()->forEmployee($employee)->create();
+
+    $this->assertDatabaseHas('activity_log', [
+        'company_id' => $company->id,
+        'event' => 'created',
+        'subject_type' => EmployeeSeaService::class,
+        'subject_id' => $seaService->id,
+    ]);
+});
+
+test('activity log is recorded for employee language creation', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = makeEmployeeProfileActivityFixtures();
+    $this->actingAs($user);
+
+    $language = EmployeeLanguage::factory()->forEmployee($employee)->create([
+        'language_name' => 'English',
+    ]);
+
+    $this->assertDatabaseHas('activity_log', [
+        'company_id' => $company->id,
+        'event' => 'created',
+        'subject_type' => EmployeeLanguage::class,
+        'subject_id' => $language->id,
+    ]);
+});
+
+test('activity log is recorded for employee vaccination creation', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = makeEmployeeProfileActivityFixtures();
+    $this->actingAs($user);
+
+    $vaccination = EmployeeVaccination::factory()->forEmployee($employee)->create([
+        'vaccination_name' => 'Yellow Fever',
+    ]);
+
+    $this->assertDatabaseHas('activity_log', [
+        'company_id' => $company->id,
+        'event' => 'created',
+        'subject_type' => EmployeeVaccination::class,
+        'subject_id' => $vaccination->id,
+    ]);
+});
+
+test('activity log is recorded for contract salary component creation', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = makeEmployeeProfileActivityFixtures();
+    $this->actingAs($user);
+
+    $contract = EmployeeContract::factory()->for($company)->for($employee)->create([
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+    ]);
+
+    $component = ContractSalaryComponent::factory()->for($contract, 'contract')->create([
+        'company_id' => $company->id,
+        'amount' => 2500,
+    ]);
+
+    $this->assertDatabaseHas('activity_log', [
+        'company_id' => $company->id,
+        'event' => 'created',
+        'subject_type' => ContractSalaryComponent::class,
+        'subject_id' => $component->id,
     ]);
 });
