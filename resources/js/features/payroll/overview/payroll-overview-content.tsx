@@ -10,6 +10,7 @@ import {
     ChevronRight,
     CircleDollarSign,
     Clock,
+    FileSpreadsheet,
     FileText,
     LayoutDashboard,
     Minus,
@@ -25,6 +26,8 @@ import {
     Zap,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { useState } from 'react';
+import { SalarySheetPayslipDialog } from '@/features/payroll/overview/salary-sheet-payslip-dialog';
 import {
     Area,
     AreaChart,
@@ -131,6 +134,7 @@ type CanPermissions = {
     view_records: boolean;
     create_period: boolean;
     view_crew_timesheets: boolean;
+    generate_payslips_from_sheet: boolean;
 };
 
 export type PayrollOverviewProps = {
@@ -166,6 +170,7 @@ export function PayrollOverviewContent({
 }: PayrollOverviewProps): ReactElement {
     const { settings } = usePage().props;
     const currency = settings.currency || 'USD';
+    const [salarySheetDialogOpen, setSalarySheetDialogOpen] = useState(false);
 
     const fmt = (amount: number) =>
         new Intl.NumberFormat('en-US', {
@@ -236,6 +241,16 @@ return `${(amount / 1_000).toFixed(1)}K`;
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
+                    {can.generate_payslips_from_sheet && (
+                        <Button
+                            variant="outline"
+                            className="rounded-xl glass-card"
+                            onClick={() => setSalarySheetDialogOpen(true)}
+                        >
+                            <FileSpreadsheet className="mr-2 h-4 w-4" />
+                            Generate payslips
+                        </Button>
+                    )}
                     {can.view_periods && (
                         <Button
                             variant="outline"
@@ -270,6 +285,11 @@ return `${(amount / 1_000).toFixed(1)}K`;
                     )}
                 </div>
             </div>
+
+            <SalarySheetPayslipDialog
+                open={salarySheetDialogOpen}
+                onOpenChange={setSalarySheetDialogOpen}
+            />
 
             {/* ── Urgent alert ── */}
             {hasUrgentItems && (

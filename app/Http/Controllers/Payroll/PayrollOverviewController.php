@@ -27,6 +27,7 @@ class PayrollOverviewController extends Controller
                 'view_records' => $request->user()?->can('payroll.records.view') ?? false,
                 'create_period' => $request->user()?->can('payroll.periods.create') ?? false,
                 'view_crew_timesheets' => $request->user()?->can('payroll.crew_timesheets.view') ?? false,
+                'generate_payslips_from_sheet' => $request->user()?->can('payroll.payslips.generate') ?? false,
             ],
         ]);
     }

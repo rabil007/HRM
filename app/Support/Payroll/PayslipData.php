@@ -12,6 +12,89 @@ use Carbon\CarbonImmutable;
 final class PayslipData
 {
     /**
+     * @param  array{
+     *     employee_no: string,
+     *     name: string,
+     *     designation: string,
+     *     standby_days: float,
+     *     onsite_days: float,
+     *     standby_pay: float,
+     *     onsite_pay: float,
+     *     add_ded: float,
+     *     overtime_pay: float,
+     *     total_salary: float
+     * }  $row
+     * @return array<string, mixed>
+     */
+    public static function fromSalarySheetRow(
+        array $row,
+        Company $company,
+        CarbonImmutable $periodStart,
+        CarbonImmutable $periodEnd,
+    ): array {
+        $currencyCode = (string) ($company->currency?->code ?? 'AED');
+        $addition = max((float) $row['add_ded'], 0.0);
+        $deduction = abs(min((float) $row['add_ded'], 0.0));
+        $standbyPay = (float) $row['standby_pay'];
+        $onsitePay = (float) $row['onsite_pay'];
+        $overtimePay = (float) $row['overtime_pay'];
+        $totalSalary = (float) $row['total_salary'];
+
+        $earnings = self::filterPositiveLines([
+            ['label' => 'Standby pay', 'amount' => self::formatAmount($standbyPay)],
+            ['label' => 'Onsite pay', 'amount' => self::formatAmount($onsitePay)],
+            ['label' => 'Overtime', 'amount' => self::formatAmount($overtimePay)],
+            ['label' => 'Additional amount', 'amount' => self::formatAmount($addition)],
+        ]);
+
+        if ($earnings === []) {
+            $earnings = [
+                ['label' => 'Salary', 'amount' => self::formatAmount($totalSalary)],
+            ];
+        }
+
+        $deductions = self::filterPositiveLines([
+            ['label' => 'Deduction', 'amount' => self::formatAmount($deduction)],
+        ]);
+
+        $gross = array_sum(array_map(
+            fn (array $line): float => (float) $line['amount'],
+            $earnings,
+        ));
+
+        return [
+            'company_name' => (string) ($company->name ?? ''),
+            'company_logo' => CompanyLogoDataUri::resolve($company),
+            'employee_name' => (string) $row['name'],
+            'employee_no' => (string) $row['employee_no'],
+            'designation' => (string) $row['designation'],
+            'period_name' => $periodStart->format('F Y'),
+            'period_start' => $periodStart->format('M d, Y'),
+            'period_end' => $periodEnd->format('M d, Y'),
+            'payment_date' => $periodEnd->format('M d, Y'),
+            'issued_on' => CarbonImmutable::now((string) ($company->timezone ?? config('app.timezone')))->format('M d, Y'),
+            'currency_code' => $currencyCode,
+            'payroll_category' => PayrollCategory::Crew->value,
+            'payroll_category_label' => PayrollCategory::Crew->label(),
+            'gross_salary' => self::formatAmount($gross),
+            'total_deductions' => self::formatAmount($deduction),
+            'net_salary' => self::formatAmount($totalSalary),
+            'status' => 'approved',
+            'printable' => false,
+            'is_pdf' => true,
+            'salary_structure' => 'daily',
+            'earnings' => $earnings,
+            'deductions' => $deductions,
+            'crew_summary' => [
+                'standby_days' => self::formatDayCount($row['standby_days']),
+                'onsite_days' => self::formatDayCount($row['onsite_days']),
+                'standby_label' => 'Standby days',
+                'onsite_label' => 'On-site days',
+            ],
+        ];
+    }
+
+    /**
      * @param  list<array<string, mixed>>|null  $preloadedSalaryInputLines
      * @return array<string, mixed>
      */

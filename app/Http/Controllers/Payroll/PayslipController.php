@@ -4,17 +4,21 @@ namespace App\Http\Controllers\Payroll;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Payroll\BulkPayslipActionRequest;
+use App\Http\Requests\Organization\Payroll\GeneratePayslipsFromSalarySheetRequest;
+use App\Models\Company;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Services\DocumentMergeService;
 use App\Support\Payroll\Actions\GeneratePayrollPayslips;
 use App\Support\Payroll\Actions\GeneratePayslip;
+use App\Support\Payroll\Actions\GeneratePayslipsFromSalarySheet;
 use App\Support\Payroll\Actions\SendPayslipEmails;
 use App\Support\Payroll\PayslipData;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -159,6 +163,28 @@ class PayslipController extends Controller
             $paths,
             'payslips-'.$periodId.'-'.time().'.pdf',
         );
+    }
+
+    public function fromSalarySheet(
+        GeneratePayslipsFromSalarySheetRequest $request,
+        GeneratePayslipsFromSalarySheet $generatePayslipsFromSalarySheet,
+    ): BinaryFileResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $company = Company::query()->with('currency:id,code,symbol')->findOrFail($companyId);
+        $validated = $request->validated();
+        /** @var UploadedFile $file */
+        $file = $request->file('file');
+
+        try {
+            return $generatePayslipsFromSalarySheet->handle(
+                $file,
+                $company,
+                (int) $validated['year'],
+                (int) $validated['month'],
+            );
+        } catch (\InvalidArgumentException $exception) {
+            abort(422, $exception->getMessage());
+        }
     }
 
     public function generate(
