@@ -104,13 +104,6 @@ export function TrainingTableRow({
             <TableCell className={dataTableCellClass()}>
                 {training.country_name || '—'}
             </TableCell>
-            <TableCell className={dataTableCellClass()}>
-                {training.has_certificate ? (
-                    <span className="text-sm text-emerald-500">Yes</span>
-                ) : (
-                    <span className="text-sm text-muted-foreground">No</span>
-                )}
-            </TableCell>
             <TableCell
                 className={cn(dataTableActionsCellClass(), 'min-w-[13.5rem]')}
             >

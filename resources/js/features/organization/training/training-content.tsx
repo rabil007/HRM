@@ -163,7 +163,7 @@ export function TrainingContent({
             ) : (
                 <>
                     <OrganizationDataTable
-                        minWidth="min-w-[1320px]"
+                        minWidth="min-w-[1220px]"
                         tableClassName="table-fixed"
                     >
                         <TableHeader>
@@ -185,9 +185,6 @@ export function TrainingContent({
                                 </DataTableHead>
                                 <DataTableHead className="w-[120px]">
                                     Country
-                                </DataTableHead>
-                                <DataTableHead className="w-[100px]">
-                                    Certificate
                                 </DataTableHead>
                                 <DataTableHead className="w-[180px] text-right">
                                     Actions
