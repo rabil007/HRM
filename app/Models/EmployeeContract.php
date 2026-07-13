@@ -4,21 +4,47 @@ namespace App\Models;
 
 use App\Enums\ContractSalaryStructure;
 use App\Enums\PayrollCategory;
+use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\EmployeeContractFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Support\LogOptions;
 
 class EmployeeContract extends Model
 {
     /** @use HasFactory<EmployeeContractFactory> */
     use HasFactory;
 
+    use LogsActivityWithCompany;
     use SoftDeletes;
 
     protected $guarded = [];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly([
+                'company_id',
+                'employee_id',
+                'payroll_category',
+                'salary_structure',
+                'start_date',
+                'end_date',
+                'labor_contract_id',
+                'status',
+                'basic_salary',
+                'housing_allowance',
+                'transport_allowance',
+                'other_allowances',
+                'supplementary_allowance',
+                'site_allowance',
+                'note',
+            ])
+            ->logOnlyDirty();
+    }
 
     protected function casts(): array
     {

@@ -2,21 +2,46 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\EmployeeTrainingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Support\LogOptions;
 
 class EmployeeTraining extends Model
 {
     /** @use HasFactory<EmployeeTrainingFactory> */
     use HasFactory;
 
+    use LogsActivityWithCompany;
     use SoftDeletes;
 
     protected $guarded = [];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly([
+                'company_id',
+                'employee_id',
+                'course_id',
+                'sort_order',
+                'issue_date',
+                'expiry_date',
+                'institute_center',
+                'country_id',
+                'certificate_path',
+                'certificate_original_filename',
+                'certificate_mime_type',
+                'certificate_size_bytes',
+                'current_version',
+                'replaced_at',
+            ])
+            ->logOnlyDirty();
+    }
 
     protected function casts(): array
     {
