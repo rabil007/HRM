@@ -1367,6 +1367,70 @@ test('authorized user can load training show page with metadata and versions', f
         );
 });
 
+test('training show page previews certificates when mime type is missing but path is pdf', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TMP',
+        'name' => 'Training Mime Preview Land',
+        'dial_code' => '+986',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TMP',
+        'name' => 'Training Mime Preview Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Mime Preview Co',
+        'slug' => 'training-mime-preview-co-'.uniqid(),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'name' => 'Mime Preview Trainee',
+        'status' => 'active',
+    ]);
+
+    $course = Course::query()->create([
+        'name' => 'H2S',
+        'is_active' => true,
+    ]);
+
+    $training = EmployeeTraining::factory()
+        ->forEmployee($employee)
+        ->create([
+            'course_id' => $course->id,
+            'issue_date' => '2024-03-01',
+            'expiry_date' => '2029-03-01',
+            'institute_center' => 'Maritime Academy',
+            'certificate_path' => 'employees/'.$company->id.'/training-certificates/legacy.pdf',
+            'certificate_original_filename' => null,
+            'certificate_mime_type' => null,
+            'certificate_size_bytes' => null,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get(route('organization.employees.training.show', [$employee, $training]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/training/show')
+            ->where('training.id', $training->id)
+            ->where('training.certificate_mime_type', 'application/pdf')
+            ->where('training.can_preview', true)
+        );
+});
+
 test('training show page returns 404 for wrong company or employee pairing', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

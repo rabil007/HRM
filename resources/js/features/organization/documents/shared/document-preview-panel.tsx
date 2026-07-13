@@ -8,6 +8,39 @@ export type DocumentPreviewSource = {
     can_preview?: boolean;
 };
 
+function resolveMimeType(
+    mimeType: string | null | undefined,
+    fileUrl: string,
+): string | null {
+    if (mimeType) {
+        return mimeType;
+    }
+
+    const path = fileUrl.split('?')[0]?.toLowerCase() ?? '';
+
+    if (path.endsWith('.pdf')) {
+        return 'application/pdf';
+    }
+
+    if (path.endsWith('.png')) {
+        return 'image/png';
+    }
+
+    if (path.endsWith('.jpg') || path.endsWith('.jpeg')) {
+        return 'image/jpeg';
+    }
+
+    if (path.endsWith('.gif')) {
+        return 'image/gif';
+    }
+
+    if (path.endsWith('.webp')) {
+        return 'image/webp';
+    }
+
+    return null;
+}
+
 export function DocumentPreviewPanel({
     document,
     className = 'h-[70vh]',
@@ -15,9 +48,11 @@ export function DocumentPreviewPanel({
     document: DocumentPreviewSource;
     className?: string;
 }): ReactElement {
-    const isImage = document.mime_type?.startsWith('image/');
-    const isPdf = document.mime_type === 'application/pdf';
-    const canPreview = document.can_preview !== false && (isImage || isPdf);
+    const mimeType = resolveMimeType(document.mime_type, document.file_url);
+    const isImage = mimeType?.startsWith('image/') ?? false;
+    const isPdf = mimeType === 'application/pdf';
+    const canPreview =
+        document.can_preview !== false && (isImage || isPdf);
 
     return (
         <div

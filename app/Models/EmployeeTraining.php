@@ -69,7 +69,7 @@ class EmployeeTraining extends Model
             'country_name' => $this->relationLoaded('country') ? $this->country?->name : null,
             'certificate_url' => $this->certificate_url,
             'certificate_original_filename' => $this->certificate_original_filename,
-            'certificate_mime_type' => $this->certificate_mime_type,
+            'certificate_mime_type' => $this->resolvedCertificateMimeType(),
             'certificate_size_bytes' => $this->certificate_size_bytes !== null
                 ? (int) $this->certificate_size_bytes
                 : null,
@@ -105,11 +105,48 @@ class EmployeeTraining extends Model
 
     public function getCanPreviewAttribute(): bool
     {
-        if ($this->certificate_mime_type === null) {
+        $mimeType = $this->resolvedCertificateMimeType();
+
+        if ($mimeType === null) {
             return false;
         }
 
-        return str_starts_with((string) $this->certificate_mime_type, 'image/')
-            || $this->certificate_mime_type === 'application/pdf';
+        return str_starts_with($mimeType, 'image/')
+            || $mimeType === 'application/pdf';
+    }
+
+    public function resolvedCertificateMimeType(): ?string
+    {
+        $mimeType = $this->certificate_mime_type;
+
+        if (is_string($mimeType) && $mimeType !== '') {
+            return $mimeType;
+        }
+
+        foreach ([
+            $this->certificate_original_filename,
+            $this->certificate_path,
+        ] as $candidate) {
+            if (! is_string($candidate) || $candidate === '') {
+                continue;
+            }
+
+            $extension = strtolower(pathinfo($candidate, PATHINFO_EXTENSION));
+
+            $resolved = match ($extension) {
+                'pdf' => 'application/pdf',
+                'jpg', 'jpeg' => 'image/jpeg',
+                'png' => 'image/png',
+                'gif' => 'image/gif',
+                'webp' => 'image/webp',
+                default => null,
+            };
+
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
+        return null;
     }
 }
