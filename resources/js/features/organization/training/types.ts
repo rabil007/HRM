@@ -78,6 +78,8 @@ export type TrainingsIndexProps = {
     department_tree_selected_id: number | null;
     trainings: TrainingListItem[];
     pagination: PaginationMeta;
+    courses: CourseOption[];
+    countries: CountryOption[];
     can: TrainingPageCan;
 };
 

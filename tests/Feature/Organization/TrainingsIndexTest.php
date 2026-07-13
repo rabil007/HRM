@@ -106,7 +106,9 @@ test('training index returns paginated trainings with expiry summary', function 
             ->where('can.create', false)
             ->where('can.update', false)
             ->where('can.delete', false)
-            ->where('can.import', false));
+            ->where('can.import', false)
+            ->has('courses')
+            ->has('countries'));
 });
 
 test('training index filters by expiry status', function () {

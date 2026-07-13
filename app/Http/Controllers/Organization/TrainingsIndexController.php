@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
+use App\Models\Course;
 use App\Support\Employees\EmployeeDirectoryFilters;
+use App\Support\Employees\EmployeeFormOptions;
 use App\Support\EmployeeTrainings\TrainingDepartmentTree;
 use App\Support\EmployeeTrainings\TrainingDirectoryFilters;
 use App\Support\EmployeeTrainings\TrainingDirectoryQuery;
@@ -38,6 +40,17 @@ class TrainingsIndexController extends Controller
             'department_tree_selected_id' => $filters->departmentId !== '' ? (int) $filters->departmentId : null,
             'trainings' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
+            'courses' => Course::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn (Course $course) => [
+                    'id' => $course->id,
+                    'name' => $course->name,
+                ])
+                ->values()
+                ->all(),
+            'countries' => EmployeeFormOptions::for($companyId)['countries'],
             'can' => TrainingPagePermissions::for($request->user()),
         ]);
     }

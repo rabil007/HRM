@@ -1,5 +1,5 @@
 import { Loader2 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -14,11 +14,31 @@ import { TableBody, TableHeader } from '@/components/ui/table';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { buildTrainingEmployeeUrl } from '@/features/organization/training/build-training-employee-url';
 import { buildTrainingShowUrl } from '@/features/organization/training/shared/training-show-url';
+import { TrainingManagementDialogs } from '@/features/organization/training/training-management-dialogs';
 import { TrainingSummaryCards } from '@/features/organization/training/training-summary-cards';
 import { TrainingTableRow } from '@/features/organization/training/training-table-row';
-import type { TrainingsIndexProps } from '@/features/organization/training/types';
+import type {
+    TrainingListItem,
+    TrainingsIndexProps,
+} from '@/features/organization/training/types';
 import { useTrainingIndexFilters } from '@/features/organization/training/use-training-index-filters';
+import type { TrainingItem } from '@/pages/organization/employee-page.types';
 import { training } from '@/routes/organization';
+
+function toTrainingItem(row: TrainingListItem): TrainingItem {
+    return {
+        id: row.id,
+        course_id: row.course_id,
+        course_name: row.course_name,
+        issue_date: row.issue_date,
+        expiry_date: row.expiry_date,
+        institute_center: row.institute_center,
+        country_id: row.country_id,
+        country_name: row.country_name,
+        certificate_url: row.certificate_url,
+        created_at: row.created_at ?? '',
+    };
+}
 
 export function TrainingContent({
     summary,
@@ -30,7 +50,20 @@ export function TrainingContent({
     department_tree_selected_id,
     trainings: trainingRows,
     pagination,
+    courses,
+    countries,
+    can,
 }: TrainingsIndexProps) {
+    const [editTraining, setEditTraining] = useState<TrainingItem | null>(null);
+    const [replaceTraining, setReplaceTraining] =
+        useState<TrainingItem | null>(null);
+    const [deleteTrainingId, setDeleteTrainingId] = useState<number | null>(
+        null,
+    );
+    const [managementEmployeeId, setManagementEmployeeId] = useState<
+        number | null
+    >(null);
+
     const {
         searchInput,
         isSearching,
@@ -64,6 +97,25 @@ export function TrainingContent({
             pagination.current_page,
         ],
     );
+
+    const bindManagementTraining = (row: TrainingListItem) => {
+        setManagementEmployeeId(row.employee_id);
+
+        return toTrainingItem(row);
+    };
+
+    const handleEdit = (row: TrainingListItem) => {
+        setEditTraining(bindManagementTraining(row));
+    };
+
+    const handleReplace = (row: TrainingListItem) => {
+        setReplaceTraining(bindManagementTraining(row));
+    };
+
+    const handleDelete = (row: TrainingListItem) => {
+        bindManagementTraining(row);
+        setDeleteTrainingId(row.id);
+    };
 
     return (
         <Main>
@@ -111,7 +163,7 @@ export function TrainingContent({
             ) : (
                 <>
                     <OrganizationDataTable
-                        minWidth="min-w-[1180px]"
+                        minWidth="min-w-[1320px]"
                         tableClassName="table-fixed"
                     >
                         <TableHeader>
@@ -137,6 +189,9 @@ export function TrainingContent({
                                 <DataTableHead className="w-[100px]">
                                     Certificate
                                 </DataTableHead>
+                                <DataTableHead className="w-[180px] text-right">
+                                    Actions
+                                </DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>
@@ -153,6 +208,11 @@ export function TrainingContent({
                                         row.employee_id,
                                         backContext,
                                     )}
+                                    canUpdate={can.update}
+                                    canDelete={can.delete}
+                                    onEdit={handleEdit}
+                                    onReplace={handleReplace}
+                                    onDelete={handleDelete}
                                 />
                             ))}
                         </TableBody>
@@ -174,6 +234,25 @@ export function TrainingContent({
                     ) : null}
                 </>
             )}
+
+            {managementEmployeeId !== null ? (
+                <TrainingManagementDialogs
+                    employeeId={managementEmployeeId}
+                    courses={courses}
+                    countries={countries}
+                    editTraining={editTraining}
+                    onEditTrainingChange={setEditTraining}
+                    replaceTraining={replaceTraining}
+                    onReplaceTrainingChange={setReplaceTraining}
+                    deleteTrainingId={deleteTrainingId}
+                    onDeleteTrainingIdChange={setDeleteTrainingId}
+                    partialReloadKeys={[
+                        'trainings',
+                        'summary',
+                        'pagination',
+                    ]}
+                />
+            ) : null}
         </Main>
     );
 }

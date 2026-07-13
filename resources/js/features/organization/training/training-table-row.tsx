@@ -1,5 +1,6 @@
 import { Link, router } from '@inertiajs/react';
 import {
+    dataTableActionsCellClass,
     dataTableBodyRowClass,
     dataTableCellClass,
     dataTableCellPrimaryClass,
@@ -8,6 +9,7 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { TrainingExpiryBadge } from '@/features/organization/training/training-expiry-badge';
 import { trainingExpiryRemainingClass } from '@/features/organization/training/training-expiry';
+import { TrainingListRowActions } from '@/features/organization/training/training-list-row-actions';
 import type { TrainingListItem } from '@/features/organization/training/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -16,10 +18,20 @@ export function TrainingTableRow({
     training,
     viewHref,
     browseHref,
+    canUpdate = false,
+    canDelete = false,
+    onEdit,
+    onReplace,
+    onDelete,
 }: {
     training: TrainingListItem;
     viewHref: string;
     browseHref: string;
+    canUpdate?: boolean;
+    canDelete?: boolean;
+    onEdit?: (training: TrainingListItem) => void;
+    onReplace?: (training: TrainingListItem) => void;
+    onDelete?: (training: TrainingListItem) => void;
 }) {
     return (
         <TableRow
@@ -98,6 +110,20 @@ export function TrainingTableRow({
                 ) : (
                     <span className="text-sm text-muted-foreground">No</span>
                 )}
+            </TableCell>
+            <TableCell
+                className={cn(dataTableActionsCellClass(), 'min-w-[13.5rem]')}
+            >
+                <TrainingListRowActions
+                    viewHref={viewHref}
+                    certificateUrl={training.certificate_url}
+                    showEdit={canUpdate}
+                    onEdit={onEdit ? () => onEdit(training) : undefined}
+                    showReplace={canUpdate && !!training.certificate_url}
+                    onReplace={onReplace ? () => onReplace(training) : undefined}
+                    showDelete={canDelete}
+                    onDelete={onDelete ? () => onDelete(training) : undefined}
+                />
             </TableCell>
         </TableRow>
     );
