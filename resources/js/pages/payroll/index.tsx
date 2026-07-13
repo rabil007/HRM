@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { PayrollIndexContent } from '@/features/payroll';
+import type { CompanyVisaTypeOption } from '@/features/organization/employees/types';
 import type {
     PayrollCategoryOption,
     PayrollHubFilters,
@@ -18,6 +19,7 @@ export default function PayrollIndex({
     summary,
     payroll_categories,
     payroll_period_statuses,
+    company_visa_types,
     permissions,
 }: {
     periods: PayrollPeriodListItem[];
@@ -27,6 +29,7 @@ export default function PayrollIndex({
     summary: PayrollHubSummary;
     payroll_categories: PayrollCategoryOption[];
     payroll_period_statuses: PayrollPeriodStatusOption[];
+    company_visa_types: CompanyVisaTypeOption[];
     permissions: PayrollHubPermissions;
 }) {
     return (
@@ -40,6 +43,7 @@ export default function PayrollIndex({
                 summary={summary}
                 payroll_categories={payroll_categories}
                 payroll_period_statuses={payroll_period_statuses}
+                company_visa_types={company_visa_types}
                 permissions={permissions}
             />
         </>

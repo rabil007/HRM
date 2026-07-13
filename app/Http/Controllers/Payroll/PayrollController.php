@@ -17,6 +17,7 @@ use App\Http\Requests\Organization\Payroll\RevertPayrollPeriodToProcessingReques
 use App\Http\Requests\Organization\Payroll\StorePayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\UpsertCrewTimesheetRequest;
 use App\Models\Company;
+use App\Models\CompanyVisaType;
 use App\Models\LeaveType;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
@@ -86,6 +87,7 @@ class PayrollController extends Controller
         $search = trim((string) $request->query('search', ''));
         $category = trim((string) $request->query('category', ''));
         $status = trim((string) $request->query('status', ''));
+        $companyVisaTypeId = trim((string) $request->query('company_visa_type_id', ''));
         $dateFrom = trim((string) $request->query('date_from', ''));
         $dateTo = trim((string) $request->query('date_to', ''));
 
@@ -104,6 +106,13 @@ class PayrollController extends Controller
 
         if (in_array($status, PayrollPeriodStatus::values(), true)) {
             $query->where('status', $status);
+        }
+
+        if ($companyVisaTypeId !== '' && ctype_digit($companyVisaTypeId)) {
+            $query->whereHas(
+                'payrollRecords.employee',
+                fn (Builder $employeeQuery) => $employeeQuery->where('company_visa_type_id', (int) $companyVisaTypeId),
+            );
         }
 
         if ($this->isValidDateFilter($dateFrom)) {
@@ -128,12 +137,17 @@ class PayrollController extends Controller
             'filters' => [
                 'category' => $category,
                 'status' => $status,
+                'company_visa_type_id' => $companyVisaTypeId,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
             ],
             'summary' => PayrollHubSummary::forCompany($companyId),
             'payroll_categories' => $this->payrollCategoryOptions(),
             'payroll_period_statuses' => $this->payrollPeriodStatusOptions(),
+            'company_visa_types' => CompanyVisaType::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name']),
             'permissions' => [
                 'create_period' => $request->user()?->can('payroll.periods.create') ?? false,
                 'view_crew_timesheets' => $request->user()?->can('payroll.crew_timesheets.view') ?? false,

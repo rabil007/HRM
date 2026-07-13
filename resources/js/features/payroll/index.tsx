@@ -33,6 +33,7 @@ import { useViewPreference } from '@/hooks/use-view-preference';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
+import type { CompanyVisaTypeOption } from '@/features/organization/employees/types';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
 import { PayrollFiltersSheet } from './components/payroll-filters-sheet';
 import { PayrollPeriodCard } from './components/payroll-period-card';
@@ -60,6 +61,7 @@ export function PayrollIndexContent({
     summary,
     payroll_categories,
     payroll_period_statuses,
+    company_visa_types,
     permissions,
 }: {
     periods: PayrollPeriodListItem[];
@@ -69,6 +71,7 @@ export function PayrollIndexContent({
     summary: PayrollHubSummary;
     payroll_categories: PayrollCategoryOption[];
     payroll_period_statuses: PayrollPeriodStatusOption[];
+    company_visa_types: CompanyVisaTypeOption[];
     permissions: PayrollHubPermissions;
 }) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -81,6 +84,7 @@ export function PayrollIndexContent({
         filters: {
             category: initialFilters.category,
             status: initialFilters.status,
+            company_visa_type_id: initialFilters.company_visa_type_id,
             date_from: initialFilters.date_from,
             date_to: initialFilters.date_to,
         },
@@ -123,6 +127,7 @@ export function PayrollIndexContent({
     const activeFiltersCount = [
         initialFilters.category,
         initialFilters.status,
+        initialFilters.company_visa_type_id,
         initialFilters.date_from,
         initialFilters.date_to,
     ].filter(Boolean).length;
@@ -130,6 +135,7 @@ export function PayrollIndexContent({
     const hasActiveFilters = Boolean(
         initialFilters.category ||
         initialFilters.status ||
+        initialFilters.company_visa_type_id ||
         initialFilters.date_from ||
         initialFilters.date_to ||
         initialSearch,
@@ -405,9 +411,11 @@ export function PayrollIndexContent({
                 onOpenChange={setIsFiltersOpen}
                 payrollCategories={payroll_categories}
                 payrollPeriodStatuses={payroll_period_statuses}
+                companyVisaTypes={company_visa_types}
                 value={{
                     category: initialFilters.category,
                     status: initialFilters.status,
+                    company_visa_type_id: initialFilters.company_visa_type_id,
                     date_from: initialFilters.date_from,
                     date_to: initialFilters.date_to,
                 }}
@@ -416,6 +424,7 @@ export function PayrollIndexContent({
                     handleFiltersChange({
                         category: '',
                         status: '',
+                        company_visa_type_id: '',
                         date_from: '',
                         date_to: '',
                     })

@@ -90,6 +90,7 @@ export type PayrollHubPermissions = {
 export type PayrollHubFilters = {
     category: PayrollCategory | '';
     status: PayrollPeriodStatus | '';
+    company_visa_type_id: string;
     date_from: string;
     date_to: string;
 };

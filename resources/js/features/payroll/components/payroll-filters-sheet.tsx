@@ -2,6 +2,7 @@ import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import type { CompanyVisaTypeOption } from '@/features/organization/employees/types';
 import type {
     PayrollCategoryOption,
     PayrollHubFilters,
@@ -13,6 +14,7 @@ export function PayrollFiltersSheet({
     onOpenChange,
     payrollCategories,
     payrollPeriodStatuses,
+    companyVisaTypes,
     value,
     onChange,
     onReset,
@@ -21,6 +23,7 @@ export function PayrollFiltersSheet({
     onOpenChange: (open: boolean) => void;
     payrollCategories: PayrollCategoryOption[];
     payrollPeriodStatuses: PayrollPeriodStatusOption[];
+    companyVisaTypes: CompanyVisaTypeOption[];
     value: PayrollHubFilters;
     onChange: (next: PayrollHubFilters) => void;
     onReset: () => void;
@@ -73,6 +76,33 @@ export function PayrollFiltersSheet({
                     {payrollPeriodStatuses.map((status) => (
                         <AppSelectItem key={status.value} value={status.value}>
                             {status.label}
+                        </AppSelectItem>
+                    ))}
+                </AppSelect>
+            </div>
+
+            <div className="space-y-2">
+                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                    Sponsor
+                </Label>
+                <AppSelect
+                    value={value.company_visa_type_id}
+                    onValueChange={(next) =>
+                        onChange({
+                            ...value,
+                            company_visa_type_id: next,
+                        })
+                    }
+                    variant="dark"
+                    placeholder="All"
+                >
+                    <AppSelectItem value="">All</AppSelectItem>
+                    {companyVisaTypes.map((sponsor) => (
+                        <AppSelectItem
+                            key={sponsor.id}
+                            value={String(sponsor.id)}
+                        >
+                            {sponsor.name}
                         </AppSelectItem>
                     ))}
                 </AppSelect>
