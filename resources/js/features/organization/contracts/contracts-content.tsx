@@ -14,7 +14,7 @@ import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
-import { buildContractEmployeeUrl } from '@/features/organization/contracts/build-contract-employee-url';
+import { buildContractShowUrl } from '@/features/organization/contracts/build-contract-show-url';
 import { LIFECYCLE_FILTER_LABELS } from '@/features/organization/contracts/contracts-format';
 import { ContractsImportDialog } from '@/features/organization/contracts/contracts-import-dialog';
 import { ContractsSummaryCards } from '@/features/organization/contracts/contracts-summary-cards';
@@ -310,8 +310,8 @@ export function ContractsContent({
                                 <ContractsTableRow
                                     key={contract.id}
                                     contract={contract}
-                                    browseHref={buildContractEmployeeUrl(
-                                        contract.employee_id,
+                                    showHref={buildContractShowUrl(
+                                        contract.id,
                                         backContext,
                                     )}
                                     showOfficeColumns={showOfficeColumns}

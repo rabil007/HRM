@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implement OMS-HRM Change"
+  short_description: "Implement and verify an OMS-HRM application change."
+  default_prompt: "Implement this OMS-HRM change using existing architecture, tenant security, targeted tests, and repository verification."

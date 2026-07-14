@@ -15,6 +15,7 @@ use App\Support\Payroll\OfficeLeavePeriodSummary;
 use App\Support\Payroll\OfficePayrollCalculator;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\PayrollGenerationError;
+use App\Support\Payroll\ResolveEffectiveContractSalaryComponents;
 use App\Support\Payroll\ResolvePayrollRecordSnapshot;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +28,7 @@ final class GenerateOfficePayroll
         private readonly CountWorkingDaysInRange $countWorkingDays,
         private readonly OfficeLeavePeriodSummary $leavePeriodSummary,
         private readonly RecalculateOfficePayroll $recalculateOfficePayroll,
+        private readonly ResolveEffectiveContractSalaryComponents $resolveEffectiveComponents,
     ) {}
 
     public function handle(PayrollPeriod $period, array $excludedEmployeeIds = [], array $employeeDates = []): GeneratePayrollResult
@@ -119,7 +121,7 @@ final class GenerateOfficePayroll
 
                 try {
                     $calculated = $this->calculator->calculate(
-                        $contract->salaryComponents,
+                        $this->resolveEffectiveComponents->handle($contract, $period->start_date),
                         $workingDaysInPeriod,
                         $employeeLeaveDays,
                         $leaveSummary->toLeaveUsageArray(),

@@ -1,7 +1,25 @@
-# Documentation audit report
+# Documentation audit report (historical)
 
 **Date:** 2026-05-22  
 **Scope:** All repository `.md` files vs current codebase (through document search redesign, dashboard analytics, sharing, SMTP, permissions).
+
+> This report records the state of the repository and the work completed on 2026-05-22. Its file counts, coverage estimates, and “current” statements are historical and must not be used as a description of the present application. See the 2026-07-14 follow-up below.
+
+---
+
+## Follow-up — 2026-07-14
+
+The product surface expanded substantially after the original audit. The documentation entry points now recognize employee profile templates (which replaced the removed onboarding-template workflow), attendance and leave, payroll, training, crew operations, bulk documents, e-signing, and WhatsApp/Hikvision integrations.
+
+Corrections made during this follow-up:
+
+- Removed recruitment and browser-test claims that were not supported by active routes or test directories.
+- Replaced `/onboarding/templates` and `onboarding.templates.*` with `/organization/templates/employee-profile` and `employee_profile_templates.*`.
+- Corrected employee-import requirements: `employee_no` and `name` are the base required fields; selected profile templates may require more.
+- Removed the unsafe implication that every authenticated organization endpoint automatically has `can:` middleware. Authorization must be verified per endpoint and tested on both allowed and forbidden paths.
+- Expanded the documentation index and added the current payroll guide.
+
+The May 2026 “~80%” coverage estimate is no longer a meaningful current score. Dedicated guides remain uneven: documents and dashboard have detailed guides, payroll now has a dedicated guide, while attendance/leave, crew operations, training, bulk documents/e-signing, Hikvision, and WhatsApp still need deeper operational documentation. The route definitions, permission seeder, tests, and implementation are authoritative until those guides are completed.
 
 ---
 
@@ -97,7 +115,7 @@ Listed in Phase 5.
 - Recruitment / attendance / payroll modules (routes may exist; not fully documented until product-ready).
 - Exact permission names for every `settings.*` key (verify in `routes/settings.php` when documenting ops).
 
-### Documentation coverage score (estimate)
+### Documentation coverage score at the time (historical estimate)
 
 | Area | Before | After |
 |------|--------|-------|

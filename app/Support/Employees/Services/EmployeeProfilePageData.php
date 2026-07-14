@@ -112,6 +112,7 @@ final class EmployeeProfilePageData
                 'contracts_create' => $authUser?->can('contracts.create'),
                 'contracts_update' => $authUser?->can('contracts.update'),
                 'contracts_delete' => $authUser?->can('contracts.delete'),
+                'contracts_salary_revisions_manage' => $authUser?->can('contracts.salary_revisions.manage'),
                 'education_manage' => $authUser?->can('employees.education.manage'),
                 'work_experience_manage' => $authUser?->can('employees.work_experience.manage'),
                 'vaccination_manage' => $authUser?->can('employees.vaccination.manage'),
@@ -339,6 +340,7 @@ final class EmployeeProfilePageData
             'contracts_create' => $authUser?->can('contracts.create') ?? false,
             'contracts_update' => $authUser?->can('contracts.update') ?? false,
             'contracts_delete' => $authUser?->can('contracts.delete') ?? false,
+            'contracts_salary_revisions_manage' => $authUser?->can('contracts.salary_revisions.manage') ?? false,
             'work_experience_manage' => $authUser?->can('employees.work_experience.manage') ?? false,
             'vaccination_manage' => $authUser?->can('employees.vaccination.manage') ?? false,
             'languages_manage' => $authUser?->can('employees.languages.manage') ?? false,
@@ -408,6 +410,9 @@ final class EmployeeProfilePageData
         return EmployeeContract::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employeeId)
+            ->with(['salaryRevisions' => fn ($query) => $query
+                ->with('lines')
+                ->orderByDesc('version')])
             ->orderByDesc('start_date')
             ->orderByDesc('id')
             ->get()

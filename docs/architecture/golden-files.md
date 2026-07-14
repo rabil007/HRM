@@ -2,7 +2,7 @@
 
 Curated templates from the OMS-HRM codebase. When building a new feature, **copy patterns from these files** before inventing new ones.
 
-Related: [project-analysis.md](./project-analysis.md) · [AI_GUIDE.md](../../AI_GUIDE.md) · [.cursor/rules/](../.cursor/rules/)
+Related: [project-analysis.md](./project-analysis.md) · [AI_GUIDE.md](../../AI_GUIDE.md) · [.cursor/rules/](../../.cursor/rules/)
 
 > **Note:** This app does not use React Query or a REST API. Categories like “Query hook” and “API service” refer to existing Inertia + Laravel patterns.
 
@@ -202,7 +202,7 @@ Shows the preferred way to build **module-specific `can` props**: centralize per
 - Combines Spatie permissions with business rules (WhatsApp configured, templates exist).
 - Controller passes result as `'can' => DocumentPagePermissions::for($request->user())`.
 - Frontend gates buttons with `can.upload`, `can.delete`, etc.
-- Route middleware remains authoritative (`can:documents.upload`).
+- The matching document routes enforce capabilities with `can:` middleware (for example, `can:documents.upload`). This is the backend security boundary for this module; the frontend `can` object is UX only.
 
 **What future code should imitate**
 
@@ -303,12 +303,13 @@ Demonstrates advanced validation: domain folder structure, shared rules via Conc
 - Namespace mirrors domain: `Requests/Organization/EmployeeDocument/`.
 - `use AppliesEmployeeDocumentTemplateRules` for conditional fields from employee profile template.
 - Explicit file rules: `mimes`, `mimetypes`, max sizes.
-- `authorize()` returns true when route middleware already enforces permission (documented pattern).
+- This request currently returns `true` from `authorize()` because its document-upload routes independently enforce `can:documents.upload` before the controller runs. That dependency is specific to these routes and must be verified whenever the request is reused.
 
 **What future code should imitate**
 
 - Extract reusable rule groups into `Requests/.../Concerns/` traits.
 - Simple entities can follow `StoreBranchRequest.php`; use this file when validation varies by template/config.
+- Prefer an explicit permission or policy check in `authorize()` when the request can be reached from more than one route, or when authorization depends on the bound model or business state. Never copy `return true` without an independently tested backend authorization boundary.
 
 **Also see:** `app/Http/Requests/Organization/Branch/StoreBranchRequest.php` — straightforward rules array.
 

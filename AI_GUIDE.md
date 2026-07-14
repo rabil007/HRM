@@ -1,6 +1,6 @@
 # AI Guide (OMS-HRM)
 
-Entry point for AI agents working in this repository. Read this file first — it replaces the need to scan conversation history or the entire codebase.
+Detailed reference for AI agents working in this repository. Start with [docs/README.md](docs/README.md), then read only the relevant section here or the relevant domain guide. Do not load this entire file for a narrow task.
 
 **Deeper docs:** [docs/architecture/project-analysis.md](docs/architecture/project-analysis.md) · [docs/architecture/domains.md](docs/architecture/domains.md) · [docs/architecture/golden-files.md](docs/architecture/golden-files.md) · [docs/permissions.md](docs/permissions.md) · [AGENTS.md](AGENTS.md) (Laravel Boost rules + skills)
 
@@ -31,7 +31,7 @@ OMS-HRM is a **multi-tenant HR / crew operations monolith**. There is **no REST 
 ```
 Browser
   └── Fortify auth + SetCurrentCompany middleware
-        └── Route middleware (can:permission)
+        └── Route authorization (usually can:permission; audit every endpoint)
               └── Controller → Support/Services
                     └── Inertia::render() → React (resources/js)
                           └── Wayfinder typed routes/actions
@@ -41,12 +41,12 @@ Browser
 |---------|---------|
 | Data fetching | Server Inertia props — **not** React Query |
 | Mutations | `useForm`, `<Form>`, `router.post/put/delete` |
-| Authorization | Spatie permissions + route `can:` middleware |
+| Authorization | Spatie permissions, usually enforced by route `can:` middleware; controller/request checks exist in some workflows |
 | Domain logic | `app/Support/` (queries, actions, presenters) |
 | Integrations | `app/Services/` (email, WhatsApp, PDF merge, Hikvision) |
-| Tenancy | Session `current_company_id` scopes all org data |
+| Tenancy | Session `current_company_id` supplies the active tenant; every tenant-owned query must apply it explicitly |
 
-**Do not introduce:** REST APIs, React Query/TanStack Query, Redux/Zustand, Eloquent policies, TanStack Table, client-side validation libraries (Zod/Yup).
+**Do not introduce without architectural approval:** REST APIs, React Query/TanStack Query, Redux/Zustand, TanStack Table, or client-side validation libraries (Zod/Yup). Use the existing Spatie permission model; add a gate or policy when authorization depends on a bound model or business state.
 
 ---
 
@@ -57,7 +57,7 @@ Browser
 ```
 app/
 ├── Http/Controllers/     Grouped by domain (Organization, Settings, Attendance, Hikvision)
-├── Http/Requests/      Form validation (~127 files, domain subfolders)
+├── Http/Requests/        Form validation grouped by domain
 ├── Http/Middleware/      SetCurrentCompany, HandleInertiaRequests
 ├── Models/               Eloquent + LogsActivityWithCompany
 ├── Support/              Domain queries, actions, guards (preferred for business logic)
@@ -78,7 +78,7 @@ resources/js/
 ├── features/             Domain UI (fat screens, dialogs, rows)
 ├── components/           Shared cross-domain UI
 │   └── ui/               shadcn/Radix primitives (do not duplicate)
-├── hooks/                Global custom hooks (13 files)
+├── hooks/                Global custom hooks
 ├── layouts/              app-layout, auth-layout, settings
 ├── lib/                  utils, toast, design-system
 ├── types/                Global TS + Inertia augmentation
@@ -102,7 +102,7 @@ pages/organization/
 
 ## 3. Domain relationships
 
-Multi-company HR system. All org data scoped by `company_id`.
+Multi-company HR system. Tenant-owned organization data must be scoped by `company_id`.
 
 ```mermaid
 erDiagram
@@ -141,7 +141,8 @@ Full domain map: [docs/architecture/domains.md](docs/architecture/domains.md)
 ## 4. Permission system
 
 - **Spatie Permission** with **teams enabled** — team key = `company_id` (`config/permission.php`).
-- **No Eloquent policies** — routes use `->middleware('can:permission.name')`.
+- Most organization routes use `->middleware('can:permission.name')`; do not assume that an authenticated route is authorized merely because neighboring routes are.
+- The codebase currently relies primarily on route middleware and explicit guards rather than a complete Eloquent policy layer.
 - Permissions seeded in `database/seeders/PermissionsSeeder.php` (dot notation: `employees.view`, `documents.upload`).
 - Re-seed after adding permissions: `php artisan db:seed --class=PermissionsSeeder`
 
@@ -159,6 +160,8 @@ Module-specific UI flags via Support classes:
 ```
 
 Static guards for cross-entity checks: `DocumentAccess::assertEmployeeInCompany(...)`.
+
+Authorization must be verified endpoint by endpoint. Authentication, tenant scoping, and a hidden frontend action are not substitutes for a backend capability check. When adding or changing a route, add allowed and forbidden tests; pay special attention to operational pages and mutation routes that may not yet have a `can:` middleware declaration.
 
 ### Frontend (UX only)
 
@@ -433,7 +436,7 @@ Copy patterns from these before inventing new ones. Full rationale: [docs/archit
 ### Architecture
 
 - ❌ Adding React Query, Redux, or a REST API layer
-- ❌ Creating Eloquent policies (use Spatie + route middleware)
+- ❌ Leaving a privileged action without backend authorization; use Spatie route middleware for simple capabilities and a gate/policy for model- or state-specific checks
 - ❌ Putting business logic in controllers instead of `app/Support/`
 - ❌ Creating new top-level folders without approval
 - ❌ Using `Route::resource()`
@@ -483,12 +486,13 @@ See [docs/document-search.md](docs/document-search.md), [docs/document-managemen
 
 ## Domain-specific notes
 
-### Employee onboarding
+### Employee profile templates and creation
 
-- Template builder: `/onboarding/templates/*` (`OnboardingTemplateController`)
-- Create flow: `/organization/employees/create` — dynamic fields from onboarding template
-- Backend: `EmployeeController@store` + `CreateEmployee` action (employee + contract + bank + documents)
-- Profile driven by `EmployeeProfileTemplate` — field visibility via template helpers in `pages/organization/_lib/`
+- Template builder: `/organization/templates/employee-profile` (`EmployeeProfileTemplateController`)
+- Permissions: `employee_profile_templates.view|create|update|delete`
+- Create flow: `/organization/employees/create` — profile fields and required rules can be driven by the selected template
+- Backend: `EmployeeController@store` + `CreateEmployee` action (employee and related profile records)
+- Profile and import validation use `EmployeeProfileTemplate` helpers in `app/Support/EmployeeProfileTemplates/` and `pages/organization/_lib/`
 
 ### Users ↔ employees
 
@@ -526,4 +530,5 @@ Support `format=csv|xlsx|pdf`; respect current search/filters via query string.
 | [docs/architecture/domains.md](docs/architecture/domains.md) | Business domains + workflows |
 | [docs/architecture/golden-files.md](docs/architecture/golden-files.md) | Best reference implementations |
 | [docs/README.md](docs/README.md) | Product docs index |
+| [docs/payroll.md](docs/payroll.md) | Payroll workflows, states, permissions, and exports |
 | [AGENTS.md](AGENTS.md) | Laravel Boost agent rules + skill activation |

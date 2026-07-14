@@ -36,7 +36,9 @@ use App\Http\Controllers\Organization\BulkDocuments\RejectBulkDocumentSignatureC
 use App\Http\Controllers\Organization\BulkDocuments\UploadBulkDocumentSignatureController;
 use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\CompanySwitchController;
+use App\Http\Controllers\Organization\ContractSalaryRevisionController;
 use App\Http\Controllers\Organization\ContractsExportController;
+use App\Http\Controllers\Organization\ContractShowController;
 use App\Http\Controllers\Organization\ContractsImportController;
 use App\Http\Controllers\Organization\ContractsIndexController;
 use App\Http\Controllers\Organization\ContractsNoContractController;
@@ -386,6 +388,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('organization/contracts/import', [ContractsImportController::class, 'import'])
             ->middleware('can:contracts.import')
             ->name('organization.contracts.import');
+        Route::get('organization/contracts/{employeeContract}', ContractShowController::class)->name('organization.contracts.show');
     });
 
     Route::middleware('can:bank_accounts.view')->group(function () {
@@ -422,6 +425,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/employees/{employee}/contracts', [EmployeeContractController::class, 'store'])->middleware('can:contracts.create')->name('organization.employees.contracts.store');
     Route::put('organization/employees/{employee}/contracts/{employeeContract}', [EmployeeContractController::class, 'update'])->middleware('can:contracts.update')->name('organization.employees.contracts.update');
     Route::delete('organization/employees/{employee}/contracts/{employeeContract}', [EmployeeContractController::class, 'destroy'])->middleware('can:contracts.delete')->name('organization.employees.contracts.destroy');
+    Route::post('organization/employees/{employee}/contracts/{employeeContract}/salary-revisions', [ContractSalaryRevisionController::class, 'store'])->middleware('can:contracts.salary_revisions.manage')->name('organization.employees.contracts.salary-revisions.store');
 
     Route::post('organization/employees/{employee}/education', [EmployeeEducationQualificationController::class, 'store'])->middleware('can:employees.education.manage')->name('organization.employees.education.store');
     Route::put('organization/employees/{employee}/education/{qualification}', [EmployeeEducationQualificationController::class, 'update'])->middleware('can:employees.education.manage')->name('organization.employees.education.update');

@@ -77,6 +77,11 @@ class EmployeeContract extends Model
         return $this->hasMany(ContractSalaryComponent::class, 'contract_id');
     }
 
+    public function salaryRevisions(): HasMany
+    {
+        return $this->hasMany(ContractSalaryRevision::class, 'contract_id');
+    }
+
     public function resolvedSalaryStructure(): ContractSalaryStructure
     {
         if ($this->salary_structure !== null) {

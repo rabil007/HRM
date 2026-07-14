@@ -1,6 +1,6 @@
 ---
 description: Data flow — Inertia props, mutations, Wayfinder, flash messages; no React Query
-globs: resources/js/**,app/Http/Controllers/**
+globs:
 alwaysApply: false
 ---
 

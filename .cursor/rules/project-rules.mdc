@@ -1,35 +1,28 @@
 ---
-description: OMS-HRM project index — follow domain rules below; full analysis in docs/architecture/project-analysis.md
+description: Critical OMS-HRM constraints and context routing
 alwaysApply: true
 ---
 
-# OMS-HRM Project Rules (Index)
+# OMS-HRM Core Rules
 
-This repo is a **Laravel 13 + Inertia v3 + React 19** monolith with company-scoped Spatie permissions. Do not introduce REST APIs, React Query, global state stores, or Eloquent policies.
-
-## Domain rule files
-
-| Area | Rule file |
-|------|-----------|
-| Shared UI | `.cursor/rules/components.mdc` |
-| Inertia pages | `.cursor/rules/pages.mdc` |
-| Hooks | `.cursor/rules/hooks.mdc` |
-| Forms | `.cursor/rules/forms.mdc` |
-| Tables | `.cursor/rules/tables.mdc` |
-| Dialogs & sheets | `.cursor/rules/dialogs.mdc` |
-| Data & routing | `.cursor/rules/api.mdc` |
-| Authorization | `.cursor/rules/permissions.mdc` |
-| PHP / Laravel | `.cursor/rules/backend.mdc` |
-| TypeScript | `.cursor/rules/typescript.mdc` |
-| Performance | `.cursor/rules/performance.mdc` |
-| Tests | `.cursor/rules/testing.mdc` |
+Laravel 13 + Inertia v3 + React 19 monolith with company-scoped Spatie permissions.
 
 ## Non-negotiables
 
-- Extend existing abstractions before creating new ones.
-- Domain logic → `app/Support/`; integrations → `app/Services/`.
-- UI in `resources/js/features/`; keep `resources/js/pages/` thin.
-- Every change needs a targeted Pest test.
-- Run `vendor/bin/pint --dirty` after PHP edits.
+- Scope every tenant-owned query and mutation to the active `company_id`.
+- Enforce authorization on the backend; frontend `can` flags are UX only.
+- Never return decrypted SMTP, WhatsApp, Hikvision, signing, or other credentials to the browser. Return masked values and `has_*` flags; preserve stored secrets when an update submits an empty credential.
+- Extend existing Support, Service, component, and hook abstractions before creating another pattern.
+- Use Wayfinder for frontend routes and actions; do not hardcode application URLs.
+- Add or update the smallest relevant Pest test for every behavior change.
+- Run `vendor/bin/pint --dirty --format agent` after PHP edits and the relevant frontend checks after TypeScript edits.
 
-**Full analysis:** `docs/architecture/project-analysis.md` · **Contributor guide:** `AI_GUIDE.md`
+## Context routing
+
+- Let scoped `.cursor/rules/*.mdc` attach based on the files being changed.
+- Use `docs/README.md` to select only the relevant domain guide.
+- Use `docs/architecture/golden-files.md` to find preferred implementation examples.
+- Use `AI_GUIDE.md` only when broader architectural context is necessary; do not load it for every task.
+- Invoke `implement-oms-change` for end-to-end changes and `review-oms-security` for tenant, authorization, or credential-sensitive work.
+
+Do not introduce REST APIs, React Query, Redux/Zustand, TanStack Table, or client-side validation libraries without architectural approval.

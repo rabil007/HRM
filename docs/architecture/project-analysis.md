@@ -23,7 +23,7 @@ Browser
 |------|---------|
 | Data fetching | Server-driven Inertia props; no React Query / TanStack Query |
 | Mutations | `useForm`, `<Form>`, or `router.post/put/delete` |
-| Authorization | Spatie Permission with company teams; route `can:` middleware |
+| Authorization | Spatie Permission with company teams; primarily route `can:` middleware, with known gaps documented below |
 | Domain logic | `app/Support/` (queries, actions, presenters) |
 | Integrations | `app/Services/` (WhatsApp, Hikvision, email, PDF merge) |
 | Audit | Spatie Activity Log via `LogsActivityWithCompany` |
@@ -39,15 +39,15 @@ There is **no REST API layer** (`routes/api.php` is empty). JSON responses exist
 ### Repository root
 
 ```
-app/                    Application code (~375 PHP files)
+app/                    Application code
 ├── Actions/            Fortify user actions
 ├── Http/
-│   ├── Controllers/    Grouped by domain (Organization, Settings, Attendance, Hikvision)
+│   ├── Controllers/    Grouped by domain (Organization, Settings, Attendance, Payroll, Hikvision, Public)
 │   ├── Middleware/     SetCurrentCompany, HandleInertiaRequests, HandleAppearance
-│   └── Requests/       Form requests by domain (~127 files)
+│   └── Requests/       Form requests grouped by domain
 ├── Models/             Eloquent models + Concerns/
 ├── Services/           External integrations & app-wide services
-├── Support/            Domain queries, actions, presenters (~78 files)
+├── Support/            Domain queries, actions, presenters
 └── Providers/          FortifyServiceProvider, AppServiceProvider
 
 bootstrap/app.php       Middleware stack, 403 Inertia rendering
@@ -56,7 +56,7 @@ database/               migrations, factories, seeders
 docs/                   Product & architecture documentation
 resources/
 ├── css/                Tailwind v4 + design-system tokens
-└── js/                 React/Inertia frontend (~470 files)
+└── js/                 React/Inertia frontend
 routes/
 ├── web.php             Main app routes
 ├── settings.php        Settings hub & master data
@@ -75,7 +75,7 @@ features/       Domain UI modules (fat screens)
 components/     Shared UI (data-table, page-header, pagination, …)
   ui/           shadcn/Radix primitives (31 components)
 layouts/        app-layout, auth-layout, settings layout
-hooks/          Global custom hooks (13 files)
+hooks/          Global custom hooks
 lib/            utils, toast, design-system tokens, cookies
 types/          Global TS types + Inertia module augmentation
 actions/        Wayfinder-generated controller actions (do not edit)
@@ -244,9 +244,20 @@ EmployeeDocumentController.destroy.url({ employee, document });
 ### Backend
 
 1. **`SetCurrentCompany` middleware** sets `current_company_id` and Spatie team ID.
-2. **Route middleware** enforces permissions: `->middleware('can:documents.view')`.
-3. **No Eloquent policies** — there is no `app/Policies/` directory.
-4. **Form Request `authorize()`** typically returns `(bool) $this->user()`; real enforcement is on routes.
+2. **Capability middleware** is the dominant enforcement pattern: `->middleware('can:documents.view')`.
+3. **No Eloquent policies currently exist** — there is no `app/Policies/` directory. This describes the present implementation, not a prohibition against policies.
+4. **Form Request `authorize()` is part of the authorization boundary.** It may delegate to a permission/policy check. Returning only `(bool) $this->user()` is safe only when the exact action is independently protected before controller execution; new code should make that dependency explicit and add a forbidden-access test.
+
+### Known authorization gaps
+
+The codebase does **not** currently protect every authenticated route with a capability permission. At the time of this analysis, examples include the application log viewer, queue/job controls, database viewer, attendance overview, some crew-operations surfaces, and several payroll/timesheet/salary-input/payslip endpoints. These are current exceptions and security debt—not patterns to copy.
+
+For new or changed privileged endpoints:
+
+- require the narrowest seeded permission at the route, Form Request, controller, gate, or policy layer;
+- enforce tenant ownership separately from capability checks;
+- add tests proving an authenticated user without the permission receives `403`;
+- never rely on frontend `can` flags or hidden buttons as enforcement.
 
 Permissions use dot notation seeded in `database/seeders/PermissionsSeeder.php`:
 
@@ -301,12 +312,12 @@ const canCreate = useHasPermission('branches.create');
 
 | Mechanism | Usage |
 |-----------|-------|
-| `useForm` | Primary CRUD forms (~40 files) |
+| `useForm` | Primary CRUD forms |
 | `<Form>` (Inertia v3) | Auth pages, some security flows |
 | `useState` | Dialog open, selected row, view mode |
 | `usePage()` | Shared Inertia props (auth, settings, flash) |
 | `router` | Navigation, deletes, filter visits |
-| `useHttp` | Rare standalone XHR (2 files) |
+| `useHttp` | Rare standalone XHR |
 | React Context | Layout preferences, search only |
 
 ### Server-side filter/pagination state
@@ -331,7 +342,7 @@ Domain-specific hooks live in features:
 | Form requests | `{Verb}{Entity}Request` | `StoreBranchRequest.php` |
 | Support classes | Domain noun/verb | `DocumentBrowseQuery`, `LeaveBalanceManager` |
 | Actions | Verb phrase + `handle()` | `CreateEmployee.php` |
-| Permissions | dot-separated | `employees.contracts.manage` |
+| Permissions | dot-separated | `contracts.update` |
 | Routes (URL) | kebab-case | `/organization/crew-deployments` |
 | Routes (name) | dot notation | `organization.documents.employee.files.show` |
 
@@ -446,7 +457,7 @@ Domain-specific hooks live in features:
 ### Architecture
 
 - Do **not** introduce a REST API or React Query unless explicitly approved.
-- Do **not** add Eloquent policies — use Spatie permissions + route middleware.
+- Prefer the established Spatie permission names and route middleware. A policy or gate is appropriate when authorization depends on the model or business state; do not leave an action unauthorised merely to avoid introducing one.
 - Do **not** create new top-level folders (`app/`, `resources/js/`) without approval.
 - Put domain logic in `app/Support/`, not controllers.
 - Keep Inertia pages thin; put UI in `features/`.
@@ -475,9 +486,10 @@ Domain-specific hooks live in features:
 
 ### Permissions
 
-- Backend route middleware is authoritative.
+- Backend authorization is authoritative. Route `can:` middleware is preferred for simple capability checks; policies, gates, or Form Request authorization may enforce model- or state-specific rules.
 - Frontend `can` props and `useHasPermission` are for UX only.
 - Pass module-specific `can` objects from dedicated Support classes (e.g. `DocumentPagePermissions`).
+- Treat authenticated-only operational routes without capability middleware as known gaps to fix, not precedent.
 
 ### Activity / audit
 

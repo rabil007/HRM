@@ -363,6 +363,8 @@ test('contract store persists supplementary and site allowances', function () {
     $this->post(route('organization.employees.contracts.store', $employee), [
         'start_date' => '2026-01-01',
         'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'daily',
         'basic_salary' => 50,
         'supplementary_allowance' => 428,
         'site_allowance' => 715,

@@ -1,0 +1,19 @@
+# Dependencies, caches, build output, logs, and generated code add retrieval noise.
+vendor/**
+node_modules/**
+bootstrap/cache/**
+storage/framework/**
+storage/logs/**
+public/build/**
+public/hot
+coverage/**
+test-results/**
+.phpunit.cache/**
+.phpunit.result.cache
+.cursor/debug-*.log
+
+# Wayfinder output remains agent-readable when explicitly requested.
+resources/js/actions/**
+resources/js/routes/**
+resources/js/wayfinder/**
+

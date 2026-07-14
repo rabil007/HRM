@@ -19,6 +19,9 @@ final class ContractEmployeeBrowseQuery
         $contracts = EmployeeContract::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employee->id)
+            ->with(['salaryRevisions' => fn ($query) => $query
+                ->with('lines')
+                ->orderByDesc('version')])
             ->orderByDesc('start_date')
             ->orderByDesc('id')
             ->get()

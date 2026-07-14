@@ -1,6 +1,6 @@
 ---
 description: Spatie permission teams, route middleware, frontend can props and useHasPermission
-globs: app/Http/Controllers/**,routes/**,resources/js/**,database/seeders/PermissionsSeeder.php
+globs:
 alwaysApply: false
 ---
 

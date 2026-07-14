@@ -17,6 +17,7 @@ use App\Support\Payroll\CrewPayrollCalculator;
 use App\Support\Payroll\GeneratePayrollResult;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\PayrollGenerationError;
+use App\Support\Payroll\ResolveEffectiveContractSalaryComponents;
 use App\Support\Payroll\ResolvePayrollRecordSnapshot;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -27,6 +28,7 @@ final class GenerateCrewPayroll
         private readonly CrewPayrollCalculator $calculator,
         private readonly CrewMonthlyPayrollCalculator $monthlyCalculator,
         private readonly RecalculateCrewPayroll $recalculateCrewPayroll,
+        private readonly ResolveEffectiveContractSalaryComponents $resolveEffectiveComponents,
     ) {}
 
     public function handle(PayrollPeriod $period, array $excludedEmployeeIds = []): GeneratePayrollResult
@@ -105,8 +107,8 @@ final class GenerateCrewPayroll
 
                 try {
                     $recordAttributes = $contract->resolvedSalaryStructure() === ContractSalaryStructure::Monthly
-                        ? $this->buildMonthlyRecordAttributes($employee, $contract, $timesheet, $workingDaysInPeriod)
-                        : $this->buildDailyRecordAttributes($employee, $contract, $timesheet, $workingDaysInPeriod);
+                        ? $this->buildMonthlyRecordAttributes($employee, $contract, $timesheet, $workingDaysInPeriod, $period)
+                        : $this->buildDailyRecordAttributes($employee, $contract, $timesheet, $workingDaysInPeriod, $period);
                 } catch (ValidationException $exception) {
                     $errors[] = PayrollGenerationError::fromValidationException($employee, $exception);
 
@@ -156,10 +158,11 @@ final class GenerateCrewPayroll
         EmployeeContract $contract,
         CrewTimesheet $timesheet,
         int $workingDaysInPeriod,
+        PayrollPeriod $period,
     ): array {
         $calculated = $this->calculator->calculate(
             $timesheet,
-            $contract->salaryComponents,
+            $this->resolveEffectiveComponents->handle($contract, $period->start_date),
             CrewOvertimeMonthlySalary::STANDARD_PERIOD_DAYS,
             $workingDaysInPeriod,
         );
@@ -207,10 +210,11 @@ final class GenerateCrewPayroll
         EmployeeContract $contract,
         CrewTimesheet $timesheet,
         int $workingDaysInPeriod,
+        PayrollPeriod $period,
     ): array {
         $calculated = $this->monthlyCalculator->calculate(
             $timesheet,
-            $contract->salaryComponents,
+            $this->resolveEffectiveComponents->handle($contract, $period->start_date),
             $workingDaysInPeriod,
         );
 

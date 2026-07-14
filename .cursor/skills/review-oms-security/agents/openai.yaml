@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review OMS-HRM Security"
+  short_description: "Review tenant authorization and credential handling."
+  default_prompt: "Review this OMS-HRM change for tenant isolation, authorization, credential exposure, and safe secret updates."

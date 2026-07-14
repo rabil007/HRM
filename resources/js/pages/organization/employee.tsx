@@ -702,6 +702,11 @@ function EmployeeDetailsPage({
                                         canDelete={
                                             can?.contracts_delete ?? false
                                         }
+                                        canManageSalaryRevisions={
+                                            can?.contracts_salary_revisions_manage ??
+                                            false
+                                        }
+                                        contractShowFrom="profile"
                                         ensureEmployee={
                                             isCreateMode
                                                 ? ensureEmployee

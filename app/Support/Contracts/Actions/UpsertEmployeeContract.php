@@ -10,6 +10,7 @@ final class UpsertEmployeeContract
 {
     public function __construct(
         private readonly SyncContractSalaryComponentsFromContract $syncSalaryComponents,
+        private readonly ApplyContractSalaryRevision $applySalaryRevision,
     ) {}
 
     /**
@@ -20,6 +21,9 @@ final class UpsertEmployeeContract
         Employee $employee,
         array $attributes,
         ?EmployeeContract $existing = null,
+        ?int $createdBy = null,
+        ?string $revisionEffectiveFrom = null,
+        ?string $revisionReason = null,
     ): EmployeeContract {
         if (($attributes['status'] ?? $existing?->status ?? 'active') === 'active') {
             $this->deactivateOtherContracts($companyId, $employee->id, $existing?->id);
@@ -31,14 +35,81 @@ final class UpsertEmployeeContract
                 'employee_id' => $employee->id,
                 ...$attributes,
             ]);
-        } else {
-            $existing->update($attributes);
-            $contract = $existing->fresh();
+
+            $this->createRevisionIfNeeded(
+                $contract,
+                ApplyContractSalaryRevision::amountsFromContract($contract),
+                $contract->start_date?->toDateString() ?? now()->toDateString(),
+                $revisionReason ?? 'Initial contract salary',
+                $createdBy,
+            );
+
+            return $contract->fresh();
+        }
+
+        $beforeAmounts = ApplyContractSalaryRevision::amountsFromContract($existing);
+        $existing->update($attributes);
+        $contract = $existing->fresh();
+        $afterAmounts = ApplyContractSalaryRevision::amountsFromContract($contract);
+
+        $hasRevisions = $contract->salaryRevisions()->exists();
+
+        if (! $hasRevisions) {
+            $this->createRevisionIfNeeded(
+                $contract,
+                $afterAmounts,
+                $contract->start_date?->toDateString() ?? now()->toDateString(),
+                $revisionReason ?? 'Initial contract salary',
+                $createdBy,
+            );
+
+            return $contract->fresh();
+        }
+
+        if (ApplyContractSalaryRevision::salaryPackageChanged($beforeAmounts, $afterAmounts)) {
+            $this->createRevisionIfNeeded(
+                $contract,
+                $afterAmounts,
+                $revisionEffectiveFrom ?? now()->toDateString(),
+                $revisionReason,
+                $createdBy,
+            );
+
+            return $contract->fresh();
         }
 
         $this->syncSalaryComponents->handle($contract);
 
         return $contract;
+    }
+
+    /**
+     * @param  array<string, float|int|string|null>  $amounts
+     */
+    private function createRevisionIfNeeded(
+        EmployeeContract $contract,
+        array $amounts,
+        string $effectiveFrom,
+        ?string $reason,
+        ?int $createdBy,
+    ): void {
+        $hasPositiveAmount = collect($amounts)->contains(
+            fn (mixed $amount): bool => $amount !== null && $amount !== '' && (float) $amount > 0,
+        );
+
+        if (! $hasPositiveAmount) {
+            $this->syncSalaryComponents->handle($contract);
+
+            return;
+        }
+
+        $this->applySalaryRevision->handle(
+            $contract,
+            $amounts,
+            $effectiveFrom,
+            $reason,
+            $createdBy,
+        );
     }
 
     private function deactivateOtherContracts(int $companyId, int $employeeId, ?int $exceptId = null): void

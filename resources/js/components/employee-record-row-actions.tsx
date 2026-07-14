@@ -1,15 +1,18 @@
-import { Pencil, Trash2 } from 'lucide-react';
+import { Link } from '@inertiajs/react';
+import { Eye, Pencil, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 type EmployeeRecordRowActionsProps = {
+    viewHref?: string;
     onEdit?: () => void;
     onDelete?: () => void;
     className?: string;
 };
 
 export function EmployeeRecordRowActions({
+    viewHref,
     onEdit,
     onDelete,
     className,
@@ -23,6 +26,21 @@ export function EmployeeRecordRowActions({
             onClick={(event) => event.stopPropagation()}
             role="presentation"
         >
+            {viewHref ? (
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100"
+                    title="View"
+                    aria-label="View"
+                    asChild
+                >
+                    <Link href={viewHref}>
+                        <Eye className="size-4" />
+                    </Link>
+                </Button>
+            ) : null}
             {onEdit ? (
                 <Button
                     type="button"

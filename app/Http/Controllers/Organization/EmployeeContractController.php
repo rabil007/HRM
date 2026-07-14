@@ -35,7 +35,12 @@ class EmployeeContractController extends Controller
             'Enter at least one contract field before saving.',
         );
 
-        $this->upsertEmployeeContract->handle($companyId, $employee, $attributes);
+        $this->upsertEmployeeContract->handle(
+            $companyId,
+            $employee,
+            $attributes,
+            createdBy: $request->user()?->id,
+        );
 
         return back()->with('success', 'Contract added.');
     }
@@ -66,6 +71,9 @@ class EmployeeContractController extends Controller
             $employee,
             $attributes,
             $employeeContract,
+            createdBy: $request->user()?->id,
+            revisionEffectiveFrom: $validated['revision_effective_from'] ?? null,
+            revisionReason: $validated['revision_reason'] ?? null,
         );
 
         return back()->with('success', 'Contract updated.');
@@ -112,6 +120,8 @@ class EmployeeContractController extends Controller
             'supplementary_allowance' => ['nullable', 'numeric', 'min:0'],
             'site_allowance' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],
+            'revision_effective_from' => ['nullable', 'date'],
+            'revision_reason' => ['nullable', 'string', 'max:2000'],
         ]);
     }
 

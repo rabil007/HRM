@@ -102,7 +102,7 @@ sequenceDiagram
 
 1. User logs in (Fortify).
 2. `SetCurrentCompany` picks session company or falls back to `user.company_id`.
-3. All org controllers read `(int) $request->attributes->get('current_company_id')`.
+3. Company-scoped controllers resolve the active tenant from the request attribute (commonly `(int) $request->attributes->get('current_company_id')`) rather than client input.
 4. User switches company via sidebar → `CompanySwitchController` → `session('current_company_id')`.
 
 **Future code must:** never trust client-supplied `company_id` for authorization; always scope queries by request attribute.
@@ -162,7 +162,7 @@ In OMS-HRM, **“teams” means Spatie Permission teams**, not a standalone Team
 
 ### Purpose
 
-Cross-cutting authorization layer. Every org module is gated by named permissions (dot notation). Backend enforcement via route middleware; frontend hides actions via shared props and `useHasPermission`.
+Cross-cutting authorization layer. Named permissions use dot notation and are scoped to the active company team. Backend checks are authoritative; frontend checks only shape the UI.
 
 ### Main models
 
@@ -171,7 +171,7 @@ Cross-cutting authorization layer. Every org module is gated by named permission
 | `Spatie\Permission\Models\Permission` | Global permission catalog |
 | `Spatie\Permission\Models\Role` | Company-scoped roles |
 
-No Eloquent Policy classes — authorization is permission-based only.
+No Eloquent Policy classes currently exist; most authorization is permission-based. This is a description of the current codebase, not a rule against using a policy or gate when access depends on a bound model or business state.
 
 ### Relationships
 
@@ -180,7 +180,7 @@ No Eloquent Policy classes — authorization is permission-based only.
 
 ### Controllers
 
-All org routes in `routes/web.php` use `->middleware('can:permission.name')`.
+Most organization and settings routes use `->middleware('can:permission.name')`. Some authenticated operational routes still have no capability middleware, including parts of payroll and the log/job/database utilities. Those are known authorization gaps, not examples to follow.
 
 Dedicated Support:
 
@@ -201,16 +201,21 @@ Examples (full list in seeder):
 |-------|-------------------|
 | Companies | `companies.view`, `.create`, `.update`, `.delete`, `.export` |
 | Branches | `branches.*` |
-| Employees | `employees.view`, `.create`, `.update`, `.delete`, `.export`, `.import`, sub-record `.manage` |
+| Employees | `employees.view`, `.create`, `.update`, `.delete`, `.export`, `.import`, `.identity.import`, sub-record `.manage` |
 | Documents | `documents.view`, `.download`, `.share`, `.upload`, `.delete` |
-| Crew | `crew_operations.deployments.view`, `.create`, `.update`, `.delete`, `.export`, `crew_operations.vessel_manning.view`, `.create`, `.update`, `.delete` |
+| Contracts / bank / training | `contracts.*`, `bank_accounts.*`, `training.*` |
+| Crew | `crew_operations.deployments.*`, `crew_operations.overview.view`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*` |
+| Attendance / leave | `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` |
+| Payroll | `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, payslip and WPS actions |
+| Bulk documents | `bulk_documents.view`, `.generate`, `.delete`, `.email`, `.signatures.review` |
+| Hikvision | `hikvision.persons.*`, `hikvision.devices.*`, `hikvision.events.*`, `hikvision.webhook.manage` |
 | Users / roles | `users.*`, `roles.*` |
 | Audit | `audit.view` |
 
 ### Important workflows
 
 1. Seed permissions → assign to roles per company → assign roles to users.
-2. Request hits route → Laravel `can:` middleware checks permission for current Spatie team.
+2. Request hits the backend authorization boundary → route middleware, a gate/policy, or Form Request checks the permission for the current Spatie team.
 3. Controller passes module `can` props to Inertia for UI gating.
 4. `HandleInertiaRequests` shares flat `auth.permissions[]` for nav checks.
 
@@ -335,7 +340,6 @@ Core HR record: identity, assignment (branch, department, position, rank), emplo
 | `EmployeeVaccination` | Vaccination records |
 | `EmployeeLanguage` | Languages |
 | `EmployeeSeaService` | Offshore/sea service history |
-| `OnboardingTemplate` | Employee creation pipeline |
 
 Master data refs: `Department`, `Position`, `Rank`, `Gender`, `Religion`, `VisaType`, `CompanyVisaType`, `Country`, `Bank`
 
@@ -353,7 +357,6 @@ flowchart LR
     Employee --> EmployeeContract
     Employee --> EmployeeSeaService
     Employee --> EmployeeProfileTemplate
-    Employee -->|manager_id| Employee
 ```
 
 ### Controllers
@@ -388,13 +391,13 @@ flowchart LR
 | `employees.update` | Profile edit, status |
 | `employees.delete` | Remove employee |
 | `employees.export` | Export directory |
-| `employees.import` + granular `.identity.import`, `.contracts.import`, `.bank_accounts.import` | CSV import columns |
-| `contracts.*`, `bank_accounts.*`, `training.*` (view/create/update/delete/import) | Contracts, bank accounts, training modules |
+| `employees.import` + `employees.identity.import` | Base import and identity columns |
+| `contracts.*`, `bank_accounts.*`, `training.*` (view/create/update/delete/import) | Contracts, bank accounts, training modules and their import columns |
 | `employees.education.manage`, `.work_experience.manage`, `.vaccination.manage`, `.languages.manage`, `.sea_service.manage` | Profile tabs |
 
 ### Important workflows
 
-1. **Create** — onboarding template drives fields; `CreateEmployee` action persists employee + contract + bank + documents.
+1. **Create** — employee profile template drives fields; `CreateEmployee` action persists the employee and supported nested records.
 2. **Profile tabs** — template controls visible fields; each tab posts to nested resource controllers.
 3. **Link user** — `EmployeeUserController` creates `User` with `users.create`.
 4. **Import** — preview → commit with column-level permission checks.
@@ -579,6 +582,149 @@ Support: `VesselManningIndexQuery`, `SyncVesselManning`
 
 ---
 
+## Crew Planning and Operations
+
+### Purpose
+
+Plan employee assignments against vessels and expose an operational overview alongside deployment and manning data.
+
+### Main artifacts
+
+- `CrewPlanningAssignment` and `CrewOperationsSetting`
+- `CrewPlanningController`, `CrewPlanningAssignmentController`, `CrewOperationsDashboardController`, `CrewOperationsSettingsController`
+- `pages/organization/crew-planning/index.tsx` and `pages/organization/crew-operations/`
+
+### Permissions involved
+
+- `crew_operations.overview.view`
+- `crew_operations.planning.view|create|update|delete`
+
+The overview and settings routes should follow these capability boundaries. Any authenticated-only route without the matching middleware is a known gap, not an authorization convention.
+
+---
+
+## Training
+
+### Purpose
+
+Manage employee training records and files both from the organization-wide training browser and from an employee profile.
+
+### Main artifacts
+
+- `EmployeeTraining` and `EmployeeTrainingVersion`
+- `TrainingsIndexController`, `EmployeeTrainingsBrowseController`, `EmployeeTrainingController`, `EmployeeTrainingShowController`
+- `pages/organization/training/` and the employee training profile tab
+
+### Permissions involved
+
+`training.view`, `training.create`, `training.update`, `training.delete`, `training.import`
+
+---
+
+## Attendance and Leave
+
+### Purpose
+
+Track attendance records, leave types and balances, leave requests, approvals, attachments, and calendar views.
+
+### Main artifacts
+
+- `AttendanceRecord`, `LeaveType`, `LeaveBalance`, `LeaveRequest`
+- Controllers under `app/Http/Controllers/Attendance/`
+- Pages under `resources/js/pages/attendance/`
+
+### Permissions involved
+
+- `attendance.records.view|create|update|delete|manage`
+- `attendance.types.view|create|update|delete`
+- `attendance.leave-requests.view|create|update|delete|approve`
+
+---
+
+## Payroll
+
+### Purpose
+
+Manage payroll periods, crew timesheets, salary inputs, generated payroll records, payslips, and WPS export.
+
+### Main artifacts
+
+- `PayrollPeriod`, `CrewTimesheet`, `SalaryInputType`, `SalaryInput`, `PayrollRecord`
+- Controllers under `app/Http/Controllers/Payroll/`
+- Pages under `resources/js/pages/payroll/`
+
+### Permissions involved
+
+- lifecycle: `payroll.periods.view|create|update|delete|approve|mark_paid|cancel|recalculate` and the `revert_to_*` actions
+- inputs: `payroll.crew_timesheets.*` and `payroll.salary_inputs.*`
+- outputs: `payroll.records.view`, `payroll.payslips.generate`, `payroll.payslips.email`, `payroll.wps.export`
+
+Several payroll routes currently omit their corresponding `can:` middleware. The permission catalog above represents the intended boundary; route coverage must be verified before treating an endpoint as protected.
+
+---
+
+## Hikvision
+
+### Purpose
+
+Integrate Hikvision people, devices, and access events with employees and attendance processing. Webhooks are exposed separately from authenticated administration routes.
+
+### Main artifacts
+
+- `HikvisionSetting`, `HikvisionPerson`, `HikvisionDevice`, `HikvisionAccessEvent`
+- Controllers under `app/Http/Controllers/Hikvision/` and `Webhooks/HikvisionWebhookController`
+- `pages/hikvision/persons.tsx`, `pages/hikvision/access-events.tsx`, and the Hikvision application-settings tab
+
+### Permissions involved
+
+- `settings.integrations.hikvision.view|update`
+- `hikvision.persons.view|sync|create|update|delete|link`
+- `hikvision.devices.view|sync`, `hikvision.events.view|fetch`, `hikvision.webhook.manage`
+
+---
+
+## Bulk Documents and E-signing
+
+### Purpose
+
+Generate and email document batches, collect public signatures through signed links, review submitted signatures, and download approved outputs.
+
+### Main artifacts
+
+- Models prefixed with `BulkDocument*`
+- Controllers under `app/Http/Controllers/Organization/BulkDocuments/` and `app/Http/Controllers/Public/DocumentEsign/`
+- `features/organization/documents/bulk/bulk-documents-content.tsx` and `pages/esign/index.tsx`
+
+### Permissions involved
+
+`bulk_documents.view`, `bulk_documents.generate`, `bulk_documents.delete`, `bulk_documents.email`, `bulk_documents.signatures.review`
+
+Public e-sign routes use signed URLs and throttling rather than company-role permissions. Administrative generation, email, review, and download flows remain company-scoped.
+
+---
+
+## Settings and Master Data
+
+### Purpose
+
+Manage security and appearance preferences, application/email/integration configuration, document-signature placement, message templates, and reusable master-data catalogs.
+
+### Main artifacts
+
+- Routes in `routes/settings.php`
+- Controllers under `app/Http/Controllers/Settings/`
+- Pages under `resources/js/pages/settings/`
+
+### Permissions involved
+
+- `settings.security.*`, `settings.appearance.view`, `settings.application.*`
+- `settings.integrations.whatsapp.*`, `settings.integrations.hikvision.*`, and template permissions
+- `settings.master-data.{resource}.view|create|update|delete`
+
+Integration secrets are server-side values. Inertia props expose masked placeholders and `has_*` flags, never decrypted credentials.
+
+---
+
 ## Users
 
 ### Purpose
@@ -685,7 +831,7 @@ Record who changed what and when. Uses **Spatie Activity Log** with company scop
 | `Spatie\Activitylog\Models\Activity` | Stored audit entries |
 | `RecentActivityQuery` | Fetch latest N for show pages |
 
-**Models with automatic activity logging today:** `Company`, `Branch`, `Department`, `Position`, `User`, `Employee`, `EmployeeDocument`, `EmployeeDeployment`, `LeaveType`, `LeaveRequest`
+Automatic activity logging now spans organization records, master data, employee sub-records, crew deployment/planning, attendance and leave, and payroll records. The authoritative implementation list is the set of models using `LogsActivityWithCompany`; avoid copying a static model count into documentation because coverage changes as modules evolve.
 
 Custom events (e.g. document email send) logged manually in Services.
 
@@ -751,7 +897,13 @@ flowchart TB
 
     subgraph operations [Operations]
         Documents
+        BulkDocuments
         CrewDeployments
+        CrewPlanning
+        Attendance
+        Payroll
+        Training
+        Hikvision
     end
 
     subgraph audit [Audit]
@@ -768,7 +920,13 @@ flowchart TB
     Company --> User
     User --> Employee
     Employee --> Documents
+    Employee --> BulkDocuments
     Employee --> CrewDeployments
+    Employee --> CrewPlanning
+    Employee --> Attendance
+    Employee --> Payroll
+    Employee --> Training
+    Hikvision --> Attendance
     CrewDeployments --> EmployeeSeaService
 
     Employee --> ActivityLog
@@ -786,9 +944,19 @@ flowchart TB
 | Branches | `/organization/branches` | `branches.tsx`, `branch.tsx` |
 | Employees | `/organization/employees` | `employees.tsx`, `employee.tsx` |
 | Documents | `/organization/documents` | `documents/index`, `employee`, `show` |
+| Bulk documents / e-sign | `/organization/documents/bulk`, `/esign/{token}` | document bulk screen, `esign/index.tsx` |
+| Contracts | `/organization/contracts` | `contracts/index`, `employee`, `no-contract` |
+| Bank accounts | `/organization/bank-accounts` | `bank-accounts/index`, `employee`, `no-account` |
+| Training | `/organization/training` | `training/index`, `employee`, `show` |
 | Crew deployments | `/organization/crew-deployments` | `crew-deployments/index`, `show` |
+| Crew operations / planning | `/organization/crew-operations`, `/organization/crew-planning` | `crew-operations/*`, `crew-planning/index` |
+| Vessel manning | `/organization/vessel-manning` | `vessel-manning/index`, `show` |
+| Attendance / leave | `/attendance/*` | `attendance/overview`, `records`, `calendar`, `types`, `leave-requests` |
+| Payroll | `/payroll/*` | `payroll/overview`, `index`, `show`, `records`, `salary-inputs` |
+| Hikvision | `/hikvision/persons`, `/hikvision/access-events` | `hikvision/persons`, `access-events` |
 | Users | `/organization/users` | `users.tsx`, `user.tsx` |
 | Roles | `/organization/roles` | `roles.tsx`, `role.tsx` |
 | Activity logs | `/organization/activity-logs` | `activity-logs.tsx` |
+| Settings / master data | `/settings/*` | `settings/*`, `settings/master-data/*` |
 
-All routes and permission names: `routes/web.php`, `database/seeders/PermissionsSeeder.php`, `php artisan route:list --path=organization`.
+Authoritative route and permission sources: `routes/web.php`, `routes/settings.php`, and `database/seeders/PermissionsSeeder.php`. Use `php artisan route:list` with an appropriate `--path` filter when validating a module.

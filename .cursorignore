@@ -1,0 +1,12 @@
+# Secrets and private application data must never enter AI context.
+.env
+.env.*
+!.env.example
+auth.json
+storage/*.key
+storage/app/private/**
+storage/app/esign-preview/**
+*.pem
+*.p12
+*.pfx
+

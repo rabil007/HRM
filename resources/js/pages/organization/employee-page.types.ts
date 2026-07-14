@@ -155,7 +155,20 @@ export type EmployeeContractDetails = {
     site_allowance: number | null;
     note: string | null;
     created_at: string;
-    updated_at: string;
+    updated_at?: string;
+    salary_revisions?: Array<{
+        id: number;
+        version: number;
+        effective_from: string | null;
+        reason: string | null;
+        created_at: string | null;
+        lines: Array<{
+            component_code: string | null;
+            component_name: string | null;
+            rate_type: string | null;
+            amount: number | string | null;
+        }>;
+    }>;
 };
 
 export type EmployeeDocumentItem = DocumentProfileItem;

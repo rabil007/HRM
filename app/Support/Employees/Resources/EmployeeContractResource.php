@@ -2,6 +2,8 @@
 
 namespace App\Support\Employees\Resources;
 
+use App\Models\ContractSalaryRevision;
+use App\Models\ContractSalaryRevisionLine;
 use App\Models\EmployeeContract;
 
 final class EmployeeContractResource
@@ -27,6 +29,35 @@ final class EmployeeContractResource
             'site_allowance' => $contract->site_allowance,
             'note' => $contract->note,
             'created_at' => $contract->created_at?->toDateTimeString(),
+            'salary_revisions' => $contract->relationLoaded('salaryRevisions')
+                ? $contract->salaryRevisions
+                    ->map(fn (ContractSalaryRevision $revision) => self::revisionToArray($revision))
+                    ->values()
+                    ->all()
+                : [],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function revisionToArray(ContractSalaryRevision $revision): array
+    {
+        return [
+            'id' => $revision->id,
+            'version' => $revision->version,
+            'effective_from' => $revision->effective_from?->toDateString(),
+            'reason' => $revision->reason,
+            'created_at' => $revision->created_at?->toDateTimeString(),
+            'lines' => $revision->lines
+                ->map(fn (ContractSalaryRevisionLine $line) => [
+                    'component_code' => $line->component_code?->value,
+                    'component_name' => $line->component_name,
+                    'rate_type' => $line->rate_type?->value,
+                    'amount' => $line->amount,
+                ])
+                ->values()
+                ->all(),
         ];
     }
 }

@@ -48,6 +48,7 @@ export type ContractPageCan = {
     update: boolean;
     delete: boolean;
     import: boolean;
+    manage_salary_revisions: boolean;
 };
 
 export type ContractSalaryStructureFilter = '' | 'daily' | 'monthly';

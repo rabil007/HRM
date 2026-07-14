@@ -18,7 +18,7 @@ Sharing does not grant upload or delete.
 2. Use WhatsApp/share action (requires `documents.share`).
 3. Frontend calls `POST /organization/documents/employees/{employee}/files/share-links` with document IDs.
 4. Backend: `DocumentBulkShareLinksController` + `DocumentShareLinkService` creates signed/temporary access.
-5. Public route (no auth): `GET /organization/documents/share/{document}` — `DocumentShareController`
+5. Public signed route (no authentication): `GET|POST /organization/documents/share/{document}` — `DocumentShareController`
 
 ## WhatsApp
 
@@ -40,7 +40,7 @@ Sharing does not grant upload or delete.
 
 Profile and browse upload flows use `EmployeeDocumentController` and FormRequests under `App\Http\Requests\Organization\EmployeeDocument/`.
 
-Document number, issue date, and expiry can be set on upload/edit when configured in onboarding or forms.
+Document number, issue date, and expiry can be set on upload/edit when configured by the employee profile template or form.
 
 ## Tests
 

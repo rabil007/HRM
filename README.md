@@ -2,9 +2,9 @@
 
 A multi-tenant **Organization Management System / Human Resources Management** built on Laravel 13 + Inertia v3 + React 19 + TailwindCSS v4.
 
-Designed for SMBs (UAE-focused initially) to manage companies, branches, departments, positions, employees, contracts, documents, onboarding, recruitment, attendance, leave, and payroll from a single, role-aware workspace.
+Designed for SMBs (UAE-focused initially) to manage companies, branches, departments, positions, employees, contracts, documents, attendance, leave, payroll, training, and crew operations from a single, role-aware workspace.
 
-**Extended documentation:** [docs/README.md](docs/README.md) (dashboard, documents, search, sharing, permissions, email).
+**Extended documentation:** [docs/README.md](docs/README.md) (dashboard, documents, payroll, permissions, integrations, and architecture).
 
 ---
 
@@ -12,7 +12,7 @@ Designed for SMBs (UAE-focused initially) to manage companies, branches, departm
 
 | Layer | Tech |
 |---|---|
-| Backend | PHP 8.3+ / Laravel 13 |
+| Backend | PHP 8.4 / Laravel 13 |
 | Frontend | React 19 + TypeScript + Inertia v3 |
 | Styling | TailwindCSS v4 + shadcn-style Radix UI primitives |
 | Auth | Laravel Fortify (sessions + 2FA) |
@@ -23,13 +23,13 @@ Designed for SMBs (UAE-focused initially) to manage companies, branches, departm
 | Charts | Recharts |
 | Notifications | Sonner |
 | Build | Vite 8 |
-| Tests | Pest 4 (Feature + Browser) |
+| Tests | Pest 4 (Feature + Unit) |
 
 ---
 
 ## Highlights
 
-- **Multi-tenant by company** — every domain table is scoped by `company_id`. `SetCurrentCompany` middleware sets the active tenant and Spatie's permissions team id on every request.
+- **Multi-tenant by company** — organization-owned records are expected to be scoped by `company_id`. `SetCurrentCompany` middleware sets the active tenant and Spatie's permissions team id on authenticated requests.
 - **Company switcher** — sidebar dropdown swaps the active company per user session (`/organization/companies/switch`).
 - **Role-based access control** — granular permissions per company; document and import permissions split by feature (see [docs/permissions.md](docs/permissions.md)).
 - **Dashboard** — workforce trends, headcount, document compliance, expiry health, department/branch breakdowns ([docs/dashboard.md](docs/dashboard.md)).
@@ -42,8 +42,13 @@ Designed for SMBs (UAE-focused initially) to manage companies, branches, departm
   - CSV / XLSX import with column mapping and granular sensitive-field permissions
   - Export as CSV / Excel / PDF
 - **Users** — company membership, roles, link to employee, avatar upload or copy from employee photo, last login tracking
-- **Onboarding** — JSON-driven templates with multi-stage forms (basic info → documents → bank fields)
-- **Settings** — SMTP + test email, application branding, master data CRUD
+- **Employee profile templates** — company-specific field visibility, tab layout, and required-field rules used by employee create/edit and import workflows
+- **Attendance and leave** — attendance records and calendar, leave requests, balances, types, and approval workflows
+- **Payroll** — periods, salary inputs, timesheets, records, payslips, WPS export, approval and payment workflows ([docs/payroll.md](docs/payroll.md))
+- **Crew operations** — deployments, vessel manning, crew planning, timesheet import, and employee sea-service synchronization
+- **Bulk documents and e-signing** — document generation, distribution, signature requests, and public signed flows
+- **Integrations** — SMTP, WhatsApp, and Hikvision configuration and operational workflows
+- **Settings** — application branding, security, integration settings, and master data CRUD
 - **Activity log** — `/organization/activity-logs`
 - **Modern UI** — glass cards, dark mode, command palette (⌘K), top loading bar
 
@@ -56,12 +61,16 @@ app/
 ├── Exports/                    # Maatwebsite Excel export classes
 ├── Imports/                    # Maatwebsite Excel import classes
 ├── Http/Controllers/
-│   ├── Onboarding/
-│   ├── Organization/           # Companies, employees, documents, dashboard, …
-│   └── Settings/               # Application SMTP, branding, master data
+│   ├── Attendance/             # Attendance records, calendar, leave
+│   ├── Hikvision/              # Devices, persons, events, sync
+│   ├── Organization/           # Core HR, documents, training, crew operations
+│   ├── Payroll/                # Payroll overview, records, payslips, WPS
+│   ├── Public/                 # Public document and e-sign flows
+│   └── Settings/               # Branding, integrations, master data
 ├── Support/
 │   ├── Dashboard/              # DashboardAnalytics
-│   └── EmployeeDocuments/      # DocumentBrowseQuery, expiry, sharing, storage
+│   ├── EmployeeDocuments/      # Document browse, expiry, sharing, storage
+│   └── EmployeeProfileTemplates/
 ├── Models/
 database/
 ├── migrations/
@@ -69,7 +78,7 @@ database/
     └── PermissionsSeeder
 docs/                           # Product & developer guides (see docs/README.md)
 resources/js/
-├── pages/organization/         # Inertia pages (employees, documents, users, …)
+├── pages/                      # Inertia pages grouped by domain
 ├── features/
 │   ├── dashboard/
 │   └── organization/documents/ # Browse, search, share, merge, email
@@ -78,7 +87,9 @@ resources/js/
 routes/
 ├── web.php
 └── settings.php
-tests/Feature/Organization/     # DocumentBrowseTest, DocumentShareTest, …
+tests/
+├── Feature/                    # HTTP and integration behavior by domain
+└── Unit/                       # Isolated services, models, enums, support code
 ```
 
 ---
@@ -87,7 +98,7 @@ tests/Feature/Organization/     # DocumentBrowseTest, DocumentShareTest, …
 
 ### Prerequisites
 
-- PHP **8.3+**
+- PHP **8.4**
 - Node **20+**
 - MySQL **8** (or MariaDB)
 - [Laravel Herd](https://herd.laravel.com) (recommended) — auto-serves at `http://oms-hrm.test`
@@ -169,10 +180,13 @@ Permissions are company-scoped (Spatie teams). Full list: `database/seeders/Perm
 |---|---|
 | Companies, Branches, Departments, Positions | `*.view/create/update/delete/export` |
 | Roles, Users | `roles.*`, `users.*` |
-| Employees | `employees.view/create/update/delete/export/import` + feature imports (`identity`, `bank_accounts`, `contracts`) + profile sections (`contracts.manage`, `bank_accounts.manage`, …) |
+| Employees | `employees.view/create/update/delete/export/import` plus sensitive import permissions such as `employees.identity.import` |
+| Contracts, bank accounts, training | `contracts.*`, `bank_accounts.*`, `training.*` |
 | Documents | `documents.view/download/share/upload/delete` |
 | Audit | `audit.view` |
-| Onboarding | `onboarding.templates.*` |
+| Employee profile templates | `employee_profile_templates.view/create/update/delete` |
+| Attendance, leave, payroll | `attendance.*`, `payroll.*` (verify exact names in the seeder) |
+| Crew operations | `crew_operations.*` |
 | Settings | `settings.master-data.*`, `settings.security.*`, application settings |
 
 ```bash
@@ -187,7 +201,7 @@ php artisan db:seed --class=PermissionsSeeder
 2. Download template, upload CSV/XLSX, map columns, preview, commit.
 3. Sensitive columns require `employees.identity.import`, `employees.bank_accounts.import`, or `employees.contracts.import` as applicable.
 
-Required columns: `employee_no`, `first_name`, `last_name`, `contract_type`, `start_date`.
+The base required columns are `employee_no` and `name`. A selected employee profile template can make additional mapped fields required.
 
 ---
 
@@ -204,7 +218,10 @@ Required columns: `employee_no`, `first_name`, `last_name`, `contract_type`, `st
 | `/organization/users` | Users + employee link |
 | `/organization/roles` | Roles & permissions |
 | `/organization/activity-logs` | Audit log |
-| `/onboarding/templates` | Template builder |
+| `/organization/templates/employee-profile` | Employee profile template builder |
+| `/attendance/overview` | Attendance, calendar, and leave overview |
+| `/payroll` | Payroll periods and processing |
+| `/organization/crew-operations` | Crew operations overview |
 | `/settings/...` | Profile, SMTP, master data |
 
 ```bash

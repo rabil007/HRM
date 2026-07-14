@@ -7,7 +7,14 @@ use App\Models\User;
 final class ContractPagePermissions
 {
     /**
-     * @return array{view: bool, create: bool, update: bool, delete: bool, import: bool}
+     * @return array{
+     *     view: bool,
+     *     create: bool,
+     *     update: bool,
+     *     delete: bool,
+     *     import: bool,
+     *     manage_salary_revisions: bool
+     * }
      */
     public static function for(?User $user): array
     {
@@ -17,6 +24,7 @@ final class ContractPagePermissions
             'update' => $user?->can('contracts.update') ?? false,
             'delete' => $user?->can('contracts.delete') ?? false,
             'import' => $user?->can('contracts.import') ?? false,
+            'manage_salary_revisions' => $user?->can('contracts.salary_revisions.manage') ?? false,
         ];
     }
 }

@@ -57,6 +57,8 @@ export function ContractsEmployeeContent({
                 canCreate={can.create}
                 canUpdate={can.update}
                 canDelete={can.delete}
+                canManageSalaryRevisions={can.manage_salary_revisions}
+                contractShowFrom="employee"
                 templateContractFields={template_contract_fields}
             />
         </Main>

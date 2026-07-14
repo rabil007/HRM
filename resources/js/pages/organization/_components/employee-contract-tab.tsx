@@ -27,7 +27,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { buildContractShowUrl } from '@/features/organization/contracts/build-contract-show-url';
 import { formatSalaryStructure } from '@/features/organization/contracts/contracts-format';
+import { EmployeeContractSalaryRevisions } from '@/features/organization/contracts/employee-contract-salary-revisions';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import { actions } from '@/lib/design-system';
@@ -123,6 +125,8 @@ export type EmployeeContractTabProps = {
     canCreate: boolean;
     canUpdate: boolean;
     canDelete: boolean;
+    canManageSalaryRevisions?: boolean;
+    contractShowFrom?: 'profile' | 'employee';
     ensureEmployee?: () => Promise<number>;
     templateContractFields?: Record<string, TemplateFieldConfig> | null;
 };
@@ -271,10 +275,13 @@ export function EmployeeContractTab({
     canCreate,
     canUpdate,
     canDelete,
+    canManageSalaryRevisions = false,
+    contractShowFrom = 'profile',
     ensureEmployee,
     templateContractFields = null,
 }: EmployeeContractTabProps): ReactElement {
     const canMutateContracts = canCreate || canUpdate || canDelete;
+    const showContractActions = Boolean(employeeId);
     const showField = useMemo(
         () => createTemplateFieldVisibility(templateContractFields),
         [templateContractFields],
@@ -340,6 +347,18 @@ export function EmployeeContractTab({
     const [deleteContractId, setDeleteContractId] = useState<number | null>(
         null,
     );
+
+    useEffect(() => {
+        if (!editingContract) {
+            return;
+        }
+
+        const fresh = contracts.find((row) => row.id === editingContract.id);
+
+        if (fresh && fresh !== editingContract) {
+            setEditingContract(fresh);
+        }
+    }, [contracts, editingContract]);
 
     // Ctrl/Cmd+Enter keyboard shortcut to submit the form
     useEffect(() => {
@@ -641,7 +660,7 @@ export function EmployeeContractTab({
                                     Note
                                 </th>
                             ) : null}
-                            {canMutateContracts ? (
+                            {showContractActions ? (
                                 <EmployeeRecordsActionsHeader />
                             ) : null}
                         </tr>
@@ -814,7 +833,7 @@ export function EmployeeContractTab({
                                         </span>
                                     </td>
                                 ) : null}
-                                {canMutateContracts ? (
+                                {showContractActions ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
@@ -822,6 +841,18 @@ export function EmployeeContractTab({
                                         )}
                                     >
                                         <EmployeeRecordRowActions
+                                            viewHref={
+                                                employeeId
+                                                    ? buildContractShowUrl(
+                                                          row.id,
+                                                          {
+                                                              from: contractShowFrom,
+                                                              employee_id:
+                                                                  employeeId,
+                                                          },
+                                                      )
+                                                    : undefined
+                                            }
                                             onEdit={
                                                 canUpdate
                                                     ? () => openEditDialog(row)
@@ -1588,6 +1619,18 @@ export function EmployeeContractTab({
                                 );
                             })()}
                         </div>
+                    ) : null}
+
+                    {editingContract && employeeId ? (
+                        <EmployeeContractSalaryRevisions
+                            employeeId={employeeId}
+                            contract={editingContract}
+                            canManage={canManageSalaryRevisions}
+                            isCrewDaily={isCrewDaily}
+                            isOfficeOrCrewMonthly={
+                                !isCrewContract || isCrewMonthly
+                            }
+                        />
                     ) : null}
 
                     {showNoteSection ? (

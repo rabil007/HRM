@@ -1,100 +1,94 @@
 # Permissions
 
-Authorization uses [Spatie Laravel Permission](https://github.com/spatie/laravel-permission) with **company teams**: each permission check is scoped to `current_company_id`.
+Authorization uses [Spatie Laravel Permission](https://github.com/spatie/laravel-permission) with **company teams**. `SetCurrentCompany` sets `current_company_id` on the request and configures the same value as Spatie's active team before company-scoped permission checks run.
 
-## How it works
+The authoritative permission catalog is `database/seeders/PermissionsSeeder.php`. Route coverage is defined by `routes/web.php` and `routes/settings.php`; do not treat this document as a substitute for checking both.
 
-1. `SetCurrentCompany` middleware sets the active company on the request and Spatie team id.
-2. Routes use `middleware('can:permission.name')` or policies.
-3. Inertia shares permission names on the auth user for UI gating.
+## Enforcement rules
 
-Re-seed after adding permissions:
+1. Protect every privileged backend action with the narrowest applicable permission through route `can:` middleware, a gate/policy, controller authorization, or Form Request authorization.
+2. Enforce company ownership independently of the capability check. Never trust a client-supplied `company_id`.
+3. Treat Inertia `can` props, shared `auth.permissions`, and hidden UI controls as presentation only.
+4. Add a test proving an authenticated user without the permission receives `403`.
+
+Most module routes use `middleware('can:permission.name')`, but coverage is not universal. Authenticated-only log/job/database routes and parts of payroll and operations remain known gaps. Their current lack of capability middleware is security debt, not a convention to copy.
+
+Re-seed after changing the catalog:
 
 ```bash
 php artisan db:seed --class=PermissionsSeeder
 ```
 
-Grant roles in **Organization → Roles & permissions** (`/organization/roles`).
+Assign permissions through **Organization → Roles & permissions** (`/organization/roles`).
 
-## Document permissions
+## Permission groups
 
-| Permission | Typical use |
-|------------|-------------|
-| `documents.view` | Documents index, employee browse, preview |
-| `documents.download` | Single download, folder ZIP, bulk ZIP, PDF merge |
-| `documents.share` | Share links, bulk WhatsApp send, and per-document WhatsApp templates |
-| `documents.upload` | Upload, replace, update metadata on profile |
-| `documents.delete` | Delete documents (browse bulk + profile) |
+| Area | Current permission families |
+|------|-----------------------------|
+| Organization | `companies.*`, `branches.*`, `departments.*`, `positions.*`, `users.*`, `roles.*` |
+| Employees | `employees.view|create|update|delete|export|import`, `employees.identity.import`, and employee sub-record `.manage` permissions |
+| Contracts / bank / training | `contracts.view|create|update|delete|import`, `bank_accounts.view|create|update|delete|import`, `training.view|create|update|delete|import` |
+| Documents | `documents.view|download|share|upload|delete` |
+| Bulk documents / signatures | `bulk_documents.view|generate|delete|email`, `bulk_documents.signatures.review` |
+| Crew operations | `crew_operations.deployments.*`, `crew_operations.overview.view`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*` |
+| Attendance / leave | `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` |
+| Payroll | `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, `payroll.payslips.*`, `payroll.wps.export` |
+| Hikvision | `hikvision.persons.*`, `hikvision.devices.*`, `hikvision.events.*`, `hikvision.webhook.manage` |
+| Employee profile templates | `employee_profile_templates.view|create|update|delete` |
+| Settings | `settings.security.*`, `settings.appearance.view`, `settings.application.*`, integration/template permissions, and `settings.master-data.{resource}.*` |
+| Audit | `audit.view` |
 
-Frontend `can` object on document pages comes from `DocumentPagePermissions::for($user)`:
+The `*` notation above is descriptive only; permissions are seeded as explicit strings, not wildcard grants.
+
+## Employee and document details
+
+Employee import has two layers:
+
+| Permission | Import scope |
+|------------|--------------|
+| `employees.import` | Base employee import workflow |
+| `employees.identity.import` | Sensitive identity columns |
+| `contracts.import` | Contract columns and contract import workflow |
+| `bank_accounts.import` | Bank-account columns and bank import workflow |
+| `training.import` | Training import workflow |
+
+Employee profile sub-records use `employees.education.manage`, `employees.work_experience.manage`, `employees.vaccination.manage`, `employees.languages.manage`, and `employees.sea_service.manage`. Contracts, bank accounts, and training use their own view/create/update/delete families rather than the removed `employees.contracts.manage` and `employees.bank_accounts.manage` names.
+
+Document pages receive their UI flags from `DocumentPagePermissions::for($user)`:
 
 ```php
-['download' => bool, 'share' => bool, 'delete' => bool, 'whatsapp_template' => bool, 'whatsapp_templates' => array]
+[
+    'download' => bool,
+    'share' => bool,
+    'upload' => bool,
+    'delete' => bool,
+    'whatsapp_template' => bool,
+    'whatsapp_templates' => array,
+    'email_templates' => array,
+]
 ```
 
-`whatsapp_template` requires `documents.share` plus configured WhatsApp integration and at least one enabled document template.
+These flags do not authorize requests. Document routes enforce `documents.*` permissions and document support classes additionally verify company/employee ownership.
 
-Upload is enforced on routes (`documents.upload`), not always repeated in that array—check route middleware in `routes/web.php`.
-
-## Employee import permissions (granular)
-
-Sensitive CSV import columns are gated separately from base import:
-
-| Permission | Import group |
-|------------|----------------|
-| `employees.import` | Base employee import |
-| `employees.identity.import` | Identity-related columns |
-| `employees.bank_accounts.import` | Bank account columns |
-| `employees.contracts.import` | Contract / payroll columns |
-
-UI groups permissions by feature section in the roles matrix (not a single “IMPORT” bucket).
-
-## Other employee permissions (sample)
-
-| Permission | Area |
-|------------|------|
-| `employees.view` / `create` / `update` / `delete` / `export` | Core employee CRUD |
-| `employees.contracts.manage` | Contracts on profile |
-| `employees.bank_accounts.manage` | Bank accounts |
-| `employees.education.manage` | Education |
-| `employees.work_experience.manage` | Work experience |
-| `employees.sea_service.manage` | Sea service |
-| `training.view` / `create` / `update` / `delete` / `import` | Training module (browse + profile) |
-| `employees.vaccination.manage` | Vaccination |
-| `employees.languages.manage` | Languages |
-
-## Organization and settings
-
-See [README.md](../README.md#permissions-cheatsheet) for companies, branches, departments, positions, roles, users, audit, onboarding, and master data permissions.
-
-## Users and employees
-
-- `users.create` — required to create a login from an employee (`POST organization/employees/{employee}/user`)
-- User ↔ employee linking is managed in user edit (employee dropdown, optional avatar from employee photo)
+Creating a login from an employee requires `users.create`. User–employee linking is otherwise managed through the user edit workflow.
 
 ## Audit
 
-- `audit.view` — **Activity logs** page (`/organization/activity-logs`) and **Recent activity** cards on company, branch, department, position, and user detail pages
+`audit.view` controls the global activity-log page and recent-activity sections on supported detail pages. Without it, recent-activity queries return no entries and the UI hides the section.
 
-### Activity logging (Spatie)
+Automatic Spatie activity logging now covers a broad set of organization, master-data, employee sub-record, crew, attendance/leave, and payroll models through `LogsActivityWithCompany`. The implementation is the source of truth: search `app/Models` for the trait rather than maintaining a fragile model count here. Operational events that are not model CRUD may be logged manually by services.
 
-Models that record changes today: `Company`, `Branch`, `Department`, `Position`, `User`, `Employee`, `EmployeeDocument`. Entries are scoped by `company_id` and appear on the global activity log when the user has `audit.view`.
+## Settings and integrations
 
-Not logged yet: master data, employee sub-records (contracts, bank accounts, etc.), roles, settings changes. Employee changes are logged but there is no per-employee “Recent activity” card yet—use **Activity logs** and filter by subject.
+Application settings use `settings.application.view|update`; security and appearance have separate permissions. Master data uses `settings.master-data.{resource}.view|create|update|delete`.
 
-## Settings
+Integration permission families include:
 
-Master data and application settings use `settings.*` permissions; SMTP updates use application settings routes in `routes/settings.php` (see [Email configuration](./email-configuration.md)).
+- `settings.integrations.whatsapp.view|update`
+- `settings.integrations.hikvision.view|update`
+- `settings.integrations.whatsapp-templates.view|create|update|delete`
+- `settings.integrations.email-templates.view|create|update|delete`
 
-### WhatsApp integration (Owner only by default)
+Hikvision administration additionally uses the `hikvision.*` permissions listed above. SMTP updates use the application-settings routes; see [Email configuration](./email-configuration.md).
 
-| Permission | Typical use |
-|------------|-------------|
-| `settings.integrations.whatsapp.view` | View Settings → Application → WhatsApp tab |
-| `settings.integrations.whatsapp.update` | Save WhatsApp credentials, test connection |
-| `settings.integrations.whatsapp-templates.view` | View Settings → WhatsApp templates library |
-| `settings.integrations.whatsapp-templates.create` | Add WhatsApp templates |
-| `settings.integrations.whatsapp-templates.update` | Edit WhatsApp templates |
-| `settings.integrations.whatsapp-templates.delete` | Delete non-default WhatsApp templates |
-
-Granted to the **Owner** role only on migration; assign manually to other roles if needed. Existing roles with WhatsApp integration permissions receive matching template permissions automatically.
+Credential permissions never imply that decrypted secrets may be sent to the browser. Settings responses expose masked placeholders and `has_*` flags, and empty secret submissions preserve the stored value.

@@ -56,15 +56,16 @@ Path: `/organization/employees/{id}#documents`
 - Upload dialog and edit dialog (including document number)
 - Version history endpoint for replacements
 
-## Onboarding and create employee
+## Employee profile templates and create employee
 
-Onboarding templates can require documents with optional metadata:
+Employee profile templates can require documents with optional metadata:
 
 - `ask_issue_date`
 - `ask_expiry_date`
 - `ask_document_number`
 
-Create employee flow (`/organization/employees/create`) persists uploads via the same document storage pipeline.
+Templates are managed at `/organization/templates/employee-profile`. The create employee flow
+(`/organization/employees/create`) persists uploads through the same document storage pipeline.
 
 ## Expiry and status
 

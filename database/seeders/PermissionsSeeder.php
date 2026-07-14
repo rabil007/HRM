@@ -200,6 +200,7 @@ class PermissionsSeeder extends Seeder
             'contracts.update',
             'contracts.delete',
             'contracts.import',
+            'contracts.salary_revisions.manage',
             'bank_accounts.view',
             'bank_accounts.create',
             'bank_accounts.update',

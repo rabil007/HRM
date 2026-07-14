@@ -15,6 +15,7 @@ Controller: `App\Http\Controllers\Settings\ApplicationSettingsController`
 
 - Validated by `UpdateApplicationSmtpRequest`
 - Persists host, port, encryption, credentials, from address/name into app settings (cached)
+- Stored passwords are never returned to the browser. The settings page receives an empty password field plus `has_password` and preserves the stored password when the field is left blank.
 
 ## Test email
 
@@ -34,7 +35,7 @@ Check `routes/settings.php` middleware for the exact `settings.*` permission on 
 
 ## Operational notes
 
-- Queue: `composer run dev` runs `queue:listen` for async mail if jobs are queued
+- Queue: `composer run dev` runs `queue:work --tries=1 --timeout=600` for queued mail and other jobs
 - Production: configure real SMTP (Office 365, SendGrid, Amazon SES, etc.) in settings—not `.env` alone once UI settings take precedence
 
 Document bulk email from employee browse uses `DocumentBulkEmailController` and company mail configuration.

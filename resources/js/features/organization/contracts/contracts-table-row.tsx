@@ -17,8 +17,9 @@ import { EmployeeProfileLink } from '@/features/organization/employees/component
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
-/** Derive a lifecycle status from contract end_date string. */
-function deriveLifecycle(endDate: string | null | undefined): 'active' | 'ending_30' | 'ending_60' | 'ending_90' | 'ended' | null {
+function deriveLifecycle(
+    endDate: string | null | undefined,
+): 'active' | 'ending_30' | 'ending_60' | 'ending_90' | 'ended' | null {
     if (!endDate) {
         return null;
     }
@@ -31,7 +32,9 @@ function deriveLifecycle(endDate: string | null | undefined): 'active' | 'ending
         return 'ended';
     }
 
-    const daysLeft = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const daysLeft = Math.ceil(
+        (end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+    );
 
     if (daysLeft <= 30) {
         return 'ending_30';
@@ -51,23 +54,28 @@ function deriveLifecycle(endDate: string | null | undefined): 'active' | 'ending
 const LIFECYCLE_BADGE_CONFIG = {
     active: {
         label: 'Active',
-        className: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/10',
+        className:
+            'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/10',
     },
     ending_30: {
         label: 'Ending in 30d',
-        className: 'bg-sky-500/10 text-sky-500 border-sky-500/20 hover:bg-sky-500/10',
+        className:
+            'bg-sky-500/10 text-sky-500 border-sky-500/20 hover:bg-sky-500/10',
     },
     ending_60: {
         label: 'Ending in 60d',
-        className: 'bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/10',
+        className:
+            'bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/10',
     },
     ending_90: {
         label: 'Ending in 90d',
-        className: 'bg-orange-500/10 text-orange-500 border-orange-500/20 hover:bg-orange-500/10',
+        className:
+            'bg-orange-500/10 text-orange-500 border-orange-500/20 hover:bg-orange-500/10',
     },
     ended: {
         label: 'Ended',
-        className: 'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/10',
+        className:
+            'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/10',
     },
 } as const;
 
@@ -81,12 +89,12 @@ const LIFECYCLE_ROW_ACCENT = {
 
 export function ContractsTableRow({
     contract,
-    browseHref,
+    showHref,
     showOfficeColumns,
     showCrewColumns,
 }: {
     contract: ContractListItem;
-    browseHref: string;
+    showHref: string;
     showOfficeColumns: boolean;
     showCrewColumns: boolean;
 }) {
@@ -95,8 +103,12 @@ export function ContractsTableRow({
 
     return (
         <TableRow
-            className={cn(dataTableBodyRowClass(false), 'cursor-pointer', rowAccent)}
-            onClick={() => router.visit(browseHref)}
+            className={cn(
+                dataTableBodyRowClass(false),
+                'cursor-pointer',
+                rowAccent,
+            )}
+            onClick={() => router.visit(showHref)}
         >
             <TableCell
                 className={cn(dataTableCellPrimaryClass(), 'min-w-[200px]')}
@@ -124,9 +136,13 @@ export function ContractsTableRow({
                         <p className="truncate font-mono text-[11px] text-muted-foreground/75">
                             {contract.employee_no}
                         </p>
-                        {(contract.department_name || contract.position_title) ? (
+                        {contract.department_name ||
+                        contract.position_title ? (
                             <p className="truncate text-[11px] text-muted-foreground/60">
-                                {[contract.department_name, contract.position_title]
+                                {[
+                                    contract.department_name,
+                                    contract.position_title,
+                                ]
                                     .filter(Boolean)
                                     .join(' · ')}
                             </p>
@@ -139,13 +155,19 @@ export function ContractsTableRow({
             </TableCell>
             {showOfficeColumns ? (
                 <>
-                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+                    <TableCell
+                        className={cn(dataTableCellClass(), 'text-right')}
+                    >
                         {formatContractMoney(contract.housing_allowance)}
                     </TableCell>
-                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+                    <TableCell
+                        className={cn(dataTableCellClass(), 'text-right')}
+                    >
                         {formatContractMoney(contract.transport_allowance)}
                     </TableCell>
-                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+                    <TableCell
+                        className={cn(dataTableCellClass(), 'text-right')}
+                    >
                         {formatContractMoney(contract.other_allowances)}
                     </TableCell>
                     <TableCell
@@ -162,12 +184,14 @@ export function ContractsTableRow({
             ) : null}
             {showCrewColumns ? (
                 <>
-                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
-                        {formatContractMoney(
-                            contract.supplementary_allowance,
-                        )}
+                    <TableCell
+                        className={cn(dataTableCellClass(), 'text-right')}
+                    >
+                        {formatContractMoney(contract.supplementary_allowance)}
                     </TableCell>
-                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+                    <TableCell
+                        className={cn(dataTableCellClass(), 'text-right')}
+                    >
                         {formatContractMoney(contract.site_allowance)}
                     </TableCell>
                     <TableCell
@@ -182,7 +206,7 @@ export function ContractsTableRow({
             ) : null}
             <TableCell className={dataTableCellClass()}>
                 <span
-                    className="max-w-[160px] truncate font-mono text-xs text-foreground/90 block"
+                    className="block max-w-[160px] truncate font-mono text-xs text-foreground/90"
                     title={contract.labor_contract_id ?? undefined}
                 >
                     {contract.labor_contract_id || '—'}
@@ -205,7 +229,7 @@ export function ContractsTableRow({
                         <Badge
                             variant="outline"
                             className={cn(
-                                'w-fit text-[10px] font-medium px-1.5 py-0',
+                                'w-fit px-1.5 py-0 text-[10px] font-medium',
                                 LIFECYCLE_BADGE_CONFIG[lifecycle].className,
                             )}
                         >
@@ -217,4 +241,3 @@ export function ContractsTableRow({
         </TableRow>
     );
 }
-

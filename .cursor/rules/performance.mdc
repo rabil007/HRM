@@ -1,6 +1,6 @@
 ---
 description: Performance — Inertia partial reloads, debounce, server-side counts, lazy modals
-globs: resources/js/**,app/Http/Controllers/**,app/Support/**
+globs:
 alwaysApply: false
 ---
 
