@@ -4,21 +4,45 @@ namespace App\Models;
 
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
+use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\PayrollPeriodFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Support\LogOptions;
 
 class PayrollPeriod extends Model
 {
     /** @use HasFactory<PayrollPeriodFactory> */
     use HasFactory;
 
+    use LogsActivityWithCompany;
     use SoftDeletes;
 
     protected $guarded = [];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly([
+                'company_id',
+                'payroll_category',
+                'name',
+                'start_date',
+                'end_date',
+                'payment_date',
+                'status',
+                'notes',
+                'created_by',
+                'approved_by',
+                'approved_at',
+                'excluded_employee_ids',
+                'payment_proof_paths',
+            ])
+            ->logOnlyDirty();
+    }
 
     protected function casts(): array
     {

@@ -5,21 +5,68 @@ namespace App\Models;
 use App\Enums\PayrollCategory;
 use App\Enums\SalaryPaymentMethod;
 use App\Enums\WpsStatus;
+use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\PayrollRecordFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Support\LogOptions;
 
 class PayrollRecord extends Model
 {
     /** @use HasFactory<PayrollRecordFactory> */
     use HasFactory;
 
+    use LogsActivityWithCompany;
     use SoftDeletes;
 
     protected $guarded = [];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly([
+                'company_id',
+                'employee_id',
+                'period_id',
+                'contract_id',
+                'payroll_category',
+                'salary_payment_method',
+                'bank_id',
+                'employee_bank_account_id',
+                'basic_salary',
+                'housing_allowance',
+                'transport_allowance',
+                'other_allowances',
+                'overtime_pay',
+                'bonus',
+                'gross_salary',
+                'unpaid_leave_deduction',
+                'late_deduction',
+                'loan_deduction',
+                'other_deductions',
+                'total_deductions',
+                'net_salary',
+                'gratuity_accrued',
+                'gratuity_total',
+                'wps_reference',
+                'wps_agent_ref',
+                'wps_status',
+                'wps_submitted_at',
+                'working_days',
+                'present_days',
+                'absent_days',
+                'leave_days',
+                'overtime_hours',
+                'payslip_path',
+                'status',
+                'paid_at',
+                'calculation_breakdown',
+            ])
+            ->logOnlyDirty();
+    }
 
     protected function casts(): array
     {
