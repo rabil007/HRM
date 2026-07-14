@@ -3,10 +3,10 @@ import { User } from 'lucide-react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { Button } from '@/components/ui/button';
-import { TrainingBreadcrumbs } from '@/features/organization/training/employee/training-breadcrumbs';
-import type { TrainingEmployeeBrowseProps } from '@/features/organization/training/types';
 import { buildEmployeeShowUrl } from '@/features/organization/employees/build-employee-show-url';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
+import { TrainingBreadcrumbs } from '@/features/organization/training/employee/training-breadcrumbs';
+import type { TrainingEmployeeBrowseProps } from '@/features/organization/training/types';
 import { EmployeeTrainingTab } from '@/pages/organization/_components/employee-training-tab';
 
 export function TrainingEmployeeContent({

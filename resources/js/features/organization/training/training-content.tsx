@@ -15,10 +15,8 @@ import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { buildTrainingEmployeeUrl } from '@/features/organization/training/build-training-employee-url';
-import {
-    TrainingFiltersSheet,
-    type TrainingSheetFilters,
-} from '@/features/organization/training/components/training-filters-sheet';
+import { TrainingFiltersSheet } from '@/features/organization/training/components/training-filters-sheet';
+import type { TrainingSheetFilters } from '@/features/organization/training/components/training-filters-sheet';
 import { buildTrainingShowUrl } from '@/features/organization/training/shared/training-show-url';
 import { TrainingManagementDialogs } from '@/features/organization/training/training-management-dialogs';
 import { TrainingSummaryCards } from '@/features/organization/training/training-summary-cards';
@@ -67,8 +65,9 @@ export function TrainingContent({
     can,
 }: TrainingsIndexProps) {
     const [editTraining, setEditTraining] = useState<TrainingItem | null>(null);
-    const [replaceTraining, setReplaceTraining] =
-        useState<TrainingItem | null>(null);
+    const [replaceTraining, setReplaceTraining] = useState<TrainingItem | null>(
+        null,
+    );
     const [deleteTrainingId, setDeleteTrainingId] = useState<number | null>(
         null,
     );
@@ -162,8 +161,7 @@ export function TrainingContent({
         return exportTrainings.url({
             query: {
                 search: initialSearch || undefined,
-                expiry:
-                    initialExpiry !== 'all' ? initialExpiry : undefined,
+                expiry: initialExpiry !== 'all' ? initialExpiry : undefined,
                 issue_date: initialIssueDate || undefined,
                 course_id: initialCourseId || undefined,
                 institute: initialInstitute || undefined,
@@ -333,11 +331,7 @@ export function TrainingContent({
                     onReplaceTrainingChange={setReplaceTraining}
                     deleteTrainingId={deleteTrainingId}
                     onDeleteTrainingIdChange={setDeleteTrainingId}
-                    partialReloadKeys={[
-                        'trainings',
-                        'summary',
-                        'pagination',
-                    ]}
+                    partialReloadKeys={['trainings', 'summary', 'pagination']}
                 />
             ) : null}
 

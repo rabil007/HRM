@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
-import { Fragment } from 'react';
 import { GraduationCap } from 'lucide-react';
+import { Fragment } from 'react';
 import {
     Breadcrumb,
     BreadcrumbItem,

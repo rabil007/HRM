@@ -30,6 +30,7 @@ test('contracts module exposes granular permissions only', function () {
         'contracts.create',
         'contracts.delete',
         'contracts.import',
+        'contracts.salary_revisions.manage',
         'contracts.update',
         'contracts.view',
     ]);

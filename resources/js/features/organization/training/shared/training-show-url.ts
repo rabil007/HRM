@@ -1,5 +1,5 @@
-import { show as trainingShow } from '@/routes/organization/employees/training';
 import type { TrainingShowBackContext } from '@/features/organization/training/types';
+import { show as trainingShow } from '@/routes/organization/employees/training';
 
 export function buildTrainingShowUrl(
     employeeId: number,

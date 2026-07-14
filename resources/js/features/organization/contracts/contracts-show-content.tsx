@@ -1,14 +1,10 @@
 import { Link } from '@inertiajs/react';
-import {
-    Banknote,
-    CalendarDays,
-    FileText,
-    User,
-} from 'lucide-react';
+import { Banknote, CalendarDays, FileText, User } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { RecentActivityCard } from '@/components/recent-activity-card';
+import type { RecentActivityItem } from '@/components/recent-activity-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buildContractEmployeeUrl } from '@/features/organization/contracts/build-contract-employee-url';
@@ -25,9 +21,8 @@ import type {
     ContractPageCan,
     ContractBackNavigation,
 } from '@/features/organization/contracts/types';
-import type { RecentActivityItem } from '@/components/recent-activity-card';
-import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { buildEmployeeShowUrl } from '@/features/organization/employees/build-employee-show-url';
+import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { formatDisplayDate } from '@/lib/format-date';
 
 type Props = {
@@ -105,7 +100,9 @@ export function ContractsShowContent({
                             asChild
                         >
                             <Link
-                                href={buildEmployeeShowUrl(contract.employee_id)}
+                                href={buildEmployeeShowUrl(
+                                    contract.employee_id,
+                                )}
                             >
                                 <User className="mr-2 size-4" />
                                 View profile
@@ -177,7 +174,9 @@ export function ContractsShowContent({
                         <CardContent className="grid gap-4 sm:grid-cols-2">
                             <DetailField
                                 label="Basic"
-                                value={formatContractMoney(contract.basic_salary)}
+                                value={formatContractMoney(
+                                    contract.basic_salary,
+                                )}
                             />
                             {isOfficeOrCrewMonthly ? (
                                 <>

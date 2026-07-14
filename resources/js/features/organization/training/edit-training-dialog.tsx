@@ -10,6 +10,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import type { CountryOption } from '@/features/organization/employees/types';
 import { AddTrainingDraftForm } from '@/features/organization/training/add-training/add-training-draft-form';
 import {
     buildTrainingSubmitPayload,
@@ -23,7 +24,6 @@ import {
 } from '@/pages/organization/_hooks/use-template-record-fields';
 import { omitHiddenTemplateRecordFields } from '@/pages/organization/_lib/template-field-visibility';
 import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
-import type { CountryOption } from '@/features/organization/employees/types';
 import type {
     CourseOption,
     TemplateFieldConfig,
@@ -96,8 +96,8 @@ export function EditTrainingDialog({
                 <DialogHeader>
                     <DialogTitle>Edit training</DialogTitle>
                     <p className="text-sm text-muted-foreground">
-                        Update training details. Use Replace on the row to change
-                        the certificate file.
+                        Update training details. Use Replace on the row to
+                        change the certificate file.
                     </p>
                 </DialogHeader>
 

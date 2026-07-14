@@ -17,7 +17,13 @@ import {
     Users,
     XCircle,
 } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import {
     approve,
     cancel,
@@ -69,7 +75,6 @@ import { CrewSalaryStructureToggle } from './components/crew-salary-structure-to
 import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
 import { OfficePayrollRecordsTable } from './components/office-payroll-records-table';
 import { OfficeSalaryInputsSheet } from './components/office-salary-inputs-sheet';
-import { PayrollShowFiltersSheet } from './components/payroll-show-filters-sheet';
 import { PayrollApproveDialog } from './components/payroll-approve-dialog';
 import { PayrollCancelDialog } from './components/payroll-cancel-dialog';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
@@ -88,6 +93,7 @@ import { PayrollRecordsTable } from './components/payroll-records-table';
 import { PayrollRevertToApprovedDialog } from './components/payroll-revert-to-approved-dialog';
 import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft-dialog';
 import { PayrollRevertToProcessingDialog } from './components/payroll-revert-to-processing-dialog';
+import { PayrollShowFiltersSheet } from './components/payroll-show-filters-sheet';
 import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
 import { usePayslipGenerationPoll } from './hooks/use-payslip-generation-poll';
 import { calculateInclusiveDays } from './lib/calculate-inclusive-days';
@@ -246,8 +252,7 @@ export function PayrollShowContent({
                     onsite_to: current.onsite_to || null,
                     onsite_days: onsite_days ? Number(onsite_days) : null,
                     overtime_hours: current.overtime_hours || 0,
-                    additional_amount:
-                        initialTimesheet?.additional_amount ?? 0,
+                    additional_amount: initialTimesheet?.additional_amount ?? 0,
                     deduction_amount: initialTimesheet?.deduction_amount ?? 0,
                     remarks: initialTimesheet?.remarks ?? null,
                 },
@@ -275,10 +280,7 @@ export function PayrollShowContent({
     );
 
     const scheduleSaveCrewTimesheet = useCallback(
-        (
-            employeeId: number,
-            initialTimesheet: CrewPayrollRow['timesheet'],
-        ) => {
+        (employeeId: number, initialTimesheet: CrewPayrollRow['timesheet']) => {
             const existingTimer = crewSaveTimersRef.current[employeeId];
 
             if (existingTimer) {
@@ -333,10 +335,11 @@ export function PayrollShowContent({
         supportsTimesheets: period.supports_timesheets,
     });
 
-    const { isLiveUpdating: isPayslipGenerationLive } = usePayslipGenerationPoll({
-        periodStatus: period.status as PayrollPeriodStatus,
-        payslipSummary: payslip_summary,
-    });
+    const { isLiveUpdating: isPayslipGenerationLive } =
+        usePayslipGenerationPoll({
+            periodStatus: period.status as PayrollPeriodStatus,
+            payslipSummary: payslip_summary,
+        });
 
     const handleEmployeeGroupSelect = (
         employeeGroup: PayrollShowFilters['employee_group'],
@@ -370,10 +373,7 @@ export function PayrollShowContent({
         });
     };
 
-    const handlePositionSelect = (
-        positionId: number,
-        departmentId: number,
-    ) => {
+    const handlePositionSelect = (positionId: number, departmentId: number) => {
         list.applyFilters({
             department_id: String(departmentId),
             position_id: String(positionId),
@@ -386,8 +386,7 @@ export function PayrollShowContent({
         });
     };
 
-    const handleCrewSalaryStructureChange =
-        list.onCrewSalaryStructureChange;
+    const handleCrewSalaryStructureChange = list.onCrewSalaryStructureChange;
 
     const employeeSearchPlaceholder = `Search ${period.payroll_category_label.toLowerCase()} employees...`;
 
@@ -598,8 +597,7 @@ export function PayrollShowContent({
         period.can_generate_payroll && permissions.generate_payroll;
 
     const canEditTimesheets =
-        period.status === 'draft' &&
-        (permissions.create || permissions.update);
+        period.status === 'draft' && (permissions.create || permissions.update);
 
     const canRevertToDraft =
         period.can_revert_to_draft && permissions.revert_to_draft;
@@ -778,7 +776,9 @@ export function PayrollShowContent({
                             {canGenerate ? (
                                 <Button
                                     variant={
-                                        isProcessingPayRun ? 'outline' : undefined
+                                        isProcessingPayRun
+                                            ? 'outline'
+                                            : undefined
                                     }
                                     className={
                                         isProcessingPayRun
@@ -854,9 +854,7 @@ export function PayrollShowContent({
                               <div className="flex flex-wrap items-center gap-2">
                                   <CrewSalaryStructureToggle
                                       value={activeCrewSalaryStructure}
-                                      onChange={
-                                          handleCrewSalaryStructureChange
-                                      }
+                                      onChange={handleCrewSalaryStructureChange}
                                   />
                                   {permissions.import_timesheets ? (
                                       <Button
@@ -905,7 +903,9 @@ export function PayrollShowContent({
                                     department_tree_selected_position_id={
                                         department_tree_selected_position_id
                                     }
-                                    selectionCount={departmentTreeSelectionCount}
+                                    selectionCount={
+                                        departmentTreeSelectionCount
+                                    }
                                     onSelectDepartment={handleDepartmentSelect}
                                     onSelectPosition={handlePositionSelect}
                                 />
@@ -1130,456 +1130,505 @@ export function PayrollShowContent({
                     />
                 ) : (
                     <>
-                {/* Selection info bar */}
-                <div className="flex items-center justify-between rounded-xl border border-border/40 bg-muted/30 px-4 py-2.5 backdrop-blur-sm">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <CheckSquare className="h-4 w-4 shrink-0 text-primary" />
-                        <span>
-                            <span className="font-semibold text-foreground">
-                                {includedCount}
-                            </span>{' '}
-                            of{' '}
-                            <span className="font-semibold text-foreground">
-                                {selection.totalCount}
-                            </span>{' '}
-                            employees included
-                        </span>
-                        {selection.excludedCount > 0 && (
-                            <Badge
-                                variant="outline"
-                                className="ml-1 border-amber-500/30 bg-amber-500/10 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
-                            >
-                                {selection.excludedCount} excluded
-                            </Badge>
-                        )}
-                    </div>
-                    {selection.excludedCount > 0 && (
-                        <button
-                            type="button"
-                            onClick={() => setExcludedIds(new Set())}
-                            className="text-xs font-medium text-primary underline-offset-2 transition-colors hover:underline"
-                        >
-                            Include all
-                        </button>
-                    )}
-                </div>
-
-                <OrganizationDataTable>
-                    <TableHeader>
-                        {/* Group labels row */}
-                        <tr className="border-b-0">
-                            <th
-                                colSpan={2}
-                                className="h-7 border-b border-border/30"
-                            />
-                            <th
-                                colSpan={1}
-                                className="h-7 border-b border-border/30"
-                            />
-                            <th
-                                colSpan={3}
-                                className="h-7 border-x border-b border-primary/15 bg-primary/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-primary/50 uppercase"
-                            >
-                                Daily Rates
-                            </th>
-                            <th
-                                colSpan={2}
-                                className="h-7 border-x border-b border-blue-500/15 bg-blue-500/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-blue-600/60 uppercase dark:text-blue-400/60"
-                            >
-                                Days
-                            </th>
-                            <th
-                                colSpan={1}
-                                className="h-7 border-x border-b border-amber-500/15 bg-amber-500/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-amber-600/60 uppercase dark:text-amber-400/60"
-                            >
-                                Overtime
-                            </th>
-                            <th
-                                colSpan={2}
-                                className="h-7 border-b border-border/30"
-                            />
-                        </tr>
-                        <DataTableHeaderRow>
-                            <DataTableHead className="w-10">
-                                <Checkbox
-                                    id="select-all-crew-employees"
-                                    checked={selection.headerChecked}
-                                    onCheckedChange={handleSelectAll}
-                                    aria-label="Select all employees"
-                                    className="rounded"
-                                />
-                            </DataTableHead>
-                            <DataTableHead>Employee</DataTableHead>
-                            <DataTableHead>Bank</DataTableHead>
-                            <DataTableHead className="border-l border-primary/10 bg-primary/3 text-right">
-                                Basic
-                            </DataTableHead>
-                            <DataTableHead className="bg-primary/3 text-right">
-                                Hous. / Suppl.
-                            </DataTableHead>
-                            <DataTableHead className="border-r border-primary/10 bg-primary/3 text-right">
-                                Trans. / Site
-                            </DataTableHead>
-                            <DataTableHead className="border-l border-blue-500/10 bg-blue-500/3">
-                                Leave / Standby
-                            </DataTableHead>
-                            <DataTableHead className="border-r border-blue-500/10 bg-blue-500/3">
-                                Working / Onsite
-                            </DataTableHead>
-                            <DataTableHead className="border-x border-amber-500/10 bg-amber-500/3 text-right">
-                                Hours
-                            </DataTableHead>
-                            <DataTableHead>Payment</DataTableHead>
-                            <DataTableHead>Status</DataTableHead>
-                        </DataTableHeaderRow>
-                    </TableHeader>
-                    <TableBody>
-                        {rows.map((row) => {
-                            const isExcluded = excludedIds.has(row.employee.id);
-                            const paymentMethod = (row.salary_payment_method ??
-                                'bank_transfer') as SalaryPaymentMethodValue;
-                            const contract = row.contract ?? null;
-                            const isMonthlyCrewRow =
-                                row.salary_structure === 'monthly';
-
-                            const currentDraft = crewTimesheetDrafts[row.employee.id];
-                            const standbyFrom =
-                                currentDraft?.standby_from ??
-                                row.timesheet?.standby_from ??
-                                '';
-                            const standbyTo =
-                                currentDraft?.standby_to ??
-                                row.timesheet?.standby_to ??
-                                '';
-                            const onsiteFrom =
-                                currentDraft?.onsite_from ??
-                                row.timesheet?.onsite_from ??
-                                '';
-                            const onsiteTo =
-                                currentDraft?.onsite_to ??
-                                row.timesheet?.onsite_to ??
-                                '';
-                            const overtimeHours =
-                                currentDraft?.overtime_hours ??
-                                row.timesheet?.overtime_hours ??
-                                '';
-
-                            const standbyDays = currentDraft
-                                ? calculateInclusiveDays(standbyFrom, standbyTo)
-                                : (row.timesheet?.standby_days ??
-                                  calculateInclusiveDays(
-                                      standbyFrom,
-                                      standbyTo,
-                                  ));
-                            const onsiteDays = currentDraft
-                                ? calculateInclusiveDays(onsiteFrom, onsiteTo)
-                                : (row.timesheet?.onsite_days ??
-                                  calculateInclusiveDays(onsiteFrom, onsiteTo));
-
-                            const isDirty = !!crewTimesheetDrafts[row.employee.id];
-
-                            return (
-                                <TableRow
-                                    key={row.employee.id}
-                                    className={cn(
-                                        dataTableBodyRowClass(),
-                                        'group transition-all duration-200',
-                                        isExcluded
-                                            ? 'bg-muted/10 opacity-35 dark:bg-muted/5'
-                                            : 'hover:bg-muted/30',
-                                        isDirty &&
-                                            !isExcluded &&
-                                            'ring-1 ring-primary/20 ring-inset',
-                                    )}
-                                >
-                                    {/* Checkbox */}
-                                    <TableCell
-                                        className={cn(
-                                            dataTableCellClass(),
-                                            'pl-4',
-                                        )}
+                        {/* Selection info bar */}
+                        <div className="flex items-center justify-between rounded-xl border border-border/40 bg-muted/30 px-4 py-2.5 backdrop-blur-sm">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <CheckSquare className="h-4 w-4 shrink-0 text-primary" />
+                                <span>
+                                    <span className="font-semibold text-foreground">
+                                        {includedCount}
+                                    </span>{' '}
+                                    of{' '}
+                                    <span className="font-semibold text-foreground">
+                                        {selection.totalCount}
+                                    </span>{' '}
+                                    employees included
+                                </span>
+                                {selection.excludedCount > 0 && (
+                                    <Badge
+                                        variant="outline"
+                                        className="ml-1 border-amber-500/30 bg-amber-500/10 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
                                     >
+                                        {selection.excludedCount} excluded
+                                    </Badge>
+                                )}
+                            </div>
+                            {selection.excludedCount > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setExcludedIds(new Set())}
+                                    className="text-xs font-medium text-primary underline-offset-2 transition-colors hover:underline"
+                                >
+                                    Include all
+                                </button>
+                            )}
+                        </div>
+
+                        <OrganizationDataTable>
+                            <TableHeader>
+                                {/* Group labels row */}
+                                <tr className="border-b-0">
+                                    <th
+                                        colSpan={2}
+                                        className="h-7 border-b border-border/30"
+                                    />
+                                    <th
+                                        colSpan={1}
+                                        className="h-7 border-b border-border/30"
+                                    />
+                                    <th
+                                        colSpan={3}
+                                        className="h-7 border-x border-b border-primary/15 bg-primary/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-primary/50 uppercase"
+                                    >
+                                        Daily Rates
+                                    </th>
+                                    <th
+                                        colSpan={2}
+                                        className="h-7 border-x border-b border-blue-500/15 bg-blue-500/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-blue-600/60 uppercase dark:text-blue-400/60"
+                                    >
+                                        Days
+                                    </th>
+                                    <th
+                                        colSpan={1}
+                                        className="h-7 border-x border-b border-amber-500/15 bg-amber-500/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-amber-600/60 uppercase dark:text-amber-400/60"
+                                    >
+                                        Overtime
+                                    </th>
+                                    <th
+                                        colSpan={2}
+                                        className="h-7 border-b border-border/30"
+                                    />
+                                </tr>
+                                <DataTableHeaderRow>
+                                    <DataTableHead className="w-10">
                                         <Checkbox
-                                            id={`crew-employee-${row.employee.id}`}
-                                            checked={!isExcluded}
-                                            onCheckedChange={(checked) =>
-                                                handleRowToggle(
-                                                    row.employee.id,
-                                                    checked,
-                                                )
-                                            }
-                                            aria-label={`Include ${row.employee.name}`}
+                                            id="select-all-crew-employees"
+                                            checked={selection.headerChecked}
+                                            onCheckedChange={handleSelectAll}
+                                            aria-label="Select all employees"
                                             className="rounded"
                                         />
-                                    </TableCell>
+                                    </DataTableHead>
+                                    <DataTableHead>Employee</DataTableHead>
+                                    <DataTableHead>Bank</DataTableHead>
+                                    <DataTableHead className="border-l border-primary/10 bg-primary/3 text-right">
+                                        Basic
+                                    </DataTableHead>
+                                    <DataTableHead className="bg-primary/3 text-right">
+                                        Hous. / Suppl.
+                                    </DataTableHead>
+                                    <DataTableHead className="border-r border-primary/10 bg-primary/3 text-right">
+                                        Trans. / Site
+                                    </DataTableHead>
+                                    <DataTableHead className="border-l border-blue-500/10 bg-blue-500/3">
+                                        Leave / Standby
+                                    </DataTableHead>
+                                    <DataTableHead className="border-r border-blue-500/10 bg-blue-500/3">
+                                        Working / Onsite
+                                    </DataTableHead>
+                                    <DataTableHead className="border-x border-amber-500/10 bg-amber-500/3 text-right">
+                                        Hours
+                                    </DataTableHead>
+                                    <DataTableHead>Payment</DataTableHead>
+                                    <DataTableHead>Status</DataTableHead>
+                                </DataTableHeaderRow>
+                            </TableHeader>
+                            <TableBody>
+                                {rows.map((row) => {
+                                    const isExcluded = excludedIds.has(
+                                        row.employee.id,
+                                    );
+                                    const paymentMethod =
+                                        (row.salary_payment_method ??
+                                            'bank_transfer') as SalaryPaymentMethodValue;
+                                    const contract = row.contract ?? null;
+                                    const isMonthlyCrewRow =
+                                        row.salary_structure === 'monthly';
 
-                                    <PayrollEmployeeCell
-                                        employee={row.employee}
-                                        isExcluded={isExcluded}
-                                    />
+                                    const currentDraft =
+                                        crewTimesheetDrafts[row.employee.id];
+                                    const standbyFrom =
+                                        currentDraft?.standby_from ??
+                                        row.timesheet?.standby_from ??
+                                        '';
+                                    const standbyTo =
+                                        currentDraft?.standby_to ??
+                                        row.timesheet?.standby_to ??
+                                        '';
+                                    const onsiteFrom =
+                                        currentDraft?.onsite_from ??
+                                        row.timesheet?.onsite_from ??
+                                        '';
+                                    const onsiteTo =
+                                        currentDraft?.onsite_to ??
+                                        row.timesheet?.onsite_to ??
+                                        '';
+                                    const overtimeHours =
+                                        currentDraft?.overtime_hours ??
+                                        row.timesheet?.overtime_hours ??
+                                        '';
 
-                                    {/* Bank account */}
-                                    <PayrollRecordBankAccountCell
-                                        primary_account={
-                                            row.primary_account ?? null
-                                        }
-                                        salary_payment_method={paymentMethod}
-                                    />
+                                    const standbyDays = currentDraft
+                                        ? calculateInclusiveDays(
+                                              standbyFrom,
+                                              standbyTo,
+                                          )
+                                        : (row.timesheet?.standby_days ??
+                                          calculateInclusiveDays(
+                                              standbyFrom,
+                                              standbyTo,
+                                          ));
+                                    const onsiteDays = currentDraft
+                                        ? calculateInclusiveDays(
+                                              onsiteFrom,
+                                              onsiteTo,
+                                          )
+                                        : (row.timesheet?.onsite_days ??
+                                          calculateInclusiveDays(
+                                              onsiteFrom,
+                                              onsiteTo,
+                                          ));
 
-                                    {/* Basic salary */}
-                                    <TableCell
-                                        className={cn(
-                                            dataTableCellClass(),
-                                            'border-l border-primary/8 bg-primary/2 text-right',
-                                        )}
-                                    >
-                                        <SalaryCell
-                                            value={contract?.basic_salary}
-                                        />
-                                    </TableCell>
+                                    const isDirty =
+                                        !!crewTimesheetDrafts[row.employee.id];
 
-                                    {/* Supplementary */}
-                                    <TableCell
-                                        className={cn(
-                                            dataTableCellClass(),
-                                            'bg-primary/2 text-right',
-                                        )}
-                                    >
-                                        <SalaryCell
-                                            value={
-                                                isMonthlyCrewRow
-                                                    ? contract?.housing_allowance
-                                                    : contract?.supplementary_allowance
-                                            }
-                                        />
-                                    </TableCell>
-
-                                    {/* Site allowance */}
-                                    <TableCell
-                                        className={cn(
-                                            dataTableCellClass(),
-                                            'border-r border-primary/8 bg-primary/2 text-right',
-                                        )}
-                                    >
-                                        <SalaryCell
-                                            value={
-                                                isMonthlyCrewRow
-                                                    ? contract?.transport_allowance
-                                                    : contract?.site_allowance
-                                            }
-                                        />
-                                    </TableCell>
-
-                                    {/* Standby dates */}
-                                    <TableCell
-                                        className={cn(
-                                            dataTableCellClass(),
-                                            'border-l border-blue-500/8 bg-blue-500/2',
-                                        )}
-                                    >
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex items-center gap-1">
-                                                <Input
-                                                    type="date"
-                                                    value={standbyFrom}
-                                                    onChange={(e) =>
-                                                        handleCrewTimesheetChange(
-                                                            row.employee.id,
-                                                            'standby_from',
-                                                            e.target.value,
-                                                            row.timesheet,
-                                                        )
-                                                    }
-                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                                    disabled={!canEditTimesheets}
-                                                />
-                                                <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
-                                                    →
-                                                </span>
-                                                <Input
-                                                    type="date"
-                                                    value={standbyTo}
-                                                    onChange={(e) =>
-                                                        handleCrewTimesheetChange(
-                                                            row.employee.id,
-                                                            'standby_to',
-                                                            e.target.value,
-                                                            row.timesheet,
-                                                        )
-                                                    }
-                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                                    disabled={!canEditTimesheets}
-                                                />
-                                            </div>
-                                            <Badge
-                                                variant="secondary"
-                                                className={cn(
-                                                    'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
-                                                    standbyDays &&
-                                                        Number(standbyDays) > 0
-                                                        ? 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300'
-                                                        : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
-                                                )}
-                                            >
-                                                {standbyDays &&
-                                                Number(standbyDays) > 0 ? (
-                                                    <>
-                                                        {formatTimesheetDays(
-                                                            standbyDays,
-                                                        )}{' '}
-                                                        days
-                                                    </>
-                                                ) : (
-                                                    <>No dates set</>
-                                                )}
-                                            </Badge>
-                                        </div>
-                                    </TableCell>
-
-                                    {/* Onsite dates */}
-                                    <TableCell
-                                        className={cn(
-                                            dataTableCellClass(),
-                                            'border-r border-blue-500/8 bg-blue-500/2',
-                                        )}
-                                    >
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex items-center gap-1">
-                                                <Input
-                                                    type="date"
-                                                    value={onsiteFrom}
-                                                    onChange={(e) =>
-                                                        handleCrewTimesheetChange(
-                                                            row.employee.id,
-                                                            'onsite_from',
-                                                            e.target.value,
-                                                            row.timesheet,
-                                                        )
-                                                    }
-                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                                    disabled={!canEditTimesheets}
-                                                />
-                                                <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
-                                                    →
-                                                </span>
-                                                <Input
-                                                    type="date"
-                                                    value={onsiteTo}
-                                                    onChange={(e) =>
-                                                        handleCrewTimesheetChange(
-                                                            row.employee.id,
-                                                            'onsite_to',
-                                                            e.target.value,
-                                                            row.timesheet,
-                                                        )
-                                                    }
-                                                    className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                                    disabled={!canEditTimesheets}
-                                                />
-                                            </div>
-                                            <Badge
-                                                variant="secondary"
-                                                className={cn(
-                                                    'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
-                                                    onsiteDays &&
-                                                        Number(onsiteDays) > 0
-                                                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                                                        : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
-                                                )}
-                                            >
-                                                {onsiteDays &&
-                                                Number(onsiteDays) > 0 ? (
-                                                    <>
-                                                        {formatTimesheetDays(
-                                                            onsiteDays,
-                                                        )}{' '}
-                                                        days
-                                                    </>
-                                                ) : (
-                                                    <>No dates set</>
-                                                )}
-                                            </Badge>
-                                        </div>
-                                    </TableCell>
-
-                                    {/* Overtime hours */}
-                                    <TableCell
-                                        className={cn(
-                                            dataTableCellClass(),
-                                            'border-x border-amber-500/8 bg-amber-500/2',
-                                        )}
-                                    >
-                                        {isMonthlyCrewRow ? (
-                                            <span className="text-xs text-muted-foreground">
-                                                —
-                                            </span>
-                                        ) : (
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                inputMode="decimal"
-                                                placeholder="0"
-                                                value={overtimeHours}
-                                                onChange={(e) =>
-                                                    handleCrewTimesheetChange(
-                                                        row.employee.id,
-                                                        'overtime_hours',
-                                                        e.target.value,
-                                                        row.timesheet,
-                                                    )
-                                                }
-                                                disabled={!canEditTimesheets}
-                                                className="h-8 w-[110px] rounded-md border-border/50 bg-background/60 px-2 font-mono text-[11px] tabular-nums shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50"
-                                                aria-label={`Overtime hours for ${row.employee.name}`}
-                                            />
-                                        )}
-                                    </TableCell>
-
-                                    {/* Payment method */}
-                                    <PayrollRecordPaymentMethodCell
-                                        method={paymentMethod}
-                                        label={
-                                            row.salary_payment_method_label ??
-                                            'Bank transfer'
-                                        }
-                                    />
-
-                                    {/* Status */}
-                                    <TableCell className={dataTableCellClass()}>
-                                        <div className="flex flex-col items-start gap-1.5">
-                                            <Badge
-                                                variant={
-                                                    row.is_filled
-                                                        ? 'default'
-                                                        : 'outline'
-                                                }
-                                                className={cn(
-                                                    'text-[11px] font-semibold',
-                                                    row.is_filled
-                                                        ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                                                        : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-                                                )}
-                                            >
-                                                {row.is_filled
-                                                    ? '✓ Filled'
-                                                    : 'Pending'}
-                                            </Badge>
-                                            {isDirty && (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary/70">
-                                                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary/60" />
-                                                    Unsaved
-                                                </span>
+                                    return (
+                                        <TableRow
+                                            key={row.employee.id}
+                                            className={cn(
+                                                dataTableBodyRowClass(),
+                                                'group transition-all duration-200',
+                                                isExcluded
+                                                    ? 'bg-muted/10 opacity-35 dark:bg-muted/5'
+                                                    : 'hover:bg-muted/30',
+                                                isDirty &&
+                                                    !isExcluded &&
+                                                    'ring-1 ring-primary/20 ring-inset',
                                             )}
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                </OrganizationDataTable>
+                                        >
+                                            {/* Checkbox */}
+                                            <TableCell
+                                                className={cn(
+                                                    dataTableCellClass(),
+                                                    'pl-4',
+                                                )}
+                                            >
+                                                <Checkbox
+                                                    id={`crew-employee-${row.employee.id}`}
+                                                    checked={!isExcluded}
+                                                    onCheckedChange={(
+                                                        checked,
+                                                    ) =>
+                                                        handleRowToggle(
+                                                            row.employee.id,
+                                                            checked,
+                                                        )
+                                                    }
+                                                    aria-label={`Include ${row.employee.name}`}
+                                                    className="rounded"
+                                                />
+                                            </TableCell>
 
-                <Pagination {...list.paginationProps} label="employees" />
+                                            <PayrollEmployeeCell
+                                                employee={row.employee}
+                                                isExcluded={isExcluded}
+                                            />
+
+                                            {/* Bank account */}
+                                            <PayrollRecordBankAccountCell
+                                                primary_account={
+                                                    row.primary_account ?? null
+                                                }
+                                                salary_payment_method={
+                                                    paymentMethod
+                                                }
+                                            />
+
+                                            {/* Basic salary */}
+                                            <TableCell
+                                                className={cn(
+                                                    dataTableCellClass(),
+                                                    'border-l border-primary/8 bg-primary/2 text-right',
+                                                )}
+                                            >
+                                                <SalaryCell
+                                                    value={
+                                                        contract?.basic_salary
+                                                    }
+                                                />
+                                            </TableCell>
+
+                                            {/* Supplementary */}
+                                            <TableCell
+                                                className={cn(
+                                                    dataTableCellClass(),
+                                                    'bg-primary/2 text-right',
+                                                )}
+                                            >
+                                                <SalaryCell
+                                                    value={
+                                                        isMonthlyCrewRow
+                                                            ? contract?.housing_allowance
+                                                            : contract?.supplementary_allowance
+                                                    }
+                                                />
+                                            </TableCell>
+
+                                            {/* Site allowance */}
+                                            <TableCell
+                                                className={cn(
+                                                    dataTableCellClass(),
+                                                    'border-r border-primary/8 bg-primary/2 text-right',
+                                                )}
+                                            >
+                                                <SalaryCell
+                                                    value={
+                                                        isMonthlyCrewRow
+                                                            ? contract?.transport_allowance
+                                                            : contract?.site_allowance
+                                                    }
+                                                />
+                                            </TableCell>
+
+                                            {/* Standby dates */}
+                                            <TableCell
+                                                className={cn(
+                                                    dataTableCellClass(),
+                                                    'border-l border-blue-500/8 bg-blue-500/2',
+                                                )}
+                                            >
+                                                <div className="flex flex-col gap-2">
+                                                    <div className="flex items-center gap-1">
+                                                        <Input
+                                                            type="date"
+                                                            value={standbyFrom}
+                                                            onChange={(e) =>
+                                                                handleCrewTimesheetChange(
+                                                                    row.employee
+                                                                        .id,
+                                                                    'standby_from',
+                                                                    e.target
+                                                                        .value,
+                                                                    row.timesheet,
+                                                                )
+                                                            }
+                                                            className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                            disabled={
+                                                                !canEditTimesheets
+                                                            }
+                                                        />
+                                                        <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
+                                                            →
+                                                        </span>
+                                                        <Input
+                                                            type="date"
+                                                            value={standbyTo}
+                                                            onChange={(e) =>
+                                                                handleCrewTimesheetChange(
+                                                                    row.employee
+                                                                        .id,
+                                                                    'standby_to',
+                                                                    e.target
+                                                                        .value,
+                                                                    row.timesheet,
+                                                                )
+                                                            }
+                                                            className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                            disabled={
+                                                                !canEditTimesheets
+                                                            }
+                                                        />
+                                                    </div>
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className={cn(
+                                                            'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
+                                                            standbyDays &&
+                                                                Number(
+                                                                    standbyDays,
+                                                                ) > 0
+                                                                ? 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300'
+                                                                : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
+                                                        )}
+                                                    >
+                                                        {standbyDays &&
+                                                        Number(standbyDays) >
+                                                            0 ? (
+                                                            <>
+                                                                {formatTimesheetDays(
+                                                                    standbyDays,
+                                                                )}{' '}
+                                                                days
+                                                            </>
+                                                        ) : (
+                                                            <>No dates set</>
+                                                        )}
+                                                    </Badge>
+                                                </div>
+                                            </TableCell>
+
+                                            {/* Onsite dates */}
+                                            <TableCell
+                                                className={cn(
+                                                    dataTableCellClass(),
+                                                    'border-r border-blue-500/8 bg-blue-500/2',
+                                                )}
+                                            >
+                                                <div className="flex flex-col gap-2">
+                                                    <div className="flex items-center gap-1">
+                                                        <Input
+                                                            type="date"
+                                                            value={onsiteFrom}
+                                                            onChange={(e) =>
+                                                                handleCrewTimesheetChange(
+                                                                    row.employee
+                                                                        .id,
+                                                                    'onsite_from',
+                                                                    e.target
+                                                                        .value,
+                                                                    row.timesheet,
+                                                                )
+                                                            }
+                                                            className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                            disabled={
+                                                                !canEditTimesheets
+                                                            }
+                                                        />
+                                                        <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
+                                                            →
+                                                        </span>
+                                                        <Input
+                                                            type="date"
+                                                            value={onsiteTo}
+                                                            onChange={(e) =>
+                                                                handleCrewTimesheetChange(
+                                                                    row.employee
+                                                                        .id,
+                                                                    'onsite_to',
+                                                                    e.target
+                                                                        .value,
+                                                                    row.timesheet,
+                                                                )
+                                                            }
+                                                            className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                            disabled={
+                                                                !canEditTimesheets
+                                                            }
+                                                        />
+                                                    </div>
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className={cn(
+                                                            'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
+                                                            onsiteDays &&
+                                                                Number(
+                                                                    onsiteDays,
+                                                                ) > 0
+                                                                ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                                                                : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
+                                                        )}
+                                                    >
+                                                        {onsiteDays &&
+                                                        Number(onsiteDays) >
+                                                            0 ? (
+                                                            <>
+                                                                {formatTimesheetDays(
+                                                                    onsiteDays,
+                                                                )}{' '}
+                                                                days
+                                                            </>
+                                                        ) : (
+                                                            <>No dates set</>
+                                                        )}
+                                                    </Badge>
+                                                </div>
+                                            </TableCell>
+
+                                            {/* Overtime hours */}
+                                            <TableCell
+                                                className={cn(
+                                                    dataTableCellClass(),
+                                                    'border-x border-amber-500/8 bg-amber-500/2',
+                                                )}
+                                            >
+                                                {isMonthlyCrewRow ? (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        —
+                                                    </span>
+                                                ) : (
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        inputMode="decimal"
+                                                        placeholder="0"
+                                                        value={overtimeHours}
+                                                        onChange={(e) =>
+                                                            handleCrewTimesheetChange(
+                                                                row.employee.id,
+                                                                'overtime_hours',
+                                                                e.target.value,
+                                                                row.timesheet,
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            !canEditTimesheets
+                                                        }
+                                                        className="h-8 w-[110px] rounded-md border-border/50 bg-background/60 px-2 font-mono text-[11px] tabular-nums shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50"
+                                                        aria-label={`Overtime hours for ${row.employee.name}`}
+                                                    />
+                                                )}
+                                            </TableCell>
+
+                                            {/* Payment method */}
+                                            <PayrollRecordPaymentMethodCell
+                                                method={paymentMethod}
+                                                label={
+                                                    row.salary_payment_method_label ??
+                                                    'Bank transfer'
+                                                }
+                                            />
+
+                                            {/* Status */}
+                                            <TableCell
+                                                className={dataTableCellClass()}
+                                            >
+                                                <div className="flex flex-col items-start gap-1.5">
+                                                    <Badge
+                                                        variant={
+                                                            row.is_filled
+                                                                ? 'default'
+                                                                : 'outline'
+                                                        }
+                                                        className={cn(
+                                                            'text-[11px] font-semibold',
+                                                            row.is_filled
+                                                                ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                                                : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+                                                        )}
+                                                    >
+                                                        {row.is_filled
+                                                            ? '✓ Filled'
+                                                            : 'Pending'}
+                                                    </Badge>
+                                                    {isDirty && (
+                                                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary/70">
+                                                            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary/60" />
+                                                            Unsaved
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </OrganizationDataTable>
+
+                        <Pagination
+                            {...list.paginationProps}
+                            label="employees"
+                        />
                     </>
                 )}
             </div>
@@ -1660,9 +1709,7 @@ export function PayrollShowContent({
                                             lastPage={
                                                 recordsPagination.last_page
                                             }
-                                            perPage={
-                                                recordsPagination.per_page
-                                            }
+                                            perPage={recordsPagination.per_page}
                                             total={recordsPagination.total}
                                             from={recordsPagination.from}
                                             to={recordsPagination.to}
@@ -1684,15 +1731,13 @@ export function PayrollShowContent({
                                     description="Generate payroll or switch to Monthly to review monthly crew salaries."
                                 />
                             )
-                        ) : (monthlyRecordsPagination?.total ?? 0) >
-                          0 ? (
+                        ) : (monthlyRecordsPagination?.total ?? 0) > 0 ? (
                             <>
                                 <OfficePayrollRecordsTable
                                     records={monthlyCrewRecords.map(
                                         (record) => ({
                                             ...record,
-                                            payroll_category:
-                                                'office' as const,
+                                            payroll_category: 'office' as const,
                                         }),
                                     )}
                                     salaryInputsByEmployee={
@@ -2115,7 +2160,7 @@ function EmployeeAnalyticsCard({
             className={cn(
                 'group relative w-full overflow-hidden rounded-2xl border p-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none',
                 styles.card,
-                isSelected && 'ring-2 ring-primary/50 shadow-lg',
+                isSelected && 'shadow-lg ring-2 ring-primary/50',
             )}
         >
             {/* Subtle background glow */}
@@ -2297,251 +2342,271 @@ function OfficeEmployeesTabContent({
                 />
             ) : (
                 <>
-            {/* Selection info bar */}
-            <div className="flex items-center justify-between rounded-xl border border-border/40 bg-muted/30 px-4 py-2.5 backdrop-blur-sm">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CheckSquare className="h-4 w-4 shrink-0 text-primary" />
-                    <span>
-                        <span className="font-semibold text-foreground">
-                            {includedCount}
-                        </span>{' '}
-                        of{' '}
-                        <span className="font-semibold text-foreground">
-                            {selection.totalCount}
-                        </span>{' '}
-                        employees included
-                    </span>
-                    {selection.excludedCount > 0 && (
-                        <Badge
-                            variant="outline"
-                            className="ml-1 border-amber-500/30 bg-amber-500/10 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
-                        >
-                            {selection.excludedCount} excluded
-                        </Badge>
-                    )}
-                </div>
-                {selection.excludedCount > 0 && (
-                    <button
-                        type="button"
-                        onClick={() => setExcludedIds(new Set())}
-                        className="text-xs font-medium text-primary underline-offset-2 transition-colors hover:underline"
-                    >
-                        Include all
-                    </button>
-                )}
-            </div>
-
-            {/* Table */}
-            <OrganizationDataTable>
-                <TableHeader>
-                    <DataTableHeaderRow>
-                        {/* Select-all checkbox */}
-                        <DataTableHead className="w-10">
-                            <Checkbox
-                                id="select-all-employees"
-                                checked={selection.headerChecked}
-                                onCheckedChange={handleSelectAll}
-                                aria-label="Select all employees"
-                                className="rounded"
-                            />
-                        </DataTableHead>
-                        <DataTableHead>Employee</DataTableHead>
-                        <DataTableHead>Bank account</DataTableHead>
-                        {/* Salary columns */}
-                        <DataTableHead>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span className="inline-flex cursor-default items-center gap-1.5">
-                                        <Calculator className="h-3 w-3 text-primary/60" />
-                                        Basic Salary
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    From current contract
-                                </TooltipContent>
-                            </Tooltip>
-                        </DataTableHead>
-                        <DataTableHead>Housing Allow.</DataTableHead>
-                        <DataTableHead>Transport Allow.</DataTableHead>
-                        <DataTableHead>Other Allow.</DataTableHead>
-                        <DataTableHead>Payment</DataTableHead>
-                        <DataTableHead>
-                            <span className="inline-flex cursor-default items-center gap-1.5">
-                                <Calendar className="h-3 w-3 text-primary/60" />
-                                Period (Start — End)
+                    {/* Selection info bar */}
+                    <div className="flex items-center justify-between rounded-xl border border-border/40 bg-muted/30 px-4 py-2.5 backdrop-blur-sm">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <CheckSquare className="h-4 w-4 shrink-0 text-primary" />
+                            <span>
+                                <span className="font-semibold text-foreground">
+                                    {includedCount}
+                                </span>{' '}
+                                of{' '}
+                                <span className="font-semibold text-foreground">
+                                    {selection.totalCount}
+                                </span>{' '}
+                                employees included
                             </span>
-                        </DataTableHead>
-                        <DataTableHead>
-                            <span className="inline-flex cursor-default items-center gap-1.5">
-                                <CalendarDays className="h-3 w-3 text-primary/60" />
-                                Total Days
-                            </span>
-                        </DataTableHead>
-                    </DataTableHeaderRow>
-                </TableHeader>
-                <TableBody>
-                    {rows.map((row) => {
-                        const isExcluded = excludedIds.has(row.employee.id);
-                        const paymentMethod = (row.salary_payment_method ??
-                            'bank_transfer') as SalaryPaymentMethodValue;
-                        const contract = row.contract ?? null;
-                        const startDate =
-                            rowDates[row.employee.id]?.start ??
-                            period.start_date;
-                        const endDate =
-                            rowDates[row.employee.id]?.end ?? period.end_date;
-                        const totalDays = calculateInclusiveDays(
-                            startDate,
-                            endDate,
-                        );
-
-                        return (
-                            <TableRow
-                                key={row.employee.id}
-                                className={cn(
-                                    dataTableBodyRowClass(),
-                                    'group transition-all duration-200',
-                                    isExcluded
-                                        ? 'bg-muted/20 opacity-40 dark:bg-muted/10'
-                                        : 'hover:bg-muted/40',
-                                )}
+                            {selection.excludedCount > 0 && (
+                                <Badge
+                                    variant="outline"
+                                    className="ml-1 border-amber-500/30 bg-amber-500/10 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
+                                >
+                                    {selection.excludedCount} excluded
+                                </Badge>
+                            )}
+                        </div>
+                        {selection.excludedCount > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => setExcludedIds(new Set())}
+                                className="text-xs font-medium text-primary underline-offset-2 transition-colors hover:underline"
                             >
-                                {/* Checkbox */}
-                                <TableCell className={dataTableCellClass()}>
+                                Include all
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Table */}
+                    <OrganizationDataTable>
+                        <TableHeader>
+                            <DataTableHeaderRow>
+                                {/* Select-all checkbox */}
+                                <DataTableHead className="w-10">
                                     <Checkbox
-                                        id={`employee-${row.employee.id}`}
-                                        checked={!isExcluded}
-                                        onCheckedChange={(checked) =>
-                                            handleRowToggle(
-                                                row.employee.id,
-                                                checked,
-                                            )
-                                        }
-                                        aria-label={`Include ${row.employee.name}`}
+                                        id="select-all-employees"
+                                        checked={selection.headerChecked}
+                                        onCheckedChange={handleSelectAll}
+                                        aria-label="Select all employees"
                                         className="rounded"
                                     />
-                                </TableCell>
+                                </DataTableHead>
+                                <DataTableHead>Employee</DataTableHead>
+                                <DataTableHead>Bank account</DataTableHead>
+                                {/* Salary columns */}
+                                <DataTableHead>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span className="inline-flex cursor-default items-center gap-1.5">
+                                                <Calculator className="h-3 w-3 text-primary/60" />
+                                                Basic Salary
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            From current contract
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </DataTableHead>
+                                <DataTableHead>Housing Allow.</DataTableHead>
+                                <DataTableHead>Transport Allow.</DataTableHead>
+                                <DataTableHead>Other Allow.</DataTableHead>
+                                <DataTableHead>Payment</DataTableHead>
+                                <DataTableHead>
+                                    <span className="inline-flex cursor-default items-center gap-1.5">
+                                        <Calendar className="h-3 w-3 text-primary/60" />
+                                        Period (Start — End)
+                                    </span>
+                                </DataTableHead>
+                                <DataTableHead>
+                                    <span className="inline-flex cursor-default items-center gap-1.5">
+                                        <CalendarDays className="h-3 w-3 text-primary/60" />
+                                        Total Days
+                                    </span>
+                                </DataTableHead>
+                            </DataTableHeaderRow>
+                        </TableHeader>
+                        <TableBody>
+                            {rows.map((row) => {
+                                const isExcluded = excludedIds.has(
+                                    row.employee.id,
+                                );
+                                const paymentMethod =
+                                    (row.salary_payment_method ??
+                                        'bank_transfer') as SalaryPaymentMethodValue;
+                                const contract = row.contract ?? null;
+                                const startDate =
+                                    rowDates[row.employee.id]?.start ??
+                                    period.start_date;
+                                const endDate =
+                                    rowDates[row.employee.id]?.end ??
+                                    period.end_date;
+                                const totalDays = calculateInclusiveDays(
+                                    startDate,
+                                    endDate,
+                                );
 
-                                <PayrollEmployeeCell
-                                    employee={row.employee}
-                                    isExcluded={isExcluded}
-                                />
-
-                                <PayrollRecordBankAccountCell
-                                    primary_account={
-                                        row.primary_account ?? null
-                                    }
-                                    salary_payment_method={paymentMethod}
-                                />
-
-                                {/* Basic salary */}
-                                <TableCell
-                                    className={cn(
-                                        dataTableCellClass(),
-                                        'text-right',
-                                    )}
-                                >
-                                    <SalaryCell
-                                        value={contract?.basic_salary}
-                                    />
-                                </TableCell>
-
-                                {/* Housing allowance */}
-                                <TableCell
-                                    className={cn(
-                                        dataTableCellClass(),
-                                        'text-right',
-                                    )}
-                                >
-                                    <SalaryCell
-                                        value={contract?.housing_allowance}
-                                    />
-                                </TableCell>
-
-                                {/* Transport allowance */}
-                                <TableCell
-                                    className={cn(
-                                        dataTableCellClass(),
-                                        'text-right',
-                                    )}
-                                >
-                                    <SalaryCell
-                                        value={contract?.transport_allowance}
-                                    />
-                                </TableCell>
-
-                                {/* Other allowances */}
-                                <TableCell
-                                    className={cn(
-                                        dataTableCellClass(),
-                                        'text-right',
-                                    )}
-                                >
-                                    <SalaryCell
-                                        value={contract?.other_allowances}
-                                    />
-                                </TableCell>
-
-                                <PayrollRecordPaymentMethodCell
-                                    method={paymentMethod}
-                                    label={
-                                        row.salary_payment_method_label ??
-                                        'Bank transfer'
-                                    }
-                                />
-
-                                {/* Period dates */}
-                                <TableCell className={dataTableCellClass()}>
-                                    <div className="flex min-w-[310px] items-center gap-2">
-                                        <Input
-                                            type="date"
-                                            value={startDate}
-                                            onChange={(e) =>
-                                                handleStartDateChange(
-                                                    row.employee.id,
-                                                    e.target.value,
-                                                )
-                                            }
-                                            className="h-8 w-[142px] rounded-lg border-border/60 bg-background/50 px-2 font-mono text-xs transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                        />
-                                        <span className="text-xs font-bold text-muted-foreground/50">
-                                            —
-                                        </span>
-                                        <Input
-                                            type="date"
-                                            value={endDate}
-                                            onChange={(e) =>
-                                                handleEndDateChange(
-                                                    row.employee.id,
-                                                    e.target.value,
-                                                )
-                                            }
-                                            className="h-8 w-[142px] rounded-lg border-border/60 bg-background/50 px-2 font-mono text-xs transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                        />
-                                    </div>
-                                </TableCell>
-
-                                {/* Total days */}
-                                <TableCell className={dataTableCellClass()}>
-                                    <Badge
-                                        variant="secondary"
+                                return (
+                                    <TableRow
+                                        key={row.employee.id}
                                         className={cn(
-                                            'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold tabular-nums transition-colors',
-                                            totalDays && Number(totalDays) > 0
-                                                ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                                                : 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+                                            dataTableBodyRowClass(),
+                                            'group transition-all duration-200',
+                                            isExcluded
+                                                ? 'bg-muted/20 opacity-40 dark:bg-muted/10'
+                                                : 'hover:bg-muted/40',
                                         )}
                                     >
-                                        {formatTimesheetDays(totalDays)} days
-                                    </Badge>
-                                </TableCell>
-                            </TableRow>
-                        );
-                    })}
-                </TableBody>
-            </OrganizationDataTable>
+                                        {/* Checkbox */}
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            <Checkbox
+                                                id={`employee-${row.employee.id}`}
+                                                checked={!isExcluded}
+                                                onCheckedChange={(checked) =>
+                                                    handleRowToggle(
+                                                        row.employee.id,
+                                                        checked,
+                                                    )
+                                                }
+                                                aria-label={`Include ${row.employee.name}`}
+                                                className="rounded"
+                                            />
+                                        </TableCell>
 
-            <Pagination {...paginationProps} label="employees" />
+                                        <PayrollEmployeeCell
+                                            employee={row.employee}
+                                            isExcluded={isExcluded}
+                                        />
+
+                                        <PayrollRecordBankAccountCell
+                                            primary_account={
+                                                row.primary_account ?? null
+                                            }
+                                            salary_payment_method={
+                                                paymentMethod
+                                            }
+                                        />
+
+                                        {/* Basic salary */}
+                                        <TableCell
+                                            className={cn(
+                                                dataTableCellClass(),
+                                                'text-right',
+                                            )}
+                                        >
+                                            <SalaryCell
+                                                value={contract?.basic_salary}
+                                            />
+                                        </TableCell>
+
+                                        {/* Housing allowance */}
+                                        <TableCell
+                                            className={cn(
+                                                dataTableCellClass(),
+                                                'text-right',
+                                            )}
+                                        >
+                                            <SalaryCell
+                                                value={
+                                                    contract?.housing_allowance
+                                                }
+                                            />
+                                        </TableCell>
+
+                                        {/* Transport allowance */}
+                                        <TableCell
+                                            className={cn(
+                                                dataTableCellClass(),
+                                                'text-right',
+                                            )}
+                                        >
+                                            <SalaryCell
+                                                value={
+                                                    contract?.transport_allowance
+                                                }
+                                            />
+                                        </TableCell>
+
+                                        {/* Other allowances */}
+                                        <TableCell
+                                            className={cn(
+                                                dataTableCellClass(),
+                                                'text-right',
+                                            )}
+                                        >
+                                            <SalaryCell
+                                                value={
+                                                    contract?.other_allowances
+                                                }
+                                            />
+                                        </TableCell>
+
+                                        <PayrollRecordPaymentMethodCell
+                                            method={paymentMethod}
+                                            label={
+                                                row.salary_payment_method_label ??
+                                                'Bank transfer'
+                                            }
+                                        />
+
+                                        {/* Period dates */}
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            <div className="flex min-w-[310px] items-center gap-2">
+                                                <Input
+                                                    type="date"
+                                                    value={startDate}
+                                                    onChange={(e) =>
+                                                        handleStartDateChange(
+                                                            row.employee.id,
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="h-8 w-[142px] rounded-lg border-border/60 bg-background/50 px-2 font-mono text-xs transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                />
+                                                <span className="text-xs font-bold text-muted-foreground/50">
+                                                    —
+                                                </span>
+                                                <Input
+                                                    type="date"
+                                                    value={endDate}
+                                                    onChange={(e) =>
+                                                        handleEndDateChange(
+                                                            row.employee.id,
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="h-8 w-[142px] rounded-lg border-border/60 bg-background/50 px-2 font-mono text-xs transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                />
+                                            </div>
+                                        </TableCell>
+
+                                        {/* Total days */}
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            <Badge
+                                                variant="secondary"
+                                                className={cn(
+                                                    'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold tabular-nums transition-colors',
+                                                    totalDays &&
+                                                        Number(totalDays) > 0
+                                                        ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                                                        : 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+                                                )}
+                                            >
+                                                {formatTimesheetDays(totalDays)}{' '}
+                                                days
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </OrganizationDataTable>
+
+                    <Pagination {...paginationProps} label="employees" />
                 </>
             )}
         </div>

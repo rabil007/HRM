@@ -27,7 +27,6 @@ import {
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
-import { SalarySheetPayslipDialog } from '@/features/payroll/overview/salary-sheet-payslip-dialog';
 import {
     Area,
     AreaChart,
@@ -54,6 +53,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { SalarySheetPayslipDialog } from '@/features/payroll/overview/salary-sheet-payslip-dialog';
 import { cn } from '@/lib/utils';
 import { index as payrollIndex } from '@/routes/payroll';
 import { index as recordsIndex } from '@/routes/payroll/records';
@@ -181,18 +181,17 @@ export function PayrollOverviewContent({
 
     const fmtCompact = (amount: number) => {
         if (amount >= 1_000_000) {
-return `${(amount / 1_000_000).toFixed(1)}M`;
-}
+            return `${(amount / 1_000_000).toFixed(1)}M`;
+        }
 
         if (amount >= 1_000) {
-return `${(amount / 1_000).toFixed(1)}K`;
-}
+            return `${(amount / 1_000).toFixed(1)}K`;
+        }
 
         return fmt(amount);
     };
 
-    const fmtFull = (amount: number) =>
-        `${currency} ${fmtCompact(amount)}`;
+    const fmtFull = (amount: number) => `${currency} ${fmtCompact(amount)}`;
 
     const tooltipNumber = (value: unknown): number =>
         typeof value === 'number' ? value : 0;
@@ -435,7 +434,7 @@ return `${(amount / 1_000).toFixed(1)}K`;
             <SectionLabel icon={Target} label="Performance metrics" />
             <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {/* MoM Change */}
-                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
                     <CardContent className="p-5">
                         <p className="text-[10px] font-bold tracking-widest text-muted-foreground/50 uppercase">
                             Month-over-month
@@ -494,7 +493,7 @@ return `${(amount / 1_000).toFixed(1)}K`;
                 </Card>
 
                 {/* Payroll Efficiency */}
-                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
                     <CardContent className="p-5">
                         <p className="text-[10px] font-bold tracking-widest text-muted-foreground/50 uppercase">
                             Payroll efficiency
@@ -523,7 +522,7 @@ return `${(amount / 1_000).toFixed(1)}K`;
                 </Card>
 
                 {/* 6-month Avg */}
-                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
                     <CardContent className="p-5">
                         <p className="text-[10px] font-bold tracking-widest text-muted-foreground/50 uppercase">
                             6-month average
@@ -542,7 +541,7 @@ return `${(amount / 1_000).toFixed(1)}K`;
                 </Card>
 
                 {/* Last period emp count */}
-                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
                     <CardContent className="p-5">
                         <p className="text-[10px] font-bold tracking-widest text-muted-foreground/50 uppercase">
                             Last period
@@ -682,10 +681,7 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                                 width={64}
                                             />
                                             <Tooltip
-                                                formatter={(
-                                                    value,
-                                                    name,
-                                                ) => [
+                                                formatter={(value, name) => [
                                                     fmt(tooltipNumber(value)),
                                                     name === 'total'
                                                         ? 'Net Total'
@@ -700,7 +696,10 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                                 strokeWidth={2}
                                                 fill="url(#gTotal)"
                                                 dot={false}
-                                                activeDot={{ r: 4, strokeWidth: 0 }}
+                                                activeDot={{
+                                                    r: 4,
+                                                    strokeWidth: 0,
+                                                }}
                                             />
                                             <Area
                                                 type="monotone"
@@ -710,7 +709,10 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                                 strokeDasharray="4 2"
                                                 fill="url(#gAvg)"
                                                 dot={false}
-                                                activeDot={{ r: 3, strokeWidth: 0 }}
+                                                activeDot={{
+                                                    r: 3,
+                                                    strokeWidth: 0,
+                                                }}
                                             />
                                         </AreaChart>
                                     </ResponsiveContainer>
@@ -903,10 +905,7 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                                 width={60}
                                             />
                                             <Tooltip
-                                                formatter={(
-                                                    value,
-                                                    name,
-                                                ) => [
+                                                formatter={(value, name) => [
                                                     fmt(tooltipNumber(value)),
                                                     name === 'gross'
                                                         ? 'Gross'
@@ -1030,10 +1029,7 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                                 width={60}
                                             />
                                             <Tooltip
-                                                formatter={(
-                                                    value,
-                                                    name,
-                                                ) => [
+                                                formatter={(value, name) => [
                                                     fmt(tooltipNumber(value)),
                                                     name === 'deductions'
                                                         ? 'Deductions'
@@ -1113,7 +1109,9 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                         height="100%"
                                     >
                                         <LineChart
-                                            data={summary.monthly_category_costs}
+                                            data={
+                                                summary.monthly_category_costs
+                                            }
                                             margin={{
                                                 top: 4,
                                                 right: 4,
@@ -1146,10 +1144,7 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                                 width={64}
                                             />
                                             <Tooltip
-                                                formatter={(
-                                                    value,
-                                                    name,
-                                                ) => [
+                                                formatter={(value, name) => [
                                                     fmt(tooltipNumber(value)),
                                                     name === 'crew'
                                                         ? 'Crew'
@@ -1327,7 +1322,9 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                         >
                                             <PieChart>
                                                 <Pie
-                                                    data={summary.category_split}
+                                                    data={
+                                                        summary.category_split
+                                                    }
                                                     cx="50%"
                                                     cy="50%"
                                                     innerRadius={46}
@@ -1420,21 +1417,17 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                                     paddingAngle={3}
                                                     dataKey="value"
                                                 >
-                                                    {[
-                                                        '#10b981',
-                                                        '#f59e0b',
-                                                    ].map((color, i) => (
-                                                        <Cell
-                                                            key={i}
-                                                            fill={color}
-                                                        />
-                                                    ))}
+                                                    {['#10b981', '#f59e0b'].map(
+                                                        (color, i) => (
+                                                            <Cell
+                                                                key={i}
+                                                                fill={color}
+                                                            />
+                                                        ),
+                                                    )}
                                                 </Pie>
                                                 <Tooltip
-                                                    formatter={(
-                                                        v,
-                                                        name,
-                                                    ) => {
+                                                    formatter={(v, name) => {
                                                         const count =
                                                             tooltipNumber(v);
 
@@ -1452,8 +1445,7 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                         <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-center">
                                             <p className="text-lg font-black text-emerald-400">
                                                 {
-                                                    summary
-                                                        .wps_status_breakdown
+                                                    summary.wps_status_breakdown
                                                         .submitted
                                                 }
                                             </p>
@@ -1464,8 +1456,7 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                         <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-center">
                                             <p className="text-lg font-black text-amber-400">
                                                 {
-                                                    summary
-                                                        .wps_status_breakdown
+                                                    summary.wps_status_breakdown
                                                         .pending
                                                 }
                                             </p>
@@ -1621,10 +1612,7 @@ return `${(amount / 1_000).toFixed(1)}K`;
             {/* ── Section: Department headcount ── */}
             {summary.department_employee_counts.length > 0 && (
                 <>
-                    <SectionLabel
-                        icon={Users}
-                        label="Department headcount"
-                    />
+                    <SectionLabel icon={Users} label="Department headcount" />
                     <div className="mb-6">
                         <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
                             <CardHeader className="border-b border-border/60 pb-4 dark:border-white/5">
@@ -1666,7 +1654,8 @@ return `${(amount / 1_000).toFixed(1)}K`;
                                                         <span className="absolute inset-y-0 left-3 flex items-center text-[11px] font-bold text-foreground/80">
                                                             {dept.count}{' '}
                                                             <span className="ml-1 font-normal text-muted-foreground/50">
-                                                                {dept.count === 1
+                                                                {dept.count ===
+                                                                1
                                                                     ? 'employee'
                                                                     : 'employees'}
                                                             </span>
@@ -1810,12 +1799,7 @@ function YtdCard({
     const p = palette[color];
 
     return (
-        <Card
-            className={cn(
-                'glass-card overflow-hidden p-0',
-                p.card,
-            )}
-        >
+        <Card className={cn('overflow-hidden glass-card p-0', p.card)}>
             <CardContent className="flex items-center gap-4 p-5">
                 <div
                     className={cn(
@@ -1832,7 +1816,9 @@ function YtdCard({
                     <p className="mt-0.5 truncate text-xl font-black tabular-nums">
                         {value}
                     </p>
-                    <p className="text-[11px] text-muted-foreground/55">{sub}</p>
+                    <p className="text-[11px] text-muted-foreground/55">
+                        {sub}
+                    </p>
                 </div>
             </CardContent>
         </Card>
@@ -1870,7 +1856,7 @@ function WorkforceCard({
     const c = palette[color];
 
     return (
-        <Card className={cn('glass-card overflow-hidden p-0', c.card)}>
+        <Card className={cn('overflow-hidden glass-card p-0', c.card)}>
             <CardContent className="flex items-center gap-4 p-5">
                 <div
                     className={cn(

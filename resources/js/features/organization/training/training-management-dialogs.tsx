@@ -2,9 +2,9 @@ import { router } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import * as EmployeeTrainingController from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
+import type { CountryOption } from '@/features/organization/employees/types';
 import { EditTrainingDialog } from '@/features/organization/training/edit-training-dialog';
 import { ReplaceTrainingCertificateDialog } from '@/features/organization/training/replace-training-certificate-dialog';
-import type { CountryOption } from '@/features/organization/employees/types';
 import type {
     CourseOption,
     TemplateFieldConfig,

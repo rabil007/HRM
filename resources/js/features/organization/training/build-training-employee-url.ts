@@ -1,5 +1,5 @@
-import { employee } from '@/routes/organization/training';
 import type { TrainingEmployeeBackContext } from '@/features/organization/training/types';
+import { employee } from '@/routes/organization/training';
 
 export function buildTrainingEmployeeUrl(
     employeeId: number,

@@ -79,10 +79,7 @@ const PAYROLL_CATEGORY_LABELS: Record<string, string> = {
     crew: 'Crew',
 };
 
-const DEFAULT_CONTRACT_REQUIRED_FIELDS = [
-    'start_date',
-    'status',
-] as const;
+const DEFAULT_CONTRACT_REQUIRED_FIELDS = ['start_date', 'status'] as const;
 
 type ContractFormFieldProps = {
     field: string;
@@ -172,10 +169,7 @@ function contractTotalSalary(row: EmployeeContractDetails): number {
         row.other_allowances,
         row.supplementary_allowance,
         row.site_allowance,
-    ].reduce<number>(
-        (sum, value) => sum + (Number(value) || 0),
-        0,
-    );
+    ].reduce<number>((sum, value) => sum + (Number(value) || 0), 0);
 }
 
 function buildContractPayload(
@@ -199,9 +193,10 @@ function buildContractPayload(
     return omitHiddenTemplateRecordFields(
         {
             payroll_category: data.payroll_category,
-            salary_structure: data.payroll_category === 'crew'
-                ? data.salary_structure
-                : 'monthly',
+            salary_structure:
+                data.payroll_category === 'crew'
+                    ? data.salary_structure
+                    : 'monthly',
             start_date: data.start_date,
             end_date: data.end_date === '' ? null : data.end_date,
             labor_contract_id:
@@ -261,7 +256,10 @@ function CurrencyInput({
                 id={id}
                 inputMode="decimal"
                 placeholder={placeholder}
-                className={cn('h-10 rounded-xl border-border/60 bg-muted/50 pl-10 text-sm tabular-nums', className)}
+                className={cn(
+                    'h-10 rounded-xl border-border/60 bg-muted/50 pl-10 text-sm tabular-nums',
+                    className,
+                )}
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
             />
@@ -280,7 +278,6 @@ export function EmployeeContractTab({
     ensureEmployee,
     templateContractFields = null,
 }: EmployeeContractTabProps): ReactElement {
-    const canMutateContracts = canCreate || canUpdate || canDelete;
     const showContractActions = Boolean(employeeId);
     const showField = useMemo(
         () => createTemplateFieldVisibility(templateContractFields),
@@ -814,7 +811,7 @@ export function EmployeeContractTab({
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
-                                            'font-semibold tabular-nums text-foreground',
+                                            'font-semibold text-foreground tabular-nums',
                                         )}
                                     >
                                         {formatMoney(contractTotalSalary(row))}
@@ -907,7 +904,10 @@ export function EmployeeContractTab({
                     {showContractDetailsSection ? (
                         <div className="space-y-4 py-1">
                             <div className="flex items-center gap-2">
-                                <FileText className="size-3.5 text-muted-foreground" aria-hidden />
+                                <FileText
+                                    className="size-3.5 text-muted-foreground"
+                                    aria-hidden
+                                />
                                 <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Contract details
                                 </span>
@@ -944,14 +944,16 @@ export function EmployeeContractTab({
                                                     .payroll_category
                                             }
                                             onValueChange={(v) =>
-                                                contractForm.setData((data) => ({
-                                                    ...data,
-                                                    payroll_category: v,
-                                                    salary_structure:
-                                                        v === 'crew'
-                                                            ? 'daily'
-                                                            : 'monthly',
-                                                }))
+                                                contractForm.setData(
+                                                    (data) => ({
+                                                        ...data,
+                                                        payroll_category: v,
+                                                        salary_structure:
+                                                            v === 'crew'
+                                                                ? 'daily'
+                                                                : 'monthly',
+                                                    }),
+                                                )
                                             }
                                             variant="dark"
                                         >
@@ -963,9 +965,9 @@ export function EmployeeContractTab({
                                             </AppSelectItem>
                                         </AppSelect>
                                         <p className="text-[11px] text-muted-foreground">
-                                            Office uses monthly salary; crew uses
-                                            daily or monthly structures with
-                                            timesheets
+                                            Office uses monthly salary; crew
+                                            uses daily or monthly structures
+                                            with timesheets
                                         </p>
                                     </ContractFormField>
                                 ) : null}
@@ -1064,7 +1066,8 @@ export function EmployeeContractTab({
                                                 className={cn(
                                                     'inline-flex shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium',
                                                     contractStatusClass(
-                                                        contractForm.data.status,
+                                                        contractForm.data
+                                                            .status,
                                                     ),
                                                 )}
                                             >
@@ -1136,7 +1139,10 @@ export function EmployeeContractTab({
                     {showDurationSection ? (
                         <div className="space-y-4 pt-2">
                             <div className="flex items-center gap-2">
-                                <CalendarDays className="size-3.5 text-muted-foreground" aria-hidden />
+                                <CalendarDays
+                                    className="size-3.5 text-muted-foreground"
+                                    aria-hidden
+                                />
                                 <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Duration
                                 </span>
@@ -1249,7 +1255,10 @@ export function EmployeeContractTab({
                     {showCompensationSection ? (
                         <div className="space-y-4 pt-2">
                             <div className="flex items-center gap-2">
-                                <Banknote className="size-3.5 text-muted-foreground" aria-hidden />
+                                <Banknote
+                                    className="size-3.5 text-muted-foreground"
+                                    aria-hidden
+                                />
                                 <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Compensation
                                 </span>
@@ -1592,7 +1601,8 @@ export function EmployeeContractTab({
                                 if (!hasAnyValue) {
                                     return (
                                         <p className="text-[11px] text-muted-foreground">
-                                            Enter at least one compensation value to calculate the total.
+                                            Enter at least one compensation
+                                            value to calculate the total.
                                         </p>
                                     );
                                 }
@@ -1636,7 +1646,10 @@ export function EmployeeContractTab({
                     {showNoteSection ? (
                         <div className="space-y-4 pt-2">
                             <div className="flex items-center gap-2">
-                                <MessageSquare className="size-3.5 text-muted-foreground" aria-hidden />
+                                <MessageSquare
+                                    className="size-3.5 text-muted-foreground"
+                                    aria-hidden
+                                />
                                 <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                                     Note
                                 </span>

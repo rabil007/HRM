@@ -7,8 +7,8 @@ import {
 } from '@/components/data-table';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
-import { TrainingExpiryBadge } from '@/features/organization/training/training-expiry-badge';
 import { trainingExpiryRemainingClass } from '@/features/organization/training/training-expiry';
+import { TrainingExpiryBadge } from '@/features/organization/training/training-expiry-badge';
 import { TrainingListRowActions } from '@/features/organization/training/training-list-row-actions';
 import type { TrainingListItem } from '@/features/organization/training/types';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -91,7 +91,9 @@ export function TrainingTableRow({
                     <p
                         className={cn(
                             'text-[11px]',
-                            trainingExpiryRemainingClass(training.expiry_status),
+                            trainingExpiryRemainingClass(
+                                training.expiry_status,
+                            ),
                         )}
                     >
                         {training.expiry_label}
@@ -113,7 +115,9 @@ export function TrainingTableRow({
                     showEdit={canUpdate}
                     onEdit={onEdit ? () => onEdit(training) : undefined}
                     showReplace={canUpdate && !!training.certificate_url}
-                    onReplace={onReplace ? () => onReplace(training) : undefined}
+                    onReplace={
+                        onReplace ? () => onReplace(training) : undefined
+                    }
                     showDelete={canDelete}
                     onDelete={onDelete ? () => onDelete(training) : undefined}
                 />

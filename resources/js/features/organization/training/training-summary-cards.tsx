@@ -1,8 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
-import {
-    TRAINING_EXPIRY_FILTER_LABELS,
-    type TrainingExpiryFilter,
-} from '@/features/organization/training/training-expiry';
+import { TRAINING_EXPIRY_FILTER_LABELS } from '@/features/organization/training/training-expiry';
+import type { TrainingExpiryFilter } from '@/features/organization/training/training-expiry';
 import type { TrainingExpirySummary } from '@/features/organization/training/types';
 import { cn } from '@/lib/utils';
 

@@ -37,6 +37,36 @@ const PERMISSION_LABEL_OVERRIDES: Record<string, string> = {
     'attendance.records.manage': 'Records: View All Employees',
 };
 
+const PERMISSION_MAIN_GROUP_ALIASES: Record<string, string> = {
+    company_documents: 'companies',
+};
+
+function resolvePermissionGroups(permission: string): {
+    mainGroup: string;
+    subGroup: string;
+} {
+    const parts = permission.split('.');
+    const root = parts[0] || 'other';
+    const mainGroup = formatPermissionGroupLabel(
+        PERMISSION_MAIN_GROUP_ALIASES[root] ?? root,
+    );
+
+    let subGroup = 'GENERAL';
+
+    if (root === 'company_documents') {
+        subGroup = 'DOCUMENTS';
+    } else if (parts.length > 2) {
+        subGroup = parts
+            .slice(1, -1)
+            .map((p) => formatPermissionGroupLabel(p))
+            .join(' • ');
+    } else if (parts.length === 2 && mainGroup === 'SETTINGS') {
+        subGroup = 'CORE';
+    }
+
+    return { mainGroup, subGroup };
+}
+
 export default function RoleDetails({
     role,
     company,
@@ -103,21 +133,7 @@ export default function RoleDetails({
         const mainMap = new Map<string, Map<string, string[]>>();
 
         for (const permission of list) {
-            const parts = permission.split('.');
-            const mainGroup = formatPermissionGroupLabel(parts[0] || 'other');
-
-            // Sub-group logic: take all parts between the first and the last
-            let subGroup = 'GENERAL';
-
-            if (parts.length > 2) {
-                subGroup = parts
-                    .slice(1, -1)
-                    .map((p) => formatPermissionGroupLabel(p))
-                    .join(' • ');
-            } else if (parts.length === 2 && mainGroup === 'SETTINGS') {
-                // Handle cases like settings.view
-                subGroup = 'CORE';
-            }
+            const { mainGroup, subGroup } = resolvePermissionGroups(permission);
 
             if (!mainMap.has(mainGroup)) {
                 mainMap.set(mainGroup, new Map());

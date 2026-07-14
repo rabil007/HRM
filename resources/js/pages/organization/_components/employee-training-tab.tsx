@@ -1,9 +1,7 @@
 import { router } from '@inertiajs/react';
 import type { ReactElement, ReactNode } from 'react';
 import { useMemo, useState } from 'react';
-import {
-    bulkDestroy as bulkDestroyTrainings,
-} from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
+import { bulkDestroy as bulkDestroyTrainings } from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -16,9 +14,9 @@ import { resolveRecordImportUrls } from '@/features/organization/employees/profi
 import type { CountryOption } from '@/features/organization/employees/types';
 import { AddTrainingDialog } from '@/features/organization/training/add-training/add-training-dialog';
 import { buildTrainingShowUrl } from '@/features/organization/training/shared/training-show-url';
-import type { TrainingShowBackContext } from '@/features/organization/training/types';
 import { TrainingListRowActions } from '@/features/organization/training/training-list-row-actions';
 import { TrainingManagementDialogs } from '@/features/organization/training/training-management-dialogs';
+import type { TrainingShowBackContext } from '@/features/organization/training/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import {
@@ -339,7 +337,9 @@ export function EmployeeTrainingTab({
                                             employeeRecordsTableTdClass(),
                                             'max-w-[200px] truncate text-muted-foreground',
                                         )}
-                                        title={row.institute_center ?? undefined}
+                                        title={
+                                            row.institute_center ?? undefined
+                                        }
                                     >
                                         {row.institute_center}
                                     </td>
@@ -368,7 +368,8 @@ export function EmployeeTrainingTab({
                                             showEdit={canUpdate}
                                             onEdit={() => openEditDialog(row)}
                                             showReplace={
-                                                canUpdate && !!row.certificate_url
+                                                canUpdate &&
+                                                !!row.certificate_url
                                             }
                                             onReplace={() =>
                                                 openReplaceDialog(row)
