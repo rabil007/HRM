@@ -11,10 +11,26 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Spatie\Activitylog\Support\ActivityLogStatus;
 
 final class SyncAttendanceRecordsFromHikvision
 {
     public function syncCompany(int $companyId, CarbonInterface $from, CarbonInterface $to): int
+    {
+        $activityLogStatus = app(ActivityLogStatus::class);
+        $activityLoggingWasDisabled = $activityLogStatus->disabled();
+        $activityLogStatus->disable();
+
+        try {
+            return $this->runSyncCompany($companyId, $from, $to);
+        } finally {
+            if (! $activityLoggingWasDisabled) {
+                $activityLogStatus->enable();
+            }
+        }
+    }
+
+    private function runSyncCompany(int $companyId, CarbonInterface $from, CarbonInterface $to): int
     {
         $timezone = (string) config('app.timezone', 'UTC');
         $workingDays = $this->resolveWorkingDays($companyId);
