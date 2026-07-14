@@ -1,8 +1,14 @@
-import { useForm } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
 import { History, Plus } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
-import { store as storeSalaryRevision } from '@/actions/App/Http/Controllers/Organization/ContractSalaryRevisionController';
+import {
+    destroy as destroySalaryRevision,
+    store as storeSalaryRevision,
+    update as updateSalaryRevision,
+} from '@/actions/App/Http/Controllers/Organization/ContractSalaryRevisionController';
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
+import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -50,6 +56,15 @@ function amountToFormValue(value: number | string | null | undefined): string {
     return String(value);
 }
 
+function lineAmount(
+    revision: ContractSalaryRevisionItem,
+    code: string,
+): string {
+    const line = revision.lines.find((item) => item.component_code === code);
+
+    return amountToFormValue(line?.amount);
+}
+
 function formatMoney(value: number | string | null | undefined): string {
     if (value === null || value === undefined) {
         return '—';
@@ -77,7 +92,12 @@ export function EmployeeContractSalaryRevisions({
     reloadOnly = ['contracts', 'employee'],
 }: Props): ReactElement {
     const [open, setOpen] = useState(false);
+    const [editingRevision, setEditingRevision] =
+        useState<ContractSalaryRevisionItem | null>(null);
+    const [deleteRevision, setDeleteRevision] =
+        useState<ContractSalaryRevisionItem | null>(null);
     const revisions = contract.salary_revisions ?? [];
+    const canDeleteRevision = revisions.length > 1;
 
     const form = useForm({
         effective_from: new Date().toISOString().slice(0, 10),
@@ -92,7 +112,8 @@ export function EmployeeContractSalaryRevisions({
         site_allowance: amountToFormValue(contract.site_allowance),
     });
 
-    const openDialog = (): void => {
+    const openCreateDialog = (): void => {
+        setEditingRevision(null);
         form.setData({
             effective_from: new Date().toISOString().slice(0, 10),
             reason: '',
@@ -111,20 +132,57 @@ export function EmployeeContractSalaryRevisions({
         setOpen(true);
     };
 
+    const openEditDialog = (revision: ContractSalaryRevisionItem): void => {
+        setEditingRevision(revision);
+        form.setData({
+            effective_from:
+                revision.effective_from ??
+                new Date().toISOString().slice(0, 10),
+            reason: revision.reason ?? '',
+            basic_salary: lineAmount(revision, 'BASIC'),
+            housing_allowance: lineAmount(revision, 'HOUSING'),
+            transport_allowance: lineAmount(revision, 'TRANSPORT'),
+            other_allowances: lineAmount(revision, 'OTHER'),
+            supplementary_allowance: lineAmount(
+                revision,
+                'SUPPLEMENTARY_ALLOWANCE',
+            ),
+            site_allowance: lineAmount(revision, 'SITE_ALLOWANCE'),
+        });
+        form.clearErrors();
+        setOpen(true);
+    };
+
     const submit = (): void => {
+        const options = {
+            preserveScroll: true,
+            only: reloadOnly,
+            onSuccess: () => {
+                setOpen(false);
+                setEditingRevision(null);
+                form.reset();
+            },
+        };
+
+        if (editingRevision) {
+            form.put(
+                updateSalaryRevision.url({
+                    employee: employeeId,
+                    employeeContract: contract.id,
+                    salaryRevision: editingRevision.id,
+                }),
+                options,
+            );
+
+            return;
+        }
+
         form.post(
             storeSalaryRevision.url({
                 employee: employeeId,
                 employeeContract: contract.id,
             }),
-            {
-                preserveScroll: true,
-                only: reloadOnly,
-                onSuccess: () => {
-                    setOpen(false);
-                    form.reset();
-                },
-            },
+            options,
         );
     };
 
@@ -146,7 +204,7 @@ export function EmployeeContractSalaryRevisions({
                             variant="outline"
                             size="sm"
                             className="h-8 rounded-lg"
-                            onClick={openDialog}
+                            onClick={openCreateDialog}
                         >
                             <Plus className="mr-1 size-3.5" />
                             Add revision
@@ -160,7 +218,7 @@ export function EmployeeContractSalaryRevisions({
                         variant="outline"
                         size="sm"
                         className="h-8 rounded-lg"
-                        onClick={openDialog}
+                        onClick={openCreateDialog}
                     >
                         <Plus className="mr-1 size-3.5" />
                         Add revision
@@ -188,6 +246,11 @@ export function EmployeeContractSalaryRevisions({
                                 <th className="px-3 py-2 font-medium">
                                     Reason
                                 </th>
+                                {canManage ? (
+                                    <th className="px-3 py-2 text-right font-medium">
+                                        Actions
+                                    </th>
+                                ) : null}
                             </tr>
                         </thead>
                         <tbody>
@@ -217,6 +280,23 @@ export function EmployeeContractSalaryRevisions({
                                     <td className="px-3 py-2 text-muted-foreground">
                                         {revision.reason || '—'}
                                     </td>
+                                    {canManage ? (
+                                        <td className="px-3 py-2 text-right">
+                                            <EmployeeRecordRowActions
+                                                onEdit={() =>
+                                                    openEditDialog(revision)
+                                                }
+                                                onDelete={
+                                                    canDeleteRevision
+                                                        ? () =>
+                                                              setDeleteRevision(
+                                                                  revision,
+                                                              )
+                                                        : undefined
+                                                }
+                                            />
+                                        </td>
+                                    ) : null}
                                 </tr>
                             ))}
                         </tbody>
@@ -224,10 +304,23 @@ export function EmployeeContractSalaryRevisions({
                 </div>
             )}
 
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog
+                open={open}
+                onOpenChange={(nextOpen) => {
+                    setOpen(nextOpen);
+
+                    if (!nextOpen) {
+                        setEditingRevision(null);
+                    }
+                }}
+            >
                 <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Add salary revision</DialogTitle>
+                        <DialogTitle>
+                            {editingRevision
+                                ? `Edit salary revision v${editingRevision.version}`
+                                : 'Add salary revision'}
+                        </DialogTitle>
                         <p className="text-xs text-muted-foreground">
                             Applies immediately and is used by payroll from the
                             effective date.
@@ -266,7 +359,10 @@ export function EmployeeContractSalaryRevisions({
                                 inputMode="decimal"
                                 value={form.data.basic_salary}
                                 onChange={(e) =>
-                                    form.setData('basic_salary', e.target.value)
+                                    form.setData(
+                                        'basic_salary',
+                                        e.target.value,
+                                    )
                                 }
                             />
                             {form.errors.basic_salary ? (
@@ -398,11 +494,51 @@ export function EmployeeContractSalaryRevisions({
                             disabled={form.processing}
                             onClick={submit}
                         >
-                            {form.processing ? 'Saving…' : 'Apply revision'}
+                            {form.processing
+                                ? 'Saving…'
+                                : editingRevision
+                                  ? 'Save revision'
+                                  : 'Apply revision'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDeleteDialog
+                open={deleteRevision !== null}
+                onOpenChange={(nextOpen) => {
+                    if (!nextOpen) {
+                        setDeleteRevision(null);
+                    }
+                }}
+                title="Delete salary revision?"
+                description={
+                    deleteRevision
+                        ? `This removes version v${deleteRevision.version}. Current contract rates will be synced from the latest remaining revision.`
+                        : ''
+                }
+                confirmText="Delete"
+                onConfirm={() => {
+                    if (!deleteRevision) {
+                        return;
+                    }
+
+                    router.delete(
+                        destroySalaryRevision.url({
+                            employee: employeeId,
+                            employeeContract: contract.id,
+                            salaryRevision: deleteRevision.id,
+                        }),
+                        {
+                            preserveScroll: true,
+                            only: reloadOnly,
+                            onSuccess: () => setDeleteRevision(null),
+                            onError: () => setDeleteRevision(null),
+                        },
+                    );
+                }}
+                confirmButtonClassName={`${actions.dialogPrimary} bg-destructive text-destructive-foreground hover:bg-destructive/90`}
+            />
         </div>
     );
 }

@@ -132,3 +132,96 @@ test('users without salary revision permission cannot store revisions', function
         ])
         ->assertForbidden();
 });
+
+test('authorized user can update a salary revision', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['contracts.salary_revisions.manage']);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $contract = app(UpsertEmployeeContract::class)->handle(
+        $company->id,
+        $employee,
+        [
+            'start_date' => '2026-01-01',
+            'status' => 'active',
+            'payroll_category' => PayrollCategory::Crew->value,
+            'salary_structure' => 'daily',
+            'basic_salary' => 100,
+            'site_allowance' => 50,
+            'supplementary_allowance' => 25,
+        ],
+        createdBy: $user->id,
+    );
+
+    $revision = ContractSalaryRevision::query()->where('contract_id', $contract->id)->first();
+    expect($revision)->not->toBeNull();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put(route('organization.employees.contracts.salary-revisions.update', [
+            'employee' => $employee,
+            'employeeContract' => $contract,
+            'salaryRevision' => $revision,
+        ]), [
+            'effective_from' => '2026-01-15',
+            'reason' => 'Corrected rates',
+            'basic_salary' => 110,
+            'site_allowance' => 60,
+            'supplementary_allowance' => 30,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $revision->refresh();
+    expect($revision->effective_from->toDateString())->toBe('2026-01-15')
+        ->and($revision->reason)->toBe('Corrected rates')
+        ->and((float) $contract->fresh()->basic_salary)->toBe(110.0)
+        ->and((float) $contract->fresh()->site_allowance)->toBe(60.0);
+});
+
+test('authorized user can delete a salary revision when more than one exists', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['contracts.salary_revisions.manage']);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $contract = app(UpsertEmployeeContract::class)->handle(
+        $company->id,
+        $employee,
+        [
+            'start_date' => '2026-01-01',
+            'status' => 'active',
+            'payroll_category' => PayrollCategory::Crew->value,
+            'salary_structure' => 'daily',
+            'basic_salary' => 100,
+            'site_allowance' => 50,
+            'supplementary_allowance' => 25,
+        ],
+        createdBy: $user->id,
+    );
+
+    $second = app(ApplyContractSalaryRevision::class)->handle(
+        $contract->fresh(),
+        [
+            'basic_salary' => 120,
+            'site_allowance' => 80,
+            'supplementary_allowance' => 40,
+        ],
+        '2026-03-01',
+        'Increase',
+        $user->id,
+    );
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->delete(route('organization.employees.contracts.salary-revisions.destroy', [
+            'employee' => $employee,
+            'employeeContract' => $contract,
+            'salaryRevision' => $second,
+        ]))
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(ContractSalaryRevision::query()->where('contract_id', $contract->id)->count())->toBe(1)
+        ->and((float) $contract->fresh()->basic_salary)->toBe(100.0)
+        ->and((float) $contract->fresh()->site_allowance)->toBe(50.0);
+});

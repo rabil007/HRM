@@ -8,7 +8,7 @@ import {
     Plus,
 } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     destroy as destroyContract,
     store as storeContract,
@@ -124,6 +124,7 @@ export type EmployeeContractTabProps = {
     canDelete: boolean;
     canManageSalaryRevisions?: boolean;
     contractShowFrom?: 'profile' | 'employee';
+    initialEditContractId?: number | null;
     ensureEmployee?: () => Promise<number>;
     templateContractFields?: Record<string, TemplateFieldConfig> | null;
 };
@@ -275,6 +276,7 @@ export function EmployeeContractTab({
     canDelete,
     canManageSalaryRevisions = false,
     contractShowFrom = 'profile',
+    initialEditContractId = null,
     ensureEmployee,
     templateContractFields = null,
 }: EmployeeContractTabProps): ReactElement {
@@ -490,6 +492,29 @@ export function EmployeeContractTab({
         setEditingContract(row);
         setDialogOpen(true);
     };
+
+    const didOpenInitialEdit = useRef(false);
+
+    useEffect(() => {
+        if (
+            didOpenInitialEdit.current ||
+            !initialEditContractId ||
+            !canUpdate
+        ) {
+            return;
+        }
+
+        const row = contracts.find(
+            (contract) => contract.id === initialEditContractId,
+        );
+
+        if (!row) {
+            return;
+        }
+
+        didOpenInitialEdit.current = true;
+        openEditDialog(row);
+    }, [initialEditContractId, canUpdate, contracts]);
 
     const submitContract = async () => {
         let resolvedEmployeeId: number;

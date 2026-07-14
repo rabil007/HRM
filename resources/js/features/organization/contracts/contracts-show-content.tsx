@@ -1,6 +1,15 @@
-import { Link } from '@inertiajs/react';
-import { Banknote, CalendarDays, FileText, User } from 'lucide-react';
-import type { ReactElement } from 'react';
+import { Link, router } from '@inertiajs/react';
+import {
+    Banknote,
+    CalendarDays,
+    FileText,
+    Pencil,
+    Trash2,
+    User,
+} from 'lucide-react';
+import { useState, type ReactElement } from 'react';
+import { destroy as destroyContract } from '@/actions/App/Http/Controllers/Organization/EmployeeContractController';
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { RecentActivityCard } from '@/components/recent-activity-card';
@@ -23,6 +32,7 @@ import type {
 } from '@/features/organization/contracts/types';
 import { buildEmployeeShowUrl } from '@/features/organization/employees/build-employee-show-url';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
+import { actions } from '@/lib/design-system';
 import { formatDisplayDate } from '@/lib/format-date';
 
 type Props = {
@@ -61,6 +71,7 @@ export function ContractsShowContent({
     recent_activity,
     can_view_audit,
 }: Props): ReactElement {
+    const [deleteOpen, setDeleteOpen] = useState(false);
     const isCrew = contract.payroll_category === 'crew';
     const isCrewDaily =
         isCrew && (contract.salary_structure ?? 'daily') !== 'monthly';
@@ -68,6 +79,15 @@ export function ContractsShowContent({
     const total = isCrewDaily
         ? contractCrewSalaryTotal(contract)
         : contractOfficeSalaryTotal(contract);
+
+    const editHref = buildContractEmployeeUrl(
+        contract.employee_id,
+        { from: 'index' },
+        { editContractId: contract.id },
+    );
+
+    const headerButtonClass =
+        'h-12 rounded-xl border-input bg-background/50 px-6 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10';
 
     return (
         <Main>
@@ -94,9 +114,31 @@ export function ContractsShowContent({
                 backLabel={back.label}
                 actions={
                     <>
+                        {can.update ? (
+                            <Button
+                                variant="outline"
+                                className={headerButtonClass}
+                                asChild
+                            >
+                                <Link href={editHref}>
+                                    <Pencil className="mr-2 size-4" />
+                                    Edit
+                                </Link>
+                            </Button>
+                        ) : null}
+                        {can.delete ? (
+                            <Button
+                                variant="outline"
+                                className={headerButtonClass}
+                                onClick={() => setDeleteOpen(true)}
+                            >
+                                <Trash2 className="mr-2 size-4" />
+                                Delete
+                            </Button>
+                        ) : null}
                         <Button
                             variant="outline"
-                            className="h-12 rounded-xl border-input bg-background/50 px-6 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
+                            className={headerButtonClass}
                             asChild
                         >
                             <Link
@@ -110,7 +152,7 @@ export function ContractsShowContent({
                         </Button>
                         <Button
                             variant="outline"
-                            className="h-12 rounded-xl border-input bg-background/50 px-6 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
+                            className={headerButtonClass}
                             asChild
                         >
                             <Link
@@ -174,9 +216,7 @@ export function ContractsShowContent({
                         <CardContent className="grid gap-4 sm:grid-cols-2">
                             <DetailField
                                 label="Basic"
-                                value={formatContractMoney(
-                                    contract.basic_salary,
-                                )}
+                                value={formatContractMoney(contract.basic_salary)}
                             />
                             {isOfficeOrCrewMonthly ? (
                                 <>
@@ -260,6 +300,30 @@ export function ContractsShowContent({
                     ) : null}
                 </div>
             </div>
+
+            <ConfirmDeleteDialog
+                open={deleteOpen}
+                onOpenChange={setDeleteOpen}
+                title="Delete contract?"
+                description="This permanently removes the contract and its salary revision history. Linked payroll records may block deletion."
+                confirmText="Delete"
+                onConfirm={() => {
+                    router.delete(
+                        destroyContract.url({
+                            employee: contract.employee_id,
+                            employeeContract: contract.id,
+                        }),
+                        {
+                            onSuccess: () => {
+                                setDeleteOpen(false);
+                                router.visit(back.href);
+                            },
+                            onError: () => setDeleteOpen(false),
+                        },
+                    );
+                }}
+                confirmButtonClassName={`${actions.dialogPrimary} bg-destructive text-destructive-foreground hover:bg-destructive/90`}
+            />
         </Main>
     );
 }

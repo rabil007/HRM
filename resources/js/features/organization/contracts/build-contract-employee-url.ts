@@ -16,6 +16,7 @@ export type ContractEmployeeBackContext = {
 export function buildContractEmployeeUrl(
     employeeId: number,
     back: ContractEmployeeBackContext = { from: 'index' },
+    options?: { editContractId?: number },
 ): string {
     const query: Record<string, string> = {
         from: back.from,
@@ -51,6 +52,10 @@ export function buildContractEmployeeUrl(
 
     if (back.page && back.page > 1) {
         query.page = String(back.page);
+    }
+
+    if (options?.editContractId) {
+        query.edit = String(options.editContractId);
     }
 
     return employee.url({ employee: employeeId }, { query });

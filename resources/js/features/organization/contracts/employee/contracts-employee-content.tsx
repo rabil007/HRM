@@ -1,5 +1,6 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { User } from 'lucide-react';
+import { useMemo } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,18 @@ export function ContractsEmployeeContent({
     back,
     can,
 }: ContractEmployeeBrowseProps) {
+    const pageUrl = usePage().url;
+
+    const initialEditContractId = useMemo(() => {
+        const query = pageUrl.includes('?')
+            ? pageUrl.slice(pageUrl.indexOf('?') + 1)
+            : '';
+        const edit = new URLSearchParams(query).get('edit');
+        const id = edit ? Number(edit) : NaN;
+
+        return Number.isFinite(id) && id > 0 ? id : null;
+    }, [pageUrl]);
+
     return (
         <Main>
             <ContractsBreadcrumbs
@@ -59,9 +72,9 @@ export function ContractsEmployeeContent({
                 canDelete={can.delete}
                 canManageSalaryRevisions={can.manage_salary_revisions}
                 contractShowFrom="employee"
+                initialEditContractId={initialEditContractId}
                 templateContractFields={template_contract_fields}
             />
         </Main>
     );
 }
-
