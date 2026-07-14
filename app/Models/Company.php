@@ -74,6 +74,11 @@ class Company extends Model
         return $this->hasMany(Branch::class);
     }
 
+    public function documents(): HasMany
+    {
+        return $this->hasMany(CompanyDocument::class);
+    }
+
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class)

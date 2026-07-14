@@ -1,4 +1,4 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import {
     Activity,
     BadgeCheck,
@@ -17,6 +17,9 @@ import {
     MapPin,
     Phone,
     ShieldCheck,
+    FolderOpen,
+    Eye,
+    Download,
 } from 'lucide-react';
 import { useState } from 'react';
 import type { ComponentType } from 'react';
@@ -32,8 +35,23 @@ import type {
     Country,
     Currency,
 } from '@/features/organization/companies/types';
+import { DocumentExpiryBadge } from '@/features/organization/documents/shared/document-expiry-badge';
+import { DocumentFileIcon } from '@/features/organization/documents/shared/document-file-icon';
 import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import { index as companyDocumentsIndex } from '@/routes/organization/companies/documents';
+
+type CompanyDocumentSummaryItem = {
+    id: number;
+    title: string;
+    original_filename: string;
+    mime_type: string;
+    expiry_date: string | null;
+    expiry_status: string;
+    can_preview: boolean;
+    preview_url: string;
+    download_url: string;
+};
 
 type Company = {
     id: number;
@@ -155,12 +173,25 @@ export default function CompanyDetails({
     countries,
     currencies,
     can_view_audit,
+    company_documents,
+    company_documents_can,
 }: {
     company: Company;
     recent_activity: ActivityItem[];
     countries: Country[];
     currencies: Currency[];
     can_view_audit: boolean;
+    company_documents: {
+        count: number;
+        recent: CompanyDocumentSummaryItem[];
+    } | null;
+    company_documents_can: {
+        view: boolean;
+        upload: boolean;
+        update: boolean;
+        download: boolean;
+        delete: boolean;
+    };
 }) {
     const [editOpen, setEditOpen] = useState(false);
     const [expandedActivity, setExpandedActivity] = useState<
@@ -424,6 +455,111 @@ export default function CompanyDetails({
                         </CardContent>
                     </Card>
                 </div>
+
+                {company_documents ? (
+                    <Card className="mt-8 border-border bg-card backdrop-blur-xl dark:border-white/5 dark:bg-white/5">
+                        <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-4 dark:border-white/5">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                                    <FolderOpen className="h-4 w-4" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-base font-bold tracking-tight">
+                                        Company documents
+                                    </CardTitle>
+                                    <p className="text-xs text-muted-foreground">
+                                        {company_documents.count} private
+                                        compliance files
+                                    </p>
+                                </div>
+                            </div>
+                            <Button asChild>
+                                <Link
+                                    href={companyDocumentsIndex.url(company.id)}
+                                >
+                                    Manage documents
+                                </Link>
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {company_documents.recent.length === 0 ? (
+                                <div className="py-12 text-center text-sm text-muted-foreground">
+                                    No documents uploaded yet.
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-border dark:divide-white/5">
+                                    {company_documents.recent.map(
+                                        (document) => (
+                                            <div
+                                                key={document.id}
+                                                className="flex items-center gap-3 px-6 py-4"
+                                            >
+                                                <DocumentFileIcon
+                                                    mimeType={
+                                                        document.mime_type
+                                                    }
+                                                    fileName={
+                                                        document.original_filename
+                                                    }
+                                                />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-sm font-semibold">
+                                                        {document.title}
+                                                    </p>
+                                                    <p className="truncate text-xs text-muted-foreground">
+                                                        {
+                                                            document.original_filename
+                                                        }
+                                                    </p>
+                                                </div>
+                                                <DocumentExpiryBadge
+                                                    status={
+                                                        document.expiry_status
+                                                    }
+                                                />
+                                                {company_documents_can.download &&
+                                                document.can_preview ? (
+                                                    <Button
+                                                        asChild
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        title="Preview"
+                                                    >
+                                                        <a
+                                                            href={
+                                                                document.preview_url
+                                                            }
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </a>
+                                                    </Button>
+                                                ) : null}
+                                                {company_documents_can.download ? (
+                                                    <Button
+                                                        asChild
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        title="Download"
+                                                    >
+                                                        <a
+                                                            href={
+                                                                document.download_url
+                                                            }
+                                                        >
+                                                            <Download className="h-4 w-4" />
+                                                        </a>
+                                                    </Button>
+                                                ) : null}
+                                            </div>
+                                        ),
+                                    )}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                ) : null}
 
                 {can_view_audit ? (
                     <Card className="mt-8 border-border bg-card backdrop-blur-xl dark:border-white/5 dark:bg-white/5">

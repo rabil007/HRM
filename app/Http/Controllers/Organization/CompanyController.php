@@ -12,6 +12,8 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\CompanyDocuments\CompanyDocumentAccess;
+use App\Support\CompanyDocuments\CompanyDocumentQuery;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Uploads\UploadedFileStorage;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -30,7 +32,7 @@ class CompanyController extends Controller
 {
     use ResolvesPerPage;
 
-    public function index()
+    public function index(Request $request, CompanyDocumentAccess $documentAccess)
     {
         /** @var FilesystemAdapter $publicDisk */
         $publicDisk = Storage::disk('public');
@@ -67,7 +69,7 @@ class CompanyController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        $companies = $paginator->through(function (Company $company) use ($publicDisk) {
+        $companies = $paginator->through(function (Company $company) use ($publicDisk, $request, $documentAccess) {
             $logoPath = $company->logo;
             $logoUrl = $logoPath && $publicDisk->exists($logoPath)
                 ? $publicDisk->url($logoPath)
@@ -104,6 +106,11 @@ class CompanyController extends Controller
                 'wps_employer_iban' => $company->wps_employer_iban,
                 'status' => $company->status,
                 'created_at' => $company->created_at,
+                'can_view_documents' => $documentAccess->allows(
+                    $request->user(),
+                    $company,
+                    CompanyDocumentAccess::Abilities['view'],
+                ),
             ];
         });
 
@@ -121,8 +128,12 @@ class CompanyController extends Controller
         ]);
     }
 
-    public function show(Company $company)
-    {
+    public function show(
+        Request $request,
+        Company $company,
+        CompanyDocumentAccess $documentAccess,
+        CompanyDocumentQuery $documentQuery,
+    ) {
         /** @var FilesystemAdapter $publicDisk */
         $publicDisk = Storage::disk('public');
 
@@ -144,7 +155,10 @@ class CompanyController extends Controller
 
         $companyId = (int) request()->attributes->get('current_company_id');
 
-        $request = request();
+        $companyDocumentPermissions = $documentAccess->permissions($request->user(), $company);
+        $companyDocumentSummary = $companyDocumentPermissions['view']
+            ? $documentQuery->summary($company)
+            : null;
 
         return Inertia::render('organization/company', [
             'company' => [
@@ -190,6 +204,11 @@ class CompanyController extends Controller
                 $company->id,
             ),
             'can_view_audit' => $request->user()?->can('audit.view') ?? false,
+            'company_documents' => $companyDocumentPermissions['view'] ? [
+                'count' => $companyDocumentSummary['total'],
+                'recent' => $documentQuery->recent($company),
+            ] : null,
+            'company_documents_can' => $companyDocumentPermissions,
             'branches' => $company->branches
                 ->sortByDesc('id')
                 ->values()

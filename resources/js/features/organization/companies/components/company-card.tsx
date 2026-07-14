@@ -1,3 +1,4 @@
+import { Link } from '@inertiajs/react';
 import {
     Clipboard,
     Edit2,
@@ -8,6 +9,7 @@ import {
     MapPin,
     Eye,
     Trash2,
+    FolderOpen,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +21,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { index as companyDocumentsIndex } from '@/routes/organization/companies/documents';
 import type { Company } from '../types';
 
 export function CompanyCard({
@@ -212,6 +215,23 @@ export function CompanyCard({
                     </div>
 
                     <div className="flex items-center justify-end gap-1">
+                        {company.can_view_documents ? (
+                            <Button
+                                asChild
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
+                                title="Company documents"
+                            >
+                                <Link
+                                    href={companyDocumentsIndex.url(company.id)}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <FolderOpen className="h-4 w-4" />
+                                </Link>
+                            </Button>
+                        ) : null}
                         <Button
                             asChild
                             type="button"

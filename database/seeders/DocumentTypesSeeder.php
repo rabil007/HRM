@@ -16,6 +16,10 @@ class DocumentTypesSeeder extends Seeder
             'Labour Card',
             'Contract',
             'Certificate',
+            'Trade License',
+            'Tax Registration Certificate',
+            'Certificate of Incorporation',
+            'Insurance Policy',
         ];
 
         foreach ($defaults as $title) {

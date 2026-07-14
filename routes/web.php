@@ -35,6 +35,11 @@ use App\Http\Controllers\Organization\BulkDocuments\RegenerateAlignedBulkDocumen
 use App\Http\Controllers\Organization\BulkDocuments\RejectBulkDocumentSignatureController;
 use App\Http\Controllers\Organization\BulkDocuments\UploadBulkDocumentSignatureController;
 use App\Http\Controllers\Organization\CompanyController;
+use App\Http\Controllers\Organization\CompanyDocumentBulkStoreController;
+use App\Http\Controllers\Organization\CompanyDocumentController;
+use App\Http\Controllers\Organization\CompanyDocumentFileController;
+use App\Http\Controllers\Organization\CompanyDocumentReplacementController;
+use App\Http\Controllers\Organization\CompanyDocumentVersionController;
 use App\Http\Controllers\Organization\CompanySwitchController;
 use App\Http\Controllers\Organization\ContractSalaryRevisionController;
 use App\Http\Controllers\Organization\ContractsExportController;
@@ -153,6 +158,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('organization/companies', [CompanyController::class, 'index'])->middleware('can:companies.view')->name('organization.companies');
     Route::get('organization/companies/export', [CompanyController::class, 'export'])->middleware('can:companies.export')->name('organization.companies.export');
+    Route::get('organization/companies/{company}/documents', [CompanyDocumentController::class, 'index'])->name('organization.companies.documents.index');
+    Route::post('organization/companies/{company}/documents', [CompanyDocumentController::class, 'store'])->name('organization.companies.documents.store');
+    Route::post('organization/companies/{company}/documents/bulk', CompanyDocumentBulkStoreController::class)->name('organization.companies.documents.bulk-store');
+    Route::put('organization/companies/{company}/documents/{companyDocument}', [CompanyDocumentController::class, 'update'])->name('organization.companies.documents.update');
+    Route::delete('organization/companies/{company}/documents/{companyDocument}', [CompanyDocumentController::class, 'destroy'])->name('organization.companies.documents.destroy');
+    Route::post('organization/companies/{company}/documents/{companyDocument}/replace', CompanyDocumentReplacementController::class)->name('organization.companies.documents.replace');
+    Route::get('organization/companies/{company}/documents/{companyDocument}/preview', [CompanyDocumentFileController::class, 'preview'])->name('organization.companies.documents.preview');
+    Route::get('organization/companies/{company}/documents/{companyDocument}/download', [CompanyDocumentFileController::class, 'download'])->name('organization.companies.documents.download');
+    Route::get('organization/companies/{company}/documents/{companyDocument}/versions', [CompanyDocumentVersionController::class, 'index'])->name('organization.companies.documents.versions.index');
+    Route::get('organization/companies/{company}/documents/{companyDocument}/versions/{companyDocumentVersion}/download', [CompanyDocumentVersionController::class, 'download'])->name('organization.companies.documents.versions.download');
     Route::get('organization/companies/{company}', [CompanyController::class, 'show'])->middleware('can:companies.view')->name('organization.companies.show');
     Route::post('organization/companies', [CompanyController::class, 'store'])->middleware('can:companies.create')->name('organization.companies.store');
     Route::put('organization/companies/{company}', [CompanyController::class, 'update'])->middleware('can:companies.update')->name('organization.companies.update');

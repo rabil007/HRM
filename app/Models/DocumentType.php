@@ -33,4 +33,9 @@ class DocumentType extends Model
     {
         return $this->hasMany(EmployeeDocument::class);
     }
+
+    public function companyDocuments(): HasMany
+    {
+        return $this->hasMany(CompanyDocument::class);
+    }
 }

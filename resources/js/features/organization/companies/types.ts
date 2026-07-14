@@ -21,6 +21,7 @@ export type Company = {
     wps_mol_uid: string | null;
     wps_employer_iban: string | null;
     status: 'active' | 'suspended' | 'inactive' | null;
+    can_view_documents?: boolean;
 };
 
 export type Currency = {

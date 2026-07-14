@@ -264,7 +264,7 @@ export default function DocumentTypes({
                 <Heading
                     variant="small"
                     title="Document types"
-                    description="Manage employee document type labels used across the system."
+                    description="Manage document type labels shared by employee and company documents."
                 />
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

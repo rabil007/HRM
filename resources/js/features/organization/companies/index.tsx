@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Filter, Plus } from 'lucide-react';
+import { Filter, FolderOpen, Plus } from 'lucide-react';
 import { useState } from 'react';
 import {
     OrganizationDataTable,
@@ -29,6 +29,7 @@ import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { toast } from '@/lib/toast';
+import { index as companyDocumentsIndex } from '@/routes/organization/companies/documents';
 import type { PaginationMeta } from '@/types/pagination';
 import { CompanyCard } from './components/company-card';
 import { CompanyDeleteDialog } from './components/company-delete-dialog';
@@ -370,17 +371,38 @@ export function CompaniesContent({
                                 <TableCell
                                     className={dataTableActionsCellClass()}
                                 >
-                                    <ListTableCrudActions
-                                        viewHref={`/organization/companies/${company.id}`}
-                                        onEdit={(e) => {
-                                            e.stopPropagation();
-                                            handleEdit(company);
-                                        }}
-                                        onDelete={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteClick(company);
-                                        }}
-                                    />
+                                    <div className="flex items-center justify-end gap-1">
+                                        {company.can_view_documents ? (
+                                            <Button
+                                                asChild
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Company documents"
+                                            >
+                                                <a
+                                                    href={companyDocumentsIndex.url(
+                                                        company.id,
+                                                    )}
+                                                    onClick={(e) =>
+                                                        e.stopPropagation()
+                                                    }
+                                                >
+                                                    <FolderOpen className="h-4 w-4" />
+                                                </a>
+                                            </Button>
+                                        ) : null}
+                                        <ListTableCrudActions
+                                            viewHref={`/organization/companies/${company.id}`}
+                                            onEdit={(e) => {
+                                                e.stopPropagation();
+                                                handleEdit(company);
+                                            }}
+                                            onDelete={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteClick(company);
+                                            }}
+                                        />
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ))}
