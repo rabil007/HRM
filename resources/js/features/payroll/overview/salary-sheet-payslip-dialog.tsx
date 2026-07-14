@@ -5,6 +5,7 @@ import {
     fromSalarySheet,
     previewSalarySheet,
 } from '@/actions/App/Http/Controllers/Payroll/PayslipController';
+import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -126,18 +127,46 @@ export function SalarySheetPayslipDialog({
     const [month, setMonth] = useState(String(defaults.month));
     const [preview, setPreview] = useState<PreviewResponse | null>(null);
     const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+    const [searchQuery, setSearchQuery] = useState('');
     const [isPreviewing, setIsPreviewing] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [dragActive, setDragActive] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const filteredRows = useMemo(() => {
+        if (!preview) {
+            return [];
+        }
+
+        const query = searchQuery.trim().toLowerCase();
+
+        if (query === '') {
+            return preview.rows;
+        }
+
+        return preview.rows.filter((row) => {
+            const searchable = [
+                row.employee_no,
+                row.name,
+                row.designation,
+                String(row.standby_days),
+                String(row.onsite_days),
+                String(row.total_salary),
+            ]
+                .join(' ')
+                .toLowerCase();
+
+            return searchable.includes(query);
+        });
+    }, [preview, searchQuery]);
+
     const allSelected = useMemo(() => {
-        if (!preview || preview.rows.length === 0) {
+        if (filteredRows.length === 0) {
             return false;
         }
 
-        return preview.rows.every((row) => selectedRows.has(row.row));
-    }, [preview, selectedRows]);
+        return filteredRows.every((row) => selectedRows.has(row.row));
+    }, [filteredRows, selectedRows]);
 
     const selectedCount = selectedRows.size;
 
@@ -147,6 +176,7 @@ export function SalarySheetPayslipDialog({
         setMonth(String(defaults.month));
         setPreview(null);
         setSelectedRows(new Set());
+        setSearchQuery('');
         setIsPreviewing(false);
         setIsGenerating(false);
         setDragActive(false);
@@ -168,6 +198,7 @@ export function SalarySheetPayslipDialog({
         setIsPreviewing(true);
         setPreview(null);
         setSelectedRows(new Set());
+        setSearchQuery('');
 
         try {
             const body = new FormData();
@@ -227,6 +258,7 @@ export function SalarySheetPayslipDialog({
             setFile(null);
             setPreview(null);
             setSelectedRows(new Set());
+            setSearchQuery('');
 
             return;
         }
@@ -247,13 +279,19 @@ export function SalarySheetPayslipDialog({
     };
 
     const toggleAll = (checked: boolean): void => {
-        if (!preview) {
-            return;
-        }
+        setSelectedRows((current) => {
+            const next = new Set(current);
 
-        setSelectedRows(
-            checked ? new Set(preview.rows.map((row) => row.row)) : new Set(),
-        );
+            for (const row of filteredRows) {
+                if (checked) {
+                    next.add(row.row);
+                } else {
+                    next.delete(row.row);
+                }
+            }
+
+            return next;
+        });
     };
 
     const toggleRow = (rowNumber: number, checked: boolean): void => {
@@ -468,12 +506,26 @@ export function SalarySheetPayslipDialog({
 
                     {preview ? (
                         <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-3">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <p className="text-sm font-medium">
                                     {selectedCount} of {preview.summary.total}{' '}
                                     selected (A–Z by name)
                                 </p>
+                                {searchQuery.trim() !== '' &&
+                                filteredRows.length !== preview.rows.length ? (
+                                    <p className="text-xs text-muted-foreground">
+                                        Showing {filteredRows.length} of{' '}
+                                        {preview.rows.length} rows
+                                    </p>
+                                ) : null}
                             </div>
+                            <SearchBar
+                                value={searchQuery}
+                                onChange={setSearchQuery}
+                                placeholder="Search by emp. no., name, or designation…"
+                                className="mb-0"
+                                inputClassName="py-2 text-sm"
+                            />
                             <div className="max-h-[40vh] overflow-auto rounded-xl border">
                                 <Table>
                                     <TableHeader>
@@ -524,7 +576,7 @@ export function SalarySheetPayslipDialog({
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {preview.rows.map((row) => (
+                                        {filteredRows.map((row) => (
                                             <TableRow key={row.row}>
                                                 <TableCell>
                                                     <Checkbox
