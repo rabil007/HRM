@@ -133,14 +133,23 @@ function sortRowIdsByName(
     });
 }
 
-function sortSelectedFirst(
-    rowIds: number[],
-    selected: Set<number>,
+function buildDisplayOrder(
+    allIds: number[],
+    selectionOrder: number[],
+    mode: SortMode,
+    rowsById: Map<number, SalarySheetRow>,
 ): number[] {
-    const selectedIds = rowIds.filter((id) => selected.has(id));
-    const unselectedIds = rowIds.filter((id) => !selected.has(id));
+    if (mode === 'name') {
+        return sortRowIdsByName(allIds, rowsById);
+    }
 
-    return [...selectedIds, ...unselectedIds];
+    const selectedSet = new Set(selectionOrder);
+    const rest = sortRowIdsByName(
+        allIds.filter((id) => !selectedSet.has(id)),
+        rowsById,
+    );
+
+    return [...selectionOrder, ...rest];
 }
 
 function applyVisibleOrder(
@@ -165,14 +174,24 @@ export function SalarySheetPayslipDialog({
     const [month, setMonth] = useState(String(defaults.month));
     const [preview, setPreview] = useState<PreviewResponse | null>(null);
     const [orderedRowIds, setOrderedRowIds] = useState<number[]>([]);
-    const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
-    const [sortMode, setSortMode] = useState<SortMode>('name');
+    const [selectionOrder, setSelectionOrder] = useState<number[]>([]);
+    const [sortMode, setSortMode] = useState<SortMode>('selected-first');
     const [searchQuery, setSearchQuery] = useState('');
     const [isPreviewing, setIsPreviewing] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [dragActive, setDragActive] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+    const selectionOrderRef = useRef<number[]>([]);
+
+    const selectedRows = useMemo(
+        () => new Set(selectionOrder),
+        [selectionOrder],
+    );
+
+    useEffect(() => {
+        selectionOrderRef.current = selectionOrder;
+    }, [selectionOrder]);
 
     const rowsById = useMemo(() => {
         const map = new Map<number, SalarySheetRow>();
@@ -218,17 +237,13 @@ export function SalarySheetPayslipDialog({
 
     const pdfPageByRow = useMemo(() => {
         const pages = new Map<number, number>();
-        let page = 1;
 
-        for (const id of orderedRowIds) {
-            if (selectedRows.has(id)) {
-                pages.set(id, page);
-                page += 1;
-            }
-        }
+        selectionOrder.forEach((id, index) => {
+            pages.set(id, index + 1);
+        });
 
         return pages;
-    }, [orderedRowIds, selectedRows]);
+    }, [selectionOrder]);
 
     const allSelected = useMemo(() => {
         if (filteredRows.length === 0) {
@@ -238,7 +253,7 @@ export function SalarySheetPayslipDialog({
         return filteredRows.every((row) => selectedRows.has(row.row));
     }, [filteredRows, selectedRows]);
 
-    const selectedCount = selectedRows.size;
+    const selectedCount = selectionOrder.length;
 
     useEffect(() => {
         const element = tableBodyRef.current;
@@ -257,9 +272,19 @@ export function SalarySheetPayslipDialog({
                     .map((child) => Number(child.getAttribute('data-row-id')))
                     .filter((id) => Number.isFinite(id));
 
-                setOrderedRowIds((current) =>
-                    applyVisibleOrder(current, visibleOrderedIds),
-                );
+                setOrderedRowIds((current) => {
+                    const nextDisplay = applyVisibleOrder(
+                        current,
+                        visibleOrderedIds,
+                    );
+                    const selectedSet = new Set(selectionOrderRef.current);
+
+                    setSelectionOrder(
+                        nextDisplay.filter((id) => selectedSet.has(id)),
+                    );
+
+                    return nextDisplay;
+                });
                 setSortMode('custom');
             },
         });
@@ -275,8 +300,8 @@ export function SalarySheetPayslipDialog({
         setMonth(String(defaults.month));
         setPreview(null);
         setOrderedRowIds([]);
-        setSelectedRows(new Set());
-        setSortMode('name');
+        setSelectionOrder([]);
+        setSortMode('selected-first');
         setSearchQuery('');
         setIsPreviewing(false);
         setIsGenerating(false);
@@ -295,31 +320,19 @@ export function SalarySheetPayslipDialog({
         onOpenChange(next);
     };
 
-    const applySortMode = (mode: SortMode, selected = selectedRows): void => {
+    const syncDisplayOrder = (
+        mode: SortMode,
+        nextSelection: number[],
+        allIds?: number[],
+    ): void => {
         if (!preview) {
             return;
         }
 
+        const ids = allIds ?? preview.rows.map((row) => row.row);
         const byId = new Map(preview.rows.map((row) => [row.row, row]));
 
-        if (mode === 'name') {
-            setOrderedRowIds(
-                sortRowIdsByName(
-                    preview.rows.map((row) => row.row),
-                    byId,
-                ),
-            );
-        } else if (mode === 'selected-first') {
-            setOrderedRowIds((current) => {
-                const base =
-                    current.length > 0
-                        ? current
-                        : preview.rows.map((row) => row.row);
-
-                return sortSelectedFirst(base, selected);
-            });
-        }
-
+        setOrderedRowIds(buildDisplayOrder(ids, nextSelection, mode, byId));
         setSortMode(mode);
     };
 
@@ -327,8 +340,8 @@ export function SalarySheetPayslipDialog({
         setIsPreviewing(true);
         setPreview(null);
         setOrderedRowIds([]);
-        setSelectedRows(new Set());
-        setSortMode('name');
+        setSelectionOrder([]);
+        setSortMode('selected-first');
         setSearchQuery('');
 
         try {
@@ -368,12 +381,15 @@ export function SalarySheetPayslipDialog({
             }
 
             const ids = payload.rows.map((row) => row.row);
+            const byId = new Map(payload.rows.map((row) => [row.row, row]));
 
             setFile(selected);
             setPreview(payload);
-            setOrderedRowIds(ids);
-            setSelectedRows(new Set(ids));
-            setSortMode('name');
+            setSelectionOrder([]);
+            setOrderedRowIds(
+                buildDisplayOrder(ids, [], 'selected-first', byId),
+            );
+            setSortMode('selected-first');
         } catch (error) {
             setFile(null);
             toast.error(
@@ -391,8 +407,8 @@ export function SalarySheetPayslipDialog({
             setFile(null);
             setPreview(null);
             setOrderedRowIds([]);
-            setSelectedRows(new Set());
-            setSortMode('name');
+            setSelectionOrder([]);
+            setSortMode('selected-first');
             setSearchQuery('');
 
             return;
@@ -414,41 +430,33 @@ export function SalarySheetPayslipDialog({
     };
 
     const toggleAll = (checked: boolean): void => {
-        setSelectedRows((current) => {
-            const next = new Set(current);
+        const visibleIds = filteredRows.map((row) => row.row);
+        const existing = new Set(selectionOrder);
+        let next: number[];
 
-            for (const row of filteredRows) {
-                if (checked) {
-                    next.add(row.row);
-                } else {
-                    next.delete(row.row);
-                }
-            }
+        if (checked) {
+            const appended = visibleIds.filter((id) => !existing.has(id));
+            next = [...selectionOrder, ...appended];
+        } else {
+            const remove = new Set(visibleIds);
+            next = selectionOrder.filter((id) => !remove.has(id));
+        }
 
-            if (sortMode === 'selected-first') {
-                setOrderedRowIds((order) => sortSelectedFirst(order, next));
-            }
-
-            return next;
-        });
+        const mode = sortMode === 'name' ? 'name' : 'selected-first';
+        setSelectionOrder(next);
+        syncDisplayOrder(mode, next);
     };
 
     const toggleRow = (rowNumber: number, checked: boolean): void => {
-        setSelectedRows((current) => {
-            const next = new Set(current);
+        const next = checked
+            ? selectionOrder.includes(rowNumber)
+                ? selectionOrder
+                : [...selectionOrder, rowNumber]
+            : selectionOrder.filter((id) => id !== rowNumber);
 
-            if (checked) {
-                next.add(rowNumber);
-            } else {
-                next.delete(rowNumber);
-            }
-
-            if (sortMode === 'selected-first') {
-                setOrderedRowIds((order) => sortSelectedFirst(order, next));
-            }
-
-            return next;
-        });
+        const mode = sortMode === 'name' ? 'name' : 'selected-first';
+        setSelectionOrder(next);
+        syncDisplayOrder(mode, next);
     };
 
     const handleDownload = async (): Promise<void> => {
@@ -488,10 +496,8 @@ export function SalarySheetPayslipDialog({
             body.append('year', String(yearValue));
             body.append('month', String(monthValue));
 
-            for (const rowNumber of orderedRowIds) {
-                if (selectedRows.has(rowNumber)) {
-                    body.append('row_numbers[]', String(rowNumber));
-                }
+            for (const rowNumber of selectionOrder) {
+                body.append('row_numbers[]', String(rowNumber));
             }
 
             const response = await fetch(fromSalarySheet.url(), {
@@ -554,8 +560,8 @@ export function SalarySheetPayslipDialog({
         sortMode === 'name'
             ? 'Name A–Z'
             : sortMode === 'selected-first'
-              ? 'Selected first'
-              : 'Custom order (PDF pages)';
+              ? 'Check order (selected first)'
+              : 'Custom order (drag)';
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -563,9 +569,9 @@ export function SalarySheetPayslipDialog({
                 <DialogHeader>
                     <DialogTitle>Generate payslips from salary sheet</DialogTitle>
                     <DialogDescription>
-                        Upload the OMS Salary Sheet, review the imported rows,
-                        select who to include, drag to set PDF page order, then
-                        download one multi-page PDF. Nothing is saved to payroll.
+                        Check people in the order you want PDF pages — first check
+                        is page 1, next is page 2, and so on. Drag to fine-tune.
+                        Nothing is saved to payroll.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -664,13 +670,12 @@ export function SalarySheetPayslipDialog({
                                         selected
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                        Sort: {sortLabel}. Drag the handle to edit
-                                        PDF page order.
+                                        {sortLabel}. First checked = PDF page 1.
                                     </p>
                                 </div>
                                 <div className="w-full sm:w-56">
                                     <Label className="mb-1.5 block text-xs">
-                                        Sort / PDF order
+                                        List sort
                                     </Label>
                                     <AppSelect
                                         value={sortMode}
@@ -683,17 +688,17 @@ export function SalarySheetPayslipDialog({
                                                 return;
                                             }
 
-                                            applySortMode(mode);
+                                            syncDisplayOrder(mode, selectionOrder);
                                         }}
                                         disabled={busy}
                                         size="sm"
                                         placeholder="Sort order"
                                     >
+                                        <AppSelectItem value="selected-first">
+                                            Check order (selected first)
+                                        </AppSelectItem>
                                         <AppSelectItem value="name">
                                             Name A–Z
-                                        </AppSelectItem>
-                                        <AppSelectItem value="selected-first">
-                                            Selected first
                                         </AppSelectItem>
                                         <AppSelectItem value="custom">
                                             Custom (drag to edit)
