@@ -1,8 +1,12 @@
 import { FileSpreadsheet, Loader2, Upload } from 'lucide-react';
 import type { DragEvent, ReactElement } from 'react';
-import { useRef, useState } from 'react';
-import { fromSalarySheet } from '@/actions/App/Http/Controllers/Payroll/PayslipController';
+import { useMemo, useRef, useState } from 'react';
+import {
+    fromSalarySheet,
+    previewSalarySheet,
+} from '@/actions/App/Http/Controllers/Payroll/PayslipController';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -13,8 +17,38 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+
+type SalarySheetRow = {
+    row: number;
+    employee_no: string;
+    name: string;
+    designation: string;
+    standby_days: number;
+    onsite_days: number;
+    basic_salary: number;
+    supplim_allow: number;
+    site_allow: number;
+    standby_pay: number;
+    onsite_pay: number;
+    add_ded: number;
+    overtime_pay: number;
+    total_salary: number;
+};
+
+type PreviewResponse = {
+    rows: SalarySheetRow[];
+    summary: { total: number };
+};
 
 type SalarySheetPayslipDialogProps = {
     open: boolean;
@@ -70,6 +104,18 @@ function defaultYearMonth(): { year: number; month: number } {
     };
 }
 
+function formatAmount(value: number): string {
+    return new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(value);
+}
+
+function csrfToken(): string | undefined {
+    return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+        ?.content;
+}
+
 export function SalarySheetPayslipDialog({
     open,
     onOpenChange,
@@ -78,14 +124,30 @@ export function SalarySheetPayslipDialog({
     const [file, setFile] = useState<File | null>(null);
     const [year, setYear] = useState(String(defaults.year));
     const [month, setMonth] = useState(String(defaults.month));
+    const [preview, setPreview] = useState<PreviewResponse | null>(null);
+    const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+    const [isPreviewing, setIsPreviewing] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [dragActive, setDragActive] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const allSelected = useMemo(() => {
+        if (!preview || preview.rows.length === 0) {
+            return false;
+        }
+
+        return preview.rows.every((row) => selectedRows.has(row.row));
+    }, [preview, selectedRows]);
+
+    const selectedCount = selectedRows.size;
 
     const resetState = (): void => {
         setFile(null);
         setYear(String(defaults.year));
         setMonth(String(defaults.month));
+        setPreview(null);
+        setSelectedRows(new Set());
+        setIsPreviewing(false);
         setIsGenerating(false);
         setDragActive(false);
 
@@ -102,9 +164,69 @@ export function SalarySheetPayslipDialog({
         onOpenChange(next);
     };
 
+    const runPreview = async (selected: File): Promise<void> => {
+        setIsPreviewing(true);
+        setPreview(null);
+        setSelectedRows(new Set());
+
+        try {
+            const body = new FormData();
+            body.append('file', selected);
+
+            const response = await fetch(previewSalarySheet.url(), {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    ...(csrfToken() ? { 'X-CSRF-TOKEN': csrfToken()! } : {}),
+                },
+                credentials: 'same-origin',
+                body,
+            });
+
+            const payload = (await response.json().catch(() => null)) as
+                | (PreviewResponse & {
+                      message?: string;
+                      errors?: Record<string, string[]>;
+                  })
+                | null;
+
+            if (!response.ok) {
+                const firstError = Object.values(payload?.errors ?? {})[0]?.[0];
+
+                throw new Error(
+                    firstError ??
+                        payload?.message ??
+                        'Could not preview the salary sheet.',
+                );
+            }
+
+            if (!payload?.rows?.length) {
+                throw new Error(
+                    'No payslip rows with a positive total salary were found.',
+                );
+            }
+
+            setFile(selected);
+            setPreview(payload);
+            setSelectedRows(new Set(payload.rows.map((row) => row.row)));
+        } catch (error) {
+            setFile(null);
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Could not preview the salary sheet.',
+            );
+        } finally {
+            setIsPreviewing(false);
+        }
+    };
+
     const assignFile = (next: File | null): void => {
         if (!next) {
             setFile(null);
+            setPreview(null);
+            setSelectedRows(new Set());
 
             return;
         }
@@ -115,7 +237,7 @@ export function SalarySheetPayslipDialog({
             return;
         }
 
-        setFile(next);
+        void runPreview(next);
     };
 
     const onDrop = (event: DragEvent<HTMLDivElement>): void => {
@@ -124,9 +246,39 @@ export function SalarySheetPayslipDialog({
         assignFile(event.dataTransfer.files?.[0] ?? null);
     };
 
-    const handleGenerate = async (): Promise<void> => {
-        if (!file) {
-            toast.error('Please choose a salary sheet file.');
+    const toggleAll = (checked: boolean): void => {
+        if (!preview) {
+            return;
+        }
+
+        setSelectedRows(
+            checked ? new Set(preview.rows.map((row) => row.row)) : new Set(),
+        );
+    };
+
+    const toggleRow = (rowNumber: number, checked: boolean): void => {
+        setSelectedRows((current) => {
+            const next = new Set(current);
+
+            if (checked) {
+                next.add(rowNumber);
+            } else {
+                next.delete(rowNumber);
+            }
+
+            return next;
+        });
+    };
+
+    const handleDownload = async (): Promise<void> => {
+        if (!file || !preview) {
+            toast.error('Please upload a salary sheet first.');
+
+            return;
+        }
+
+        if (selectedCount === 0) {
+            toast.error('Select at least one employee.');
 
             return;
         }
@@ -150,20 +302,20 @@ export function SalarySheetPayslipDialog({
         setIsGenerating(true);
 
         try {
-            const csrf = document.querySelector<HTMLMetaElement>(
-                'meta[name="csrf-token"]',
-            )?.content;
-
             const body = new FormData();
             body.append('file', file);
             body.append('year', String(yearValue));
             body.append('month', String(monthValue));
 
+            for (const rowNumber of selectedRows) {
+                body.append('row_numbers[]', String(rowNumber));
+            }
+
             const response = await fetch(fromSalarySheet.url(), {
                 method: 'POST',
                 headers: {
-                    Accept: 'application/zip',
-                    ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+                    Accept: 'application/pdf',
+                    ...(csrfToken() ? { 'X-CSRF-TOKEN': csrfToken()! } : {}),
                 },
                 body,
             });
@@ -198,10 +350,10 @@ export function SalarySheetPayslipDialog({
                 parseContentDispositionFilename(
                     response.headers.get('Content-Disposition'),
                 ) ??
-                `payslips-${yearValue}-${String(monthValue).padStart(2, '0')}.zip`;
+                `payslips-${yearValue}-${String(monthValue).padStart(2, '0')}.pdf`;
 
             triggerBrowserDownload(blob, filename);
-            toast.success('Payslips downloaded.');
+            toast.success('Payslip PDF downloaded.');
             handleOpenChange(false);
         } catch (error) {
             toast.error(
@@ -214,19 +366,21 @@ export function SalarySheetPayslipDialog({
         }
     };
 
+    const busy = isPreviewing || isGenerating;
+
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="flex max-h-[90vh] flex-col gap-4 sm:max-w-5xl">
                 <DialogHeader>
                     <DialogTitle>Generate payslips from salary sheet</DialogTitle>
                     <DialogDescription>
-                        Upload the OMS Salary Sheet Excel file. Payslip PDFs are
-                        generated immediately and downloaded as a ZIP. Nothing is
-                        saved to payroll.
+                        Upload the OMS Salary Sheet, review the imported rows,
+                        select who to include, then download one multi-page PDF.
+                        Nothing is saved to payroll.
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
                             <Label htmlFor="salary-sheet-year">Year</Label>
@@ -237,7 +391,7 @@ export function SalarySheetPayslipDialog({
                                 max={2100}
                                 value={year}
                                 onChange={(event) => setYear(event.target.value)}
-                                disabled={isGenerating}
+                                disabled={busy}
                             />
                         </div>
                         <div className="space-y-2">
@@ -249,14 +403,14 @@ export function SalarySheetPayslipDialog({
                                 max={12}
                                 value={month}
                                 onChange={(event) => setMonth(event.target.value)}
-                                disabled={isGenerating}
+                                disabled={busy}
                             />
                         </div>
                     </div>
 
                     <div
                         className={cn(
-                            'flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-4 py-8 text-center transition-colors',
+                            'flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-4 py-6 text-center transition-colors',
                             dragActive
                                 ? 'border-primary bg-primary/5'
                                 : 'border-border/70 bg-muted/20',
@@ -286,11 +440,20 @@ export function SalarySheetPayslipDialog({
                             type="button"
                             variant="outline"
                             size="sm"
-                            disabled={isGenerating}
+                            disabled={busy}
                             onClick={() => fileInputRef.current?.click()}
                         >
-                            <Upload className="mr-2 h-4 w-4" />
-                            Choose file
+                            {isPreviewing ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Reading…
+                                </>
+                            ) : (
+                                <>
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Choose file
+                                </>
+                            )}
                         </Button>
                         <input
                             ref={fileInputRef}
@@ -302,21 +465,143 @@ export function SalarySheetPayslipDialog({
                             }
                         />
                     </div>
+
+                    {preview ? (
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-3">
+                                <p className="text-sm font-medium">
+                                    {selectedCount} of {preview.summary.total}{' '}
+                                    selected (A–Z by name)
+                                </p>
+                            </div>
+                            <div className="max-h-[40vh] overflow-auto rounded-xl border">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-10">
+                                                <Checkbox
+                                                    checked={allSelected}
+                                                    onCheckedChange={(value) =>
+                                                        toggleAll(value === true)
+                                                    }
+                                                    aria-label="Select all"
+                                                    disabled={busy}
+                                                />
+                                            </TableHead>
+                                            <TableHead>Emp. no.</TableHead>
+                                            <TableHead>Name</TableHead>
+                                            <TableHead>Designation</TableHead>
+                                            <TableHead className="text-right">
+                                                Standby days
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Onsite days
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Basic
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Supplim
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Site allow
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Standby pay
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Onsite pay
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Add / Ded
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                OT
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Total
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {preview.rows.map((row) => (
+                                            <TableRow key={row.row}>
+                                                <TableCell>
+                                                    <Checkbox
+                                                        checked={selectedRows.has(
+                                                            row.row,
+                                                        )}
+                                                        onCheckedChange={(
+                                                            value,
+                                                        ) =>
+                                                            toggleRow(
+                                                                row.row,
+                                                                value === true,
+                                                            )
+                                                        }
+                                                        aria-label={`Select ${row.name}`}
+                                                        disabled={busy}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>{row.employee_no}</TableCell>
+                                                <TableCell className="font-medium whitespace-nowrap">
+                                                    {row.name}
+                                                </TableCell>
+                                                <TableCell className="whitespace-nowrap">
+                                                    {row.designation || '—'}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {row.standby_days}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {row.onsite_days}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {formatAmount(row.basic_salary)}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {formatAmount(row.supplim_allow)}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {formatAmount(row.site_allow)}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {formatAmount(row.standby_pay)}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {formatAmount(row.onsite_pay)}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {formatAmount(row.add_ded)}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {formatAmount(row.overtime_pay)}
+                                                </TableCell>
+                                                <TableCell className="text-right font-medium">
+                                                    {formatAmount(row.total_salary)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </div>
+                    ) : null}
                 </div>
 
                 <DialogFooter>
                     <Button
                         type="button"
                         variant="outline"
-                        disabled={isGenerating}
+                        disabled={busy}
                         onClick={() => handleOpenChange(false)}
                     >
                         Cancel
                     </Button>
                     <Button
                         type="button"
-                        disabled={isGenerating || !file}
-                        onClick={() => void handleGenerate()}
+                        disabled={busy || !preview || selectedCount === 0}
+                        onClick={() => void handleDownload()}
                     >
                         {isGenerating ? (
                             <>
@@ -324,7 +609,7 @@ export function SalarySheetPayslipDialog({
                                 Generating…
                             </>
                         ) : (
-                            'Generate & download'
+                            'Download PDF'
                         )}
                     </Button>
                 </DialogFooter>

@@ -26,6 +26,12 @@ final class SalarySheetPayslipParser
 
     private const COL_ONSITE_DAYS = 'L';
 
+    private const COL_BASIC_SALARY = 'M';
+
+    private const COL_SUPPLIM_ALLOW = 'N';
+
+    private const COL_SITE_ALLOW = 'O';
+
     private const COL_STANDBY_PAY = 'P';
 
     private const COL_ONSITE_PAY = 'Q';
@@ -44,6 +50,9 @@ final class SalarySheetPayslipParser
      *     designation: string,
      *     standby_days: float,
      *     onsite_days: float,
+     *     basic_salary: float,
+     *     supplim_allow: float,
+     *     site_allow: float,
      *     standby_pay: float,
      *     onsite_pay: float,
      *     add_ded: float,
@@ -79,6 +88,9 @@ final class SalarySheetPayslipParser
                 'designation' => $this->stringValue($sheet, self::COL_DESIGNATION, $rowNumber) ?? '',
                 'standby_days' => $this->numericValue($sheet, self::COL_STANDBY_DAYS, $rowNumber),
                 'onsite_days' => $this->numericValue($sheet, self::COL_ONSITE_DAYS, $rowNumber),
+                'basic_salary' => $this->numericValue($sheet, self::COL_BASIC_SALARY, $rowNumber),
+                'supplim_allow' => $this->numericValue($sheet, self::COL_SUPPLIM_ALLOW, $rowNumber),
+                'site_allow' => $this->numericValue($sheet, self::COL_SITE_ALLOW, $rowNumber),
                 'standby_pay' => $this->numericValue($sheet, self::COL_STANDBY_PAY, $rowNumber),
                 'onsite_pay' => $this->numericValue($sheet, self::COL_ONSITE_PAY, $rowNumber),
                 'add_ded' => $this->numericValue($sheet, self::COL_ADD_DED, $rowNumber),
@@ -87,7 +99,12 @@ final class SalarySheetPayslipParser
             ];
         }
 
-        return $rows;
+        usort(
+            $rows,
+            fn (array $left, array $right): int => strcasecmp((string) $left['name'], (string) $right['name']),
+        );
+
+        return array_values($rows);
     }
 
     private function resolveSheet(UploadedFile $file): Worksheet

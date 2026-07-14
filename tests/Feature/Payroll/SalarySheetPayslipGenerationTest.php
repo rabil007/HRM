@@ -113,7 +113,49 @@ function makeSalarySheetFixture(string $path): void
     $spreadsheet->disconnectWorksheets();
 }
 
-test('authorized users can generate payslip zip from salary sheet without storing payroll data', function () {
+test('preview returns positive salary sheet rows sorted alphabetically by name', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.payslips.generate',
+    ]);
+
+    $path = tempnam(sys_get_temp_dir(), 'salary_sheet_').'.xlsx';
+    makeSalarySheetFixture($path);
+
+    $response = $this->withSession(['current_company_id' => $company->id])
+        ->postJson(route('payroll.payslips.from-salary-sheet.preview'), [
+            'file' => new UploadedFile($path, 'salary-sheet.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true),
+        ]);
+
+    $response->assertOk()
+        ->assertJsonPath('summary.total', 2)
+        ->assertJsonPath('rows.0.name', 'MUHDIN KADIR')
+        ->assertJsonPath('rows.1.name', 'VINOD MENON')
+        ->assertJsonMissing(['name' => 'AHMED SAAD RAMADAN']);
+
+    expect($response->json('rows.0'))->toHaveKeys([
+        'row',
+        'employee_no',
+        'name',
+        'designation',
+        'standby_days',
+        'onsite_days',
+        'basic_salary',
+        'supplim_allow',
+        'site_allow',
+        'standby_pay',
+        'onsite_pay',
+        'add_ded',
+        'overtime_pay',
+        'total_salary',
+    ]);
+
+    @unlink($path);
+});
+
+test('authorized users can download a merged pdf for selected salary sheet rows', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
@@ -132,22 +174,40 @@ test('authorized users can generate payslip zip from salary sheet without storin
             'file' => new UploadedFile($path, 'salary-sheet.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true),
             'year' => 2026,
             'month' => 5,
+            'row_numbers' => [3, 4],
         ]);
 
     $response->assertOk();
-    expect(str_contains((string) $response->headers->get('content-disposition'), 'payslips-2026-05.zip'))->toBeTrue();
-
-    $zipPath = $response->getFile()->getPathname();
-    $zip = new ZipArchive;
-    expect($zip->open($zipPath))->toBeTrue();
-    expect($zip->numFiles)->toBe(2);
-    expect($zip->locateName('2053.pdf'))->not->toBeFalse();
-    expect($zip->locateName('2025.pdf'))->not->toBeFalse();
-    expect($zip->locateName('2050.pdf'))->toBeFalse();
-    $zip->close();
+    expect(str_contains((string) $response->headers->get('content-type'), 'application/pdf'))->toBeTrue();
+    expect(str_contains((string) $response->headers->get('content-disposition'), 'payslips-2026-05.pdf'))->toBeTrue();
+    expect(strlen($response->streamedContent()))->toBeGreaterThan(100);
 
     expect(PayrollPeriod::query()->count())->toBe($periodsBefore)
         ->and(PayrollRecord::query()->count())->toBe($recordsBefore);
+
+    @unlink($path);
+});
+
+test('selected row filter includes only requested salary sheet rows', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.payslips.generate',
+    ]);
+
+    $path = tempnam(sys_get_temp_dir(), 'salary_sheet_').'.xlsx';
+    makeSalarySheetFixture($path);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.payslips.from-salary-sheet'), [
+            'file' => new UploadedFile($path, 'salary-sheet.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true),
+            'year' => 2026,
+            'month' => 5,
+            'row_numbers' => [4],
+        ])
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf');
 
     @unlink($path);
 });
@@ -164,6 +224,7 @@ test('unauthorized users cannot generate payslips from salary sheet', function (
             'file' => new UploadedFile($path, 'salary-sheet.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true),
             'year' => 2026,
             'month' => 5,
+            'row_numbers' => [3],
         ])
         ->assertForbidden();
 

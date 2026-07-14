@@ -5,7 +5,7 @@ namespace App\Http\Requests\Organization\Payroll;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class GeneratePayslipsFromSalarySheetRequest extends FormRequest
+class PreviewSalarySheetPayslipsRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -24,10 +24,6 @@ class GeneratePayslipsFromSalarySheetRequest extends FormRequest
                 'mimes:xlsx,xls',
                 'max:10240',
             ],
-            'year' => ['required', 'integer', 'min:2000', 'max:2100'],
-            'month' => ['required', 'integer', 'min:1', 'max:12'],
-            'row_numbers' => ['required', 'array', 'min:1'],
-            'row_numbers.*' => ['integer', 'min:1'],
         ];
     }
 }

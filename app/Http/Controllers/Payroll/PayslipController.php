@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Payroll;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Payroll\BulkPayslipActionRequest;
 use App\Http\Requests\Organization\Payroll\GeneratePayslipsFromSalarySheetRequest;
+use App\Http\Requests\Organization\Payroll\PreviewSalarySheetPayslipsRequest;
 use App\Models\Company;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
@@ -14,7 +15,9 @@ use App\Support\Payroll\Actions\GeneratePayslip;
 use App\Support\Payroll\Actions\GeneratePayslipsFromSalarySheet;
 use App\Support\Payroll\Actions\SendPayslipEmails;
 use App\Support\Payroll\PayslipData;
+use App\Support\Payroll\Services\SalarySheetPayslipParser;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -165,10 +168,31 @@ class PayslipController extends Controller
         );
     }
 
+    public function previewSalarySheet(
+        PreviewSalarySheetPayslipsRequest $request,
+        SalarySheetPayslipParser $parser,
+    ): JsonResponse {
+        /** @var UploadedFile $file */
+        $file = $request->file('file');
+
+        try {
+            $rows = $parser->parse($file);
+        } catch (\InvalidArgumentException $exception) {
+            abort(422, $exception->getMessage());
+        }
+
+        return response()->json([
+            'rows' => $rows,
+            'summary' => [
+                'total' => count($rows),
+            ],
+        ]);
+    }
+
     public function fromSalarySheet(
         GeneratePayslipsFromSalarySheetRequest $request,
         GeneratePayslipsFromSalarySheet $generatePayslipsFromSalarySheet,
-    ): BinaryFileResponse {
+    ): StreamedResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         $company = Company::query()->with('currency:id,code,symbol')->findOrFail($companyId);
         $validated = $request->validated();
@@ -181,6 +205,7 @@ class PayslipController extends Controller
                 $company,
                 (int) $validated['year'],
                 (int) $validated['month'],
+                array_map('intval', $validated['row_numbers']),
             );
         } catch (\InvalidArgumentException $exception) {
             abort(422, $exception->getMessage());

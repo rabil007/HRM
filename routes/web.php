@@ -233,6 +233,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('payroll/payslips/{payrollRecord}', [PayslipController::class, 'show'])->name('payroll.payslips.show');
     Route::get('payroll/payslips/{payrollRecord}/download', [PayslipController::class, 'download'])->name('payroll.payslips.download');
     Route::post('payroll/payslips/generate', [PayslipController::class, 'generate'])->name('payroll.payslips.generate');
+    Route::post('payroll/payslips/from-salary-sheet/preview', [PayslipController::class, 'previewSalarySheet'])->name('payroll.payslips.from-salary-sheet.preview');
     Route::post('payroll/payslips/from-salary-sheet', [PayslipController::class, 'fromSalarySheet'])->name('payroll.payslips.from-salary-sheet');
     Route::post('payroll/payslips/email', [PayslipController::class, 'email'])->name('payroll.payslips.email');
     Route::post('payroll/wps/export', [WpsExportController::class, 'export'])->name('payroll.wps.export');
