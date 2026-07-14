@@ -55,6 +55,10 @@ final class GenerateCrewPayroll
         $employees = $employeesQuery
             ->with([
                 'currentContract.salaryComponents',
+                'currentContract.salaryRevisions' => fn ($query) => $query
+                    ->with('lines')
+                    ->orderByDesc('effective_from')
+                    ->orderByDesc('version'),
                 'primaryBankAccount',
                 'crewTimesheets' => fn ($query) => $query->where('period_id', $period->id),
             ])

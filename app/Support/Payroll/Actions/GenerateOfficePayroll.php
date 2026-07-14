@@ -54,7 +54,14 @@ final class GenerateOfficePayroll
             $employeesQuery->whereNotIn('employees.id', $excludedEmployeeIds);
         }
 
-        $employees = $employeesQuery->with(['currentContract.salaryComponents', 'primaryBankAccount'])
+        $employees = $employeesQuery->with([
+            'currentContract.salaryComponents',
+            'currentContract.salaryRevisions' => fn ($query) => $query
+                ->with('lines')
+                ->orderByDesc('effective_from')
+                ->orderByDesc('version'),
+            'primaryBankAccount',
+        ])
             ->orderBy('employees.name')
             ->get();
 

@@ -41,6 +41,7 @@ final class PayrollPeriodBoardQuery
                 'currentContract' => fn ($q) => $q->select([
                     'employee_contracts.id',
                     'employee_contracts.employee_id',
+                    'employee_contracts.payroll_category',
                     'employee_contracts.salary_structure',
                     'employee_contracts.basic_salary',
                     'employee_contracts.housing_allowance',
@@ -48,6 +49,12 @@ final class PayrollPeriodBoardQuery
                     'employee_contracts.other_allowances',
                     'employee_contracts.supplementary_allowance',
                     'employee_contracts.site_allowance',
+                ])->with([
+                    'salaryRevisions' => fn ($revisions) => $revisions
+                        ->with('lines')
+                        ->orderByDesc('effective_from')
+                        ->orderByDesc('version'),
+                    'salaryComponents',
                 ]),
                 'crewTimesheets' => fn ($timesheetQuery) => $timesheetQuery->where('period_id', $period->id),
             ]);
@@ -59,10 +66,18 @@ final class PayrollPeriodBoardQuery
                 'currentContract' => fn ($q) => $q->select([
                     'employee_contracts.id',
                     'employee_contracts.employee_id',
+                    'employee_contracts.payroll_category',
+                    'employee_contracts.salary_structure',
                     'employee_contracts.basic_salary',
                     'employee_contracts.housing_allowance',
                     'employee_contracts.transport_allowance',
                     'employee_contracts.other_allowances',
+                ])->with([
+                    'salaryRevisions' => fn ($revisions) => $revisions
+                        ->with('lines')
+                        ->orderByDesc('effective_from')
+                        ->orderByDesc('version'),
+                    'salaryComponents',
                 ]),
             ]);
         }
@@ -82,7 +97,12 @@ final class PayrollPeriodBoardQuery
                     /** @var CrewTimesheet|null $timesheet */
                     $timesheet = $employee->crewTimesheets->first();
 
-                    return CrewTimesheetResource::toBoardRow($employee, $timesheet, $period->id);
+                    return CrewTimesheetResource::toBoardRow(
+                        $employee,
+                        $timesheet,
+                        $period->id,
+                        $period->start_date,
+                    );
                 }
 
                 $summary = $leaveByEmployee->get(
@@ -90,7 +110,12 @@ final class PayrollPeriodBoardQuery
                     $this->leavePeriodSummary->empty($companyId),
                 );
 
-                return OfficePayrollBoardRow::toArray($employee, $period->id, $summary);
+                return OfficePayrollBoardRow::toArray(
+                    $employee,
+                    $period->id,
+                    $summary,
+                    $period->start_date,
+                );
             });
     }
 

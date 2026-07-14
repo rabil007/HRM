@@ -17,18 +17,33 @@ final class ResolveEffectiveContractSalaryComponents
      */
     public function handle(EmployeeContract $contract, CarbonInterface $asOf): Collection
     {
-        $revision = ContractSalaryRevision::query()
-            ->where('contract_id', $contract->id)
-            ->whereDate('effective_from', '<=', $asOf->toDateString())
-            ->with('lines')
-            ->orderByDesc('effective_from')
-            ->orderByDesc('version')
-            ->first();
+        $asOfDate = $asOf->toDateString();
+
+        $revision = $contract->relationLoaded('salaryRevisions')
+            ? $contract->salaryRevisions
+                ->filter(fn (ContractSalaryRevision $item) => $item->effective_from !== null
+                    && $item->effective_from->toDateString() <= $asOfDate)
+                ->sortBy([
+                    ['effective_from', 'desc'],
+                    ['version', 'desc'],
+                ])
+                ->first()
+            : ContractSalaryRevision::query()
+                ->where('contract_id', $contract->id)
+                ->whereDate('effective_from', '<=', $asOfDate)
+                ->with('lines')
+                ->orderByDesc('effective_from')
+                ->orderByDesc('version')
+                ->first();
 
         if ($revision === null) {
             return $contract->relationLoaded('salaryComponents')
                 ? $contract->salaryComponents
                 : $contract->salaryComponents()->get();
+        }
+
+        if (! $revision->relationLoaded('lines')) {
+            $revision->load('lines');
         }
 
         return $revision->lines

@@ -6,7 +6,7 @@ use App\Enums\ContractSalaryStructure;
 use App\Enums\SalaryPaymentMethod;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
-use App\Models\EmployeeContract;
+use Carbon\CarbonInterface;
 
 final class CrewTimesheetResource
 {
@@ -40,8 +40,12 @@ final class CrewTimesheetResource
     /**
      * @return array<string, mixed>
      */
-    public static function toBoardRow(Employee $employee, ?CrewTimesheet $timesheet, int $periodId): array
-    {
+    public static function toBoardRow(
+        Employee $employee,
+        ?CrewTimesheet $timesheet,
+        int $periodId,
+        CarbonInterface $asOf,
+    ): array {
         $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
         $contract = $employee->currentContract;
         $salaryStructure = $contract?->resolvedSalaryStructure() ?? ContractSalaryStructure::Daily;
@@ -55,30 +59,9 @@ final class CrewTimesheetResource
             'salary_payment_method' => $paymentMethod->value,
             'salary_payment_method_label' => $paymentMethod->label(),
             'salary_structure' => $salaryStructure->value,
-            'contract' => $contract !== null ? self::contractRatesForBoard($contract, $salaryStructure) : null,
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private static function contractRatesForBoard(
-        EmployeeContract $contract,
-        ContractSalaryStructure $salaryStructure,
-    ): array {
-        if ($salaryStructure === ContractSalaryStructure::Monthly) {
-            return [
-                'basic_salary' => $contract->basic_salary,
-                'housing_allowance' => $contract->housing_allowance,
-                'transport_allowance' => $contract->transport_allowance,
-                'other_allowances' => $contract->other_allowances,
-            ];
-        }
-
-        return [
-            'basic_salary' => $contract->basic_salary,
-            'supplementary_allowance' => $contract->supplementary_allowance,
-            'site_allowance' => $contract->site_allowance,
+            'contract' => $contract !== null
+                ? app(ResolveContractRatesForPeriod::class)->handle($contract, $asOf)
+                : null,
         ];
     }
 

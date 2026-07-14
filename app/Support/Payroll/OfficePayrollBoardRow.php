@@ -4,14 +4,19 @@ namespace App\Support\Payroll;
 
 use App\Enums\SalaryPaymentMethod;
 use App\Models\Employee;
+use Carbon\CarbonInterface;
 
 final class OfficePayrollBoardRow
 {
     /**
      * @return array<string, mixed>
      */
-    public static function toArray(Employee $employee, int $periodId, EmployeeLeavePeriodSummary $summary): array
-    {
+    public static function toArray(
+        Employee $employee,
+        int $periodId,
+        EmployeeLeavePeriodSummary $summary,
+        CarbonInterface $asOf,
+    ): array {
         $contract = $employee->currentContract;
         $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
 
@@ -25,12 +30,9 @@ final class OfficePayrollBoardRow
             'primary_account' => EmployeePrimaryAccountResource::forEmployee($employee),
             'salary_payment_method' => $paymentMethod->value,
             'salary_payment_method_label' => $paymentMethod->label(),
-            'contract' => $contract !== null ? [
-                'basic_salary' => $contract->basic_salary,
-                'housing_allowance' => $contract->housing_allowance,
-                'transport_allowance' => $contract->transport_allowance,
-                'other_allowances' => $contract->other_allowances,
-            ] : null,
+            'contract' => $contract !== null
+                ? app(ResolveContractRatesForPeriod::class)->handle($contract, $asOf)
+                : null,
         ];
     }
 }

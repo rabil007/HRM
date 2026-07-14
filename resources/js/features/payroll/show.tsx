@@ -1215,10 +1215,10 @@ export function PayrollShowContent({
                                         Basic
                                     </DataTableHead>
                                     <DataTableHead className="bg-primary/3 text-right">
-                                        Hous. / Suppl.
+                                        Suppl.
                                     </DataTableHead>
                                     <DataTableHead className="border-r border-primary/10 bg-primary/3 text-right">
-                                        Trans. / Site
+                                        Site
                                     </DataTableHead>
                                     <DataTableHead className="border-l border-blue-500/10 bg-blue-500/3">
                                         Leave / Standby
@@ -1367,9 +1367,7 @@ export function PayrollShowContent({
                                             >
                                                 <SalaryCell
                                                     value={
-                                                        isMonthlyCrewRow
-                                                            ? contract?.housing_allowance
-                                                            : contract?.supplementary_allowance
+                                                        contract?.supplementary_allowance
                                                     }
                                                 />
                                             </TableCell>
@@ -1383,9 +1381,7 @@ export function PayrollShowContent({
                                             >
                                                 <SalaryCell
                                                     value={
-                                                        isMonthlyCrewRow
-                                                            ? contract?.transport_allowance
-                                                            : contract?.site_allowance
+                                                        contract?.site_allowance
                                                     }
                                                 />
                                             </TableCell>
