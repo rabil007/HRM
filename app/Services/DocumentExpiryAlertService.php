@@ -143,7 +143,7 @@ class DocumentExpiryAlertService
 
     /**
      * @param  Collection<int, EmployeeDocument>  $documents
-     * @return list<array{employee_name: string, employee_id: string, document_name: string, expiry_date: string, days_remaining: int}>
+     * @return list<array{employee_name: string, employee_id: string, document_name: string, expiry_date: string, days_remaining: int, folder_url: string}>
      */
     private function buildRows(Collection $documents): array
     {
@@ -155,15 +155,19 @@ class DocumentExpiryAlertService
             ->values()
             ->map(function (EmployeeDocument $document): array {
                 $expiryDate = $document->expiry_date?->toDateString() ?? '';
+                $employee = $document->employee;
 
                 return [
-                    'employee_name' => (string) ($document->employee?->name ?? 'Unknown employee'),
-                    'employee_id' => (string) ($document->employee?->employee_no ?: '—'),
+                    'employee_name' => (string) ($employee?->name ?? 'Unknown employee'),
+                    'employee_id' => (string) ($employee?->employee_no ?: '—'),
                     'document_name' => $document->original_filename
                         ?? $document->title
                         ?? $document->document_type_label,
                     'expiry_date' => $expiryDate,
                     'days_remaining' => DocumentExpiry::remainingDays($document->expiry_date) ?? 0,
+                    'folder_url' => $employee !== null
+                        ? route('organization.documents.employee', $employee)
+                        : '',
                 ];
             })
             ->all();

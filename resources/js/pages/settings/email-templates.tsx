@@ -859,8 +859,9 @@ export default function EmailTemplatesSettings({
                 ) : (
                     <p className="rounded-xl border border-border/80 bg-muted/20 px-4 py-3 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/5">
                         The automated expiry email uses a fixed HTML table
-                        (employee, document, expiry date, days remaining).
-                        Configure recipients and daily dispatch time below.
+                        (employee, document, expiry date, days remaining, view
+                        folder). Configure recipients and daily dispatch time
+                        below.
                     </p>
                 )}
 

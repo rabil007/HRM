@@ -30,6 +30,7 @@
                         <th align="left" style="padding:12px 16px;font-size:12px;font-weight:600;color:#18181b;border-bottom:1px solid #e4e4e7;">Document Name</th>
                         <th align="left" style="padding:12px 16px;font-size:12px;font-weight:600;color:#18181b;border-bottom:1px solid #e4e4e7;">Expiry Date</th>
                         <th align="left" style="padding:12px 16px;font-size:12px;font-weight:600;color:#18181b;border-bottom:1px solid #e4e4e7;">Days Remaining</th>
+                        <th align="left" style="padding:12px 16px;font-size:12px;font-weight:600;color:#18181b;border-bottom:1px solid #e4e4e7;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -40,6 +41,14 @@
                             <td style="padding:12px 16px;font-size:14px;color:#3f3f46;border-bottom:1px solid #f4f4f5;">{{ $row['document_name'] }}</td>
                             <td style="padding:12px 16px;font-size:14px;color:#3f3f46;border-bottom:1px solid #f4f4f5;">{{ $row['expiry_date'] }}</td>
                             <td style="padding:12px 16px;font-size:14px;color:#3f3f46;border-bottom:1px solid #f4f4f5;">{{ $row['days_remaining'] }}</td>
+                            <td style="padding:12px 16px;font-size:14px;color:#3f3f46;border-bottom:1px solid #f4f4f5;white-space:nowrap;">
+                                @if (! empty($row['folder_url']))
+                                    <a
+                                        href="{{ $row['folder_url'] }}"
+                                        style="display:inline-block;padding:6px 12px;font-size:12px;font-weight:600;line-height:1;color:#ffffff;text-decoration:none;border-radius:6px;background-color:#2563eb;border:1px solid #2563eb;"
+                                    >View</a>
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>

@@ -122,7 +122,7 @@ test('consolidated expiry alert email is sent once with all pending documents so
 
     app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
 
-    Mail::assertSent(DocumentExpiryAlertMail::class, function (DocumentExpiryAlertMail $mail) {
+    Mail::assertSent(DocumentExpiryAlertMail::class, function (DocumentExpiryAlertMail $mail) use ($employeeC) {
         return $mail->hasTo('hr@example.com')
             && $mail->hasCc('manager@example.com')
             && ! $mail->hasCc('hr@example.com')
@@ -130,10 +130,38 @@ test('consolidated expiry alert email is sent once with all pending documents so
             && count($mail->rows) === 2
             && $mail->rows[0]['employee_name'] === 'Ahmed Ali'
             && $mail->rows[0]['employee_id'] === 'EMP-001'
+            && $mail->rows[0]['folder_url'] === route('organization.documents.employee', $employeeC)
             && $mail->rows[1]['employee_name'] === 'Zara Khan';
     });
 
     expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(2);
+});
+
+test('expiry alert email html includes view button to employee document folder', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
+
+    Mail::assertSent(DocumentExpiryAlertMail::class, function (DocumentExpiryAlertMail $mail) use ($employee) {
+        $html = $mail->render();
+        $folderUrl = route('organization.documents.employee', $employee);
+
+        return str_contains($html, 'Action')
+            && str_contains($html, '>View</a>')
+            && str_contains($html, $folderUrl);
+    });
 });
 
 test('second run does not resend alert for the same document and expiry date', function () {

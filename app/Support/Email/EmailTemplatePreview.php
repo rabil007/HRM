@@ -144,6 +144,7 @@ final class EmailTemplatePreview
                     'document_name' => 'Passport',
                     'expiry_date' => now()->addDays(12)->format('d M Y'),
                     'days_remaining' => 12,
+                    'folder_url' => url('/organization/documents/employees/1'),
                 ],
                 [
                     'employee_name' => 'Ahmed Khan',
@@ -151,6 +152,7 @@ final class EmailTemplatePreview
                     'document_name' => 'Seaman Book',
                     'expiry_date' => now()->addDays(24)->format('d M Y'),
                     'days_remaining' => 24,
+                    'folder_url' => url('/organization/documents/employees/2'),
                 ],
             ],
         ])->render();
