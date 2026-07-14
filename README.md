@@ -180,7 +180,7 @@ Permissions are company-scoped (Spatie teams). Full list: `database/seeders/Perm
 |---|---|
 | Companies, Branches, Departments, Positions | `*.view/create/update/delete/export` |
 | Roles, Users | `roles.*`, `users.*` |
-| Employees | `employees.view/create/update/delete/export/import` plus sensitive import permissions such as `employees.identity.import` |
+| Employees | `employees.view/create/update/delete/export/import` |
 | Contracts, bank accounts, training | `contracts.*`, `bank_accounts.*`, `training.*` |
 | Documents | `documents.view/download/share/upload/delete` |
 | Audit | `audit.view` |
@@ -199,7 +199,7 @@ php artisan db:seed --class=PermissionsSeeder
 
 1. **Employees** → **Import** (`employees.import`).
 2. Download template, upload CSV/XLSX, map columns, preview, commit.
-3. Sensitive columns require `employees.identity.import`, `employees.bank_accounts.import`, or `employees.contracts.import` as applicable.
+3. Related module columns use `bank_accounts.import` or `contracts.import` when those records are imported through their own flows.
 
 The base required columns are `employee_no` and `name`. A selected employee profile template can make additional mapped fields required.
 

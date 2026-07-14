@@ -201,7 +201,7 @@ Examples (full list in seeder):
 |-------|-------------------|
 | Companies | `companies.view`, `.create`, `.update`, `.delete`, `.export` |
 | Branches | `branches.*` |
-| Employees | `employees.view`, `.create`, `.update`, `.delete`, `.export`, `.import`, `.identity.import`, sub-record `.manage` |
+| Employees | `employees.view`, `.create`, `.update`, `.delete`, `.export`, `.import`, sub-record `.manage` |
 | Documents | `documents.view`, `.download`, `.share`, `.upload`, `.delete` |
 | Contracts / bank / training | `contracts.*`, `bank_accounts.*`, `training.*` |
 | Crew | `crew_operations.deployments.*`, `crew_operations.overview.view`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*` |
@@ -391,7 +391,7 @@ flowchart LR
 | `employees.update` | Profile edit, status |
 | `employees.delete` | Remove employee |
 | `employees.export` | Export directory |
-| `employees.import` + `employees.identity.import` | Base import and identity columns |
+| `employees.import` | Employee import, including identity columns |
 | `contracts.*`, `bank_accounts.*`, `training.*` (view/create/update/delete/import) | Contracts, bank accounts, training modules and their import columns |
 | `employees.education.manage`, `.work_experience.manage`, `.vaccination.manage`, `.languages.manage`, `.sea_service.manage` | Profile tabs |
 

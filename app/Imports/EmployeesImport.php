@@ -107,10 +107,10 @@ class EmployeesImport
         ];
     }
 
-    public const SENSITIVE_FIELD_PERMISSIONS = [
-        'passport_number' => 'employees.identity.import',
-        'emirates_id' => 'employees.identity.import',
-    ];
+    /**
+     * @var array<string, string>
+     */
+    public const SENSITIVE_FIELD_PERMISSIONS = [];
 
     public const IMPORT_MIME_TYPES = [
         'text/csv',

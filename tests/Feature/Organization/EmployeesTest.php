@@ -1162,7 +1162,7 @@ test('employees index exposes export field options filtered by permissions', fun
             ->where(
                 'export_field_options',
                 fn ($options) => collect($options)->contains(
-                    fn (array $option): bool => $option['key'] === 'passport_number' && $option['allowed'] === false,
+                    fn (array $option): bool => $option['key'] === 'passport_number' && $option['allowed'] === true,
                 ),
             )
             ->where(
@@ -1401,7 +1401,7 @@ test('post employee export rejects unknown field keys', function () {
     ])->assertUnprocessable();
 });
 
-test('post employee export blocks sensitive identity fields without permission', function () {
+test('post employee export allows identity fields with export permission', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -1444,7 +1444,7 @@ test('post employee export blocks sensitive identity fields without permission',
     $this->postJson('/organization/employees/export', [
         'format' => 'csv',
         'fields' => ['passport_number'],
-    ])->assertStatus(422);
+    ])->assertOk();
 });
 
 test('authenticated users with permission can download the import template', function () {
@@ -2394,7 +2394,7 @@ test('employee import does not create contracts when contract columns are omitte
     ]);
 });
 
-test('employee import ignores sensitive fields without extra import permissions', function () {
+test('employee import allows identity fields with base import permission', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -2443,7 +2443,7 @@ test('employee import ignores sensitive fields without extra import permissions'
         ]);
 
     $preview->assertOk();
-    expect($preview->json('mapping.passport_number'))->toBeNull();
+    expect($preview->json('mapping.passport_number'))->toBe('passport_number');
 
     $importFile = UploadedFile::fake()->createWithContent('employees.csv', $csv);
 
@@ -2457,7 +2457,7 @@ test('employee import ignores sensitive fields without extra import permissions'
     $this->assertDatabaseHas('employees', [
         'company_id' => $company->id,
         'employee_no' => 'EMP-SEC-1',
-        'passport_number' => null,
+        'passport_number' => 'P1234567',
     ]);
 
     $employee = Employee::query()

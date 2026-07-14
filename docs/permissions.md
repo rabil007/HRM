@@ -26,7 +26,7 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 | Area | Current permission families |
 |------|-----------------------------|
 | Organization | `companies.*`, `branches.*`, `departments.*`, `positions.*`, `users.*`, `roles.*` |
-| Employees | `employees.view|create|update|delete|export|import`, `employees.identity.import`, and employee sub-record `.manage` permissions |
+| Employees | `employees.view|create|update|delete|export|import`, and employee sub-record `.manage` permissions |
 | Contracts / bank / training | `contracts.view|create|update|delete|import`, `bank_accounts.view|create|update|delete|import`, `training.view|create|update|delete|import` |
 | Documents | `documents.view|download|share|upload|delete` |
 | Bulk documents / signatures | `bulk_documents.view|generate|delete|email`, `bulk_documents.signatures.review` |
@@ -42,12 +42,11 @@ The `*` notation above is descriptive only; permissions are seeded as explicit s
 
 ## Employee and document details
 
-Employee import has two layers:
+Employee import has one employee permission plus module imports for related records:
 
 | Permission | Import scope |
 |------------|--------------|
-| `employees.import` | Base employee import workflow |
-| `employees.identity.import` | Sensitive identity columns |
+| `employees.import` | Employee import workflow, including passport and Emirates ID columns |
 | `contracts.import` | Contract columns and contract import workflow |
 | `bank_accounts.import` | Bank-account columns and bank import workflow |
 | `training.import` | Training import workflow |

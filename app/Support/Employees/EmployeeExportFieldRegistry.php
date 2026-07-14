@@ -2,7 +2,6 @@
 
 namespace App\Support\Employees;
 
-use App\Imports\EmployeesImport;
 use App\Models\User;
 
 final class EmployeeExportFieldRegistry
@@ -57,8 +56,8 @@ final class EmployeeExportFieldRegistry
             'nearest_airport' => ['label' => 'Nearest Airport', 'group' => 'employee', 'permission' => null],
             'emergency_contact' => ['label' => 'Emergency Contact', 'group' => 'employee', 'permission' => null],
             'emergency_phone' => ['label' => 'Emergency Phone', 'group' => 'employee', 'permission' => null],
-            'passport_number' => ['label' => 'Passport Number', 'group' => 'employee', 'permission' => EmployeesImport::SENSITIVE_FIELD_PERMISSIONS['passport_number'] ?? null],
-            'emirates_id' => ['label' => 'Emirates ID', 'group' => 'employee', 'permission' => EmployeesImport::SENSITIVE_FIELD_PERMISSIONS['emirates_id'] ?? null],
+            'passport_number' => ['label' => 'Passport Number', 'group' => 'employee', 'permission' => null],
+            'emirates_id' => ['label' => 'Emirates ID', 'group' => 'employee', 'permission' => null],
             'gender' => ['label' => 'Gender', 'group' => 'employee', 'permission' => null],
             'religion' => ['label' => 'Religion', 'group' => 'employee', 'permission' => null],
             'nationality' => ['label' => 'Nationality', 'group' => 'employee', 'permission' => null],
