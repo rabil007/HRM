@@ -75,12 +75,6 @@ final class SalarySheetPayslipParser
                 continue;
             }
 
-            $totalSalary = $this->numericValue($sheet, self::COL_TOTAL, $rowNumber);
-
-            if ($totalSalary <= 0) {
-                continue;
-            }
-
             $rows[] = [
                 'row' => $rowNumber,
                 'employee_no' => $employeeNo,
@@ -95,7 +89,7 @@ final class SalarySheetPayslipParser
                 'onsite_pay' => $this->numericValue($sheet, self::COL_ONSITE_PAY, $rowNumber),
                 'add_ded' => $this->numericValue($sheet, self::COL_ADD_DED, $rowNumber),
                 'overtime_pay' => $this->numericValue($sheet, self::COL_OT, $rowNumber),
-                'total_salary' => $totalSalary,
+                'total_salary' => $this->numericValue($sheet, self::COL_TOTAL, $rowNumber),
             ];
         }
 

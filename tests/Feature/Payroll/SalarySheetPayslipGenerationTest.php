@@ -113,7 +113,7 @@ function makeSalarySheetFixture(string $path): void
     $spreadsheet->disconnectWorksheets();
 }
 
-test('preview returns positive salary sheet rows sorted alphabetically by name', function () {
+test('preview returns all salary sheet rows sorted alphabetically by name', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
@@ -130,10 +130,11 @@ test('preview returns positive salary sheet rows sorted alphabetically by name',
         ]);
 
     $response->assertOk()
-        ->assertJsonPath('summary.total', 2)
-        ->assertJsonPath('rows.0.name', 'MUHDIN KADIR')
-        ->assertJsonPath('rows.1.name', 'VINOD MENON')
-        ->assertJsonMissing(['name' => 'AHMED SAAD RAMADAN']);
+        ->assertJsonPath('summary.total', 3)
+        ->assertJsonPath('rows.0.name', 'AHMED SAAD RAMADAN')
+        ->assertJsonPath('rows.0.total_salary', 0)
+        ->assertJsonPath('rows.1.name', 'MUHDIN KADIR')
+        ->assertJsonPath('rows.2.name', 'VINOD MENON');
 
     expect($response->json('rows.0'))->toHaveKeys([
         'row',

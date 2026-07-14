@@ -43,7 +43,7 @@ final class GeneratePayslipsFromSalarySheet
         ));
 
         if ($rows === []) {
-            throw new \InvalidArgumentException('No selected payslip rows with a positive total salary were found.');
+            throw new \InvalidArgumentException('No selected payslip rows were found in the salary sheet.');
         }
 
         $tempDir = sys_get_temp_dir().'/salary-sheet-payslips-'.Str::uuid()->toString();

@@ -233,9 +233,7 @@ export function SalarySheetPayslipDialog({
             }
 
             if (!payload?.rows?.length) {
-                throw new Error(
-                    'No payslip rows with a positive total salary were found.',
-                );
+                throw new Error('No employee rows were found in the salary sheet.');
             }
 
             setFile(selected);
