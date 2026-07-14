@@ -2,16 +2,32 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivityWithCompany;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Support\LogOptions;
 
 class Vessel extends Model
 {
+    use LogsActivityWithCompany;
     use SoftDeletes;
 
     protected $guarded = [];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly([
+                'name',
+                'vessel_type_id',
+                'grt',
+                'bhp',
+                'is_active',
+            ])
+            ->logOnlyDirty();
+    }
 
     protected function casts(): array
     {
