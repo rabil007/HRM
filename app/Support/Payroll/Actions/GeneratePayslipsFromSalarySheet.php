@@ -36,11 +36,21 @@ final class GeneratePayslipsFromSalarySheet
         $periodStart = CarbonImmutable::create($year, $month, 1)->startOfDay();
         $periodEnd = $periodStart->endOfMonth()->startOfDay();
 
-        $selectedRows = array_fill_keys(array_map('intval', $rowNumbers), true);
-        $rows = array_values(array_filter(
-            $this->parser->parse($file),
-            fn (array $row): bool => isset($selectedRows[(int) $row['row']]),
-        ));
+        $parsedByRow = [];
+
+        foreach ($this->parser->parse($file) as $row) {
+            $parsedByRow[(int) $row['row']] = $row;
+        }
+
+        $rows = [];
+
+        foreach ($rowNumbers as $rowNumber) {
+            $key = (int) $rowNumber;
+
+            if (isset($parsedByRow[$key])) {
+                $rows[] = $parsedByRow[$key];
+            }
+        }
 
         if ($rows === []) {
             throw new \InvalidArgumentException('No selected payslip rows were found in the salary sheet.');

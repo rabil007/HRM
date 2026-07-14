@@ -1,10 +1,12 @@
-import { FileSpreadsheet, Loader2, Upload } from 'lucide-react';
+import { FileSpreadsheet, GripVertical, Loader2, Upload } from 'lucide-react';
 import type { DragEvent, ReactElement } from 'react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Sortable from 'sortablejs';
 import {
     fromSalarySheet,
     previewSalarySheet,
 } from '@/actions/App/Http/Controllers/Payroll/PayslipController';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -50,6 +52,8 @@ type PreviewResponse = {
     rows: SalarySheetRow[];
     summary: { total: number };
 };
+
+type SortMode = 'name' | 'selected-first' | 'custom';
 
 type SalarySheetPayslipDialogProps = {
     open: boolean;
@@ -117,6 +121,40 @@ function csrfToken(): string | undefined {
         ?.content;
 }
 
+function sortRowIdsByName(
+    rowIds: number[],
+    rowsById: Map<number, SalarySheetRow>,
+): number[] {
+    return [...rowIds].sort((leftId, rightId) => {
+        const left = rowsById.get(leftId)?.name ?? '';
+        const right = rowsById.get(rightId)?.name ?? '';
+
+        return left.localeCompare(right, undefined, { sensitivity: 'base' });
+    });
+}
+
+function sortSelectedFirst(
+    rowIds: number[],
+    selected: Set<number>,
+): number[] {
+    const selectedIds = rowIds.filter((id) => selected.has(id));
+    const unselectedIds = rowIds.filter((id) => !selected.has(id));
+
+    return [...selectedIds, ...unselectedIds];
+}
+
+function applyVisibleOrder(
+    fullOrder: number[],
+    visibleOrderedIds: number[],
+): number[] {
+    const visibleSet = new Set(visibleOrderedIds);
+    const queue = [...visibleOrderedIds];
+
+    return fullOrder.map((id) =>
+        visibleSet.has(id) ? (queue.shift() as number) : id,
+    );
+}
+
 export function SalarySheetPayslipDialog({
     open,
     onOpenChange,
@@ -126,28 +164,43 @@ export function SalarySheetPayslipDialog({
     const [year, setYear] = useState(String(defaults.year));
     const [month, setMonth] = useState(String(defaults.month));
     const [preview, setPreview] = useState<PreviewResponse | null>(null);
+    const [orderedRowIds, setOrderedRowIds] = useState<number[]>([]);
     const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+    const [sortMode, setSortMode] = useState<SortMode>('name');
     const [searchQuery, setSearchQuery] = useState('');
     const [isPreviewing, setIsPreviewing] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [dragActive, setDragActive] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const tableBodyRef = useRef<HTMLTableSectionElement>(null);
 
-    const filteredRows = useMemo(() => {
-        if (!preview) {
-            return [];
+    const rowsById = useMemo(() => {
+        const map = new Map<number, SalarySheetRow>();
+
+        for (const row of preview?.rows ?? []) {
+            map.set(row.row, row);
         }
 
+        return map;
+    }, [preview]);
+
+    const orderedRows = useMemo(() => {
+        return orderedRowIds
+            .map((id) => rowsById.get(id))
+            .filter((row): row is SalarySheetRow => row !== undefined);
+    }, [orderedRowIds, rowsById]);
+
+    const filteredRows = useMemo(() => {
         const terms = searchQuery
             .split(',')
             .map((term) => term.trim().toLowerCase())
             .filter((term) => term !== '');
 
         if (terms.length === 0) {
-            return preview.rows;
+            return orderedRows;
         }
 
-        return preview.rows.filter((row) => {
+        return orderedRows.filter((row) => {
             const searchable = [
                 row.employee_no,
                 row.name,
@@ -161,7 +214,21 @@ export function SalarySheetPayslipDialog({
 
             return terms.some((term) => searchable.includes(term));
         });
-    }, [preview, searchQuery]);
+    }, [orderedRows, searchQuery]);
+
+    const pdfPageByRow = useMemo(() => {
+        const pages = new Map<number, number>();
+        let page = 1;
+
+        for (const id of orderedRowIds) {
+            if (selectedRows.has(id)) {
+                pages.set(id, page);
+                page += 1;
+            }
+        }
+
+        return pages;
+    }, [orderedRowIds, selectedRows]);
 
     const allSelected = useMemo(() => {
         if (filteredRows.length === 0) {
@@ -173,12 +240,43 @@ export function SalarySheetPayslipDialog({
 
     const selectedCount = selectedRows.size;
 
+    useEffect(() => {
+        const element = tableBodyRef.current;
+
+        if (!element || !preview) {
+            return;
+        }
+
+        const sortable = Sortable.create(element, {
+            handle: '.drag-handle',
+            animation: 150,
+            ghostClass: 'opacity-50',
+            touchStartThreshold: 5,
+            onEnd: () => {
+                const visibleOrderedIds = Array.from(element.children)
+                    .map((child) => Number(child.getAttribute('data-row-id')))
+                    .filter((id) => Number.isFinite(id));
+
+                setOrderedRowIds((current) =>
+                    applyVisibleOrder(current, visibleOrderedIds),
+                );
+                setSortMode('custom');
+            },
+        });
+
+        return () => {
+            sortable.destroy();
+        };
+    }, [preview, filteredRows.length, searchQuery]);
+
     const resetState = (): void => {
         setFile(null);
         setYear(String(defaults.year));
         setMonth(String(defaults.month));
         setPreview(null);
+        setOrderedRowIds([]);
         setSelectedRows(new Set());
+        setSortMode('name');
         setSearchQuery('');
         setIsPreviewing(false);
         setIsGenerating(false);
@@ -197,10 +295,40 @@ export function SalarySheetPayslipDialog({
         onOpenChange(next);
     };
 
+    const applySortMode = (mode: SortMode, selected = selectedRows): void => {
+        if (!preview) {
+            return;
+        }
+
+        const byId = new Map(preview.rows.map((row) => [row.row, row]));
+
+        if (mode === 'name') {
+            setOrderedRowIds(
+                sortRowIdsByName(
+                    preview.rows.map((row) => row.row),
+                    byId,
+                ),
+            );
+        } else if (mode === 'selected-first') {
+            setOrderedRowIds((current) => {
+                const base =
+                    current.length > 0
+                        ? current
+                        : preview.rows.map((row) => row.row);
+
+                return sortSelectedFirst(base, selected);
+            });
+        }
+
+        setSortMode(mode);
+    };
+
     const runPreview = async (selected: File): Promise<void> => {
         setIsPreviewing(true);
         setPreview(null);
+        setOrderedRowIds([]);
         setSelectedRows(new Set());
+        setSortMode('name');
         setSearchQuery('');
 
         try {
@@ -239,9 +367,13 @@ export function SalarySheetPayslipDialog({
                 throw new Error('No employee rows were found in the salary sheet.');
             }
 
+            const ids = payload.rows.map((row) => row.row);
+
             setFile(selected);
             setPreview(payload);
-            setSelectedRows(new Set(payload.rows.map((row) => row.row)));
+            setOrderedRowIds(ids);
+            setSelectedRows(new Set(ids));
+            setSortMode('name');
         } catch (error) {
             setFile(null);
             toast.error(
@@ -258,7 +390,9 @@ export function SalarySheetPayslipDialog({
         if (!next) {
             setFile(null);
             setPreview(null);
+            setOrderedRowIds([]);
             setSelectedRows(new Set());
+            setSortMode('name');
             setSearchQuery('');
 
             return;
@@ -291,6 +425,10 @@ export function SalarySheetPayslipDialog({
                 }
             }
 
+            if (sortMode === 'selected-first') {
+                setOrderedRowIds((order) => sortSelectedFirst(order, next));
+            }
+
             return next;
         });
     };
@@ -303,6 +441,10 @@ export function SalarySheetPayslipDialog({
                 next.add(rowNumber);
             } else {
                 next.delete(rowNumber);
+            }
+
+            if (sortMode === 'selected-first') {
+                setOrderedRowIds((order) => sortSelectedFirst(order, next));
             }
 
             return next;
@@ -346,8 +488,10 @@ export function SalarySheetPayslipDialog({
             body.append('year', String(yearValue));
             body.append('month', String(monthValue));
 
-            for (const rowNumber of selectedRows) {
-                body.append('row_numbers[]', String(rowNumber));
+            for (const rowNumber of orderedRowIds) {
+                if (selectedRows.has(rowNumber)) {
+                    body.append('row_numbers[]', String(rowNumber));
+                }
             }
 
             const response = await fetch(fromSalarySheet.url(), {
@@ -406,6 +550,12 @@ export function SalarySheetPayslipDialog({
     };
 
     const busy = isPreviewing || isGenerating;
+    const sortLabel =
+        sortMode === 'name'
+            ? 'Name A–Z'
+            : sortMode === 'selected-first'
+              ? 'Selected first'
+              : 'Custom order (PDF pages)';
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -414,8 +564,8 @@ export function SalarySheetPayslipDialog({
                     <DialogTitle>Generate payslips from salary sheet</DialogTitle>
                     <DialogDescription>
                         Upload the OMS Salary Sheet, review the imported rows,
-                        select who to include, then download one multi-page PDF.
-                        Nothing is saved to payroll.
+                        select who to include, drag to set PDF page order, then
+                        download one multi-page PDF. Nothing is saved to payroll.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -507,19 +657,59 @@ export function SalarySheetPayslipDialog({
 
                     {preview ? (
                         <div className="space-y-2">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-sm font-medium">
-                                    {selectedCount} of {preview.summary.total}{' '}
-                                    selected (A–Z by name)
-                                </p>
-                                {searchQuery.trim() !== '' &&
-                                filteredRows.length !== preview.rows.length ? (
-                                    <p className="text-xs text-muted-foreground">
-                                        Showing {filteredRows.length} of{' '}
-                                        {preview.rows.length} rows
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-sm font-medium">
+                                        {selectedCount} of {preview.summary.total}{' '}
+                                        selected
                                     </p>
-                                ) : null}
+                                    <p className="text-xs text-muted-foreground">
+                                        Sort: {sortLabel}. Drag the handle to edit
+                                        PDF page order.
+                                    </p>
+                                </div>
+                                <div className="w-full sm:w-56">
+                                    <Label className="mb-1.5 block text-xs">
+                                        Sort / PDF order
+                                    </Label>
+                                    <AppSelect
+                                        value={sortMode}
+                                        onValueChange={(value) => {
+                                            const mode = value as SortMode;
+
+                                            if (mode === 'custom') {
+                                                setSortMode('custom');
+
+                                                return;
+                                            }
+
+                                            applySortMode(mode);
+                                        }}
+                                        disabled={busy}
+                                        size="sm"
+                                        placeholder="Sort order"
+                                    >
+                                        <AppSelectItem value="name">
+                                            Name A–Z
+                                        </AppSelectItem>
+                                        <AppSelectItem value="selected-first">
+                                            Selected first
+                                        </AppSelectItem>
+                                        <AppSelectItem value="custom">
+                                            Custom (drag to edit)
+                                        </AppSelectItem>
+                                    </AppSelect>
+                                </div>
                             </div>
+
+                            {searchQuery.trim() !== '' &&
+                            filteredRows.length !== orderedRows.length ? (
+                                <p className="text-xs text-muted-foreground">
+                                    Showing {filteredRows.length} of{' '}
+                                    {orderedRows.length} rows
+                                </p>
+                            ) : null}
+
                             <SearchBar
                                 value={searchQuery}
                                 onChange={setSearchQuery}
@@ -531,6 +721,7 @@ export function SalarySheetPayslipDialog({
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
+                                            <TableHead className="w-8" />
                                             <TableHead className="w-10">
                                                 <Checkbox
                                                     checked={allSelected}
@@ -540,6 +731,9 @@ export function SalarySheetPayslipDialog({
                                                     aria-label="Select all"
                                                     disabled={busy}
                                                 />
+                                            </TableHead>
+                                            <TableHead className="w-14 text-right">
+                                                PDF #
                                             </TableHead>
                                             <TableHead>Emp. no.</TableHead>
                                             <TableHead>Name</TableHead>
@@ -576,65 +770,97 @@ export function SalarySheetPayslipDialog({
                                             </TableHead>
                                         </TableRow>
                                     </TableHeader>
-                                    <TableBody>
-                                        {filteredRows.map((row) => (
-                                            <TableRow key={row.row}>
-                                                <TableCell>
-                                                    <Checkbox
-                                                        checked={selectedRows.has(
-                                                            row.row,
-                                                        )}
-                                                        onCheckedChange={(
-                                                            value,
-                                                        ) =>
-                                                            toggleRow(
+                                    <TableBody ref={tableBodyRef}>
+                                        {filteredRows.map((row) => {
+                                            const page = pdfPageByRow.get(row.row);
+
+                                            return (
+                                                <TableRow
+                                                    key={row.row}
+                                                    data-row-id={row.row}
+                                                >
+                                                    <TableCell className="w-8 px-1">
+                                                        <button
+                                                            type="button"
+                                                            className="drag-handle inline-flex cursor-grab items-center rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing"
+                                                            aria-label={`Reorder ${row.name}`}
+                                                            disabled={busy}
+                                                        >
+                                                            <GripVertical className="h-4 w-4" />
+                                                        </button>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Checkbox
+                                                            checked={selectedRows.has(
                                                                 row.row,
-                                                                value === true,
-                                                            )
-                                                        }
-                                                        aria-label={`Select ${row.name}`}
-                                                        disabled={busy}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>{row.employee_no}</TableCell>
-                                                <TableCell className="font-medium whitespace-nowrap">
-                                                    {row.name}
-                                                </TableCell>
-                                                <TableCell className="whitespace-nowrap">
-                                                    {row.designation || '—'}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {row.standby_days}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {row.onsite_days}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {formatAmount(row.basic_salary)}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {formatAmount(row.supplim_allow)}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {formatAmount(row.site_allow)}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {formatAmount(row.standby_pay)}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {formatAmount(row.onsite_pay)}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {formatAmount(row.add_ded)}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {formatAmount(row.overtime_pay)}
-                                                </TableCell>
-                                                <TableCell className="text-right font-medium">
-                                                    {formatAmount(row.total_salary)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                                            )}
+                                                            onCheckedChange={(
+                                                                value,
+                                                            ) =>
+                                                                toggleRow(
+                                                                    row.row,
+                                                                    value === true,
+                                                                )
+                                                            }
+                                                            aria-label={`Select ${row.name}`}
+                                                            disabled={busy}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-medium tabular-nums text-muted-foreground">
+                                                        {page ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {row.employee_no}
+                                                    </TableCell>
+                                                    <TableCell className="font-medium whitespace-nowrap">
+                                                        {row.name}
+                                                    </TableCell>
+                                                    <TableCell className="whitespace-nowrap">
+                                                        {row.designation || '—'}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        {row.standby_days}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        {row.onsite_days}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        {formatAmount(
+                                                            row.basic_salary,
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        {formatAmount(
+                                                            row.supplim_allow,
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        {formatAmount(row.site_allow)}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        {formatAmount(
+                                                            row.standby_pay,
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        {formatAmount(row.onsite_pay)}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        {formatAmount(row.add_ded)}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        {formatAmount(
+                                                            row.overtime_pay,
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-medium">
+                                                        {formatAmount(
+                                                            row.total_salary,
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
                                     </TableBody>
                                 </Table>
                             </div>

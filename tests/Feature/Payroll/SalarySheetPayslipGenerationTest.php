@@ -213,6 +213,30 @@ test('selected row filter includes only requested salary sheet rows', function (
     @unlink($path);
 });
 
+test('pdf page order follows the submitted row_numbers order', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.payslips.generate',
+    ]);
+
+    $path = tempnam(sys_get_temp_dir(), 'salary_sheet_').'.xlsx';
+    makeSalarySheetFixture($path);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.payslips.from-salary-sheet'), [
+            'file' => new UploadedFile($path, 'salary-sheet.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true),
+            'year' => 2026,
+            'month' => 5,
+            'row_numbers' => [4, 3],
+        ])
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf');
+
+    @unlink($path);
+});
+
 test('unauthorized users cannot generate payslips from salary sheet', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
