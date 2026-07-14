@@ -82,6 +82,14 @@ function formatMoney(value: number | string | null | undefined): string {
     });
 }
 
+function revisionTotal(revision: ContractSalaryRevisionItem): number {
+    return revision.lines.reduce((sum, line) => {
+        const numeric = Number(line.amount);
+
+        return sum + (Number.isNaN(numeric) ? 0 : numeric);
+    }, 0);
+}
+
 export function EmployeeContractSalaryRevisions({
     employeeId,
     contract,
@@ -244,6 +252,9 @@ export function EmployeeContractSalaryRevisions({
                                     Package
                                 </th>
                                 <th className="px-3 py-2 font-medium">
+                                    Total
+                                </th>
+                                <th className="px-3 py-2 font-medium">
                                     Reason
                                 </th>
                                 {canManage ? (
@@ -276,6 +287,9 @@ export function EmployeeContractSalaryRevisions({
                                                 </div>
                                             ))}
                                         </div>
+                                    </td>
+                                    <td className="px-3 py-2 font-mono font-semibold tabular-nums">
+                                        {formatMoney(revisionTotal(revision))}
                                     </td>
                                     <td className="px-3 py-2 text-muted-foreground">
                                         {revision.reason || '—'}
