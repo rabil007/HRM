@@ -28,8 +28,8 @@ class MailSettingsService
             'from_address' => $this->settings->get(SettingKey::MailFromAddress) ?? (string) env('MAIL_FROM_ADDRESS', ''),
             'from_name' => $this->settings->get(SettingKey::MailFromName)
                 ?: $this->settings->appName(),
-            'password' => $this->resolvedPassword(),
-            'has_password' => $this->hasStoredPassword(),
+            'password' => '',
+            'has_password' => filled($this->resolvedPassword()),
             'is_configured' => $this->isConfigured(),
             'uses_env_fallback' => ! $this->isConfigured(),
             'email_branding_logo_url' => $this->settings->fileUrl(SettingKey::EmailBrandingLogo),

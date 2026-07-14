@@ -63,6 +63,7 @@ export type WhatsAppSettingsPanelProps = {
         enabled: boolean;
         has_access_token: boolean;
         has_app_secret: boolean;
+        has_webhook_verify_token: boolean;
         is_configured: boolean;
         webhook_status: 'configured' | 'not_configured';
     };
@@ -147,10 +148,10 @@ export function WhatsAppSettingsPanel({
     const form = useForm({
         business_account_id: settings.business_account_id ?? '',
         phone_number_id: settings.phone_number_id ?? '',
-        access_token: settings.access_token ?? '',
+        access_token: '',
         app_id: settings.app_id ?? '',
-        app_secret: settings.app_secret ?? '',
-        webhook_verify_token: settings.webhook_verify_token ?? '',
+        app_secret: '',
+        webhook_verify_token: '',
         enabled: settings.enabled ?? false,
     });
 
@@ -171,6 +172,7 @@ export function WhatsAppSettingsPanel({
             onSuccess: () => {
                 form.setData('access_token', '');
                 form.setData('app_secret', '');
+                form.setData('webhook_verify_token', '');
                 toast.success('WhatsApp settings saved.');
             },
         });
@@ -878,7 +880,11 @@ export function WhatsAppSettingsPanel({
                                             e.target.value,
                                         )
                                     }
-                                    placeholder="Permanent access token"
+                                    placeholder={
+                                        settings.has_access_token
+                                            ? '•••••••• (configured)'
+                                            : 'Permanent access token'
+                                    }
                                     disabled={!can.update}
                                     autoComplete="new-password"
                                 />
@@ -900,7 +906,11 @@ export function WhatsAppSettingsPanel({
                                             e.target.value,
                                         )
                                     }
-                                    placeholder="App secret"
+                                    placeholder={
+                                        settings.has_app_secret
+                                            ? '•••••••• (configured)'
+                                            : 'App secret'
+                                    }
                                     disabled={!can.update}
                                     autoComplete="new-password"
                                 />
@@ -920,7 +930,11 @@ export function WhatsAppSettingsPanel({
                                             e.target.value,
                                         )
                                     }
-                                    placeholder="Webhook verify token"
+                                    placeholder={
+                                        settings.has_webhook_verify_token
+                                            ? '•••••••• (configured)'
+                                            : 'Webhook verify token'
+                                    }
                                     disabled={!can.update}
                                     autoComplete="off"
                                 />

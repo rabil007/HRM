@@ -176,18 +176,21 @@ test('hikvision secrets are kept when update omits them', function () {
         'api_host' => 'https://isgp.hikcentralconnect.com',
         'api_key' => 'keep-api-key',
         'api_secret' => 'keep-api-secret',
+        'webhook_verify_token' => 'keep-webhook-token',
         'enabled' => true,
     ]);
 
     putHikvisionSettings($user, hikvisionSettingsUpdatePayload([
         'api_key' => '',
         'api_secret' => '',
+        'webhook_verify_token' => '',
     ]))->assertRedirect();
 
     $settings = HikvisionSetting::current();
 
     expect($settings->api_key)->toBe('keep-api-key')
-        ->and($settings->api_secret)->toBe('keep-api-secret');
+        ->and($settings->api_secret)->toBe('keep-api-secret')
+        ->and($settings->webhook_verify_token)->toBe('keep-webhook-token');
 });
 
 test('hikvision test connection returns success when api responds ok', function () {
@@ -247,11 +250,12 @@ test('hikvision test connection returns error message on failure', function () {
         ]);
 });
 
-test('application settings page includes decrypted hikvision credentials', function () {
+test('application settings page masks hikvision credentials', function () {
     HikvisionSetting::current()->storeFromValidated([
         'api_host' => 'https://isgp.hikcentralconnect.com',
         'api_key' => 'stored-api-key',
         'api_secret' => 'stored-api-secret',
+        'webhook_verify_token' => 'stored-webhook-token',
         'enabled' => true,
     ]);
 
@@ -262,8 +266,12 @@ test('application settings page includes decrypted hikvision credentials', funct
         ->get(route('application.edit'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('hikvision.settings.api_key', 'stored-api-key')
-            ->where('hikvision.settings.api_secret', 'stored-api-secret'),
+            ->where('hikvision.settings.api_key', '')
+            ->where('hikvision.settings.api_secret', '')
+            ->where('hikvision.settings.webhook_verify_token', '')
+            ->where('hikvision.settings.has_api_key', true)
+            ->where('hikvision.settings.has_api_secret', true)
+            ->where('hikvision.settings.has_webhook_verify_token', true),
         );
 });
 

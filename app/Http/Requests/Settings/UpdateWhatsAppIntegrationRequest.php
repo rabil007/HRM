@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Models\WhatsAppSetting;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateWhatsAppIntegrationRequest extends FormRequest
@@ -15,6 +16,9 @@ class UpdateWhatsAppIntegrationRequest extends FormRequest
     public function rules(): array
     {
         $requiredWhenEnabled = $this->boolean('enabled') ? 'required' : 'nullable';
+        $requiresWebhookToken = $this->boolean('enabled')
+            && ! filled(WhatsAppSetting::current()->webhook_verify_token);
+        $webhookTokenRule = $requiresWebhookToken ? 'required' : 'nullable';
 
         return [
             'business_account_id' => [$requiredWhenEnabled, 'string', 'max:255'],
@@ -22,7 +26,7 @@ class UpdateWhatsAppIntegrationRequest extends FormRequest
             'access_token' => ['nullable', 'string', 'max:4096'],
             'app_id' => [$requiredWhenEnabled, 'string', 'max:255'],
             'app_secret' => ['nullable', 'string', 'max:4096'],
-            'webhook_verify_token' => [$requiredWhenEnabled, 'string', 'max:255'],
+            'webhook_verify_token' => [$webhookTokenRule, 'string', 'max:255'],
             'enabled' => ['required', 'boolean'],
         ];
     }

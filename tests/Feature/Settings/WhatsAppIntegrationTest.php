@@ -70,7 +70,7 @@ test('users with whatsapp permission can open application settings without appli
         ->assertInertia(fn ($page) => $page->has('whatsapp'));
 });
 
-test('application settings page includes decrypted whatsapp secrets', function () {
+test('application settings page masks whatsapp secrets', function () {
     WhatsAppSetting::current()->storeFromValidated(whatsappSettingsUpdatePayload());
 
     $user = User::factory()->create();
@@ -80,8 +80,12 @@ test('application settings page includes decrypted whatsapp secrets', function (
         ->get(route('application.edit'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('whatsapp.settings.access_token', 'test-access-token')
-            ->where('whatsapp.settings.app_secret', 'test-app-secret'),
+            ->where('whatsapp.settings.access_token', '')
+            ->where('whatsapp.settings.app_secret', '')
+            ->where('whatsapp.settings.webhook_verify_token', '')
+            ->where('whatsapp.settings.has_access_token', true)
+            ->where('whatsapp.settings.has_app_secret', true)
+            ->where('whatsapp.settings.has_webhook_verify_token', true),
         );
 });
 
@@ -133,13 +137,15 @@ test('whatsapp secrets are kept when update omits them', function () {
         ->put(route('application.whatsapp.update'), whatsappSettingsUpdatePayload([
             'access_token' => '',
             'app_secret' => '',
+            'webhook_verify_token' => '',
         ]))
         ->assertRedirect();
 
     $settings = WhatsAppSetting::current();
 
     expect($settings->access_token)->toBe('keep-access-token')
-        ->and($settings->app_secret)->toBe('keep-app-secret');
+        ->and($settings->app_secret)->toBe('keep-app-secret')
+        ->and($settings->webhook_verify_token)->toBe('verify-token-abc');
 });
 
 test('whatsapp test connection returns success when meta api responds ok', function () {

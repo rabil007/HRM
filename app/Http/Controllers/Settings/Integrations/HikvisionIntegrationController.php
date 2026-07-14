@@ -31,9 +31,7 @@ class HikvisionIntegrationController extends Controller
         $settings = HikvisionSetting::current();
 
         $props = [
-            'settings' => $settings->toSettingsPageArray(
-                $user->can('settings.integrations.hikvision.update'),
-            ),
+            'settings' => $settings->toSettingsPageArray(),
             'webhook_url' => URL::route('webhooks.hikvision', absolute: true),
             'scheduler_timezone' => ApplicationTimezone::identifier(),
             'can' => [

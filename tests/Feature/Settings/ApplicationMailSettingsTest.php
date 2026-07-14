@@ -26,7 +26,7 @@ test('application settings page includes smtp configuration', function () {
         );
 });
 
-test('application settings page includes decrypted smtp password', function () {
+test('application settings page masks the smtp password', function () {
     AppSetting::query()->updateOrCreate(
         ['key' => SettingKey::MailPassword],
         ['value' => Crypt::encryptString('secret-pass'), 'type' => 'encrypted'],
@@ -39,7 +39,10 @@ test('application settings page includes decrypted smtp password', function () {
     $this->actingAs($user)
         ->get(route('application.edit'))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('smtp.password', 'secret-pass'));
+        ->assertInertia(fn ($page) => $page
+            ->where('smtp.password', '')
+            ->where('smtp.has_password', true),
+        );
 });
 
 test('outgoing email views render the branding footer and inline logo', function () {

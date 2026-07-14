@@ -121,11 +121,11 @@ export function HikvisionSettingsPanel({
 
     const form = useForm({
         api_host: settings.api_host ?? '',
-        api_key: settings.api_key ?? '',
-        api_secret: settings.api_secret ?? '',
+        api_key: '',
+        api_secret: '',
         enabled: settings.enabled ?? false,
         webhook_enabled: settings.webhook_enabled ?? false,
-        webhook_verify_token: settings.webhook_verify_token ?? '',
+        webhook_verify_token: '',
         events_fetch_schedule_enabled:
             settings.events_fetch_schedule_enabled ?? false,
         events_fetch_schedule_at: settings.events_fetch_schedule_at ?? '18:00',
@@ -147,6 +147,7 @@ export function HikvisionSettingsPanel({
             onSuccess: () => {
                 form.setData('api_key', '');
                 form.setData('api_secret', '');
+                form.setData('webhook_verify_token', '');
                 toast.success('Hikvision settings saved.');
             },
         });
@@ -414,7 +415,11 @@ export function HikvisionSettingsPanel({
                                     onChange={(e) =>
                                         form.setData('api_key', e.target.value)
                                     }
-                                    placeholder="App key (AK)"
+                                    placeholder={
+                                        settings.has_api_key
+                                            ? '•••••••• (configured)'
+                                            : 'App key (AK)'
+                                    }
                                     disabled={!can.update}
                                     autoComplete="new-password"
                                 />
@@ -434,7 +439,11 @@ export function HikvisionSettingsPanel({
                                             e.target.value,
                                         )
                                     }
-                                    placeholder="App secret (SK)"
+                                    placeholder={
+                                        settings.has_api_secret
+                                            ? '•••••••• (configured)'
+                                            : 'App secret (SK)'
+                                    }
                                     disabled={!can.update}
                                     autoComplete="new-password"
                                 />
@@ -781,7 +790,11 @@ export function HikvisionSettingsPanel({
                                         event.target.value,
                                     )
                                 }
-                                placeholder="Auto-generated on save, or use 8-32 letters/digits"
+                                placeholder={
+                                    settings.has_webhook_verify_token
+                                        ? '•••••••• (configured)'
+                                        : 'Auto-generated on save, or use 8-32 letters/digits'
+                                }
                                 disabled={!can.update}
                                 autoComplete="off"
                             />

@@ -321,7 +321,7 @@ export default function ApplicationSettings({
         host: smtp.host ?? '',
         port: smtp.port ?? 587,
         username: smtp.username ?? '',
-        password: smtp.password ?? '',
+        password: '',
         encryption: smtp.encryption ?? 'tls',
         from_address: smtp.from_address ?? '',
         from_name: smtp.from_name ?? '',
@@ -392,6 +392,7 @@ export default function ApplicationSettings({
         smtpForm.post('/settings/application/smtp', {
             preserveScroll: true,
             forceFormData: true,
+            onSuccess: () => smtpForm.reset('password'),
         });
     }
 
@@ -1019,7 +1020,11 @@ export default function ApplicationSettings({
                                                         e.target.value,
                                                     )
                                                 }
-                                                placeholder="SMTP password"
+                                                placeholder={
+                                                    smtp.has_password
+                                                        ? '•••••••• (configured)'
+                                                        : 'SMTP password'
+                                                }
                                                 autoComplete="new-password"
                                             />
                                             {smtpForm.errors.password ? (

@@ -44,6 +44,12 @@ class HikvisionSetting extends Model
         'webhook_last_event_at',
     ];
 
+    protected $hidden = [
+        'api_key',
+        'api_secret',
+        'webhook_verify_token',
+    ];
+
     /**
      * @return array<string, string>
      */
@@ -178,7 +184,7 @@ class HikvisionSetting extends Model
     /**
      * @return array<string, mixed>
      */
-    public function toSettingsPageArray(bool $includeWebhookToken = false): array
+    public function toSettingsPageArray(): array
     {
         $hasStoredHost = filled($this->api_host);
         $hasStoredKey = filled($this->api_key);
@@ -192,14 +198,14 @@ class HikvisionSetting extends Model
 
         return [
             'api_host' => $hasStoredHost ? (string) $this->api_host : $envHost,
-            'api_key' => $hasStoredKey ? (string) $this->api_key : $envKey,
-            'api_secret' => $hasStoredSecret ? (string) $this->api_secret : $envSecret,
+            'api_key' => '',
+            'api_secret' => '',
             'enabled' => (bool) $this->enabled,
             'has_api_key' => $hasStoredKey || filled($envKey),
             'has_api_secret' => $hasStoredSecret || filled($envSecret),
             'uses_env_fallback' => ! $hasStoredCredentials && $hasEnvCredentials,
             'is_configured' => $this->isConfigured(),
-            'webhook_verify_token' => $includeWebhookToken ? ($this->webhook_verify_token ?? '') : '',
+            'webhook_verify_token' => '',
             'webhook_enabled' => (bool) $this->webhook_enabled,
             'webhook_registered_at' => $this->webhook_registered_at?->toIso8601String(),
             'webhook_last_event_at' => $this->webhook_last_event_at?->toIso8601String(),
@@ -230,10 +236,8 @@ class HikvisionSetting extends Model
             $this->api_secret = (string) $data['api_secret'];
         }
 
-        if (array_key_exists('webhook_verify_token', $data)) {
-            $this->webhook_verify_token = filled($data['webhook_verify_token'])
-                ? (string) $data['webhook_verify_token']
-                : null;
+        if (filled($data['webhook_verify_token'] ?? null)) {
+            $this->webhook_verify_token = (string) $data['webhook_verify_token'];
         }
 
         if (array_key_exists('webhook_enabled', $data)) {

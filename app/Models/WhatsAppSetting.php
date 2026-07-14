@@ -23,6 +23,12 @@ class WhatsAppSetting extends Model
         'enabled',
     ];
 
+    protected $hidden = [
+        'access_token',
+        'app_secret',
+        'webhook_verify_token',
+    ];
+
     /**
      * @return array<string, string>
      */
@@ -75,12 +81,13 @@ class WhatsAppSetting extends Model
             'business_account_id' => $this->business_account_id ?? '',
             'phone_number_id' => $this->phone_number_id ?? '',
             'app_id' => $this->app_id ?? '',
-            'access_token' => $this->access_token ?? '',
-            'app_secret' => $this->app_secret ?? '',
-            'webhook_verify_token' => $this->webhook_verify_token ?? '',
+            'access_token' => '',
+            'app_secret' => '',
+            'webhook_verify_token' => '',
             'enabled' => (bool) $this->enabled,
             'has_access_token' => filled($this->access_token),
             'has_app_secret' => filled($this->app_secret),
+            'has_webhook_verify_token' => filled($this->webhook_verify_token),
             'is_configured' => $this->isConfigured(),
             'webhook_status' => filled($this->webhook_verify_token) ? 'configured' : 'not_configured',
         ];
@@ -94,7 +101,6 @@ class WhatsAppSetting extends Model
         $this->business_account_id = $data['business_account_id'] ?? null;
         $this->phone_number_id = $data['phone_number_id'] ?? null;
         $this->app_id = $data['app_id'] ?? null;
-        $this->webhook_verify_token = $data['webhook_verify_token'] ?? null;
         $this->enabled = (bool) ($data['enabled'] ?? false);
 
         if (filled($data['access_token'] ?? null)) {
@@ -103,6 +109,10 @@ class WhatsAppSetting extends Model
 
         if (filled($data['app_secret'] ?? null)) {
             $this->app_secret = (string) $data['app_secret'];
+        }
+
+        if (filled($data['webhook_verify_token'] ?? null)) {
+            $this->webhook_verify_token = (string) $data['webhook_verify_token'];
         }
 
         $this->save();
