@@ -380,6 +380,7 @@ final class EmployeeProfilePageData
             && ($authUser?->can('documents.view') ?? false);
         $employeeTabsPayload['contract'] = ($employeeTabsPayload['contract'] ?? false)
             && ($authUser?->can('contracts.view') ?? false);
+        $employeeTabsPayload['salary_revisions'] = (bool) ($employeeTabsPayload['contract'] ?? false);
 
         return $employeeTabsPayload;
     }

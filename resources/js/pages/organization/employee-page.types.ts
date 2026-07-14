@@ -282,6 +282,7 @@ export type SeaServiceItem = {
 export type EmployeeTab =
     | 'personal'
     | 'contract'
+    | 'salary_revisions'
     | 'bank'
     | 'education'
     | 'work_experience'
@@ -302,6 +303,7 @@ export type EmployeeNavigation = {
 export type EmployeeProfileTabVisibility = {
     personal: boolean;
     contract: boolean;
+    salary_revisions?: boolean;
     bank: boolean;
     education?: boolean;
     work_experience?: boolean;
@@ -353,6 +355,7 @@ export type EmployeePageProps = {
         contracts_create: boolean;
         contracts_update: boolean;
         contracts_delete: boolean;
+        contracts_salary_revisions_manage?: boolean;
         work_experience_manage: boolean;
         vaccination_manage: boolean;
         languages_manage: boolean;

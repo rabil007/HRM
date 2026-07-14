@@ -35,6 +35,7 @@ import { EmployeeLanguagesTab } from '@/pages/organization/_components/employee-
 import { EmployeeMissingRequiredFieldsAlert } from '@/pages/organization/_components/employee-missing-required-fields-alert';
 import { EmployeePersonalTab } from '@/pages/organization/_components/employee-personal-tab';
 import { EmployeeProfileActionBar } from '@/pages/organization/_components/employee-profile-action-bar';
+import { EmployeeSalaryRevisionsTab } from '@/pages/organization/_components/employee-salary-revisions-tab';
 import { EmployeeSeaServiceTab } from '@/pages/organization/_components/employee-sea-service-tab';
 import { EmployeeTrainingTab } from '@/pages/organization/_components/employee-training-tab';
 import { EmployeeVaccinationTab } from '@/pages/organization/_components/employee-vaccination-tab';
@@ -53,6 +54,7 @@ import { employee as employeeDocumentsBrowse } from '@/routes/organization/docum
 
 const EMPLOYEE_PAGE_TAB_HASH_KEYS: Partial<Record<string, EmployeeTab>> = {
     '#contract': 'contract',
+    '#salary-revisions': 'salary_revisions',
     '#documents': 'documents',
     '#education': 'education',
     '#work-experience': 'work_experience',
@@ -263,6 +265,15 @@ function EmployeeDetailsPage({
                         contracts === undefined
                             ? null
                             : contracts.length || null,
+                    salary_revisions:
+                        contracts === undefined
+                            ? null
+                            : contracts.reduce(
+                                  (total, contract) =>
+                                      total +
+                                      (contract.salary_revisions?.length ?? 0),
+                                  0,
+                              ) || null,
                     bank_accounts:
                         bank_accounts === undefined
                             ? null
@@ -717,6 +728,21 @@ function EmployeeDetailsPage({
                                             resolved_template?.fields,
                                             'employee_contracts',
                                         )}
+                                    />
+                                )
+                            ) : null}
+                            {employee_tabs.salary_revisions &&
+                            activeTab === 'salary_revisions' ? (
+                                recordsLoading ? (
+                                    <EmployeeTabSkeleton />
+                                ) : (
+                                    <EmployeeSalaryRevisionsTab
+                                        employeeId={effectiveEmployeeId}
+                                        contracts={contracts ?? []}
+                                        canManage={
+                                            can?.contracts_salary_revisions_manage ??
+                                            false
+                                        }
                                     />
                                 )
                             ) : null}

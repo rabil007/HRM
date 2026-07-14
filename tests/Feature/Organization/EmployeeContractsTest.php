@@ -119,6 +119,7 @@ test('employee show page includes contracts tab data when user can view contract
             ->component('organization/employee')
             ->where('contract_count', 1)
             ->where('employee_tabs.contract', true)
+            ->where('employee_tabs.salary_revisions', true)
             ->where('can.contracts_view', true)
             ->tap(fn (Assert $page) => assertEmployeeProfileRecords(
                 $page,

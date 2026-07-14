@@ -13,6 +13,7 @@ type BuildTabsInput = {
     employee_tabs: EmployeeProfileTabVisibility;
     counts: {
         contracts?: EmployeeProfileTabItem['count'];
+        salary_revisions?: EmployeeProfileTabItem['count'];
         bank_accounts?: EmployeeProfileTabItem['count'];
         education_qualifications?: EmployeeProfileTabItem['count'];
         work_experiences?: EmployeeProfileTabItem['count'];
@@ -31,6 +32,11 @@ export function buildEmployeeProfileTabs({
     const list: EmployeeProfileTabItem[] = [
         { id: 'personal', label: 'Personal', count: null },
         { id: 'contract', label: 'Contract', count: counts.contracts ?? null },
+        {
+            id: 'salary_revisions',
+            label: 'Salary revisions',
+            count: counts.salary_revisions ?? null,
+        },
         { id: 'bank', label: 'Bank', count: counts.bank_accounts ?? null },
         {
             id: 'education',
@@ -71,6 +77,8 @@ export function buildEmployeeProfileTabs({
                 return employee_tabs.personal;
             case 'contract':
                 return employee_tabs.contract;
+            case 'salary_revisions':
+                return employee_tabs.salary_revisions ?? false;
             case 'bank':
                 return employee_tabs.bank;
             case 'education':

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { EmployeeTab } from '@/pages/organization/employee-page.types';
 
 const EMPLOYEE_PAGE_TAB_HASH_KEYS: Partial<Record<string, EmployeeTab>> = {
+    '#contract': 'contract',
+    '#salary-revisions': 'salary_revisions',
     '#documents': 'documents',
     '#education': 'education',
     '#work-experience': 'work_experience',
