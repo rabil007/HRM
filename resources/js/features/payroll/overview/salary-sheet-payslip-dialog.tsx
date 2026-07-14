@@ -138,9 +138,12 @@ export function SalarySheetPayslipDialog({
             return [];
         }
 
-        const query = searchQuery.trim().toLowerCase();
+        const terms = searchQuery
+            .split(',')
+            .map((term) => term.trim().toLowerCase())
+            .filter((term) => term !== '');
 
-        if (query === '') {
+        if (terms.length === 0) {
             return preview.rows;
         }
 
@@ -156,7 +159,7 @@ export function SalarySheetPayslipDialog({
                 .join(' ')
                 .toLowerCase();
 
-            return searchable.includes(query);
+            return terms.some((term) => searchable.includes(term));
         });
     }, [preview, searchQuery]);
 
@@ -520,7 +523,7 @@ export function SalarySheetPayslipDialog({
                             <SearchBar
                                 value={searchQuery}
                                 onChange={setSearchQuery}
-                                placeholder="Search by emp. no., name, or designation…"
+                                placeholder="Search names or emp. nos — use commas for multiple, e.g. Ahmed, 2053"
                                 className="mb-0"
                                 inputClassName="py-2 text-sm"
                             />
