@@ -337,10 +337,11 @@ export function DeploymentFormDialog({
 
     const handleJoinedDateChange = (value: string): void => {
         if (!value) {
-            form.setData({
+            form.setData((data) => ({
+                ...data,
                 joined_date: '',
                 disembarked_date: '',
-            });
+            }));
 
             return;
         }
