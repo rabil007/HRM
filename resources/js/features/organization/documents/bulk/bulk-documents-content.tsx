@@ -2,6 +2,7 @@ import { Link, router, usePoll } from '@inertiajs/react';
 import {
     Download,
     Eye,
+    FileDown,
     FileStack,
     FileText,
     Folder,
@@ -17,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ApproveBulkDocumentSignaturesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/ApproveBulkDocumentSignaturesController';
 import DownloadApprovedBulkDocumentSignaturesPdfController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/DownloadApprovedBulkDocumentSignaturesPdfController';
 import DownloadApprovedBulkDocumentSignaturesZipController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/DownloadApprovedBulkDocumentSignaturesZipController';
+import ExportBulkDocumentSignatureEmployeesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/ExportBulkDocumentSignatureEmployeesController';
 import RegenerateAlignedBulkDocumentSignaturesController from '@/actions/App/Http/Controllers/Organization/BulkDocuments/RegenerateAlignedBulkDocumentSignaturesController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
@@ -597,9 +599,19 @@ export function BulkDocumentsContent({
         useState(false);
     const [isDownloadingApprovedPdf, setIsDownloadingApprovedPdf] =
         useState(false);
+    const [isExportingSignatureEmployees, setIsExportingSignatureEmployees] =
+        useState(false);
 
     const effectiveSignatureCount =
         matchingSignatureSelection?.total ?? selectedSignatureCount;
+
+    const effectiveSignatureRequestIds = useMemo(() => {
+        if (matchingSignatureSelection) {
+            return matchingSignatureSelection.signature_request_ids;
+        }
+
+        return selectedSignatureIds;
+    }, [matchingSignatureSelection, selectedSignatureIds]);
 
     const effectiveSignatureEmployeeIds = useMemo(() => {
         if (matchingSignatureSelection) {
@@ -1169,6 +1181,43 @@ export function BulkDocumentsContent({
         document_type_key,
         downloadableApprovedSignatureIds,
         isDownloadingApprovedPdf,
+    ]);
+
+    const exportSelectedSignatureEmployees = useCallback(async () => {
+        if (
+            effectiveSignatureRequestIds.length === 0 ||
+            isExportingSignatureEmployees
+        ) {
+            return;
+        }
+
+        setIsExportingSignatureEmployees(true);
+
+        try {
+            await downloadBinaryExport(
+                ExportBulkDocumentSignatureEmployeesController.url(),
+                {
+                    signature_request_ids: effectiveSignatureRequestIds,
+                    document_type_key,
+                    format: 'xlsx',
+                },
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'signature-employees.xlsx',
+                'Employee export failed. Please try again.',
+            );
+        } catch (error) {
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Employee export failed.',
+            );
+        } finally {
+            setIsExportingSignatureEmployees(false);
+        }
+    }, [
+        document_type_key,
+        effectiveSignatureRequestIds,
+        isExportingSignatureEmployees,
     ]);
 
     const navigate = useCallback(
@@ -2199,6 +2248,27 @@ export function BulkDocumentsContent({
                             }
                             actions={
                                 <>
+                                    {effectiveSignatureRequestIds.length >
+                                    0 ? (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={
+                                                isExportingSignatureEmployees
+                                            }
+                                            onClick={() =>
+                                                void exportSelectedSignatureEmployees()
+                                            }
+                                        >
+                                            {isExportingSignatureEmployees ? (
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <FileDown className="mr-2 h-4 w-4" />
+                                            )}
+                                            Export
+                                        </Button>
+                                    ) : null}
                                     {approvableSelectedSignatureIds.length >
                                     0 ? (
                                         <Button

@@ -29,6 +29,7 @@ use App\Http\Controllers\Organization\BulkDocuments\DownloadApprovedBulkDocument
 use App\Http\Controllers\Organization\BulkDocuments\DownloadBulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\DownloadSignedBulkDocumentController;
 use App\Http\Controllers\Organization\BulkDocuments\EmailBulkDocumentsController;
+use App\Http\Controllers\Organization\BulkDocuments\ExportBulkDocumentSignatureEmployeesController;
 use App\Http\Controllers\Organization\BulkDocuments\GenerateBulkDocumentsController;
 use App\Http\Controllers\Organization\BulkDocuments\RegenerateAlignedBulkDocumentSignaturesController;
 use App\Http\Controllers\Organization\BulkDocuments\RejectBulkDocumentSignatureController;
@@ -323,6 +324,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/documents/bulk/signatures/download-pdf', DownloadApprovedBulkDocumentSignaturesPdfController::class)
         ->middleware('can:documents.download')
         ->name('organization.documents.bulk.signatures.download-pdf');
+    Route::post('organization/documents/bulk/signatures/export-employees', ExportBulkDocumentSignatureEmployeesController::class)
+        ->middleware('can:bulk_documents.view')
+        ->name('organization.documents.bulk.signatures.export-employees');
     Route::post('organization/documents/bulk/email', [EmailBulkDocumentsController::class, 'store'])
         ->middleware('can:bulk_documents.email')
         ->name('organization.documents.bulk.email');
