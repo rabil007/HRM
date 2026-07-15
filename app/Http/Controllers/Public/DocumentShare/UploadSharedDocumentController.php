@@ -24,7 +24,7 @@ class UploadSharedDocumentController extends Controller
 
         $validated = $request->validate([
             'document_type_id' => [
-                'required',
+                'nullable',
                 'integer',
                 Rule::exists('document_types', 'id')->where('is_active', true),
             ],
@@ -35,20 +35,30 @@ class UploadSharedDocumentController extends Controller
                 'mimetypes:application/pdf,image/jpeg,image/png',
                 'max:20480',
             ],
-            'title' => ['nullable', 'string', 'max:200'],
+            'document_number' => ['nullable', 'string', 'max:120'],
+            'issue_date' => ['nullable', 'date'],
+            'expiry_date' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $documentType = DocumentType::query()
-            ->whereKey($validated['document_type_id'])
-            ->where('is_active', true)
-            ->firstOrFail();
+        $documentType = null;
+
+        if (! empty($validated['document_type_id'])) {
+            $documentType = DocumentType::query()
+                ->whereKey($validated['document_type_id'])
+                ->where('is_active', true)
+                ->firstOrFail();
+        }
 
         $shares->storeGuestUpload(
             $share,
             $documentType,
             $validated['file'],
             [
-                'title' => $validated['title'] ?? null,
+                'document_number' => $validated['document_number'] ?? null,
+                'issue_date' => $validated['issue_date'] ?? null,
+                'expiry_date' => $validated['expiry_date'] ?? null,
+                'notes' => $validated['notes'] ?? null,
             ],
         );
 

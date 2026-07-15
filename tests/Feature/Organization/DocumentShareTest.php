@@ -367,6 +367,10 @@ test('guest can upload into folder share when allowed', function () {
     $this->post($uploadUrl, [
         'document_type_id' => $passportType->id,
         'file' => $file,
+        'document_number' => 'DOC-1',
+        'issue_date' => '2026-01-01',
+        'expiry_date' => '2027-01-01',
+        'notes' => 'Guest note',
     ])->assertRedirect();
 
     $this->assertDatabaseHas('employee_documents', [
@@ -374,6 +378,37 @@ test('guest can upload into folder share when allowed', function () {
         'employee_id' => $employee->id,
         'original_filename' => 'guest-upload.pdf',
         'document_type_id' => $passportType->id,
+        'document_number' => 'DOC-1',
+        'notes' => 'Guest note',
+    ]);
+});
+
+test('guest can upload without optional document metadata', function () {
+    Storage::fake('public');
+
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+
+    $shares = app(DocumentShareService::class);
+    $share = $shares->createFolderShare(
+        $employee,
+        $company->id,
+        null,
+        canDownload: true,
+        canUpload: true,
+    );
+
+    $uploadUrl = $shares->uploadUrl($share);
+    $file = UploadedFile::fake()->create('plain-upload.pdf', 80, 'application/pdf');
+
+    $this->post($uploadUrl, [
+        'file' => $file,
+    ])->assertRedirect();
+
+    $this->assertDatabaseHas('employee_documents', [
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'original_filename' => 'plain-upload.pdf',
+        'document_type_id' => null,
     ]);
 });
 

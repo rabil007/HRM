@@ -15,20 +15,28 @@ class StoresEmployeeDocument
 {
     public function __construct(private DocumentUploadOptimizer $optimizer) {}
 
-    public function create(Employee $employee, DocumentType $documentType, UploadedFile $file, array $data, int $companyId, ?int $userId): EmployeeDocument
+    public function create(Employee $employee, ?DocumentType $documentType, UploadedFile $file, array $data, int $companyId, ?int $userId): EmployeeDocument
     {
         $prepared = $this->optimizer->prepare($file);
 
         try {
-            $path = $this->storeFile($prepared->file, $companyId, $employee->id, $this->storageFolderSegment($documentType));
+            $folderSegment = $documentType !== null
+                ? $this->storageFolderSegment($documentType)
+                : 'uncategorized';
+
+            $path = $this->storeFile($prepared->file, $companyId, $employee->id, $folderSegment);
+
+            $defaultTitle = $documentType?->title
+                ?? pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)
+                ?: 'Document';
 
             return EmployeeDocument::query()->create([
                 'company_id' => $companyId,
                 'employee_id' => $employee->id,
-                'document_type_id' => $documentType->id,
+                'document_type_id' => $documentType?->id,
                 'type' => 'other',
-                'document_type' => (string) $documentType->id,
-                'title' => $data['title'] ?? $documentType->title,
+                'document_type' => $documentType !== null ? (string) $documentType->id : 'other',
+                'title' => $data['title'] ?? $defaultTitle,
                 'file_path' => $path,
                 'original_filename' => $file->getClientOriginalName(),
                 'mime_type' => $prepared->file->getMimeType(),

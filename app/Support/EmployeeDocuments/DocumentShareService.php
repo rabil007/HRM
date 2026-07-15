@@ -313,7 +313,7 @@ class DocumentShareService
      */
     public function storeGuestUpload(
         DocumentShare $share,
-        DocumentType $documentType,
+        ?DocumentType $documentType,
         UploadedFile $file,
         array $data = [],
     ): EmployeeDocument {
