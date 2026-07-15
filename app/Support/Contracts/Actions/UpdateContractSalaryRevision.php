@@ -6,6 +6,7 @@ use App\Enums\PayrollCategory;
 use App\Models\ContractSalaryRevision;
 use App\Models\ContractSalaryRevisionLine;
 use App\Models\EmployeeContract;
+use App\Support\Contracts\SalaryRevisionEffectiveMonth;
 use App\Support\Payroll\ContractSalaryComponentCatalog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -64,15 +65,17 @@ final class UpdateContractSalaryRevision
             ]);
         }
 
+        $effectiveDate = SalaryRevisionEffectiveMonth::normalize($effectiveFrom);
+
         return DB::transaction(function () use (
             $contract,
             $revision,
-            $effectiveFrom,
+            $effectiveDate,
             $reason,
             $lines,
         ): ContractSalaryRevision {
             $revision->update([
-                'effective_from' => $effectiveFrom,
+                'effective_from' => $effectiveDate,
                 'reason' => $reason,
             ]);
 

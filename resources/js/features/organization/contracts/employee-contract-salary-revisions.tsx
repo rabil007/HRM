@@ -21,7 +21,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { actions } from '@/lib/design-system';
-import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import type { EmployeeContractDetails } from '@/pages/organization/employee-page.types';
 
 export type ContractSalaryRevisionItem = {
@@ -90,6 +89,45 @@ function revisionTotal(revision: ContractSalaryRevisionItem): number {
     }, 0);
 }
 
+function currentMonthValue(): string {
+    const now = new Date();
+
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function toMonthInputValue(isoDate: string | null): string {
+    if (!isoDate) {
+        return currentMonthValue();
+    }
+
+    return isoDate.slice(0, 7);
+}
+
+function formatEffectiveMonth(isoDate: string | null): string {
+    if (!isoDate) {
+        return '—';
+    }
+
+    const date = new Date(`${isoDate.slice(0, 10)}T00:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+        return isoDate;
+    }
+
+    return date.toLocaleDateString(undefined, {
+        month: 'short',
+        year: 'numeric',
+    });
+}
+
+function toMonthStartDate(monthValue: string): string {
+    if (/^\d{4}-\d{2}$/.test(monthValue)) {
+        return `${monthValue}-01`;
+    }
+
+    return monthValue;
+}
+
 export function EmployeeContractSalaryRevisions({
     employeeId,
     contract,
@@ -108,7 +146,7 @@ export function EmployeeContractSalaryRevisions({
     const canDeleteRevision = revisions.length > 1;
 
     const form = useForm({
-        effective_from: new Date().toISOString().slice(0, 10),
+        effective_from: currentMonthValue(),
         reason: '',
         basic_salary: amountToFormValue(contract.basic_salary),
         housing_allowance: amountToFormValue(contract.housing_allowance),
@@ -123,7 +161,7 @@ export function EmployeeContractSalaryRevisions({
     const openCreateDialog = (): void => {
         setEditingRevision(null);
         form.setData({
-            effective_from: new Date().toISOString().slice(0, 10),
+            effective_from: currentMonthValue(),
             reason: '',
             basic_salary: amountToFormValue(contract.basic_salary),
             housing_allowance: amountToFormValue(contract.housing_allowance),
@@ -143,9 +181,7 @@ export function EmployeeContractSalaryRevisions({
     const openEditDialog = (revision: ContractSalaryRevisionItem): void => {
         setEditingRevision(revision);
         form.setData({
-            effective_from:
-                revision.effective_from ??
-                new Date().toISOString().slice(0, 10),
+            effective_from: toMonthInputValue(revision.effective_from),
             reason: revision.reason ?? '',
             basic_salary: lineAmount(revision, 'BASIC'),
             housing_allowance: lineAmount(revision, 'HOUSING'),
@@ -171,6 +207,11 @@ export function EmployeeContractSalaryRevisions({
                 form.reset();
             },
         };
+
+        form.transform((data) => ({
+            ...data,
+            effective_from: toMonthStartDate(data.effective_from),
+        }));
 
         if (editingRevision) {
             form.put(
@@ -274,7 +315,7 @@ export function EmployeeContractSalaryRevisions({
                                         v{revision.version}
                                     </td>
                                     <td className="px-3 py-2">
-                                        {formatIsoDateDisplay(
+                                        {formatEffectiveMonth(
                                             revision.effective_from,
                                         )}
                                     </td>
@@ -336,19 +377,19 @@ export function EmployeeContractSalaryRevisions({
                                 : 'Add salary revision'}
                         </DialogTitle>
                         <p className="text-xs text-muted-foreground">
-                            Applies immediately and is used by payroll from the
-                            effective date.
+                            Current or past months update the contract now.
+                            Future months apply when that month starts.
                         </p>
                     </DialogHeader>
 
                     <div className="grid gap-3 sm:grid-cols-2">
                         <div className="space-y-1.5 sm:col-span-2">
                             <Label htmlFor="revision_effective_from">
-                                Effective from
+                                Effective month
                             </Label>
                             <Input
                                 id="revision_effective_from"
-                                type="date"
+                                type="month"
                                 value={form.data.effective_from}
                                 onChange={(e) =>
                                     form.setData(

@@ -3,11 +3,10 @@
 namespace App\Support\Contracts\Actions;
 
 use App\Enums\PayrollCategory;
-use App\Enums\SalaryComponentCode;
 use App\Models\ContractSalaryRevision;
 use App\Models\ContractSalaryRevisionLine;
 use App\Models\EmployeeContract;
-use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
+use App\Support\Contracts\SalaryRevisionEffectiveMonth;
 use App\Support\Payroll\ContractSalaryComponentCatalog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -15,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 final class ApplyContractSalaryRevision
 {
     public function __construct(
-        private readonly SyncContractSalaryComponentsFromContract $syncSalaryComponents,
+        private readonly MirrorLatestContractSalaryRevision $mirrorLatestRevision,
     ) {}
 
     /**
@@ -61,11 +60,11 @@ final class ApplyContractSalaryRevision
             ]);
         }
 
+        $effectiveDate = SalaryRevisionEffectiveMonth::normalize($effectiveFrom);
+
         return DB::transaction(function () use (
             $contract,
-            $columnMap,
-            $amountsByColumn,
-            $effectiveFrom,
+            $effectiveDate,
             $reason,
             $createdBy,
             $lines,
@@ -79,7 +78,7 @@ final class ApplyContractSalaryRevision
                 'contract_id' => $contract->id,
                 'employee_id' => $contract->employee_id,
                 'version' => $nextVersion,
-                'effective_from' => $effectiveFrom,
+                'effective_from' => $effectiveDate,
                 'reason' => $reason,
                 'created_by' => $createdBy,
             ]);
@@ -92,46 +91,10 @@ final class ApplyContractSalaryRevision
                 ]);
             }
 
-            $mirrorAttributes = [];
-
-            foreach ($columnMap as $column => $componentCode) {
-                $rawAmount = $amountsByColumn[$column] ?? null;
-                $mirrorAttributes[$column] = ($rawAmount === null || $rawAmount === '' || (float) $rawAmount <= 0)
-                    ? null
-                    : round((float) $rawAmount, 2);
-            }
-
-            $this->clearUnusedSalaryColumns($contract, $columnMap, $mirrorAttributes);
-            $contract->update($mirrorAttributes);
-            $this->syncSalaryComponents->handle($contract->fresh());
+            $this->mirrorLatestRevision->handle($contract->fresh());
 
             return $revision->load('lines');
         });
-    }
-
-    /**
-     * @param  array<string, SalaryComponentCode>  $columnMap
-     * @param  array<string, float|null>  $mirrorAttributes
-     */
-    private function clearUnusedSalaryColumns(
-        EmployeeContract $contract,
-        array $columnMap,
-        array &$mirrorAttributes,
-    ): void {
-        $allColumns = [
-            'basic_salary',
-            'housing_allowance',
-            'transport_allowance',
-            'other_allowances',
-            'supplementary_allowance',
-            'site_allowance',
-        ];
-
-        foreach ($allColumns as $column) {
-            if (! array_key_exists($column, $columnMap) && ! array_key_exists($column, $mirrorAttributes)) {
-                $mirrorAttributes[$column] = null;
-            }
-        }
     }
 
     /**

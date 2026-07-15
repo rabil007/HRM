@@ -32,3 +32,8 @@ Schedule::command('contracts:expire')
     ->dailyAt('01:00')
     ->timezone(config('app.timezone', 'UTC'))
     ->withoutOverlapping();
+
+Schedule::command('contracts:mirror-effective-salary-revisions')
+    ->dailyAt('01:15')
+    ->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping();

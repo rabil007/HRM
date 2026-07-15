@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Support\Contracts\Actions\UpsertEmployeeContract;
+use App\Support\Contracts\SalaryRevisionEffectiveMonth;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Payroll\PayrollRecordLinkage;
 use Illuminate\Http\RedirectResponse;
@@ -106,7 +107,7 @@ class EmployeeContractController extends Controller
      */
     private function validateContract(Request $request, Employee $employee): array
     {
-        return EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_contracts', [
+        $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_contracts', [
             'start_date' => ['required', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'labor_contract_id' => ['nullable', 'string', 'max:100'],
@@ -123,6 +124,16 @@ class EmployeeContractController extends Controller
             'revision_effective_from' => ['nullable', 'date'],
             'revision_reason' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        $revisionEffectiveFrom = SalaryRevisionEffectiveMonth::tryNormalize(
+            $validated['revision_effective_from'] ?? null,
+        );
+
+        if ($revisionEffectiveFrom !== null) {
+            $validated['revision_effective_from'] = $revisionEffectiveFrom;
+        }
+
+        return $validated;
     }
 
     /**

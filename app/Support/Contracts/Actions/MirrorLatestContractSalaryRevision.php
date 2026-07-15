@@ -19,6 +19,7 @@ final class MirrorLatestContractSalaryRevision
     {
         $latest = ContractSalaryRevision::query()
             ->where('contract_id', $contract->id)
+            ->whereDate('effective_from', '<=', today()->toDateString())
             ->with('lines')
             ->orderByDesc('effective_from')
             ->orderByDesc('version')
