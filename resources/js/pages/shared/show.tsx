@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DocumentFileIcon } from '@/features/organization/documents/shared/document-file-icon';
-import { DocumentPreviewPanel } from '@/features/organization/documents/shared/document-preview-panel';
+import { SharedDocumentPreview } from '@/features/shared-folder/document-preview';
 import { SharedFolderUploadDialog } from '@/features/shared-folder/upload-dialog';
 import { cn, formatBytes } from '@/lib/utils';
 
@@ -407,55 +407,14 @@ export default function SharedDocumentsShow({
                                     </div>
 
                                     <div className="min-h-0 flex-1 p-3">
-                                        {selected.preview_url ? (
-                                            <DocumentPreviewPanel
-                                                document={{
-                                                    title: selected.document_name,
-                                                    document_type_label:
-                                                        selected.document_type,
-                                                    file_url:
-                                                        selected.preview_url,
-                                                    mime_type:
-                                                        selected.mime_type,
-                                                    can_preview:
-                                                        selected.can_preview,
-                                                }}
-                                                className="h-[min(70vh,640px)] border-zinc-800 bg-zinc-950/50"
-                                            />
-                                        ) : (
-                                            <div className="flex h-[min(70vh,640px)] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-zinc-800 text-sm text-zinc-500">
-                                                <DocumentFileIcon
-                                                    mimeType={
-                                                        selected.mime_type
-                                                    }
-                                                    fileName={
-                                                        selected.document_name
-                                                    }
-                                                    className="h-10 w-10"
-                                                />
-                                                <p>
-                                                    Preview is not available for
-                                                    this file.
-                                                </p>
-                                                {can_download &&
-                                                selected.download_url ? (
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="rounded-lg border-zinc-700"
-                                                        asChild
-                                                    >
-                                                        <a
-                                                            href={
-                                                                selected.download_url
-                                                            }
-                                                        >
-                                                            Download instead
-                                                        </a>
-                                                    </Button>
-                                                ) : null}
-                                            </div>
-                                        )}
+                                        <SharedDocumentPreview
+                                            title={selected.document_name}
+                                            mimeType={selected.mime_type}
+                                            previewUrl={selected.preview_url}
+                                            canPreview={selected.can_preview}
+                                            allowDownload={can_download}
+                                            className="h-[min(70vh,640px)]"
+                                        />
                                     </div>
                                 </>
                             ) : (
