@@ -13,7 +13,9 @@ import type { EmployeeContractDetails } from '@/pages/organization/employee-page
 export type EmployeeSalaryRevisionsTabProps = {
     employeeId: number | null;
     contracts: EmployeeContractDetails[];
-    canManage: boolean;
+    canCreate: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
 };
 
 function contractIsCrewDaily(contract: EmployeeContractDetails): boolean {
@@ -35,7 +37,9 @@ function contractIsOfficeOrCrewMonthly(
 export function EmployeeSalaryRevisionsTab({
     employeeId,
     contracts,
-    canManage,
+    canCreate,
+    canUpdate,
+    canDelete,
 }: EmployeeSalaryRevisionsTabProps): ReactElement {
     if (employeeId === null) {
         return (
@@ -98,7 +102,9 @@ export function EmployeeSalaryRevisionsTab({
                             <EmployeeContractSalaryRevisions
                                 employeeId={employeeId}
                                 contract={contract}
-                                canManage={canManage}
+                                canCreate={canCreate}
+                                canUpdate={canUpdate}
+                                canDelete={canDelete}
                                 isCrewDaily={contractIsCrewDaily(contract)}
                                 isOfficeOrCrewMonthly={contractIsOfficeOrCrewMonthly(
                                     contract,

@@ -122,7 +122,9 @@ export type EmployeeContractTabProps = {
     canCreate: boolean;
     canUpdate: boolean;
     canDelete: boolean;
-    canManageSalaryRevisions?: boolean;
+    canCreateSalaryRevisions?: boolean;
+    canUpdateSalaryRevisions?: boolean;
+    canDeleteSalaryRevisions?: boolean;
     contractShowFrom?: 'profile' | 'employee';
     initialEditContractId?: number | null;
     ensureEmployee?: () => Promise<number>;
@@ -274,7 +276,9 @@ export function EmployeeContractTab({
     canCreate,
     canUpdate,
     canDelete,
-    canManageSalaryRevisions = false,
+    canCreateSalaryRevisions = false,
+    canUpdateSalaryRevisions = false,
+    canDeleteSalaryRevisions = false,
     contractShowFrom = 'profile',
     initialEditContractId = null,
     ensureEmployee,
@@ -1660,7 +1664,9 @@ export function EmployeeContractTab({
                         <EmployeeContractSalaryRevisions
                             employeeId={employeeId}
                             contract={editingContract}
-                            canManage={canManageSalaryRevisions}
+                            canCreate={canCreateSalaryRevisions}
+                            canUpdate={canUpdateSalaryRevisions}
+                            canDelete={canDeleteSalaryRevisions}
                             isCrewDaily={isCrewDaily}
                             isOfficeOrCrewMonthly={
                                 !isCrewContract || isCrewMonthly

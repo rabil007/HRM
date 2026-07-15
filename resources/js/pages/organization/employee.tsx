@@ -713,8 +713,16 @@ function EmployeeDetailsPage({
                                         canDelete={
                                             can?.contracts_delete ?? false
                                         }
-                                        canManageSalaryRevisions={
-                                            can?.contracts_salary_revisions_manage ??
+                                        canCreateSalaryRevisions={
+                                            can?.contracts_salary_revisions_create ??
+                                            false
+                                        }
+                                        canUpdateSalaryRevisions={
+                                            can?.contracts_salary_revisions_update ??
+                                            false
+                                        }
+                                        canDeleteSalaryRevisions={
+                                            can?.contracts_salary_revisions_delete ??
                                             false
                                         }
                                         contractShowFrom="profile"
@@ -739,8 +747,16 @@ function EmployeeDetailsPage({
                                     <EmployeeSalaryRevisionsTab
                                         employeeId={effectiveEmployeeId}
                                         contracts={contracts ?? []}
-                                        canManage={
-                                            can?.contracts_salary_revisions_manage ??
+                                        canCreate={
+                                            can?.contracts_salary_revisions_create ??
+                                            false
+                                        }
+                                        canUpdate={
+                                            can?.contracts_salary_revisions_update ??
+                                            false
+                                        }
+                                        canDelete={
+                                            can?.contracts_salary_revisions_delete ??
                                             false
                                         }
                                     />

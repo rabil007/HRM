@@ -49,7 +49,10 @@ test('authorized user can view contract detail with salary revisions', function 
     ['company' => $company] = makePayrollFixtures();
     grantCompanyPermissions($user, $company, [
         'contracts.view',
-        'contracts.salary_revisions.manage',
+        'contracts.salary_revisions.view',
+        'contracts.salary_revisions.create',
+        'contracts.salary_revisions.update',
+        'contracts.salary_revisions.delete',
     ]);
 
     $employee = Employee::factory()->forCompany($company)->create([
@@ -89,7 +92,10 @@ test('authorized user can view contract detail with salary revisions', function 
             ->where('contract.basic_salary', '100.00')
             ->has('contract.salary_revisions', 1)
             ->where('can.view', true)
-            ->where('can.manage_salary_revisions', true)
+            ->where('can.salary_revisions_view', true)
+            ->where('can.salary_revisions_create', true)
+            ->where('can.salary_revisions_update', true)
+            ->where('can.salary_revisions_delete', true)
             ->has('back')
             ->has('recent_activity')
             ->where('can_view_audit', false));

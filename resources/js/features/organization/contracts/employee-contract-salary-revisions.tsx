@@ -40,7 +40,9 @@ export type ContractSalaryRevisionItem = {
 type Props = {
     employeeId: number;
     contract: EmployeeContractDetails;
-    canManage: boolean;
+    canCreate: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
     isCrewDaily: boolean;
     isOfficeOrCrewMonthly: boolean;
     hideHeader?: boolean;
@@ -131,7 +133,9 @@ function toMonthStartDate(monthValue: string): string {
 export function EmployeeContractSalaryRevisions({
     employeeId,
     contract,
-    canManage,
+    canCreate,
+    canUpdate,
+    canDelete,
     isCrewDaily,
     isOfficeOrCrewMonthly,
     hideHeader = false,
@@ -143,7 +147,8 @@ export function EmployeeContractSalaryRevisions({
     const [deleteRevision, setDeleteRevision] =
         useState<ContractSalaryRevisionItem | null>(null);
     const revisions = contract.salary_revisions ?? [];
-    const canDeleteRevision = revisions.length > 1;
+    const canDeleteRevision = canDelete && revisions.length > 1;
+    const showActions = canUpdate || canDeleteRevision;
 
     const form = useForm({
         effective_from: currentMonthValue(),
@@ -247,7 +252,7 @@ export function EmployeeContractSalaryRevisions({
                         Salary revisions
                     </span>
                     <div className="h-px flex-1 bg-muted/50" />
-                    {canManage ? (
+                    {canCreate ? (
                         <Button
                             type="button"
                             variant="outline"
@@ -260,7 +265,7 @@ export function EmployeeContractSalaryRevisions({
                         </Button>
                     ) : null}
                 </div>
-            ) : canManage ? (
+            ) : canCreate ? (
                 <div className="flex justify-end">
                     <Button
                         type="button"
@@ -298,7 +303,7 @@ export function EmployeeContractSalaryRevisions({
                                 <th className="px-3 py-2 font-medium">
                                     Reason
                                 </th>
-                                {canManage ? (
+                                {showActions ? (
                                     <th className="px-3 py-2 text-right font-medium">
                                         Actions
                                     </th>
@@ -335,11 +340,16 @@ export function EmployeeContractSalaryRevisions({
                                     <td className="px-3 py-2 text-muted-foreground">
                                         {revision.reason || '—'}
                                     </td>
-                                    {canManage ? (
+                                    {showActions ? (
                                         <td className="px-3 py-2 text-right">
                                             <EmployeeRecordRowActions
-                                                onEdit={() =>
-                                                    openEditDialog(revision)
+                                                onEdit={
+                                                    canUpdate
+                                                        ? () =>
+                                                              openEditDialog(
+                                                                  revision,
+                                                              )
+                                                        : undefined
                                                 }
                                                 onDelete={
                                                     canDeleteRevision

@@ -111,7 +111,11 @@ test('employee show page includes contracts tab data when user can view contract
         'status' => 'ended',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'contracts.view']);
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'contracts.view',
+        'contracts.salary_revisions.view',
+    ]);
 
     $this->get(route('organization.employees.show', $employee))
         ->assertOk()
@@ -121,6 +125,7 @@ test('employee show page includes contracts tab data when user can view contract
             ->where('employee_tabs.contract', true)
             ->where('employee_tabs.salary_revisions', true)
             ->where('can.contracts_view', true)
+            ->where('can.contracts_salary_revisions_view', true)
             ->tap(fn (Assert $page) => assertEmployeeProfileRecords(
                 $page,
                 fn (Assert $deferred) => $deferred

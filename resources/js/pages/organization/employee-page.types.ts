@@ -355,7 +355,10 @@ export type EmployeePageProps = {
         contracts_create: boolean;
         contracts_update: boolean;
         contracts_delete: boolean;
-        contracts_salary_revisions_manage?: boolean;
+        contracts_salary_revisions_view?: boolean;
+        contracts_salary_revisions_create?: boolean;
+        contracts_salary_revisions_update?: boolean;
+        contracts_salary_revisions_delete?: boolean;
         work_experience_manage: boolean;
         vaccination_manage: boolean;
         languages_manage: boolean;

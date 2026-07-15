@@ -285,7 +285,9 @@ export function ContractsShowContent({
                             <EmployeeContractSalaryRevisions
                                 employeeId={contract.employee_id}
                                 contract={contract}
-                                canManage={can.manage_salary_revisions}
+                                canCreate={can.salary_revisions_create}
+                                canUpdate={can.salary_revisions_update}
+                                canDelete={can.salary_revisions_delete}
                                 isCrewDaily={isCrewDaily}
                                 isOfficeOrCrewMonthly={isOfficeOrCrewMonthly}
                                 hideHeader

@@ -48,7 +48,10 @@ export type ContractPageCan = {
     update: boolean;
     delete: boolean;
     import: boolean;
-    manage_salary_revisions: boolean;
+    salary_revisions_view: boolean;
+    salary_revisions_create: boolean;
+    salary_revisions_update: boolean;
+    salary_revisions_delete: boolean;
 };
 
 export type ContractSalaryStructureFilter = '' | 'daily' | 'monthly';

@@ -27,7 +27,7 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 |------|-----------------------------|
 | Organization | `companies.*`, `branches.*`, `departments.*`, `positions.*`, `users.*`, `roles.*` |
 | Employees | `employees.view|create|update|delete|export|import`, and employee sub-record `.manage` permissions |
-| Contracts / bank / training | `contracts.view|create|update|delete|import`, `bank_accounts.view|create|update|delete|import`, `training.view|create|update|delete|import` |
+| Contracts / bank / training | `contracts.view|create|update|delete|import`, `contracts.salary_revisions.view|create|update|delete`, `bank_accounts.view|create|update|delete|import`, `training.view|create|update|delete|import` |
 | Documents | `documents.view|download|share|upload|delete` |
 | Bulk documents / signatures | `bulk_documents.view|generate|delete|email`, `bulk_documents.signatures.review` |
 | Crew operations | `crew_operations.deployments.*`, `crew_operations.overview.view`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*` |

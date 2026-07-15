@@ -112,7 +112,10 @@ final class EmployeeProfilePageData
                 'contracts_create' => $authUser?->can('contracts.create'),
                 'contracts_update' => $authUser?->can('contracts.update'),
                 'contracts_delete' => $authUser?->can('contracts.delete'),
-                'contracts_salary_revisions_manage' => $authUser?->can('contracts.salary_revisions.manage'),
+                'contracts_salary_revisions_view' => $authUser?->can('contracts.salary_revisions.view') ?? false,
+                'contracts_salary_revisions_create' => $authUser?->can('contracts.salary_revisions.create') ?? false,
+                'contracts_salary_revisions_update' => $authUser?->can('contracts.salary_revisions.update') ?? false,
+                'contracts_salary_revisions_delete' => $authUser?->can('contracts.salary_revisions.delete') ?? false,
                 'education_manage' => $authUser?->can('employees.education.manage'),
                 'work_experience_manage' => $authUser?->can('employees.work_experience.manage'),
                 'vaccination_manage' => $authUser?->can('employees.vaccination.manage'),
@@ -340,7 +343,10 @@ final class EmployeeProfilePageData
             'contracts_create' => $authUser?->can('contracts.create') ?? false,
             'contracts_update' => $authUser?->can('contracts.update') ?? false,
             'contracts_delete' => $authUser?->can('contracts.delete') ?? false,
-            'contracts_salary_revisions_manage' => $authUser?->can('contracts.salary_revisions.manage') ?? false,
+            'contracts_salary_revisions_view' => $authUser?->can('contracts.salary_revisions.view') ?? false,
+            'contracts_salary_revisions_create' => $authUser?->can('contracts.salary_revisions.create') ?? false,
+            'contracts_salary_revisions_update' => $authUser?->can('contracts.salary_revisions.update') ?? false,
+            'contracts_salary_revisions_delete' => $authUser?->can('contracts.salary_revisions.delete') ?? false,
             'work_experience_manage' => $authUser?->can('employees.work_experience.manage') ?? false,
             'vaccination_manage' => $authUser?->can('employees.vaccination.manage') ?? false,
             'languages_manage' => $authUser?->can('employees.languages.manage') ?? false,
@@ -380,7 +386,8 @@ final class EmployeeProfilePageData
             && ($authUser?->can('documents.view') ?? false);
         $employeeTabsPayload['contract'] = ($employeeTabsPayload['contract'] ?? false)
             && ($authUser?->can('contracts.view') ?? false);
-        $employeeTabsPayload['salary_revisions'] = (bool) ($employeeTabsPayload['contract'] ?? false);
+        $employeeTabsPayload['salary_revisions'] = ($employeeTabsPayload['contract'] ?? false)
+            && ($authUser?->can('contracts.salary_revisions.view') ?? false);
 
         return $employeeTabsPayload;
     }
