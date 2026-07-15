@@ -84,13 +84,17 @@ export function EmployeeDocumentTableRow({
                         <p className="truncate text-sm font-semibold text-foreground">
                             {doc.document_name}
                         </p>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                            {formatBytes(doc.size_bytes)}
-                            <span className="sm:hidden">
-                                {' '}
-                                · {doc.document_type}
+                        <div className="mt-1 flex min-w-0 items-center gap-2">
+                            <Badge
+                                variant="outline"
+                                className="max-w-full truncate border-border font-normal dark:border-white/10"
+                            >
+                                {doc.document_type}
+                            </Badge>
+                            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                                {formatBytes(doc.size_bytes)}
                             </span>
-                        </p>
+                        </div>
                         <p className="mt-1 md:hidden">
                             <DocumentExpiryBadge
                                 status={doc.expiry_status}
@@ -99,16 +103,6 @@ export function EmployeeDocumentTableRow({
                         </p>
                     </div>
                 </div>
-            </TableCell>
-            <TableCell
-                className={cn(dataTableCellClass(), 'hidden sm:table-cell')}
-            >
-                <Badge
-                    variant="outline"
-                    className="max-w-48 truncate border-border font-normal dark:border-white/10"
-                >
-                    {doc.document_type}
-                </Badge>
             </TableCell>
             <TableCell
                 className={cn(
