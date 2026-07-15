@@ -26,10 +26,11 @@ import {
     GraduationCap,
     Ship,
     Anchor,
+    Waves,
 } from 'lucide-react';
 import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import { dashboard } from '@/routes';
-import { bankAccounts, contracts, documents, training } from '@/routes/organization';
+import { bankAccounts, contracts, documents, seaServices, training } from '@/routes/organization';
 import type { SidebarData } from '../types';
 
 const baseSidebarData: SidebarData = {
@@ -114,6 +115,7 @@ const baseSidebarData: SidebarData = {
                 { title: 'Contracts', url: contracts.url(), icon: FileSignature },
                 { title: 'Bank Accounts', url: bankAccounts.url(), icon: CreditCard },
                 { title: 'Training', url: training.url(), icon: GraduationCap },
+                { title: 'Sea Service', url: seaServices.url(), icon: Waves },
             ],
         },
         {
@@ -361,6 +363,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 : null;
                         case training.url():
                             return has(permissions, 'training.view')
+                                ? item
+                                : null;
+                        case seaServices.url():
+                            return has(permissions, 'sea_services.view')
                                 ? item
                                 : null;
                         case '/organization/roles':

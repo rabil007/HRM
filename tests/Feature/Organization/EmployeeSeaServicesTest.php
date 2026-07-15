@@ -234,7 +234,7 @@ test('users with permission can add update delete and reorder sea services', fun
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.sea_service.manage']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'sea_services.view', 'sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
     $vesselA = VesselType::query()->create([
         'name' => 'Vessel A',
@@ -383,7 +383,7 @@ test('store requires vessel id and rejects inactive vessel type', function () {
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.sea_service.manage']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'sea_services.view', 'sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
     $inactiveVesselType = VesselType::query()->create([
         'name' => 'Inactive Vessel',
@@ -482,7 +482,7 @@ test('reorder rejects partial order lists', function () {
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.sea_service.manage']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'sea_services.view', 'sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
     $first = EmployeeSeaService::factory()->forEmployee($employee)->create();
     $second = EmployeeSeaService::factory()->forEmployee($employee)->create();
@@ -559,7 +559,7 @@ test('csv import appends sea service rows for the employee', function () {
         'is_active' => true,
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.sea_service.manage']);
+    grantCompanyPermissions($user, $company, ['sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
     $csv = <<<'CSV'
 vessel type,vessel,rank,start date,end date,client,is offshore
@@ -646,7 +646,7 @@ test('csv import accepts day-first date formats for multiple rows', function () 
         ]);
     }
 
-    grantCompanyPermissions($user, $company, ['employees.sea_service.manage']);
+    grantCompanyPermissions($user, $company, ['sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
     $csv = <<<'CSV'
 vessel_type,vessel,rank,start_date,end_date
@@ -686,7 +686,7 @@ test('sea service import returns a clear error when vessel type is missing', fun
 
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.sea_service.manage']);
+    grantCompanyPermissions($user, $company, ['sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
     Rank::query()->create([
         'name' => 'Appointed Person',
@@ -723,7 +723,7 @@ test('users with permission can bulk delete sea service records', function () {
 
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.sea_service.manage']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'sea_services.view', 'sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
     $rank = Rank::query()->create([
         'name' => 'Chief Officer',
@@ -767,7 +767,7 @@ test('bulk delete ignores sea service records from another employee', function (
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.sea_service.manage']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'sea_services.view', 'sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
     $rank = Rank::query()->create([
         'name' => 'Master',

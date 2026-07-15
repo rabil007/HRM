@@ -181,7 +181,7 @@ Permissions are company-scoped (Spatie teams). Full list: `database/seeders/Perm
 | Companies, Branches, Departments, Positions | `*.view/create/update/delete/export` |
 | Roles, Users | `roles.*`, `users.*` |
 | Employees | `employees.view/create/update/delete/export/import` |
-| Contracts, bank accounts, training | `contracts.*`, `bank_accounts.*`, `training.*` |
+| Contracts, bank accounts, training, sea services | `contracts.*`, `bank_accounts.*`, `training.*`, `sea_services.*` |
 | Documents | `documents.view/download/share/upload/delete` |
 | Audit | `audit.view` |
 | Employee profile templates | `employee_profile_templates.view/create/update/delete` |

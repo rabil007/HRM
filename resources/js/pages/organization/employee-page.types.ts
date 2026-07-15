@@ -367,6 +367,11 @@ export type EmployeePageProps = {
         bank_accounts_update?: boolean;
         bank_accounts_delete?: boolean;
         bank_accounts_manage: boolean;
+        sea_service_view?: boolean;
+        sea_service_create?: boolean;
+        sea_service_update?: boolean;
+        sea_service_delete?: boolean;
+        sea_service_import?: boolean;
         sea_service_manage: boolean;
         training_view: boolean;
         training_create: boolean;

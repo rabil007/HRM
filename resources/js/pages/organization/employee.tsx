@@ -942,6 +942,18 @@ function EmployeeDetailsPage({
                                         canManage={
                                             can?.sea_service_manage ?? false
                                         }
+                                        canCreate={
+                                            can?.sea_service_create ?? false
+                                        }
+                                        canUpdate={
+                                            can?.sea_service_update ?? false
+                                        }
+                                        canDelete={
+                                            can?.sea_service_delete ?? false
+                                        }
+                                        canImport={
+                                            can?.sea_service_import ?? false
+                                        }
                                         ensureEmployee={
                                             isCreateMode
                                                 ? ensureEmployee

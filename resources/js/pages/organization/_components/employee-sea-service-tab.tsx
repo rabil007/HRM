@@ -1,6 +1,6 @@
 import type { RequestPayload } from '@inertiajs/core';
 import { router, useForm } from '@inertiajs/react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import {
     bulkDestroy as bulkDestroySeaServices,
@@ -149,8 +149,31 @@ export type EmployeeSeaServiceTabProps = {
     clients: ClientOption[];
     employeeRankId: number | null;
     canManage: boolean;
+    canCreate?: boolean;
+    canUpdate?: boolean;
+    canDelete?: boolean;
+    canImport?: boolean;
     templateFields?: Record<string, TemplateFieldConfig> | null;
+    standalone?: boolean;
 };
+
+function EmployeeSeaServiceTabShell({
+    standalone,
+    children,
+}: {
+    standalone?: boolean;
+    children: ReactNode;
+}): ReactElement {
+    if (standalone) {
+        return <div className="mt-6">{children}</div>;
+    }
+
+    return (
+        <TabsContent value="sea_service" className="mt-6">
+            {children}
+        </TabsContent>
+    );
+}
 
 export function EmployeeSeaServiceTab({
     employeeId,
@@ -162,8 +185,18 @@ export function EmployeeSeaServiceTab({
     clients,
     employeeRankId,
     canManage,
+    canCreate,
+    canUpdate,
+    canDelete,
+    canImport,
     templateFields = null,
+    standalone = false,
 }: EmployeeSeaServiceTabProps): ReactElement {
+    const allowCreate = canCreate ?? canManage;
+    const allowUpdate = canUpdate ?? canManage;
+    const allowDelete = canDelete ?? canManage;
+    const allowImport = canImport ?? canManage;
+    const allowManageUi = allowCreate || allowUpdate || allowDelete || allowImport;
     const {
         showField,
         isFieldRequired,
@@ -351,7 +384,7 @@ export function EmployeeSeaServiceTab({
     const offshoreTotals = formatSeaServiceTotalsYmd(sea_services);
 
     return (
-        <TabsContent value="sea_service" className="mt-6">
+        <EmployeeSeaServiceTabShell standalone={standalone}>
             <div className="mb-4 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-border/60 bg-black/10 px-4 py-3">
                     <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
@@ -371,7 +404,7 @@ export function EmployeeSeaServiceTab({
                 </div>
             </div>
 
-            {canManage && sea_services.length > 0 ? (
+            {allowDelete && sea_services.length > 0 ? (
                 <DocumentsBulkToolbar
                     count={selectedSeaServiceCount}
                     itemLabel="records"
@@ -397,41 +430,45 @@ export function EmployeeSeaServiceTab({
                 isEmpty={sea_services.length === 0}
                 emptyMessage="No sea service recorded."
                 actions={
-                    canManage ? (
+                    allowManageUi ? (
                         <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 gap-1.5 text-xs"
-                                type="button"
-                                disabled={!canImportRecords}
-                                onClick={() => setSeaServiceImportOpen(true)}
-                            >
-                                Import CSV
-                            </Button>
-                            <Button
-                                size="sm"
-                                className="h-8 gap-1.5 text-xs"
-                                type="button"
-                                onClick={() => {
-                                    employeeForm.reset();
-                                    employeeForm.clearErrors();
-                                    clearMissingRequired();
-                                    employeeForm.setData({
-                                        vessel_type_id: '',
-                                        vessel_id: '',
-                                        rank_id: '',
-                                        start_date: '',
-                                        end_date: '',
-                                        client_id: '',
-                                        is_offshore: false,
-                                    });
-                                    setEditingRow(null);
-                                    setDialogOpen(true);
-                                }}
-                            >
-                                + Add a line
-                            </Button>
+                            {allowImport ? (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 gap-1.5 text-xs"
+                                    type="button"
+                                    disabled={!canImportRecords}
+                                    onClick={() => setSeaServiceImportOpen(true)}
+                                >
+                                    Import CSV
+                                </Button>
+                            ) : null}
+                            {allowCreate ? (
+                                <Button
+                                    size="sm"
+                                    className="h-8 gap-1.5 text-xs"
+                                    type="button"
+                                    onClick={() => {
+                                        employeeForm.reset();
+                                        employeeForm.clearErrors();
+                                        clearMissingRequired();
+                                        employeeForm.setData({
+                                            vessel_type_id: '',
+                                            vessel_id: '',
+                                            rank_id: '',
+                                            start_date: '',
+                                            end_date: '',
+                                            client_id: '',
+                                            is_offshore: false,
+                                        });
+                                        setEditingRow(null);
+                                        setDialogOpen(true);
+                                    }}
+                                >
+                                    + Add a line
+                                </Button>
+                            ) : null}
                         </div>
                     ) : undefined
                 }
@@ -439,7 +476,7 @@ export function EmployeeSeaServiceTab({
                 <EmployeeRecordsTable className="min-w-[1280px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
-                            {canManage ? (
+                            {allowDelete ? (
                                 <th
                                     className={cn(
                                         employeeRecordsTableThClass(),
@@ -531,7 +568,7 @@ export function EmployeeSeaServiceTab({
                                     Offshore
                                 </th>
                             ) : null}
-                            {canManage ? (
+                            {allowUpdate || allowDelete ? (
                                 <EmployeeRecordsActionsHeader className="min-w-[4.5rem]" />
                             ) : null}
                         </tr>
@@ -542,7 +579,7 @@ export function EmployeeSeaServiceTab({
                                 key={row.id}
                                 className={employeeRecordsTableRowClass()}
                             >
-                                {canManage ? (
+                                {allowDelete ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
@@ -676,47 +713,59 @@ export function EmployeeSeaServiceTab({
                                         )}
                                     </td>
                                 ) : null}
-                                {canManage ? (
+                                {allowUpdate || allowDelete ? (
                                     <td
                                         className={employeeRecordsActionsTdClass(
                                             'min-w-[4.5rem]',
                                         )}
                                     >
                                         <EmployeeRecordRowActions
-                                            onEdit={() => {
-                                                setEditingRow(row);
-                                                clearMissingRequired();
-                                                employeeForm.setData({
-                                                    vessel_type_id: String(
-                                                        row.vessel_type_id,
-                                                    ),
-                                                    vessel_id:
-                                                        row.vessel_id != null
-                                                            ? String(
-                                                                  row.vessel_id,
-                                                              )
-                                                            : '',
-                                                    rank_id: String(
-                                                        row.rank_id,
-                                                    ),
-                                                    start_date:
-                                                        row.start_date ?? '',
-                                                    end_date:
-                                                        row.end_date ?? '',
-                                                    client_id:
-                                                        row.client_id != null
-                                                            ? String(
-                                                                  row.client_id,
-                                                              )
-                                                            : '',
-                                                    is_offshore:
-                                                        row.is_offshore,
-                                                });
-                                                employeeForm.clearErrors();
-                                                setDialogOpen(true);
-                                            }}
-                                            onDelete={() =>
-                                                setDeleteRowId(row.id)
+                                            onEdit={
+                                                allowUpdate
+                                                    ? () => {
+                                                          setEditingRow(row);
+                                                          clearMissingRequired();
+                                                          employeeForm.setData({
+                                                              vessel_type_id:
+                                                                  String(
+                                                                      row.vessel_type_id,
+                                                                  ),
+                                                              vessel_id:
+                                                                  row.vessel_id !=
+                                                                  null
+                                                                      ? String(
+                                                                            row.vessel_id,
+                                                                        )
+                                                                      : '',
+                                                              rank_id: String(
+                                                                  row.rank_id,
+                                                              ),
+                                                              start_date:
+                                                                  row.start_date ??
+                                                                  '',
+                                                              end_date:
+                                                                  row.end_date ??
+                                                                  '',
+                                                              client_id:
+                                                                  row.client_id !=
+                                                                  null
+                                                                      ? String(
+                                                                            row.client_id,
+                                                                        )
+                                                                      : '',
+                                                              is_offshore:
+                                                                  row.is_offshore,
+                                                          });
+                                                          employeeForm.clearErrors();
+                                                          setDialogOpen(true);
+                                                      }
+                                                    : undefined
+                                            }
+                                            onDelete={
+                                                allowDelete
+                                                    ? () =>
+                                                          setDeleteRowId(row.id)
+                                                    : undefined
                                             }
                                         />
                                     </td>
@@ -1446,6 +1495,6 @@ export function EmployeeSeaServiceTab({
                 importUrl={seaServiceImportUrls.importUrl}
                 templateUrl={seaServiceImportUrls.templateUrl}
             />
-        </TabsContent>
+        </EmployeeSeaServiceTabShell>
     );
 }

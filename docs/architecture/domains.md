@@ -392,8 +392,8 @@ flowchart LR
 | `employees.delete` | Remove employee |
 | `employees.export` | Export directory |
 | `employees.import` | Employee import, including identity columns |
-| `contracts.*`, `bank_accounts.*`, `training.*` (view/create/update/delete/import) | Contracts, bank accounts, training modules and their import columns |
-| `employees.education.manage`, `.work_experience.manage`, `.vaccination.manage`, `.languages.manage`, `.sea_service.manage` | Profile tabs |
+| `contracts.*`, `bank_accounts.*`, `training.*`, `sea_services.*` (view/create/update/delete/import) | Contracts, bank accounts, training, sea services modules and their import columns |
+| `employees.education.manage`, `.work_experience.manage`, `.vaccination.manage`, `.languages.manage` | Profile tabs |
 
 ### Important workflows
 
@@ -618,6 +618,24 @@ Manage employee training records and files both from the organization-wide train
 ### Permissions involved
 
 `training.view`, `training.create`, `training.update`, `training.delete`, `training.import`
+
+---
+
+## Sea Services
+
+### Purpose
+
+Manage employee sea service history from the organization-wide sea services browser and from an employee profile. Completed crew deployments continue to sync into `EmployeeSeaService` via `employee_deployment_id`.
+
+### Main artifacts
+
+- `EmployeeSeaService`
+- `SeaServicesIndexController`, `EmployeeSeaServicesBrowseController`, `SeaServiceShowController`, `EmployeeSeaServiceController`
+- `pages/organization/sea-services/` and the employee sea service profile tab
+
+### Permissions involved
+
+`sea_services.view`, `sea_services.create`, `sea_services.update`, `sea_services.delete`, `sea_services.import`
 
 ---
 
@@ -903,6 +921,7 @@ flowchart TB
         Attendance
         Payroll
         Training
+        SeaServices
         Hikvision
     end
 
@@ -926,6 +945,7 @@ flowchart TB
     Employee --> Attendance
     Employee --> Payroll
     Employee --> Training
+    Employee --> SeaServices
     Hikvision --> Attendance
     CrewDeployments --> EmployeeSeaService
 
@@ -948,6 +968,7 @@ flowchart TB
 | Contracts | `/organization/contracts` | `contracts/index`, `employee`, `no-contract` |
 | Bank accounts | `/organization/bank-accounts` | `bank-accounts/index`, `employee`, `no-account` |
 | Training | `/organization/training` | `training/index`, `employee`, `show` |
+| Sea services | `/organization/sea-services` | `sea-services/index`, `employee`, `show` |
 | Crew deployments | `/organization/crew-deployments` | `crew-deployments/index`, `show` |
 | Crew operations / planning | `/organization/crew-operations`, `/organization/crew-planning` | `crew-operations/*`, `crew-planning/index` |
 | Vessel manning | `/organization/vessel-manning` | `vessel-manning/index`, `show` |
