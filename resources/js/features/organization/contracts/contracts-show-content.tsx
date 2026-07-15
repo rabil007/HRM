@@ -7,7 +7,8 @@ import {
     Trash2,
     User,
 } from 'lucide-react';
-import { useState, type ReactElement } from 'react';
+import { useState } from 'react';
+import type { ReactElement } from 'react';
 import { destroy as destroyContract } from '@/actions/App/Http/Controllers/Organization/EmployeeContractController';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { DetailsHeader } from '@/components/details-header';
@@ -296,7 +297,10 @@ export function ContractsShowContent({
 
                 <div className="space-y-6">
                     {can_view_audit ? (
-                        <RecentActivityCard items={recent_activity} />
+                        <RecentActivityCard
+                            items={recent_activity}
+                            description="Latest changes for this contract."
+                        />
                     ) : null}
                 </div>
             </div>

@@ -1,6 +1,5 @@
 import { Form, usePage } from '@inertiajs/react';
 import { Loader2, Upload } from 'lucide-react';
-import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -32,13 +31,6 @@ export function SharedFolderUploadDialog({
     const { errors } = usePage().props as {
         errors?: Record<string, string>;
     };
-    const [documentTypeId, setDocumentTypeId] = useState('');
-
-    useEffect(() => {
-        if (!open) {
-            setDocumentTypeId('');
-        }
-    }, [open]);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -50,7 +42,9 @@ export function SharedFolderUploadDialog({
                     </DialogTitle>
                 </DialogHeader>
 
+                {open ? (
                 <Form
+                    key={uploadUrl}
                     action={uploadUrl}
                     method="post"
                     encType="multipart/form-data"
@@ -91,10 +85,7 @@ export function SharedFolderUploadDialog({
                                 <select
                                     id="guest-document-type"
                                     name="document_type_id"
-                                    value={documentTypeId}
-                                    onChange={(event) =>
-                                        setDocumentTypeId(event.target.value)
-                                    }
+                                    defaultValue=""
                                     className="flex h-10 w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 text-sm text-zinc-100"
                                 >
                                     <option value="">No type</option>
@@ -219,6 +210,7 @@ export function SharedFolderUploadDialog({
                         </>
                     )}
                 </Form>
+                ) : null}
             </DialogContent>
         </Dialog>
     );

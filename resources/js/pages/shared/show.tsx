@@ -7,7 +7,7 @@ import {
     Lock,
     Upload,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +54,15 @@ type FolderGroup = {
     documents: SharedDocument[];
 };
 
+const UPLOAD_ERROR_KEYS = [
+    'file',
+    'document_type_id',
+    'document_number',
+    'issue_date',
+    'expiry_date',
+    'notes',
+] as const;
+
 function groupDocumentsByType(documents: SharedDocument[]): FolderGroup[] {
     const groups = new Map<string, SharedDocument[]>();
 
@@ -70,6 +79,14 @@ function groupDocumentsByType(documents: SharedDocument[]): FolderGroup[] {
             documents: docs,
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function hasUploadErrors(errors?: Record<string, string>): boolean {
+    if (!errors) {
+        return false;
+    }
+
+    return UPLOAD_ERROR_KEYS.some((key) => Boolean(errors[key]));
 }
 
 export default function SharedDocumentsShow({
@@ -96,60 +113,25 @@ export default function SharedDocumentsShow({
         [documents],
     );
 
-    const [expandedFolders, setExpandedFolders] = useState<
-        Record<string, boolean>
+    const [collapsedFolders, setCollapsedFolders] = useState<
+        Record<string, true>
     >({});
-    const [selectedId, setSelectedId] = useState<number | null>(null);
-    const [uploadOpen, setUploadOpen] = useState(false);
+    const [selectedId, setSelectedId] = useState<number | null>(
+        () => documents[0]?.id ?? null,
+    );
+    const [manualUploadOpen, setManualUploadOpen] = useState(false);
 
-    useEffect(() => {
-        setExpandedFolders((current) => {
-            const next = { ...current };
+    const uploadOpen = manualUploadOpen || hasUploadErrors(errors);
 
-            for (const folder of folders) {
-                if (next[folder.name] === undefined) {
-                    next[folder.name] = true;
-                }
-            }
+    const effectiveSelectedId =
+        selectedId !== null &&
+        documents.some((document) => document.id === selectedId)
+            ? selectedId
+            : (documents[0]?.id ?? null);
 
-            return next;
-        });
-    }, [folders]);
-
-    useEffect(() => {
-        if (documents.length === 0) {
-            setSelectedId(null);
-
-            return;
-        }
-
-        if (
-            selectedId === null ||
-            !documents.some((document) => document.id === selectedId)
-        ) {
-            setSelectedId(documents[0]?.id ?? null);
-        }
-    }, [documents, selectedId]);
-
-    useEffect(() => {
-        if (
-            errors &&
-            Object.keys(errors).some((key) =>
-                [
-                    'file',
-                    'document_type_id',
-                    'document_number',
-                    'issue_date',
-                    'expiry_date',
-                    'notes',
-                ].includes(key),
-            )
-        ) {
-            setUploadOpen(true);
-        }
-    }, [errors]);
-
-    const selected = documents.find((document) => document.id === selectedId) ?? null;
+    const selected =
+        documents.find((document) => document.id === effectiveSelectedId) ??
+        null;
 
     const expiryLabel = (() => {
         const date = new Date(expires_at);
@@ -162,10 +144,20 @@ export default function SharedDocumentsShow({
     })();
 
     const toggleFolder = (name: string) => {
-        setExpandedFolders((current) => ({
-            ...current,
-            [name]: !current[name],
-        }));
+        setCollapsedFolders((current) => {
+            if (current[name]) {
+                const next = { ...current };
+                delete next[name];
+
+                return next;
+            }
+
+            return { ...current, [name]: true };
+        });
+    };
+
+    const setUploadOpen = (open: boolean) => {
+        setManualUploadOpen(open);
     };
 
     return (
@@ -283,8 +275,7 @@ export default function SharedDocumentsShow({
                                     <ul className="space-y-1">
                                         {folders.map((folder) => {
                                             const expanded =
-                                                expandedFolders[folder.name] !==
-                                                false;
+                                                !collapsedFolders[folder.name];
 
                                             return (
                                                 <li key={folder.name}>
@@ -319,7 +310,7 @@ export default function SharedDocumentsShow({
                                                                 (document) => {
                                                                     const isSelected =
                                                                         document.id ===
-                                                                        selectedId;
+                                                                        effectiveSelectedId;
 
                                                                     return (
                                                                         <li
