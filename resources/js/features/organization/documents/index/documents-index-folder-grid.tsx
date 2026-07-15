@@ -1,4 +1,4 @@
-import { Download, Loader2 } from 'lucide-react';
+import { Download, Loader2, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { EmployeeFolderItem } from '@/features/organization/documents/employee-folder-item';
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 export function DocumentsIndexFolderGrid({
     employees,
     canDownload,
+    canShare = false,
     isSearching,
     selectionMode = true,
     selectedFolderCount,
@@ -19,10 +20,12 @@ export function DocumentsIndexFolderGrid({
     onToggleAllFolders,
     onClearFolderSelection,
     onBulkDownload,
+    onBulkShare,
     isBulkDownloading,
 }: {
     employees: EmployeeFolder[];
     canDownload: boolean;
+    canShare?: boolean;
     isSearching?: boolean;
     selectionMode?: boolean;
     selectedFolderCount: number;
@@ -33,6 +36,7 @@ export function DocumentsIndexFolderGrid({
     onToggleAllFolders: () => void;
     onClearFolderSelection: () => void;
     onBulkDownload: () => void;
+    onBulkShare?: () => void;
     isBulkDownloading: boolean;
 }) {
     return (
@@ -56,23 +60,38 @@ export function DocumentsIndexFolderGrid({
                         />
                     }
                     actions={
-                        canDownload ? (
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="rounded-lg"
-                                disabled={isBulkDownloading}
-                                onClick={onBulkDownload}
-                            >
-                                {isBulkDownloading ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Download className="mr-2 h-4 w-4" />
-                                )}
-                                Download ZIP
-                            </Button>
-                        ) : null
+                        <>
+                            {canDownload ? (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-lg"
+                                    disabled={isBulkDownloading}
+                                    onClick={onBulkDownload}
+                                >
+                                    {isBulkDownloading ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Download className="mr-2 h-4 w-4" />
+                                    )}
+                                    Download ZIP
+                                </Button>
+                            ) : null}
+                            {canShare ? (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-lg"
+                                    disabled={selectedFolderCount === 0}
+                                    onClick={onBulkShare}
+                                >
+                                    <MessageCircle className="mr-2 h-4 w-4" />
+                                    Share links
+                                </Button>
+                            ) : null}
+                        </>
                     }
                 />
             ) : null}

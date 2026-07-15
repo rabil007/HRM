@@ -1,4 +1,7 @@
-import type { ShareLinksResponse } from '@/features/organization/documents/whatsapp-share/types';
+import type {
+    FolderShareLinksResponse,
+    ShareLinksResponse,
+} from '@/features/organization/documents/whatsapp-share/types';
 
 function extractErrorMessage(payload: unknown, fallback: string): string {
     if (!payload || typeof payload !== 'object') {
@@ -19,13 +22,11 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
     return firstError ?? fallback;
 }
 
-export async function fetchDocumentShareLinks(
+async function postJson<T>(
     url: string,
-    documentIds: number[],
-    password?: string,
-    expiresAt?: string,
-    errorFallback = 'Failed to generate share links. Please try again.',
-): Promise<ShareLinksResponse> {
+    body: Record<string, unknown>,
+    errorFallback: string,
+): Promise<T> {
     const csrf = document.querySelector<HTMLMetaElement>(
         'meta[name="csrf-token"]',
     )?.content;
@@ -37,11 +38,7 @@ export async function fetchDocumentShareLinks(
             Accept: 'application/json',
             ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
         },
-        body: JSON.stringify({
-            document_ids: documentIds,
-            password: password || null,
-            expires_at: expiresAt || null,
-        }),
+        body: JSON.stringify(body),
     });
 
     const contentType = response.headers.get('Content-Type') ?? '';
@@ -53,5 +50,47 @@ export async function fetchDocumentShareLinks(
         throw new Error(extractErrorMessage(data, errorFallback));
     }
 
-    return data as ShareLinksResponse;
+    return data as T;
+}
+
+export async function fetchDocumentShareLinks(
+    url: string,
+    documentIds: number[],
+    password?: string,
+    expiresAt?: string,
+    errorFallback = 'Failed to generate share links. Please try again.',
+): Promise<ShareLinksResponse> {
+    return postJson<ShareLinksResponse>(
+        url,
+        {
+            document_ids: documentIds,
+            password: password || null,
+            expires_at: expiresAt || null,
+        },
+        errorFallback,
+    );
+}
+
+export async function fetchFolderShareLinks(
+    url: string,
+    employeeIds: number[],
+    options: {
+        password?: string;
+        expiresAt?: string;
+        canDownload?: boolean;
+        canUpload?: boolean;
+    } = {},
+    errorFallback = 'Failed to generate folder share links. Please try again.',
+): Promise<FolderShareLinksResponse> {
+    return postJson<FolderShareLinksResponse>(
+        url,
+        {
+            employee_ids: employeeIds,
+            password: options.password || null,
+            expires_at: options.expiresAt || null,
+            can_download: options.canDownload ?? true,
+            can_upload: options.canUpload ?? false,
+        },
+        errorFallback,
+    );
 }

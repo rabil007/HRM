@@ -52,7 +52,7 @@ import type {
     EmployeeSummary,
 } from '@/features/organization/documents/shared/types';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
-import { ShareLinksModal } from '@/features/organization/documents/whatsapp-share';
+import { ShareLinksModal, FolderShareLinksModal } from '@/features/organization/documents/whatsapp-share';
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import { resolveDefaultWhatsAppTemplate } from '@/features/organization/documents/whatsapp-template/types';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
@@ -61,6 +61,7 @@ import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
 import documentRoutes from '@/routes/organization/documents';
 import { shareLinks } from '@/routes/organization/documents/employee/files';
+import { shareLinks as folderShareLinks } from '@/routes/organization/documents/folders';
 import { show } from '@/routes/organization/employees';
 
 type Props = {
@@ -128,6 +129,7 @@ export default function EmployeeDocumentsBrowse({
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [shareLinksModalOpen, setShareLinksModalOpen] = useState(false);
+    const [folderShareModalOpen, setFolderShareModalOpen] = useState(false);
     const [whatsappTemplateDocument, setWhatsappTemplateDocument] = useState<{
         id: number;
         name: string;
@@ -371,17 +373,29 @@ export default function EmployeeDocumentsBrowse({
                             Email
                         </Button>
                         {canShareDocuments ? (
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="rounded-lg"
-                                disabled={selectedDocumentCount === 0}
-                                onClick={handleWhatsAppShare}
-                            >
-                                <MessageCircle className="mr-2 h-4 w-4" />
-                                Share links
-                            </Button>
+                            <>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-lg"
+                                    onClick={() => setFolderShareModalOpen(true)}
+                                >
+                                    <MessageCircle className="mr-2 h-4 w-4" />
+                                    Share folder
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-lg"
+                                    disabled={selectedDocumentCount === 0}
+                                    onClick={handleWhatsAppShare}
+                                >
+                                    <MessageCircle className="mr-2 h-4 w-4" />
+                                    Share links
+                                </Button>
+                            </>
                         ) : null}
                         {canSendWhatsAppTemplate ? (
                             <Button
@@ -555,6 +569,15 @@ export default function EmployeeDocumentsBrowse({
                 onComplete={clearDocumentSelection}
             />
 
+            {canShareDocuments ? (
+                <FolderShareLinksModal
+                    open={folderShareModalOpen}
+                    onOpenChange={setFolderShareModalOpen}
+                    employeeIds={[employee.id]}
+                    shareLinksUrl={folderShareLinks.url()}
+                    onComplete={() => setFolderShareModalOpen(false)}
+                />
+            ) : null}
             <ConfirmSendWhatsAppDocumentDialog
                 open={whatsappTemplateDocument !== null}
                 onOpenChange={(open) => {

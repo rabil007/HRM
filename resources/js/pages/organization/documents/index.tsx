@@ -32,11 +32,13 @@ import type {
 } from '@/features/organization/documents/shared/types';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { useDocumentsIndexFilters } from '@/features/organization/documents/use-documents-index-filters';
+import { FolderShareLinksModal } from '@/features/organization/documents/whatsapp-share';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
 import documentRoutes from '@/routes/organization/documents';
+import { shareLinks as folderShareLinks } from '@/routes/organization/documents/folders';
 
 type Props = {
     summary: DocumentExpirySummary;
@@ -51,6 +53,7 @@ type Props = {
     document_types: DocumentTypeOption[];
     can: {
         download: boolean;
+        share: boolean;
         upload: boolean;
         delete: boolean;
     };
@@ -88,6 +91,7 @@ export default function DocumentsIndex({
         number | null
     >(null);
     const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+    const [folderShareModalOpen, setFolderShareModalOpen] = useState(false);
 
     const folderIds = useMemo(
         () => employees.map((employee) => employee.employee_id),
@@ -155,6 +159,7 @@ export default function DocumentsIndex({
 
     const folderGridProps = {
         canDownload: can.download,
+        canShare: can.share,
         isSearching,
         selectedFolderCount,
         isFolderSelected,
@@ -164,6 +169,7 @@ export default function DocumentsIndex({
         onToggleAllFolders: toggleAllFolders,
         onClearFolderSelection: clearFolderSelection,
         onBulkDownload: handleBulkFolderDownload,
+        onBulkShare: () => setFolderShareModalOpen(true),
         isBulkDownloading,
     };
 
@@ -369,6 +375,16 @@ export default function DocumentsIndex({
                     onDeleteDocIdChange={setDeleteDocId}
                     partialReloadKeys={managementPartialReloadKeys}
                     documentTypes={document_types}
+                />
+            ) : null}
+
+            {can.share ? (
+                <FolderShareLinksModal
+                    open={folderShareModalOpen}
+                    onOpenChange={setFolderShareModalOpen}
+                    employeeIds={selectedFolderIds}
+                    shareLinksUrl={folderShareLinks.url()}
+                    onComplete={clearFolderSelection}
                 />
             ) : null}
         </Main>

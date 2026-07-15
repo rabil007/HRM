@@ -11,6 +11,7 @@ import type {
 
 type FolderGridProps = {
     canDownload: boolean;
+    canShare?: boolean;
     isSearching: boolean;
     isFolderSelected: (id: number) => boolean;
     allFoldersSelected: boolean;
@@ -19,6 +20,7 @@ type FolderGridProps = {
     onToggleAllFolders: () => void;
     onClearFolderSelection: () => void;
     onBulkDownload: () => void;
+    onBulkShare?: () => void;
     isBulkDownloading: boolean;
     selectedFolderCount: number;
 };

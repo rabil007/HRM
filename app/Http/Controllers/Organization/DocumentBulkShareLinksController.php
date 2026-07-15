@@ -6,8 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\EmployeeDocument\BulkDocumentIdsRequest;
 use App\Models\Employee;
 use App\Support\EmployeeDocuments\DocumentAccess;
-use App\Support\EmployeeDocuments\DocumentBulkActionService;
-use App\Support\EmployeeDocuments\DocumentShareLinkService;
+use App\Support\EmployeeDocuments\DocumentShareService;
 use Illuminate\Http\JsonResponse;
 
 class DocumentBulkShareLinksController extends Controller
@@ -15,25 +14,28 @@ class DocumentBulkShareLinksController extends Controller
     public function __invoke(
         BulkDocumentIdsRequest $request,
         Employee $employee,
-        DocumentBulkActionService $bulkActions,
-        DocumentShareLinkService $shareLinks,
+        DocumentShareService $shares,
     ): JsonResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
         DocumentAccess::assertEmployeeInCompany($employee, $companyId, 404);
 
-        $documents = $bulkActions->documentsForEmployeeAction(
-            $request->validated('document_ids'),
-            $companyId,
-            $employee->id,
+        $documentIds = array_values(array_map('intval', $request->validated('document_ids')));
+
+        $share = $shares->createFilesShare(
+            employee: $employee,
+            documentIds: $documentIds,
+            companyId: $companyId,
+            createdBy: $request->user()?->id,
+            password: $request->validated('password'),
+            expiresAt: $request->validated('expires_at'),
         );
 
+        $documents = $shares->documentsForShare($share);
+
         return response()->json([
-            'documents' => $shareLinks->sharePayload(
-                $documents,
-                $request->validated('password'),
-                $request->validated('expires_at')
-            ),
+            'share_url' => $shares->shareUrl($share),
+            'documents' => $shares->documentNamePayload($documents, $documentIds),
         ]);
     }
 }

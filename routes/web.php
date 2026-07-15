@@ -63,6 +63,7 @@ use App\Http\Controllers\Organization\DocumentBulkShareLinksController;
 use App\Http\Controllers\Organization\DocumentBulkWhatsAppController;
 use App\Http\Controllers\Organization\DocumentFileDownloadController;
 use App\Http\Controllers\Organization\DocumentFolderDownloadController;
+use App\Http\Controllers\Organization\DocumentFolderShareLinksController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
 use App\Http\Controllers\Organization\DocumentShareController;
 use App\Http\Controllers\Organization\EmployeeBankAccountController;
@@ -108,6 +109,11 @@ use App\Http\Controllers\Payroll\WpsExportController;
 use App\Http\Controllers\Public\DocumentEsign\DownloadDocumentEsignController;
 use App\Http\Controllers\Public\DocumentEsign\ShowDocumentEsignController;
 use App\Http\Controllers\Public\DocumentEsign\SubmitDocumentEsignController;
+use App\Http\Controllers\Public\DocumentShare\DownloadSharedDocumentController;
+use App\Http\Controllers\Public\DocumentShare\PreviewSharedDocumentController;
+use App\Http\Controllers\Public\DocumentShare\ShowDocumentShareController;
+use App\Http\Controllers\Public\DocumentShare\UnlockDocumentShareController;
+use App\Http\Controllers\Public\DocumentShare\UploadSharedDocumentController;
 use App\Http\Controllers\Webhooks\HikvisionWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use App\Models\PayrollPeriod;
@@ -119,6 +125,21 @@ Route::get('/', fn () => redirect()->route('login'))->name('home');
 Route::match(['get', 'post'], 'organization/documents/share/{document}', DocumentShareController::class)
     ->middleware('signed')
     ->name('organization.documents.share');
+
+Route::middleware(['signed', 'throttle:30,1'])->prefix('documents/shared')->group(function () {
+    Route::get('{token}', ShowDocumentShareController::class)
+        ->name('public.documents.shared.show');
+    Route::post('{token}/unlock', UnlockDocumentShareController::class)
+        ->middleware('throttle:10,1')
+        ->name('public.documents.shared.unlock');
+    Route::get('{token}/files/{document}/download', DownloadSharedDocumentController::class)
+        ->name('public.documents.shared.download');
+    Route::get('{token}/files/{document}/preview', PreviewSharedDocumentController::class)
+        ->name('public.documents.shared.preview');
+    Route::post('{token}/upload', UploadSharedDocumentController::class)
+        ->middleware('throttle:10,1')
+        ->name('public.documents.shared.upload');
+});
 
 Route::middleware(['signed', 'throttle:30,1'])->prefix('esign')->group(function () {
     Route::get('{token}', ShowDocumentEsignController::class)
@@ -367,6 +388,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('can:documents.share')->group(function () {
         Route::post('organization/documents/employees/{employee}/files/share-links', DocumentBulkShareLinksController::class)
             ->name('organization.documents.employee.files.share-links');
+        Route::post('organization/documents/folders/share-links', DocumentFolderShareLinksController::class)
+            ->name('organization.documents.folders.share-links');
         Route::post('organization/documents/employees/{employee}/files/whatsapp', DocumentBulkWhatsAppController::class)
             ->name('organization.documents.employee.files.whatsapp');
         Route::post('organization/documents/employees/{employee}/files/{document}/whatsapp-template', SendWhatsAppDocumentTemplateController::class)
