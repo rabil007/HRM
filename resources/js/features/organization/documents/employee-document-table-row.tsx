@@ -16,9 +16,7 @@ import {
 import { DocumentFileIcon } from '@/features/organization/documents/shared/document-file-icon';
 import { DocumentUploadedDisplay } from '@/features/organization/documents/shared/document-uploaded-display';
 import type { DocumentBrowseItem } from '@/features/organization/documents/shared/types';
-import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { formatDisplayDate } from '@/lib/format-date';
-import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { cn, formatBytes } from '@/lib/utils';
 
 function formatOptionalDate(value: string | null): string {
@@ -27,9 +25,6 @@ function formatOptionalDate(value: string | null): string {
 
 export function EmployeeDocumentTableRow({
     doc,
-    employeeId,
-    employeeName,
-    employeePhone,
     viewHref,
     canDownload = false,
     canUpload = false,
@@ -37,17 +32,11 @@ export function EmployeeDocumentTableRow({
     onEdit,
     onReplace,
     onDelete,
-    canSendWhatsAppTemplate = false,
-    whatsappTemplates = [],
-    countries,
     selected = false,
     onSelectedChange,
     selectionMode = false,
 }: {
     doc: DocumentBrowseItem;
-    employeeId: number;
-    employeeName: string;
-    employeePhone?: string | null;
     viewHref: string;
     canDownload?: boolean;
     canUpload?: boolean;
@@ -55,9 +44,6 @@ export function EmployeeDocumentTableRow({
     onEdit?: (doc: DocumentBrowseItem) => void;
     onReplace?: (doc: DocumentBrowseItem) => void;
     onDelete?: (doc: DocumentBrowseItem) => void;
-    canSendWhatsAppTemplate?: boolean;
-    whatsappTemplates?: WhatsAppTemplateOption[];
-    countries: PhoneCountryOption[];
     selected?: boolean;
     onSelectedChange?: (selected: boolean) => void;
     selectionMode?: boolean;
@@ -180,12 +166,6 @@ export function EmployeeDocumentTableRow({
                     onEdit={onEdit ? () => onEdit(doc) : undefined}
                     onReplace={onReplace ? () => onReplace(doc) : undefined}
                     onDelete={onDelete ? () => onDelete(doc) : undefined}
-                    canSendWhatsAppTemplate={canSendWhatsAppTemplate}
-                    whatsappTemplates={whatsappTemplates}
-                    countries={countries}
-                    employeeId={employeeId}
-                    employeeName={employeeName}
-                    employeePhone={employeePhone}
                 />
             </TableCell>
         </TableRow>

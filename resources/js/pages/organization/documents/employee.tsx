@@ -494,9 +494,6 @@ export default function EmployeeDocumentsBrowse({
                             <EmployeeDocumentTableRow
                                 key={doc.id}
                                 doc={doc}
-                                employeeId={employee.id}
-                                employeeName={employee.name}
-                                employeePhone={employee.phone}
                                 viewHref={buildDocumentShowUrl(
                                     employee.id,
                                     doc.id,
@@ -516,11 +513,6 @@ export default function EmployeeDocumentsBrowse({
                                 onDelete={(document) =>
                                     setDeleteDocId(document.id)
                                 }
-                                canSendWhatsAppTemplate={
-                                    canSendWhatsAppTemplate
-                                }
-                                whatsappTemplates={whatsappTemplates}
-                                countries={countries}
                                 selectionMode
                                 selected={isDocumentSelected(doc.id)}
                                 onSelectedChange={() => toggleDocument(doc.id)}
