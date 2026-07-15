@@ -1,19 +1,18 @@
 import { router, Link } from '@inertiajs/react';
 import { FolderOpen } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { ReactElement } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 import { Button } from '@/components/ui/button';
 import { TabsContent } from '@/components/ui/tabs';
+import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
-import { DocumentListRowActions } from '@/features/organization/documents/shared/document-actions/document-list-row-actions';
-import { DocumentExpiryStatusCell } from '@/features/organization/documents/shared/document-expiry-display';
 import { buildDocumentShowUrl } from '@/features/organization/documents/shared/document-show-url';
 import type {
+    DocumentBrowseItem,
     DocumentProfileItem,
     DocumentTypeOption,
 } from '@/features/organization/documents/shared/types';
-import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { EditDocumentDialog } from '@/pages/organization/_components/documents/edit-document-dialog';
 import { ReplaceDocumentDialog } from '@/pages/organization/_components/documents/replace-document-dialog';
@@ -23,12 +22,8 @@ import {
     EmployeeRecordsPanel,
     EmployeeRecordsTable,
     employeeRecordsTableHeadClass,
-    employeeRecordsTableRowClass,
-    employeeRecordsActionsTdClass,
-    employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
-import { createTemplateFieldVisibility } from '@/pages/organization/_lib/template-field-visibility';
 import type {
     EmployeeDetails,
     TemplateFieldConfig,
@@ -55,6 +50,35 @@ export type EmployeeDocumentsTabProps = {
     templateFields?: Record<string, TemplateFieldConfig> | null;
 };
 
+function toBrowseItem(doc: DocumentProfileItem): DocumentBrowseItem {
+    return {
+        id: doc.id,
+        document_name:
+            doc.document_name ||
+            doc.original_filename ||
+            doc.title ||
+            'Document',
+        document_type:
+            doc.document_type_label ||
+            doc.document_type ||
+            doc.type ||
+            'Document',
+        file_url: doc.file_url,
+        uploaded_at: doc.uploaded_at,
+        uploaded_by: doc.uploaded_by,
+        mime_type: doc.mime_type,
+        can_preview: doc.can_preview,
+        status: doc.status,
+        expiry_date: doc.expiry_date,
+        issue_date: doc.issue_date,
+        document_number: doc.document_number,
+        size_bytes: doc.size_bytes,
+        expiry_status: doc.expiry_status,
+        remaining_days: doc.remaining_days,
+        expiry_label: doc.expiry_label,
+    };
+}
+
 export function EmployeeDocumentsTab({
     employee,
     documents,
@@ -63,11 +87,6 @@ export function EmployeeDocumentsTab({
     ensureEmployee,
     templateFields = null,
 }: EmployeeDocumentsTabProps): ReactElement {
-    const showField = useMemo(
-        () => createTemplateFieldVisibility(templateFields),
-        [templateFields],
-    );
-
     const employeeId = employee.id;
     const hasEmployeeId = employeeId !== null && employeeId > 0;
     const [uploadOpen, setUploadOpen] = useState(false);
@@ -115,180 +134,95 @@ export function EmployeeDocumentsTab({
                     </div>
                 }
             >
-                <EmployeeRecordsTable className="min-w-[1020px]">
+                <EmployeeRecordsTable className="min-w-[980px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
-                            {showField('document_type_id') ? (
-                                <th className={employeeRecordsTableThClass()}>
-                                    Type
-                                </th>
-                            ) : null}
-                            {showField('title') ? (
-                                <th className={employeeRecordsTableThClass()}>
-                                    Title
-                                </th>
-                            ) : null}
-                            {showField('document_number') ? (
-                                <th className={employeeRecordsTableThClass()}>
-                                    Number
-                                </th>
-                            ) : null}
-                            {showField('issue_date') ? (
-                                <th className={employeeRecordsTableThClass()}>
-                                    Issue
-                                </th>
-                            ) : null}
-                            {showField('expiry_date') ? (
-                                <th className={employeeRecordsTableThClass()}>
-                                    Expiry
-                                </th>
-                            ) : null}
-                            <th className={employeeRecordsTableThClass()}>
+                            <th
+                                className={cn(
+                                    employeeRecordsTableThClass(),
+                                    'min-w-[240px]',
+                                )}
+                            >
+                                File
+                            </th>
+                            <th
+                                className={cn(
+                                    employeeRecordsTableThClass(),
+                                    'hidden md:table-cell',
+                                )}
+                            >
+                                Document no.
+                            </th>
+                            <th
+                                className={cn(
+                                    employeeRecordsTableThClass(),
+                                    'hidden md:table-cell',
+                                )}
+                            >
+                                Issue date
+                            </th>
+                            <th
+                                className={cn(
+                                    employeeRecordsTableThClass(),
+                                    'hidden lg:table-cell',
+                                )}
+                            >
+                                Expiry
+                            </th>
+                            <th
+                                className={cn(
+                                    employeeRecordsTableThClass(),
+                                    'hidden lg:table-cell',
+                                )}
+                            >
                                 Status
                             </th>
-                            <th className={employeeRecordsTableThClass()}>
-                                Uploaded by
+                            <th
+                                className={cn(
+                                    employeeRecordsTableThClass(),
+                                    'hidden xl:table-cell',
+                                )}
+                            >
+                                Uploaded
                             </th>
-                            <EmployeeRecordsActionsHeader className="min-w-[13.5rem]" />
+                            <EmployeeRecordsActionsHeader className="min-w-54" />
                         </tr>
                     </thead>
                     <tbody>
-                        {documents.map((doc) => (
-                            <tr
-                                key={doc.id}
-                                className={cn(
-                                    employeeRecordsTableRowClass(),
-                                    hasEmployeeId && 'cursor-pointer',
-                                )}
-                                onClick={() => {
-                                    if (!hasEmployeeId) {
-                                        return;
-                                    }
+                        {documents.map((doc) => {
+                            const browseDoc = toBrowseItem(doc);
+                            const viewHref = hasEmployeeId
+                                ? buildDocumentShowUrl(employeeId, doc.id, {
+                                      from: 'profile',
+                                  })
+                                : '#';
 
-                                    router.visit(
-                                        buildDocumentShowUrl(
-                                            employeeId,
-                                            doc.id,
-                                            {
-                                                from: 'profile',
-                                            },
-                                        ),
-                                    );
-                                }}
-                            >
-                                {showField('document_type_id') ? (
-                                    <td
-                                        className={cn(
-                                            employeeRecordsTableTdClass(),
-                                            'text-xs text-muted-foreground',
-                                        )}
-                                    >
-                                        {doc.document_type_label ??
-                                            document_types.find(
-                                                (t) =>
-                                                    String(t.id) ===
-                                                    String(
-                                                        doc.document_type_id ??
-                                                            doc.document_type,
-                                                    ),
-                                            )?.title ??
-                                            doc.document_type ??
-                                            doc.type ??
-                                            '—'}
-                                        {doc.current_version &&
-                                        doc.current_version > 1 ? (
-                                            <span className="ml-1 text-[10px] text-muted-foreground">
-                                                v{doc.current_version}
-                                            </span>
-                                        ) : null}
-                                    </td>
-                                ) : null}
-                                {showField('title') ? (
-                                    <td
-                                        className={cn(
-                                            employeeRecordsTableTdClass(),
-                                            'font-medium text-foreground',
-                                        )}
-                                    >
-                                        {doc.title || '—'}
-                                    </td>
-                                ) : null}
-                                {showField('document_number') ? (
-                                    <td
-                                        className={cn(
-                                            employeeRecordsTableTdClass(),
-                                            'font-mono text-xs text-muted-foreground',
-                                        )}
-                                    >
-                                        {doc.document_number || '—'}
-                                    </td>
-                                ) : null}
-                                {showField('issue_date') ? (
-                                    <td
-                                        className={cn(
-                                            employeeRecordsTableTdClass(),
-                                            'text-xs text-muted-foreground',
-                                        )}
-                                    >
-                                        {formatDisplayDate(doc.issue_date)}
-                                    </td>
-                                ) : null}
-                                {showField('expiry_date') ? (
-                                    <td
-                                        className={cn(
-                                            employeeRecordsTableTdClass(),
-                                            'text-xs text-muted-foreground',
-                                        )}
-                                    >
-                                        {formatDisplayDate(doc.expiry_date)}
-                                    </td>
-                                ) : null}
-                                <td className={employeeRecordsTableTdClass()}>
-                                    <DocumentExpiryStatusCell
-                                        status={doc.expiry_status}
-                                        className="text-xs capitalize"
-                                    />
-                                </td>
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'text-xs text-muted-foreground',
-                                    )}
-                                >
-                                    {doc.uploaded_by || '—'}
-                                </td>
-                                <td
-                                    className={employeeRecordsActionsTdClass(
-                                        'min-w-[13.5rem]',
-                                    )}
-                                >
-                                    {hasEmployeeId ? (
-                                        <DocumentListRowActions
-                                            documentId={doc.id}
-                                            fileUrl={doc.file_url}
-                                            viewHref={buildDocumentShowUrl(
-                                                employeeId,
-                                                doc.id,
-                                                {
-                                                    from: 'profile',
-                                                },
-                                            )}
-                                            showDownload={
-                                                can.documents_download
-                                            }
-                                            showReplace={can.documents_upload}
-                                            onReplace={() => setReplaceDoc(doc)}
-                                            showEdit={can.documents_upload}
-                                            onEdit={() => setEditDoc(doc)}
-                                            showDelete={can.documents_delete}
-                                            onDelete={() =>
-                                                setDeleteDocId(doc.id)
-                                            }
-                                        />
-                                    ) : null}
-                                </td>
-                            </tr>
-                        ))}
+                            return (
+                                <EmployeeDocumentTableRow
+                                    key={doc.id}
+                                    doc={browseDoc}
+                                    viewHref={viewHref}
+                                    canDownload={can.documents_download}
+                                    canUpload={can.documents_upload}
+                                    canDelete={can.documents_delete}
+                                    onEdit={
+                                        hasEmployeeId
+                                            ? () => setEditDoc(doc)
+                                            : undefined
+                                    }
+                                    onReplace={
+                                        hasEmployeeId
+                                            ? () => setReplaceDoc(doc)
+                                            : undefined
+                                    }
+                                    onDelete={
+                                        hasEmployeeId
+                                            ? () => setDeleteDocId(doc.id)
+                                            : undefined
+                                    }
+                                />
+                            );
+                        })}
                     </tbody>
                 </EmployeeRecordsTable>
             </EmployeeRecordsPanel>
