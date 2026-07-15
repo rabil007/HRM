@@ -84,8 +84,12 @@ export function EmployeeDocumentTableRow({
                         <p className="truncate text-sm font-semibold text-foreground">
                             {doc.document_name}
                         </p>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground sm:hidden">
-                            {doc.document_type}
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                            {formatBytes(doc.size_bytes)}
+                            <span className="sm:hidden">
+                                {' '}
+                                · {doc.document_type}
+                            </span>
                         </p>
                         <p className="mt-1 md:hidden">
                             <DocumentExpiryBadge
@@ -129,14 +133,6 @@ export function EmployeeDocumentTableRow({
                 )}
             >
                 <DocumentExpiryDisplay doc={doc} />
-            </TableCell>
-            <TableCell
-                className={cn(
-                    dataTableCellClass(),
-                    'hidden whitespace-nowrap tabular-nums md:table-cell',
-                )}
-            >
-                {formatBytes(doc.size_bytes)}
             </TableCell>
             <TableCell
                 className={cn(

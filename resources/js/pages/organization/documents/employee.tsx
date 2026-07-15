@@ -444,7 +444,7 @@ export default function EmployeeDocumentsBrowse({
                     hasSearch={fileSearch.trim() !== ''}
                 />
             ) : (
-                <OrganizationDataTable minWidth="min-w-[1160px]" compact>
+                <OrganizationDataTable minWidth="min-w-[1080px]" compact>
                     <TableHeader>
                         <DataTableHeaderRow>
                             <DataTableHead className="w-10 px-3">
@@ -474,9 +474,6 @@ export default function EmployeeDocumentsBrowse({
                             </DataTableHead>
                             <DataTableHead className="hidden lg:table-cell">
                                 Expiry
-                            </DataTableHead>
-                            <DataTableHead className="hidden md:table-cell">
-                                File size
                             </DataTableHead>
                             <DataTableHead className="hidden lg:table-cell">
                                 Status
