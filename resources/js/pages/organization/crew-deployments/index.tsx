@@ -91,7 +91,7 @@ function displayNumber(value: number | null | undefined): string {
     return value !== null && value !== undefined ? String(value) : '—';
 }
 
-const TABLE_COLUMN_COUNT = 20;
+const TABLE_COLUMN_COUNT = 21;
 
 export default function CrewDeploymentsIndex({
     deployments,
@@ -479,6 +479,9 @@ export default function CrewDeploymentsIndex({
             <OrganizationDataTable minWidth="min-w-[2600px]">
                 <TableHeader>
                     <DataTableHeaderRow>
+                        <DataTableHead rowSpan={2} className="w-12 text-center">
+                            #
+                        </DataTableHead>
                         <DataTableHead rowSpan={2}>Where now</DataTableHead>
                         <SortableDeploymentTableHead
                             sortKey="employee_no"
@@ -678,12 +681,15 @@ export default function CrewDeploymentsIndex({
                             </TableCell>
                         </TableRow>
                     ) : (
-                        deployments.data.map((deployment) => (
+                        deployments.data.map((deployment, index) => (
                             <TableRow
                                 key={deployment.id}
                                 className={dataTableBodyRowClass()}
                                 onClick={() => openShow(deployment.id)}
                             >
+                                <TableCell className="text-center text-muted-foreground">
+                                    {(deployments.from ?? 1) + index}
+                                </TableCell>
                                 <TableCell>
                                     <DeploymentStatusBadge
                                         status={deployment.status}
