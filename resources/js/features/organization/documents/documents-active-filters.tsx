@@ -7,19 +7,25 @@ import type { ExpiryFilter } from '@/features/organization/documents/document-ex
 export function DocumentsActiveFilters({
     expiryFilter,
     search,
+    departmentSelected = false,
     onClearExpiry,
     onClearSearch,
+    onClearDepartment,
 }: {
     expiryFilter: ExpiryFilter;
     search?: string;
+    departmentSelected?: boolean;
     onClearExpiry?: () => void;
     onClearSearch?: () => void;
+    onClearDepartment?: () => void;
 }) {
     const hasExpiryFilter = expiryFilter !== 'all';
     const hasSearch =
         (search?.trim() ?? '') !== '' && onClearSearch !== undefined;
+    const hasDepartment =
+        departmentSelected && onClearDepartment !== undefined;
 
-    if (!hasExpiryFilter && !hasSearch) {
+    if (!hasExpiryFilter && !hasSearch && !hasDepartment) {
         return null;
     }
 
@@ -47,6 +53,25 @@ export function DocumentsActiveFilters({
                             <X className="h-3 w-3" />
                         </Button>
                     ) : null}
+                </Badge>
+            ) : null}
+
+            {hasDepartment ? (
+                <Badge
+                    variant="outline"
+                    className="gap-1 border-border pr-1 pl-2.5 font-normal dark:border-white/10"
+                >
+                    Department
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 rounded-full hover:bg-muted/60"
+                        onClick={onClearDepartment}
+                        aria-label="Clear department filter"
+                    >
+                        <X className="h-3 w-3" />
+                    </Button>
                 </Badge>
             ) : null}
 

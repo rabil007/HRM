@@ -20,11 +20,13 @@ export function useDocumentsIndexFilters({
     url,
     initialSearch,
     initialExpiry,
+    initialDepartmentId = '',
     perPage = 25,
 }: {
     url: string;
     initialSearch: string;
     initialExpiry: ExpiryFilter;
+    initialDepartmentId?: string;
     perPage?: number;
 }) {
     const [draftSearch, setDraftSearch] = useState<string | null>(null);
@@ -40,6 +42,20 @@ export function useDocumentsIndexFilters({
         };
     }, []);
 
+    const baseParams = useCallback(
+        (
+            overrides: Record<string, string | number | null | undefined> = {},
+        ): Record<string, string | number | null | undefined> => ({
+            search: initialSearch || undefined,
+            expiry: initialExpiry === 'all' ? undefined : initialExpiry,
+            department_id: initialDepartmentId || undefined,
+            per_page: perPage,
+            page: null,
+            ...overrides,
+        }),
+        [initialDepartmentId, initialExpiry, initialSearch, perPage],
+    );
+
     const visit = useCallback(
         (
             params: Record<string, string | number | null | undefined>,
@@ -53,6 +69,9 @@ export function useDocumentsIndexFilters({
                     'summary',
                     'expiry',
                     'search',
+                    'department_id',
+                    'department_tree',
+                    'department_tree_selected_id',
                     'employees',
                     'searchDocuments',
                     'complianceDocuments',
@@ -75,39 +94,48 @@ export function useDocumentsIndexFilters({
             }
 
             debounceRef.current = setTimeout(() => {
-                visit({
-                    search: value,
-                    expiry: initialExpiry === 'all' ? undefined : initialExpiry,
-                    page: null,
-                    per_page: perPage,
-                });
+                visit(
+                    baseParams({
+                        search: value || undefined,
+                    }),
+                );
             }, 400);
         },
-        [initialExpiry, perPage, visit],
+        [baseParams, visit],
     );
 
     const onExpiryChange = useCallback(
         (expiry: ExpiryFilter) => {
-            visit({
-                search: initialSearch || undefined,
-                expiry: expiry === 'all' ? undefined : expiry,
-                page: null,
-                per_page: perPage,
-            });
+            visit(
+                baseParams({
+                    expiry: expiry === 'all' ? undefined : expiry,
+                }),
+            );
         },
-        [initialSearch, perPage, visit],
+        [baseParams, visit],
+    );
+
+    const onDepartmentChange = useCallback(
+        (departmentId: number | null) => {
+            visit(
+                baseParams({
+                    department_id:
+                        departmentId !== null ? String(departmentId) : undefined,
+                }),
+            );
+        },
+        [baseParams, visit],
     );
 
     const onPageChange = useCallback(
         (page: number) => {
-            visit({
-                search: initialSearch || undefined,
-                expiry: initialExpiry === 'all' ? undefined : initialExpiry,
-                page,
-                per_page: perPage,
-            });
+            visit(
+                baseParams({
+                    page,
+                }),
+            );
         },
-        [initialExpiry, initialSearch, perPage, visit],
+        [baseParams, visit],
     );
 
     return {
@@ -115,6 +143,7 @@ export function useDocumentsIndexFilters({
         isSearching,
         onSearchChange,
         onExpiryChange,
+        onDepartmentChange,
         onPageChange,
     };
 }

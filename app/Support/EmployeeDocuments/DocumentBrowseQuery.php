@@ -4,6 +4,8 @@ namespace App\Support\EmployeeDocuments;
 
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Support\Employees\EmployeeDirectoryFilters;
+use App\Support\Employees\EmployeeDirectoryQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -13,8 +15,11 @@ class DocumentBrowseQuery
     /**
      * @return Collection<int, array{employee_id: int, employee_name: string, employee_no: string, document_count: int}>
      */
-    public function employeesWithDocuments(int $companyId, ?string $search = null): Collection
-    {
+    public function employeesWithDocuments(
+        int $companyId,
+        ?string $search = null,
+        string $departmentId = '',
+    ): Collection {
         $search = $search !== null ? trim($search) : '';
 
         return Employee::query()
@@ -29,6 +34,14 @@ class DocumentBrowseQuery
                     $inner->where('name', 'like', "%{$search}%")
                         ->orWhere('employee_no', 'like', "%{$search}%");
                 });
+            })
+            ->when($departmentId !== '', function ($query) use ($companyId, $departmentId): void {
+                EmployeeDirectoryQuery::applyAttributeFilters(
+                    $query,
+                    $companyId,
+                    new EmployeeDirectoryFilters(departmentId: $departmentId),
+                    exceptPosition: true,
+                );
             })
             ->orderBy('name')
             ->get(['id', 'name', 'employee_no'])
@@ -49,16 +62,23 @@ class DocumentBrowseQuery
      *     expiring_7: int
      * }
      */
-    public function expirySummary(int $companyId, ?int $employeeId = null): array
-    {
+    public function expirySummary(
+        int $companyId,
+        ?int $employeeId = null,
+        string $departmentId = '',
+    ): array {
         $today = now()->toDateString();
         $in7 = now()->addDays(7)->toDateString();
         $in15 = now()->addDays(15)->toDateString();
         $in30 = now()->addDays(30)->toDateString();
 
-        $row = EmployeeDocument::query()
+        $query = EmployeeDocument::query()
             ->forCompany($companyId)
-            ->when($employeeId !== null, fn ($query) => $query->where('employee_id', $employeeId))
+            ->when($employeeId !== null, fn ($q) => $q->where('employee_id', $employeeId));
+
+        $this->applyEmployeeDepartmentFilter($query, $companyId, $departmentId);
+
+        $row = $query
             ->selectRaw('COUNT(*) as total_documents')
             ->selectRaw(
                 'SUM(CASE WHEN expiry_date IS NOT NULL AND expiry_date < ? THEN 1 ELSE 0 END) as expired',
@@ -95,6 +115,7 @@ class DocumentBrowseQuery
         string $expiryFilter,
         ?string $search = null,
         int $perPage = 25,
+        string $departmentId = '',
     ): LengthAwarePaginator {
         $search = $search !== null ? trim($search) : '';
         $today = now()->toDateString();
@@ -112,6 +133,7 @@ class DocumentBrowseQuery
 
         $query
             ->when($search !== '', fn (Builder $documentQuery) => $this->applyBrowseSearch($documentQuery, $search))
+            ->when($departmentId !== '', fn (Builder $documentQuery) => $this->applyEmployeeDepartmentFilter($documentQuery, $companyId, $departmentId))
             ->orderByRaw('CASE WHEN expiry_date < ? THEN 0 ELSE 1 END', [$today])
             ->orderBy('expiry_date');
 
@@ -125,6 +147,7 @@ class DocumentBrowseQuery
         int $companyId,
         string $search,
         int $perPage = 25,
+        string $departmentId = '',
     ): LengthAwarePaginator {
         $search = trim($search);
 
@@ -138,6 +161,7 @@ class DocumentBrowseQuery
             ->withCount('versions');
 
         $this->applyBrowseSearch($query, $search);
+        $this->applyEmployeeDepartmentFilter($query, $companyId, $departmentId);
 
         return $this->paginateBrowseDocuments(
             $query->latestUpload(),
@@ -177,6 +201,25 @@ class DocumentBrowseQuery
             })->orWhere(function (Builder $documentQuery) use ($like) {
                 $this->applyDocumentFieldSearch($documentQuery, $like);
             });
+        });
+    }
+
+    private function applyEmployeeDepartmentFilter(
+        Builder $query,
+        int $companyId,
+        string $departmentId,
+    ): void {
+        if ($departmentId === '') {
+            return;
+        }
+
+        $query->whereHas('employee', function (Builder $employeeQuery) use ($companyId, $departmentId): void {
+            EmployeeDirectoryQuery::applyAttributeFilters(
+                $employeeQuery,
+                $companyId,
+                new EmployeeDirectoryFilters(departmentId: $departmentId),
+                exceptPosition: true,
+            );
         });
     }
 

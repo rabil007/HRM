@@ -32,6 +32,8 @@ import type {
 } from '@/features/organization/documents/shared/types';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { useDocumentsIndexFilters } from '@/features/organization/documents/use-documents-index-filters';
+import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
+import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
 import documentRoutes from '@/routes/organization/documents';
@@ -40,6 +42,9 @@ type Props = {
     summary: DocumentExpirySummary;
     expiry: ExpiryFilter;
     search: string;
+    department_id?: string;
+    department_tree?: DepartmentTreeNode[];
+    department_tree_selected_id?: number | null;
     employees: EmployeeFolder[];
     searchDocuments: PaginatedComplianceDocuments | null;
     complianceDocuments: PaginatedComplianceDocuments | null;
@@ -65,6 +70,9 @@ export default function DocumentsIndex({
     summary,
     expiry: initialExpiry,
     search: initialSearch,
+    department_id: initialDepartmentId = '',
+    department_tree = [],
+    department_tree_selected_id = null,
     employees,
     searchDocuments,
     complianceDocuments,
@@ -127,11 +135,13 @@ export default function DocumentsIndex({
         isSearching,
         onSearchChange,
         onExpiryChange,
+        onDepartmentChange,
         onPageChange,
     } = useDocumentsIndexFilters({
         url: documents.url(),
         initialSearch,
         initialExpiry,
+        initialDepartmentId,
         perPage: searchPerPage,
     });
 
@@ -214,7 +224,11 @@ export default function DocumentsIndex({
 
             <DocumentsActiveFilters
                 expiryFilter={initialExpiry}
+                search={initialSearch}
+                departmentSelected={Boolean(department_tree_selected_id)}
                 onClearExpiry={() => onExpiryChange('all')}
+                onClearSearch={() => onSearchChange('')}
+                onClearDepartment={() => onDepartmentChange(null)}
             />
 
             <div className="sticky top-0 z-20 -mx-1 mb-8 border-b border-border/80 bg-background/95 px-1 pb-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80 dark:border-white/5">
@@ -223,6 +237,21 @@ export default function DocumentsIndex({
                     value={searchInput}
                     onChange={onSearchChange}
                     aria-label="Search documents and employees"
+                    right={
+                        department_tree.length > 0 ? (
+                            <DepartmentFilterControls
+                                department_tree={department_tree}
+                                department_tree_selected_id={
+                                    department_tree_selected_id
+                                }
+                                department_tree_selected_position_id={null}
+                                onSelectDepartment={onDepartmentChange}
+                                onSelectPosition={(_, departmentId) =>
+                                    onDepartmentChange(departmentId)
+                                }
+                            />
+                        ) : null
+                    }
                 />
                 {isSearching ? (
                     <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
