@@ -3,8 +3,7 @@
 namespace App\Support\Employees;
 
 use App\Models\Employee;
-use App\Support\CrewDeployments\DeploymentStatus;
-use App\Support\CrewDeployments\EmployeeCrewStatusPresenter;
+use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 
 final class EmployeeCrewStatusFilter
 {
@@ -16,14 +15,17 @@ final class EmployeeCrewStatusFilter
     public static function options(): array
     {
         return [
+            'in_home' => 'In home',
             self::AVAILABLE => 'Available',
-            DeploymentStatus::ON_VESSEL => 'On vessel',
-            DeploymentStatus::JOIN_STANDBY => 'Join standby',
-            DeploymentStatus::LEAVE_STANDBY => 'Leave standby',
-            DeploymentStatus::ARRIVED => 'Arrived',
-            DeploymentStatus::TRAVEL => 'Travelled',
-            DeploymentStatus::DISEMBARKED => 'Disembarked',
-            DeploymentStatus::IN_HOME => 'In home',
+            'pre_mobilisation' => 'Pre-mobilisation',
+            'travel_in' => 'Travel in',
+            'join_standby' => 'Join standby',
+            'training' => 'Training',
+            'ready_to_join' => 'Ready to join',
+            'on_vessel' => 'On vessel',
+            'demob_standby' => 'Demob standby',
+            'home_redeploy' => 'Home / redeploy',
+            'movement_update_required' => 'Needs update',
         ];
     }
 
@@ -44,22 +46,24 @@ final class EmployeeCrewStatusFilter
         $employees = Employee::query()
             ->where('company_id', $companyId)
             ->active()
-            ->get(['id']);
+            ->with(['company'])
+            ->get();
 
         if ($employees->isEmpty()) {
             return [];
         }
 
-        $latestDeployments = EmployeeDirectoryCrewStatusData::latestDeploymentsFor($employees, $companyId);
-
+        $resolver = new CrewAssignmentStatusResolver;
         $matching = [];
 
         foreach ($employees as $employee) {
-            $resolved = EmployeeCrewStatusPresenter::fromDeployment(
-                $latestDeployments->get($employee->id),
-            );
+            $resolved = $resolver->forEmployee($employee);
 
-            if ($resolved['status'] === $crewStatus) {
+            if ($crewStatus === self::AVAILABLE) {
+                if ($resolved['status'] === 'in_home' && $resolved['assignment_id'] === null) {
+                    $matching[] = $employee->id;
+                }
+            } elseif ($resolved['status'] === $crewStatus) {
                 $matching[] = $employee->id;
             }
         }

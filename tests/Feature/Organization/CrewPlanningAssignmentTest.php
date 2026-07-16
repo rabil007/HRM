@@ -5,7 +5,6 @@ use App\Models\Country;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Currency;
 use App\Models\Employee;
-use App\Models\EmployeeDeployment;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
@@ -343,7 +342,7 @@ test('bars method marks manual relief assignments as not deployed', function () 
         ->and($bars[0]['is_deployed'])->toBeFalse();
 });
 
-test('bars method marks deployment-synced assignments as deployed', function () {
+test('bars method marks assignment-synced assignments as deployed', function () {
     ['company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
 
     $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
@@ -351,13 +350,8 @@ test('bars method marks deployment-synced assignments as deployed', function () 
     $from = $today->startOfMonth()->toDateString();
     $to = $today->addMonths(2)->endOfMonth()->toDateString();
 
-    $deployment = EmployeeDeployment::factory()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => $vessel->id,
-        'joined_date' => $today->addDays(5)->toDateString(),
-        'disembarked_date' => $today->addDays(35)->toDateString(),
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel, [
+        'started_at' => $today->addDays(5),
     ]);
 
     CrewPlanningAssignment::query()->create([
@@ -365,7 +359,7 @@ test('bars method marks deployment-synced assignments as deployed', function () 
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
         'employee_id' => $employee->id,
-        'employee_deployment_id' => $deployment->id,
+        'crew_assignment_id' => $assignment->id,
         'planned_join_date' => $today->addDays(5)->toDateString(),
         'planned_leave_date' => $today->addDays(35)->toDateString(),
     ]);
@@ -376,7 +370,7 @@ test('bars method marks deployment-synced assignments as deployed', function () 
         ->and($bars[0]['is_deployed'])->toBeTrue();
 });
 
-test('tree method marks deployment-synced crew as deployed', function () {
+test('tree method marks assignment-synced crew as deployed', function () {
     ['company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
 
     $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
@@ -384,13 +378,8 @@ test('tree method marks deployment-synced crew as deployed', function () {
     $from = $today->startOfMonth()->toDateString();
     $to = $today->addMonths(2)->endOfMonth()->toDateString();
 
-    $deployment = EmployeeDeployment::factory()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => $vessel->id,
-        'joined_date' => $today->addDays(5)->toDateString(),
-        'disembarked_date' => $today->addDays(35)->toDateString(),
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel, [
+        'started_at' => $today->addDays(5),
     ]);
 
     CrewPlanningAssignment::query()->create([
@@ -398,7 +387,7 @@ test('tree method marks deployment-synced crew as deployed', function () {
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
         'employee_id' => $employee->id,
-        'employee_deployment_id' => $deployment->id,
+        'crew_assignment_id' => $assignment->id,
         'planned_join_date' => $today->addDays(5)->toDateString(),
         'planned_leave_date' => $today->addDays(35)->toDateString(),
     ]);
@@ -432,20 +421,13 @@ test('tree method marks manual relief crew as not deployed', function () {
         ->and($tree[0]['ranks'][0]['crew'][0]['is_deployed'])->toBeFalse();
 });
 
-test('store links planned relief to the deployment being relieved', function () {
+test('store links planned relief to the assignment being relieved', function () {
     ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
 
     $deployedEmployee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
     $reliefEmployee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
 
-    $deployment = EmployeeDeployment::factory()->create([
-        'company_id' => $company->id,
-        'employee_id' => $deployedEmployee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => $vessel->id,
-        'joined_date' => '2027-01-01',
-        'disembarked_date' => '2027-06-30',
-    ]);
+    $assignment = makeActiveOnVesselAssignment($company, $deployedEmployee, $rank, $vessel);
 
     $this->actingAs($user)
         ->post(route('organization.crew-planning.assignments.store'), [
@@ -454,30 +436,23 @@ test('store links planned relief to the deployment being relieved', function () 
             'employee_id' => $reliefEmployee->id,
             'planned_join_date' => '2027-06-30',
             'planned_leave_date' => '2027-12-31',
-            'relieves_employee_deployment_id' => $deployment->id,
+            'relieves_crew_assignment_id' => $assignment->id,
         ])
         ->assertRedirect();
 
-    $assignment = CrewPlanningAssignment::query()->where('employee_id', $reliefEmployee->id)->first();
+    $planningAssignment = CrewPlanningAssignment::query()->where('employee_id', $reliefEmployee->id)->first();
 
-    expect($assignment)->not->toBeNull()
-        ->and($assignment->relieves_employee_deployment_id)->toBe($deployment->id)
-        ->and($assignment->employee_deployment_id)->toBeNull();
+    expect($planningAssignment)->not->toBeNull()
+        ->and($planningAssignment->relieves_crew_assignment_id)->toBe($assignment->id)
+        ->and($planningAssignment->crew_assignment_id)->toBeNull();
 });
 
-test('store rejects relief linked to the same employee as the deployment', function () {
+test('store rejects relief linked to the same employee as the assignment', function () {
     ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
 
     $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
 
-    $deployment = EmployeeDeployment::factory()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => $vessel->id,
-        'joined_date' => '2027-01-01',
-        'disembarked_date' => '2027-06-30',
-    ]);
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     $this->actingAs($user)
         ->post(route('organization.crew-planning.assignments.store'), [
@@ -486,12 +461,12 @@ test('store rejects relief linked to the same employee as the deployment', funct
             'employee_id' => $employee->id,
             'planned_join_date' => '2027-06-30',
             'planned_leave_date' => '2027-12-31',
-            'relieves_employee_deployment_id' => $deployment->id,
+            'relieves_crew_assignment_id' => $assignment->id,
         ])
         ->assertSessionHasErrors('employee_id');
 });
 
-test('store rejects relief linked to a deployment on another vessel', function () {
+test('store rejects relief linked to an assignment on another vessel', function () {
     ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
 
     $otherVessel = Vessel::query()->create([
@@ -503,14 +478,7 @@ test('store rejects relief linked to a deployment on another vessel', function (
     $deployedEmployee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
     $reliefEmployee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
 
-    $deployment = EmployeeDeployment::factory()->create([
-        'company_id' => $company->id,
-        'employee_id' => $deployedEmployee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => $otherVessel->id,
-        'joined_date' => '2027-01-01',
-        'disembarked_date' => '2027-06-30',
-    ]);
+    $assignment = makeActiveOnVesselAssignment($company, $deployedEmployee, $rank, $otherVessel);
 
     $this->actingAs($user)
         ->post(route('organization.crew-planning.assignments.store'), [
@@ -519,32 +487,25 @@ test('store rejects relief linked to a deployment on another vessel', function (
             'employee_id' => $reliefEmployee->id,
             'planned_join_date' => '2027-06-30',
             'planned_leave_date' => '2027-12-31',
-            'relieves_employee_deployment_id' => $deployment->id,
+            'relieves_crew_assignment_id' => $assignment->id,
         ])
-        ->assertSessionHasErrors('relieves_employee_deployment_id');
+        ->assertSessionHasErrors('relieves_crew_assignment_id');
 });
 
-test('bars include relief deployment linkage fields', function () {
+test('bars include relief assignment linkage fields', function () {
     ['company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
 
     $deployedEmployee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id, 'name' => 'Deployed Crew']);
     $reliefEmployee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id, 'name' => 'Relief Crew']);
 
-    $deployment = EmployeeDeployment::factory()->create([
-        'company_id' => $company->id,
-        'employee_id' => $deployedEmployee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => $vessel->id,
-        'joined_date' => '2027-01-01',
-        'disembarked_date' => '2027-06-30',
-    ]);
+    $assignment = makeActiveOnVesselAssignment($company, $deployedEmployee, $rank, $vessel);
 
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
         'employee_id' => $reliefEmployee->id,
-        'relieves_employee_deployment_id' => $deployment->id,
+        'relieves_crew_assignment_id' => $assignment->id,
         'planned_join_date' => '2027-06-30',
         'planned_leave_date' => '2027-12-31',
     ]);
@@ -552,7 +513,7 @@ test('bars include relief deployment linkage fields', function () {
     $bars = CrewPlanningGanttQuery::bars($company->id, '2027-01-01', '2027-12-31');
 
     expect($bars)->toHaveCount(1)
-        ->and($bars[0]['relieves_employee_deployment_id'])->toBe($deployment->id)
+        ->and($bars[0]['relieves_crew_assignment_id'])->toBe($assignment->id)
         ->and($bars[0]['relieves_employee_name'])->toBe('Deployed Crew')
         ->and($bars[0]['is_deployed'])->toBeFalse();
 });

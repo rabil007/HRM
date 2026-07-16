@@ -4,7 +4,7 @@ namespace App\Support\CrewMovements;
 
 use App\Exceptions\CrewMovementException;
 use App\Models\Company;
-use App\Models\CrewAssignment;
+use App\Models\CrewAssignmentSequence;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
@@ -13,33 +13,36 @@ final class CrewAssignmentNumberGenerator
     public function next(int $companyId, ?int $year = null): string
     {
         $year ??= (int) now($this->companyTimezone($companyId))->year;
-        $prefix = sprintf('CA-%d-', $year);
 
-        return DB::transaction(function () use ($companyId, $prefix, $year): string {
+        return DB::transaction(function () use ($companyId, $year): string {
             for ($attempt = 0; $attempt < 5; $attempt++) {
-                $latest = CrewAssignment::query()
-                    ->where('company_id', $companyId)
-                    ->where('assignment_no', 'like', $prefix.'%')
-                    ->lockForUpdate()
-                    ->orderByDesc('assignment_no')
-                    ->value('assignment_no');
+                try {
+                    $sequence = CrewAssignmentSequence::query()
+                        ->where('company_id', $companyId)
+                        ->where('year', $year)
+                        ->lockForUpdate()
+                        ->first();
 
-                $next = 1;
+                    if ($sequence === null) {
+                        CrewAssignmentSequence::query()->create([
+                            'company_id' => $companyId,
+                            'year' => $year,
+                            'last_number' => 0,
+                        ]);
 
-                if (is_string($latest) && preg_match('/^CA-\d{4}-(\d+)$/', $latest, $matches) === 1) {
-                    $next = ((int) $matches[1]) + 1;
-                }
+                        $sequence = CrewAssignmentSequence::query()
+                            ->where('company_id', $companyId)
+                            ->where('year', $year)
+                            ->lockForUpdate()
+                            ->firstOrFail();
+                    }
 
-                $candidate = sprintf('CA-%d-%06d', $year, $next);
+                    $sequence->last_number = ((int) $sequence->last_number) + 1;
+                    $sequence->save();
 
-                $exists = CrewAssignment::query()
-                    ->where('company_id', $companyId)
-                    ->where('assignment_no', $candidate)
-                    ->lockForUpdate()
-                    ->exists();
-
-                if (! $exists) {
-                    return $candidate;
+                    return sprintf('CA-%d-%06d', $year, $sequence->last_number);
+                } catch (QueryException) {
+                    continue;
                 }
             }
 
@@ -48,34 +51,6 @@ final class CrewAssignmentNumberGenerator
                 'assignment_number_race',
             );
         });
-    }
-
-    public function legacyForDeployment(int $employeeDeploymentId): string
-    {
-        return 'LEGACY-'.$employeeDeploymentId;
-    }
-
-    public function assertCreatable(int $companyId, string $assignmentNo): void
-    {
-        try {
-            $exists = CrewAssignment::query()
-                ->where('company_id', $companyId)
-                ->where('assignment_no', $assignmentNo)
-                ->exists();
-        } catch (QueryException $e) {
-            throw CrewMovementException::make(
-                'Failed to validate assignment number uniqueness.',
-                'assignment_number_check_failed',
-                previous: $e,
-            );
-        }
-
-        if ($exists) {
-            throw CrewMovementException::make(
-                sprintf('Assignment number %s already exists for this company.', $assignmentNo),
-                'assignment_number_duplicate',
-            );
-        }
     }
 
     private function companyTimezone(int $companyId): string

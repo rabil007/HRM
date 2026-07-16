@@ -23,15 +23,16 @@ use Illuminate\Support\Facades\DB;
 /**
  * Transactional crew movement engine.
  *
- * Compatibility dual-write to employee_deployments / sea services / planning
- * is deliberately NOT implemented in this phase. Existing Crew Deployments
- * continue to operate independently.
+ * CrewAssignment is the single source of truth for crew movement.
+ * Completed P4 phases sync EmployeeSeaService within the same transaction.
  */
 final class CrewMovementService
 {
     public function __construct(
         private CrewAssignmentInvariantGuard $invariants,
         private CrewAssignmentNumberGenerator $numbers,
+        private SyncSeaServiceFromCrewAssignment $seaServiceSync,
+        private CrewMovementMasterDataGuard $masters,
     ) {}
 
     /**
@@ -549,6 +550,10 @@ final class CrewMovementService
 
         $this->completePhase($current, $current->actual_start_at ?? $occurredAt, $occurredAt, $actorId);
 
+        if ($current->phase_code === CrewPhaseCode::OnVessel) {
+            $this->seaServiceSync->syncFromPhase($current->fresh());
+        }
+
         $next = $this->createPhase(
             $assignment,
             $nextCode,
@@ -633,8 +638,7 @@ final class CrewMovementService
             'phases',
             'currentPhase',
             'previousAssignment',
-            'employeeDeployment',
-            'crewPlanningAssignment',
+            'planningAssignment',
         ]);
 
         return $assignment;
@@ -771,28 +775,6 @@ final class CrewMovementService
         int $id,
         string $label,
     ): void {
-        $query = $modelClass::query()->whereKey($id);
-
-        if ($modelClass === Vessel::class || $modelClass === Rank::class
-            || $modelClass === Client::class || $modelClass === CompanyVisaType::class) {
-            // Masters may be global (no company_id) or company-scoped depending on table.
-            $model = $query->first();
-        } else {
-            $model = $query->first();
-        }
-
-        if ($model === null) {
-            throw CrewMovementException::make(
-                sprintf('Invalid %s.', $label),
-                'invalid_master_'.$label,
-            );
-        }
-
-        if (isset($model->company_id) && (int) $model->company_id !== $companyId) {
-            throw CrewMovementException::make(
-                sprintf('The selected %s does not belong to this company.', $label),
-                'master_company_mismatch',
-            );
-        }
+        $this->masters->assertUsable($companyId, $modelClass, $id, $label);
     }
 }

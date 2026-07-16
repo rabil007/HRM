@@ -2,8 +2,8 @@
 
 namespace App\Support\CrewOperations;
 
+use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
-use App\Models\EmployeeDeployment;
 use App\Models\User;
 use Spatie\Activitylog\Models\Activity;
 
@@ -29,7 +29,7 @@ final class CrewOperationsRecentActivityQuery
         return Activity::query()
             ->where('company_id', $companyId)
             ->whereIn('subject_type', [
-                EmployeeDeployment::class,
+                CrewAssignment::class,
                 CrewPlanningAssignment::class,
             ])
             ->with(['causer:id,name,email'])

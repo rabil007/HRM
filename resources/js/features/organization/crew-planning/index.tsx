@@ -26,7 +26,7 @@ import { PlanningGantt } from './components/planning-gantt';
 import { PlanningLegend } from './components/planning-legend';
 import { PlanningToolbar } from './components/planning-toolbar';
 import { VesselRankTree } from './components/vessel-rank-tree';
-import { findRelievedDeployment } from './lib/find-relieved-deployment';
+import { findRelievedAssignment } from './lib/find-relieved-deployment';
 import { dateFromPointerRatio } from './lib/planning-gantt-math';
 import { ZoomProvider } from './lib/zoom-context';
 import type {
@@ -103,7 +103,7 @@ export function CrewPlanningContent({
         planned_join_date: '',
         planned_leave_date: '',
         notes: '',
-        relieves_employee_deployment_id: '',
+        relieves_crew_assignment_id: '',
     });
 
     const openCreate = useCallback(
@@ -112,7 +112,7 @@ export function CrewPlanningContent({
             initialRankId = '',
             initialDate = '',
             employeeId = '',
-            relievesEmployeeDeploymentId = '',
+            relievesCrewAssignmentId = '',
             relievesEmployeeName = '',
         ): void => {
             form.reset();
@@ -124,7 +124,7 @@ export function CrewPlanningContent({
                 planned_join_date: initialDate,
                 planned_leave_date: '',
                 notes: '',
-                relieves_employee_deployment_id: relievesEmployeeDeploymentId,
+                relieves_crew_assignment_id: relievesCrewAssignmentId,
             });
             setDialogState({
                 open: true,
@@ -147,7 +147,7 @@ export function CrewPlanningContent({
             employeeId = '',
         ): void => {
             const rowKey = `vessel:${vesselId}|rank:${rankId}`;
-            const relieved = findRelievedDeployment(
+            const relieved = findRelievedAssignment(
                 bars,
                 rowKey,
                 estimatedDate,
@@ -158,7 +158,7 @@ export function CrewPlanningContent({
                 String(rankId),
                 relieved?.plannedLeaveDate ?? estimatedDate,
                 employeeId,
-                relieved ? String(relieved.employeeDeploymentId) : '',
+                relieved ? String(relieved.crewAssignmentId) : '',
                 relieved?.employeeName ?? '',
             );
         },
@@ -175,9 +175,9 @@ export function CrewPlanningContent({
             planned_join_date: bar.planned_join_date,
             planned_leave_date: bar.planned_leave_date,
             notes: bar.notes ?? '',
-            relieves_employee_deployment_id:
-                bar.relieves_employee_deployment_id != null
-                    ? String(bar.relieves_employee_deployment_id)
+            relieves_crew_assignment_id:
+                bar.relieves_crew_assignment_id != null
+                    ? String(bar.relieves_crew_assignment_id)
                     : '',
         });
         setDialogState({
@@ -211,9 +211,9 @@ export function CrewPlanningContent({
             planned_join_date: data.planned_join_date,
             planned_leave_date: data.planned_leave_date,
             notes: data.notes || null,
-            relieves_employee_deployment_id:
-                data.relieves_employee_deployment_id !== ''
-                    ? Number(data.relieves_employee_deployment_id)
+            relieves_crew_assignment_id:
+                data.relieves_crew_assignment_id !== ''
+                    ? Number(data.relieves_crew_assignment_id)
                     : null,
         }));
 

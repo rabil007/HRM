@@ -1,9 +1,22 @@
 import { Link } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import type { DeploymentSummary } from '@/features/organization/crew-deployments/types';
 import { cn } from '@/lib/utils';
-import { index as crewDeploymentsIndex } from '@/routes/organization/crew-deployments';
+import { index as crewOperationsIndex } from '@/routes/organization/crew-operations';
+
+type AssignmentSummary = {
+    pre_mobilisation: number;
+    travel_in: number;
+    join_standby: number;
+    training: number;
+    ready_to_join: number;
+    on_vessel: number;
+    demob_standby: number;
+    home_redeploy: number;
+    in_home: number;
+    movement_update_required: number;
+    total: number;
+};
 
 const TOTAL_ITEM = {
     key: 'total',
@@ -15,25 +28,46 @@ const TOTAL_ITEM = {
 
 const SUMMARY_ITEMS = [
     {
-        key: 'unknown',
+        key: 'movement_update_required',
         label: 'Needs update',
         cardClass:
             'border-red-500/15 bg-red-500/[0.04] hover:border-red-500/30',
         valueClass: 'text-red-400',
     },
     {
-        key: 'arrived',
-        label: 'Arrived',
+        key: 'pre_mobilisation',
+        label: 'Pre-mobilisation',
         cardClass:
-            'border-sky-500/15 bg-sky-500/[0.04] hover:border-sky-500/30',
-        valueClass: 'text-sky-400',
+            'border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30',
+        valueClass: 'text-amber-400',
+    },
+    {
+        key: 'travel_in',
+        label: 'Travel in',
+        cardClass:
+            'border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30',
+        valueClass: 'text-violet-400',
     },
     {
         key: 'join_standby',
         label: 'Join standby',
         cardClass:
-            'border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30',
-        valueClass: 'text-amber-400',
+            'border-orange-500/15 bg-orange-500/[0.04] hover:border-orange-500/30',
+        valueClass: 'text-orange-400',
+    },
+    {
+        key: 'training',
+        label: 'Training',
+        cardClass:
+            'border-blue-500/15 bg-blue-500/[0.04] hover:border-blue-500/30',
+        valueClass: 'text-blue-400',
+    },
+    {
+        key: 'ready_to_join',
+        label: 'Ready to join',
+        cardClass:
+            'border-cyan-500/15 bg-cyan-500/[0.04] hover:border-cyan-500/30',
+        valueClass: 'text-cyan-400',
     },
     {
         key: 'on_vessel',
@@ -43,25 +77,18 @@ const SUMMARY_ITEMS = [
         valueClass: 'text-emerald-400',
     },
     {
-        key: 'disembarked',
-        label: 'Disembarked',
+        key: 'demob_standby',
+        label: 'Demob standby',
         cardClass:
-            'border-border bg-muted/20 hover:border-border dark:border-white/10 dark:hover:border-white/20',
-        valueClass: 'text-foreground',
+            'border-pink-500/15 bg-pink-500/[0.04] hover:border-pink-500/30',
+        valueClass: 'text-pink-400',
     },
     {
-        key: 'leave_standby',
-        label: 'Leave standby',
+        key: 'home_redeploy',
+        label: 'Home redeploy',
         cardClass:
-            'border-orange-500/15 bg-orange-500/[0.04] hover:border-orange-500/30',
-        valueClass: 'text-orange-400',
-    },
-    {
-        key: 'travel',
-        label: 'Travel',
-        cardClass:
-            'border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30',
-        valueClass: 'text-violet-400',
+            'border-purple-500/15 bg-purple-500/[0.04] hover:border-purple-500/30',
+        valueClass: 'text-purple-400',
     },
     {
         key: 'in_home',
@@ -72,18 +99,18 @@ const SUMMARY_ITEMS = [
     },
 ] as const;
 
-function deploymentFilterHref(status: string): string {
+function assignmentFilterHref(status: string): string {
     if (status === 'total') {
-        return crewDeploymentsIndex.url();
+        return crewOperationsIndex.url();
     }
 
-    return crewDeploymentsIndex.url({ query: { status } });
+    return crewOperationsIndex.url({ query: { status } });
 }
 
 export function CrewOperationsDeploymentSummaryCards({
     summary,
 }: {
-    summary: DeploymentSummary;
+    summary: AssignmentSummary;
 }): ReactElement {
     const cardClass =
         'min-w-0 flex-1 text-left sm:min-w-[calc(33.333%-0.5rem)] md:min-w-[calc(20%-0.6rem)] lg:min-w-0';
@@ -92,7 +119,7 @@ export function CrewOperationsDeploymentSummaryCards({
         <div className="flex flex-wrap gap-3">
             <Link
                 key={TOTAL_ITEM.key}
-                href={deploymentFilterHref(TOTAL_ITEM.key)}
+                href={assignmentFilterHref(TOTAL_ITEM.key)}
                 className={cardClass}
             >
                 <Card
@@ -119,7 +146,7 @@ export function CrewOperationsDeploymentSummaryCards({
             {SUMMARY_ITEMS.map((item) => (
                 <Link
                     key={item.key}
-                    href={deploymentFilterHref(item.key)}
+                    href={assignmentFilterHref(item.key)}
                     className={cardClass}
                 >
                     <Card

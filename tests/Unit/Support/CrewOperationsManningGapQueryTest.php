@@ -1,14 +1,18 @@
 <?php
 
-use App\Models\EmployeeDeployment;
+use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewPhaseCode;
+use App\Enums\CrewPhaseStatus;
+use App\Models\CrewAssignment;
+use App\Models\CrewAssignmentPhase;
 use App\Models\VesselManning;
 use App\Support\CrewOperations\CrewOperationsManningGapQuery;
 use Carbon\CarbonImmutable;
 
 test('manning gap query returns understaffed positions when actual on-vessel count is below required', function () {
-    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
 
-    $vessel = makeCrewDeploymentVessel('Gap Query Vessel');
+    $vessel = makeCrewMovementVessel('Gap Query Vessel');
 
     VesselManning::query()->create([
         'company_id' => $company->id,
@@ -17,13 +21,7 @@ test('manning gap query returns understaffed positions when actual on-vessel cou
         'required_count' => 2,
     ]);
 
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => $vessel->id,
-        'joined_date' => CarbonImmutable::today()->subDays(3),
-    ]);
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     $result = CrewOperationsManningGapQuery::forCompany($company->id);
 
@@ -38,9 +36,9 @@ test('manning gap query returns understaffed positions when actual on-vessel cou
 });
 
 test('manning gap query ignores positions that are fully staffed or overstaffed', function () {
-    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
 
-    $vessel = makeCrewDeploymentVessel('Fully Staffed Vessel');
+    $vessel = makeCrewMovementVessel('Fully Staffed Vessel');
 
     VesselManning::query()->create([
         'company_id' => $company->id,
@@ -49,13 +47,7 @@ test('manning gap query ignores positions that are fully staffed or overstaffed'
         'required_count' => 1,
     ]);
 
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => $vessel->id,
-        'joined_date' => CarbonImmutable::today()->subDays(2),
-    ]);
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     $result = CrewOperationsManningGapQuery::forCompany($company->id);
 
@@ -63,10 +55,10 @@ test('manning gap query ignores positions that are fully staffed or overstaffed'
         ->and($result['items'])->toBe([]);
 });
 
-test('manning gap query does not count deployments that are not on vessel', function () {
-    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+test('manning gap query does not count assignments with completed P4 phase', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
 
-    $vessel = makeCrewDeploymentVessel('Travelled Vessel');
+    $vessel = makeCrewMovementVessel('Completed Vessel');
 
     VesselManning::query()->create([
         'company_id' => $company->id,
@@ -75,18 +67,63 @@ test('manning gap query does not count deployments that are not on vessel', func
         'required_count' => 1,
     ]);
 
-    EmployeeDeployment::query()->create([
+    $assignment = CrewAssignment::query()->create([
         'company_id' => $company->id,
+        'assignment_no' => 'CA-'.now()->year.'-COMPLETED',
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
         'vessel_id' => $vessel->id,
-        'joined_date' => CarbonImmutable::today()->subDays(10),
-        'disembarked_date' => CarbonImmutable::today()->subDays(5),
-        'travelled_date' => CarbonImmutable::today()->subDays(4),
+        'status' => CrewAssignmentStatus::Active,
+        'started_at' => CarbonImmutable::today()->subDays(10),
+        'source' => 'manual',
     ]);
+
+    $phase = CrewAssignmentPhase::query()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => CarbonImmutable::today()->subDays(10),
+        'actual_end_at' => CarbonImmutable::today()->subDays(5),
+    ]);
+
+    $assignment->update(['current_phase_id' => $phase->id]);
 
     $result = CrewOperationsManningGapQuery::forCompany($company->id);
 
     expect($result['understaffed_positions'])->toBe(1)
         ->and($result['items'][0]['actual_count'])->toBe(0);
+});
+
+test('manning gap query is scoped to company', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    ['company' => $otherCompany, 'employee' => $otherEmployee] = makeCrewAssignmentFixtures();
+
+    $vessel = makeCrewMovementVessel('Multi Company Vessel');
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 1,
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $otherCompany->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 1,
+    ]);
+
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+    makeActiveOnVesselAssignment($otherCompany, $otherEmployee, $rank, $vessel);
+
+    $result = CrewOperationsManningGapQuery::forCompany($company->id);
+
+    expect($result['understaffed_positions'])->toBe(0);
+
+    $otherResult = CrewOperationsManningGapQuery::forCompany($otherCompany->id);
+
+    expect($otherResult['understaffed_positions'])->toBe(0);
 });

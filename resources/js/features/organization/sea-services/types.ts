@@ -37,8 +37,8 @@ export type SeaServiceListItem = {
     total_months: number;
     total_days: number;
     is_offshore: boolean;
-    employee_deployment_id: number | null;
-    has_deployment: boolean;
+    crew_assignment_phase_id: number | null;
+    has_assignment_phase: boolean;
     sort_order: number;
     total_sea_services: number;
 };

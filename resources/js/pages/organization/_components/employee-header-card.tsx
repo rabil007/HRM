@@ -23,7 +23,6 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/deployment-status-badge';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
 import { EditableCommandSelectCell } from '@/features/organization/employees/profile/components/editable-command-select-cell';
@@ -196,27 +195,10 @@ function EmployeeCrewStatusBadge({
     canViewDeployments: boolean;
 }) {
     const badge = (
-        <DeploymentStatusBadge
-            status={crewStatus.status}
-            label={crewStatus.label}
-            hint={crewStatus.hint}
-        />
+        <Badge variant="secondary" className="font-normal">
+            {crewStatus.label}
+        </Badge>
     );
-
-    if (
-        canViewDeployments &&
-        crewStatus.deployment_id !== null &&
-        crewStatus.status !== 'available'
-    ) {
-        return (
-            <Link
-                href={`/organization/crew-deployments/${crewStatus.deployment_id}`}
-                className="inline-flex"
-            >
-                {badge}
-            </Link>
-        );
-    }
 
     return badge;
 }

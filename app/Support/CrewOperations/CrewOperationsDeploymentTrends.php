@@ -2,7 +2,8 @@
 
 namespace App\Support\CrewOperations;
 
-use App\Models\EmployeeDeployment;
+use App\Enums\CrewPhaseCode;
+use App\Models\CrewAssignmentPhase;
 
 final class CrewOperationsDeploymentTrends
 {
@@ -18,16 +19,18 @@ final class CrewOperationsDeploymentTrends
             $start = $month->copy()->startOfMonth();
             $end = $month->copy()->endOfMonth();
 
-            $joins = (int) EmployeeDeployment::query()
+            $joins = (int) CrewAssignmentPhase::query()
                 ->where('company_id', $companyId)
-                ->whereNotNull('joined_date')
-                ->whereBetween('joined_date', [$start->toDateString(), $end->toDateString()])
+                ->where('phase_code', CrewPhaseCode::OnVessel)
+                ->whereNotNull('actual_start_at')
+                ->whereBetween('actual_start_at', [$start, $end])
                 ->count();
 
-            $disembarks = (int) EmployeeDeployment::query()
+            $disembarks = (int) CrewAssignmentPhase::query()
                 ->where('company_id', $companyId)
-                ->whereNotNull('disembarked_date')
-                ->whereBetween('disembarked_date', [$start->toDateString(), $end->toDateString()])
+                ->where('phase_code', CrewPhaseCode::OnVessel)
+                ->whereNotNull('actual_end_at')
+                ->whereBetween('actual_end_at', [$start, $end])
                 ->count();
 
             $points[] = [

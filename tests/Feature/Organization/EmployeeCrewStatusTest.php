@@ -1,17 +1,20 @@
 <?php
 
+use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewPhaseCode;
+use App\Enums\CrewPhaseStatus;
 use App\Models\Company;
 use App\Models\Country;
+use App\Models\CrewAssignment;
+use App\Models\CrewAssignmentPhase;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
-use App\Models\EmployeeDeployment;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
-use App\Support\CrewDeployments\DeploymentStatus;
-use App\Support\CrewDeployments\EmployeeCrewStatusPresenter;
+use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
 use Carbon\CarbonImmutable;
 
@@ -83,105 +86,123 @@ function makeEmployeeCrewStatusFixtures(): array
     return compact('user', 'company', 'employee', 'rank');
 }
 
-test('employee crew status presenter returns available when no deployment exists', function () {
-    $status = EmployeeCrewStatusPresenter::fromDeployment(null);
+test('employee crew status resolver returns available when no assignment exists', function () {
+    ['employee' => $employee] = makeEmployeeCrewStatusFixtures();
+
+    $resolver = new CrewAssignmentStatusResolver;
+    $status = $resolver->forEmployee($employee);
 
     expect($status)
-        ->deployment_id->toBeNull()
-        ->status->toBe('available')
-        ->label->toBe('Available')
-        ->hint->toBeNull();
+        ->assignment_id->toBeNull()
+        ->status->toBe('in_home')
+        ->label->toBe('Available');
 });
 
-test('employee crew status presenter returns on vessel with vessel name', function () {
+test('employee crew status resolver returns on vessel with vessel name', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
 
     $vessel = makeEmployeeCrewStatusVessel('MV Horizon');
 
-    $deployment = EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => $vessel->id,
-        'joined_date' => CarbonImmutable::today()->subDays(2),
-    ]);
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
-    $status = EmployeeCrewStatusPresenter::fromDeployment($deployment);
+    $resolver = new CrewAssignmentStatusResolver;
+    $status = $resolver->forEmployee($employee);
 
     expect($status)
-        ->status->toBe(DeploymentStatus::ON_VESSEL)
+        ->status->toBe('on_vessel')
         ->label->toBe('On vessel')
         ->current_vessel->toBe('MV Horizon')
         ->vessel_name->toBe('MV Horizon');
 });
 
-test('employee crew status presenter returns join standby during standby window', function () {
+test('employee crew status resolver returns join standby during join standby phase', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
 
-    $deployment = EmployeeDeployment::query()->create([
+    $vessel = makeEmployeeCrewStatusVessel('Vessel A');
+
+    $assignment = CrewAssignment::query()->create([
         'company_id' => $company->id,
+        'assignment_no' => 'CA-'.now()->year.'-STANDBY',
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_id' => makeEmployeeCrewStatusVessel('Vessel A')->id,
-        'arrived_date' => CarbonImmutable::today()->subDays(3),
-        'join_standby_from' => CarbonImmutable::today()->subDay(),
-        'join_standby_to' => CarbonImmutable::today()->addDay(),
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Active,
+        'started_at' => CarbonImmutable::today()->subDays(3),
+        'source' => 'manual',
     ]);
 
-    $status = EmployeeCrewStatusPresenter::fromDeployment($deployment);
+    $phase = CrewAssignmentPhase::query()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => CarbonImmutable::today()->subDay(),
+    ]);
+
+    $assignment->update(['current_phase_id' => $phase->id]);
+
+    $resolver = new CrewAssignmentStatusResolver;
+    $status = $resolver->forEmployee($employee);
 
     expect($status)
-        ->status->toBe(DeploymentStatus::JOIN_STANDBY)
+        ->status->toBe('join_standby')
         ->label->toBe('Join standby');
 });
 
-test('employee crew status presenter returns in home with day count', function () {
+test('employee crew status resolver returns in home with day count', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
 
-    $deployment = EmployeeDeployment::query()->create([
+    $vessel = makeEmployeeCrewStatusVessel('Vessel A');
+
+    $assignment = CrewAssignment::query()->create([
         'company_id' => $company->id,
+        'assignment_no' => 'CA-'.now()->year.'-HOME',
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_id' => makeEmployeeCrewStatusVessel('Vessel A')->id,
-        'joined_date' => CarbonImmutable::today()->subDays(40),
-        'disembarked_date' => CarbonImmutable::today()->subDays(10),
-        'travelled_date' => CarbonImmutable::today()->subDays(5),
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Completed,
+        'started_at' => CarbonImmutable::today()->subDays(40),
+        'closed_at' => CarbonImmutable::today()->subDays(5),
+        'source' => 'manual',
     ]);
 
-    $status = EmployeeCrewStatusPresenter::fromDeployment($deployment);
+    $resolver = new CrewAssignmentStatusResolver;
+    $status = $resolver->forEmployee($employee);
 
     expect($status)
-        ->status->toBe(DeploymentStatus::IN_HOME)
+        ->status->toBe('in_home')
         ->label->toBe('In home · 6d')
         ->in_home_days->toBe(6);
 });
 
-test('employee crew status presenter uses disembarked best guess when board would show needs update', function () {
+test('employee crew status resolver returns needs update when active assignment has no current phase', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
 
-    $deployment = EmployeeDeployment::query()->create([
+    $vessel = makeEmployeeCrewStatusVessel('Vessel A');
+
+    $assignment = CrewAssignment::query()->create([
         'company_id' => $company->id,
+        'assignment_no' => 'CA-'.now()->year.'-BROKEN',
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_id' => makeEmployeeCrewStatusVessel('Vessel A')->id,
-        'joined_date' => CarbonImmutable::today()->subDays(4),
-        'disembarked_date' => CarbonImmutable::today()->subDays(3),
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Active,
+        'started_at' => CarbonImmutable::today()->subDays(4),
+        'source' => 'manual',
+        'current_phase_id' => null,
     ]);
 
-    $boardStatus = DeploymentStatus::resolve($deployment);
-
-    expect($boardStatus['status'])->toBe(DeploymentStatus::UNKNOWN)
-        ->and($boardStatus['label'])->toBe('Needs update');
-
-    $status = EmployeeCrewStatusPresenter::fromDeployment($deployment);
+    $resolver = new CrewAssignmentStatusResolver;
+    $status = $resolver->forEmployee($employee);
 
     expect($status)
-        ->status->toBe(DeploymentStatus::DISEMBARKED)
-        ->label->toBe('Disembarked')
-        ->hint->toBeNull();
+        ->status->toBe('movement_update_required')
+        ->label->toBe('Needs update')
+        ->warning->toBe('Active assignment has no current phase.');
 });
 
-test('employee profile includes crew status available when employee has no deployments', function () {
+test('employee profile includes crew status available when employee has no assignments', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee] = makeEmployeeCrewStatusFixtures();
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -190,33 +211,29 @@ test('employee profile includes crew status available when employee has no deplo
         ->get(route('organization.employees.show', $employee))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('employee.crew_status.status', 'available')
+            ->where('employee.crew_status.status', 'in_home')
             ->where('employee.crew_status.label', 'Available')
-            ->where('employee.crew_status.deployment_id', null));
+            ->where('employee.crew_status.assignment_id', null));
 });
 
-test('employee profile includes crew status from latest deployment', function () {
+test('employee profile includes crew status from latest assignment', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
 
     $vessel = makeEmployeeCrewStatusVessel('Current Vessel');
 
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => $vessel->id,
-        'sort_order' => 1,
-        'joined_date' => CarbonImmutable::today()->subDays(2),
-    ]);
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
-    EmployeeDeployment::query()->create([
+    $olderVessel = makeEmployeeCrewStatusVessel('Older Vessel');
+    CrewAssignment::query()->create([
         'company_id' => $company->id,
+        'assignment_no' => 'CA-'.now()->year.'-OLD',
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_id' => makeEmployeeCrewStatusVessel('Older Vessel')->id,
-        'sort_order' => 0,
-        'joined_date' => CarbonImmutable::today()->subDays(60),
-        'disembarked_date' => CarbonImmutable::today()->subDays(50),
+        'vessel_id' => $olderVessel->id,
+        'status' => CrewAssignmentStatus::Completed,
+        'started_at' => CarbonImmutable::today()->subDays(60),
+        'closed_at' => CarbonImmutable::today()->subDays(50),
+        'source' => 'manual',
     ]);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -225,7 +242,7 @@ test('employee profile includes crew status from latest deployment', function ()
         ->get(route('organization.employees.show', $employee))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('employee.crew_status.status', DeploymentStatus::ON_VESSEL)
+            ->where('employee.crew_status.status', 'on_vessel')
             ->where('employee.crew_status.label', 'On vessel'));
 });
 
@@ -255,13 +272,8 @@ test('employee profile hides crew status when disabled in profile template', fun
 
     $employee->update(['employee_profile_template_id' => $template->id]);
 
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => makeEmployeeCrewStatusVessel('Vessel A')->id,
-        'joined_date' => CarbonImmutable::today()->subDay(),
-    ]);
+    $vessel = makeEmployeeCrewStatusVessel('Vessel A');
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
 
@@ -270,7 +282,7 @@ test('employee profile hides crew status when disabled in profile template', fun
 
     $response->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('employee.crew_status.status', DeploymentStatus::ON_VESSEL));
+            ->where('employee.crew_status.status', 'on_vessel'));
 
     $profileFields = $response->inertiaProps('employee_tabs.profile_fields');
 
@@ -288,13 +300,8 @@ test('employee profile includes crew status in profile fields when enabled in te
 
     $employee->update(['employee_profile_template_id' => $template->id]);
 
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => makeEmployeeCrewStatusVessel('Vessel A')->id,
-        'joined_date' => CarbonImmutable::today()->subDay(),
-    ]);
+    $vessel = makeEmployeeCrewStatusVessel('Vessel A');
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
 
@@ -303,7 +310,7 @@ test('employee profile includes crew status in profile fields when enabled in te
 
     $response->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('employee.crew_status.status', DeploymentStatus::ON_VESSEL));
+            ->where('employee.crew_status.status', 'on_vessel'));
 
     $profileFields = $response->inertiaProps('employee_tabs.profile_fields');
 
@@ -321,13 +328,8 @@ test('employee directory includes crew status on cards when enabled in profile t
 
     $employee->update(['employee_profile_template_id' => $template->id]);
 
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => makeEmployeeCrewStatusVessel('Vessel A')->id,
-        'joined_date' => CarbonImmutable::today()->subDay(),
-    ]);
+    $vessel = makeEmployeeCrewStatusVessel('Vessel A');
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
 
@@ -337,7 +339,7 @@ test('employee directory includes crew status on cards when enabled in profile t
         ->assertInertia(fn ($page) => $page
             ->has('employees', 1)
             ->where('employees.0.id', $employee->id)
-            ->where('employees.0.crew_status.status', DeploymentStatus::ON_VESSEL)
+            ->where('employees.0.crew_status.status', 'on_vessel')
             ->where('employees.0.crew_status.label', 'On vessel'));
 });
 
@@ -352,13 +354,8 @@ test('employee directory omits crew status when disabled in profile template', f
 
     $employee->update(['employee_profile_template_id' => $template->id]);
 
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => makeEmployeeCrewStatusVessel('Vessel A')->id,
-        'joined_date' => CarbonImmutable::today()->subDay(),
-    ]);
+    $vessel = makeEmployeeCrewStatusVessel('Vessel A');
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
 
@@ -383,29 +380,24 @@ test('employee directory can filter by crew status', function () {
             'status' => 'active',
         ]);
 
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $onVesselEmployee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => makeEmployeeCrewStatusVessel('Filter Vessel')->id,
-        'joined_date' => CarbonImmutable::today()->subDay(),
-    ]);
+    $vessel = makeEmployeeCrewStatusVessel('Filter Vessel');
+    makeActiveOnVesselAssignment($company, $onVesselEmployee, $rank, $vessel);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
 
     $this->actingAs($user)
-        ->get(route('organization.employees', ['crew_status' => 'available']))
+        ->get(route('organization.employees', ['crew_status' => 'in_home']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->has('employees', 1)
             ->where('employees.0.id', $availableEmployee->id)
-            ->where('filters.crew_status', 'available'));
+            ->where('filters.crew_status', 'in_home'));
 
     $this->actingAs($user)
-        ->get(route('organization.employees', ['crew_status' => DeploymentStatus::ON_VESSEL]))
+        ->get(route('organization.employees', ['crew_status' => 'on_vessel']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->has('employees', 1)
             ->where('employees.0.id', $onVesselEmployee->id)
-            ->where('filters.crew_status', DeploymentStatus::ON_VESSEL));
+            ->where('filters.crew_status', 'on_vessel'));
 });

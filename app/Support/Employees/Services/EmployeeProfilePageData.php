@@ -8,7 +8,6 @@ use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
-use App\Models\EmployeeDeployment;
 use App\Models\EmployeeDocument;
 use App\Models\EmployeeEducationQualification;
 use App\Models\EmployeeLanguage;
@@ -20,7 +19,7 @@ use App\Models\EmployeeWorkExperience;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
-use App\Support\CrewDeployments\EmployeeCrewStatusPresenter;
+use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
@@ -88,9 +87,7 @@ final class EmployeeProfilePageData
         $needsProfileTemplate = $employee->employee_profile_template_id === null;
 
         $employeePayload = EmployeeDetailResource::toArray($employee);
-        $employeePayload['crew_status'] = EmployeeCrewStatusPresenter::fromDeployment(
-            self::latestDeploymentForEmployee($companyId, $employee->id),
-        );
+        $employeePayload['crew_status'] = (new CrewAssignmentStatusResolver)->forEmployee($employee);
 
         return [
             'mode' => 'edit',
@@ -243,9 +240,7 @@ final class EmployeeProfilePageData
             ? array_merge(
                 EmployeeDetailResource::toArray($employee),
                 [
-                    'crew_status' => EmployeeCrewStatusPresenter::fromDeployment(
-                        self::latestDeploymentForEmployee($companyId, $employee->id),
-                    ),
+                    'crew_status' => (new CrewAssignmentStatusResolver)->forEmployee($employee),
                 ],
             )
             : self::placeholderEmployee();
@@ -373,17 +368,6 @@ final class EmployeeProfilePageData
             'training_import' => $authUser?->can('training.import') ?? false,
             'deployments_view' => $authUser?->can('crew_operations.deployments.view') ?? false,
         ];
-    }
-
-    private static function latestDeploymentForEmployee(int $companyId, int $employeeId): ?EmployeeDeployment
-    {
-        return EmployeeDeployment::query()
-            ->where('company_id', $companyId)
-            ->where('employee_id', $employeeId)
-            ->with('vessel:id,name')
-            ->orderByDesc('sort_order')
-            ->orderByDesc('id')
-            ->first();
     }
 
     /**

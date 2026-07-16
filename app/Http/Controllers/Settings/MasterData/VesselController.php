@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\MasterData\ImportVesselsRequest;
 use App\Http\Requests\Settings\MasterData\StoreVesselRequest;
 use App\Http\Requests\Settings\MasterData\UpdateVesselRequest;
-use App\Models\EmployeeDeployment;
+use App\Models\CrewAssignment;
 use App\Models\EmployeeSeaService;
 use App\Models\Vessel;
 use App\Models\VesselType;
@@ -75,11 +75,11 @@ class VesselController extends Controller
                 ]);
         }
 
-        if (EmployeeDeployment::query()->where('vessel_id', $vessel->id)->exists()) {
+        if (CrewAssignment::query()->where('vessel_id', $vessel->id)->exists()) {
             return redirect()
                 ->route('settings.master-data.vessels.index')
                 ->withErrors([
-                    'name' => 'This vessel is used on crew deployment records and cannot be deleted.',
+                    'name' => 'This vessel is used on crew assignments and cannot be deleted.',
                 ]);
         }
 

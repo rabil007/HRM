@@ -21,8 +21,8 @@ final class CrewOperationsDashboardPagePermissions
             'overview' => CrewOperationsOverviewAccess::canView($user),
             'planning' => $user?->can('crew_operations.planning.view') ?? false,
             'vessel_manning' => $user?->can('crew_operations.vessel_manning.view') ?? false,
-            'deployments' => $user?->can('crew_operations.deployments.view') ?? false,
-            'deployments_create' => $user?->can('crew_operations.deployments.create') ?? false,
+            'deployments' => false,
+            'deployments_create' => false,
         ];
     }
 }

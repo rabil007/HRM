@@ -65,8 +65,6 @@ class CrewAssignmentFactory extends Factory
             'started_at' => null,
             'closed_at' => null,
             'previous_assignment_id' => null,
-            'employee_deployment_id' => null,
-            'crew_planning_assignment_id' => null,
             'source' => 'manual',
             'remarks' => null,
             'created_by' => null,
