@@ -312,7 +312,7 @@ export function ContractsImportDialog({
                                             'h-7 px-3 text-xs font-medium transition-all',
                                             isActive
                                                 ? 'bg-background text-foreground shadow-sm hover:bg-background'
-                                                : 'text-muted-foreground hover:text-foreground hover:bg-transparent',
+                                                : 'text-muted-foreground hover:bg-transparent hover:text-foreground',
                                         )}
                                         onClick={() =>
                                             handleCategoryChange(value)
@@ -448,8 +448,7 @@ export function ContractsImportDialog({
                                                         {row.name ?? '—'}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {row.start_date ??
-                                                            '—'}
+                                                        {row.start_date ?? '—'}
                                                     </TableCell>
                                                     <TableCell>
                                                         {row.errors.length >
@@ -505,9 +504,7 @@ export function ContractsImportDialog({
                             <Upload className="mr-2 h-4 w-4" />
                         )}
                         Import{' '}
-                        {preview
-                            ? `${preview.summary.importable} row(s)`
-                            : ''}
+                        {preview ? `${preview.summary.importable} row(s)` : ''}
                     </Button>
                 </DialogFooter>
             </DialogContent>

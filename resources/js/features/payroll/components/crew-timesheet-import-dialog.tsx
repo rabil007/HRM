@@ -271,9 +271,9 @@ export function CrewTimesheetImportDialog({
                         the yellow date columns as DD-MM-YYYY text (e.g.
                         01-07-2026) and the orange Overtime Hours column when
                         applicable. Green columns are additions (Bonus,
-                        Commission); red columns are deductions (Loan,
-                        Late, etc.). Do not use the Excel date picker.
-                        Days and pay are calculated when you generate payroll.
+                        Commission); red columns are deductions (Loan, Late,
+                        etc.). Do not use the Excel date picker. Days and pay
+                        are calculated when you generate payroll.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -405,8 +405,7 @@ export function CrewTimesheetImportDialog({
                                                             '—'}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {row.onsite_days ??
-                                                            '—'}
+                                                        {row.onsite_days ?? '—'}
                                                     </TableCell>
                                                     <TableCell>
                                                         {row.overtime_hours ??

@@ -58,7 +58,12 @@ export function Pagination({
             : perPageOptions;
 
     return (
-        <div className={cn('mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between', className)}>
+        <div
+            className={cn(
+                'mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between',
+                className,
+            )}
+        >
             <div className="flex flex-wrap items-center gap-3">
                 {onPerPageChange && perPage !== undefined ? (
                     <div className="flex items-center gap-2">

@@ -85,8 +85,8 @@ export function EsignPlacementPanel({
                     {label}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    Position the English and Arabic signature overlays and stamped
-                    dates for bulk salary declaration e-signatures.
+                    Position the English and Arabic signature overlays and
+                    stamped dates for bulk salary declaration e-signatures.
                 </p>
             </div>
 

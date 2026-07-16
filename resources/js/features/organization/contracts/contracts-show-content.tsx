@@ -217,7 +217,9 @@ export function ContractsShowContent({
                         <CardContent className="grid gap-4 sm:grid-cols-2">
                             <DetailField
                                 label="Basic"
-                                value={formatContractMoney(contract.basic_salary)}
+                                value={formatContractMoney(
+                                    contract.basic_salary,
+                                )}
                             />
                             {isOfficeOrCrewMonthly ? (
                                 <>

@@ -2,13 +2,12 @@ import { Canvas, FabricImage, FabricText, Rect } from 'fabric';
 import { Eye, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-    editorRectsFromConfig
-    
-    
-    
+import { editorRectsFromConfig } from '@/features/settings/esign-placement/esign-placement-coordinates';
+import type {
+    EditorPlacementRects,
+    EditorRect,
+    SignaturePlacementConfig,
 } from '@/features/settings/esign-placement/esign-placement-coordinates';
-import type {EditorPlacementRects, EditorRect, SignaturePlacementConfig} from '@/features/settings/esign-placement/esign-placement-coordinates';
 import { EsignPlacementSamplePreviewDialog } from '@/features/settings/esign-placement/esign-placement-sample-preview-dialog';
 import { getPdfJs } from '@/lib/pdfjs';
 
@@ -373,7 +372,11 @@ export function FabricSignaturePlacementEditor({
     const handleSave = async () => {
         const currentRects = readRectsFromCanvas();
 
-        if (!currentRects || canvasSize.width === 0 || canvasSize.height === 0) {
+        if (
+            !currentRects ||
+            canvasSize.width === 0 ||
+            canvasSize.height === 0
+        ) {
             return;
         }
 
@@ -408,7 +411,11 @@ export function FabricSignaturePlacementEditor({
 
                 <canvas
                     ref={canvasElementRef}
-                    className={isLoading || error ? 'hidden' : 'mx-auto block max-w-full'}
+                    className={
+                        isLoading || error
+                            ? 'hidden'
+                            : 'mx-auto block max-w-full'
+                    }
                 />
             </div>
 
@@ -423,7 +430,9 @@ export function FabricSignaturePlacementEditor({
                     <Button
                         type="button"
                         onClick={() => void handleSave()}
-                        disabled={isSaving || isResetting || isLoading || !!error}
+                        disabled={
+                            isSaving || isResetting || isLoading || !!error
+                        }
                     >
                         {isSaving ? (
                             <>
@@ -447,7 +456,9 @@ export function FabricSignaturePlacementEditor({
                         type="button"
                         variant="outline"
                         onClick={() => void onReset()}
-                        disabled={isSaving || isResetting || isLoading || !!error}
+                        disabled={
+                            isSaving || isResetting || isLoading || !!error
+                        }
                     >
                         {isResetting ? (
                             <>
@@ -478,9 +489,7 @@ export function FabricSignaturePlacementEditor({
                 onOpenChange={setSamplePreviewOpen}
                 pdfUrl={samplePdfUrl}
                 rects={samplePreviewRects}
-                sourceCanvasSize={
-                    canvasSize.width > 0 ? canvasSize : undefined
-                }
+                sourceCanvasSize={canvasSize.width > 0 ? canvasSize : undefined}
                 page={page}
             />
 

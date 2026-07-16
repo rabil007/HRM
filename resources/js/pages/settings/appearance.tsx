@@ -1,7 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { Lock, Moon } from 'lucide-react';
 
-
 export default function Appearance() {
     return (
         <>
@@ -33,7 +32,8 @@ export default function Appearance() {
                 <div className="flex-1">
                     <p className="text-sm font-semibold">Dark mode</p>
                     <p className="text-xs text-muted-foreground/60">
-                        The theme is currently fixed to dark mode by your administrator.
+                        The theme is currently fixed to dark mode by your
+                        administrator.
                     </p>
                 </div>
                 <Lock className="h-4 w-4 shrink-0 text-muted-foreground/30" />

@@ -32,9 +32,7 @@ export function PayrollRecordPayslipStatusCell({
                 <Badge
                     variant={has_payslip ? 'default' : 'secondary'}
                     className={cn(
-                        !has_payslip &&
-                            isLiveUpdating &&
-                            'animate-pulse',
+                        !has_payslip && isLiveUpdating && 'animate-pulse',
                     )}
                 >
                     {has_payslip ? 'Generated' : 'Pending'}

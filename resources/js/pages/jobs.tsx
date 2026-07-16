@@ -412,8 +412,12 @@ export default function JobRunsViewer({
                             Job runs
                         </h1>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            Track queue history, failed jobs, and pending work. Times use{' '}
-                            <span className="font-medium text-foreground">{scheduler_timezone}</span>.
+                            Track queue history, failed jobs, and pending work.
+                            Times use{' '}
+                            <span className="font-medium text-foreground">
+                                {scheduler_timezone}
+                            </span>
+                            .
                         </p>
                     </div>
 

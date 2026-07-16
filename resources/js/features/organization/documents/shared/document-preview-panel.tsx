@@ -51,8 +51,7 @@ export function DocumentPreviewPanel({
     const mimeType = resolveMimeType(document.mime_type, document.file_url);
     const isImage = mimeType?.startsWith('image/') ?? false;
     const isPdf = mimeType === 'application/pdf';
-    const canPreview =
-        document.can_preview !== false && (isImage || isPdf);
+    const canPreview = document.can_preview !== false && (isImage || isPdf);
 
     return (
         <div

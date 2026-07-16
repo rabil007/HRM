@@ -105,7 +105,7 @@ export default function SeaServiceShow({
                                     </span>
                                     <Badge
                                         variant="outline"
-                                        className="border-sky-500/30 bg-sky-500/10 text-[10px] uppercase text-sky-400"
+                                        className="border-sky-500/30 bg-sky-500/10 text-[10px] text-sky-400 uppercase"
                                     >
                                         Offshore
                                     </Badge>
@@ -118,7 +118,7 @@ export default function SeaServiceShow({
                                     </span>
                                     <Badge
                                         variant="outline"
-                                        className="border-violet-500/30 bg-violet-500/10 text-[10px] uppercase text-violet-400"
+                                        className="border-violet-500/30 bg-violet-500/10 text-[10px] text-violet-400 uppercase"
                                     >
                                         From deployment
                                     </Badge>
@@ -198,9 +198,7 @@ export default function SeaServiceShow({
                             />
                             <MetadataField
                                 label="End date"
-                                value={formatDisplayDate(
-                                    sea_service.end_date,
-                                )}
+                                value={formatDisplayDate(sea_service.end_date)}
                             />
                             <MetadataField
                                 label="Duration"
@@ -208,14 +206,14 @@ export default function SeaServiceShow({
                             />
                             <MetadataField
                                 label="Offshore"
-                                value={
-                                    sea_service.is_offshore ? 'Yes' : 'No'
-                                }
+                                value={sea_service.is_offshore ? 'Yes' : 'No'}
                             />
                             <MetadataField
                                 label="Linked deployment"
                                 value={
-                                    sea_service.has_assignment_phase ? 'Yes' : 'No'
+                                    sea_service.has_assignment_phase
+                                        ? 'Yes'
+                                        : 'No'
                                 }
                             />
                         </CardContent>

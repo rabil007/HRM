@@ -179,7 +179,9 @@ export function OfficePayrollRecordsTable({
                                         0 ? (
                                         <span className="text-[11px] font-medium text-destructive">
                                             {record.absent_days} day
-                                            {record.absent_days > 1 ? 's' : ''}{' '}
+                                            {record.absent_days > 1
+                                                ? 's'
+                                                : ''}{' '}
                                             deducted (
                                             {formatTimesheetAmount(
                                                 record.unpaid_leave_deduction,

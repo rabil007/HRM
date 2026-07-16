@@ -3,11 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatSignedDate } from '@/features/esign/format-signed-date';
 import { SignatureCapture } from '@/features/esign/signature-capture';
-import {
-    placementPercentOverlaysFromConfig
-    
-} from '@/features/settings/esign-placement/esign-placement-coordinates';
-import type {SignaturePlacementConfig} from '@/features/settings/esign-placement/esign-placement-coordinates';
+import { placementPercentOverlaysFromConfig } from '@/features/settings/esign-placement/esign-placement-coordinates';
+import type { SignaturePlacementConfig } from '@/features/settings/esign-placement/esign-placement-coordinates';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getPdfJs } from '@/lib/pdfjs';
 import { cn } from '@/lib/utils';
@@ -178,7 +175,9 @@ export function PdfSignatureViewer({
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-base font-semibold">
-                            {isReview ? 'Review the document' : 'Add your signature'}
+                            {isReview
+                                ? 'Review the document'
+                                : 'Add your signature'}
                         </h2>
                         {!isReview ? (
                             <span
@@ -189,7 +188,9 @@ export function PdfSignatureViewer({
                                         : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100',
                                 )}
                             >
-                                {signatureData ? <CheckCircle2 className="size-3" /> : null}
+                                {signatureData ? (
+                                    <CheckCircle2 className="size-3" />
+                                ) : null}
                                 {signatureData ? 'Added' : 'Required'}
                             </span>
                         ) : null}
@@ -214,7 +215,9 @@ export function PdfSignatureViewer({
                     </span>
                     <div className="flex min-w-0 flex-1 items-center gap-2">
                         <p className="text-sm font-semibold">
-                            {isReview ? 'Read the document' : 'Add your signature'}
+                            {isReview
+                                ? 'Read the document'
+                                : 'Add your signature'}
                         </p>
                         {!isReview ? (
                             <span
@@ -225,7 +228,9 @@ export function PdfSignatureViewer({
                                         : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100',
                                 )}
                             >
-                                {signatureData ? <CheckCircle2 className="size-3" /> : null}
+                                {signatureData ? (
+                                    <CheckCircle2 className="size-3" />
+                                ) : null}
                                 {signatureData ? 'Saved' : 'Required'}
                             </span>
                         ) : null}
@@ -233,11 +238,13 @@ export function PdfSignatureViewer({
                 </div>
                 {isReview ? (
                     <p className="mt-1 text-xs text-muted-foreground">
-                        Scroll to read the full declaration. Highlighted areas show where your signature goes.
+                        Scroll to read the full declaration. Highlighted areas
+                        show where your signature goes.
                     </p>
                 ) : (
                     <p className="mt-1 text-xs text-muted-foreground">
-                        Draw or upload — date {signedDate} is added automatically.
+                        Draw or upload — date {signedDate} is added
+                        automatically.
                     </p>
                 )}
             </div>
@@ -248,12 +255,12 @@ export function PdfSignatureViewer({
                     ref={viewportRef}
                     className={
                         isMobile
-                        ? cn(
-                              'w-full overflow-auto rounded-xl border shadow-sm touch-pan-x touch-pan-y',
-                              isReview
-                                  ? 'h-[calc(100svh-14rem)] max-h-[calc(100svh-14rem)]'
-                                  : 'max-h-[30svh]',
-                          )
+                            ? cn(
+                                  'w-full touch-pan-x touch-pan-y overflow-auto rounded-xl border shadow-sm',
+                                  isReview
+                                      ? 'h-[calc(100svh-14rem)] max-h-[calc(100svh-14rem)]'
+                                      : 'max-h-[30svh]',
+                              )
                             : cn(
                                   'w-full overflow-hidden rounded-xl border shadow-sm',
                                   !isReview && 'max-h-[420px] overflow-auto',
@@ -274,7 +281,9 @@ export function PdfSignatureViewer({
                                     <div className="relative">
                                         <div className="size-10 animate-spin rounded-full border-2 border-muted border-t-primary" />
                                     </div>
-                                    <p className="text-xs text-muted-foreground">Loading document…</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Loading document…
+                                    </p>
                                 </div>
                             </div>
                         ) : null}

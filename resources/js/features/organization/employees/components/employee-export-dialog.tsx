@@ -265,13 +265,13 @@ export function EmployeeExportDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="flex h-[min(88vh,640px)] w-[min(96vw,58rem)] max-w-none flex-col gap-0 overflow-hidden rounded-2xl border-border bg-background p-0 shadow-2xl sm:max-w-none">
                 {/* Header */}
-                <DialogHeader className="shrink-0 flex-row items-center justify-between border-b border-border pl-6 pr-14 py-4">
+                <DialogHeader className="shrink-0 flex-row items-center justify-between border-b border-border py-4 pr-14 pl-6">
                     <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                             <Download className="h-4 w-4 text-primary" />
                         </div>
                         <div>
-                            <DialogTitle className="text-base font-semibold leading-none">
+                            <DialogTitle className="text-base leading-none font-semibold">
                                 Export Employees
                             </DialogTitle>
                             <p className="mt-0.5 text-xs text-muted-foreground">
@@ -304,7 +304,7 @@ export function EmployeeExportDialog({
                 <div className="grid min-h-0 flex-1 grid-cols-2 divide-x divide-border overflow-hidden">
                     {/* ── Left: Available ── */}
                     <div className="flex h-full flex-col overflow-hidden">
-                        <div className="shrink-0 flex items-center justify-between border-b border-border px-4 py-2.5">
+                        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
                             <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium">
                                     Available fields
@@ -437,7 +437,7 @@ export function EmployeeExportDialog({
 
                     {/* ── Right: Selected ── */}
                     <div className="flex h-full flex-col overflow-hidden">
-                        <div className="shrink-0 flex items-center justify-between border-b border-border px-4 py-2.5">
+                        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
                             <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium">
                                     Fields to export
@@ -518,7 +518,7 @@ export function EmployeeExportDialog({
                                                 <div className="mt-0.5 flex items-center gap-1">
                                                     <span
                                                         className={cn(
-                                                            'inline-flex items-center gap-1 rounded border px-1.5 py-px text-[10px] font-medium leading-none',
+                                                            'inline-flex items-center gap-1 rounded border px-1.5 py-px text-[10px] leading-none font-medium',
                                                             GROUP_COLORS[
                                                                 option.group
                                                             ].badge,
@@ -549,7 +549,7 @@ export function EmployeeExportDialog({
                                                 onClick={() =>
                                                     removeField(option.key)
                                                 }
-                                                className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground/40 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                                                className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground/40 opacity-0 transition-all group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
                                             >
                                                 <X className="h-3.5 w-3.5" />
                                             </button>
@@ -581,9 +581,7 @@ export function EmployeeExportDialog({
                             type="button"
                             size="sm"
                             onClick={handleExport}
-                            disabled={
-                                selectedKeys.length === 0 || isExporting
-                            }
+                            disabled={selectedKeys.length === 0 || isExporting}
                             className="gap-1.5"
                         >
                             <Download className="h-3.5 w-3.5" />

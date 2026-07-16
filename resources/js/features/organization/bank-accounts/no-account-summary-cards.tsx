@@ -1,16 +1,15 @@
-import {
-    Banknote,
-    Building2,
-    CreditCard,
-    Users,
-    UserX,
-} from 'lucide-react';
+import { Banknote, Building2, CreditCard, Users, UserX } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { NoBankAccountSummary } from '@/features/organization/bank-accounts/types';
 import { cn } from '@/lib/utils';
 
-type SummaryKey = 'total_no_account' | 'bank_transfer' | 'cash_c3' | 'cash_other' | 'third_party';
+type SummaryKey =
+    | 'total_no_account'
+    | 'bank_transfer'
+    | 'cash_c3'
+    | 'cash_other'
+    | 'third_party';
 
 const SUMMARY_ITEMS: {
     key: SummaryKey;
@@ -100,7 +99,7 @@ export function NoAccountSummaryCards({
                         key={item.key}
                         type="button"
                         onClick={() => onSelect(item.filterValue)}
-                        className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
+                        className="rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
                     >
                         <Card
                             className={cn(
@@ -111,17 +110,20 @@ export function NoAccountSummaryCards({
                         >
                             <CardContent className="p-4">
                                 <div className="flex items-center justify-between gap-2">
-                                    <p className="text-xs font-medium text-muted-foreground leading-tight">
+                                    <p className="text-xs leading-tight font-medium text-muted-foreground">
                                         {item.label}
                                     </p>
                                     <Icon
-                                        className={cn('size-3.5 shrink-0', item.iconClass)}
+                                        className={cn(
+                                            'size-3.5 shrink-0',
+                                            item.iconClass,
+                                        )}
                                         aria-hidden
                                     />
                                 </div>
                                 <p
                                     className={cn(
-                                        'mt-2 text-2xl font-semibold tabular-nums tracking-tight',
+                                        'mt-2 text-2xl font-semibold tracking-tight tabular-nums',
                                         item.valueClass,
                                     )}
                                 >

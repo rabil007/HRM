@@ -259,57 +259,49 @@ function EmployeeDetailsPage({
 
     const tabs = useMemo(() => {
         const builtTabs = buildEmployeeProfileTabs({
-                employee_tabs,
-                counts: {
-                    contracts:
-                        contracts === undefined
-                            ? null
-                            : contracts.length || null,
-                    salary_revisions:
-                        contracts === undefined
-                            ? null
-                            : contracts.reduce(
-                                  (total, contract) =>
-                                      total +
-                                      (contract.salary_revisions?.length ?? 0),
-                                  0,
-                              ) || null,
-                    bank_accounts:
-                        bank_accounts === undefined
-                            ? null
-                            : localEmployee.bank_id || localEmployee.iban
-                              ? 1
-                              : bank_accounts.length || null,
-                    education_qualifications:
-                        education_qualifications === undefined
-                            ? null
-                            : education_qualifications.length || null,
-                    work_experiences:
-                        work_experiences === undefined
-                            ? null
-                            : work_experiences.length || null,
-                    vaccinations:
-                        vaccinations === undefined
-                            ? null
-                            : vaccinations.length || null,
-                    languages:
-                        languages === undefined
-                            ? null
-                            : languages.length || null,
-                    trainings:
-                        trainings === undefined
-                            ? null
-                            : trainings.length || null,
-                    sea_services:
-                        sea_services === undefined
-                            ? null
-                            : sea_services.length || null,
-                    documents:
-                        documents === undefined
-                            ? null
-                            : documents.length || null,
-                },
-            });
+            employee_tabs,
+            counts: {
+                contracts:
+                    contracts === undefined ? null : contracts.length || null,
+                salary_revisions:
+                    contracts === undefined
+                        ? null
+                        : contracts.reduce(
+                              (total, contract) =>
+                                  total +
+                                  (contract.salary_revisions?.length ?? 0),
+                              0,
+                          ) || null,
+                bank_accounts:
+                    bank_accounts === undefined
+                        ? null
+                        : localEmployee.bank_id || localEmployee.iban
+                          ? 1
+                          : bank_accounts.length || null,
+                education_qualifications:
+                    education_qualifications === undefined
+                        ? null
+                        : education_qualifications.length || null,
+                work_experiences:
+                    work_experiences === undefined
+                        ? null
+                        : work_experiences.length || null,
+                vaccinations:
+                    vaccinations === undefined
+                        ? null
+                        : vaccinations.length || null,
+                languages:
+                    languages === undefined ? null : languages.length || null,
+                trainings:
+                    trainings === undefined ? null : trainings.length || null,
+                sea_services:
+                    sea_services === undefined
+                        ? null
+                        : sea_services.length || null,
+                documents:
+                    documents === undefined ? null : documents.length || null,
+            },
+        });
 
         return builtTabs;
     }, [

@@ -85,12 +85,16 @@ export function FolderShareLinksModal({
         setIsGenerating(true);
 
         try {
-            const response = await fetchFolderShareLinks(shareLinksUrl, employeeIds, {
-                password: usePassword ? password : '',
-                expiresAt: expiresAt || undefined,
-                canDownload,
-                canUpload,
-            });
+            const response = await fetchFolderShareLinks(
+                shareLinksUrl,
+                employeeIds,
+                {
+                    password: usePassword ? password : '',
+                    expiresAt: expiresAt || undefined,
+                    canDownload,
+                    canUpload,
+                },
+            );
             setShares(response.shares);
             toast.success('Folder share links generated successfully.');
         } catch (error) {
@@ -186,8 +190,8 @@ export function FolderShareLinksModal({
                         <p className="text-sm text-zinc-400">
                             Configure what recipients can do with{' '}
                             {employeeIds.length} folder
-                            {employeeIds.length === 1 ? '' : 's'}. View is always
-                            enabled.
+                            {employeeIds.length === 1 ? '' : 's'}. View is
+                            always enabled.
                         </p>
 
                         <div className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">

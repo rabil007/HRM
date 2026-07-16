@@ -67,7 +67,11 @@ function PdfCanvasPreview({
 
                 setPageCount(pdf.numPages);
 
-                for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+                for (
+                    let pageNumber = 1;
+                    pageNumber <= pdf.numPages;
+                    pageNumber++
+                ) {
                     if (cancelled || !pagesRef.current) {
                         return;
                     }

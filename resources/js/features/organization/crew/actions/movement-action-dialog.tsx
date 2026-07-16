@@ -28,10 +28,7 @@ import type {
     CrewMovementAction,
     CrewMovementActionFormData,
 } from '../types';
-import {
-    CREW_MOVEMENT_ACTION_LABELS,
-    CREW_PHASE_LABELS,
-} from '../types';
+import { CREW_MOVEMENT_ACTION_LABELS, CREW_PHASE_LABELS } from '../types';
 
 const NEXT_PHASE_OPTIONS: Partial<
     Record<CrewMovementAction, Array<{ value: string; label: string }>>
@@ -215,7 +212,17 @@ export function MovementActionDialog({
                         {CREW_MOVEMENT_ACTION_LABELS[action]}
                     </DialogTitle>
                     <DialogDescription>
-                        Record this crew movement action for the assignment.
+                        {action === 'plan_signoff'
+                            ? 'This updates the plan only and does not disembark the employee.'
+                            : action === 'cancel_assignment'
+                              ? 'This permanently cancels the crew assignment. Provide a reason and effective date/time.'
+                              : action === 'close_assignment'
+                                ? 'This closes the assignment after Home / Redeploy. This action cannot be undone.'
+                                : action === 'confirm_disembarkation'
+                                  ? 'Record the actual disembarkation and choose the next demobilisation phase.'
+                                  : action === 'join_vessel'
+                                    ? 'Record the actual join time and vessel details. Planned sign-off is optional and is not an actual disembarkation.'
+                                    : 'Record this crew movement action for the assignment.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -309,7 +316,9 @@ export function MovementActionDialog({
                                             )
                                         }
                                     />
-                                    <InputError message={form.errors.provider} />
+                                    <InputError
+                                        message={form.errors.provider}
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="movement-course">
@@ -535,7 +544,7 @@ export function MovementActionDialog({
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="movement-planned-signoff">
-                                    Planned sign-off
+                                    Planned Sign-Off (optional)
                                 </Label>
                                 <Input
                                     id="movement-planned-signoff"
@@ -548,6 +557,10 @@ export function MovementActionDialog({
                                         )
                                     }
                                 />
+                                <p className="text-xs text-muted-foreground">
+                                    Plan only. This is not Actual
+                                    Disembarkation.
+                                </p>
                                 <InputError
                                     message={form.errors.planned_signoff_at}
                                 />
@@ -574,13 +587,14 @@ export function MovementActionDialog({
 
                     {action === 'plan_signoff' ? (
                         <>
-                            <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
-                                This updates the planned sign-off date while the
-                                crew member remains on vessel (P4).
+                            <div className="rounded-lg border border-amber-500/30 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+                                This updates the plan only and does not
+                                disembark the employee. The crew member remains
+                                on vessel (P4).
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="movement-plan-signoff">
-                                    Planned sign-off
+                                    Planned Sign-Off
                                 </Label>
                                 <Input
                                     id="movement-plan-signoff"
@@ -598,6 +612,23 @@ export function MovementActionDialog({
                                 />
                             </div>
                         </>
+                    ) : null}
+
+                    {action === 'confirm_disembarkation' ? (
+                        <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+                            <div>
+                                <span className="text-muted-foreground">
+                                    Planned Sign-Off:{' '}
+                                </span>
+                                <span className="font-medium">
+                                    {defaultPlannedSignoffAt ?? 'Not set'}
+                                </span>
+                            </div>
+                            <div className="mt-1 text-muted-foreground">
+                                Actual Disembarkation is the Occurred at value
+                                below.
+                            </div>
+                        </div>
                     ) : null}
 
                     {action === 'travel_home' ? (
@@ -624,6 +655,10 @@ export function MovementActionDialog({
 
                     {action === 'cancel_assignment' ? (
                         <div className="space-y-2">
+                            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                                Cancelling ends this crew assignment. This
+                                cannot be undone from the Current Crew UI.
+                            </div>
                             <Label htmlFor="movement-reason">
                                 Cancellation reason
                             </Label>
@@ -634,6 +669,8 @@ export function MovementActionDialog({
                                     form.setData('reason', event.target.value)
                                 }
                                 rows={3}
+                                required
+                                aria-required="true"
                             />
                             <InputError message={form.errors.reason} />
                         </div>

@@ -29,7 +29,13 @@ import {
 } from 'lucide-react';
 import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import { dashboard } from '@/routes';
-import { bankAccounts, contracts, documents, seaServices, training } from '@/routes/organization';
+import {
+    bankAccounts,
+    contracts,
+    documents,
+    seaServices,
+    training,
+} from '@/routes/organization';
 import type { SidebarData } from '../types';
 
 const baseSidebarData: SidebarData = {
@@ -111,8 +117,16 @@ const baseSidebarData: SidebarData = {
                     url: '/organization/documents/bulk',
                     icon: FileStack,
                 },
-                { title: 'Contracts', url: contracts.url(), icon: FileSignature },
-                { title: 'Bank Accounts', url: bankAccounts.url(), icon: CreditCard },
+                {
+                    title: 'Contracts',
+                    url: contracts.url(),
+                    icon: FileSignature,
+                },
+                {
+                    title: 'Bank Accounts',
+                    url: bankAccounts.url(),
+                    icon: CreditCard,
+                },
                 { title: 'Training', url: training.url(), icon: GraduationCap },
                 { title: 'Sea Service', url: seaServices.url(), icon: Waves },
             ],
@@ -414,10 +428,7 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 ? item
                                 : null;
                         case '/attendance/overview':
-                            return has(
-                                permissions,
-                                'attendance.overview.view',
-                            )
+                            return has(permissions, 'attendance.overview.view')
                                 ? item
                                 : null;
                         case '/payroll/overview':

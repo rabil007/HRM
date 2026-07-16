@@ -54,14 +54,14 @@ import {
 } from '@/components/ui/table';
 import { employeeDocumentViewUrl } from '@/features/organization/documents/bulk/bulk-document-urls';
 import { BulkDocumentsHistoryTable } from '@/features/organization/documents/bulk/bulk-documents-history-table';
-import {
-    BulkDocumentsViewSwitcher
-    
-} from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
-import type {BulkDocumentsView} from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
+import { BulkDocumentsViewSwitcher } from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
+import type { BulkDocumentsView } from '@/features/organization/documents/bulk/bulk-documents-view-switcher';
 import { BulkEmailBatchSendsSheet } from '@/features/organization/documents/bulk/bulk-email-batch-sends-sheet';
 import { BulkDocumentsEmailModal } from '@/features/organization/documents/bulk/bulk-email-modal';
-import { BulkSignaturesTable, canRegenerateSignatureAlignment } from '@/features/organization/documents/bulk/bulk-signatures-table';
+import {
+    BulkSignaturesTable,
+    canRegenerateSignatureAlignment,
+} from '@/features/organization/documents/bulk/bulk-signatures-table';
 import { SignatureStatusBadge } from '@/features/organization/documents/bulk/signature-status-badge';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { downloadBinaryExport } from '@/features/organization/documents/shared/download-binary-export';
@@ -74,10 +74,17 @@ import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import documentRoutes from '@/routes/organization/documents';
-import {
-    EMPTY_BULK_DOCUMENT_FILTERS
+import { EMPTY_BULK_DOCUMENT_FILTERS } from './types';
+import type {
+    BulkDocumentFilters,
+    BulkDocumentsPageProps,
+    BulkEmailFilter,
+    BulkGenerationFilter,
+    BulkRosterEmployee,
+    BulkSignatureFilter,
+    LatestEmailBatch,
+    LatestSignatureRepairRun,
 } from './types';
-import type {BulkDocumentFilters, BulkDocumentsPageProps, BulkEmailFilter, BulkGenerationFilter, BulkRosterEmployee, BulkSignatureFilter, LatestEmailBatch, LatestSignatureRepairRun} from './types';
 
 const BULK_URL = '/organization/documents/bulk';
 
@@ -159,7 +166,7 @@ function SummaryCard({
         >
             <Card
                 className={cn(
-                    'glass-card cursor-pointer transition-all duration-200',
+                    'cursor-pointer glass-card transition-all duration-200',
                     cardClass,
                     active && activeClass,
                 )}
@@ -293,7 +300,9 @@ function EmailProgressBanner({
 }: {
     latestEmailBatch: LatestEmailBatch | null;
 }) {
-    const [dismissedBatchId, setDismissedBatchId] = useState<number | null>(null);
+    const [dismissedBatchId, setDismissedBatchId] = useState<number | null>(
+        null,
+    );
 
     const status = latestEmailBatch?.status;
     const isRunning = status === 'running' || status === 'queued';
@@ -338,7 +347,9 @@ function EmailProgressBanner({
         const parts = [`${latestEmailBatch.sent_count} sent`];
 
         if (latestEmailBatch.skipped_no_email_count > 0) {
-            parts.push(`${latestEmailBatch.skipped_no_email_count} skipped (no email)`);
+            parts.push(
+                `${latestEmailBatch.skipped_no_email_count} skipped (no email)`,
+            );
         }
 
         if (latestEmailBatch.failed_count > 0) {
@@ -588,8 +599,10 @@ export function BulkDocumentsContent({
             employee_ids: number[];
             total: number;
         } | null>(null);
-    const [isSelectingAllMatchingSignatures, setIsSelectingAllMatchingSignatures] =
-        useState(false);
+    const [
+        isSelectingAllMatchingSignatures,
+        setIsSelectingAllMatchingSignatures,
+    ] = useState(false);
 
     const [isRegeneratingAlignment, setIsRegeneratingAlignment] =
         useState(false);
@@ -621,11 +634,7 @@ export function BulkDocumentsContent({
         return signature_requests
             .filter((request) => selectedSignatureIds.includes(request.id))
             .map((request) => request.employee.id);
-    }, [
-        matchingSignatureSelection,
-        selectedSignatureIds,
-        signature_requests,
-    ]);
+    }, [matchingSignatureSelection, selectedSignatureIds, signature_requests]);
 
     const regenerableSelectedSignatureIds = useMemo(() => {
         if (matchingSignatureSelection) {
@@ -729,7 +738,13 @@ export function BulkDocumentsContent({
 
     useEffect(() => {
         setMatchingSignatureSelection(null);
-    }, [document_type_key, filters, signature_filter, email_filter, searchInput]);
+    }, [
+        document_type_key,
+        filters,
+        signature_filter,
+        email_filter,
+        searchInput,
+    ]);
 
     const showSelectAllMatchingSignatures =
         can.review_signatures &&
@@ -825,10 +840,8 @@ export function BulkDocumentsContent({
         [selectedEmployees],
     );
 
-    const effectiveSelectedIds =
-        matchingSelection?.employee_ids ?? selectedIds;
-    const effectiveSelectedCount =
-        matchingSelection?.total ?? selectedCount;
+    const effectiveSelectedIds = matchingSelection?.employee_ids ?? selectedIds;
+    const effectiveSelectedCount = matchingSelection?.total ?? selectedCount;
     const effectiveDocumentIds =
         matchingSelection?.document_ids ?? selectedDocumentIds;
 
@@ -850,8 +863,9 @@ export function BulkDocumentsContent({
     }, [employees, matchingSelection, selectedEmployees]);
 
     const selectedTypeLabel =
-        document_type_options.find((option) => option.value === document_type_key)
-            ?.label ?? document_type_key;
+        document_type_options.find(
+            (option) => option.value === document_type_key,
+        )?.label ?? document_type_key;
 
     const missingCount = counts.not_generated;
     const generateLabel =
@@ -1510,12 +1524,7 @@ export function BulkDocumentsContent({
 
     const setGenerationFilter = useCallback(
         (next: BulkGenerationFilter) => {
-            navigate(
-                document_type_key,
-                filters,
-                searchInput,
-                next,
-            );
+            navigate(document_type_key, filters, searchInput, next);
         },
         [document_type_key, filters, navigate, searchInput],
     );
@@ -1598,7 +1607,9 @@ export function BulkDocumentsContent({
                             ))}
                         </AppSelect>
 
-                        {isRosterView && can.generate && effectiveSelectedCount === 0 ? (
+                        {isRosterView &&
+                        can.generate &&
+                        effectiveSelectedCount === 0 ? (
                             <Button
                                 type="button"
                                 onClick={handleGenerate}
@@ -1799,8 +1810,7 @@ export function BulkDocumentsContent({
                                     ) => {
                                         const next = {
                                             ...filters,
-                                            department_id:
-                                                String(departmentId),
+                                            department_id: String(departmentId),
                                             position_id: String(positionId),
                                         };
                                         setFilters(next);
@@ -1823,18 +1833,12 @@ export function BulkDocumentsContent({
                                     company_visa_type_id: value,
                                 };
                                 setFilters(next);
-                                navigate(
-                                    document_type_key,
-                                    next,
-                                    searchInput,
-                                );
+                                navigate(document_type_key, next, searchInput);
                             }}
                             placeholder="All sponsors"
                             className="h-12 w-full rounded-xl glass-card sm:w-56"
                         >
-                            <AppSelectItem value="">
-                                All sponsors
-                            </AppSelectItem>
+                            <AppSelectItem value="">All sponsors</AppSelectItem>
                             {company_visa_types.map((sponsor) => (
                                 <AppSelectItem
                                     key={sponsor.id}
@@ -1855,7 +1859,9 @@ export function BulkDocumentsContent({
                             <AppSelectItem value="all">
                                 All email status
                             </AppSelectItem>
-                            <AppSelectItem value="emailed">Emailed</AppSelectItem>
+                            <AppSelectItem value="emailed">
+                                Emailed
+                            </AppSelectItem>
                             <AppSelectItem value="not_emailed">
                                 Not emailed
                             </AppSelectItem>
@@ -2063,163 +2069,176 @@ export function BulkDocumentsContent({
 
             {isRosterView ? (
                 <>
-            {/* Selection toolbar */}
-            <DocumentsBulkToolbar
-                count={effectiveSelectedCount}
-                itemLabel="employees"
-                onClear={clearSelection}
-                selectAllMatching={
-                    showSelectAllMatching
-                        ? {
-                              total: pagination.total,
-                              onSelect: () => void handleSelectAllMatching(),
-                              loading: isSelectingAllMatching,
-                          }
-                        : undefined
-                }
-                selectAll={
-                    <Checkbox
-                        checked={isHeaderCheckboxChecked}
-                        onCheckedChange={handleToggleAllEmployees}
-                        aria-label="Select all employees"
-                    />
-                }
-                actions={
-                    <>
-                        {can.generate ? (
-                            <Button
-                                type="button"
-                                size="sm"
-                                onClick={handleGenerate}
-                                disabled={isGenerating || isRunActive}
-                            >
-                                {isGenerating ? (
-                                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                                ) : null}
-                                {generateLabel}
-                            </Button>
-                        ) : null}
-                        {can.download ? (
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => void handleDownload()}
-                                disabled={isDownloading}
-                            >
-                                <Download className="mr-2 h-3.5 w-3.5" />
-                                Download
-                            </Button>
-                        ) : null}
-                        {can.email ? (
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                    setEmailIntent('initial');
-                                    setEmailOpen(true);
-                                }}
-                            >
-                                <Mail className="mr-2 h-3.5 w-3.5" />
-                                Send email
-                            </Button>
-                        ) : null}
-                        {can.delete ? (
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => setDeleteOpen(true)}
-                                disabled={effectiveDocumentIds.length === 0}
-                            >
-                                <Trash2 className="mr-2 h-3.5 w-3.5" />
-                                Delete
-                            </Button>
-                        ) : null}
-                    </>
-                }
-            />
-
-            {effectiveSelectedCount > 0 ? (
-                <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground/80">
-                    <RotateCcw className="h-3 w-3" />
-                    Existing documents for selected employees will be replaced.
-                </p>
-            ) : null}
-
-            {/* Employee table */}
-            <OrganizationDataTable
-                minWidth="min-w-[880px]"
-                header={
-                    <>
-                        <span />
-                        <BulkDocumentsViewSwitcher
-                            value={view}
-                            onChange={setView}
-                            showSignatures={supportsEsignature}
-                        />
-                    </>
-                }
-            >
-                <TableHeader>
-                    <DataTableHeaderRow>
-                        <DataTableHead className="w-10">
+                    {/* Selection toolbar */}
+                    <DocumentsBulkToolbar
+                        count={effectiveSelectedCount}
+                        itemLabel="employees"
+                        onClear={clearSelection}
+                        selectAllMatching={
+                            showSelectAllMatching
+                                ? {
+                                      total: pagination.total,
+                                      onSelect: () =>
+                                          void handleSelectAllMatching(),
+                                      loading: isSelectingAllMatching,
+                                  }
+                                : undefined
+                        }
+                        selectAll={
                             <Checkbox
                                 checked={isHeaderCheckboxChecked}
                                 onCheckedChange={handleToggleAllEmployees}
                                 aria-label="Select all employees"
                             />
-                        </DataTableHead>
-                        <DataTableHead>Employee</DataTableHead>
-                        <DataTableHead>Email</DataTableHead>
-                        <DataTableHead>Emailed</DataTableHead>
-                        <DataTableHead>Document</DataTableHead>
-                        {supportsEsignature ? (
-                            <DataTableHead>Signature</DataTableHead>
-                        ) : null}
-                        <DataTableHead className="text-right">
-                            Actions
-                        </DataTableHead>
-                    </DataTableHeaderRow>
-                </TableHeader>
-                <TableBody>
-                    {employees.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={supportsEsignature ? 7 : 6} className="p-0">
-                                <EmptyState
-                                    title="No employees match the current filters."
-                                    description="Try adjusting your search or filters."
-                                />
-                            </TableCell>
-                        </TableRow>
-                    ) : (
-                        employees.map((employee) => (
-                            <BulkRosterRow
-                                key={employee.id}
-                                employee={employee}
-                                checked={isEmployeeRowSelected(employee.id)}
-                                onToggle={() => handleToggleEmployee(employee.id)}
-                                canDownload={can.download}
-                                showSignature={supportsEsignature}
-                            />
-                        ))
-                    )}
-                </TableBody>
-            </OrganizationDataTable>
+                        }
+                        actions={
+                            <>
+                                {can.generate ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={handleGenerate}
+                                        disabled={isGenerating || isRunActive}
+                                    >
+                                        {isGenerating ? (
+                                            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                                        ) : null}
+                                        {generateLabel}
+                                    </Button>
+                                ) : null}
+                                {can.download ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => void handleDownload()}
+                                        disabled={isDownloading}
+                                    >
+                                        <Download className="mr-2 h-3.5 w-3.5" />
+                                        Download
+                                    </Button>
+                                ) : null}
+                                {can.email ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                            setEmailIntent('initial');
+                                            setEmailOpen(true);
+                                        }}
+                                    >
+                                        <Mail className="mr-2 h-3.5 w-3.5" />
+                                        Send email
+                                    </Button>
+                                ) : null}
+                                {can.delete ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-destructive hover:text-destructive"
+                                        onClick={() => setDeleteOpen(true)}
+                                        disabled={
+                                            effectiveDocumentIds.length === 0
+                                        }
+                                    >
+                                        <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                        Delete
+                                    </Button>
+                                ) : null}
+                            </>
+                        }
+                    />
 
-            <Pagination
-                currentPage={pagination.current_page}
-                lastPage={pagination.last_page}
-                from={pagination.from}
-                to={pagination.to}
-                total={pagination.total}
-                perPage={pagination.per_page}
-                onPageChange={goToPage}
-                onPerPageChange={setPerPage}
-                label="employees"
-            />
+                    {effectiveSelectedCount > 0 ? (
+                        <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground/80">
+                            <RotateCcw className="h-3 w-3" />
+                            Existing documents for selected employees will be
+                            replaced.
+                        </p>
+                    ) : null}
+
+                    {/* Employee table */}
+                    <OrganizationDataTable
+                        minWidth="min-w-[880px]"
+                        header={
+                            <>
+                                <span />
+                                <BulkDocumentsViewSwitcher
+                                    value={view}
+                                    onChange={setView}
+                                    showSignatures={supportsEsignature}
+                                />
+                            </>
+                        }
+                    >
+                        <TableHeader>
+                            <DataTableHeaderRow>
+                                <DataTableHead className="w-10">
+                                    <Checkbox
+                                        checked={isHeaderCheckboxChecked}
+                                        onCheckedChange={
+                                            handleToggleAllEmployees
+                                        }
+                                        aria-label="Select all employees"
+                                    />
+                                </DataTableHead>
+                                <DataTableHead>Employee</DataTableHead>
+                                <DataTableHead>Email</DataTableHead>
+                                <DataTableHead>Emailed</DataTableHead>
+                                <DataTableHead>Document</DataTableHead>
+                                {supportsEsignature ? (
+                                    <DataTableHead>Signature</DataTableHead>
+                                ) : null}
+                                <DataTableHead className="text-right">
+                                    Actions
+                                </DataTableHead>
+                            </DataTableHeaderRow>
+                        </TableHeader>
+                        <TableBody>
+                            {employees.length === 0 ? (
+                                <TableRow>
+                                    <TableCell
+                                        colSpan={supportsEsignature ? 7 : 6}
+                                        className="p-0"
+                                    >
+                                        <EmptyState
+                                            title="No employees match the current filters."
+                                            description="Try adjusting your search or filters."
+                                        />
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                employees.map((employee) => (
+                                    <BulkRosterRow
+                                        key={employee.id}
+                                        employee={employee}
+                                        checked={isEmployeeRowSelected(
+                                            employee.id,
+                                        )}
+                                        onToggle={() =>
+                                            handleToggleEmployee(employee.id)
+                                        }
+                                        canDownload={can.download}
+                                        showSignature={supportsEsignature}
+                                    />
+                                ))
+                            )}
+                        </TableBody>
+                    </OrganizationDataTable>
+
+                    <Pagination
+                        currentPage={pagination.current_page}
+                        lastPage={pagination.last_page}
+                        from={pagination.from}
+                        to={pagination.to}
+                        total={pagination.total}
+                        perPage={pagination.per_page}
+                        onPageChange={goToPage}
+                        onPerPageChange={setPerPage}
+                        label="employees"
+                    />
                 </>
             ) : isSignaturesView ? (
                 <>
@@ -2248,8 +2267,7 @@ export function BulkDocumentsContent({
                             }
                             actions={
                                 <>
-                                    {effectiveSignatureRequestIds.length >
-                                    0 ? (
+                                    {effectiveSignatureRequestIds.length > 0 ? (
                                         <Button
                                             type="button"
                                             size="sm"
@@ -2363,7 +2381,9 @@ export function BulkDocumentsContent({
                                                 isRegeneratingAlignment ||
                                                 isSignatureRepairActive
                                             }
-                                            onClick={regenerateSelectedAlignment}
+                                            onClick={
+                                                regenerateSelectedAlignment
+                                            }
                                         >
                                             {isRegeneratingAlignment ? (
                                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -2390,7 +2410,7 @@ export function BulkDocumentsContent({
                         isSelected={isSignatureRowSelected}
                         isAllSelected={Boolean(
                             matchingSignatureSelection ||
-                                isAllSignaturesSelected,
+                            isAllSignaturesSelected,
                         )}
                         isPartiallySelected={
                             matchingSignatureSelection
@@ -2518,9 +2538,7 @@ export function BulkDocumentsContent({
                 onOpenChange={setApproveOpen}
                 title="Approve selected signatures?"
                 description={`This will approve ${approvableSelectedSignatureIds.length} submitted signature(s) and replace each employee document with the signed PDF.`}
-                confirmText={
-                    isApprovingSignatures ? 'Approving…' : 'Approve'
-                }
+                confirmText={isApprovingSignatures ? 'Approving…' : 'Approve'}
                 confirmButtonClassName="h-11 rounded-xl bg-primary px-6 text-primary-foreground hover:bg-primary/90"
                 onConfirm={approveSelectedSignatures}
             />
@@ -2638,9 +2656,7 @@ function BulkRosterRow({
             </TableCell>
             {showSignature ? (
                 <TableCell className={dataTableCellClass()}>
-                    <SignatureStatusBadge
-                        status={employee.signature_status}
-                    />
+                    <SignatureStatusBadge status={employee.signature_status} />
                 </TableCell>
             ) : null}
             <TableCell
@@ -2649,12 +2665,7 @@ function BulkRosterRow({
             >
                 <div className="flex items-center justify-end gap-2">
                     {hasDocument && canDownload ? (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            asChild
-                        >
+                        <Button type="button" variant="ghost" size="sm" asChild>
                             <a
                                 href={employeeDocumentViewUrl(
                                     employee.document!.id,

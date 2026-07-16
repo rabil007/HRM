@@ -88,8 +88,10 @@ export default function CrewAssignmentShow({
                 />
 
                 <div className="space-y-6">
-                    <div className="glass-card rounded-xl p-6">
-                        <h3 className="mb-4 font-semibold">Movement Progress</h3>
+                    <div className="rounded-xl glass-card p-6">
+                        <h3 className="mb-4 font-semibold">
+                            Movement Progress
+                        </h3>
                         <CrewPhaseProgress
                             currentPhaseCode={
                                 assignment.current_phase?.code ?? null
@@ -98,7 +100,7 @@ export default function CrewAssignmentShow({
                         />
                     </div>
 
-                    <div className="glass-card rounded-xl p-6">
+                    <div className="rounded-xl glass-card p-6">
                         <h3 className="mb-4 font-semibold">Details</h3>
                         <dl className="grid grid-cols-2 gap-4">
                             <div>
@@ -155,6 +157,39 @@ export default function CrewAssignmentShow({
                             </div>
                             <div>
                                 <dt className="text-sm font-medium text-muted-foreground">
+                                    Planned Join
+                                </dt>
+                                <dd className="mt-1">
+                                    {assignment.planned_join_at ?? 'N/A'}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-sm font-medium text-muted-foreground">
+                                    Planned Sign-Off
+                                </dt>
+                                <dd className="mt-1">
+                                    {assignment.planned_signoff_at ?? 'N/A'}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-sm font-medium text-muted-foreground">
+                                    Actual Join
+                                </dt>
+                                <dd className="mt-1">
+                                    {assignment.actual_join_at ?? 'N/A'}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-sm font-medium text-muted-foreground">
+                                    Actual Disembarkation
+                                </dt>
+                                <dd className="mt-1">
+                                    {assignment.actual_disembarkation_at ??
+                                        'N/A'}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-sm font-medium text-muted-foreground">
                                     Days in Phase
                                 </dt>
                                 <dd className="mt-1">
@@ -164,46 +199,66 @@ export default function CrewAssignmentShow({
                         </dl>
                     </div>
 
-                    <div className="glass-card rounded-xl p-6">
+                    <div className="rounded-xl glass-card p-6">
                         <h3 className="mb-4 font-semibold">Phase Timeline</h3>
-                        <div className="space-y-3">
-                            {assignment.phase_timeline.map((phase) => (
-                                <div
-                                    key={phase.id}
-                                    className="flex items-center gap-4 rounded-lg border p-3"
-                                >
-                                    <CrewPhaseBadge
-                                        code={phase.phase_code}
-                                        label={phase.phase_label}
-                                        status={phase.status}
-                                    />
-                                    <div className="flex-1 text-sm">
-                                        <div className="font-medium">
-                                            {phase.status_label}
-                                        </div>
-                                        {phase.actual_start_at ? (
-                                            <div className="text-muted-foreground">
-                                                {phase.actual_start_at}
-                                                {phase.actual_end_at
-                                                    ? ` - ${phase.actual_end_at}`
-                                                    : null}
+                        {assignment.phase_timeline.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                                No phase timeline recorded yet.
+                            </p>
+                        ) : (
+                            <div className="space-y-3">
+                                {assignment.phase_timeline.map((phase) => (
+                                    <div
+                                        key={phase.id}
+                                        className="flex items-center gap-4 rounded-lg border p-3"
+                                    >
+                                        <CrewPhaseBadge
+                                            code={phase.phase_code}
+                                            label={phase.phase_label}
+                                            status={phase.status}
+                                        />
+                                        <div className="flex-1 text-sm">
+                                            <div className="font-medium">
+                                                {phase.status_label}
                                             </div>
-                                        ) : null}
+                                            {phase.actual_start_at ? (
+                                                <div className="text-muted-foreground">
+                                                    {phase.actual_start_at}
+                                                    {phase.actual_end_at
+                                                        ? ` - ${phase.actual_end_at}`
+                                                        : null}
+                                                </div>
+                                            ) : null}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
+                    {(can.perform_movement || can.cancel) &&
+                    assignment.available_actions.length === 0 &&
+                    assignment.status !== 'completed' &&
+                    assignment.status !== 'cancelled' ? (
+                        <div className="rounded-xl glass-card p-6">
+                            <h3 className="mb-2 font-semibold">
+                                Movement Actions
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                                No available actions for the current phase.
+                            </p>
+                        </div>
+                    ) : null}
+
                     {assignment.warnings.length > 0 ? (
-                        <div className="glass-card rounded-xl border-amber-500 p-6">
+                        <div className="rounded-xl glass-card border-amber-500 p-6">
                             <h3 className="mb-4 font-semibold text-amber-600">
                                 Warnings
                             </h3>
                             <div className="space-y-2">
                                 {assignment.warnings.map((warning, idx) => (
                                     <div
-                                        key={idx}
+                                        key={`${warning.code}-${idx}`}
                                         className="rounded-lg border border-amber-500/20 bg-amber-50 p-3 dark:bg-amber-950/20"
                                     >
                                         <div className="font-medium text-amber-900 dark:text-amber-100">
@@ -218,11 +273,23 @@ export default function CrewAssignmentShow({
                         </div>
                     ) : null}
 
-                    {can.view_audit && recent_activity.length > 0 ? (
-                        <RecentActivityCard
-                            items={recent_activity}
-                            description="Latest changes for this crew assignment."
-                        />
+                    {can.view_audit ? (
+                        recent_activity.length > 0 ? (
+                            <RecentActivityCard
+                                items={recent_activity}
+                                description="Latest changes for this crew assignment."
+                            />
+                        ) : (
+                            <div className="rounded-xl glass-card p-6">
+                                <h3 className="mb-2 font-semibold">
+                                    Audit History
+                                </h3>
+                                <p className="text-sm text-muted-foreground">
+                                    No audit history recorded for this
+                                    assignment yet.
+                                </p>
+                            </div>
+                        )
                     ) : null}
                 </div>
             </Main>

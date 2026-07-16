@@ -236,7 +236,9 @@ export default function TrainingShow({
                                 label="Certificate file"
                                 value={
                                     training.certificate_original_filename ??
-                                    (training.certificate_url ? 'Uploaded' : '—')
+                                    (training.certificate_url
+                                        ? 'Uploaded'
+                                        : '—')
                                 }
                             />
                             <MetadataField

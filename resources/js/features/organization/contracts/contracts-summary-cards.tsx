@@ -1,11 +1,5 @@
 import { Link } from '@inertiajs/react';
-import {
-    CheckCircle2,
-    Clock,
-    FileText,
-    UserX,
-    XCircle,
-} from 'lucide-react';
+import { CheckCircle2, Clock, FileText, UserX, XCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { LIFECYCLE_FILTER_LABELS } from '@/features/organization/contracts/contracts-format';
@@ -88,7 +82,8 @@ const SUMMARY_ITEMS: {
         key: 'ended',
         lifecycle: 'ended',
         icon: XCircle,
-        cardClass: 'border-red-500/15 bg-red-500/[0.04] hover:border-red-500/30',
+        cardClass:
+            'border-red-500/15 bg-red-500/[0.04] hover:border-red-500/30',
         activeClass: 'border-red-500/50 ring-2 ring-red-500/20',
         valueClass: 'text-red-400',
         iconClass: 'text-red-500/60',
@@ -105,12 +100,16 @@ function SummaryProgressBar({
     total: number;
     barClass: string;
 }) {
-    const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
+    const pct =
+        total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
 
     return (
         <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-border/50">
             <div
-                className={cn('h-full rounded-full transition-all duration-500', barClass)}
+                className={cn(
+                    'h-full rounded-full transition-all duration-500',
+                    barClass,
+                )}
                 style={{ width: `${pct}%` }}
                 aria-hidden
             />
@@ -148,18 +147,18 @@ export function ContractsSummaryCards({
                         key={item.key}
                         type="button"
                         onClick={() => onSelect(item.lifecycle)}
-                        className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
+                        className="rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
                     >
                         <Card
                             className={cn(
-                                'cursor-pointer transition-all duration-200 overflow-hidden',
+                                'cursor-pointer overflow-hidden transition-all duration-200',
                                 item.cardClass,
                                 isActive && item.activeClass,
                             )}
                         >
                             <CardContent className="p-4">
                                 <div className="flex items-center justify-between gap-2">
-                                    <p className="text-xs font-medium text-muted-foreground leading-tight">
+                                    <p className="text-xs leading-tight font-medium text-muted-foreground">
                                         {label}
                                     </p>
                                     <Icon
@@ -173,7 +172,7 @@ export function ContractsSummaryCards({
                                 </div>
                                 <p
                                     className={cn(
-                                        'mt-2 text-2xl font-semibold tabular-nums tracking-tight',
+                                        'mt-2 text-2xl font-semibold tracking-tight tabular-nums',
                                         item.valueClass,
                                     )}
                                 >
@@ -193,12 +192,12 @@ export function ContractsSummaryCards({
             {/* No-contract card */}
             <Link
                 href={noContract.url()}
-                className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl block"
+                className="block rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
             >
-                <Card className="border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30 cursor-pointer transition-all duration-200 overflow-hidden">
+                <Card className="cursor-pointer overflow-hidden border-violet-500/15 bg-violet-500/[0.04] transition-all duration-200 hover:border-violet-500/30">
                     <CardContent className="p-4">
                         <div className="flex items-center justify-between gap-2">
-                            <p className="text-xs font-medium text-muted-foreground leading-tight">
+                            <p className="text-xs leading-tight font-medium text-muted-foreground">
                                 No contract
                             </p>
                             <UserX
@@ -206,7 +205,7 @@ export function ContractsSummaryCards({
                                 aria-hidden
                             />
                         </div>
-                        <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-violet-400">
+                        <p className="mt-2 text-2xl font-semibold tracking-tight text-violet-400 tabular-nums">
                             {summary.no_contract_employees.toLocaleString()}
                         </p>
                         <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-border/50">

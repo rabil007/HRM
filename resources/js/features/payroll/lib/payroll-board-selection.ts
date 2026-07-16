@@ -47,9 +47,7 @@ export function pruneExcludedIds(
     allBoardEmployeeIds: number[],
 ): Set<number> {
     const validIds = new Set(allBoardEmployeeIds);
-    const next = new Set(
-        [...excludedIds].filter((id) => validIds.has(id)),
-    );
+    const next = new Set([...excludedIds].filter((id) => validIds.has(id)));
 
     return next.size === excludedIds.size ? excludedIds : next;
 }

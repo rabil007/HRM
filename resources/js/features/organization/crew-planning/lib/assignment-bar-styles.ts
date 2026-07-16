@@ -1,4 +1,4 @@
-/** Crew synced from Crew Deployments — currently on vessel. */
+/** Crew synced from Current Crew — currently on vessel. */
 export const deployedBarSurfaceClass =
     'border border-emerald-500/55 bg-emerald-500/25 dark:border-emerald-400/50 dark:bg-emerald-500/30';
 
@@ -27,7 +27,7 @@ export const vacantBarAvatarClass =
 
 type AssignmentStyleInput = {
     employee_id: number | null;
-    is_deployed: boolean;
+    is_assigned: boolean;
 };
 
 export function barSurfaceClass(bar: AssignmentStyleInput): string {
@@ -35,7 +35,7 @@ export function barSurfaceClass(bar: AssignmentStyleInput): string {
         return vacantBarSurfaceClass;
     }
 
-    return bar.is_deployed
+    return bar.is_assigned
         ? deployedBarSurfaceClass
         : plannedReliefBarSurfaceClass;
 }
@@ -45,7 +45,7 @@ export function barAvatarClass(bar: AssignmentStyleInput): string {
         return vacantBarAvatarClass;
     }
 
-    return bar.is_deployed
+    return bar.is_assigned
         ? deployedBarAvatarClass
         : plannedReliefBarAvatarClass;
 }
@@ -55,7 +55,7 @@ export function barResizeHandleClass(bar: AssignmentStyleInput): string {
         return plannedReliefBarResizeHandleClass;
     }
 
-    return bar.is_deployed
+    return bar.is_assigned
         ? deployedBarResizeHandleClass
         : plannedReliefBarResizeHandleClass;
 }

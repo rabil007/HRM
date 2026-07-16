@@ -120,7 +120,9 @@ export function useDocumentsIndexFilters({
             visit(
                 baseParams({
                     department_id:
-                        departmentId !== null ? String(departmentId) : undefined,
+                        departmentId !== null
+                            ? String(departmentId)
+                            : undefined,
                 }),
             );
         },

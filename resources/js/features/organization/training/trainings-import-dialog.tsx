@@ -447,9 +447,7 @@ export function TrainingsImportDialog({
                             <Upload className="mr-2 h-4 w-4" />
                         )}
                         Import{' '}
-                        {preview
-                            ? `${preview.summary.importable} row(s)`
-                            : ''}
+                        {preview ? `${preview.summary.importable} row(s)` : ''}
                     </Button>
                 </DialogFooter>
             </DialogContent>

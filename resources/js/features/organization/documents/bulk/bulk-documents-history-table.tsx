@@ -136,19 +136,23 @@ export function BulkDocumentsHistoryTable({
                                 <TableCell
                                     className={cn(
                                         dataTableCellClass(),
-                                        'whitespace-nowrap text-sm',
+                                        'text-sm whitespace-nowrap',
                                     )}
                                 >
                                     {item.created_at
-                                        ? formatDisplayDateTime12h(item.created_at)
+                                        ? formatDisplayDateTime12h(
+                                              item.created_at,
+                                          )
                                         : '—'}
                                 </TableCell>
-                                <TableCell className={dataTableCellPrimaryClass()}>
+                                <TableCell
+                                    className={dataTableCellPrimaryClass()}
+                                >
                                     <div>{item.document_type_label}</div>
                                     <Badge
                                         variant="outline"
                                         className={cn(
-                                            'mt-1 h-5 border-0 px-1.5 text-[10px] font-semibold uppercase tracking-wide',
+                                            'mt-1 h-5 border-0 px-1.5 text-[10px] font-semibold tracking-wide uppercase',
                                             isGeneration
                                                 ? 'bg-primary/10 text-primary'
                                                 : 'bg-sky-500/10 text-sky-500',

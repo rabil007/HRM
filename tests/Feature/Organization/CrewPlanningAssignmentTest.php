@@ -314,7 +314,7 @@ test('assignment bars are included in the gantt bars response', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->has('bars', 1)
             ->where('bars.0.planned_join_date', $today->addDays(5)->toDateString())
-            ->where('bars.0.is_deployed', false)
+            ->where('bars.0.is_assigned', false)
         );
 });
 
@@ -339,7 +339,7 @@ test('bars method marks manual relief assignments as not deployed', function () 
 
     expect($bars)->toHaveCount(1)
         ->and($bars[0]['employee_id'])->toBe($employee->id)
-        ->and($bars[0]['is_deployed'])->toBeFalse();
+        ->and($bars[0]['is_assigned'])->toBeFalse();
 });
 
 test('bars method marks assignment-synced assignments as deployed', function () {
@@ -367,7 +367,7 @@ test('bars method marks assignment-synced assignments as deployed', function () 
     $bars = CrewPlanningGanttQuery::bars($company->id, $from, $to);
 
     expect($bars)->toHaveCount(1)
-        ->and($bars[0]['is_deployed'])->toBeTrue();
+        ->and($bars[0]['is_assigned'])->toBeTrue();
 });
 
 test('tree method marks assignment-synced crew as deployed', function () {
@@ -395,7 +395,7 @@ test('tree method marks assignment-synced crew as deployed', function () {
     $tree = CrewPlanningGanttQuery::tree($company->id, $from, $to);
 
     expect($tree)->toHaveCount(1)
-        ->and($tree[0]['ranks'][0]['crew'][0]['is_deployed'])->toBeTrue();
+        ->and($tree[0]['ranks'][0]['crew'][0]['is_assigned'])->toBeTrue();
 });
 
 test('tree method marks manual relief crew as not deployed', function () {
@@ -418,7 +418,7 @@ test('tree method marks manual relief crew as not deployed', function () {
     $tree = CrewPlanningGanttQuery::tree($company->id, $from, $to);
 
     expect($tree)->toHaveCount(1)
-        ->and($tree[0]['ranks'][0]['crew'][0]['is_deployed'])->toBeFalse();
+        ->and($tree[0]['ranks'][0]['crew'][0]['is_assigned'])->toBeFalse();
 });
 
 test('store links planned relief to the assignment being relieved', function () {
@@ -515,7 +515,7 @@ test('bars include relief assignment linkage fields', function () {
     expect($bars)->toHaveCount(1)
         ->and($bars[0]['relieves_crew_assignment_id'])->toBe($assignment->id)
         ->and($bars[0]['relieves_employee_name'])->toBe('Deployed Crew')
-        ->and($bars[0]['is_deployed'])->toBeFalse();
+        ->and($bars[0]['is_assigned'])->toBeFalse();
 });
 
 test('store allows overlapping assignments for the same employee', function () {

@@ -147,7 +147,9 @@ export function SignatureCapture({
                     </Button>
 
                     {uploadError ? (
-                        <p className="text-sm text-destructive">{uploadError}</p>
+                        <p className="text-sm text-destructive">
+                            {uploadError}
+                        </p>
                     ) : null}
 
                     {previewUrl ? (

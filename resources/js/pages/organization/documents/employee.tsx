@@ -52,7 +52,10 @@ import type {
     EmployeeSummary,
 } from '@/features/organization/documents/shared/types';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
-import { ShareLinksModal, FolderShareLinksModal } from '@/features/organization/documents/whatsapp-share';
+import {
+    ShareLinksModal,
+    FolderShareLinksModal,
+} from '@/features/organization/documents/whatsapp-share';
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import { resolveDefaultWhatsAppTemplate } from '@/features/organization/documents/whatsapp-template/types';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
@@ -276,7 +279,9 @@ export default function EmployeeDocumentsBrowse({
         setIsDeleting(true);
 
         router.delete(
-            documentRoutes.employee.files.bulkDestroy.url({ employee: employee.id }),
+            documentRoutes.employee.files.bulkDestroy.url({
+                employee: employee.id,
+            }),
             {
                 data: { document_ids: selectedDocumentIds },
                 preserveScroll: true,
@@ -379,7 +384,9 @@ export default function EmployeeDocumentsBrowse({
                                     size="sm"
                                     variant="outline"
                                     className="rounded-lg"
-                                    onClick={() => setFolderShareModalOpen(true)}
+                                    onClick={() =>
+                                        setFolderShareModalOpen(true)
+                                    }
                                 >
                                     <MessageCircle className="mr-2 h-4 w-4" />
                                     Share folder
@@ -516,7 +523,9 @@ export default function EmployeeDocumentsBrowse({
                                     setEditDoc(document as DocumentProfileItem)
                                 }
                                 onReplace={(document) =>
-                                    setReplaceDoc(document as DocumentProfileItem)
+                                    setReplaceDoc(
+                                        document as DocumentProfileItem,
+                                    )
                                 }
                                 onDelete={(document) =>
                                     setDeleteDocId(document.id)

@@ -162,7 +162,8 @@ export function useBankAccountsIndexFilters({
         (departmentId: number | null) => {
             visit({
                 ...baseParams(),
-                department_id: departmentId !== null ? String(departmentId) : undefined,
+                department_id:
+                    departmentId !== null ? String(departmentId) : undefined,
                 page: null,
             });
         },

@@ -1,18 +1,16 @@
 import { Link } from '@inertiajs/react';
-import {
-    CheckCircle2,
-    CreditCard,
-    UserX,
-    Wallet
-    
-} from 'lucide-react';
-import type {LucideIcon} from 'lucide-react';
+import { CheckCircle2, CreditCard, UserX, Wallet } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { BankAccountSummary } from '@/features/organization/bank-accounts/types';
 import { cn } from '@/lib/utils';
 import { noAccount } from '@/routes/organization/bank-accounts';
 
-type SummaryKey = 'total_bank_accounts' | 'primary_accounts' | 'secondary_accounts' | 'ansari_accounts';
+type SummaryKey =
+    | 'total_bank_accounts'
+    | 'primary_accounts'
+    | 'secondary_accounts'
+    | 'ansari_accounts';
 
 const SUMMARY_ITEMS: {
     key: SummaryKey;
@@ -91,7 +89,7 @@ export function BankAccountsSummaryCards({
                         key={item.key}
                         type="button"
                         onClick={() => onSelect(item.isPrimaryFilter)}
-                        className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
+                        className="rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
                     >
                         <Card
                             className={cn(
@@ -102,17 +100,20 @@ export function BankAccountsSummaryCards({
                         >
                             <CardContent className="p-4">
                                 <div className="flex items-center justify-between gap-2">
-                                    <p className="text-xs font-medium text-muted-foreground leading-tight">
+                                    <p className="text-xs leading-tight font-medium text-muted-foreground">
                                         {item.label}
                                     </p>
                                     <Icon
-                                        className={cn('size-3.5 shrink-0', item.iconClass)}
+                                        className={cn(
+                                            'size-3.5 shrink-0',
+                                            item.iconClass,
+                                        )}
                                         aria-hidden
                                     />
                                 </div>
                                 <p
                                     className={cn(
-                                        'mt-2 text-2xl font-semibold tabular-nums tracking-tight',
+                                        'mt-2 text-2xl font-semibold tracking-tight tabular-nums',
                                         item.valueClass,
                                     )}
                                 >
@@ -125,12 +126,12 @@ export function BankAccountsSummaryCards({
             })}
             <Link
                 href={noAccount.url()}
-                className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl block"
+                className="block rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
             >
-                <Card className="border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30 cursor-pointer transition-all duration-150">
+                <Card className="cursor-pointer border-violet-500/15 bg-violet-500/[0.04] transition-all duration-150 hover:border-violet-500/30">
                     <CardContent className="p-4">
                         <div className="flex items-center justify-between gap-2">
-                            <p className="text-xs font-medium text-muted-foreground leading-tight">
+                            <p className="text-xs leading-tight font-medium text-muted-foreground">
                                 No bank account
                             </p>
                             <UserX
@@ -138,7 +139,7 @@ export function BankAccountsSummaryCards({
                                 aria-hidden
                             />
                         </div>
-                        <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-violet-400">
+                        <p className="mt-2 text-2xl font-semibold tracking-tight text-violet-400 tabular-nums">
                             {summary.no_account_employees}
                         </p>
                     </CardContent>

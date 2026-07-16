@@ -108,10 +108,7 @@ export default function SharedDocumentsShow({
         flash?: { success?: string };
     };
 
-    const folders = useMemo(
-        () => groupDocumentsByType(documents),
-        [documents],
-    );
+    const folders = useMemo(() => groupDocumentsByType(documents), [documents]);
 
     const [collapsedFolders, setCollapsedFolders] = useState<
         Record<string, true>
@@ -296,7 +293,7 @@ export default function SharedDocumentsShow({
                                                         <span className="min-w-0 flex-1 truncate font-medium">
                                                             {folder.name}
                                                         </span>
-                                                        <span className="text-[11px] tabular-nums text-zinc-500">
+                                                        <span className="text-[11px] text-zinc-500 tabular-nums">
                                                             {
                                                                 folder.documents
                                                                     .length

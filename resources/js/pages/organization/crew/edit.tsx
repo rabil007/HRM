@@ -70,7 +70,7 @@ export default function CrewAssignmentEdit({
                     description="Update planning fields only. Status and phase dates are managed by movement actions."
                 />
 
-                <div className="glass-card rounded-xl p-6">
+                <div className="rounded-xl glass-card p-6">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div>
                             <Label>Employee</Label>
@@ -181,7 +181,8 @@ export default function CrewAssignmentEdit({
                                     value={
                                         form.data.company_visa_type_id
                                             ? String(
-                                                  form.data.company_visa_type_id,
+                                                  form.data
+                                                      .company_visa_type_id,
                                               )
                                             : undefined
                                     }
@@ -217,7 +218,7 @@ export default function CrewAssignmentEdit({
                                 <input
                                     id="planned_join_at"
                                     type="date"
-                                    className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
                                     value={form.data.planned_join_at}
                                     onChange={(e) =>
                                         form.setData(
@@ -234,7 +235,7 @@ export default function CrewAssignmentEdit({
                                 <input
                                     id="planned_signoff_at"
                                     type="date"
-                                    className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
                                     value={form.data.planned_signoff_at}
                                     onChange={(e) =>
                                         form.setData(
@@ -251,7 +252,7 @@ export default function CrewAssignmentEdit({
                                 <input
                                     id="planned_travel_at"
                                     type="date"
-                                    className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
                                     value={form.data.planned_travel_at}
                                     onChange={(e) =>
                                         form.setData(

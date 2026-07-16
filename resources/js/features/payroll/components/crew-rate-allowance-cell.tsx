@@ -65,9 +65,7 @@ export function CrewPayColumnCell({
         dailySite,
     );
     const calcLine =
-        hasDays && rateFormula
-            ? `${formatNum(days)} × (${rateFormula})`
-            : null;
+        hasDays && rateFormula ? `${formatNum(days)} × (${rateFormula})` : null;
 
     return (
         <div className={cn('flex flex-col gap-0.5', className)}>
@@ -145,16 +143,16 @@ function buildRateFormula(
     const parts: string[] = [];
 
     if (basic > 0) {
-parts.push(formatNum(basic));
-}
+        parts.push(formatNum(basic));
+    }
 
     if (supplementary > 0) {
-parts.push(formatNum(supplementary));
-}
+        parts.push(formatNum(supplementary));
+    }
 
     if (site !== undefined && site > 0) {
-parts.push(formatNum(site));
-}
+        parts.push(formatNum(site));
+    }
 
     return parts.length > 0 ? parts.join(' + ') : null;
 }
@@ -171,12 +169,12 @@ export function buildCrewRateCalculation(
     const parts: string[] = [];
 
     if (includeStandby && standbyDays > 0) {
-parts.push(`${formatNum(standbyDays)}×${formatNum(dailyRate)}`);
-}
+        parts.push(`${formatNum(standbyDays)}×${formatNum(dailyRate)}`);
+    }
 
     if (includeOnsite && onsiteDays > 0) {
-parts.push(`${formatNum(onsiteDays)}×${formatNum(dailyRate)}`);
-}
+        parts.push(`${formatNum(onsiteDays)}×${formatNum(dailyRate)}`);
+    }
 
     return parts.length > 0 ? parts.join(' + ') : null;
 }

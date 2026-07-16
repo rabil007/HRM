@@ -125,7 +125,11 @@ export function ShareLinksModal({
             return;
         }
 
-        const message = buildWhatsAppMessage(employee.name, documents, shareUrl);
+        const message = buildWhatsAppMessage(
+            employee.name,
+            documents,
+            shareUrl,
+        );
         const successful = await copyToClipboard(message);
 
         if (successful) {
@@ -142,7 +146,11 @@ export function ShareLinksModal({
             return;
         }
 
-        const message = buildWhatsAppMessage(employee.name, documents, shareUrl);
+        const message = buildWhatsAppMessage(
+            employee.name,
+            documents,
+            shareUrl,
+        );
         window.open(
             `https://wa.me/?text=${encodeURIComponent(message)}`,
             '_blank',

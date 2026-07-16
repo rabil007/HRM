@@ -118,7 +118,11 @@ export function BankAccountsContent({
 
             <BankAccountsSummaryCards
                 summary={summary}
-                activeIsPrimary={initialPaymentMethod === 'cash_ansari' ? 'ansari' : initialIsPrimary}
+                activeIsPrimary={
+                    initialPaymentMethod === 'cash_ansari'
+                        ? 'ansari'
+                        : initialIsPrimary
+                }
                 onSelect={onIsPrimaryChange}
             />
 
@@ -155,7 +159,9 @@ export function BankAccountsContent({
 
                         <DepartmentFilterControls
                             department_tree={department_tree}
-                            department_tree_selected_id={department_tree_selected_id}
+                            department_tree_selected_id={
+                                department_tree_selected_id
+                            }
                             department_tree_selected_position_id={null}
                             onSelectDepartment={onDepartmentChange}
                             onSelectPosition={(_, departmentId) =>

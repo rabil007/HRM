@@ -297,9 +297,7 @@ export function EmployeeContractSalaryRevisions({
                                 <th className="px-3 py-2 font-medium">
                                     Package
                                 </th>
-                                <th className="px-3 py-2 font-medium">
-                                    Total
-                                </th>
+                                <th className="px-3 py-2 font-medium">Total</th>
                                 <th className="px-3 py-2 font-medium">
                                     Reason
                                 </th>
@@ -424,10 +422,7 @@ export function EmployeeContractSalaryRevisions({
                                 inputMode="decimal"
                                 value={form.data.basic_salary}
                                 onChange={(e) =>
-                                    form.setData(
-                                        'basic_salary',
-                                        e.target.value,
-                                    )
+                                    form.setData('basic_salary', e.target.value)
                                 }
                             />
                             {form.errors.basic_salary ? (

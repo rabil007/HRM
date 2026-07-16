@@ -28,11 +28,11 @@ function Avatar({
 }: {
     name: string;
     size: 'sm' | 'md';
-    bar?: Pick<GanttBar, 'employee_id' | 'is_deployed'>;
+    bar?: Pick<GanttBar, 'employee_id' | 'is_assigned'>;
 }): ReactElement {
     const avatarClass = bar
         ? barAvatarClass(bar)
-        : barAvatarClass({ employee_id: 1, is_deployed: false });
+        : barAvatarClass({ employee_id: 1, is_assigned: false });
 
     return (
         <span
@@ -77,7 +77,7 @@ function AssignmentBarPopoverContent({
     onDelete,
 }: Props): ReactElement {
     const isVacant = bar.employee_id === null;
-    const sourceLabel = bar.is_deployed ? 'Deployed' : 'Planned relief';
+    const sourceLabel = bar.is_assigned ? 'Assigned' : 'Planned relief';
 
     return (
         <>

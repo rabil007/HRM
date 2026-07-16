@@ -6,15 +6,17 @@ export type TrainingExpiryFilter =
     | 'expiring_7'
     | 'expired';
 
-export const TRAINING_EXPIRY_FILTER_LABELS: Record<TrainingExpiryFilter, string> =
-    {
-        all: 'All Training',
-        valid: 'Valid',
-        expiring_30: 'Expiring in 30 Days',
-        expiring_15: 'Expiring in 15 Days',
-        expiring_7: 'Expiring in 7 Days',
-        expired: 'Expired',
-    };
+export const TRAINING_EXPIRY_FILTER_LABELS: Record<
+    TrainingExpiryFilter,
+    string
+> = {
+    all: 'All Training',
+    valid: 'Valid',
+    expiring_30: 'Expiring in 30 Days',
+    expiring_15: 'Expiring in 15 Days',
+    expiring_7: 'Expiring in 7 Days',
+    expired: 'Expired',
+};
 
 export const TRAINING_EXPIRY_STATUS_LABELS: Record<string, string> = {
     valid: 'Valid',

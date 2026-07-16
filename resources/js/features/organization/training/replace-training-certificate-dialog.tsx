@@ -107,9 +107,7 @@ export function ReplaceTrainingCertificateDialog({
             expiry_date: training.expiry_date ?? '',
             institute_center: training.institute_center ?? '',
             country_id:
-                training.country_id !== null
-                    ? String(training.country_id)
-                    : '',
+                training.country_id !== null ? String(training.country_id) : '',
         });
         replaceForm.clearErrors();
         clearMissingRequired();
@@ -407,7 +405,9 @@ export function ReplaceTrainingCertificateDialog({
                                                 />
                                             </Label>
                                             <AppSelect
-                                                value={replaceForm.data.country_id}
+                                                value={
+                                                    replaceForm.data.country_id
+                                                }
                                                 onValueChange={(value) =>
                                                     replaceForm.setData(
                                                         'country_id',

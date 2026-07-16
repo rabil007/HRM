@@ -83,10 +83,7 @@ export function PayrollRecordsTable({
                 <tr className="border-b-0">
                     {/* fixed cols placeholder */}
                     {Array.from({ length: fixedCols }).map((_, i) => (
-                        <th
-                            key={i}
-                            className="h-7 border-b border-border/30"
-                        />
+                        <th key={i} className="h-7 border-b border-border/30" />
                     ))}
                     {/* Crew salary breakdown */}
                     <th
@@ -98,10 +95,7 @@ export function PayrollRecordsTable({
                     {showSalaryInputsColumn ? (
                         <th className="h-7 border-b border-border/30" />
                     ) : null}
-                    <th
-                        colSpan={2}
-                        className="h-7 border-b border-border/30"
-                    />
+                    <th colSpan={2} className="h-7 border-b border-border/30" />
                     <th className="h-7 border-b border-border/30" />
                 </tr>
 
@@ -170,9 +164,13 @@ export function PayrollRecordsTable({
                         Number(record.site_allowance ?? 0) +
                         Number(record.supplementary_allowance ?? 0);
 
-                    const overtimeHours = Number(record.overtime?.hours ?? record.overtime_hours ?? 0);
+                    const overtimeHours = Number(
+                        record.overtime?.hours ?? record.overtime_hours ?? 0,
+                    );
                     const overtimeAmount = Number(
-                        record.overtime?.overtime_pay ?? record.overtime_pay ?? 0,
+                        record.overtime?.overtime_pay ??
+                            record.overtime_pay ??
+                            0,
                     );
 
                     return (
@@ -309,7 +307,9 @@ export function PayrollRecordsTable({
                                     )}
                                 >
                                     {netAmount > 0
-                                        ? formatTimesheetAmount(record.net_salary)
+                                        ? formatTimesheetAmount(
+                                              record.net_salary,
+                                          )
                                         : '—'}
                                 </span>
                             </TableCell>

@@ -58,7 +58,9 @@ export function PayrollEmployeeCell({
             >
                 {employee.image ? (
                     <img
-                        src={resolveEmployeeImageUrl(employee.image) ?? undefined}
+                        src={
+                            resolveEmployeeImageUrl(employee.image) ?? undefined
+                        }
                         alt=""
                         className="h-full w-full object-cover"
                     />

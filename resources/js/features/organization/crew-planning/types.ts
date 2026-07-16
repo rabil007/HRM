@@ -28,14 +28,12 @@ export type GanttBar = {
     relieves_crew_assignment_id: number | null;
     relieves_employee_name: string | null;
     is_assigned: boolean;
-    is_deployed: boolean;
 };
 
 export type TreeCrewMember = {
     employee_id: number | null;
     employee_name: string;
     is_assigned: boolean;
-    is_deployed: boolean;
     relieves_employee_name: string | null;
 };
 

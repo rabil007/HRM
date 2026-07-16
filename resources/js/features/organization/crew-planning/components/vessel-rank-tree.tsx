@@ -41,7 +41,7 @@ function crewNameClass(member: TreeCrewMember): string {
         return 'italic text-muted-foreground/60';
     }
 
-    return member.is_deployed
+    return member.is_assigned
         ? 'text-emerald-800 dark:text-emerald-300'
         : 'text-sky-800 dark:text-sky-300';
 }
@@ -51,7 +51,7 @@ function crewAccentClass(member: TreeCrewMember): string {
         return 'border-muted-foreground/25';
     }
 
-    return member.is_deployed
+    return member.is_assigned
         ? 'border-emerald-500/70 dark:border-emerald-400/70'
         : 'border-sky-500/70 dark:border-sky-400/70';
 }
@@ -94,7 +94,7 @@ function CrewMemberRow({
                 >
                     {member.employee_name}
                 </span>
-                {!member.is_deployed && member.relieves_employee_name ? (
+                {!member.is_assigned && member.relieves_employee_name ? (
                     <span className="block truncate text-[10px] text-sky-700/80 dark:text-sky-300/80">
                         → {member.relieves_employee_name}
                     </span>
@@ -307,8 +307,8 @@ export function VesselRankTree({
                     No planned vessels or ranks
                 </p>
                 <p className="max-w-[200px] text-xs leading-relaxed text-muted-foreground/70">
-                    No planned assignments in this date range. Assign crew or
-                    sync from deployments.
+                    No planned assignments in this date range. Assign crew from
+                    the planning board.
                 </p>
             </div>
         );

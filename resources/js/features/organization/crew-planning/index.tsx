@@ -26,7 +26,7 @@ import { PlanningGantt } from './components/planning-gantt';
 import { PlanningLegend } from './components/planning-legend';
 import { PlanningToolbar } from './components/planning-toolbar';
 import { VesselRankTree } from './components/vessel-rank-tree';
-import { findRelievedAssignment } from './lib/find-relieved-deployment';
+import { findRelievedAssignment } from './lib/find-relieved-assignment';
 import { dateFromPointerRatio } from './lib/planning-gantt-math';
 import { ZoomProvider } from './lib/zoom-context';
 import type {

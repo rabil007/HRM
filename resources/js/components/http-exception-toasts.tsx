@@ -3,9 +3,8 @@ import { useEffect } from 'react';
 import { toast } from '@/lib/toast';
 
 /** Single place for server flash toasts after Inertia visits — do not duplicate with manual toast.success in onSuccess. */
-const lastShownFlash: Partial<
-    Record<'success' | 'error' | 'info', string>
-> = {};
+const lastShownFlash: Partial<Record<'success' | 'error' | 'info', string>> =
+    {};
 
 function showFlashToast(
     type: 'success' | 'error' | 'info',

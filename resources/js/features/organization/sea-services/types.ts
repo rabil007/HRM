@@ -1,5 +1,8 @@
 import type { RecentActivityItem } from '@/components/recent-activity-card';
-import type { DepartmentTreeNode, RankOption } from '@/features/organization/employees/types';
+import type {
+    DepartmentTreeNode,
+    RankOption,
+} from '@/features/organization/employees/types';
 import type {
     ClientOption,
     SeaServiceItem,

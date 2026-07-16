@@ -133,7 +133,7 @@ final class EmployeeProfilePageData
                 'training_update' => $authUser?->can('training.update'),
                 'training_delete' => $authUser?->can('training.delete'),
                 'training_import' => $authUser?->can('training.import'),
-                'deployments_view' => $authUser?->can('crew_operations.deployments.view') ?? false,
+                'deployments_view' => $authUser?->can('crew_operations.assignments.view') ?? false,
             ],
             'branches' => $formOptions['branches'],
             'departments' => $formOptions['departments'],
@@ -366,7 +366,7 @@ final class EmployeeProfilePageData
             'training_update' => $authUser?->can('training.update') ?? false,
             'training_delete' => $authUser?->can('training.delete') ?? false,
             'training_import' => $authUser?->can('training.import') ?? false,
-            'deployments_view' => $authUser?->can('crew_operations.deployments.view') ?? false,
+            'deployments_view' => $authUser?->can('crew_operations.assignments.view') ?? false,
         ];
     }
 

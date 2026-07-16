@@ -59,14 +59,22 @@ export function CrewPhaseProgress({
             aria-label="Crew movement phase progress"
         >
             {PROGRESS_STEPS.map((step, index) => {
-                const state = stepState(step.codes, currentPhaseCode, phaseTimeline);
+                const state = stepState(
+                    step.codes,
+                    currentPhaseCode,
+                    phaseTimeline,
+                );
                 const isBranchStep = step.codes.length > 1;
                 const displayLabel = isBranchStep
                     ? branchLabel(step.codes, currentPhaseCode)
                     : step.label;
 
                 return (
-                    <div key={step.key} className="flex items-center gap-1" role="listitem">
+                    <div
+                        key={step.key}
+                        className="flex items-center gap-1"
+                        role="listitem"
+                    >
                         <div
                             className={cn(
                                 'rounded-md border px-2 py-1 text-xs font-medium transition-colors',
@@ -77,7 +85,9 @@ export function CrewPhaseProgress({
                                 state === 'upcoming' &&
                                     'border-border bg-muted/30 text-muted-foreground',
                             )}
-                            aria-current={state === 'current' ? 'step' : undefined}
+                            aria-current={
+                                state === 'current' ? 'step' : undefined
+                            }
                         >
                             {displayLabel}
                         </div>

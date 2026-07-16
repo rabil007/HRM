@@ -481,6 +481,7 @@ export default function UserDetails({
                                                                                 {titleCaseKey(
                                                                                     k,
                                                                                 )}
+
                                                                                 :
                                                                             </span>
                                                                             <span className="line-through opacity-50">

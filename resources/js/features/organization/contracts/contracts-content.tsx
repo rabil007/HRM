@@ -53,8 +53,7 @@ export function ContractsContent({
     const activePayrollCategory =
         initialPayrollCategory === 'office' ? 'office' : 'crew';
     const activeSalaryStructure =
-        activePayrollCategory === 'crew' &&
-        initialSalaryStructure === 'monthly'
+        activePayrollCategory === 'crew' && initialSalaryStructure === 'monthly'
             ? 'monthly'
             : 'daily';
 
@@ -83,7 +82,8 @@ export function ContractsContent({
         return exportContracts.url({
             query: {
                 search: initialSearch || undefined,
-                lifecycle: initialLifecycle === 'all' ? undefined : initialLifecycle,
+                lifecycle:
+                    initialLifecycle === 'all' ? undefined : initialLifecycle,
                 status: initialStatus || undefined,
                 payroll_category: activePayrollCategory,
                 salary_structure:
@@ -129,9 +129,10 @@ export function ContractsContent({
         ],
     );
 
-    const lifecycleBadgeLabel = initialLifecycle !== 'all'
-        ? LIFECYCLE_FILTER_LABELS[initialLifecycle]
-        : null;
+    const lifecycleBadgeLabel =
+        initialLifecycle !== 'all'
+            ? LIFECYCLE_FILTER_LABELS[initialLifecycle]
+            : null;
 
     return (
         <Main>
@@ -144,7 +145,8 @@ export function ContractsContent({
                                 variant="outline"
                                 className={cn(
                                     'text-xs font-medium',
-                                    LIFECYCLE_BADGE_STYLE[initialLifecycle] ?? '',
+                                    LIFECYCLE_BADGE_STYLE[initialLifecycle] ??
+                                        '',
                                 )}
                             >
                                 {lifecycleBadgeLabel}
@@ -184,7 +186,9 @@ export function ContractsContent({
                         {department_tree && department_tree.length > 0 ? (
                             <DepartmentFilterControls
                                 department_tree={department_tree}
-                                department_tree_selected_id={department_tree_selected_id ?? null}
+                                department_tree_selected_id={
+                                    department_tree_selected_id ?? null
+                                }
                                 department_tree_selected_position_id={null}
                                 onSelectDepartment={onDepartmentChange}
                                 onSelectPosition={(_, departmentId) =>
@@ -219,31 +223,40 @@ export function ContractsContent({
                         </div>
                         {showCrewColumns ? (
                             <div className="flex items-center rounded-xl glass-card p-1">
-                                {(['daily', 'monthly'] as const).map((value) => {
-                                    const label =
-                                        value === 'daily' ? 'Daily' : 'Monthly';
-                                    const isActive =
-                                        activeSalaryStructure === value;
+                                {(['daily', 'monthly'] as const).map(
+                                    (value) => {
+                                        const label =
+                                            value === 'daily'
+                                                ? 'Daily'
+                                                : 'Monthly';
+                                        const isActive =
+                                            activeSalaryStructure === value;
 
-                                    return (
-                                        <Button
-                                            key={value}
-                                            type="button"
-                                            variant={
-                                                isActive ? 'default' : 'ghost'
-                                            }
-                                            className={cn(
-                                                'h-10 rounded-lg px-4 text-sm font-medium transition-all',
-                                                !isActive && 'hover:bg-accent',
-                                            )}
-                                            onClick={() =>
-                                                onSalaryStructureChange(value)
-                                            }
-                                        >
-                                            {label}
-                                        </Button>
-                                    );
-                                })}
+                                        return (
+                                            <Button
+                                                key={value}
+                                                type="button"
+                                                variant={
+                                                    isActive
+                                                        ? 'default'
+                                                        : 'ghost'
+                                                }
+                                                className={cn(
+                                                    'h-10 rounded-lg px-4 text-sm font-medium transition-all',
+                                                    !isActive &&
+                                                        'hover:bg-accent',
+                                                )}
+                                                onClick={() =>
+                                                    onSalaryStructureChange(
+                                                        value,
+                                                    )
+                                                }
+                                            >
+                                                {label}
+                                            </Button>
+                                        );
+                                    },
+                                )}
                             </div>
                         ) : null}
                         {isSearching ? (

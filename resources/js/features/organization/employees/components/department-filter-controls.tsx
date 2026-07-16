@@ -51,10 +51,7 @@ export function DepartmentFilterControls({
         setIsDepartmentsPopoverOpen(false);
     };
 
-    const handlePositionSelect = (
-        positionId: number,
-        departmentId: number,
-    ) => {
+    const handlePositionSelect = (positionId: number, departmentId: number) => {
         onSelectPosition(positionId, departmentId);
         setIsDepartmentsOpen(false);
         setIsDepartmentsPopoverOpen(false);

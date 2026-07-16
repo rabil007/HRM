@@ -40,9 +40,13 @@ test('presenter separates planned and actual dates', function () {
     ])->load(['employee', 'rank', 'vessel', 'client', 'currentPhase', 'phases', 'company', 'planningAssignment', 'companyVisaType']);
 
     $detail = CrewAssignmentPresenter::detail($assignment);
+    $onVessel = collect($detail['phase_timeline'])->firstWhere('phase_code', CrewPhaseCode::OnVessel->value);
 
     expect($detail['planned_join_at'])->toBe('2026-01-01')
         ->and($detail['planned_signoff_at'])->toBe('2026-06-01')
+        ->and($detail['actual_join_at'])->toBe($onVessel['actual_start_at'])
+        ->and($detail['actual_disembarkation_at'])->toBeNull()
+        ->and($detail['actual_join_at'])->not->toBe($detail['planned_signoff_at'])
         ->and($detail['current_phase']['code'])->toBe(CrewPhaseCode::OnVessel->value)
         ->and($detail['phase_timeline'])->not->toBeEmpty()
         ->and($detail['available_actions'])->toBeArray()

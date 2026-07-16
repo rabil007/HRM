@@ -8,10 +8,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type {
-    CrewAssignmentFormOptions,
-    CrewMovementAction,
-} from '../types';
+import type { CrewAssignmentFormOptions, CrewMovementAction } from '../types';
 import { CREW_MOVEMENT_ACTION_LABELS } from '../types';
 import { MovementActionDialog } from './movement-action-dialog';
 
@@ -80,8 +77,7 @@ export function MovementActionMenu({
                                 }
                                 onClick={() => openAction(action)}
                             >
-                                {CREW_MOVEMENT_ACTION_LABELS[action] ??
-                                    action}
+                                {CREW_MOVEMENT_ACTION_LABELS[action] ?? action}
                             </DropdownMenuItem>
                         );
                     })}

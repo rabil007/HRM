@@ -26,7 +26,11 @@ export async function fileToSignatureDataUrl(file: File): Promise<string> {
 
     try {
         const image = await loadImage(objectUrl);
-        const { width, height } = fitWithin(image.width, image.height, MAX_OUTPUT_EDGE);
+        const { width, height } = fitWithin(
+            image.width,
+            image.height,
+            MAX_OUTPUT_EDGE,
+        );
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
@@ -53,7 +57,9 @@ export async function fileToSignatureDataUrl(file: File): Promise<string> {
         }
 
         if (dataUrl.length > MAX_DATA_URL_LENGTH) {
-            throw new Error('Image is too large after compression. Try a simpler signature image.');
+            throw new Error(
+                'Image is too large after compression. Try a simpler signature image.',
+            );
         }
 
         return dataUrl;
@@ -85,7 +91,8 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const image = new Image();
         image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error('Could not read signature image.'));
+        image.onerror = () =>
+            reject(new Error('Could not read signature image.'));
         image.src = src;
     });
 }

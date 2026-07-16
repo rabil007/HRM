@@ -34,12 +34,12 @@ function stepState(
     current: WizardStep,
 ): 'done' | 'current' | 'todo' {
     if (step < current) {
-return 'done';
-}
+        return 'done';
+    }
 
     if (step === current) {
-return 'current';
-}
+        return 'current';
+    }
 
     return 'todo';
 }
@@ -57,7 +57,9 @@ export default function DocumentEsignPage({
 }: Props) {
     const { errors } = usePage().props;
     const submitError =
-        (typeof errors.signature_data === 'string' ? errors.signature_data : null) ??
+        (typeof errors.signature_data === 'string'
+            ? errors.signature_data
+            : null) ??
         (typeof errors.consent === 'string' ? errors.consent : null) ??
         (typeof errors.signed_name === 'string' ? errors.signed_name : null) ??
         (typeof errors.token === 'string' ? errors.token : null) ??
@@ -71,14 +73,14 @@ export default function DocumentEsignPage({
 
     const expiryLabel = useMemo(() => {
         if (!expiresAt) {
-return null;
-}
+            return null;
+        }
 
         const date = new Date(expiresAt);
 
         if (Number.isNaN(date.getTime())) {
-return null;
-}
+            return null;
+        }
 
         return date.toLocaleDateString('en-GB', {
             day: '2-digit',
@@ -89,26 +91,26 @@ return null;
 
     const goNext = () => {
         if (step === 1) {
- setStep(2);
+            setStep(2);
 
- return; 
-}
+            return;
+        }
 
         if (step === 2 && hasSignature) {
-setStep(3);
-}
+            setStep(3);
+        }
     };
 
     const goBack = () => {
         if (step === 2) {
- setStep(1);
+            setStep(1);
 
- return; 
-}
+            return;
+        }
 
         if (step === 3) {
-setStep(2);
-}
+            setStep(2);
+        }
     };
 
     if (alreadySubmitted) {
@@ -120,10 +122,13 @@ setStep(2);
                         <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/40">
                             <CheckCircle2 className="size-8 text-emerald-500" />
                         </div>
-                        <h1 className="text-xl font-semibold">Submitted for review</h1>
+                        <h1 className="text-xl font-semibold">
+                            Submitted for review
+                        </h1>
                         <p className="mt-2 text-sm text-muted-foreground">
-                            Your signed {documentLabel.toLowerCase()} was received.
-                            HR will review it and update your employee record.
+                            Your signed {documentLabel.toLowerCase()} was
+                            received. HR will review it and update your employee
+                            record.
                         </p>
                     </div>
                 </div>
@@ -142,7 +147,7 @@ setStep(2);
                         <p className="truncate text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
                             {companyName}
                         </p>
-                        <p className="truncate text-[13px] font-semibold leading-tight">
+                        <p className="truncate text-[13px] leading-tight font-semibold">
                             {documentLabel}
                         </p>
                     </div>
@@ -153,12 +158,17 @@ setStep(2);
                             const state = stepState(item.id, step);
 
                             return (
-                                <div key={item.id} className="flex items-center">
+                                <div
+                                    key={item.id}
+                                    className="flex items-center"
+                                >
                                     {idx > 0 ? (
                                         <div
                                             className={cn(
                                                 'h-px w-5 transition-colors',
-                                                state === 'done' || (state === 'current' && idx < step)
+                                                state === 'done' ||
+                                                    (state === 'current' &&
+                                                        idx < step)
                                                     ? 'bg-primary'
                                                     : 'bg-border',
                                             )}
@@ -167,9 +177,12 @@ setStep(2);
                                     <div
                                         className={cn(
                                             'flex size-6 items-center justify-center rounded-full text-[11px] font-bold transition-all',
-                                            state === 'done' && 'bg-emerald-500 text-white shadow-sm',
-                                            state === 'current' && 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20',
-                                            state === 'todo' && 'bg-muted text-muted-foreground',
+                                            state === 'done' &&
+                                                'bg-emerald-500 text-white shadow-sm',
+                                            state === 'current' &&
+                                                'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20',
+                                            state === 'todo' &&
+                                                'bg-muted text-muted-foreground',
                                         )}
                                     >
                                         {state === 'done' ? (
@@ -193,9 +206,8 @@ setStep(2);
                 </div>
             </header>
 
-            <div className="bg-muted/30 pt-13.5 pb-24 sm:min-h-svh sm:px-4 sm:py-8 sm:pb-8 sm:pt-8">
+            <div className="bg-muted/30 pt-13.5 pb-24 sm:min-h-svh sm:px-4 sm:py-8 sm:pt-8 sm:pb-8">
                 <div className="mx-auto w-full max-w-3xl sm:space-y-4">
-
                     {/* Desktop-only full header */}
                     <header className="hidden rounded-2xl border bg-background p-6 shadow-sm sm:block">
                         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -213,25 +225,37 @@ setStep(2);
                                 const state = stepState(item.id, step);
 
                                 return (
-                                    <div key={item.id} className="flex flex-1 items-center gap-1.5">
+                                    <div
+                                        key={item.id}
+                                        className="flex flex-1 items-center gap-1.5"
+                                    >
                                         {idx > 0 ? (
                                             <div
                                                 className={cn(
                                                     'h-px flex-1 transition-colors',
-                                                    step > idx ? 'bg-primary' : 'bg-border',
+                                                    step > idx
+                                                        ? 'bg-primary'
+                                                        : 'bg-border',
                                                 )}
                                             />
                                         ) : null}
                                         <div
                                             className={cn(
                                                 'flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-all',
-                                                state === 'done' && 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-100',
-                                                state === 'current' && 'bg-primary text-primary-foreground shadow-sm',
-                                                state === 'todo' && 'bg-muted text-muted-foreground',
+                                                state === 'done' &&
+                                                    'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-100',
+                                                state === 'current' &&
+                                                    'bg-primary text-primary-foreground shadow-sm',
+                                                state === 'todo' &&
+                                                    'bg-muted text-muted-foreground',
                                             )}
                                         >
                                             <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-black/10 text-[11px] font-bold dark:bg-white/10">
-                                                {state === 'done' ? <CheckCircle2 className="size-3.5" /> : item.id}
+                                                {state === 'done' ? (
+                                                    <CheckCircle2 className="size-3.5" />
+                                                ) : (
+                                                    item.id
+                                                )}
                                             </span>
                                             {item.label}
                                         </div>
@@ -242,23 +266,39 @@ setStep(2);
 
                         <dl className="mt-4 grid gap-2 rounded-xl border bg-muted/20 p-3 text-sm sm:grid-cols-2">
                             <div className="flex items-center justify-between gap-3 sm:block">
-                                <dt className="text-muted-foreground">Employee</dt>
-                                <dd className="font-medium sm:mt-0.5">{employeeName}</dd>
+                                <dt className="text-muted-foreground">
+                                    Employee
+                                </dt>
+                                <dd className="font-medium sm:mt-0.5">
+                                    {employeeName}
+                                </dd>
                             </div>
                             {employeeNo ? (
                                 <div className="flex items-center justify-between gap-3 sm:block">
-                                    <dt className="text-muted-foreground">Employee no.</dt>
-                                    <dd className="font-medium sm:mt-0.5">{employeeNo}</dd>
+                                    <dt className="text-muted-foreground">
+                                        Employee no.
+                                    </dt>
+                                    <dd className="font-medium sm:mt-0.5">
+                                        {employeeNo}
+                                    </dd>
                                 </div>
                             ) : null}
                             <div className="flex items-center justify-between gap-3 sm:block">
-                                <dt className="text-muted-foreground">Signing date</dt>
-                                <dd className="font-medium sm:mt-0.5">{signedDate}</dd>
+                                <dt className="text-muted-foreground">
+                                    Signing date
+                                </dt>
+                                <dd className="font-medium sm:mt-0.5">
+                                    {signedDate}
+                                </dd>
                             </div>
                             {expiryLabel ? (
                                 <div className="flex items-center justify-between gap-3 sm:block">
-                                    <dt className="text-muted-foreground">Link expires</dt>
-                                    <dd className="font-medium sm:mt-0.5">{expiryLabel}</dd>
+                                    <dt className="text-muted-foreground">
+                                        Link expires
+                                    </dt>
+                                    <dd className="font-medium sm:mt-0.5">
+                                        {expiryLabel}
+                                    </dd>
                                 </div>
                             ) : null}
                         </dl>
@@ -270,15 +310,29 @@ setStep(2);
                         className="sm:space-y-4"
                         onSubmit={(event) => {
                             if (step !== 3 || !canSubmit) {
-event.preventDefault();
-}
+                                event.preventDefault();
+                            }
                         }}
                     >
                         {({ processing }) => (
                             <>
-                                <input type="hidden" name="signed_name" value={employeeName} />
-                                <input type="hidden" name="signature_data" value={signatureData ?? ''} />
-                                {consent ? <input type="hidden" name="consent" value="1" /> : null}
+                                <input
+                                    type="hidden"
+                                    name="signed_name"
+                                    value={employeeName}
+                                />
+                                <input
+                                    type="hidden"
+                                    name="signature_data"
+                                    value={signatureData ?? ''}
+                                />
+                                {consent ? (
+                                    <input
+                                        type="hidden"
+                                        name="consent"
+                                        value="1"
+                                    />
+                                ) : null}
 
                                 <section className="bg-background px-4 py-4 sm:rounded-2xl sm:border sm:p-6 sm:shadow-sm">
                                     {step === 1 || step === 2 ? (
@@ -286,7 +340,9 @@ event.preventDefault();
                                             pdfUrl={downloadUrl}
                                             page={placement.page}
                                             placement={placement}
-                                            mode={step === 1 ? 'review' : 'sign'}
+                                            mode={
+                                                step === 1 ? 'review' : 'sign'
+                                            }
                                             signatureData={signatureData}
                                             onSignatureChange={setSignatureData}
                                         />
@@ -316,9 +372,12 @@ event.preventDefault();
                                                     <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
                                                 </div>
                                                 <div>
-                                                    <h2 className="text-sm font-semibold">Almost done</h2>
+                                                    <h2 className="text-sm font-semibold">
+                                                        Almost done
+                                                    </h2>
                                                     <p className="text-xs text-muted-foreground">
-                                                        Review and confirm your signature below.
+                                                        Review and confirm your
+                                                        signature below.
                                                     </p>
                                                 </div>
                                             </div>
@@ -346,7 +405,8 @@ event.preventDefault();
                                                 ) : null}
                                                 <div className="border-t bg-muted/10 px-3 py-2">
                                                     <p className="text-center text-xs text-muted-foreground">
-                                                        {employeeName} · {signedDate}
+                                                        {employeeName} ·{' '}
+                                                        {signedDate}
                                                     </p>
                                                 </div>
                                             </div>
@@ -354,11 +414,19 @@ event.preventDefault();
                                             <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/20 p-3.5 transition-colors hover:bg-muted/30">
                                                 <Checkbox
                                                     checked={consent}
-                                                    onCheckedChange={(checked) => setConsent(checked === true)}
+                                                    onCheckedChange={(
+                                                        checked,
+                                                    ) =>
+                                                        setConsent(
+                                                            checked === true,
+                                                        )
+                                                    }
                                                     className="mt-0.5 size-5"
                                                 />
                                                 <span className="text-sm leading-snug">
-                                                    I confirm this declaration is correct and I am signing voluntarily.
+                                                    I confirm this declaration
+                                                    is correct and I am signing
+                                                    voluntarily.
                                                 </span>
                                             </label>
                                         </div>
@@ -376,18 +444,22 @@ event.preventDefault();
                                         <div className="mb-2 flex items-center gap-1.5">
                                             <PenLine className="size-3.5 shrink-0 text-amber-500" />
                                             <p className="text-xs text-muted-foreground">
-                                                Draw or upload your signature to continue.
+                                                Draw or upload your signature to
+                                                continue.
                                             </p>
                                         </div>
                                     ) : null}
                                     {step === 3 && submitError ? (
-                                        <p className="mb-2 text-xs text-destructive">{submitError}</p>
+                                        <p className="mb-2 text-xs text-destructive">
+                                            {submitError}
+                                        </p>
                                     ) : null}
                                     {step === 3 && canSubmit && !submitError ? (
                                         <div className="mb-2 flex items-center gap-1.5">
                                             <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
                                             <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                                                Ready — tap Submit to send to HR.
+                                                Ready — tap Submit to send to
+                                                HR.
                                             </p>
                                         </div>
                                     ) : null}
@@ -412,7 +484,9 @@ event.preventDefault();
                                                 type="button"
                                                 size="lg"
                                                 className="h-11 flex-1 text-[15px] font-semibold"
-                                                disabled={step === 2 && !hasSignature}
+                                                disabled={
+                                                    step === 2 && !hasSignature
+                                                }
                                                 onClick={goNext}
                                             >
                                                 Continue
@@ -422,9 +496,13 @@ event.preventDefault();
                                                 type="submit"
                                                 size="lg"
                                                 className="h-11 flex-1 bg-emerald-600 text-[15px] font-semibold text-white hover:bg-emerald-700 disabled:bg-muted"
-                                                disabled={!canSubmit || processing}
+                                                disabled={
+                                                    !canSubmit || processing
+                                                }
                                             >
-                                                {processing ? 'Submitting…' : 'Submit for HR review'}
+                                                {processing
+                                                    ? 'Submitting…'
+                                                    : 'Submit for HR review'}
                                             </Button>
                                         )}
                                     </div>

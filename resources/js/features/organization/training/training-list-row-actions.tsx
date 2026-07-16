@@ -120,7 +120,12 @@ export function TrainingShowHeaderActions({
                 </Button>
             ) : null}
             {certificateUrl ? (
-                <Button asChild variant="outline" size="sm" className="rounded-xl">
+                <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl"
+                >
                     <a href={certificateUrl} target="_blank" rel="noreferrer">
                         <ExternalLink className="mr-2 h-4 w-4" />
                         Open certificate

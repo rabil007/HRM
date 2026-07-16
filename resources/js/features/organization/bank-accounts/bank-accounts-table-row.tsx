@@ -55,9 +55,13 @@ export function BankAccountsTableRow({
                         <p className="truncate font-mono text-[11px] text-muted-foreground/75">
                             {bankAccount.employee_no}
                         </p>
-                        {(bankAccount.department_name || bankAccount.position_title) ? (
+                        {bankAccount.department_name ||
+                        bankAccount.position_title ? (
                             <p className="truncate text-[11px] text-muted-foreground/60">
-                                {[bankAccount.department_name, bankAccount.position_title]
+                                {[
+                                    bankAccount.department_name,
+                                    bankAccount.position_title,
+                                ]
                                     .filter(Boolean)
                                     .join(' · ')}
                             </p>
@@ -75,12 +79,13 @@ export function BankAccountsTableRow({
                     </Badge>
                 ) : (
                     <span className="text-sm text-muted-foreground">
-                        {bankAccount.salary_payment_method_label || 'Bank transfer'}
+                        {bankAccount.salary_payment_method_label ||
+                            'Bank transfer'}
                     </span>
                 )}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
-                <span className="tabular-nums text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground tabular-nums">
                     {bankAccount.total_bank_accounts}
                 </span>
             </TableCell>
@@ -106,14 +111,14 @@ export function BankAccountsTableRow({
                 {bankAccount.is_primary ? (
                     <Badge
                         variant="outline"
-                        className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-normal"
+                        className="border-emerald-500/30 bg-emerald-500/10 font-normal text-emerald-400"
                     >
                         Primary
                     </Badge>
                 ) : (
                     <Badge
                         variant="outline"
-                        className="border-sky-500/30 bg-sky-500/10 text-sky-400 font-normal"
+                        className="border-sky-500/30 bg-sky-500/10 font-normal text-sky-400"
                     >
                         Secondary
                     </Badge>

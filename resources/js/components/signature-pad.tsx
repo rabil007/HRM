@@ -52,7 +52,9 @@ export function SignaturePad({
     }, [lineWidth]);
 
     const getPoint = (
-        event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+        event:
+            | React.MouseEvent<HTMLCanvasElement>
+            | React.TouchEvent<HTMLCanvasElement>,
     ) => {
         const canvas = canvasRef.current;
 
@@ -82,7 +84,9 @@ export function SignaturePad({
     };
 
     const startDrawing = (
-        event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+        event:
+            | React.MouseEvent<HTMLCanvasElement>
+            | React.TouchEvent<HTMLCanvasElement>,
     ) => {
         const canvas = canvasRef.current;
         const context = canvas?.getContext('2d');
@@ -99,7 +103,9 @@ export function SignaturePad({
     };
 
     const draw = (
-        event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+        event:
+            | React.MouseEvent<HTMLCanvasElement>
+            | React.TouchEvent<HTMLCanvasElement>,
     ) => {
         if (!drawingRef.current) {
             return;
@@ -180,7 +186,12 @@ export function SignaturePad({
                     Clear signature
                 </Button>
             ) : (
-                <Button type="button" variant="outline" size="sm" onClick={clear}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={clear}
+                >
                     Clear signature
                 </Button>
             )}

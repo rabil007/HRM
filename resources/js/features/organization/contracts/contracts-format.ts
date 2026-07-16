@@ -34,7 +34,9 @@ export function formatContractStatus(value: string | null | undefined): string {
     return CONTRACT_STATUS_LABELS[value] ?? value;
 }
 
-export function formatPayrollCategory(value: string | null | undefined): string {
+export function formatPayrollCategory(
+    value: string | null | undefined,
+): string {
     if (!value) {
         return '—';
     }
@@ -42,7 +44,9 @@ export function formatPayrollCategory(value: string | null | undefined): string 
     return PAYROLL_CATEGORY_LABELS[value] ?? value;
 }
 
-export function formatSalaryStructure(value: string | null | undefined): string {
+export function formatSalaryStructure(
+    value: string | null | undefined,
+): string {
     if (!value) {
         return '—';
     }
@@ -84,10 +88,10 @@ export function contractOfficeSalaryTotal(contract: {
     other_allowances?: number | null;
 }): number {
     return (
-        contractMoneyValue(contract.basic_salary)
-        + contractMoneyValue(contract.housing_allowance)
-        + contractMoneyValue(contract.transport_allowance)
-        + contractMoneyValue(contract.other_allowances)
+        contractMoneyValue(contract.basic_salary) +
+        contractMoneyValue(contract.housing_allowance) +
+        contractMoneyValue(contract.transport_allowance) +
+        contractMoneyValue(contract.other_allowances)
     );
 }
 
@@ -97,8 +101,8 @@ export function contractCrewSalaryTotal(contract: {
     site_allowance?: number | null;
 }): number {
     return (
-        contractMoneyValue(contract.basic_salary)
-        + contractMoneyValue(contract.supplementary_allowance)
-        + contractMoneyValue(contract.site_allowance)
+        contractMoneyValue(contract.basic_salary) +
+        contractMoneyValue(contract.supplementary_allowance) +
+        contractMoneyValue(contract.site_allowance)
     );
 }

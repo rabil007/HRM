@@ -181,7 +181,7 @@ function MetricCard({
     const inner = (
         <div
             className={cn(
-                'glass-card group relative flex flex-col gap-3 rounded-2xl border p-5 transition-all duration-300',
+                'group relative flex flex-col gap-3 rounded-2xl border glass-card p-5 transition-all duration-300',
                 accent,
                 href && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg',
             )}
@@ -254,7 +254,9 @@ function YtdCard({
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <p className="text-2xl font-extrabold tracking-tight">{value}</p>
+                <p className="text-2xl font-extrabold tracking-tight">
+                    {value}
+                </p>
                 <p className="mt-1 text-[11px] text-current/50">{sub}</p>
             </CardContent>
         </Card>
@@ -363,7 +365,9 @@ export function AttendanceOverviewContent({
             {/* ── Urgent alert: pending leave requests ── */}
             {hasPendingLeaves && can.approve_leave_requests && (
                 <Link
-                    href={leaveRequestsIndex.url({ query: { status: 'pending' } })}
+                    href={leaveRequestsIndex.url({
+                        query: { status: 'pending' },
+                    })}
                     className="group mb-8 flex items-center gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 px-5 py-4 transition-all duration-300 hover:border-amber-500/40 hover:bg-amber-500/10"
                 >
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10">
@@ -384,7 +388,10 @@ export function AttendanceOverviewContent({
             )}
 
             {/* ── Section: This month KPIs ── */}
-            <SectionLabel icon={BarChart3} label={`Attendance – ${currentMonth}`} />
+            <SectionLabel
+                icon={BarChart3}
+                label={`Attendance – ${currentMonth}`}
+            />
             <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
                 <MetricCard
                     title="Total records"
@@ -404,7 +411,11 @@ export function AttendanceOverviewContent({
                     iconColor="text-emerald-400"
                     iconBg="bg-emerald-500/10 border-emerald-500/20"
                     accent="border-emerald-500/20 hover:border-emerald-500/30"
-                    href={can.view_records ? recordsIndex.url({ query: { status: 'present' } }) : undefined}
+                    href={
+                        can.view_records
+                            ? recordsIndex.url({ query: { status: 'present' } })
+                            : undefined
+                    }
                 />
                 <MetricCard
                     title="Absent"
@@ -414,7 +425,11 @@ export function AttendanceOverviewContent({
                     iconColor="text-red-400"
                     iconBg="bg-red-500/10 border-red-500/20"
                     accent="border-red-500/20 hover:border-red-500/30"
-                    href={can.view_records ? recordsIndex.url({ query: { status: 'absent' } }) : undefined}
+                    href={
+                        can.view_records
+                            ? recordsIndex.url({ query: { status: 'absent' } })
+                            : undefined
+                    }
                 />
                 <MetricCard
                     title="Late"
@@ -424,7 +439,11 @@ export function AttendanceOverviewContent({
                     iconColor="text-amber-400"
                     iconBg="bg-amber-500/10 border-amber-500/20"
                     accent="border-amber-500/20 hover:border-amber-500/30"
-                    href={can.view_records ? recordsIndex.url({ query: { status: 'late' } }) : undefined}
+                    href={
+                        can.view_records
+                            ? recordsIndex.url({ query: { status: 'late' } })
+                            : undefined
+                    }
                 />
                 <MetricCard
                     title="Avg hours"
@@ -481,13 +500,14 @@ export function AttendanceOverviewContent({
             </div>
 
             {/* ── Charts row: Monthly Trend + Status Breakdown ── */}
-            {(hasTrendData || summary.status_breakdown.some((s) => s.count > 0)) && (
+            {(hasTrendData ||
+                summary.status_breakdown.some((s) => s.count > 0)) && (
                 <>
                     <SectionLabel icon={BarChart3} label="Trends & breakdown" />
                     <div className="mb-8 grid gap-6 lg:grid-cols-3">
                         {/* Monthly Trend – 6 months */}
                         {hasTrendData && (
-                            <Card className="glass-card col-span-2 rounded-2xl border border-border/50">
+                            <Card className="col-span-2 rounded-2xl border glass-card border-border/50">
                                 <CardHeader className="pb-2">
                                     <CardTitle className="text-sm font-semibold">
                                         Monthly attendance trend
@@ -497,10 +517,18 @@ export function AttendanceOverviewContent({
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <ResponsiveContainer width="100%" height={220}>
+                                    <ResponsiveContainer
+                                        width="100%"
+                                        height={220}
+                                    >
                                         <AreaChart
                                             data={summary.monthly_trend}
-                                            margin={{ top: 4, right: 8, left: -20, bottom: 0 }}
+                                            margin={{
+                                                top: 4,
+                                                right: 8,
+                                                left: -20,
+                                                bottom: 0,
+                                            }}
                                         >
                                             <defs>
                                                 <linearGradient
@@ -547,16 +575,24 @@ export function AttendanceOverviewContent({
                                             />
                                             <XAxis
                                                 dataKey="month"
-                                                tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                                                tick={{
+                                                    fontSize: 10,
+                                                    fill: 'hsl(var(--muted-foreground))',
+                                                }}
                                                 tickLine={false}
                                                 axisLine={false}
                                             />
                                             <YAxis
-                                                tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                                                tick={{
+                                                    fontSize: 10,
+                                                    fill: 'hsl(var(--muted-foreground))',
+                                                }}
                                                 tickLine={false}
                                                 axisLine={false}
                                             />
-                                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                                            <Tooltip
+                                                contentStyle={TOOLTIP_STYLE}
+                                            />
                                             <Area
                                                 type="monotone"
                                                 dataKey="present"
@@ -593,7 +629,7 @@ export function AttendanceOverviewContent({
 
                         {/* Status Breakdown Pie */}
                         {summary.status_breakdown.some((s) => s.count > 0) && (
-                            <Card className="glass-card rounded-2xl border border-border/50">
+                            <Card className="rounded-2xl border glass-card border-border/50">
                                 <CardHeader className="pb-2">
                                     <CardTitle className="text-sm font-semibold">
                                         Status breakdown
@@ -603,7 +639,10 @@ export function AttendanceOverviewContent({
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <ResponsiveContainer width="100%" height={160}>
+                                    <ResponsiveContainer
+                                        width="100%"
+                                        height={160}
+                                    >
                                         <PieChart>
                                             <Pie
                                                 data={summary.status_breakdown.filter(
@@ -630,7 +669,9 @@ export function AttendanceOverviewContent({
                                                         />
                                                     ))}
                                             </Pie>
-                                            <Tooltip contentStyle={TOOLTIP_STYLE} />
+                                            <Tooltip
+                                                contentStyle={TOOLTIP_STYLE}
+                                            />
                                         </PieChart>
                                     </ResponsiveContainer>
                                     <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5">
@@ -669,10 +710,12 @@ export function AttendanceOverviewContent({
                 <Link
                     href={
                         can.view_leave_requests
-                            ? leaveRequestsIndex.url({ query: { status: 'pending' } })
+                            ? leaveRequestsIndex.url({
+                                  query: { status: 'pending' },
+                              })
                             : '#'
                     }
-                    className="group glass-card flex flex-col gap-3 rounded-2xl border border-amber-500/20 p-5 transition-all hover:-translate-y-0.5 hover:border-amber-500/35 hover:shadow-lg"
+                    className="group flex flex-col gap-3 rounded-2xl border glass-card border-amber-500/20 p-5 transition-all hover:-translate-y-0.5 hover:border-amber-500/35 hover:shadow-lg"
                 >
                     <div className="flex items-center justify-between">
                         <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10">
@@ -692,10 +735,12 @@ export function AttendanceOverviewContent({
                 <Link
                     href={
                         can.view_leave_requests
-                            ? leaveRequestsIndex.url({ query: { status: 'approved' } })
+                            ? leaveRequestsIndex.url({
+                                  query: { status: 'approved' },
+                              })
                             : '#'
                     }
-                    className="group glass-card flex flex-col gap-3 rounded-2xl border border-emerald-500/20 p-5 transition-all hover:-translate-y-0.5 hover:border-emerald-500/35 hover:shadow-lg"
+                    className="group flex flex-col gap-3 rounded-2xl border glass-card border-emerald-500/20 p-5 transition-all hover:-translate-y-0.5 hover:border-emerald-500/35 hover:shadow-lg"
                 >
                     <div className="flex items-center justify-between">
                         <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10">
@@ -715,10 +760,12 @@ export function AttendanceOverviewContent({
                 <Link
                     href={
                         can.view_leave_requests
-                            ? leaveRequestsIndex.url({ query: { status: 'rejected' } })
+                            ? leaveRequestsIndex.url({
+                                  query: { status: 'rejected' },
+                              })
                             : '#'
                     }
-                    className="group glass-card flex flex-col gap-3 rounded-2xl border border-red-500/20 p-5 transition-all hover:-translate-y-0.5 hover:border-red-500/35 hover:shadow-lg"
+                    className="group flex flex-col gap-3 rounded-2xl border glass-card border-red-500/20 p-5 transition-all hover:-translate-y-0.5 hover:border-red-500/35 hover:shadow-lg"
                 >
                     <div className="flex items-center justify-between">
                         <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10">
@@ -735,7 +782,7 @@ export function AttendanceOverviewContent({
                         </p>
                     </div>
                 </Link>
-                <div className="glass-card flex flex-col gap-3 rounded-2xl border border-slate-500/20 p-5">
+                <div className="flex flex-col gap-3 rounded-2xl border glass-card border-slate-500/20 p-5">
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-500/20 bg-slate-500/10">
                         <CalendarCheck2 className="h-4 w-4 text-slate-400" />
                     </div>
@@ -755,7 +802,7 @@ export function AttendanceOverviewContent({
                 <div className="mb-8 grid gap-6 lg:grid-cols-2">
                     {/* Leave Monthly Trend */}
                     {hasLeaveTrendData && (
-                        <Card className="glass-card rounded-2xl border border-border/50">
+                        <Card className="rounded-2xl border glass-card border-border/50">
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-sm font-semibold">
                                     Leave requests trend
@@ -768,7 +815,12 @@ export function AttendanceOverviewContent({
                                 <ResponsiveContainer width="100%" height={200}>
                                     <BarChart
                                         data={summary.leave_monthly_trend}
-                                        margin={{ top: 4, right: 8, left: -20, bottom: 0 }}
+                                        margin={{
+                                            top: 4,
+                                            right: 8,
+                                            left: -20,
+                                            bottom: 0,
+                                        }}
                                     >
                                         <CartesianGrid
                                             strokeDasharray="3 3"
@@ -777,12 +829,18 @@ export function AttendanceOverviewContent({
                                         />
                                         <XAxis
                                             dataKey="month"
-                                            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                                            tick={{
+                                                fontSize: 10,
+                                                fill: 'hsl(var(--muted-foreground))',
+                                            }}
                                             tickLine={false}
                                             axisLine={false}
                                         />
                                         <YAxis
-                                            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                                            tick={{
+                                                fontSize: 10,
+                                                fill: 'hsl(var(--muted-foreground))',
+                                            }}
                                             tickLine={false}
                                             axisLine={false}
                                         />
@@ -809,7 +867,7 @@ export function AttendanceOverviewContent({
 
                     {/* Source breakdown */}
                     {sourceData.length > 0 && (
-                        <Card className="glass-card rounded-2xl border border-border/50">
+                        <Card className="rounded-2xl border glass-card border-border/50">
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-sm font-semibold">
                                     Check-in source
@@ -823,7 +881,12 @@ export function AttendanceOverviewContent({
                                     <BarChart
                                         data={sourceData}
                                         layout="vertical"
-                                        margin={{ top: 4, right: 16, left: 10, bottom: 0 }}
+                                        margin={{
+                                            top: 4,
+                                            right: 16,
+                                            left: 10,
+                                            bottom: 0,
+                                        }}
                                     >
                                         <CartesianGrid
                                             strokeDasharray="3 3"
@@ -833,14 +896,20 @@ export function AttendanceOverviewContent({
                                         />
                                         <XAxis
                                             type="number"
-                                            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                                            tick={{
+                                                fontSize: 10,
+                                                fill: 'hsl(var(--muted-foreground))',
+                                            }}
                                             tickLine={false}
                                             axisLine={false}
                                         />
                                         <YAxis
                                             type="category"
                                             dataKey="name"
-                                            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                                            tick={{
+                                                fontSize: 11,
+                                                fill: 'hsl(var(--muted-foreground))',
+                                            }}
                                             tickLine={false}
                                             axisLine={false}
                                             width={60}
@@ -855,9 +924,11 @@ export function AttendanceOverviewContent({
                                                 <Cell
                                                     key={`cell-${index}`}
                                                     fill={
-                                                        ['#818cf8', '#22d3ee', '#34d399'][
-                                                            index % 3
-                                                        ]
+                                                        [
+                                                            '#818cf8',
+                                                            '#22d3ee',
+                                                            '#34d399',
+                                                        ][index % 3]
                                                     }
                                                     opacity={0.85}
                                                 />
@@ -872,54 +943,68 @@ export function AttendanceOverviewContent({
             )}
 
             {/* ── Recent pending leave requests ── */}
-            {summary.recent_pending_leaves.length > 0 && can.view_leave_requests && (
-                <>
-                    <SectionLabel icon={Clock} label="Recent pending leave requests" />
-                    <Card className="glass-card mb-8 rounded-2xl border border-border/50">
-                        <CardContent className="p-0">
-                            <div className="divide-y divide-border/40">
-                                {summary.recent_pending_leaves.map((lr) => (
-                                    <Link
-                                        key={lr.id}
-                                        href={`/attendance/leave-requests/${lr.id}`}
-                                        className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/30"
-                                    >
-                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/10">
-                                            <Clock className="h-3.5 w-3.5 text-amber-400" />
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-semibold">
-                                                {lr.employee_name}
-                                            </p>
-                                            <p className="truncate text-xs text-muted-foreground/60">
-                                                {lr.leave_type ?? 'Leave'} &middot;{' '}
-                                                {lr.start_date} – {lr.end_date}
-                                            </p>
-                                        </div>
-                                        <div className="flex shrink-0 items-center gap-3">
-                                            <Badge variant="warning" className="text-[10px]">
-                                                {lr.total_days}{' '}
-                                                {Number(lr.total_days) === 1 ? 'day' : 'days'}
-                                            </Badge>
-                                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 transition-transform group-hover:translate-x-0.5" />
-                                        </div>
-                                    </Link>
-                                ))}
-                            </div>
-                            {summary.leave_pending > summary.recent_pending_leaves.length && (
-                                <div className="border-t border-border/40 px-5 py-3">
-                                    <Link
-                                        href={leaveRequestsIndex.url({ query: { status: 'pending' } })}
-                                        className="text-xs font-semibold text-primary hover:underline"
-                                    >
-                                        View all {summary.leave_pending} pending requests →
-                                    </Link>
+            {summary.recent_pending_leaves.length > 0 &&
+                can.view_leave_requests && (
+                    <>
+                        <SectionLabel
+                            icon={Clock}
+                            label="Recent pending leave requests"
+                        />
+                        <Card className="mb-8 rounded-2xl border glass-card border-border/50">
+                            <CardContent className="p-0">
+                                <div className="divide-y divide-border/40">
+                                    {summary.recent_pending_leaves.map((lr) => (
+                                        <Link
+                                            key={lr.id}
+                                            href={`/attendance/leave-requests/${lr.id}`}
+                                            className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/30"
+                                        >
+                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/10">
+                                                <Clock className="h-3.5 w-3.5 text-amber-400" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-sm font-semibold">
+                                                    {lr.employee_name}
+                                                </p>
+                                                <p className="truncate text-xs text-muted-foreground/60">
+                                                    {lr.leave_type ?? 'Leave'}{' '}
+                                                    &middot; {lr.start_date} –{' '}
+                                                    {lr.end_date}
+                                                </p>
+                                            </div>
+                                            <div className="flex shrink-0 items-center gap-3">
+                                                <Badge
+                                                    variant="warning"
+                                                    className="text-[10px]"
+                                                >
+                                                    {lr.total_days}{' '}
+                                                    {Number(lr.total_days) === 1
+                                                        ? 'day'
+                                                        : 'days'}
+                                                </Badge>
+                                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 transition-transform group-hover:translate-x-0.5" />
+                                            </div>
+                                        </Link>
+                                    ))}
                                 </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </>
-            )}
+                                {summary.leave_pending >
+                                    summary.recent_pending_leaves.length && (
+                                    <div className="border-t border-border/40 px-5 py-3">
+                                        <Link
+                                            href={leaveRequestsIndex.url({
+                                                query: { status: 'pending' },
+                                            })}
+                                            className="text-xs font-semibold text-primary hover:underline"
+                                        >
+                                            View all {summary.leave_pending}{' '}
+                                            pending requests →
+                                        </Link>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </>
+                )}
         </Main>
     );
 }

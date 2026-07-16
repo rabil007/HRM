@@ -246,12 +246,12 @@ test('employee profile includes crew status from latest assignment', function ()
             ->where('employee.crew_status.label', 'On vessel'));
 });
 
-test('employee profile exposes deployments view permission in can payload', function () {
+test('employee profile exposes assignments view permission in can payload', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee] = makeEmployeeCrewStatusFixtures();
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'crew_operations.deployments.view',
+        'crew_operations.assignments.view',
     ]);
 
     $this->actingAs($user)

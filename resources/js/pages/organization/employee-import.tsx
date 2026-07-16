@@ -436,8 +436,9 @@ export default function EmployeeImport({
                                 </p>
                                 {templates.length === 0 ? (
                                     <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-500">
-                                        No onboarding templates found. Create one
-                                        in settings before importing employees.
+                                        No onboarding templates found. Create
+                                        one in settings before importing
+                                        employees.
                                     </div>
                                 ) : (
                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -504,9 +505,9 @@ export default function EmployeeImport({
                                                     </span>
                                                 </TooltipTrigger>
                                                 <TooltipContent>
-                                                    Select an onboarding template
-                                                    first to download the matching
-                                                    import file.
+                                                    Select an onboarding
+                                                    template first to download
+                                                    the matching import file.
                                                 </TooltipContent>
                                             </Tooltip>
                                         )}
@@ -643,10 +644,7 @@ export default function EmployeeImport({
                                             {preview.summary.create > 0 ? (
                                                 <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
                                                     <div className="text-2xl font-bold text-emerald-500 tabular-nums">
-                                                        {
-                                                            preview.summary
-                                                                .create
-                                                        }
+                                                        {preview.summary.create}
                                                     </div>
                                                     <div className="text-muted-foreground">
                                                         {preview.summary
@@ -660,10 +658,7 @@ export default function EmployeeImport({
                                             {preview.summary.update > 0 ? (
                                                 <div className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2.5">
                                                     <div className="text-2xl font-bold text-primary tabular-nums">
-                                                        {
-                                                            preview.summary
-                                                                .update
-                                                        }
+                                                        {preview.summary.update}
                                                     </div>
                                                     <div className="text-muted-foreground">
                                                         {preview.summary
@@ -909,6 +904,7 @@ export default function EmployeeImport({
                                                                                         {
                                                                                             error.row
                                                                                         }
+
                                                                                         :{' '}
                                                                                         {
                                                                                             error.message
@@ -1087,6 +1083,7 @@ export default function EmployeeImport({
                                                                                                     {
                                                                                                         e.field
                                                                                                     }
+
                                                                                                     :
                                                                                                 </span>{' '}
                                                                                                 {
@@ -1155,15 +1152,11 @@ function formatImportSummaryLabel(summary: PreviewSummary): string {
     const parts: string[] = [];
 
     if (summary.create > 0) {
-        parts.push(
-            `${summary.create} create`,
-        );
+        parts.push(`${summary.create} create`);
     }
 
     if (summary.update > 0) {
-        parts.push(
-            `${summary.update} update`,
-        );
+        parts.push(`${summary.update} update`);
     }
 
     if (parts.length === 0) {

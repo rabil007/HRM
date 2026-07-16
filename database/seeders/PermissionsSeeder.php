@@ -229,11 +229,6 @@ class PermissionsSeeder extends Seeder
             'employees.vaccination.manage',
             'employees.languages.manage',
 
-            'crew_operations.deployments.view',
-            'crew_operations.deployments.create',
-            'crew_operations.deployments.update',
-            'crew_operations.deployments.delete',
-            'crew_operations.deployments.export',
             'crew_operations.overview.view',
             'crew_operations.vessel_manning.view',
             'crew_operations.vessel_manning.create',

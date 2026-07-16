@@ -196,7 +196,8 @@ export function EmployeeSeaServiceTab({
     const allowUpdate = canUpdate ?? canManage;
     const allowDelete = canDelete ?? canManage;
     const allowImport = canImport ?? canManage;
-    const allowManageUi = allowCreate || allowUpdate || allowDelete || allowImport;
+    const allowManageUi =
+        allowCreate || allowUpdate || allowDelete || allowImport;
     const {
         showField,
         isFieldRequired,
@@ -439,7 +440,9 @@ export function EmployeeSeaServiceTab({
                                     className="h-8 gap-1.5 text-xs"
                                     type="button"
                                     disabled={!canImportRecords}
-                                    onClick={() => setSeaServiceImportOpen(true)}
+                                    onClick={() =>
+                                        setSeaServiceImportOpen(true)
+                                    }
                                 >
                                     Import CSV
                                 </Button>
@@ -1415,9 +1418,17 @@ export function EmployeeSeaServiceTab({
                                 };
 
                                 if (editingRow) {
-                                    router.put(url, payload as RequestPayload, options);
+                                    router.put(
+                                        url,
+                                        payload as RequestPayload,
+                                        options,
+                                    );
                                 } else {
-                                    router.post(url, payload as RequestPayload, options);
+                                    router.post(
+                                        url,
+                                        payload as RequestPayload,
+                                        options,
+                                    );
                                 }
                             }}
                         >

@@ -717,6 +717,7 @@ function PreviewStep({
                                                                                 {
                                                                                     e.field
                                                                                 }
+
                                                                                 :
                                                                             </span>{' '}
                                                                             {

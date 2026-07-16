@@ -237,7 +237,7 @@ function TimelineTrack({
 
     return (
         <div className="relative space-y-1 px-1">
-            <div className="flex items-center justify-between text-[10px] font-medium tabular-nums text-muted-foreground/70">
+            <div className="flex items-center justify-between text-[10px] font-medium text-muted-foreground/70 tabular-nums">
                 <span>
                     {clockIn ? (
                         <>
@@ -279,50 +279,52 @@ function TimelineTrack({
                         />
                     ) : null}
 
-                    {checkpoints.map(
-                        ({ event, index, pct, onTop, level }) => {
-                            const isCheckIn = event.status === 'checkIn';
-                            const offset = 14 + level * 16;
+                    {checkpoints.map(({ event, index, pct, onTop, level }) => {
+                        const isCheckIn = event.status === 'checkIn';
+                        const offset = 14 + level * 16;
 
-                            return (
-                                <div
-                                    key={`${event.time}-${event.status}-${index}`}
-                                    className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
-                                    style={{
-                                        left: `${pct}%`,
-                                        zIndex: events.length - index,
-                                    }}
+                        return (
+                            <div
+                                key={`${event.time}-${event.status}-${index}`}
+                                className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+                                style={{
+                                    left: `${pct}%`,
+                                    zIndex: events.length - index,
+                                }}
+                            >
+                                <button
+                                    type="button"
+                                    title={eventTooltip(event)}
+                                    aria-label={eventTooltip(event)}
+                                    className={cn(
+                                        'relative block size-3 rounded-full border-2 border-background shadow-sm transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                                        isCheckIn
+                                            ? 'bg-emerald-500'
+                                            : 'bg-amber-500',
+                                    )}
+                                />
+                                <span
+                                    className={cn(
+                                        'pointer-events-none absolute left-1/2 -translate-x-1/2 text-[9px] font-semibold whitespace-nowrap tabular-nums',
+                                        isCheckIn
+                                            ? 'text-emerald-500'
+                                            : 'text-amber-500',
+                                    )}
+                                    style={
+                                        onTop
+                                            ? {
+                                                  bottom: `calc(100% + ${offset}px)`,
+                                              }
+                                            : {
+                                                  top: `calc(100% + ${offset}px)`,
+                                              }
+                                    }
                                 >
-                                    <button
-                                        type="button"
-                                        title={eventTooltip(event)}
-                                        aria-label={eventTooltip(event)}
-                                        className={cn(
-                                            'relative block size-3 rounded-full border-2 border-background shadow-sm transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                            isCheckIn
-                                                ? 'bg-emerald-500'
-                                                : 'bg-amber-500',
-                                        )}
-                                    />
-                                    <span
-                                        className={cn(
-                                            'pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-semibold tabular-nums',
-                                            isCheckIn
-                                                ? 'text-emerald-500'
-                                                : 'text-amber-500',
-                                        )}
-                                        style={
-                                            onTop
-                                                ? { bottom: `calc(100% + ${offset}px)` }
-                                                : { top: `calc(100% + ${offset}px)` }
-                                        }
-                                    >
-                                        {formatTimelineTime12h(event.time)}
-                                    </span>
-                                </div>
-                            );
-                        },
-                    )}
+                                    {formatTimelineTime12h(event.time)}
+                                </span>
+                            </div>
+                        );
+                    })}
 
                     {clockIn && !isComplete && isToday ? (
                         <div
@@ -340,7 +342,7 @@ function TimelineTrack({
                 </div>
             </div>
 
-            <div className="flex justify-between text-[9px] tabular-nums text-muted-foreground/45">
+            <div className="flex justify-between text-[9px] text-muted-foreground/45 tabular-nums">
                 <span>{formatTimelineTime12h(windowStart)}</span>
                 <span>{formatTimelineTime12h(windowEnd)}</span>
             </div>
@@ -469,7 +471,7 @@ export function TodayAttendanceTimeline({
     };
 
     return (
-        <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-card/80 p-5 glass-card">
+        <div className="relative overflow-hidden rounded-2xl border glass-card border-border/60 bg-card/80 p-5">
             <div className="pointer-events-none absolute -top-6 -right-6 size-28 rounded-full bg-emerald-500/10 blur-2xl" />
 
             <div className="relative mb-3 flex flex-wrap items-start justify-between gap-3">

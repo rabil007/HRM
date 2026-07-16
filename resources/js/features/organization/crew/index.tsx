@@ -63,7 +63,9 @@ export function CurrentCrewContent({
                 description="Manage crew assignments and movements"
                 right={
                     can.create ? (
-                        <Button onClick={() => router.visit(createAssignment.url())}>
+                        <Button
+                            onClick={() => router.visit(createAssignment.url())}
+                        >
                             <Plus className="h-4 w-4" />
                             New Assignment
                         </Button>
@@ -72,29 +74,37 @@ export function CurrentCrewContent({
             />
 
             <div className="mb-6 grid gap-4 md:grid-cols-3">
-                <div className="glass-card rounded-xl p-6">
+                <div className="rounded-xl glass-card p-6">
                     <div className="text-2xl font-bold">{summary.total}</div>
-                    <div className="text-sm text-muted-foreground">Total Active</div>
+                    <div className="text-sm text-muted-foreground">
+                        Total Active
+                    </div>
                 </div>
-                <div className="glass-card rounded-xl p-6">
+                <div className="rounded-xl glass-card p-6">
                     <div className="text-2xl font-bold text-amber-600">
                         {summary.needs_attention}
                     </div>
-                    <div className="text-sm text-muted-foreground">Needs Attention</div>
+                    <div className="text-sm text-muted-foreground">
+                        Needs Attention
+                    </div>
                 </div>
-                <div className="glass-card rounded-xl p-6">
-                    <div className="text-sm text-muted-foreground">By Phase</div>
+                <div className="rounded-xl glass-card p-6">
+                    <div className="text-sm text-muted-foreground">
+                        By Phase
+                    </div>
                     <div className="mt-2 flex flex-wrap gap-1">
-                        {Object.entries(summary.by_phase).map(([phase, count]) => (
-                            <Badge key={phase} variant="outline">
-                                {phase}: {count}
-                            </Badge>
-                        ))}
+                        {Object.entries(summary.by_phase).map(
+                            ([phase, count]) => (
+                                <Badge key={phase} variant="outline">
+                                    {phase}: {count}
+                                </Badge>
+                            ),
+                        )}
                     </div>
                 </div>
             </div>
 
-            <div className="glass-card rounded-xl">
+            <div className="rounded-xl glass-card">
                 <div className="p-4">
                     <SearchBar
                         value={list.searchInput}
@@ -106,8 +116,16 @@ export function CurrentCrewContent({
 
                 {assignments.length === 0 ? (
                     <EmptyState
-                        title="No crew assignments found"
-                        description="Get started by creating a new crew assignment"
+                        title={
+                            list.searchInput
+                                ? 'No matching crew assignments'
+                                : 'No crew assignments found'
+                        }
+                        description={
+                            list.searchInput
+                                ? 'Try a different search or clear filters.'
+                                : 'Get started by creating a new crew assignment.'
+                        }
                     />
                 ) : (
                     <>
@@ -130,12 +148,16 @@ export function CurrentCrewContent({
                                         className={dataTableBodyRowClass()}
                                         onClick={() =>
                                             router.visit(
-                                                showAssignment.url(assignment.id),
+                                                showAssignment.url(
+                                                    assignment.id,
+                                                ),
                                             )
                                         }
                                         style={{ cursor: 'pointer' }}
                                     >
-                                        <TableCell className={dataTableCellPrimaryClass()}>
+                                        <TableCell
+                                            className={dataTableCellPrimaryClass()}
+                                        >
                                             <div className="font-medium">
                                                 {assignment.assignment_no}
                                             </div>
@@ -143,16 +165,24 @@ export function CurrentCrewContent({
                                                 {assignment.created_at}
                                             </div>
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass()}>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
                                             {assignment.employee?.name ?? 'N/A'}
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass()}>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
                                             {assignment.vessel?.name ?? 'N/A'}
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass()}>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
                                             {assignment.rank?.name ?? 'N/A'}
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass()}>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
                                             {assignment.current_phase ? (
                                                 <CrewPhaseBadge
                                                     code={
@@ -172,10 +202,13 @@ export function CurrentCrewContent({
                                                 'N/A'
                                             )}
                                         </TableCell>
-                                        <TableCell className={dataTableCellClass()}>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
                                             <Badge
                                                 variant={
-                                                    assignment.status === 'active'
+                                                    assignment.status ===
+                                                    'active'
                                                         ? 'success'
                                                         : 'secondary'
                                                 }
@@ -183,7 +216,10 @@ export function CurrentCrewContent({
                                                 {assignment.status_label}
                                             </Badge>
                                             {assignment.warnings.length > 0 && (
-                                                <Badge variant="destructive" className="ml-1">
+                                                <Badge
+                                                    variant="destructive"
+                                                    className="ml-1"
+                                                >
                                                     {assignment.warnings.length}
                                                 </Badge>
                                             )}

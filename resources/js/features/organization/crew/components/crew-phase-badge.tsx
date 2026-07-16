@@ -37,7 +37,8 @@ export function CrewPhaseBadge({
             variant="outline"
             className={cn(
                 'font-medium',
-                PHASE_CODE_STYLES[codeKey] ?? 'border-border bg-muted/30 text-foreground',
+                PHASE_CODE_STYLES[codeKey] ??
+                    'border-border bg-muted/30 text-foreground',
                 status ? STATUS_STYLES[status] : undefined,
             )}
             title={label}

@@ -98,7 +98,7 @@ export function SeaServicesTableRow({
                 {formatDisplayDate(seaService.end_date)}
             </TableCell>
             <TableCell className={dataTableCellClass()}>
-                <span className="tabular-nums text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground tabular-nums">
                     {seaService.total_months}m {seaService.total_days}d
                 </span>
             </TableCell>

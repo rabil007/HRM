@@ -17,10 +17,9 @@ import {
     formatBulkEmailBodyPreview,
     initialCcFromTemplate,
     isValidEmailAddress,
-    substituteBulkEmailTemplate
-    
+    substituteBulkEmailTemplate,
 } from '@/features/organization/documents/bulk/bulk-email-utils';
-import type {BulkEmailPreviewEmployee} from '@/features/organization/documents/bulk/bulk-email-utils';
+import type { BulkEmailPreviewEmployee } from '@/features/organization/documents/bulk/bulk-email-utils';
 import type { WiredEmailTemplate } from '@/features/organization/documents/bulk/types';
 import { toast } from '@/lib/toast';
 
@@ -260,7 +259,7 @@ export function BulkDocumentsEmailModal({
                                         {previewSubject}
                                     </p>
                                     <div
-                                        className="prose prose-sm mt-2 max-w-none dark:prose-invert [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-2"
+                                        className="prose prose-sm dark:prose-invert mt-2 max-w-none [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
                                         dangerouslySetInnerHTML={{
                                             __html: formatBulkEmailBodyPreview(
                                                 previewBody,
@@ -352,8 +351,8 @@ export function BulkDocumentsEmailModal({
                                     ) : null}
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    Pick an employee from search results, or type
-                                    an email and press Enter.
+                                    Pick an employee from search results, or
+                                    type an email and press Enter.
                                 </p>
                             </div>
                         </>

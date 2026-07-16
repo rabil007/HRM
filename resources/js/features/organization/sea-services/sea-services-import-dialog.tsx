@@ -266,8 +266,8 @@ export function SeaServicesImportDialog({
                     <DialogDescription>
                         Download the template with your active employees
                         pre-filled, fill vessel, rank and dates, then upload.
-                        Rows with no sea service data are skipped. Multiple
-                        rows per employee are allowed.
+                        Rows with no sea service data are skipped. Multiple rows
+                        per employee are allowed.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -450,9 +450,7 @@ export function SeaServicesImportDialog({
                             <Upload className="mr-2 h-4 w-4" />
                         )}
                         Import{' '}
-                        {preview
-                            ? `${preview.summary.importable} row(s)`
-                            : ''}
+                        {preview ? `${preview.summary.importable} row(s)` : ''}
                     </Button>
                 </DialogFooter>
             </DialogContent>

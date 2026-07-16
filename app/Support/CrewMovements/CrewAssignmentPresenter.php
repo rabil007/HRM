@@ -2,6 +2,7 @@
 
 namespace App\Support\CrewMovements;
 
+use App\Enums\CrewPhaseCode;
 use App\Models\CrewAssignment;
 
 class CrewAssignmentPresenter
@@ -59,6 +60,9 @@ class CrewAssignmentPresenter
         $current = $assignment->currentPhase;
         $daysInPhase = $current?->actual_start_at?->diffInDays(now($assignment->company->timezone ?? 'UTC'));
 
+        $onVesselPhase = $assignment->phases
+            ->first(fn ($phase) => $phase->phase_code === CrewPhaseCode::OnVessel);
+
         $phaseTimeline = $assignment->phases
             ->map(fn ($phase) => [
                 'id' => $phase->id,
@@ -114,6 +118,8 @@ class CrewAssignmentPresenter
             'planned_join_at' => $assignment->planned_join_at?->toDateString(),
             'planned_signoff_at' => $assignment->planned_signoff_at?->toDateString(),
             'planned_travel_at' => $assignment->planned_travel_at?->toDateString(),
+            'actual_join_at' => $onVesselPhase?->actual_start_at?->toDateString(),
+            'actual_disembarkation_at' => $onVesselPhase?->actual_end_at?->toDateString(),
             'started_at' => $assignment->started_at?->toDateString(),
             'closed_at' => $assignment->closed_at?->toDateString(),
             'source' => $assignment->source,

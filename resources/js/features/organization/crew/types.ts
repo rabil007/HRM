@@ -68,6 +68,8 @@ export interface CrewAssignmentDetail {
     planned_join_at: string | null;
     planned_signoff_at: string | null;
     planned_travel_at: string | null;
+    actual_join_at: string | null;
+    actual_disembarkation_at: string | null;
     started_at: string | null;
     closed_at: string | null;
     source: string | null;

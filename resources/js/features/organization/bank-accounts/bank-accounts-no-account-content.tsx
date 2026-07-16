@@ -14,9 +14,17 @@ import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { NoAccountSummaryCards } from '@/features/organization/bank-accounts/no-account-summary-cards';
-import type { NoBankAccountEmployee, NoBankAccountIndexProps } from '@/features/organization/bank-accounts/types';
+import type {
+    NoBankAccountEmployee,
+    NoBankAccountIndexProps,
+} from '@/features/organization/bank-accounts/types';
 import { useNoBankAccountIndexFilters } from '@/features/organization/bank-accounts/use-no-bank-account-index-filters';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
@@ -25,7 +33,10 @@ import { cashPaymentBadgeLabel } from '@/features/organization/employees/salary-
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { bankAccounts } from '@/routes/organization';
-import { noAccount, employee as bankAccountEmployee } from '@/routes/organization/bank-accounts';
+import {
+    noAccount,
+    employee as bankAccountEmployee,
+} from '@/routes/organization/bank-accounts';
 
 function NoBankAccountTableRow({ emp }: { emp: NoBankAccountEmployee }) {
     const cashBadge = emp.salary_payment_method
@@ -37,18 +48,27 @@ function NoBankAccountTableRow({ emp }: { emp: NoBankAccountEmployee }) {
             className={cn(dataTableBodyRowClass(false), 'cursor-pointer')}
             onClick={() =>
                 router.visit(
-                    bankAccountEmployee.url({ employee: emp.id }, { query: { from: 'no-account' } }),
+                    bankAccountEmployee.url(
+                        { employee: emp.id },
+                        { query: { from: 'no-account' } },
+                    ),
                 )
             }
         >
-            <TableCell className={cn(dataTableCellPrimaryClass(), 'min-w-[200px]')}>
+            <TableCell
+                className={cn(dataTableCellPrimaryClass(), 'min-w-[200px]')}
+            >
                 <div className="flex min-w-0 items-center gap-3">
                     <EmployeeProfileLink
                         employeeId={emp.id}
                         stopRowNavigation
                         className="shrink-0"
                     >
-                        <EmployeeAvatar name={emp.name} image={emp.image} size="sm" />
+                        <EmployeeAvatar
+                            name={emp.name}
+                            image={emp.image}
+                            size="sm"
+                        />
                     </EmployeeProfileLink>
                     <div className="min-w-0">
                         <EmployeeProfileLink
@@ -61,7 +81,7 @@ function NoBankAccountTableRow({ emp }: { emp: NoBankAccountEmployee }) {
                         <p className="truncate font-mono text-[11px] text-muted-foreground/75">
                             {emp.employee_no}
                         </p>
-                        {(emp.department || emp.position) ? (
+                        {emp.department || emp.position ? (
                             <p className="truncate text-[11px] text-muted-foreground/60">
                                 {[emp.department, emp.position]
                                     .filter(Boolean)
@@ -156,7 +176,9 @@ export function BankAccountsNoAccountContent({
 
                         <DepartmentFilterControls
                             department_tree={department_tree}
-                            department_tree_selected_id={department_tree_selected_id}
+                            department_tree_selected_id={
+                                department_tree_selected_id
+                            }
                             department_tree_selected_position_id={null}
                             onSelectDepartment={onDepartmentChange}
                             onSelectPosition={(_, depId) =>
@@ -169,7 +191,9 @@ export function BankAccountsNoAccountContent({
 
             {employees.length === 0 ? (
                 <EmptyState
-                    icon={<UserX className="size-10 text-muted-foreground/40" />}
+                    icon={
+                        <UserX className="size-10 text-muted-foreground/40" />
+                    }
                     title="No employees found"
                     description={
                         searchInput || payment_method || department_id

@@ -214,9 +214,7 @@ export function EsignPlacementSamplePreviewDialog({
 
                             <div
                                 className={
-                                    error
-                                        ? 'hidden'
-                                        : 'relative mx-auto w-full'
+                                    error ? 'hidden' : 'relative mx-auto w-full'
                                 }
                                 style={
                                     renderSize.width > 0

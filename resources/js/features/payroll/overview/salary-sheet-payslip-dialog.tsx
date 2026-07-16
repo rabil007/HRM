@@ -377,7 +377,9 @@ export function SalarySheetPayslipDialog({
             }
 
             if (!payload?.rows?.length) {
-                throw new Error('No employee rows were found in the salary sheet.');
+                throw new Error(
+                    'No employee rows were found in the salary sheet.',
+                );
             }
 
             const ids = payload.rows.map((row) => row.row);
@@ -513,12 +515,16 @@ export function SalarySheetPayslipDialog({
                 const contentType = response.headers.get('Content-Type') ?? '';
 
                 if (contentType.includes('application/json')) {
-                    const payload = (await response.json().catch(() => null)) as {
+                    const payload = (await response
+                        .json()
+                        .catch(() => null)) as {
                         message?: string;
                         errors?: Record<string, string[]>;
                     } | null;
 
-                    const firstError = Object.values(payload?.errors ?? {})[0]?.[0];
+                    const firstError = Object.values(
+                        payload?.errors ?? {},
+                    )[0]?.[0];
 
                     throw new Error(
                         firstError ??
@@ -567,11 +573,13 @@ export function SalarySheetPayslipDialog({
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="flex max-h-[90vh] flex-col gap-4 sm:max-w-5xl">
                 <DialogHeader>
-                    <DialogTitle>Generate payslips from salary sheet</DialogTitle>
+                    <DialogTitle>
+                        Generate payslips from salary sheet
+                    </DialogTitle>
                     <DialogDescription>
-                        Check people in the order you want PDF pages — first check
-                        is page 1, next is page 2, and so on. Drag to fine-tune.
-                        Nothing is saved to payroll.
+                        Check people in the order you want PDF pages — first
+                        check is page 1, next is page 2, and so on. Drag to
+                        fine-tune. Nothing is saved to payroll.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -585,7 +593,9 @@ export function SalarySheetPayslipDialog({
                                 min={2000}
                                 max={2100}
                                 value={year}
-                                onChange={(event) => setYear(event.target.value)}
+                                onChange={(event) =>
+                                    setYear(event.target.value)
+                                }
                                 disabled={busy}
                             />
                         </div>
@@ -597,7 +607,9 @@ export function SalarySheetPayslipDialog({
                                 min={1}
                                 max={12}
                                 value={month}
-                                onChange={(event) => setMonth(event.target.value)}
+                                onChange={(event) =>
+                                    setMonth(event.target.value)
+                                }
                                 disabled={busy}
                             />
                         </div>
@@ -666,8 +678,8 @@ export function SalarySheetPayslipDialog({
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                                 <div className="space-y-1">
                                     <p className="text-sm font-medium">
-                                        {selectedCount} of {preview.summary.total}{' '}
-                                        selected
+                                        {selectedCount} of{' '}
+                                        {preview.summary.total} selected
                                     </p>
                                     <p className="text-xs text-muted-foreground">
                                         {sortLabel}. First checked = PDF page 1.
@@ -688,7 +700,10 @@ export function SalarySheetPayslipDialog({
                                                 return;
                                             }
 
-                                            syncDisplayOrder(mode, selectionOrder);
+                                            syncDisplayOrder(
+                                                mode,
+                                                selectionOrder,
+                                            );
                                         }}
                                         disabled={busy}
                                         size="sm"
@@ -731,7 +746,9 @@ export function SalarySheetPayslipDialog({
                                                 <Checkbox
                                                     checked={allSelected}
                                                     onCheckedChange={(value) =>
-                                                        toggleAll(value === true)
+                                                        toggleAll(
+                                                            value === true,
+                                                        )
                                                     }
                                                     aria-label="Select all"
                                                     disabled={busy}
@@ -777,7 +794,9 @@ export function SalarySheetPayslipDialog({
                                     </TableHeader>
                                     <TableBody ref={tableBodyRef}>
                                         {filteredRows.map((row) => {
-                                            const page = pdfPageByRow.get(row.row);
+                                            const page = pdfPageByRow.get(
+                                                row.row,
+                                            );
 
                                             return (
                                                 <TableRow
@@ -804,14 +823,15 @@ export function SalarySheetPayslipDialog({
                                                             ) =>
                                                                 toggleRow(
                                                                     row.row,
-                                                                    value === true,
+                                                                    value ===
+                                                                        true,
                                                                 )
                                                             }
                                                             aria-label={`Select ${row.name}`}
                                                             disabled={busy}
                                                         />
                                                     </TableCell>
-                                                    <TableCell className="text-right font-medium tabular-nums text-muted-foreground">
+                                                    <TableCell className="text-right font-medium text-muted-foreground tabular-nums">
                                                         {page ?? '—'}
                                                     </TableCell>
                                                     <TableCell>
@@ -840,7 +860,9 @@ export function SalarySheetPayslipDialog({
                                                         )}
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        {formatAmount(row.site_allow)}
+                                                        {formatAmount(
+                                                            row.site_allow,
+                                                        )}
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         {formatAmount(
@@ -848,10 +870,14 @@ export function SalarySheetPayslipDialog({
                                                         )}
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        {formatAmount(row.onsite_pay)}
+                                                        {formatAmount(
+                                                            row.onsite_pay,
+                                                        )}
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        {formatAmount(row.add_ded)}
+                                                        {formatAmount(
+                                                            row.add_ded,
+                                                        )}
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         {formatAmount(

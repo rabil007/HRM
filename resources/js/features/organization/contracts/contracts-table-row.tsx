@@ -136,8 +136,7 @@ export function ContractsTableRow({
                         <p className="truncate font-mono text-[11px] text-muted-foreground/75">
                             {contract.employee_no}
                         </p>
-                        {contract.department_name ||
-                        contract.position_title ? (
+                        {contract.department_name || contract.position_title ? (
                             <p className="truncate text-[11px] text-muted-foreground/60">
                                 {[
                                     contract.department_name,
@@ -213,7 +212,7 @@ export function ContractsTableRow({
                 </span>
             </TableCell>
             <TableCell className={dataTableCellClass()}>
-                <span className="tabular-nums text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground tabular-nums">
                     {contract.total_contracts}
                 </span>
             </TableCell>

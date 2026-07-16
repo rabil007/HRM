@@ -22,8 +22,7 @@ export function DocumentsActiveFilters({
     const hasExpiryFilter = expiryFilter !== 'all';
     const hasSearch =
         (search?.trim() ?? '') !== '' && onClearSearch !== undefined;
-    const hasDepartment =
-        departmentSelected && onClearDepartment !== undefined;
+    const hasDepartment = departmentSelected && onClearDepartment !== undefined;
 
     if (!hasExpiryFilter && !hasSearch && !hasDepartment) {
         return null;

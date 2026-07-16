@@ -12,9 +12,9 @@ import {
 
 const LEGEND_ITEMS = [
     {
-        label: 'Deployed',
+        label: 'Assigned',
         description:
-            'Crew currently on the vessel — synced automatically from Crew Deployments.',
+            'Crew currently on the vessel — synced automatically from Current Crew.',
         surfaceClass: deployedBarSurfaceClass,
         labelClass: 'text-emerald-700 dark:text-emerald-300',
         swatchRingClass: 'ring-emerald-500/45 dark:ring-emerald-400/55',
@@ -22,7 +22,7 @@ const LEGEND_ITEMS = [
     {
         label: 'Planned relief',
         description:
-            'Successor crew you plan here to replace deployed crew after they leave.',
+            'Successor crew you plan here to replace assigned crew after they leave.',
         surfaceClass: plannedReliefBarSurfaceClass,
         labelClass: 'text-sky-700 dark:text-sky-300',
         swatchRingClass: 'ring-sky-500/45 dark:ring-sky-400/55',

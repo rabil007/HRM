@@ -213,110 +213,124 @@ export function BulkEmailBatchSendsSheet({
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <OrganizationDataTable compact minWidth="min-w-[720px]">
-                            <TableHeader>
-                                <DataTableHeaderRow>
-                                    <DataTableHead>Employee</DataTableHead>
-                                    <DataTableHead>Recipient</DataTableHead>
-                                    <DataTableHead>Status</DataTableHead>
-                                    <DataTableHead>Sent at</DataTableHead>
-                                    <DataTableHead>Details</DataTableHead>
-                                </DataTableHeaderRow>
-                            </TableHeader>
-                            <TableBody>
-                                {sends.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="p-0">
-                                            <EmptyState
-                                                title="No recipients recorded."
-                                                description="This batch has no email send rows yet."
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    sends.map((send) => (
-                                        <TableRow
-                                            key={send.id}
-                                            className={dataTableBodyRowClass(
-                                                false,
-                                            )}
-                                        >
+                            <OrganizationDataTable
+                                compact
+                                minWidth="min-w-[720px]"
+                            >
+                                <TableHeader>
+                                    <DataTableHeaderRow>
+                                        <DataTableHead>Employee</DataTableHead>
+                                        <DataTableHead>Recipient</DataTableHead>
+                                        <DataTableHead>Status</DataTableHead>
+                                        <DataTableHead>Sent at</DataTableHead>
+                                        <DataTableHead>Details</DataTableHead>
+                                    </DataTableHeaderRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {sends.length === 0 ? (
+                                        <TableRow>
                                             <TableCell
-                                                className={dataTableCellPrimaryClass()}
+                                                colSpan={5}
+                                                className="p-0"
                                             >
-                                                {send.employee.id ? (
-                                                    <EmployeeProfileLink
-                                                        employeeId={
-                                                            send.employee.id
-                                                        }
-                                                        stopRowNavigation
-                                                        className="truncate"
-                                                    >
-                                                        {send.employee.name ??
-                                                            '—'}
-                                                    </EmployeeProfileLink>
-                                                ) : (
-                                                    <span>—</span>
-                                                )}
-                                                {send.employee.employee_no ? (
-                                                    <div className="text-xs text-muted-foreground/70">
-                                                        {
-                                                            send.employee
-                                                                .employee_no
-                                                        }
-                                                    </div>
-                                                ) : null}
-                                            </TableCell>
-                                            <TableCell
-                                                className={dataTableCellClass()}
-                                            >
-                                                {send.recipient_email ? (
-                                                    <a
-                                                        href={`mailto:${send.recipient_email}`}
-                                                        className="text-sm text-primary hover:underline"
-                                                    >
-                                                        {send.recipient_email}
-                                                    </a>
-                                                ) : (
-                                                    <span className="text-muted-foreground/70">
-                                                        —
-                                                    </span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell
-                                                className={dataTableCellClass()}
-                                            >
-                                                {sendStatusBadge(send.status)}
-                                            </TableCell>
-                                            <TableCell
-                                                className={cn(
-                                                    dataTableCellClass(),
-                                                    'whitespace-nowrap text-sm',
-                                                )}
-                                            >
-                                                {send.sent_at
-                                                    ? formatDisplayDateTime12h(
-                                                          send.sent_at,
-                                                      )
-                                                    : '—'}
-                                            </TableCell>
-                                            <TableCell
-                                                className={cn(
-                                                    dataTableCellClass(),
-                                                    'max-w-[200px]',
-                                                )}
-                                            >
-                                                <span
-                                                    className="line-clamp-2 text-sm text-muted-foreground/90"
-                                                    title={send.error ?? undefined}
-                                                >
-                                                    {send.error ?? '—'}
-                                                </span>
+                                                <EmptyState
+                                                    title="No recipients recorded."
+                                                    description="This batch has no email send rows yet."
+                                                />
                                             </TableCell>
                                         </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
+                                    ) : (
+                                        sends.map((send) => (
+                                            <TableRow
+                                                key={send.id}
+                                                className={dataTableBodyRowClass(
+                                                    false,
+                                                )}
+                                            >
+                                                <TableCell
+                                                    className={dataTableCellPrimaryClass()}
+                                                >
+                                                    {send.employee.id ? (
+                                                        <EmployeeProfileLink
+                                                            employeeId={
+                                                                send.employee.id
+                                                            }
+                                                            stopRowNavigation
+                                                            className="truncate"
+                                                        >
+                                                            {send.employee
+                                                                .name ?? '—'}
+                                                        </EmployeeProfileLink>
+                                                    ) : (
+                                                        <span>—</span>
+                                                    )}
+                                                    {send.employee
+                                                        .employee_no ? (
+                                                        <div className="text-xs text-muted-foreground/70">
+                                                            {
+                                                                send.employee
+                                                                    .employee_no
+                                                            }
+                                                        </div>
+                                                    ) : null}
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableCellClass()}
+                                                >
+                                                    {send.recipient_email ? (
+                                                        <a
+                                                            href={`mailto:${send.recipient_email}`}
+                                                            className="text-sm text-primary hover:underline"
+                                                        >
+                                                            {
+                                                                send.recipient_email
+                                                            }
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-muted-foreground/70">
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell
+                                                    className={dataTableCellClass()}
+                                                >
+                                                    {sendStatusBadge(
+                                                        send.status,
+                                                    )}
+                                                </TableCell>
+                                                <TableCell
+                                                    className={cn(
+                                                        dataTableCellClass(),
+                                                        'text-sm whitespace-nowrap',
+                                                    )}
+                                                >
+                                                    {send.sent_at
+                                                        ? formatDisplayDateTime12h(
+                                                              send.sent_at,
+                                                          )
+                                                        : '—'}
+                                                </TableCell>
+                                                <TableCell
+                                                    className={cn(
+                                                        dataTableCellClass(),
+                                                        'max-w-[200px]',
+                                                    )}
+                                                >
+                                                    <span
+                                                        className="line-clamp-2 text-sm text-muted-foreground/90"
+                                                        title={
+                                                            send.error ??
+                                                            undefined
+                                                        }
+                                                    >
+                                                        {send.error ?? '—'}
+                                                    </span>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
                             </OrganizationDataTable>
                         </div>
                     )}

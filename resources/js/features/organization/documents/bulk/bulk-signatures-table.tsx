@@ -122,7 +122,8 @@ export function SignatureReviewDialog({
 
     const canUploadManual =
         canReview &&
-        (request.status === 'awaiting_signature' || request.status === 'rejected');
+        (request.status === 'awaiting_signature' ||
+            request.status === 'rejected');
 
     const canApproveOrReject = canReview && request.status === 'submitted';
 
@@ -224,7 +225,9 @@ export function SignatureReviewDialog({
                             {request.signed_at ? (
                                 <p className="text-muted-foreground">
                                     Submitted{' '}
-                                    {formatDisplayDateTime12h(request.signed_at)}
+                                    {formatDisplayDateTime12h(
+                                        request.signed_at,
+                                    )}
                                 </p>
                             ) : null}
                         </div>
@@ -409,10 +412,7 @@ export function BulkSignaturesTable({
 
     return (
         <>
-            <OrganizationDataTable
-                minWidth="min-w-[880px]"
-                header={header}
-            >
+            <OrganizationDataTable minWidth="min-w-[880px]" header={header}>
                 <TableHeader>
                     <DataTableHeaderRow>
                         {selectable ? (
@@ -435,7 +435,9 @@ export function BulkSignaturesTable({
                         <DataTableHead>Status</DataTableHead>
                         <DataTableHead>Submitted</DataTableHead>
                         <DataTableHead>Reviewed</DataTableHead>
-                        <DataTableHead className="text-right">Actions</DataTableHead>
+                        <DataTableHead className="text-right">
+                            Actions
+                        </DataTableHead>
                     </DataTableHeaderRow>
                 </TableHeader>
                 <TableBody>
@@ -457,116 +459,127 @@ export function BulkSignaturesTable({
                             );
 
                             return (
-                            <TableRow
-                                key={request.id}
-                                className={dataTableBodyRowClass(false)}
-                            >
-                                {selectable ? (
-                                    <TableCell className={dataTableCellClass()}>
-                                        <Checkbox
-                                            checked={Boolean(
-                                                isSelected?.(request.id),
-                                            )}
-                                            onCheckedChange={() =>
-                                                onToggle?.(request.id)
-                                            }
-                                            aria-label={`Select ${request.employee.name}`}
-                                        />
-                                    </TableCell>
-                                ) : null}
-                                <TableCell
-                                    className={cn(
-                                        dataTableCellPrimaryClass(),
-                                        'min-w-[200px]',
-                                    )}
+                                <TableRow
+                                    key={request.id}
+                                    className={dataTableBodyRowClass(false)}
                                 >
-                                    <div className="flex min-w-0 items-center gap-3">
-                                        <EmployeeProfileLink
-                                            employeeId={request.employee.id}
-                                            stopRowNavigation
-                                            className="shrink-0"
+                                    {selectable ? (
+                                        <TableCell
+                                            className={dataTableCellClass()}
                                         >
-                                            <EmployeeAvatar
-                                                name={request.employee.name}
-                                                image={request.employee.image}
-                                                size="sm"
+                                            <Checkbox
+                                                checked={Boolean(
+                                                    isSelected?.(request.id),
+                                                )}
+                                                onCheckedChange={() =>
+                                                    onToggle?.(request.id)
+                                                }
+                                                aria-label={`Select ${request.employee.name}`}
                                             />
-                                        </EmployeeProfileLink>
-                                        <div className="min-w-0">
+                                        </TableCell>
+                                    ) : null}
+                                    <TableCell
+                                        className={cn(
+                                            dataTableCellPrimaryClass(),
+                                            'min-w-[200px]',
+                                        )}
+                                    >
+                                        <div className="flex min-w-0 items-center gap-3">
                                             <EmployeeProfileLink
                                                 employeeId={request.employee.id}
-                                                className="block truncate text-sm font-semibold text-foreground hover:text-primary"
                                                 stopRowNavigation
+                                                className="shrink-0"
                                             >
-                                                {request.employee.name}
-                                            </EmployeeProfileLink>
-                                            <p className="truncate font-mono text-[11px] text-muted-foreground/75">
-                                                {request.employee.employee_no ??
-                                                    '—'}
-                                            </p>
-                                            {(request.employee.department ||
-                                                request.employee.position) && (
-                                                <p className="truncate text-[11px] text-muted-foreground/60">
-                                                    {[
-                                                        request.employee
-                                                            .department,
-                                                        request.employee
-                                                            .position,
-                                                    ]
-                                                        .filter(Boolean)
-                                                        .join(' · ')}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    <SignatureStatusBadge status={request.status} />
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {request.signed_at
-                                        ? formatDisplayDateTime12h(request.signed_at)
-                                        : '—'}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {request.reviewed_at
-                                        ? `${request.reviewed_by ?? 'HR'} · ${formatDisplayDateTime12h(request.reviewed_at)}`
-                                        : '—'}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    <div className="flex justify-end gap-2">
-                                        {viewUrl ? (
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                asChild
-                                            >
-                                                <a
-                                                    href={viewUrl}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    onClick={(event) =>
-                                                        event.stopPropagation()
+                                                <EmployeeAvatar
+                                                    name={request.employee.name}
+                                                    image={
+                                                        request.employee.image
                                                     }
+                                                    size="sm"
+                                                />
+                                            </EmployeeProfileLink>
+                                            <div className="min-w-0">
+                                                <EmployeeProfileLink
+                                                    employeeId={
+                                                        request.employee.id
+                                                    }
+                                                    className="block truncate text-sm font-semibold text-foreground hover:text-primary"
+                                                    stopRowNavigation
                                                 >
-                                                    <Eye className="mr-2 h-4 w-4" />
-                                                    View
-                                                </a>
+                                                    {request.employee.name}
+                                                </EmployeeProfileLink>
+                                                <p className="truncate font-mono text-[11px] text-muted-foreground/75">
+                                                    {request.employee
+                                                        .employee_no ?? '—'}
+                                                </p>
+                                                {(request.employee.department ||
+                                                    request.employee
+                                                        .position) && (
+                                                    <p className="truncate text-[11px] text-muted-foreground/60">
+                                                        {[
+                                                            request.employee
+                                                                .department,
+                                                            request.employee
+                                                                .position,
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(' · ')}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass()}>
+                                        <SignatureStatusBadge
+                                            status={request.status}
+                                        />
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass()}>
+                                        {request.signed_at
+                                            ? formatDisplayDateTime12h(
+                                                  request.signed_at,
+                                              )
+                                            : '—'}
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass()}>
+                                        {request.reviewed_at
+                                            ? `${request.reviewed_by ?? 'HR'} · ${formatDisplayDateTime12h(request.reviewed_at)}`
+                                            : '—'}
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass()}>
+                                        <div className="flex justify-end gap-2">
+                                            {viewUrl ? (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    asChild
+                                                >
+                                                    <a
+                                                        href={viewUrl}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        onClick={(event) =>
+                                                            event.stopPropagation()
+                                                        }
+                                                    >
+                                                        <Eye className="mr-2 h-4 w-4" />
+                                                        View
+                                                    </a>
+                                                </Button>
+                                            ) : null}
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() =>
+                                                    setReviewRequest(request)
+                                                }
+                                            >
+                                                Review
                                             </Button>
-                                        ) : null}
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() =>
-                                                setReviewRequest(request)
-                                            }
-                                        >
-                                            Review
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
                             );
                         })
                     )}

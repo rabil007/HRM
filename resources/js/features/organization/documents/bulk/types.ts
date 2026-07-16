@@ -158,7 +158,11 @@ export type BulkGenerationFilter = 'all' | 'missing' | 'generated';
 
 export type BulkEmailFilter = 'all' | 'emailed' | 'not_emailed';
 
-export type BulkSignatureFilter = 'all' | 'submitted' | 'awaiting_signature' | 'approved';
+export type BulkSignatureFilter =
+    | 'all'
+    | 'submitted'
+    | 'awaiting_signature'
+    | 'approved';
 
 export type LatestEmailBatch = {
     id: number;

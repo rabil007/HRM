@@ -36,7 +36,9 @@ export function OrganizationDataTable({
                     compact ? 'min-h-0' : 'min-h-[360px]',
                 )}
             >
-                <Table className={cn(minWidth, tableClassName)}>{children}</Table>
+                <Table className={cn(minWidth, tableClassName)}>
+                    {children}
+                </Table>
             </CardContent>
         </Card>
     );

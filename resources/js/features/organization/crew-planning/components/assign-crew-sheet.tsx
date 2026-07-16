@@ -258,10 +258,7 @@ export function AssignCrewSheet({
                             ) : null}
                             {form.errors.relieves_crew_assignment_id ? (
                                 <div className="text-xs font-medium text-destructive">
-                                    {
-                                        form.errors
-                                            .relieves_crew_assignment_id
-                                    }
+                                    {form.errors.relieves_crew_assignment_id}
                                 </div>
                             ) : null}
                         </div>

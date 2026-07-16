@@ -266,7 +266,10 @@ export function BankAccountsImportDialog({
                 <DialogHeader>
                     <DialogTitle>Import bank accounts</DialogTitle>
                     <DialogDescription>
-                        Download the template with your active employees pre-filled, edit bank account fields, then upload the file. Rows with no bank account data are skipped. Rows are matched by employee number and IBAN or Bank Name.
+                        Download the template with your active employees
+                        pre-filled, edit bank account fields, then upload the
+                        file. Rows with no bank account data are skipped. Rows
+                        are matched by employee number and IBAN or Bank Name.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -449,9 +452,7 @@ export function BankAccountsImportDialog({
                             <Upload className="mr-2 h-4 w-4" />
                         )}
                         Import{' '}
-                        {preview
-                            ? `${preview.summary.importable} row(s)`
-                            : ''}
+                        {preview ? `${preview.summary.importable} row(s)` : ''}
                     </Button>
                 </DialogFooter>
             </DialogContent>
