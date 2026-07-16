@@ -96,38 +96,10 @@ class CrewAssignmentController extends Controller
                 ])
                 ->values()
                 ->all(),
-            'ranks' => Rank::query()
-                ->where('company_id', $companyId)
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Rank $r) => ['id' => $r->id, 'name' => $r->name])
-                ->values()
-                ->all(),
-            'vessels' => Vessel::query()
-                ->where('company_id', $companyId)
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Vessel $v) => ['id' => $v->id, 'name' => $v->name])
-                ->values()
-                ->all(),
-            'clients' => Client::query()
-                ->where('company_id', $companyId)
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Client $c) => ['id' => $c->id, 'name' => $c->name])
-                ->values()
-                ->all(),
-            'visa_types' => CompanyVisaType::query()
-                ->where('company_id', $companyId)
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (CompanyVisaType $vt) => ['id' => $vt->id, 'name' => $vt->name])
-                ->values()
-                ->all(),
+            'ranks' => $this->activeRanks(),
+            'vessels' => $this->activeVessels(),
+            'clients' => $this->activeClients($companyId),
+            'visa_types' => $this->activeVisaTypes($companyId),
         ];
 
         return Inertia::render('organization/crew/create', [
@@ -195,6 +167,13 @@ class CrewAssignmentController extends Controller
         return Inertia::render('organization/crew/show', [
             'assignment' => $detail,
             'recent_activity' => $recentActivity,
+            'form_options' => [
+                'employees' => [],
+                'ranks' => $this->activeRanks(),
+                'vessels' => $this->activeVessels(),
+                'clients' => $this->activeClients($companyId),
+                'visa_types' => $this->activeVisaTypes($companyId),
+            ],
             'can' => CrewAssignmentPagePermissions::for($request->user()),
         ]);
     }
@@ -229,38 +208,10 @@ class CrewAssignmentController extends Controller
                 ])
                 ->values()
                 ->all(),
-            'ranks' => Rank::query()
-                ->where('company_id', $companyId)
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Rank $r) => ['id' => $r->id, 'name' => $r->name])
-                ->values()
-                ->all(),
-            'vessels' => Vessel::query()
-                ->where('company_id', $companyId)
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Vessel $v) => ['id' => $v->id, 'name' => $v->name])
-                ->values()
-                ->all(),
-            'clients' => Client::query()
-                ->where('company_id', $companyId)
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Client $c) => ['id' => $c->id, 'name' => $c->name])
-                ->values()
-                ->all(),
-            'visa_types' => CompanyVisaType::query()
-                ->where('company_id', $companyId)
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (CompanyVisaType $vt) => ['id' => $vt->id, 'name' => $vt->name])
-                ->values()
-                ->all(),
+            'ranks' => $this->activeRanks(),
+            'vessels' => $this->activeVessels(),
+            'clients' => $this->activeClients($companyId),
+            'visa_types' => $this->activeVisaTypes($companyId),
         ];
 
         return Inertia::render('organization/crew/edit', [
@@ -280,8 +231,15 @@ class CrewAssignmentController extends Controller
         $validated = $request->validated();
 
         $current = $assignment->currentPhase;
+        $preJoinPhases = [
+            CrewPhaseCode::PreMobilisation,
+            CrewPhaseCode::TravelIn,
+            CrewPhaseCode::JoinStandby,
+            CrewPhaseCode::Training,
+            CrewPhaseCode::ReadyToJoin,
+        ];
         $canUpdateAll = $assignment->status === CrewAssignmentStatus::Draft
-            || ($current && $current->phase_code->value < CrewPhaseCode::OnVessel->value);
+            || ($current !== null && in_array($current->phase_code, $preJoinPhases, true));
 
         if (! $canUpdateAll) {
             throw ValidationException::withMessages([
@@ -306,5 +264,63 @@ class CrewAssignmentController extends Controller
         return redirect()
             ->route('organization.crew-assignments.show', $assignment)
             ->with('success', 'Crew assignment updated successfully.');
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private function activeRanks(): array
+    {
+        return Rank::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Rank $rank) => ['id' => $rank->id, 'name' => $rank->name])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private function activeVessels(): array
+    {
+        return Vessel::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Vessel $vessel) => ['id' => $vessel->id, 'name' => $vessel->name])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private function activeClients(int $companyId): array
+    {
+        return Client::query()
+            ->where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Client $client) => ['id' => $client->id, 'name' => $client->name])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private function activeVisaTypes(int $companyId): array
+    {
+        return CompanyVisaType::query()
+            ->where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (CompanyVisaType $visaType) => ['id' => $visaType->id, 'name' => $visaType->name])
+            ->values()
+            ->all();
     }
 }

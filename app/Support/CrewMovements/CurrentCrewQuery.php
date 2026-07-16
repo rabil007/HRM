@@ -92,6 +92,18 @@ class CurrentCrewQuery
             ? $filters['direction']
             : 'desc';
 
+        $allowedSorts = [
+            'created_at',
+            'assignment_no',
+            'planned_join_at',
+            'planned_signoff_at',
+            'status',
+        ];
+
+        if (! in_array($sort, $allowedSorts, true)) {
+            $sort = 'created_at';
+        }
+
         $query->orderBy($sort, $direction);
 
         $query->with([
@@ -102,6 +114,7 @@ class CurrentCrewQuery
             'currentPhase',
             'companyVisaType',
             'planningAssignment',
+            'company',
         ]);
 
         $perPage = self::resolvePerPage($filters['per_page'] ?? null);
@@ -134,7 +147,6 @@ class CurrentCrewQuery
     {
         return [
             'vessels' => Vessel::query()
-                ->where('company_id', $companyId)
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name'])
@@ -142,7 +154,6 @@ class CurrentCrewQuery
                 ->values()
                 ->all(),
             'ranks' => Rank::query()
-                ->where('company_id', $companyId)
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name'])

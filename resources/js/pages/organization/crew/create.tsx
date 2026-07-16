@@ -3,7 +3,6 @@ import { ArrowLeft } from 'lucide-react';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -18,10 +17,13 @@ import type {
     CrewAssignmentFormOptions,
     CrewAssignmentPagePermissions,
 } from '@/features/organization/crew/types';
+import {
+    index as crewAssignmentsIndex,
+    store as storeAssignment,
+} from '@/routes/organization/crew-assignments';
 
 export default function CrewAssignmentCreate({
     form_options,
-    can,
 }: {
     form_options: CrewAssignmentFormOptions;
     can: CrewAssignmentPagePermissions;
@@ -40,7 +42,7 @@ export default function CrewAssignmentCreate({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        form.post('/organization/crew');
+        form.post(storeAssignment.url());
     };
 
     return (
@@ -51,7 +53,7 @@ export default function CrewAssignmentCreate({
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => router.visit('/organization/crew')}
+                        onClick={() => router.visit(crewAssignmentsIndex.url())}
                     >
                         <ArrowLeft className="h-4 w-4" />
                         Back to Crew Assignments
@@ -134,6 +136,90 @@ export default function CrewAssignmentCreate({
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            <div>
+                                <Label htmlFor="client_id">Client</Label>
+                                <Select
+                                    value={form.data.client_id?.toString() ?? ''}
+                                    onValueChange={(value) =>
+                                        form.setData('client_id', value ? Number(value) : null)
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select client..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {form_options.clients.map((client) => (
+                                            <SelectItem key={client.id} value={client.id.toString()}>
+                                                {client.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <Label htmlFor="company_visa_type_id">Visa Type</Label>
+                                <Select
+                                    value={form.data.company_visa_type_id?.toString() ?? ''}
+                                    onValueChange={(value) =>
+                                        form.setData(
+                                            'company_visa_type_id',
+                                            value ? Number(value) : null,
+                                        )
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select visa type..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {form_options.visa_types.map((visa) => (
+                                            <SelectItem key={visa.id} value={visa.id.toString()}>
+                                                {visa.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <div>
+                                <Label htmlFor="planned_join_at">Planned Join</Label>
+                                <input
+                                    id="planned_join_at"
+                                    type="date"
+                                    className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                                    value={form.data.planned_join_at}
+                                    onChange={(e) =>
+                                        form.setData('planned_join_at', e.target.value)
+                                    }
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="planned_signoff_at">Planned Sign-Off</Label>
+                                <input
+                                    id="planned_signoff_at"
+                                    type="date"
+                                    className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                                    value={form.data.planned_signoff_at}
+                                    onChange={(e) =>
+                                        form.setData('planned_signoff_at', e.target.value)
+                                    }
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="planned_travel_at">Planned Travel</Label>
+                                <input
+                                    id="planned_travel_at"
+                                    type="date"
+                                    className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                                    value={form.data.planned_travel_at}
+                                    onChange={(e) =>
+                                        form.setData('planned_travel_at', e.target.value)
+                                    }
+                                />
+                            </div>
                         </div>
 
                         <div>
@@ -153,7 +239,7 @@ export default function CrewAssignmentCreate({
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => router.visit('/organization/crew')}
+                                onClick={() => router.visit(crewAssignmentsIndex.url())}
                             >
                                 Cancel
                             </Button>

@@ -219,6 +219,7 @@ function canViewCrewOperationsOverview(permissions: string[]): boolean {
 function canViewCrewOperations(permissions: string[]): boolean {
     return (
         canViewCrewOperationsOverview(permissions) ||
+        has(permissions, 'crew_operations.assignments.view') ||
         has(permissions, 'crew_operations.vessel_manning.view') ||
         has(permissions, 'crew_operations.planning.view')
     );
@@ -312,6 +313,13 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 : null;
                         case '/organization/crew-operations':
                             return canViewCrewOperationsOverview(permissions)
+                                ? item
+                                : null;
+                        case '/organization/crew':
+                            return has(
+                                permissions,
+                                'crew_operations.assignments.view',
+                            )
                                 ? item
                                 : null;
                         case '/organization/vessel-manning':

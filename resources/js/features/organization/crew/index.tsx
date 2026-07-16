@@ -1,6 +1,5 @@
 import { router } from '@inertiajs/react';
-import { ArrowLeft, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { Plus } from 'lucide-react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -23,7 +22,13 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
+import {
+    create as createAssignment,
+    index as crewAssignmentsIndex,
+    show as showAssignment,
+} from '@/routes/organization/crew-assignments';
 import type { PaginationMeta } from '@/types/pagination';
 import type {
     CrewAssignmentListItem,
@@ -45,13 +50,11 @@ export function CurrentCrewContent({
     can: CrewAssignmentPagePermissions;
 }) {
     const list = useServerPaginationFilters({
-        url: '/organization/crew',
+        url: crewAssignmentsIndex.url(),
         search: initialSearch,
         filters: {},
         pagination,
     });
-
-    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
     return (
         <Main>
@@ -60,7 +63,7 @@ export function CurrentCrewContent({
                 description="Manage crew assignments and movements"
                 right={
                     can.create ? (
-                        <Button onClick={() => router.visit('/organization/crew/create')}>
+                        <Button onClick={() => router.visit(createAssignment.url())}>
                             <Plus className="h-4 w-4" />
                             New Assignment
                         </Button>
@@ -126,7 +129,9 @@ export function CurrentCrewContent({
                                         key={assignment.id}
                                         className={dataTableBodyRowClass()}
                                         onClick={() =>
-                                            router.visit(`/organization/crew/${assignment.id}`)
+                                            router.visit(
+                                                showAssignment.url(assignment.id),
+                                            )
                                         }
                                         style={{ cursor: 'pointer' }}
                                     >
@@ -149,9 +154,20 @@ export function CurrentCrewContent({
                                         </TableCell>
                                         <TableCell className={dataTableCellClass()}>
                                             {assignment.current_phase ? (
-                                                <Badge variant="outline">
-                                                    {assignment.current_phase.label}
-                                                </Badge>
+                                                <CrewPhaseBadge
+                                                    code={
+                                                        assignment.current_phase
+                                                            .code
+                                                    }
+                                                    label={
+                                                        assignment.current_phase
+                                                            .label
+                                                    }
+                                                    status={
+                                                        assignment.current_phase
+                                                            .status
+                                                    }
+                                                />
                                             ) : (
                                                 'N/A'
                                             )}
@@ -180,7 +196,11 @@ export function CurrentCrewContent({
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() =>
-                                                    router.visit(`/organization/crew/${assignment.id}`)
+                                                    router.visit(
+                                                        showAssignment.url(
+                                                            assignment.id,
+                                                        ),
+                                                    )
                                                 }
                                             >
                                                 View

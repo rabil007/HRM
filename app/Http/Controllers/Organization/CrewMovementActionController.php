@@ -35,12 +35,14 @@ class CrewMovementActionController extends Controller
             Gate::authorize('performMovement', $assignment);
         }
 
+        $payload = collect($validated)->except('action')->all();
+
         try {
             $this->service->perform(
                 $companyId,
                 $assignment->id,
                 $action,
-                $validated,
+                $payload,
                 $request->user()?->id,
             );
 

@@ -45,8 +45,8 @@ class PerformCrewMovementActionRequest extends FormRequest
         ];
 
         if ($action === 'join_vessel') {
-            $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)];
-            $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')->where('company_id', $companyId)];
+            $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')];
+            $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('company_id', $companyId)];
             $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('company_id', $companyId)];
             $baseRules['planned_signoff_at'] = ['nullable', 'date'];

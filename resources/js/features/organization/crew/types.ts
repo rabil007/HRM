@@ -157,3 +157,69 @@ export interface CrewAssignmentPagePermissions {
     cancel: boolean;
     view_audit: boolean;
 }
+
+export type CrewMovementAction =
+    | 'approve_mobilisation'
+    | 'record_arrival'
+    | 'start_join_standby'
+    | 'send_to_training'
+    | 'complete_training'
+    | 'mark_ready'
+    | 'join_vessel'
+    | 'plan_signoff'
+    | 'confirm_disembarkation'
+    | 'start_demob_standby'
+    | 'travel_home'
+    | 'transfer_vessel'
+    | 'redeploy'
+    | 'close_assignment'
+    | 'cancel_assignment'
+    | 'correct_movement';
+
+export const CREW_MOVEMENT_ACTION_LABELS: Record<CrewMovementAction, string> = {
+    approve_mobilisation: 'Approve Mobilisation',
+    record_arrival: 'Record Arrival',
+    start_join_standby: 'Start Join Standby',
+    send_to_training: 'Send to Training',
+    complete_training: 'Complete Training',
+    mark_ready: 'Mark Ready',
+    join_vessel: 'Join Vessel',
+    plan_signoff: 'Plan Sign-off',
+    confirm_disembarkation: 'Confirm Disembarkation',
+    start_demob_standby: 'Start Demobilisation Standby',
+    travel_home: 'Travel Home',
+    transfer_vessel: 'Transfer Vessel',
+    redeploy: 'Redeploy',
+    close_assignment: 'Close Assignment',
+    cancel_assignment: 'Cancel Assignment',
+    correct_movement: 'Correct Movement',
+};
+
+export const CREW_PHASE_LABELS: Record<string, string> = {
+    p0: 'Pre-Mobilisation',
+    p1: 'Travel In',
+    p2a: 'Join Standby',
+    p2b: 'Training',
+    p3: 'Ready to Join',
+    p4: 'On Vessel',
+    p5: 'Demobilisation Standby',
+    p6: 'Home / Redeployment',
+};
+
+export interface CrewMovementActionFormData {
+    action: CrewMovementAction;
+    occurred_at: string;
+    next_phase: string;
+    provider: string;
+    course: string;
+    planned_start_at: string;
+    planned_end_at: string;
+    remarks: string;
+    vessel_id: number | null;
+    rank_id: number | null;
+    client_id: number | null;
+    company_visa_type_id: number | null;
+    planned_signoff_at: string;
+    planned_travel_at: string;
+    reason: string;
+}

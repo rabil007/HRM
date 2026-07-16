@@ -1,25 +1,38 @@
 import { Head, router } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { RecentActivityCard } from '@/components/recent-activity-card';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
+import { Button } from '@/components/ui/button';
+import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
+import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
+import { CrewPhaseProgress } from '@/features/organization/crew/components/crew-phase-progress';
 import type {
     CrewAssignmentDetail,
+    CrewAssignmentFormOptions,
     CrewAssignmentPagePermissions,
 } from '@/features/organization/crew/types';
+import {
+    edit as editAssignment,
+    index as crewAssignmentsIndex,
+} from '@/routes/organization/crew-assignments';
 
 export default function CrewAssignmentShow({
     assignment,
     recent_activity,
+    form_options,
     can,
 }: {
     assignment: CrewAssignmentDetail;
     recent_activity: RecentActivityItem[];
+    form_options?: CrewAssignmentFormOptions;
     can: CrewAssignmentPagePermissions;
 }) {
+    const showMovementActions =
+        (can.perform_movement || can.cancel) &&
+        assignment.available_actions.length > 0;
+
     return (
         <>
             <Head title={`Assignment ${assignment.assignment_no}`} />
@@ -28,7 +41,7 @@ export default function CrewAssignmentShow({
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => router.visit('/organization/crew')}
+                        onClick={() => router.visit(crewAssignmentsIndex.url())}
                     >
                         <ArrowLeft className="h-4 w-4" />
                         Back to Crew Assignments
@@ -39,19 +52,52 @@ export default function CrewAssignmentShow({
                     title={assignment.assignment_no}
                     description={`Status: ${assignment.status_label}`}
                     right={
-                        can.update ? (
-                            <Button
-                                onClick={() =>
-                                    router.visit(`/organization/crew/${assignment.id}/edit`)
-                                }
-                            >
-                                Edit
-                            </Button>
-                        ) : undefined
+                        <div className="flex flex-wrap gap-2">
+                            {showMovementActions ? (
+                                <MovementActionMenu
+                                    assignmentId={assignment.id}
+                                    availableActions={
+                                        assignment.available_actions
+                                    }
+                                    currentPhase={assignment.current_phase}
+                                    formOptions={form_options}
+                                    defaultVesselId={assignment.vessel?.id}
+                                    defaultRankId={assignment.rank?.id}
+                                    defaultClientId={assignment.client?.id}
+                                    defaultVisaTypeId={
+                                        assignment.company_visa_type?.id
+                                    }
+                                    defaultPlannedSignoffAt={
+                                        assignment.planned_signoff_at
+                                    }
+                                />
+                            ) : null}
+                            {can.update ? (
+                                <Button
+                                    onClick={() =>
+                                        router.visit(
+                                            editAssignment.url(assignment.id),
+                                        )
+                                    }
+                                >
+                                    Edit
+                                </Button>
+                            ) : null}
+                        </div>
                     }
                 />
 
                 <div className="space-y-6">
+                    <div className="glass-card rounded-xl p-6">
+                        <h3 className="mb-4 font-semibold">Movement Progress</h3>
+                        <CrewPhaseProgress
+                            currentPhaseCode={
+                                assignment.current_phase?.code ?? null
+                            }
+                            phaseTimeline={assignment.phase_timeline}
+                        />
+                    </div>
+
                     <div className="glass-card rounded-xl p-6">
                         <h3 className="mb-4 font-semibold">Details</h3>
                         <dl className="grid grid-cols-2 gap-4">
@@ -93,9 +139,15 @@ export default function CrewAssignmentShow({
                                 </dt>
                                 <dd className="mt-1">
                                     {assignment.current_phase ? (
-                                        <Badge variant="outline">
-                                            {assignment.current_phase.label}
-                                        </Badge>
+                                        <CrewPhaseBadge
+                                            code={assignment.current_phase.code}
+                                            label={
+                                                assignment.current_phase.label
+                                            }
+                                            status={
+                                                assignment.current_phase.status
+                                            }
+                                        />
                                     ) : (
                                         'N/A'
                                     )}
@@ -120,27 +172,30 @@ export default function CrewAssignmentShow({
                                     key={phase.id}
                                     className="flex items-center gap-4 rounded-lg border p-3"
                                 >
-                                    <Badge variant="outline">
-                                        {phase.phase_label}
-                                    </Badge>
+                                    <CrewPhaseBadge
+                                        code={phase.phase_code}
+                                        label={phase.phase_label}
+                                        status={phase.status}
+                                    />
                                     <div className="flex-1 text-sm">
                                         <div className="font-medium">
                                             {phase.status_label}
                                         </div>
-                                        {phase.actual_start_at && (
+                                        {phase.actual_start_at ? (
                                             <div className="text-muted-foreground">
                                                 {phase.actual_start_at}
-                                                {phase.actual_end_at &&
-                                                    ` - ${phase.actual_end_at}`}
+                                                {phase.actual_end_at
+                                                    ? ` - ${phase.actual_end_at}`
+                                                    : null}
                                             </div>
-                                        )}
+                                        ) : null}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {assignment.warnings.length > 0 && (
+                    {assignment.warnings.length > 0 ? (
                         <div className="glass-card rounded-xl border-amber-500 p-6">
                             <h3 className="mb-4 font-semibold text-amber-600">
                                 Warnings
@@ -161,14 +216,14 @@ export default function CrewAssignmentShow({
                                 ))}
                             </div>
                         </div>
-                    )}
+                    ) : null}
 
-                    {can.view_audit && recent_activity.length > 0 && (
+                    {can.view_audit && recent_activity.length > 0 ? (
                         <RecentActivityCard
                             items={recent_activity}
                             description="Latest changes for this crew assignment."
                         />
-                    )}
+                    ) : null}
                 </div>
             </Main>
         </>
