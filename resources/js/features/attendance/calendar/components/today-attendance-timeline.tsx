@@ -151,6 +151,52 @@ function statusBadgeClass(status: TodayTimelineStatus): string {
     }
 }
 
+type CheckpointLayout = {
+    event: TimelineEvent;
+    index: number;
+    pct: number;
+    onTop: boolean;
+    level: number;
+};
+
+function layoutCheckpoints(
+    events: TimelineEvent[],
+    windowStart: string,
+    windowEnd: string,
+): CheckpointLayout[] {
+    const minGap = 10;
+    const placed: CheckpointLayout[] = [];
+
+    events.forEach((event, index) => {
+        const pct = timeToPercent(event.time, windowStart, windowEnd);
+        let onTop = index % 2 === 0;
+        let level = 0;
+
+        for (let attempt = 0; attempt < 6; attempt++) {
+            const collision = placed.some(
+                (item) =>
+                    item.onTop === onTop &&
+                    item.level === level &&
+                    Math.abs(item.pct - pct) < minGap,
+            );
+
+            if (!collision) {
+                break;
+            }
+
+            onTop = !onTop;
+
+            if (attempt % 2 === 1) {
+                level += 1;
+            }
+        }
+
+        placed.push({ event, index, pct, onTop, level });
+    });
+
+    return placed;
+}
+
 function TimelineTrack({
     events,
     clockIn,
@@ -182,9 +228,15 @@ function TimelineTrack({
     const progressWidth = clockIn
         ? Math.max(0, progressEnd - progressStart)
         : 0;
+    const checkpoints = layoutCheckpoints(events, windowStart, windowEnd);
+    const maxLevel = checkpoints.reduce(
+        (max, item) => Math.max(max, item.level),
+        0,
+    );
+    const labelPad = 22 + maxLevel * 16;
 
     return (
-        <div className="relative space-y-2 px-1">
+        <div className="relative space-y-1 px-1">
             <div className="flex items-center justify-between text-[10px] font-medium tabular-nums text-muted-foreground/70">
                 <span>
                     {clockIn ? (
@@ -212,56 +264,80 @@ function TimelineTrack({
                 </span>
             </div>
 
-            <div className="relative h-2.5 w-full rounded-full bg-muted/60 dark:bg-white/8">
-                {clockIn ? (
-                    <div
-                        className="absolute inset-y-0 rounded-full bg-linear-to-r from-emerald-500/85 to-emerald-400/65 transition-all duration-700"
-                        style={{
-                            left: `${progressStart}%`,
-                            width: `${progressWidth}%`,
-                        }}
-                    />
-                ) : null}
-
-                {events.map((event, i) => {
-                    const isCheckIn = event.status === 'checkIn';
-                    const pct = timeToPercent(
-                        event.time,
-                        windowStart,
-                        windowEnd,
-                    );
-
-                    return (
-                        <button
-                            key={`${event.time}-${event.status}-${i}`}
-                            type="button"
-                            title={eventTooltip(event)}
-                            aria-label={eventTooltip(event)}
-                            className={cn(
-                                'absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background shadow-sm transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                isCheckIn ? 'bg-emerald-500' : 'bg-amber-500',
-                            )}
+            <div
+                className="relative"
+                style={{ paddingTop: labelPad, paddingBottom: labelPad }}
+            >
+                <div className="relative h-2.5 w-full rounded-full bg-muted/60 dark:bg-white/8">
+                    {clockIn ? (
+                        <div
+                            className="absolute inset-y-0 rounded-full bg-linear-to-r from-emerald-500/85 to-emerald-400/65 transition-all duration-700"
                             style={{
-                                left: `${pct}%`,
-                                zIndex: events.length - i,
+                                left: `${progressStart}%`,
+                                width: `${progressWidth}%`,
                             }}
                         />
-                    );
-                })}
+                    ) : null}
 
-                {clockIn && !isComplete && isToday ? (
-                    <div
-                        className="pointer-events-none absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2"
-                        style={{
-                            left: `${nowPercent(windowStart, windowEnd)}%`,
-                        }}
-                    >
-                        <div className="relative flex size-4 items-center justify-center">
-                            <div className="absolute size-4 animate-ping rounded-full bg-emerald-400/30" />
-                            <div className="relative size-2 rounded-full bg-emerald-400 shadow" />
+                    {checkpoints.map(
+                        ({ event, index, pct, onTop, level }) => {
+                            const isCheckIn = event.status === 'checkIn';
+                            const offset = 14 + level * 16;
+
+                            return (
+                                <div
+                                    key={`${event.time}-${event.status}-${index}`}
+                                    className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+                                    style={{
+                                        left: `${pct}%`,
+                                        zIndex: events.length - index,
+                                    }}
+                                >
+                                    <button
+                                        type="button"
+                                        title={eventTooltip(event)}
+                                        aria-label={eventTooltip(event)}
+                                        className={cn(
+                                            'relative block size-3 rounded-full border-2 border-background shadow-sm transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                            isCheckIn
+                                                ? 'bg-emerald-500'
+                                                : 'bg-amber-500',
+                                        )}
+                                    />
+                                    <span
+                                        className={cn(
+                                            'pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-semibold tabular-nums',
+                                            isCheckIn
+                                                ? 'text-emerald-500'
+                                                : 'text-amber-500',
+                                        )}
+                                        style={
+                                            onTop
+                                                ? { bottom: `calc(100% + ${offset}px)` }
+                                                : { top: `calc(100% + ${offset}px)` }
+                                        }
+                                    >
+                                        {formatTimelineTime12h(event.time)}
+                                    </span>
+                                </div>
+                            );
+                        },
+                    )}
+
+                    {clockIn && !isComplete && isToday ? (
+                        <div
+                            className="pointer-events-none absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2"
+                            style={{
+                                left: `${nowPercent(windowStart, windowEnd)}%`,
+                            }}
+                        >
+                            <div className="relative flex size-4 items-center justify-center">
+                                <div className="absolute size-4 animate-ping rounded-full bg-emerald-400/30" />
+                                <div className="relative size-2 rounded-full bg-emerald-400 shadow" />
+                            </div>
                         </div>
-                    </div>
-                ) : null}
+                    ) : null}
+                </div>
             </div>
 
             <div className="flex justify-between text-[9px] tabular-nums text-muted-foreground/45">
