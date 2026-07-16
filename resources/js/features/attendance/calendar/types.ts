@@ -73,6 +73,7 @@ export type TodayTimelineSummary = {
 
 export type TodayTimeline = {
     date: string;
+    is_today: boolean;
     timezone: string;
     window_start: string;
     window_end: string;

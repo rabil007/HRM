@@ -87,8 +87,23 @@ class AttendanceCalendarController extends Controller
                 'create' => $user?->can('attendance.leave-requests.create') ?? false,
                 'approve' => $canApprove,
             ],
-            'today_timeline' => $this->todayAttendanceTimeline->forEmployee($companyId, $selectedEmployeeId),
+            'today_timeline' => $this->todayAttendanceTimeline->forEmployee(
+                $companyId,
+                $selectedEmployeeId,
+                $this->resolveTimelineDate($request),
+            ),
         ]);
+    }
+
+    private function resolveTimelineDate(Request $request): ?string
+    {
+        $date = trim((string) $request->query('timeline_date', ''));
+
+        if ($date === '' || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return null;
+        }
+
+        return $date;
     }
 
     /**

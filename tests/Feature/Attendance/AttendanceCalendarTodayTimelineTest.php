@@ -133,6 +133,8 @@ test('today_timeline returns empty events when employee is linked but has no eve
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('today_timeline.events', [])
+            ->where('today_timeline.date', '2026-07-16')
+            ->where('today_timeline.is_today', true)
             ->where('today_timeline.timezone', 'Asia/Dubai')
             ->where('today_timeline.window_start', '09:00')
             ->where('today_timeline.window_end', '18:00')
@@ -329,5 +331,73 @@ test('today_timeline uses company timezone for today date', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('today_timeline.timezone', 'America/New_York')
-            ->where('today_timeline.date', '2026-07-16'));
+            ->where('today_timeline.date', '2026-07-16')
+            ->where('today_timeline.is_today', true));
+});
+
+test('today_timeline can load a previous day via timeline_date', function () {
+    ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
+    $employee = makeTodayTimelineEmployee($company);
+    $employee->update(['user_id' => $user->id]);
+    grantCalendarAccess($user, $company);
+
+    linkHikvisionPersonToUserCompany($employee, 'timeline-person-prev');
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'timeline-test:'.fake()->uuid(),
+        'msg_type' => 'acs/5/38',
+        'occurrence_time' => '2026-07-15 09:15:00',
+        'person_name' => 'Timeline Employee',
+        'person_hikvision_id' => 'timeline-person-prev',
+        'device_name' => 'Main Gate',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'timeline-test:'.fake()->uuid(),
+        'msg_type' => 'acs/5/38',
+        'occurrence_time' => '2026-07-15 17:40:00',
+        'person_name' => 'Timeline Employee',
+        'person_hikvision_id' => 'timeline-person-prev',
+        'device_name' => 'Main Gate',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_OUT,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('attendance.calendar.index', [
+            'employee_id' => $employee->id,
+            'timeline_date' => '2026-07-15',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('today_timeline.date', '2026-07-15')
+            ->where('today_timeline.is_today', false)
+            ->has('today_timeline.events', 2)
+            ->where('today_timeline.summary.clock_in', '09:15')
+            ->where('today_timeline.summary.clock_out', '17:40')
+            ->where('today_timeline.summary.is_complete', true));
+});
+
+test('today_timeline clamps future timeline_date to today', function () {
+    ['user' => $user, 'company' => $company] = makeTodayTimelineFixtures();
+    $employee = makeTodayTimelineEmployee($company);
+    $employee->update(['user_id' => $user->id]);
+    grantCalendarAccess($user, $company);
+
+    linkHikvisionPersonToUserCompany($employee, 'timeline-person-future');
+
+    $this->actingAs($user)
+        ->get(route('attendance.calendar.index', [
+            'employee_id' => $employee->id,
+            'timeline_date' => '2026-07-20',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('today_timeline.date', '2026-07-16')
+            ->where('today_timeline.is_today', true));
 });

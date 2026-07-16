@@ -1,19 +1,42 @@
-import { usePoll } from '@inertiajs/react';
+import { router, usePoll } from '@inertiajs/react';
 import {
     CalendarOff,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
     Clock,
     DoorOpen,
     LogIn,
     LogOut,
     Smartphone,
 } from 'lucide-react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import { formatTimelineTime12h } from '../lib/format-timeline-time';
 import type {
     TimelineEvent,
     TodayTimeline,
     TodayTimelineStatus,
 } from '../types';
+
+function shiftDate(date: string, days: number): string {
+    const next = new Date(`${date}T12:00:00`);
+    next.setDate(next.getDate() + days);
+
+    const year = next.getFullYear();
+    const month = String(next.getMonth() + 1).padStart(2, '0');
+    const day = String(next.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
 
 function timeToMinutes(time: string): number {
     const parts = time.split(':');
@@ -85,6 +108,19 @@ function formatSource(source: string | null): string | null {
     return null;
 }
 
+function eventTooltip(event: TimelineEvent): string {
+    const isCheckIn = event.status === 'checkIn';
+    const source = formatSource(event.transaction_source);
+    const parts = [
+        formatTimelineTime12h(event.time),
+        isCheckIn ? 'Check in' : 'Check out',
+        event.device_name,
+        source,
+    ].filter(Boolean);
+
+    return parts.join(' · ');
+}
+
 function statusLabel(status: TodayTimelineStatus): string {
     switch (status) {
         case 'checked_in':
@@ -115,91 +151,12 @@ function statusBadgeClass(status: TodayTimelineStatus): string {
     }
 }
 
-function EventDot({
-    event,
-    index,
-    total,
-    windowStart,
-    windowEnd,
-}: {
-    event: TimelineEvent;
-    index: number;
-    total: number;
-    windowStart: string;
-    windowEnd: string;
-}) {
-    const isCheckIn = event.status === 'checkIn';
-    const pct = timeToPercent(event.time, windowStart, windowEnd);
-    const labelOnTop = index % 2 === 0;
-    const source = formatSource(event.transaction_source);
-    const detail = [event.device_name, source].filter(Boolean).join(' · ');
-
-    return (
-        <div
-            className="absolute flex flex-col items-center"
-            style={{
-                left: `${pct}%`,
-                transform: 'translateX(-50%)',
-                top: labelOnTop ? '-40px' : '14px',
-                zIndex: total - index,
-            }}
-            title={detail || undefined}
-        >
-            {labelOnTop && (
-                <div className="mb-1 flex flex-col items-center gap-0.5">
-                    <span className="text-[10px] font-semibold tabular-nums text-muted-foreground">
-                        {event.time}
-                    </span>
-                    <span
-                        className={cn(
-                            'text-[9px] font-bold tracking-wide uppercase',
-                            isCheckIn ? 'text-emerald-500' : 'text-amber-500',
-                        )}
-                    >
-                        {isCheckIn ? 'In' : 'Out'}
-                    </span>
-                    {detail ? (
-                        <span className="max-w-24 truncate text-[9px] text-muted-foreground/70">
-                            {detail}
-                        </span>
-                    ) : null}
-                </div>
-            )}
-            <div
-                className={cn(
-                    'size-3 rounded-full border-2 border-background shadow-sm',
-                    isCheckIn ? 'bg-emerald-500' : 'bg-amber-500',
-                )}
-            />
-            {!labelOnTop && (
-                <div className="mt-1 flex flex-col items-center gap-0.5">
-                    <span className="text-[10px] font-semibold tabular-nums text-muted-foreground">
-                        {event.time}
-                    </span>
-                    <span
-                        className={cn(
-                            'text-[9px] font-bold tracking-wide uppercase',
-                            isCheckIn ? 'text-emerald-500' : 'text-amber-500',
-                        )}
-                    >
-                        {isCheckIn ? 'In' : 'Out'}
-                    </span>
-                    {detail ? (
-                        <span className="max-w-24 truncate text-[9px] text-muted-foreground/70">
-                            {detail}
-                        </span>
-                    ) : null}
-                </div>
-            )}
-        </div>
-    );
-}
-
 function TimelineTrack({
     events,
     clockIn,
     clockOut,
     isComplete,
+    isToday,
     windowStart,
     windowEnd,
 }: {
@@ -207,6 +164,7 @@ function TimelineTrack({
     clockIn: string | null;
     clockOut: string | null;
     isComplete: boolean;
+    isToday: boolean;
     windowStart: string;
     windowEnd: string;
 }) {
@@ -216,22 +174,48 @@ function TimelineTrack({
     const progressEnd =
         isComplete && clockOut
             ? timeToPercent(clockOut, windowStart, windowEnd)
-            : clockIn
+            : clockIn && isToday
               ? nowPercent(windowStart, windowEnd)
-              : 0;
+              : clockIn
+                ? timeToPercent(windowEnd, windowStart, windowEnd)
+                : 0;
     const progressWidth = clockIn
         ? Math.max(0, progressEnd - progressStart)
         : 0;
 
     return (
-        <div
-            className="relative px-2"
-            style={{ paddingTop: '52px', paddingBottom: '52px' }}
-        >
-            <div className="relative h-2 w-full overflow-visible rounded-full bg-muted/60 dark:bg-white/8">
+        <div className="relative space-y-2 px-1">
+            <div className="flex items-center justify-between text-[10px] font-medium tabular-nums text-muted-foreground/70">
+                <span>
+                    {clockIn ? (
+                        <>
+                            <span className="text-emerald-500">In</span>{' '}
+                            {formatTimelineTime12h(clockIn)}
+                        </>
+                    ) : (
+                        formatTimelineTime12h(windowStart)
+                    )}
+                </span>
+                <span>
+                    {clockOut ? (
+                        <>
+                            <span className="text-amber-500">Out</span>{' '}
+                            {formatTimelineTime12h(clockOut)}
+                        </>
+                    ) : isComplete ? (
+                        formatTimelineTime12h(windowEnd)
+                    ) : isToday ? (
+                        <span className="text-emerald-500">Now</span>
+                    ) : (
+                        formatTimelineTime12h(windowEnd)
+                    )}
+                </span>
+            </div>
+
+            <div className="relative h-2.5 w-full rounded-full bg-muted/60 dark:bg-white/8">
                 {clockIn ? (
                     <div
-                        className="absolute inset-y-0 rounded-full bg-linear-to-r from-emerald-500/80 to-emerald-400/60 transition-all duration-700"
+                        className="absolute inset-y-0 rounded-full bg-linear-to-r from-emerald-500/85 to-emerald-400/65 transition-all duration-700"
                         style={{
                             left: `${progressStart}%`,
                             width: `${progressWidth}%`,
@@ -239,40 +223,50 @@ function TimelineTrack({
                     />
                 ) : null}
 
-                {events.map((event, i) => (
-                    <EventDot
-                        key={`${event.time}-${event.status}-${i}`}
-                        event={event}
-                        index={i}
-                        total={events.length}
-                        windowStart={windowStart}
-                        windowEnd={windowEnd}
-                    />
-                ))}
+                {events.map((event, i) => {
+                    const isCheckIn = event.status === 'checkIn';
+                    const pct = timeToPercent(
+                        event.time,
+                        windowStart,
+                        windowEnd,
+                    );
 
-                {clockIn && !isComplete ? (
+                    return (
+                        <button
+                            key={`${event.time}-${event.status}-${i}`}
+                            type="button"
+                            title={eventTooltip(event)}
+                            aria-label={eventTooltip(event)}
+                            className={cn(
+                                'absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background shadow-sm transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                isCheckIn ? 'bg-emerald-500' : 'bg-amber-500',
+                            )}
+                            style={{
+                                left: `${pct}%`,
+                                zIndex: events.length - i,
+                            }}
+                        />
+                    );
+                })}
+
+                {clockIn && !isComplete && isToday ? (
                     <div
-                        className="absolute -top-1.5 size-5 transition-all duration-700"
+                        className="pointer-events-none absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2"
                         style={{
                             left: `${nowPercent(windowStart, windowEnd)}%`,
-                            transform: 'translateX(-50%)',
                         }}
                     >
-                        <div className="relative flex items-center justify-center">
-                            <div className="size-5 animate-ping rounded-full bg-emerald-400/30" />
-                            <div className="absolute size-2.5 rounded-full bg-emerald-400 shadow" />
+                        <div className="relative flex size-4 items-center justify-center">
+                            <div className="absolute size-4 animate-ping rounded-full bg-emerald-400/30" />
+                            <div className="relative size-2 rounded-full bg-emerald-400 shadow" />
                         </div>
                     </div>
                 ) : null}
             </div>
 
-            <div className="mt-2 flex justify-between">
-                <span className="text-[9px] tabular-nums text-muted-foreground/50">
-                    {windowStart}
-                </span>
-                <span className="text-[9px] tabular-nums text-muted-foreground/50">
-                    {windowEnd}
-                </span>
+            <div className="flex justify-between text-[9px] tabular-nums text-muted-foreground/45">
+                <span>{formatTimelineTime12h(windowStart)}</span>
+                <span>{formatTimelineTime12h(windowEnd)}</span>
             </div>
         </div>
     );
@@ -280,7 +274,7 @@ function TimelineTrack({
 
 function EventList({ events }: { events: TimelineEvent[] }) {
     return (
-        <div className="mt-1 divide-y divide-border/50 rounded-xl border border-border/50 bg-muted/20 dark:divide-white/5 dark:border-white/8 dark:bg-white/[0.02]">
+        <div className="divide-y divide-border/50 rounded-xl border border-border/50 bg-muted/20 dark:divide-white/5 dark:border-white/8 dark:bg-white/[0.02]">
             {events.map((event, index) => {
                 const isCheckIn = event.status === 'checkIn';
                 const source = formatSource(event.transaction_source);
@@ -311,7 +305,7 @@ function EventList({ events }: { events: TimelineEvent[] }) {
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                                 <span className="text-sm font-semibold tabular-nums">
-                                    {event.time}
+                                    {formatTimelineTime12h(event.time)}
                                 </span>
                                 <span
                                     className={cn(
@@ -339,16 +333,29 @@ function EventList({ events }: { events: TimelineEvent[] }) {
 
 export function TodayAttendanceTimeline({
     timeline,
+    year,
+    today,
+    selectedEmployeeId,
 }: {
     timeline: TodayTimeline;
+    year: number;
+    today: string;
+    selectedEmployeeId: number | null;
 }) {
-    usePoll(60_000, { only: ['today_timeline'] });
+    const [historyOpen, setHistoryOpen] = useState(false);
+
+    usePoll(
+        60_000,
+        { only: ['today_timeline'] },
+        { autoStart: timeline?.is_today ?? true },
+    );
 
     if (timeline == null) {
         return null;
     }
 
-    const { events, summary, window_start, window_end, timezone } = timeline;
+    const { events, summary, window_start, window_end, timezone, is_today } =
+        timeline;
     const {
         clock_in,
         clock_out,
@@ -359,6 +366,31 @@ export function TodayAttendanceTimeline({
         elapsed_minutes,
     } = summary;
     const elapsed = formatElapsed(elapsed_minutes);
+    const canGoForward = timeline.date < today;
+    const earliest = shiftDate(today, -365);
+    const canGoBack = timeline.date > earliest;
+
+    const navigateDate = (nextDate: string) => {
+        const params: {
+            year: number;
+            employee_id?: number;
+            timeline_date?: string;
+        } = { year };
+
+        if (selectedEmployeeId !== null) {
+            params.employee_id = selectedEmployeeId;
+        }
+
+        if (nextDate !== today) {
+            params.timeline_date = nextDate;
+        }
+
+        router.get('/attendance/calendar', params, {
+            only: ['today_timeline'],
+            preserveState: true,
+            preserveScroll: true,
+        });
+    };
 
     return (
         <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-card/80 p-5 glass-card">
@@ -367,9 +399,37 @@ export function TodayAttendanceTimeline({
             <div className="relative mb-3 flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                        <p className="text-[10px] font-bold tracking-[0.18em] text-muted-foreground/70 uppercase">
-                            Today
-                        </p>
+                        <div className="flex items-center gap-0.5">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 rounded-lg"
+                                disabled={!canGoBack}
+                                onClick={() =>
+                                    navigateDate(shiftDate(timeline.date, -1))
+                                }
+                                title="Previous day"
+                            >
+                                <ChevronLeft className="size-4" />
+                            </Button>
+                            <p className="min-w-14 text-center text-[10px] font-bold tracking-[0.18em] text-muted-foreground/70 uppercase">
+                                {is_today ? 'Today' : 'Day'}
+                            </p>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 rounded-lg"
+                                disabled={!canGoForward}
+                                onClick={() =>
+                                    navigateDate(shiftDate(timeline.date, 1))
+                                }
+                                title="Next day"
+                            >
+                                <ChevronRight className="size-4" />
+                            </Button>
+                        </div>
                         <Badge
                             variant="outline"
                             className={cn(
@@ -379,9 +439,20 @@ export function TodayAttendanceTimeline({
                         >
                             {statusLabel(status)}
                         </Badge>
+                        {!is_today ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 rounded-md px-2 text-[10px] font-semibold"
+                                onClick={() => navigateDate(today)}
+                            >
+                                Jump to today
+                            </Button>
+                        ) : null}
                     </div>
                     <p className="text-xs text-muted-foreground/70">
-                        {timeline.date}
+                        {formatDisplayDate(timeline.date)}
                         {timezone ? ` · ${timezone.replace(/_/g, ' ')}` : ''}
                         {event_count > 0
                             ? ` · ${event_count} event${event_count === 1 ? '' : 's'}`
@@ -394,20 +465,20 @@ export function TodayAttendanceTimeline({
                         <span className="flex items-center gap-1">
                             <LogIn className="size-3 text-emerald-500" />
                             <span className="tabular-nums">
-                                {clock_in ?? '—'}
+                                {formatTimelineTime12h(clock_in)}
                             </span>
                         </span>
                         <span className="flex items-center gap-1">
                             <LogOut className="size-3 text-amber-500" />
                             <span className="tabular-nums">
-                                {clock_out ?? '—'}
+                                {formatTimelineTime12h(clock_out)}
                             </span>
                         </span>
                         {elapsed ? (
                             <span className="flex items-center gap-1 font-medium text-foreground/80">
                                 <Clock className="size-3" />
                                 {elapsed}
-                                {!is_complete ? (
+                                {!is_complete && is_today ? (
                                     <span className="font-normal text-muted-foreground">
                                         {' '}
                                         elapsed
@@ -427,12 +498,16 @@ export function TodayAttendanceTimeline({
             {is_on_leave && events.length === 0 ? (
                 <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
                     <CalendarOff className="size-4 shrink-0 text-violet-400" />
-                    <span>On approved leave today</span>
+                    <span>On approved leave this day</span>
                 </div>
             ) : events.length === 0 ? (
                 <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
                     <Clock className="size-4 shrink-0" />
-                    <span>No check-ins recorded today</span>
+                    <span>
+                        {is_today
+                            ? 'No check-ins recorded today'
+                            : 'No check-ins recorded for this day'}
+                    </span>
                 </div>
             ) : (
                 <div className="space-y-3">
@@ -441,10 +516,41 @@ export function TodayAttendanceTimeline({
                         clockIn={clock_in}
                         clockOut={clock_out}
                         isComplete={is_complete}
+                        isToday={is_today}
                         windowStart={window_start}
                         windowEnd={window_end}
                     />
-                    <EventList events={events} />
+
+                    <Collapsible
+                        open={historyOpen}
+                        onOpenChange={setHistoryOpen}
+                    >
+                        <CollapsibleTrigger asChild>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-full justify-between rounded-lg px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+                            >
+                                <span>
+                                    {historyOpen ? 'Hide' : 'Show'} check-in
+                                    history
+                                    <span className="ml-1 text-muted-foreground/70">
+                                        ({event_count})
+                                    </span>
+                                </span>
+                                <ChevronDown
+                                    className={cn(
+                                        'size-3.5 transition-transform duration-200',
+                                        historyOpen && 'rotate-180',
+                                    )}
+                                />
+                            </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pt-2">
+                            <EventList events={events} />
+                        </CollapsibleContent>
+                    </Collapsible>
                 </div>
             )}
         </div>

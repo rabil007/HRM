@@ -156,7 +156,12 @@ export function AttendanceCalendarContent({
                     pendingRequestCount={pending_request_count}
                     leaveDays={stats.leaveDays}
                 />
-                <TodayAttendanceTimeline timeline={today_timeline} />
+                <TodayAttendanceTimeline
+                    timeline={today_timeline}
+                    year={year}
+                    today={today}
+                    selectedEmployeeId={selected_employee_id}
+                />
             </div>
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">

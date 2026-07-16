@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
 use App\Models\LeaveRequest;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
@@ -14,6 +15,7 @@ final class TodayAttendanceTimeline
     /**
      * @return array{
      *     date: string,
+     *     is_today: bool,
      *     timezone: string,
      *     window_start: string,
      *     window_end: string,
@@ -34,7 +36,7 @@ final class TodayAttendanceTimeline
      *     },
      * }|null
      */
-    public function forEmployee(int $companyId, ?int $employeeId): ?array
+    public function forEmployee(int $companyId, ?int $employeeId, ?string $date = null): ?array
     {
         if ($employeeId === null) {
             return null;
@@ -60,8 +62,11 @@ final class TodayAttendanceTimeline
             ?? config('app.timezone', 'UTC'));
         $now = now($timezone);
         $today = $now->toDateString();
-        $rangeStart = $now->copy()->startOfDay();
-        $rangeEnd = $now->copy()->endOfDay();
+        $selectedDate = $this->resolveDate($date, $today, $timezone);
+        $isToday = $selectedDate === $today;
+        $day = Carbon::parse($selectedDate, $timezone);
+        $rangeStart = $day->copy()->startOfDay();
+        $rangeEnd = $day->copy()->endOfDay();
 
         /** @var Collection<int, HikvisionAccessEvent> $events */
         $events = HikvisionAccessEvent::query()
@@ -99,8 +104,8 @@ final class TodayAttendanceTimeline
             ->where('company_id', $companyId)
             ->where('employee_id', $employeeId)
             ->where('status', 'approved')
-            ->whereDate('start_date', '<=', $today)
-            ->whereDate('end_date', '>=', $today)
+            ->whereDate('start_date', '<=', $selectedDate)
+            ->whereDate('end_date', '>=', $selectedDate)
             ->exists();
 
         $status = $this->resolveStatus(
@@ -114,6 +119,8 @@ final class TodayAttendanceTimeline
             clockIn: $clockTimes['clockIn'],
             clockOut: $clockTimes['clockOut'],
             now: $now,
+            rangeEnd: $rangeEnd,
+            isToday: $isToday,
             timezone: $timezone,
         );
 
@@ -123,10 +130,12 @@ final class TodayAttendanceTimeline
             clockOut: $clockOut,
             now: $now,
             isComplete: $isComplete,
+            isToday: $isToday,
         );
 
         return [
-            'date' => $today,
+            'date' => $selectedDate,
+            'is_today' => $isToday,
             'timezone' => $timezone,
             'window_start' => $windowStart,
             'window_end' => $windowEnd,
@@ -141,6 +150,31 @@ final class TodayAttendanceTimeline
                 'elapsed_minutes' => $elapsedMinutes,
             ],
         ];
+    }
+
+    private function resolveDate(?string $date, string $today, string $timezone): string
+    {
+        if ($date === null || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return $today;
+        }
+
+        try {
+            $parsed = Carbon::parse($date, $timezone)->toDateString();
+        } catch (\Throwable) {
+            return $today;
+        }
+
+        if ($parsed > $today) {
+            return $today;
+        }
+
+        $earliest = Carbon::parse($today, $timezone)->subYear()->toDateString();
+
+        if ($parsed < $earliest) {
+            return $earliest;
+        }
+
+        return $parsed;
     }
 
     /**
@@ -226,13 +260,16 @@ final class TodayAttendanceTimeline
         ?CarbonInterface $clockIn,
         ?CarbonInterface $clockOut,
         CarbonInterface $now,
+        CarbonInterface $rangeEnd,
+        bool $isToday,
         string $timezone,
     ): ?int {
         if ($clockIn === null) {
             return null;
         }
 
-        $end = $clockOut?->timezone($timezone) ?? $now;
+        $end = $clockOut?->timezone($timezone)
+            ?? ($isToday ? $now : $rangeEnd->timezone($timezone));
 
         return max(0, (int) $clockIn->timezone($timezone)->diffInMinutes($end));
     }
@@ -247,6 +284,7 @@ final class TodayAttendanceTimeline
         ?string $clockOut,
         CarbonInterface $now,
         bool $isComplete,
+        bool $isToday,
     ): array {
         $times = collect($events)->pluck('time')->filter()->values();
 
@@ -258,7 +296,7 @@ final class TodayAttendanceTimeline
             $times->push($clockOut);
         }
 
-        if (! $isComplete) {
+        if (! $isComplete && $isToday) {
             $times->push($now->format('H:i'));
         }
 
