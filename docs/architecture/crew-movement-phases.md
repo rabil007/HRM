@@ -1,12 +1,14 @@
 # Crew Movement Phases
 
-Phase 0 foundation for the reusable crew mobilisation and movement lifecycle. This document describes the intended domain model. It does not replace the live Crew Deployments module.
+Phase 0 foundation plus Phase 1 transactional movement service and legacy backfill. This document describes the domain model and service behaviour. It does not replace the live Crew Deployments module.
+
+**This phase does not include UI.** Dual-write to `employee_deployments` / sea services / planning is **not** implemented yet.
 
 ## 1. Purpose of `CrewAssignment`
 
 `CrewAssignment` represents **one complete mobilisation cycle** for a crew employee within a company: from pre-mobilisation through vessel service to home or redeployment.
 
-It is the parent record for ordered, repeatable phase occurrences and the future home for movement actions, transfers, and redeployments.
+It is the parent record for ordered, repeatable phase occurrences and the home for movement actions (Phase 1+).
 
 ## 2. Assignment vs phase vs deployment vs planning vs sea service
 
@@ -51,7 +53,9 @@ CrewAssignment
 - Assignment-level planned fields (`planned_join_at`, `planned_signoff_at`, `planned_travel_at`) hold the **intended** mobilisation plan.
 - Phase-level `planned_start_at` / `planned_end_at` hold the plan for that occurrence.
 - Phase-level `actual_start_at` / `actual_end_at` hold what really happened.
-- Future movement services update actuals without erasing planned values (corrections use phase status `corrected` where needed).
+- **Plan sign-off** updates planned fields only; it does not complete P4.
+- **Confirm disembarkation** sets P4 `actual_end_at` and never overwrites `planned_signoff_at`.
+- Join vessel does **not** require an actual disembarkation date.
 
 ## 5. Repeatable phase behavior
 
@@ -65,50 +69,119 @@ P2A → P2B → P2A → P3
 
 There is **no** unique constraint on `(crew_assignment_id, phase_code)`. Order is determined by `sequence`.
 
-**P2B training and P3 readiness cannot be inferred reliably from legacy `EmployeeDeployment` date fields.** Those legacy records collapse standby/travel/vessel into fixed columns and do not model training or readiness occurrences.
+**P2B training and P3 readiness cannot be inferred reliably from legacy `EmployeeDeployment` date fields.**
 
-## 6. Allowed transition concept
+## 6. Same-assignment versus linked-assignment transitions
 
-Structural allowed next phases live in `App\Support\CrewMovements\CrewMovementTransitionMap`.
+`App\Support\CrewMovements\CrewMovementTransitionMap`:
 
-- Transitions are phase-code to phase-code rules for the movement service (Phase 1+).
-- **Plan sign-off** does not leave P4; it is a planning action while still on vessel.
-- Invalid transitions (for example P4 → P2A on the same assignment) are rejected by the map.
-- P5 → P0 and P6 → P0 represent starting **P0 of a linked new assignment** (transfer / redeploy), not rewriting history on the closed cycle.
+- `allowedNextPhases()` / `canTransitionWithinAssignment()` — normal transitions **inside** one assignment. **P5/P6 do not return P0.**
+- `canStartLinkedAssignment()` — P5 or P6 may start a **new** linked assignment at P0 (transfer/redeploy). Execution is not implemented in this phase.
+- Deprecated `canTransition()` mirrors within-assignment rules only.
 
-## 7. Transfer and redeployment concept
+Same-assignment map:
 
-Transfer and redeployment should create a **new** `CrewAssignment` linked via `previous_assignment_id` rather than overwriting historical vessel or phase data on the prior cycle.
+```text
+P0 → P1
+P1 → P2A | P3
+P2A → P2B | P3 | P4
+P2B → P2A | P3
+P3 → P4
+P4 → P5 | P6
+P5 → P6
+```
 
-Phase 0 only stores the self-link columns and allows P5/P6 → P0 in the transition map vocabulary. Execution is out of scope.
+## 7. Invariant rules
 
-## 8. Legacy `EmployeeDeployment` compatibility
+`CrewAssignmentInvariantGuard` rejects (does not repair):
 
-- `EmployeeDeployment` remains the **current compatibility and sea-service record** until later phases introduce dual-write or cutover.
-- Optional `employee_deployment_id` on `CrewAssignment` links a cycle to a legacy deployment without changing deployment schema, routes, UI, or sync.
-- Existing Crew Deployments controllers, forms, permissions, tests, and sync helpers must keep working unchanged.
+- Company mismatches across employee, phases, current phase, previous assignment, linked deployment/planning
+- Employee mismatches on previous assignment and linked records
+- Current phase missing, soft-deleted, wrong assignment/company, or wrong status for assignment status
+  - Draft: current phase may be `planned` or `active`
+  - Active: current phase must be `active`
+- Duplicate sequences, invalid planned/actual ranges, more than one active phase
+- Completed/cancelled without `closed_at`; active without `started_at`
 
-## 9. Company-scoping requirements
+Failures throw `App\Exceptions\CrewMovementException` with a user-safe message and `errorCode`.
+
+## 8. Movement service transaction behaviour
+
+`CrewMovementService`:
+
+1. Opens a DB transaction
+2. Loads the assignment with `lockForUpdate()` scoped by `company_id`
+3. Validates invariants
+4. Validates the action
+5. Completes/updates the current phase and creates the next phase when required (atomically)
+6. Updates assignment status / current phase / actor fields
+7. Revalidates invariants
+8. Commits (or rolls back on any failure)
+
+Sequence for new phases: `max(sequence including soft-deleted) + 1` while the assignment row is locked.
+
+**Draft convention:** create P0 as `planned` and set `current_phase_id` to that P0.
+
+**Close convention:** `current_phase_id` remains the completed P6.
+
+**Dual-write:** not called. Do not invoke `SyncSeaServiceFromDeployment` or `SyncPlanningAssignmentFromDeployment` from this service yet.
+
+## 9. Action semantics (Phase 1)
+
+Implemented: `approve_mobilisation`, `record_arrival`, `start_join_standby`, `send_to_training`, `complete_training`, `mark_ready`, `join_vessel`, `plan_signoff`, `confirm_disembarkation`, `start_demob_standby`, `travel_home`, `close_assignment`, `cancel_assignment`.
+
+Not implemented (clear domain error): `transfer_vessel`, `redeploy`, `correct_movement`.
+
+Operational timestamps use payload `occurred_at` parsed in the **company timezone** (never silent server-now when provided).
+
+Cancel: allowed for draft/active **before** active P4; requires reason.
+
+## 10. Assignment numbers
+
+- New: `CA-{year}-{000001}` via locked allocation per company
+- Legacy backfill: deterministic `LEGACY-{employee_deployment_id}`
+
+## 11. Legacy backfill mapping
+
+`LegacyDeploymentBackfillService` + `php artisan crew-movements:backfill`:
+
+- Default is **dry run** (no writes). `--commit` persists.
+- Idempotent via unique `employee_deployment_id` link.
+- Does not modify deployments.
+- Date-only legacy fields → company timezone **start of day**.
+- Future `disembarked_date` → planned sign-off only (not P4 actual end).
+- Past `disembarked_date` → P4 `actual_end_at`.
+- Infers P1 / P2A / P4 / P5 / P6 only; never invents P0 / P2B / P3.
+- Legacy cycles may start at the earliest inferable phase (compatibility exception).
+- All-completed cycles without P6 are marked completed with `closed_at` from the last actual end (compatibility exception).
+
+See `docs/runbooks/crew-movement-backfill.md`.
+
+## 12. Transfer and redeployment concept
+
+Transfer/redeploy should create a **new** `CrewAssignment` linked via `previous_assignment_id`. Phase 1 stores the vocabulary and linked-start helpers only; execution is out of scope.
+
+## 13. Company-scoping requirements
 
 - Every assignment and phase row has `company_id`.
-- Queries and future mutations must scope to the active company.
-- `assignment_no` is unique **per company**, not globally.
-- Cross-company FK targets must not leak through controllers in later phases.
+- Service mutations lock and scope by company.
+- `assignment_no` is unique **per company**.
+- Unique nullable links: `employee_deployment_id`, `crew_planning_assignment_id`.
+- Employee FK uses **restrict on delete** so movement history is preserved.
 
-## 10. Audit requirements
+## 14. Audit requirements
 
-Models use `LogsActivityWithCompany` so Spatie activity rows carry `company_id`. Important assignment and phase attributes are logged dirty-only for later movement corrections and compliance.
+Models use `LogsActivityWithCompany`. Important assignment and phase attributes are logged dirty-only.
 
-## 11. Future payroll, billing, cost, and margin integration
+## 15. Future payroll, billing, cost, and margin integration
 
-`details` JSON on phases and assignment-level links are reserved for later cost/billing payloads (hotel, training, flights, visa, margin). Phase 0 does **not** calculate payroll, client billing, or invoices.
+`details` JSON on phases is reserved for later cost/billing payloads. This phase does **not** calculate payroll, client billing, or invoices.
 
-## 12. Deliberately excluded from Phase 0
+## 16. Deliberately excluded from this phase
 
 - Crew Movement UI / Current Crew board / quick-action dialogs
-- Movement action endpoints and full movement service
-- Legacy deployment backfill and production data migration
-- Dual-write synchronization
+- Movement HTTP endpoints / assignment CRUD pages
+- Dual-write synchronization either direction
 - Payroll, billing, hotel/training/flight/visa costs, margin, invoices
-- Transfer / redeploy execution and approval workflows
+- Transfer / redeploy / correction execution
 - Removal or modification of existing deployment columns, forms, sea-service sync, or planning sync

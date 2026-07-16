@@ -21,7 +21,32 @@ class CrewAssignment extends Model
     use LogsActivityWithCompany;
     use SoftDeletes;
 
-    protected $guarded = [];
+    /**
+     * @var list<string>
+     */
+    protected $fillable = [
+        'company_id',
+        'assignment_no',
+        'employee_id',
+        'rank_id',
+        'client_id',
+        'vessel_id',
+        'company_visa_type_id',
+        'status',
+        'current_phase_id',
+        'planned_join_at',
+        'planned_signoff_at',
+        'planned_travel_at',
+        'started_at',
+        'closed_at',
+        'previous_assignment_id',
+        'employee_deployment_id',
+        'crew_planning_assignment_id',
+        'source',
+        'remarks',
+        'created_by',
+        'updated_by',
+    ];
 
     public function getActivitylogOptions(): LogOptions
     {

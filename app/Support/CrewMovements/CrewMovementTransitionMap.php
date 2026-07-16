@@ -7,13 +7,12 @@ use App\Enums\CrewPhaseCode;
 final class CrewMovementTransitionMap
 {
     /**
-     * Structural next phases for a movement cycle.
-     * Plan sign-off stays in P4 and does not appear as a phase transition.
-     * P5/P6 → P0 means P0 of a linked new assignment (transfer / redeploy).
+     * Same-assignment next phases. Plan sign-off stays in P4 (not a phase transition).
+     * P5/P6 → P0 is a linked-assignment start, not a same-assignment transition.
      *
      * @return array<string, list<CrewPhaseCode>>
      */
-    private static function map(): array
+    private static function withinAssignmentMap(): array
     {
         return [
             CrewPhaseCode::PreMobilisation->value => [
@@ -41,11 +40,8 @@ final class CrewMovementTransitionMap
             ],
             CrewPhaseCode::DemobStandby->value => [
                 CrewPhaseCode::HomeRedeploy,
-                CrewPhaseCode::PreMobilisation,
             ],
-            CrewPhaseCode::HomeRedeploy->value => [
-                CrewPhaseCode::PreMobilisation,
-            ],
+            CrewPhaseCode::HomeRedeploy->value => [],
         ];
     }
 
@@ -54,10 +50,10 @@ final class CrewMovementTransitionMap
      */
     public static function allowedNextPhases(CrewPhaseCode $phase): array
     {
-        return self::map()[$phase->value] ?? [];
+        return self::withinAssignmentMap()[$phase->value] ?? [];
     }
 
-    public static function canTransition(CrewPhaseCode $from, CrewPhaseCode $to): bool
+    public static function canTransitionWithinAssignment(CrewPhaseCode $from, CrewPhaseCode $to): bool
     {
         foreach (self::allowedNextPhases($from) as $allowed) {
             if ($allowed === $to) {
@@ -66,5 +62,19 @@ final class CrewMovementTransitionMap
         }
 
         return false;
+    }
+
+    public static function canStartLinkedAssignment(CrewPhaseCode $from): bool
+    {
+        return $from === CrewPhaseCode::DemobStandby
+            || $from === CrewPhaseCode::HomeRedeploy;
+    }
+
+    /**
+     * @deprecated Use canTransitionWithinAssignment() for same-assignment moves.
+     */
+    public static function canTransition(CrewPhaseCode $from, CrewPhaseCode $to): bool
+    {
+        return self::canTransitionWithinAssignment($from, $to);
     }
 }
