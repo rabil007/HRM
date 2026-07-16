@@ -75,6 +75,21 @@ test('cross-company assignment show returns not found', function () {
         ->assertNotFound();
 });
 
+test('authorized users can open create with global master data options', function () {
+    ['user' => $user] = makeCrewAssignmentOperationsFixtures();
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/create')
+            ->has('form_options.employees')
+            ->has('form_options.ranks')
+            ->has('form_options.vessels')
+            ->has('form_options.clients')
+            ->has('form_options.visa_types'));
+});
+
 test('authorized users can create a draft assignment', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentOperationsFixtures();
     $vessel = makeCrewMovementVessel('Ops Create Vessel');

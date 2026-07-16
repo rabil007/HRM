@@ -99,7 +99,7 @@ class CrewAssignmentController extends Controller
             'ranks' => $this->activeRanks(),
             'vessels' => $this->activeVessels(),
             'clients' => $this->activeClients(),
-            'visa_types' => $this->activeVisaTypes($companyId),
+            'visa_types' => $this->activeVisaTypes(),
         ];
 
         return Inertia::render('organization/crew/create', [
@@ -172,7 +172,7 @@ class CrewAssignmentController extends Controller
                 'ranks' => $this->activeRanks(),
                 'vessels' => $this->activeVessels(),
                 'clients' => $this->activeClients(),
-                'visa_types' => $this->activeVisaTypes($companyId),
+                'visa_types' => $this->activeVisaTypes(),
             ],
             'can' => CrewAssignmentPagePermissions::for($request->user()),
         ]);
@@ -211,7 +211,7 @@ class CrewAssignmentController extends Controller
             'ranks' => $this->activeRanks(),
             'vessels' => $this->activeVessels(),
             'clients' => $this->activeClients(),
-            'visa_types' => $this->activeVisaTypes($companyId),
+            'visa_types' => $this->activeVisaTypes(),
         ];
 
         return Inertia::render('organization/crew/edit', [
@@ -311,10 +311,9 @@ class CrewAssignmentController extends Controller
     /**
      * @return list<array{id: int, name: string}>
      */
-    private function activeVisaTypes(int $companyId): array
+    private function activeVisaTypes(): array
     {
         return CompanyVisaType::query()
-            ->where('company_id', $companyId)
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name'])

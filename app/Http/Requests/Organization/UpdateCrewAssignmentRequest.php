@@ -18,13 +18,11 @@ class UpdateCrewAssignmentRequest extends FormRequest
      */
     public function rules(): array
     {
-        $companyId = (int) $this->attributes->get('current_company_id');
-
         return [
             'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')],
             'vessel_id' => ['nullable', 'integer', Rule::exists('vessels', 'id')],
-            'company_visa_type_id' => ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('company_id', $companyId)],
+            'company_visa_type_id' => ['nullable', 'integer', Rule::exists('company_visa_types', 'id')],
             'planned_join_at' => ['nullable', 'date'],
             'planned_signoff_at' => ['nullable', 'date'],
             'planned_travel_at' => ['nullable', 'date'],

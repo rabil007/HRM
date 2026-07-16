@@ -19,7 +19,6 @@ class PerformCrewMovementActionRequest extends FormRequest
      */
     public function rules(): array
     {
-        $companyId = (int) $this->attributes->get('current_company_id');
         $action = $this->input('action');
 
         $baseRules = [
@@ -48,7 +47,7 @@ class PerformCrewMovementActionRequest extends FormRequest
             $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')];
             $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')];
-            $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('company_id', $companyId)];
+            $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')];
             $baseRules['planned_signoff_at'] = ['nullable', 'date'];
             $baseRules['remarks'] = ['nullable', 'string', 'max:1000'];
         }
