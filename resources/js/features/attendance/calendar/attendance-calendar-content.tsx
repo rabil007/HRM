@@ -13,6 +13,7 @@ import { CalendarEmployeeSelect } from './components/calendar-employee-select';
 import { CalendarSummaryStats } from './components/calendar-summary-stats';
 import { CalendarToolbar } from './components/calendar-toolbar';
 import { LeaveTypeLegend } from './components/leave-type-legend';
+import { TodayAttendanceTimeline } from './components/today-attendance-timeline';
 import { YearCalendarGrid } from './components/year-calendar-grid';
 import { useCalendarRangeSelection } from './hooks/use-calendar-range-selection';
 import type { CalendarDateRange } from './hooks/use-calendar-range-selection';
@@ -25,6 +26,7 @@ import type {
     CalendarLeaveType,
     CalendarPermissions,
     CalendarSelectedEmployee,
+    TodayTimeline,
 } from './types';
 
 export function AttendanceCalendarContent({
@@ -41,6 +43,7 @@ export function AttendanceCalendarContent({
     form_employees,
     form_leave_types,
     can,
+    today_timeline,
 }: {
     year: number;
     today: string;
@@ -55,6 +58,7 @@ export function AttendanceCalendarContent({
     form_employees: LeaveRequestEmployeeOption[];
     form_leave_types: CalendarFormLeaveType[];
     can: CalendarPermissions;
+    today_timeline: TodayTimeline;
 }) {
     const currentYear = new Date(`${today}T00:00:00`).getFullYear();
     const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -145,13 +149,14 @@ export function AttendanceCalendarContent({
                 }
             />
 
-            <div className="mb-6">
+            <div className="mb-6 space-y-4">
                 <CalendarSummaryStats
                     year={year}
                     requestCount={stats.requestCount}
                     pendingRequestCount={pending_request_count}
                     leaveDays={stats.leaveDays}
                 />
+                <TodayAttendanceTimeline timeline={today_timeline} />
             </div>
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">

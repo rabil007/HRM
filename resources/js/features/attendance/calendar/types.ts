@@ -46,3 +46,22 @@ export type CalendarDayCell = {
     day: number;
     inMonth: boolean;
 };
+
+export type TimelineEvent = {
+    time: string;
+    status: 'checkIn' | 'checkOut';
+    device_name: string | null;
+};
+
+export type TodayTimelineSummary = {
+    clock_in: string | null;
+    clock_out: string | null;
+    is_complete: boolean;
+    is_on_leave: boolean;
+};
+
+export type TodayTimeline = {
+    date: string;
+    events: TimelineEvent[];
+    summary: TodayTimelineSummary;
+} | null;

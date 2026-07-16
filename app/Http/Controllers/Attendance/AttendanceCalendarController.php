@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Attendance;
 
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
+use App\Models\HikvisionAccessEvent;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
@@ -85,6 +86,7 @@ class AttendanceCalendarController extends Controller
                 'create' => $user?->can('attendance.leave-requests.create') ?? false,
                 'approve' => $canApprove,
             ],
+            'today_timeline' => $this->todayTimeline($companyId, $selectedEmployeeId),
         ]);
     }
 
@@ -197,6 +199,87 @@ class AttendanceCalendarController extends Controller
         }
 
         $query->where('employee_id', $selectedEmployeeId);
+    }
+
+    /**
+     * @return array{
+     *     date: string,
+     *     events: list<array{time: string, status: string, device_name: string|null}>,
+     *     summary: array{clock_in: string|null, clock_out: string|null, is_complete: bool, is_on_leave: bool},
+     * }|null
+     */
+    private function todayTimeline(int $companyId, ?int $selectedEmployeeId): ?array
+    {
+        if ($selectedEmployeeId === null) {
+            return null;
+        }
+
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($selectedEmployeeId)
+            ->with('hikvisionPerson:id,person_id')
+            ->first();
+
+        if ($employee === null || $employee->hikvisionPerson === null) {
+            return null;
+        }
+
+        $personHikvisionId = trim((string) ($employee->hikvisionPerson->person_id ?? ''));
+
+        if ($personHikvisionId === '') {
+            return null;
+        }
+
+        $timezone = (string) config('app.timezone', 'UTC');
+        $today = now($timezone)->toDateString();
+
+        $events = HikvisionAccessEvent::query()
+            ->accessRecords()
+            ->whereDate('occurrence_time', $today)
+            ->where('person_hikvision_id', $personHikvisionId)
+            ->orderBy('occurrence_time')
+            ->get(['id', 'occurrence_time', 'attendance_status', 'device_name']);
+
+        $serializedEvents = $events
+            ->map(fn (HikvisionAccessEvent $event): array => [
+                'time' => $event->occurrence_time?->timezone($timezone)->format('H:i') ?? '',
+                'status' => (string) ($event->attendance_status ?? ''),
+                'device_name' => $event->device_name,
+            ])
+            ->values()
+            ->all();
+
+        $firstCheckIn = $events
+            ->where('attendance_status', HikvisionAccessEvent::ATTENDANCE_CHECK_IN)
+            ->sortBy('occurrence_time')
+            ->first();
+
+        $lastCheckOut = $events
+            ->where('attendance_status', HikvisionAccessEvent::ATTENDANCE_CHECK_OUT)
+            ->sortByDesc('occurrence_time')
+            ->first();
+
+        $clockIn = $firstCheckIn?->occurrence_time?->timezone($timezone)->format('H:i');
+        $clockOut = $lastCheckOut?->occurrence_time?->timezone($timezone)->format('H:i');
+
+        $isOnLeave = LeaveRequest::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $selectedEmployeeId)
+            ->where('status', 'approved')
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
+            ->exists();
+
+        return [
+            'date' => $today,
+            'events' => $serializedEvents,
+            'summary' => [
+                'clock_in' => $clockIn,
+                'clock_out' => $clockOut,
+                'is_complete' => $clockOut !== null,
+                'is_on_leave' => $isOnLeave,
+            ],
+        ];
     }
 
     private function resolveYear(Request $request): int

@@ -7,6 +7,7 @@ import type {
     CalendarLeaveType,
     CalendarPermissions,
     CalendarSelectedEmployee,
+    TodayTimeline,
 } from '@/features/attendance/calendar/types';
 import type { LeaveRequestEmployeeOption } from '@/features/attendance/leave-requests/types';
 
@@ -24,6 +25,7 @@ export default function AttendanceCalendar({
     form_employees,
     form_leave_types,
     can,
+    today_timeline,
 }: {
     year: number;
     today: string;
@@ -38,6 +40,7 @@ export default function AttendanceCalendar({
     form_employees: LeaveRequestEmployeeOption[];
     form_leave_types: CalendarFormLeaveType[];
     can: CalendarPermissions;
+    today_timeline: TodayTimeline;
 }) {
     return (
         <>
@@ -56,6 +59,7 @@ export default function AttendanceCalendar({
                 form_employees={form_employees}
                 form_leave_types={form_leave_types}
                 can={can}
+                today_timeline={today_timeline}
             />
         </>
     );
