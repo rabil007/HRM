@@ -195,8 +195,9 @@ test('crew operations overview exposes manning gaps when user can view vessel ma
 test('crew operations overview includes deployment trends for the last six months', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
 
-    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel, [
-        'started_at' => CarbonImmutable::now()->startOfMonth(),
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+    $assignment->currentPhase->update([
+        'actual_start_at' => CarbonImmutable::now()->startOfMonth()->addDay(),
     ]);
 
     $this->actingAs($user)

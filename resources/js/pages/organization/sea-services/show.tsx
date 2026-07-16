@@ -111,7 +111,7 @@ export default function SeaServiceShow({
                                     </Badge>
                                 </>
                             ) : null}
-                            {sea_service.has_deployment ? (
+                            {sea_service.has_assignment_phase ? (
                                 <>
                                     <span className="text-muted-foreground">
                                         ·
@@ -215,7 +215,7 @@ export default function SeaServiceShow({
                             <MetadataField
                                 label="Linked deployment"
                                 value={
-                                    sea_service.has_deployment ? 'Yes' : 'No'
+                                    sea_service.has_assignment_phase ? 'Yes' : 'No'
                                 }
                             />
                         </CardContent>

@@ -172,8 +172,8 @@ test('employee crew status resolver returns in home with day count', function ()
 
     expect($status)
         ->status->toBe('in_home')
-        ->label->toBe('In home · 6d')
-        ->in_home_days->toBe(6);
+        ->label->toBe('In home · 5d')
+        ->in_home_days->toBe(5);
 });
 
 test('employee crew status resolver returns needs update when active assignment has no current phase', function () {

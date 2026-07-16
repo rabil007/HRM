@@ -13,6 +13,7 @@ use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -93,14 +94,16 @@ function makeActiveOnVesselAssignment(
     Vessel $vessel,
     array $overrides = [],
 ): CrewAssignment {
+    $started = CarbonImmutable::parse('2026-01-01 08:00:00', $company->timezone ?? 'UTC');
+
     $assignment = CrewAssignment::query()->create(array_merge([
         'company_id' => $company->id,
-        'assignment_no' => 'CA-'.now()->year.'-'.Str::upper(Str::random(6)),
+        'assignment_no' => 'CA-2026-'.Str::upper(Str::random(6)),
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'status' => CrewAssignmentStatus::Active,
-        'started_at' => now()->subDays(10),
+        'started_at' => $started,
         'source' => 'manual',
     ], $overrides));
 
@@ -110,7 +113,7 @@ function makeActiveOnVesselAssignment(
         'phase_code' => CrewPhaseCode::OnVessel,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Active,
-        'actual_start_at' => now()->subDays(5),
+        'actual_start_at' => $started->addDays(2),
     ]);
 
     $assignment->update(['current_phase_id' => $phase->id]);
