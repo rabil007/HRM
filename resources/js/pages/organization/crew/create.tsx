@@ -82,7 +82,7 @@ export default function CrewAssignmentCreate({
                                     {form_options.employees.map((emp) => (
                                         <SelectItem key={emp.id} value={emp.id.toString()}>
                                             {emp.name}
-                                            {emp.employee_number && ` (${emp.employee_number})`}
+                                            {emp.employee_no && ` (${emp.employee_no})`}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

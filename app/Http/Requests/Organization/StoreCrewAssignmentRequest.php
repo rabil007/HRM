@@ -23,7 +23,7 @@ class StoreCrewAssignmentRequest extends FormRequest
         return [
             'employee_id' => ['required', 'integer', Rule::exists('employees', 'id')->where('company_id', $companyId)],
             'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')],
-            'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('company_id', $companyId)],
+            'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')],
             'vessel_id' => ['nullable', 'integer', Rule::exists('vessels', 'id')],
             'company_visa_type_id' => ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('company_id', $companyId)],
             'planned_join_at' => ['nullable', 'date'],

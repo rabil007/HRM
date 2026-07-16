@@ -87,18 +87,18 @@ class CrewAssignmentController extends Controller
                 ->where('company_id', $companyId)
                 ->where('status', 'active')
                 ->orderBy('name')
-                ->get(['id', 'name', 'employee_number', 'rank_id'])
+                ->get(['id', 'name', 'employee_no', 'rank_id'])
                 ->map(fn (Employee $e) => [
                     'id' => $e->id,
                     'name' => $e->name,
-                    'employee_number' => $e->employee_number,
+                    'employee_no' => $e->employee_no,
                     'rank_id' => $e->rank_id,
                 ])
                 ->values()
                 ->all(),
             'ranks' => $this->activeRanks(),
             'vessels' => $this->activeVessels(),
-            'clients' => $this->activeClients($companyId),
+            'clients' => $this->activeClients(),
             'visa_types' => $this->activeVisaTypes($companyId),
         ];
 
@@ -171,7 +171,7 @@ class CrewAssignmentController extends Controller
                 'employees' => [],
                 'ranks' => $this->activeRanks(),
                 'vessels' => $this->activeVessels(),
-                'clients' => $this->activeClients($companyId),
+                'clients' => $this->activeClients(),
                 'visa_types' => $this->activeVisaTypes($companyId),
             ],
             'can' => CrewAssignmentPagePermissions::for($request->user()),
@@ -199,18 +199,18 @@ class CrewAssignmentController extends Controller
                 ->where('company_id', $companyId)
                 ->where('status', 'active')
                 ->orderBy('name')
-                ->get(['id', 'name', 'employee_number', 'rank_id'])
+                ->get(['id', 'name', 'employee_no', 'rank_id'])
                 ->map(fn (Employee $e) => [
                     'id' => $e->id,
                     'name' => $e->name,
-                    'employee_number' => $e->employee_number,
+                    'employee_no' => $e->employee_no,
                     'rank_id' => $e->rank_id,
                 ])
                 ->values()
                 ->all(),
             'ranks' => $this->activeRanks(),
             'vessels' => $this->activeVessels(),
-            'clients' => $this->activeClients($companyId),
+            'clients' => $this->activeClients(),
             'visa_types' => $this->activeVisaTypes($companyId),
         ];
 
@@ -297,10 +297,9 @@ class CrewAssignmentController extends Controller
     /**
      * @return list<array{id: int, name: string}>
      */
-    private function activeClients(int $companyId): array
+    private function activeClients(): array
     {
         return Client::query()
-            ->where('company_id', $companyId)
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name'])

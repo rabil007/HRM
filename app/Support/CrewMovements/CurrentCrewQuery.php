@@ -39,7 +39,7 @@ class CurrentCrewQuery
             $query->where(function (Builder $q) use ($search) {
                 $q->where('assignment_no', 'like', '%'.$search.'%')
                     ->orWhereHas('employee', fn (Builder $e) => $e->where('name', 'like', '%'.$search.'%')
-                        ->orWhere('employee_number', 'like', '%'.$search.'%'))
+                        ->orWhere('employee_no', 'like', '%'.$search.'%'))
                     ->orWhereHas('vessel', fn (Builder $v) => $v->where('name', 'like', '%'.$search.'%'))
                     ->orWhereHas('rank', fn (Builder $r) => $r->where('name', 'like', '%'.$search.'%'))
                     ->orWhereHas('client', fn (Builder $c) => $c->where('name', 'like', '%'.$search.'%'));
@@ -140,7 +140,7 @@ class CurrentCrewQuery
      *     vessels: list<array{id: int, name: string}>,
      *     ranks: list<array{id: int, name: string}>,
      *     clients: list<array{id: int, name: string}>,
-     *     employees: list<array{id: int, name: string, employee_number: string|null}>
+     *     employees: list<array{id: int, name: string, employee_no: string|null}>
      * }
      */
     public static function filterOptions(int $companyId): array
@@ -161,7 +161,6 @@ class CurrentCrewQuery
                 ->values()
                 ->all(),
             'clients' => Client::query()
-                ->where('company_id', $companyId)
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name'])
@@ -172,11 +171,11 @@ class CurrentCrewQuery
                 ->where('company_id', $companyId)
                 ->where('status', 'active')
                 ->orderBy('name')
-                ->get(['id', 'name', 'employee_number'])
+                ->get(['id', 'name', 'employee_no'])
                 ->map(fn (Employee $e) => [
                     'id' => $e->id,
                     'name' => $e->name,
-                    'employee_number' => $e->employee_number,
+                    'employee_no' => $e->employee_no,
                 ])
                 ->values()
                 ->all(),

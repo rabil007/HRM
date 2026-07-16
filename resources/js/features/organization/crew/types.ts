@@ -6,7 +6,7 @@ export interface CrewAssignmentListItem {
     employee: {
         id: number;
         name: string;
-        employee_number: string | null;
+        employee_no: string | null;
     } | null;
     rank: {
         id: number;
@@ -40,7 +40,7 @@ export interface CrewAssignmentDetail {
     employee: {
         id: number;
         name: string;
-        employee_number: string | null;
+        employee_no: string | null;
     } | null;
     rank: {
         id: number;
@@ -119,7 +119,7 @@ export interface CrewAssignmentFormOptions {
     employees: Array<{
         id: number;
         name: string;
-        employee_number: string | null;
+        employee_no: string | null;
         rank_id: number | null;
     }>;
     ranks: Array<{ id: number; name: string }>;
