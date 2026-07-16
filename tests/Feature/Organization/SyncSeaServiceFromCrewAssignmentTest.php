@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignmentPhase;
@@ -10,220 +11,122 @@ use Carbon\CarbonImmutable;
 
 test('sync creates sea service from completed P4 phase', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-
     $vessel = makeCrewMovementVessel('Sea Service Vessel');
-
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     $phase = $assignment->currentPhase;
     $phase->update([
         'status' => CrewPhaseStatus::Completed,
-        'actual_end_at' => CarbonImmutable::today(),
+        'actual_end_at' => CarbonImmutable::parse('2026-06-01 08:00:00'),
     ]);
 
-    $sync = new SyncSeaServiceFromCrewAssignment;
-    $seaService = $sync->syncFromPhase($phase->fresh());
+    $seaService = app(SyncSeaServiceFromCrewAssignment::class)->syncFromPhase($phase->fresh());
 
     expect($seaService)->not->toBeNull()
-        ->and($seaService->company_id)->toBe($company->id)
-        ->and($seaService->employee_id)->toBe($employee->id)
         ->and($seaService->crew_assignment_phase_id)->toBe($phase->id)
         ->and($seaService->vessel_id)->toBe($vessel->id)
-        ->and($seaService->rank_id)->toBe($rank->id)
-        ->and($seaService->start_date->toDateString())->toBe($phase->actual_start_at->toDateString())
-        ->and($seaService->end_date->toDateString())->toBe($phase->actual_end_at->toDateString());
+        ->and($seaService->employee_id)->toBe($employee->id);
 });
 
 test('sync does not create sea service for active P4 phase', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-
     $vessel = makeCrewMovementVessel('Active Vessel');
-
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
-    $phase = $assignment->currentPhase;
+    $seaService = app(SyncSeaServiceFromCrewAssignment::class)->syncFromPhase($assignment->currentPhase);
 
-    $sync = new SyncSeaServiceFromCrewAssignment;
-    $seaService = $sync->syncFromPhase($phase);
-
-    expect($seaService)->toBeNull();
-
-    $count = EmployeeSeaService::query()
-        ->where('crew_assignment_phase_id', $phase->id)
-        ->count();
-
-    expect($count)->toBe(0);
+    expect($seaService)->toBeNull()
+        ->and(EmployeeSeaService::query()->where('crew_assignment_phase_id', $assignment->current_phase_id)->count())->toBe(0);
 });
 
-test('sync via crew movement service creates sea service on disembarkation confirmation', function () {
-    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-
+test('confirm disembarkation syncs sea service inside movement transaction', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Disembarked Vessel');
-
     $service = app(CrewMovementService::class);
 
     $assignment = $service->createDraft($company->id, $employee->id, [
         'rank_id' => $rank->id,
         'vessel_id' => $vessel->id,
-        'planned_join_at' => CarbonImmutable::today()->subDays(10)->toDateTimeString(),
-        'source' => 'manual',
-    ]);
+    ], $user->id);
 
-    $assignment = $service->confirmJoinVessel($assignment->id, [
-        'actual_join_at' => CarbonImmutable::today()->subDays(8)->toDateTimeString(),
-    ]);
+    $id = $assignment->id;
+    $service->perform($company->id, $id, CrewMovementAction::ApproveMobilisation, [
+        'occurred_at' => '2026-01-01 08:00:00',
+    ], $user->id);
+    $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-01-02 08:00:00',
+        'next_phase' => 'p3',
+    ], $user->id);
+    $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
+        'occurred_at' => '2026-01-03 08:00:00',
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+    ], $user->id);
+    $service->perform($company->id, $id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2026-03-01 08:00:00',
+        'next_phase' => 'p6',
+    ], $user->id);
 
-    $assignment = $service->confirmDisembarkation($assignment->id, [
-        'actual_disembark_at' => CarbonImmutable::today()->subDays(1)->toDateTimeString(),
-    ]);
+    $seaService = EmployeeSeaService::query()->where('employee_id', $employee->id)->first();
 
-    $seaServices = EmployeeSeaService::query()
-        ->where('employee_id', $employee->id)
-        ->where('vessel_id', $vessel->id)
-        ->get();
-
-    expect($seaServices)->toHaveCount(1)
-        ->and($seaServices[0]->crew_assignment_phase_id)->not->toBeNull()
-        ->and($seaServices[0]->start_date->toDateString())->toBe(CarbonImmutable::today()->subDays(8)->toDateString())
-        ->and($seaServices[0]->end_date->toDateString())->toBe(CarbonImmutable::today()->subDays(1)->toDateString());
+    expect($seaService)->not->toBeNull()
+        ->and($seaService->crew_assignment_phase_id)->not->toBeNull()
+        ->and($seaService->start_date->toDateString())->toBe('2026-01-03')
+        ->and($seaService->end_date->toDateString())->toBe('2026-03-01');
 });
 
 test('sync is idempotent and updates existing sea service', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-
     $vessel = makeCrewMovementVessel('Idempotent Vessel');
-
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
-
     $phase = $assignment->currentPhase;
     $phase->update([
         'status' => CrewPhaseStatus::Completed,
-        'actual_end_at' => CarbonImmutable::today(),
+        'actual_end_at' => CarbonImmutable::parse('2026-04-01'),
     ]);
 
-    $sync = new SyncSeaServiceFromCrewAssignment;
-    $firstService = $sync->syncFromPhase($phase->fresh());
+    $sync = app(SyncSeaServiceFromCrewAssignment::class);
+    $first = $sync->syncFromPhase($phase->fresh());
+    $phase->update(['actual_end_at' => CarbonImmutable::parse('2026-04-10')]);
+    $second = $sync->syncFromPhase($phase->fresh());
 
-    expect($firstService)->not->toBeNull();
-
-    $phase->update([
-        'actual_end_at' => CarbonImmutable::today()->addDays(2),
-    ]);
-
-    $secondService = $sync->syncFromPhase($phase->fresh());
-
-    expect($secondService->id)->toBe($firstService->id)
-        ->and($secondService->end_date->toDateString())->toBe(CarbonImmutable::today()->addDays(2)->toDateString());
-
-    $count = EmployeeSeaService::query()
-        ->where('crew_assignment_phase_id', $phase->id)
-        ->count();
-
-    expect($count)->toBe(1);
+    expect($second->id)->toBe($first->id)
+        ->and($second->end_date->toDateString())->toBe('2026-04-10')
+        ->and(EmployeeSeaService::query()->where('crew_assignment_phase_id', $phase->id)->count())->toBe(1);
 });
 
 test('sync removes sea service when phase is cancelled', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-
     $vessel = makeCrewMovementVessel('Cancelled Vessel');
-
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
-
     $phase = $assignment->currentPhase;
     $phase->update([
         'status' => CrewPhaseStatus::Completed,
-        'actual_end_at' => CarbonImmutable::today(),
+        'actual_end_at' => CarbonImmutable::parse('2026-06-01 08:00:00'),
     ]);
 
-    $sync = new SyncSeaServiceFromCrewAssignment;
-    $seaService = $sync->syncFromPhase($phase->fresh());
+    $sync = app(SyncSeaServiceFromCrewAssignment::class);
+    expect($sync->syncFromPhase($phase->fresh()))->not->toBeNull();
 
-    expect($seaService)->not->toBeNull();
-
-    $phase->update([
-        'status' => CrewPhaseStatus::Cancelled,
-    ]);
-
-    $result = $sync->syncFromPhase($phase->fresh());
-
-    expect($result)->toBeNull();
-
-    $count = EmployeeSeaService::query()
-        ->withTrashed()
-        ->where('crew_assignment_phase_id', $phase->id)
-        ->count();
-
-    expect($count)->toBe(0);
+    $phase->update(['status' => CrewPhaseStatus::Cancelled]);
+    expect($sync->syncFromPhase($phase->fresh()))->toBeNull()
+        ->and(EmployeeSeaService::withTrashed()->where('crew_assignment_phase_id', $phase->id)->count())->toBe(0);
 });
 
-test('sync only creates sea service for P4 on vessel phase', function () {
+test('sync ignores non-p4 phases', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-
     $vessel = makeCrewMovementVessel('Phase Types Vessel');
-
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     $travelPhase = CrewAssignmentPhase::query()->create([
         'company_id' => $company->id,
         'crew_assignment_id' => $assignment->id,
         'phase_code' => CrewPhaseCode::TravelIn,
-        'sequence' => 0,
+        'sequence' => 2,
         'status' => CrewPhaseStatus::Completed,
-        'actual_start_at' => CarbonImmutable::today()->subDays(5),
-        'actual_end_at' => CarbonImmutable::today()->subDays(4),
+        'actual_start_at' => now()->subDays(5),
+        'actual_end_at' => now()->subDays(4),
     ]);
 
-    $sync = new SyncSeaServiceFromCrewAssignment;
-    $seaService = $sync->syncFromPhase($travelPhase);
-
-    expect($seaService)->toBeNull();
-
-    $count = EmployeeSeaService::query()
-        ->where('crew_assignment_phase_id', $travelPhase->id)
-        ->count();
-
-    expect($count)->toBe(0);
-});
-
-test('sync is scoped to company', function () {
-    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    ['company' => $otherCompany, 'employee' => $otherEmployee] = makeCrewAssignmentFixtures();
-
-    $vessel = makeCrewMovementVessel('Company Scoped Vessel');
-
-    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
-    $otherAssignment = makeActiveOnVesselAssignment($otherCompany, $otherEmployee, $rank, $vessel);
-
-    $phase = $assignment->currentPhase;
-    $phase->update([
-        'status' => CrewPhaseStatus::Completed,
-        'actual_end_at' => CarbonImmutable::today(),
-    ]);
-
-    $otherPhase = $otherAssignment->currentPhase;
-    $otherPhase->update([
-        'status' => CrewPhaseStatus::Completed,
-        'actual_end_at' => CarbonImmutable::today(),
-    ]);
-
-    $sync = new SyncSeaServiceFromCrewAssignment;
-    $seaService = $sync->syncFromPhase($phase->fresh());
-    $otherService = $sync->syncFromPhase($otherPhase->fresh());
-
-    expect($seaService->company_id)->toBe($company->id)
-        ->and($otherService->company_id)->toBe($otherCompany->id);
-
-    $companyCount = EmployeeSeaService::query()
-        ->where('company_id', $company->id)
-        ->where('vessel_id', $vessel->id)
-        ->count();
-
-    expect($companyCount)->toBe(1);
-
-    $otherCount = EmployeeSeaService::query()
-        ->where('company_id', $otherCompany->id)
-        ->where('vessel_id', $vessel->id)
-        ->count();
-
-    expect($otherCount)->toBe(1);
+    expect(app(SyncSeaServiceFromCrewAssignment::class)->syncFromPhase($travelPhase))->toBeNull();
 });

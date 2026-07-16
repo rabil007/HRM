@@ -15,7 +15,6 @@ use App\Support\Employees\Actions\CreateEmployee;
 use App\Support\Employees\Actions\CreateEmployeeFromName;
 use App\Support\Employees\Actions\SyncEmployeeWorkAssignments;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
-use App\Support\Employees\EmployeeDirectoryCrewStatusData;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use App\Support\Employees\EmployeeExportFieldRegistry;
@@ -57,16 +56,8 @@ class EmployeeController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        $latestDeployments = EmployeeDirectoryCrewStatusData::latestDeploymentsFor(
-            $paginator->getCollection(),
-            $companyId,
-        );
-
         $employees = $paginator->through(
-            fn (Employee $employee) => EmployeeListResource::toArray(
-                $employee,
-                $latestDeployments->get($employee->id),
-            ),
+            fn (Employee $employee) => EmployeeListResource::toArray($employee),
         );
 
         return Inertia::render('organization/employees', [

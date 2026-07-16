@@ -105,6 +105,7 @@ final class CrewPlanningGanttQuery
                 'relieves_crew_assignment_id' => $assignment->relieves_crew_assignment_id,
                 'relieves_employee_name' => $assignment->relievedAssignment?->employee?->name,
                 'is_assigned' => $assignment->crew_assignment_id !== null,
+                'is_deployed' => $assignment->crew_assignment_id !== null,
             ])
             ->values()
             ->all();
@@ -173,6 +174,7 @@ final class CrewPlanningGanttQuery
                         'employee_id' => $assignment->employee_id,
                         'employee_name' => $assignment->employee?->name ?? 'Vacant',
                         'is_assigned' => $assignment->crew_assignment_id !== null,
+                        'is_deployed' => $assignment->crew_assignment_id !== null,
                         'relieves_employee_name' => $assignment->relievedAssignment?->employee?->name,
                     ])
                     ->values()

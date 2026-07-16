@@ -24,7 +24,6 @@ import {
     Contact,
     CreditCard,
     GraduationCap,
-    Ship,
     Anchor,
     Waves,
 } from 'lucide-react';

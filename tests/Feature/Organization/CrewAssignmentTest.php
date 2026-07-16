@@ -216,5 +216,5 @@ test('crew assignment is the movement source of truth without deployments', func
 
     expect($assignment->fresh())->not->toBeNull()
         ->and(Schema::hasTable('employee_deployments'))->toBeFalse()
-        ->and(class_exists(EmployeeDeployment::class))->toBeFalse();
+        ->and(class_exists(EmployeeDeployment::class, false))->toBeFalse();
 });

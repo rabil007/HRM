@@ -9,9 +9,14 @@ return new class extends Migration
     public function up(): void
     {
         if (Schema::hasColumn('employee_sea_services', 'employee_deployment_id')) {
+            $this->dropForeignKeysForColumn('employee_sea_services', 'employee_deployment_id');
+            $this->dropIndexesForColumn(
+                'employee_sea_services',
+                'employee_deployment_id',
+                ['employee_sea_services_employee_deployment_id_unique'],
+            );
+
             Schema::table('employee_sea_services', function (Blueprint $table) {
-                $table->dropForeign(['employee_deployment_id']);
-                $table->dropUnique(['employee_deployment_id']);
                 $table->dropColumn('employee_deployment_id');
             });
         }
@@ -28,16 +33,16 @@ return new class extends Migration
         }
 
         if (Schema::hasColumn('crew_planning_assignments', 'relieves_employee_deployment_id')) {
-            Schema::table('crew_planning_assignments', function (Blueprint $table) {
-                $table->dropForeign(['relieves_employee_deployment_id']);
-            });
-
-            try {
-                Schema::table('crew_planning_assignments', function (Blueprint $table) {
-                    $table->dropIndex('cpa_relieves_deployment_idx');
-                });
-            } catch (Exception $e) {
-            }
+            $this->dropForeignKeysForColumn(
+                'crew_planning_assignments',
+                'relieves_employee_deployment_id',
+                ['cpa_relieves_deployment_fk'],
+            );
+            $this->dropIndexesForColumn(
+                'crew_planning_assignments',
+                'relieves_employee_deployment_id',
+                ['cpa_relieves_deployment_idx'],
+            );
 
             Schema::table('crew_planning_assignments', function (Blueprint $table) {
                 $table->dropColumn('relieves_employee_deployment_id');
@@ -45,9 +50,14 @@ return new class extends Migration
         }
 
         if (Schema::hasColumn('crew_planning_assignments', 'employee_deployment_id')) {
+            $this->dropForeignKeysForColumn('crew_planning_assignments', 'employee_deployment_id');
+            $this->dropIndexesForColumn(
+                'crew_planning_assignments',
+                'employee_deployment_id',
+                ['crew_planning_assignments_employee_deployment_id_unique'],
+            );
+
             Schema::table('crew_planning_assignments', function (Blueprint $table) {
-                $table->dropForeign(['employee_deployment_id']);
-                $table->dropUnique(['employee_deployment_id']);
                 $table->dropColumn('employee_deployment_id');
             });
         }
@@ -71,17 +81,27 @@ return new class extends Migration
         }
 
         if (Schema::hasColumn('crew_assignments', 'employee_deployment_id')) {
+            $this->dropForeignKeysForColumn('crew_assignments', 'employee_deployment_id');
+            $this->dropIndexesForColumn(
+                'crew_assignments',
+                'employee_deployment_id',
+                ['crew_assignments_employee_deployment_id_unique'],
+            );
+
             Schema::table('crew_assignments', function (Blueprint $table) {
-                $table->dropForeign(['employee_deployment_id']);
-                $table->dropUnique(['employee_deployment_id']);
                 $table->dropColumn('employee_deployment_id');
             });
         }
 
         if (Schema::hasColumn('crew_assignments', 'crew_planning_assignment_id')) {
+            $this->dropForeignKeysForColumn('crew_assignments', 'crew_planning_assignment_id');
+            $this->dropIndexesForColumn(
+                'crew_assignments',
+                'crew_planning_assignment_id',
+                ['crew_assignments_crew_planning_assignment_id_unique'],
+            );
+
             Schema::table('crew_assignments', function (Blueprint $table) {
-                $table->dropForeign(['crew_planning_assignment_id']);
-                $table->dropUnique(['crew_planning_assignment_id']);
                 $table->dropColumn('crew_planning_assignment_id');
             });
         }
@@ -147,5 +167,86 @@ return new class extends Migration
             $table->foreignId('employee_deployment_id')->nullable()->constrained('employee_deployments')->nullOnDelete();
             $table->unique('employee_deployment_id');
         });
+    }
+
+    /**
+     * @param  list<string>  $knownNames
+     */
+    private function dropForeignKeysForColumn(string $table, string $column, array $knownNames = []): void
+    {
+        if (Schema::getConnection()->getDriverName() === 'sqlite') {
+            try {
+                Schema::table($table, function (Blueprint $blueprint) use ($column): void {
+                    $blueprint->dropForeign([$column]);
+                });
+            } catch (Throwable) {
+            }
+
+            return;
+        }
+
+        $names = $knownNames;
+
+        try {
+            foreach (Schema::getForeignKeys($table) as $foreignKey) {
+                if (in_array($column, $foreignKey['columns'], true)) {
+                    $names[] = $foreignKey['name'];
+                }
+            }
+        } catch (Throwable) {
+        }
+
+        $names[] = "{$table}_{$column}_foreign";
+
+        foreach (array_values(array_unique($names)) as $foreignKey) {
+            try {
+                Schema::table($table, function (Blueprint $blueprint) use ($foreignKey): void {
+                    $blueprint->dropForeign($foreignKey);
+                });
+            } catch (Throwable) {
+            }
+        }
+    }
+
+    /**
+     * @param  list<string>  $knownNames
+     */
+    private function dropIndexesForColumn(string $table, string $column, array $knownNames = []): void
+    {
+        $names = $knownNames;
+        $names[] = "{$table}_{$column}_unique";
+        $names[] = "{$table}_{$column}_index";
+
+        foreach (array_values(array_unique($names)) as $index) {
+            try {
+                Schema::table($table, function (Blueprint $blueprint) use ($index): void {
+                    $blueprint->dropUnique($index);
+                });
+            } catch (Throwable) {
+            }
+
+            try {
+                Schema::table($table, function (Blueprint $blueprint) use ($index): void {
+                    $blueprint->dropIndex($index);
+                });
+            } catch (Throwable) {
+            }
+        }
+
+        if (Schema::getConnection()->getDriverName() === 'sqlite') {
+            try {
+                Schema::table($table, function (Blueprint $blueprint) use ($column): void {
+                    $blueprint->dropUnique([$column]);
+                });
+            } catch (Throwable) {
+            }
+
+            try {
+                Schema::table($table, function (Blueprint $blueprint) use ($column): void {
+                    $blueprint->dropIndex([$column]);
+                });
+            } catch (Throwable) {
+            }
+        }
     }
 };

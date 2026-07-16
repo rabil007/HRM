@@ -1,4 +1,4 @@
-import { Link, router } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import {
     Briefcase,
     Building2,
@@ -189,18 +189,14 @@ function optionLabel(
 
 function EmployeeCrewStatusBadge({
     crewStatus,
-    canViewDeployments,
 }: {
     crewStatus: EmployeeCrewStatus;
-    canViewDeployments: boolean;
 }) {
-    const badge = (
+    return (
         <Badge variant="secondary" className="font-normal">
             {crewStatus.label}
         </Badge>
     );
-
-    return badge;
 }
 
 export function EmployeeHeaderCard({
@@ -227,7 +223,6 @@ export function EmployeeHeaderCard({
     isMissingRequired = () => false,
     canAssignProfileTemplate = false,
     profileTemplates = [],
-    canViewDeployments = false,
 }: {
     canUpdate: boolean;
     employee: any;
@@ -253,7 +248,6 @@ export function EmployeeHeaderCard({
     isMissingRequired?: (field: string) => boolean;
     canAssignProfileTemplate?: boolean;
     profileTemplates?: ProfileTemplateOption[];
-    canViewDeployments?: boolean;
 }) {
     const showField = (key: string) =>
         !templateProfileFields || templateProfileFields.includes(key);
@@ -616,7 +610,6 @@ export function EmployeeHeaderCard({
                                 showField('crew_status') ? (
                                     <EmployeeCrewStatusBadge
                                         crewStatus={employee.crew_status}
-                                        canViewDeployments={canViewDeployments}
                                     />
                                 ) : null}
                             </div>
