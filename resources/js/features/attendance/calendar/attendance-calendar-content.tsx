@@ -141,7 +141,7 @@ export function AttendanceCalendarContent({
         <Main>
             <PageHeader
                 kicker="Attendance"
-                title="Leave Calendar"
+                title="Calendar"
                 description={
                     canCreateFromCalendar
                         ? 'Approved leave for the selected employee. Hover or click colored days for details. Drag across empty days to create a request.'

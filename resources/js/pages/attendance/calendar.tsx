@@ -44,7 +44,7 @@ export default function AttendanceCalendar({
 }) {
     return (
         <>
-            <Head title="Attendance Calendar" />
+            <Head title="Calendar" />
             <AttendanceCalendarContent
                 year={year}
                 today={today}

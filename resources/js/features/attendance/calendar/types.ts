@@ -51,17 +51,31 @@ export type TimelineEvent = {
     time: string;
     status: 'checkIn' | 'checkOut';
     device_name: string | null;
+    transaction_source: string | null;
 };
+
+export type TodayTimelineStatus =
+    | 'checked_in'
+    | 'checked_out'
+    | 'on_leave'
+    | 'partial'
+    | 'no_activity';
 
 export type TodayTimelineSummary = {
     clock_in: string | null;
     clock_out: string | null;
     is_complete: boolean;
     is_on_leave: boolean;
+    status: TodayTimelineStatus;
+    event_count: number;
+    elapsed_minutes: number | null;
 };
 
 export type TodayTimeline = {
     date: string;
+    timezone: string;
+    window_start: string;
+    window_end: string;
     events: TimelineEvent[];
     summary: TodayTimelineSummary;
 } | null;
