@@ -136,6 +136,17 @@ export interface CrewAssignmentSummary {
     by_phase: Record<string, number>;
 }
 
+export interface CrewAssignmentFilterOptions {
+    vessels: Array<{ id: number; name: string }>;
+    ranks: Array<{ id: number; name: string }>;
+    clients: Array<{ id: number; name: string }>;
+    employees: Array<{
+        id: number;
+        name: string;
+        employee_no: string | null;
+    }>;
+}
+
 export interface CrewAssignmentFilters {
     phase: string;
     status: string;

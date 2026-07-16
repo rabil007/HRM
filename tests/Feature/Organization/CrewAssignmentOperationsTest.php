@@ -58,6 +58,8 @@ test('authorized users can view current crew index', function () {
             ->component('organization/crew/index')
             ->has('assignments')
             ->has('summary')
+            ->has('filter_options')
+            ->has('filters')
             ->has('can')
             ->where('summary.total', 1));
 });

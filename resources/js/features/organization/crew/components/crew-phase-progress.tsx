@@ -77,11 +77,11 @@ export function CrewPhaseProgress({
                     >
                         <div
                             className={cn(
-                                'rounded-md border px-2 py-1 text-xs font-medium transition-colors',
+                                'rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors sm:text-sm',
                                 state === 'current' &&
                                     'border-primary bg-primary/10 text-primary ring-1 ring-primary/20',
                                 state === 'completed' &&
-                                    'border-success/30 bg-success/10 text-success',
+                                    'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
                                 state === 'upcoming' &&
                                     'border-border bg-muted/30 text-muted-foreground',
                             )}

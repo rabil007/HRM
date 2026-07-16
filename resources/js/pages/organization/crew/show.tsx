@@ -1,11 +1,14 @@
-import { Head, router } from '@inertiajs/react';
-import { ArrowLeft } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { AlertTriangle, Pencil } from 'lucide-react';
+import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
-import { PageHeader } from '@/components/page-header';
 import { RecentActivityCard } from '@/components/recent-activity-card';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
+import { CrewMetadataField } from '@/features/organization/crew/components/crew-metadata-field';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { CrewPhaseProgress } from '@/features/organization/crew/components/crew-phase-progress';
 import type {
@@ -13,10 +16,14 @@ import type {
     CrewAssignmentFormOptions,
     CrewAssignmentPagePermissions,
 } from '@/features/organization/crew/types';
+import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
+import { formatDisplayDate } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 import {
     edit as editAssignment,
     index as crewAssignmentsIndex,
 } from '@/routes/organization/crew-assignments';
+import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
 
 export default function CrewAssignmentShow({
     assignment,
@@ -37,22 +44,46 @@ export default function CrewAssignmentShow({
         <>
             <Head title={`Assignment ${assignment.assignment_no}`} />
             <Main>
-                <div className="mb-6">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => router.visit(crewAssignmentsIndex.url())}
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                        Back to Crew Assignments
-                    </Button>
-                </div>
-
-                <PageHeader
+                <DetailsHeader
+                    kicker="Current Crew"
                     title={assignment.assignment_no}
-                    description={`Status: ${assignment.status_label}`}
-                    right={
-                        <div className="flex flex-wrap gap-2">
+                    description={
+                        <span className="inline-flex flex-wrap items-center gap-2">
+                            <Badge
+                                variant={
+                                    assignment.status === 'active'
+                                        ? 'success'
+                                        : assignment.status === 'draft'
+                                          ? 'secondary'
+                                          : assignment.status === 'cancelled'
+                                            ? 'destructive'
+                                            : 'outline'
+                                }
+                            >
+                                {assignment.status_label}
+                            </Badge>
+                            {assignment.current_phase ? (
+                                <CrewPhaseBadge
+                                    code={assignment.current_phase.code}
+                                    label={assignment.current_phase.label}
+                                    status={assignment.current_phase.status}
+                                />
+                            ) : null}
+                            {assignment.days_in_phase !== null ? (
+                                <span className="text-muted-foreground">
+                                    {assignment.days_in_phase}{' '}
+                                    {assignment.days_in_phase === 1
+                                        ? 'day'
+                                        : 'days'}{' '}
+                                    in phase
+                                </span>
+                            ) : null}
+                        </span>
+                    }
+                    backHref={crewAssignmentsIndex.url()}
+                    backLabel="Back to Current Crew"
+                    actions={
+                        <div className="flex flex-wrap items-center gap-2">
                             {showMovementActions ? (
                                 <MovementActionMenu
                                     assignmentId={assignment.id}
@@ -74,12 +105,16 @@ export default function CrewAssignmentShow({
                             ) : null}
                             {can.update ? (
                                 <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="h-12 rounded-xl px-5"
                                     onClick={() =>
                                         router.visit(
                                             editAssignment.url(assignment.id),
                                         )
                                     }
                                 >
+                                    <Pencil className="mr-2 h-4 w-4" />
                                     Edit
                                 </Button>
                             ) : null}
@@ -87,210 +122,340 @@ export default function CrewAssignmentShow({
                     }
                 />
 
-                <div className="space-y-6">
-                    <div className="rounded-xl glass-card p-6">
-                        <h3 className="mb-4 font-semibold">
-                            Movement Progress
-                        </h3>
-                        <CrewPhaseProgress
-                            currentPhaseCode={
-                                assignment.current_phase?.code ?? null
-                            }
-                            phaseTimeline={assignment.phase_timeline}
-                        />
+                {assignment.warnings.length > 0 ? (
+                    <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+                        <div className="mb-3 flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                            <AlertTriangle className="size-4" aria-hidden />
+                            <h2 className="text-sm font-semibold">
+                                Needs attention
+                            </h2>
+                        </div>
+                        <div className="grid gap-2 md:grid-cols-2">
+                            {assignment.warnings.map((warning, idx) => (
+                                <div
+                                    key={`${warning.code}-${idx}`}
+                                    className="rounded-lg border border-amber-500/20 bg-background/60 p-3"
+                                >
+                                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                                        {warning.label}
+                                    </p>
+                                    <p className="mt-1 text-xs text-amber-800/80 dark:text-amber-200/80">
+                                        {warning.message}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : null}
+
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+                    <div className="space-y-6">
+                        <Card className="border-border/80 dark:border-white/10">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">
+                                    Movement Progress
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <CrewPhaseProgress
+                                    currentPhaseCode={
+                                        assignment.current_phase?.code ?? null
+                                    }
+                                    phaseTimeline={assignment.phase_timeline}
+                                />
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-border/80 dark:border-white/10">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">
+                                    Phase Timeline
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {assignment.phase_timeline.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        No phase timeline recorded yet.
+                                    </p>
+                                ) : (
+                                    <ol className="relative space-y-0 border-l border-border/70 pl-5">
+                                        {assignment.phase_timeline.map(
+                                            (phase, index) => {
+                                                const isCurrent =
+                                                    assignment.current_phase
+                                                        ?.code ===
+                                                    phase.phase_code;
+
+                                                return (
+                                                    <li
+                                                        key={phase.id}
+                                                        className="relative pb-6 last:pb-0"
+                                                    >
+                                                        <span
+                                                            className={cn(
+                                                                'absolute top-1.5 -left-[1.4rem] size-2.5 rounded-full border-2 border-background',
+                                                                isCurrent
+                                                                    ? 'bg-primary'
+                                                                    : phase.status ===
+                                                                        'completed'
+                                                                      ? 'bg-emerald-500'
+                                                                      : 'bg-muted-foreground/40',
+                                                            )}
+                                                            aria-hidden
+                                                        />
+                                                        <div className="flex flex-wrap items-start justify-between gap-3">
+                                                            <div className="space-y-1">
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <CrewPhaseBadge
+                                                                        code={
+                                                                            phase.phase_code
+                                                                        }
+                                                                        label={
+                                                                            phase.phase_label
+                                                                        }
+                                                                        status={
+                                                                            phase.status
+                                                                        }
+                                                                    />
+                                                                    {isCurrent ? (
+                                                                        <Badge variant="outline">
+                                                                            Current
+                                                                        </Badge>
+                                                                    ) : null}
+                                                                </div>
+                                                                <p className="text-sm text-muted-foreground">
+                                                                    {
+                                                                        phase.status_label
+                                                                    }
+                                                                    {index === 0
+                                                                        ? ' · Sequence start'
+                                                                        : ''}
+                                                                </p>
+                                                            </div>
+                                                            <div className="text-right text-xs text-muted-foreground">
+                                                                <div>
+                                                                    Actual:{' '}
+                                                                    {formatDisplayDate(
+                                                                        phase.actual_start_at,
+                                                                    )}
+                                                                    {phase.actual_end_at
+                                                                        ? ` → ${formatDisplayDate(phase.actual_end_at)}`
+                                                                        : ''}
+                                                                </div>
+                                                                {(phase.planned_start_at ||
+                                                                    phase.planned_end_at) && (
+                                                                    <div className="mt-1">
+                                                                        Planned:{' '}
+                                                                        {formatDisplayDate(
+                                                                            phase.planned_start_at,
+                                                                        )}
+                                                                        {phase.planned_end_at
+                                                                            ? ` → ${formatDisplayDate(phase.planned_end_at)}`
+                                                                            : ''}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </li>
+                                                );
+                                            },
+                                        )}
+                                    </ol>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {(can.perform_movement || can.cancel) &&
+                        assignment.available_actions.length === 0 &&
+                        assignment.status !== 'completed' &&
+                        assignment.status !== 'cancelled' ? (
+                            <Card className="border-border/80 dark:border-white/10">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-base">
+                                        Movement Actions
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="text-sm text-muted-foreground">
+                                        No available actions for the current
+                                        phase.
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        ) : null}
+
+                        {can.view_audit ? (
+                            recent_activity.length > 0 ? (
+                                <RecentActivityCard
+                                    items={recent_activity}
+                                    description="Latest changes for this crew assignment."
+                                />
+                            ) : (
+                                <Card className="border-border/80 dark:border-white/10">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-base">
+                                            Audit History
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-sm text-muted-foreground">
+                                            No audit history recorded for this
+                                            assignment yet.
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            )
+                        ) : null}
                     </div>
 
-                    <div className="rounded-xl glass-card p-6">
-                        <h3 className="mb-4 font-semibold">Details</h3>
-                        <dl className="grid grid-cols-2 gap-4">
-                            <div>
-                                <dt className="text-sm font-medium text-muted-foreground">
-                                    Employee
-                                </dt>
-                                <dd className="mt-1">
-                                    {assignment.employee?.name ?? 'N/A'}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-sm font-medium text-muted-foreground">
-                                    Vessel
-                                </dt>
-                                <dd className="mt-1">
-                                    {assignment.vessel?.name ?? 'N/A'}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-sm font-medium text-muted-foreground">
-                                    Rank
-                                </dt>
-                                <dd className="mt-1">
-                                    {assignment.rank?.name ?? 'N/A'}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-sm font-medium text-muted-foreground">
-                                    Client
-                                </dt>
-                                <dd className="mt-1">
-                                    {assignment.client?.name ?? 'N/A'}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-sm font-medium text-muted-foreground">
-                                    Current Phase
-                                </dt>
-                                <dd className="mt-1">
-                                    {assignment.current_phase ? (
-                                        <CrewPhaseBadge
-                                            code={assignment.current_phase.code}
-                                            label={
-                                                assignment.current_phase.label
-                                            }
-                                            status={
-                                                assignment.current_phase.status
-                                            }
-                                        />
-                                    ) : (
-                                        'N/A'
+                    <div className="space-y-6">
+                        <Card className="border-border/80 dark:border-white/10">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">
+                                    Assignment Details
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                                <CrewMetadataField
+                                    label="Employee"
+                                    value={
+                                        assignment.employee ? (
+                                            <EmployeeProfileLink
+                                                employeeId={
+                                                    assignment.employee.id
+                                                }
+                                            >
+                                                {assignment.employee.name}
+                                            </EmployeeProfileLink>
+                                        ) : (
+                                            '—'
+                                        )
+                                    }
+                                />
+                                <CrewMetadataField
+                                    label="Employee No"
+                                    value={
+                                        assignment.employee?.employee_no ?? '—'
+                                    }
+                                />
+                                <CrewMetadataField
+                                    label="Vessel"
+                                    value={assignment.vessel?.name ?? '—'}
+                                />
+                                <CrewMetadataField
+                                    label="Rank"
+                                    value={assignment.rank?.name ?? '—'}
+                                />
+                                <CrewMetadataField
+                                    label="Client"
+                                    value={assignment.client?.name ?? '—'}
+                                />
+                                <CrewMetadataField
+                                    label="Visa Type"
+                                    value={
+                                        assignment.company_visa_type?.name ??
+                                        '—'
+                                    }
+                                />
+                                <CrewMetadataField
+                                    label="Source"
+                                    value={assignment.source ?? '—'}
+                                />
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-border/80 dark:border-white/10">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">
+                                    Plan vs Actual
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                                <CrewMetadataField
+                                    label="Planned Join"
+                                    value={formatDisplayDate(
+                                        assignment.planned_join_at,
                                     )}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-sm font-medium text-muted-foreground">
-                                    Planned Join
-                                </dt>
-                                <dd className="mt-1">
-                                    {assignment.planned_join_at ?? 'N/A'}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-sm font-medium text-muted-foreground">
-                                    Planned Sign-Off
-                                </dt>
-                                <dd className="mt-1">
-                                    {assignment.planned_signoff_at ?? 'N/A'}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-sm font-medium text-muted-foreground">
-                                    Actual Join
-                                </dt>
-                                <dd className="mt-1">
-                                    {assignment.actual_join_at ?? 'N/A'}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-sm font-medium text-muted-foreground">
-                                    Actual Disembarkation
-                                </dt>
-                                <dd className="mt-1">
-                                    {assignment.actual_disembarkation_at ??
-                                        'N/A'}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-sm font-medium text-muted-foreground">
-                                    Days in Phase
-                                </dt>
-                                <dd className="mt-1">
-                                    {assignment.days_in_phase ?? 'N/A'}
-                                </dd>
-                            </div>
-                        </dl>
-                    </div>
+                                />
+                                <CrewMetadataField
+                                    label="Planned Sign-Off"
+                                    value={formatDisplayDate(
+                                        assignment.planned_signoff_at,
+                                    )}
+                                />
+                                <CrewMetadataField
+                                    label="Planned Travel"
+                                    value={formatDisplayDate(
+                                        assignment.planned_travel_at,
+                                    )}
+                                />
+                                <CrewMetadataField
+                                    label="Actual Join"
+                                    value={formatDisplayDate(
+                                        assignment.actual_join_at,
+                                    )}
+                                />
+                                <CrewMetadataField
+                                    label="Actual Disembarkation"
+                                    value={formatDisplayDate(
+                                        assignment.actual_disembarkation_at,
+                                    )}
+                                />
+                                <CrewMetadataField
+                                    label="Started"
+                                    value={formatDisplayDate(
+                                        assignment.started_at,
+                                    )}
+                                />
+                                <CrewMetadataField
+                                    label="Closed"
+                                    value={formatDisplayDate(
+                                        assignment.closed_at,
+                                    )}
+                                />
+                            </CardContent>
+                        </Card>
 
-                    <div className="rounded-xl glass-card p-6">
-                        <h3 className="mb-4 font-semibold">Phase Timeline</h3>
-                        {assignment.phase_timeline.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                                No phase timeline recorded yet.
-                            </p>
-                        ) : (
-                            <div className="space-y-3">
-                                {assignment.phase_timeline.map((phase) => (
-                                    <div
-                                        key={phase.id}
-                                        className="flex items-center gap-4 rounded-lg border p-3"
+                        {assignment.remarks ? (
+                            <Card className="border-border/80 dark:border-white/10">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base">
+                                        Remarks
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+                                        {assignment.remarks}
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        ) : null}
+
+                        {assignment.planning_assignment_id ? (
+                            <Card className="border-border/80 dark:border-white/10">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-base">
+                                        Planning Link
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="text-sm text-muted-foreground">
+                                        Created from crew planning assignment #
+                                        {assignment.planning_assignment_id}.
+                                    </p>
+                                    <Button
+                                        asChild
+                                        variant="link"
+                                        className="mt-1 h-auto px-0"
                                     >
-                                        <CrewPhaseBadge
-                                            code={phase.phase_code}
-                                            label={phase.phase_label}
-                                            status={phase.status}
-                                        />
-                                        <div className="flex-1 text-sm">
-                                            <div className="font-medium">
-                                                {phase.status_label}
-                                            </div>
-                                            {phase.actual_start_at ? (
-                                                <div className="text-muted-foreground">
-                                                    {phase.actual_start_at}
-                                                    {phase.actual_end_at
-                                                        ? ` - ${phase.actual_end_at}`
-                                                        : null}
-                                                </div>
-                                            ) : null}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                                        <Link href={crewPlanningIndex.url()}>
+                                            Open Crew Planning
+                                        </Link>
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ) : null}
                     </div>
-
-                    {(can.perform_movement || can.cancel) &&
-                    assignment.available_actions.length === 0 &&
-                    assignment.status !== 'completed' &&
-                    assignment.status !== 'cancelled' ? (
-                        <div className="rounded-xl glass-card p-6">
-                            <h3 className="mb-2 font-semibold">
-                                Movement Actions
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                                No available actions for the current phase.
-                            </p>
-                        </div>
-                    ) : null}
-
-                    {assignment.warnings.length > 0 ? (
-                        <div className="rounded-xl glass-card border-amber-500 p-6">
-                            <h3 className="mb-4 font-semibold text-amber-600">
-                                Warnings
-                            </h3>
-                            <div className="space-y-2">
-                                {assignment.warnings.map((warning, idx) => (
-                                    <div
-                                        key={`${warning.code}-${idx}`}
-                                        className="rounded-lg border border-amber-500/20 bg-amber-50 p-3 dark:bg-amber-950/20"
-                                    >
-                                        <div className="font-medium text-amber-900 dark:text-amber-100">
-                                            {warning.label}
-                                        </div>
-                                        <div className="text-sm text-amber-700 dark:text-amber-300">
-                                            {warning.message}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ) : null}
-
-                    {can.view_audit ? (
-                        recent_activity.length > 0 ? (
-                            <RecentActivityCard
-                                items={recent_activity}
-                                description="Latest changes for this crew assignment."
-                            />
-                        ) : (
-                            <div className="rounded-xl glass-card p-6">
-                                <h3 className="mb-2 font-semibold">
-                                    Audit History
-                                </h3>
-                                <p className="text-sm text-muted-foreground">
-                                    No audit history recorded for this
-                                    assignment yet.
-                                </p>
-                            </div>
-                        )
-                    ) : null}
                 </div>
             </Main>
         </>
