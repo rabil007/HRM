@@ -47,6 +47,8 @@ use App\Http\Controllers\Organization\ContractShowController;
 use App\Http\Controllers\Organization\ContractsImportController;
 use App\Http\Controllers\Organization\ContractsIndexController;
 use App\Http\Controllers\Organization\ContractsNoContractController;
+use App\Http\Controllers\Organization\CrewAssignmentController;
+use App\Http\Controllers\Organization\CrewMovementActionController;
 use App\Http\Controllers\Organization\CrewOperationsDashboardController;
 use App\Http\Controllers\Organization\CrewOperationsSettingsController;
 use App\Http\Controllers\Organization\CrewPlanningAssignmentController;
@@ -252,6 +254,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/crew-planning/assignments', [CrewPlanningAssignmentController::class, 'store'])->middleware('can:crew_operations.planning.create')->name('organization.crew-planning.assignments.store');
     Route::put('organization/crew-planning/assignments/{assignment}', [CrewPlanningAssignmentController::class, 'update'])->middleware('can:crew_operations.planning.update')->name('organization.crew-planning.assignments.update');
     Route::delete('organization/crew-planning/assignments/{assignment}', [CrewPlanningAssignmentController::class, 'destroy'])->middleware('can:crew_operations.planning.delete')->name('organization.crew-planning.assignments.destroy');
+
+    Route::get('organization/crew', [CrewAssignmentController::class, 'index'])->middleware('can:crew_operations.assignments.view')->name('organization.crew-assignments.index');
+    Route::get('organization/crew/create', [CrewAssignmentController::class, 'create'])->middleware('can:crew_operations.assignments.create')->name('organization.crew-assignments.create');
+    Route::post('organization/crew', [CrewAssignmentController::class, 'store'])->middleware('can:crew_operations.assignments.create')->name('organization.crew-assignments.store');
+    Route::get('organization/crew/{assignment}', [CrewAssignmentController::class, 'show'])->middleware('can:crew_operations.assignments.view')->name('organization.crew-assignments.show');
+    Route::get('organization/crew/{assignment}/edit', [CrewAssignmentController::class, 'edit'])->middleware('can:crew_operations.assignments.update')->name('organization.crew-assignments.edit');
+    Route::put('organization/crew/{assignment}', [CrewAssignmentController::class, 'update'])->middleware('can:crew_operations.assignments.update')->name('organization.crew-assignments.update');
+    Route::post('organization/crew/{assignment}/actions', CrewMovementActionController::class)->name('organization.crew-assignments.perform-action');
 
     Route::get('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'index'])->middleware('can:crew_operations.planning.view')->name('organization.crew-operations.settings.index');
     Route::put('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'update'])->middleware('can:crew_operations.planning.update')->name('organization.crew-operations.settings.update');

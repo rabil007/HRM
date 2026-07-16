@@ -126,6 +126,11 @@ const baseSidebarData: SidebarData = {
                     icon: LayoutDashboard,
                 },
                 {
+                    title: 'Current Crew',
+                    url: '/organization/crew',
+                    icon: Users,
+                },
+                {
                     title: 'Planning',
                     url: '/organization/crew-planning',
                     icon: CalendarRange,

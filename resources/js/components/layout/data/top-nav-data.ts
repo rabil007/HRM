@@ -77,7 +77,8 @@ export function getTopNavLinks(
             isActive:
                 url.startsWith('/organization/vessel-manning') ||
                 url.startsWith('/organization/crew-planning') ||
-                url.startsWith('/organization/crew-operations'),
+                url.startsWith('/organization/crew-operations') ||
+                url.startsWith('/organization/crew'),
         });
     }
 
