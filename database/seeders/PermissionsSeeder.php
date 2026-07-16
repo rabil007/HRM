@@ -42,6 +42,8 @@ class PermissionsSeeder extends Seeder
             'hikvision.events.view',
             'hikvision.events.fetch',
 
+            'attendance.overview.view',
+
             'attendance.types.view',
             'attendance.types.create',
             'attendance.types.update',
@@ -249,6 +251,8 @@ class PermissionsSeeder extends Seeder
             'employee_profile_templates.create',
             'employee_profile_templates.update',
             'employee_profile_templates.delete',
+
+            'payroll.overview.view',
 
             'payroll.periods.view',
             'payroll.periods.create',

@@ -64,10 +64,35 @@ test('users without attendance permissions get 403 on attendance overview', func
         ->assertForbidden();
 });
 
-test('users with attendance.records.view can access the overview', function () {
+test('users with only attendance.records.view cannot access the overview', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceOverviewFixtures();
 
     grantCompanyPermissions($user, $company, ['attendance.records.view']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get('/attendance/overview')
+        ->assertForbidden();
+});
+
+test('users with only attendance.leave-requests.view cannot access the overview', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceOverviewFixtures();
+
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get('/attendance/overview')
+        ->assertForbidden();
+});
+
+test('users with attendance.overview.view can access the overview', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceOverviewFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.overview.view',
+        'attendance.records.view',
+    ]);
 
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
@@ -81,27 +106,12 @@ test('users with attendance.records.view can access the overview', function () {
         );
 });
 
-test('users with attendance.leave-requests.view can access the overview', function () {
-    ['user' => $user, 'company' => $company] = makeAttendanceOverviewFixtures();
-
-    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
-
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->get('/attendance/overview')
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('attendance/overview')
-            ->has('summary')
-            ->where('can.view_leave_requests', true)
-        );
-});
-
 test('attendance overview summary contains correct structure', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceOverviewFixtures();
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
 
     grantCompanyPermissions($user, $company, [
+        'attendance.overview.view',
         'attendance.records.view',
         'attendance.leave-requests.view',
     ]);

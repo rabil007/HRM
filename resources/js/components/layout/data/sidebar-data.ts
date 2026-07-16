@@ -214,10 +214,7 @@ function has(permissions: string[], permission: string): boolean {
 }
 
 function canViewCrewOperationsOverview(permissions: string[]): boolean {
-    return (
-        has(permissions, 'crew_operations.overview.view') ||
-        has(permissions, 'crew_operations.deployments.view')
-    );
+    return has(permissions, 'crew_operations.overview.view');
 }
 
 function canViewCrewOperations(permissions: string[]): boolean {
@@ -230,6 +227,7 @@ function canViewCrewOperations(permissions: string[]): boolean {
 
 function canViewPayroll(permissions: string[]): boolean {
     return (
+        has(permissions, 'payroll.overview.view') ||
         has(permissions, 'payroll.periods.view') ||
         has(permissions, 'payroll.crew_timesheets.view') ||
         has(permissions, 'payroll.records.view') ||
@@ -418,17 +416,12 @@ export function getSidebarData(permissions: string[]): SidebarData {
                         case '/attendance/overview':
                             return has(
                                 permissions,
-                                'attendance.records.view',
-                            ) ||
-                                has(
-                                    permissions,
-                                    'attendance.leave-requests.view',
-                                )
+                                'attendance.overview.view',
+                            )
                                 ? item
                                 : null;
                         case '/payroll/overview':
-                            return has(permissions, 'payroll.periods.view') ||
-                                has(permissions, 'payroll.crew_timesheets.view')
+                            return has(permissions, 'payroll.overview.view')
                                 ? item
                                 : null;
                         case '/payroll':

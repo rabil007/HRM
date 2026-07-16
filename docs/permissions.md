@@ -30,9 +30,9 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 | Contracts / bank / training / sea service | `contracts.view|create|update|delete|import`, `contracts.salary_revisions.view|create|update|delete`, `bank_accounts.view|create|update|delete|import`, `training.view|create|update|delete|import`, `sea_services.view|create|update|delete|import` |
 | Documents | `documents.view|download|share|upload|delete` |
 | Bulk documents / signatures | `bulk_documents.view|generate|delete|email`, `bulk_documents.signatures.review` |
-| Crew operations | `crew_operations.deployments.*`, `crew_operations.overview.view`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*` |
-| Attendance / leave | `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` |
-| Payroll | `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, `payroll.payslips.*`, `payroll.wps.export` |
+| Crew operations | `crew_operations.overview.view`, `crew_operations.deployments.*`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*` |
+| Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` |
+| Payroll | `payroll.overview.view`, `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, `payroll.payslips.*`, `payroll.wps.export` |
 | Hikvision | `hikvision.persons.*`, `hikvision.devices.*`, `hikvision.events.*`, `hikvision.webhook.manage` |
 | Employee profile templates | `employee_profile_templates.view|create|update|delete` |
 | Settings | `settings.security.*`, `settings.appearance.view`, `settings.application.*`, integration/template permissions, and `settings.master-data.{resource}.*` |

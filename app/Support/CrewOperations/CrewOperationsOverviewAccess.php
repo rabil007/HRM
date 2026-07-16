@@ -12,8 +12,7 @@ final class CrewOperationsOverviewAccess
             return false;
         }
 
-        return $user->can('crew_operations.overview.view')
-            || $user->can('crew_operations.deployments.view');
+        return $user->can('crew_operations.overview.view');
     }
 
     public static function assertCanView(?User $user): void

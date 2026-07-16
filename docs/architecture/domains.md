@@ -205,8 +205,8 @@ Examples (full list in seeder):
 | Documents | `documents.view`, `.download`, `.share`, `.upload`, `.delete` |
 | Contracts / bank / training | `contracts.*`, `bank_accounts.*`, `training.*` |
 | Crew | `crew_operations.deployments.*`, `crew_operations.overview.view`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*` |
-| Attendance / leave | `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` |
-| Payroll | `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, payslip and WPS actions |
+| Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` |
+| Payroll | `payroll.overview.view`, `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, payslip and WPS actions |
 | Bulk documents | `bulk_documents.view`, `.generate`, `.delete`, `.email`, `.signatures.review` |
 | Hikvision | `hikvision.persons.*`, `hikvision.devices.*`, `hikvision.events.*`, `hikvision.webhook.manage` |
 | Users / roles | `users.*`, `roles.*` |
@@ -653,6 +653,7 @@ Track attendance records, leave types and balances, leave requests, approvals, a
 
 ### Permissions involved
 
+- `attendance.overview.view`
 - `attendance.records.view|create|update|delete|manage`
 - `attendance.types.view|create|update|delete`
 - `attendance.leave-requests.view|create|update|delete|approve`
@@ -673,6 +674,7 @@ Manage payroll periods, crew timesheets, salary inputs, generated payroll record
 
 ### Permissions involved
 
+- overview: `payroll.overview.view`
 - lifecycle: `payroll.periods.view|create|update|delete|approve|mark_paid|cancel|recalculate` and the `revert_to_*` actions
 - inputs: `payroll.crew_timesheets.*` and `payroll.salary_inputs.*`
 - outputs: `payroll.records.view`, `payroll.payslips.generate`, `payroll.payslips.email`, `payroll.wps.export`

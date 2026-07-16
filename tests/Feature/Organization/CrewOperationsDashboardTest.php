@@ -14,7 +14,7 @@ test('guests cannot access crew operations overview', function () {
         ->assertRedirect(route('login'));
 });
 
-test('users without overview or deployments view permission cannot access crew operations overview', function () {
+test('users without overview view permission cannot access crew operations overview', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
@@ -55,7 +55,7 @@ test('users with only overview view permission can access crew operations overvi
             ->where('can.deployments', false));
 });
 
-test('users with only deployments view permission retain backward compatible overview access', function () {
+test('users with only deployments view permission cannot access crew operations overview', function () {
     $user = User::factory()->create();
     ['company' => $company] = makeCrewDeploymentFixtures();
 
@@ -65,10 +65,7 @@ test('users with only deployments view permission retain backward compatible ove
 
     $this->actingAs($user)
         ->get(route('organization.crew-operations.index'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('can.overview', true)
-            ->where('can.deployments', true));
+        ->assertForbidden();
 });
 
 test('crew operations overview counts needs update deployments in alert counts', function () {
@@ -146,6 +143,7 @@ test('crew operations overview lists upcoming planning when user can view planni
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
 
     grantCompanyPermissions($user, $company, [
+        'crew_operations.overview.view',
         'crew_operations.deployments.view',
         'crew_operations.deployments.create',
         'crew_operations.deployments.update',
@@ -219,6 +217,7 @@ test('crew operations overview exposes manning gaps when user can view vessel ma
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
 
     grantCompanyPermissions($user, $company, [
+        'crew_operations.overview.view',
         'crew_operations.deployments.view',
         'crew_operations.deployments.create',
         'crew_operations.deployments.update',

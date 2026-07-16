@@ -243,7 +243,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/users/{user}/memberships/{company}', [UserController::class, 'updateMembership'])->middleware('can:users.update')->name('organization.users.memberships.update');
     Route::delete('organization/users/{user}/memberships/{company}', [UserController::class, 'destroyMembership'])->middleware('can:users.update')->name('organization.users.memberships.destroy');
 
-    Route::get('organization/crew-operations', CrewOperationsDashboardController::class)->name('organization.crew-operations.index');
+    Route::get('organization/crew-operations', CrewOperationsDashboardController::class)->middleware('can:crew_operations.overview.view')->name('organization.crew-operations.index');
 
     Route::get('organization/crew-deployments', [CrewDeploymentController::class, 'index'])->middleware('can:crew_operations.deployments.view')->name('organization.crew-deployments.index');
     Route::post('organization/crew-deployments', [CrewDeploymentController::class, 'store'])->middleware('can:crew_operations.deployments.create')->name('organization.crew-deployments.store');
@@ -264,7 +264,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'index'])->middleware('can:crew_operations.planning.view')->name('organization.crew-operations.settings.index');
     Route::put('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'update'])->middleware('can:crew_operations.planning.update')->name('organization.crew-operations.settings.update');
 
-    Route::get('payroll/overview', PayrollOverviewController::class)->name('payroll.overview');
+    Route::get('payroll/overview', PayrollOverviewController::class)->middleware('can:payroll.overview.view')->name('payroll.overview');
     Route::get('payroll', [PayrollController::class, 'index'])->name('payroll.index');
     Route::get('payroll/records', [PayrollRecordController::class, 'index'])->middleware('can:payroll.records.view')->name('payroll.records.index');
     Route::get('payroll/salary-inputs', [SalaryInputTypeController::class, 'index'])->name('payroll.salary-inputs.index');
@@ -584,6 +584,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::redirect('hikvision/devices', '/settings/application?tab=hikvision');
 
     Route::get('attendance/overview', AttendanceOverviewController::class)
+        ->middleware('can:attendance.overview.view')
         ->name('attendance.overview');
 
     Route::get('attendance/records', [AttendanceRecordController::class, 'index'])

@@ -13,8 +13,7 @@ class PayrollOverviewController extends Controller
     public function __invoke(Request $request): InertiaResponse
     {
         abort_unless(
-            $request->user()?->can('payroll.periods.view')
-            || $request->user()?->can('payroll.crew_timesheets.view'),
+            $request->user()?->can('payroll.overview.view'),
             403,
         );
 

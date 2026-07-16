@@ -13,8 +13,7 @@ class AttendanceOverviewController extends Controller
     public function __invoke(Request $request): InertiaResponse
     {
         abort_unless(
-            $request->user()?->can('attendance.records.view')
-            || $request->user()?->can('attendance.leave-requests.view'),
+            $request->user()?->can('attendance.overview.view'),
             403,
         );
 

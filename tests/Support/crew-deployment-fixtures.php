@@ -76,6 +76,7 @@ function makeCrewDeploymentFixtures(): array
     ]);
 
     grantCompanyPermissions($user, $company, [
+        'crew_operations.overview.view',
         'crew_operations.deployments.view',
         'crew_operations.deployments.create',
         'crew_operations.deployments.update',
