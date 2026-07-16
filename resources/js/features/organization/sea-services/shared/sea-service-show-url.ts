@@ -1,5 +1,5 @@
-import { show as seaServiceShow } from '@/routes/organization/sea-services';
 import type { SeaServiceShowBackContext } from '@/features/organization/sea-services/types';
+import { show as seaServiceShow } from '@/routes/organization/sea-services';
 
 export function buildSeaServiceShowUrl(
     seaServiceId: number,

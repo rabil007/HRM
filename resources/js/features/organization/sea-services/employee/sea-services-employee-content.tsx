@@ -3,10 +3,10 @@ import { User } from 'lucide-react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { Button } from '@/components/ui/button';
-import { SeaServicesBreadcrumbs } from '@/features/organization/sea-services/employee/sea-services-breadcrumbs';
-import type { SeaServiceEmployeeBrowseProps } from '@/features/organization/sea-services/types';
 import { buildEmployeeShowUrl } from '@/features/organization/employees/build-employee-show-url';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
+import { SeaServicesBreadcrumbs } from '@/features/organization/sea-services/employee/sea-services-breadcrumbs';
+import type { SeaServiceEmployeeBrowseProps } from '@/features/organization/sea-services/types';
 import { EmployeeSeaServiceTab } from '@/pages/organization/_components/employee-sea-service-tab';
 
 export function SeaServicesEmployeeContent({

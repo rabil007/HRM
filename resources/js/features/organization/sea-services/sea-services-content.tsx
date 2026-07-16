@@ -16,9 +16,10 @@ import { TableBody, TableHeader } from '@/components/ui/table';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { buildSeaServiceEmployeeUrl } from '@/features/organization/sea-services/build-sea-service-employee-url';
 import {
-    SeaServicesFiltersSheet,
-    type SeaServiceSheetFilters,
+    SeaServicesFiltersSheet
+    
 } from '@/features/organization/sea-services/components/sea-services-filters-sheet';
+import type {SeaServiceSheetFilters} from '@/features/organization/sea-services/components/sea-services-filters-sheet';
 import { SeaServiceManagementDialogs } from '@/features/organization/sea-services/sea-service-management-dialogs';
 import { SeaServicesImportDialog } from '@/features/organization/sea-services/sea-services-import-dialog';
 import { SeaServicesSummaryCards } from '@/features/organization/sea-services/sea-services-summary-cards';
@@ -29,9 +30,10 @@ import type {
     SeaServicesIndexProps,
 } from '@/features/organization/sea-services/types';
 import {
-    useSeaServicesIndexFilters,
-    type SeaServiceSummaryFilter,
+    useSeaServicesIndexFilters
+    
 } from '@/features/organization/sea-services/use-sea-services-index-filters';
+import type {SeaServiceSummaryFilter} from '@/features/organization/sea-services/use-sea-services-index-filters';
 import { seaServices } from '@/routes/organization';
 import { exportMethod as exportSeaServices } from '@/routes/organization/sea-services';
 

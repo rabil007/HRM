@@ -9,6 +9,7 @@ import { RecentActivityCard } from '@/components/recent-activity-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { RankOption } from '@/features/organization/employees/types';
 import { SeaServiceManagementDialogs } from '@/features/organization/sea-services/sea-service-management-dialogs';
 import type {
     SeaServiceBackNavigation,
@@ -16,7 +17,6 @@ import type {
     SeaServicePageCan,
 } from '@/features/organization/sea-services/types';
 import { formatDisplayDate } from '@/lib/format-date';
-import type { RankOption } from '@/features/organization/employees/types';
 import type {
     ClientOption,
     TemplateFieldConfig,
