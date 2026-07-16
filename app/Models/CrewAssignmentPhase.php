@@ -21,7 +21,24 @@ class CrewAssignmentPhase extends Model
     use LogsActivityWithCompany;
     use SoftDeletes;
 
-    protected $guarded = [];
+    /**
+     * @var list<string>
+     */
+    protected $fillable = [
+        'company_id',
+        'crew_assignment_id',
+        'phase_code',
+        'sequence',
+        'status',
+        'planned_start_at',
+        'planned_end_at',
+        'actual_start_at',
+        'actual_end_at',
+        'details',
+        'remarks',
+        'started_by',
+        'completed_by',
+    ];
 
     public function getActivitylogOptions(): LogOptions
     {
