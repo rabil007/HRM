@@ -14,10 +14,6 @@ export type TopNavLink = {
 };
 
 function crewOperationsHref(permissions: string[]): string {
-    if (has(permissions, 'crew_operations.deployments.view')) {
-        return '/organization/crew-deployments';
-    }
-
     if (has(permissions, 'crew_operations.overview.view')) {
         return '/organization/crew-operations';
     }
@@ -79,7 +75,6 @@ export function getTopNavLinks(
             title: 'Crew Operations',
             href,
             isActive:
-                url.startsWith('/organization/crew-deployments') ||
                 url.startsWith('/organization/vessel-manning') ||
                 url.startsWith('/organization/crew-planning') ||
                 url.startsWith('/organization/crew-operations'),

@@ -1,11 +1,11 @@
 <?php
 
+use App\Enums\CrewAssignmentStatus;
+use App\Models\CrewAssignment;
 use App\Models\CrewOperationsSetting;
 use App\Models\CrewPlanningAssignment;
-use App\Models\EmployeeDeployment;
 use App\Models\User;
 use App\Models\VesselManning;
-use App\Support\CrewDeployments\DeploymentStatus;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -23,7 +23,7 @@ test('users without overview view permission cannot access crew operations overv
 });
 
 test('authorized users can view crew operations overview', function () {
-    ['user' => $user, 'company' => $company] = makeCrewDeploymentFixtures();
+    ['user' => $user] = makeCrewOperationsFixtures();
 
     $this->actingAs($user)
         ->get(route('organization.crew-operations.index'))
@@ -35,13 +35,12 @@ test('authorized users can view crew operations overview', function () {
             ->has('attention_items')
             ->has('pool_snapshot')
             ->where('can.overview', true)
-            ->where('can.deployments', true)
         );
 });
 
 test('users with only overview view permission can access crew operations overview', function () {
     $user = User::factory()->create();
-    ['company' => $company] = makeCrewDeploymentFixtures();
+    ['company' => $company] = makeCrewOperationsFixtures();
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.overview.view',
@@ -51,32 +50,22 @@ test('users with only overview view permission can access crew operations overvi
         ->get(route('organization.crew-operations.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('can.overview', true)
-            ->where('can.deployments', false));
+            ->where('can.overview', true));
 });
 
-test('users with only deployments view permission cannot access crew operations overview', function () {
-    $user = User::factory()->create();
-    ['company' => $company] = makeCrewDeploymentFixtures();
+test('crew operations overview counts needs update assignments in alert counts', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
 
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.deployments.view',
-    ]);
-
-    $this->actingAs($user)
-        ->get(route('organization.crew-operations.index'))
-        ->assertForbidden();
-});
-
-test('crew operations overview counts needs update deployments in alert counts', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
-
-    EmployeeDeployment::query()->create([
+    $assignment = CrewAssignment::query()->create([
         'company_id' => $company->id,
+        'assignment_no' => 'CA-'.now()->year.'-NEEDSUP',
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_id' => makeCrewDeploymentVessel('Overview Needs Update')->id,
-        'arrived_date' => CarbonImmutable::today()->subDay(),
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Active,
+        'started_at' => now()->subDays(10),
+        'source' => 'manual',
+        'current_phase_id' => null,
     ]);
 
     $this->actingAs($user)
@@ -84,13 +73,13 @@ test('crew operations overview counts needs update deployments in alert counts',
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('alert_counts.needs_update', 1)
-            ->where('deployment_summary.unknown', 1)
+            ->where('deployment_summary.movement_update_required', 1)
             ->has('attention_items', 1)
             ->where('attention_items.0.type', 'needs_update'));
 });
 
-test('crew operations overview counts overdue home deployments using max home days setting', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+test('crew operations overview counts overdue home assignments using max home days setting', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
 
     CrewOperationsSetting::query()->create([
         'company_id' => $company->id,
@@ -98,14 +87,16 @@ test('crew operations overview counts overdue home deployments using max home da
         'max_home_days' => 3,
     ]);
 
-    EmployeeDeployment::query()->create([
+    $assignment = CrewAssignment::query()->create([
         'company_id' => $company->id,
+        'assignment_no' => 'CA-'.now()->year.'-OVERDUE',
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_id' => makeCrewDeploymentVessel('Overview Over Home')->id,
-        'joined_date' => CarbonImmutable::today()->subDays(20),
-        'disembarked_date' => CarbonImmutable::today()->subDays(10),
-        'travelled_date' => CarbonImmutable::today()->subDays(5),
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Completed,
+        'started_at' => CarbonImmutable::today()->subDays(20),
+        'closed_at' => CarbonImmutable::today()->subDays(10),
+        'source' => 'manual',
     ]);
 
     $this->actingAs($user)
@@ -118,41 +109,13 @@ test('crew operations overview counts overdue home deployments using max home da
             ->where('attention_items.0.type', 'overdue_home'));
 });
 
-test('crew operations overview counts due soon deployments in alert counts', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
-
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => makeCrewDeploymentVessel('Overview Due Soon')->id,
-        'joined_date' => CarbonImmutable::today()->subDays(10),
-        'disembarked_date' => CarbonImmutable::today()->addDay(),
-    ]);
-
-    $this->actingAs($user)
-        ->get(route('organization.crew-operations.index'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('alert_counts.due_soon', 1)
-            ->has('attention_items', 1)
-            ->where('attention_items.0.type', 'due_soon'));
-});
-
 test('crew operations overview lists upcoming planning when user can view planning', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.overview.view',
-        'crew_operations.deployments.view',
-        'crew_operations.deployments.create',
-        'crew_operations.deployments.update',
-        'crew_operations.deployments.delete',
-        'crew_operations.deployments.export',
         'crew_operations.planning.view',
     ]);
-
-    $vessel = makeCrewDeploymentVessel('Overview Planning Vessel');
 
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
@@ -174,16 +137,9 @@ test('crew operations overview lists upcoming planning when user can view planni
 });
 
 test('crew operations overview hides recent activity without audit permission', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
 
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => makeCrewDeploymentVessel('Audit Hidden Overview')->id,
-        'joined_date' => CarbonImmutable::today()->subDays(3),
-        'disembarked_date' => CarbonImmutable::today()->subDay(),
-    ]);
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     $this->actingAs($user)
         ->get(route('organization.crew-operations.index'))
@@ -193,16 +149,10 @@ test('crew operations overview hides recent activity without audit permission', 
             ->where('recent_activity', []));
 });
 
-test('crew operations overview deployment summary matches board summary keys', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+test('crew operations overview deployment summary matches expected keys', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
 
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => makeCrewDeploymentVessel('Overview On Vessel')->id,
-        'joined_date' => CarbonImmutable::today()->subDays(2),
-    ]);
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     $this->actingAs($user)
         ->get(route('organization.crew-operations.index'))
@@ -210,23 +160,16 @@ test('crew operations overview deployment summary matches board summary keys', f
         ->assertInertia(fn (Assert $page) => $page
             ->where('deployment_summary.on_vessel', 1)
             ->where('deployment_summary.total', 1)
-            ->where('deployment_summary.'.DeploymentStatus::UNKNOWN, 0));
+            ->where('deployment_summary.movement_update_required', 0));
 });
 
 test('crew operations overview exposes manning gaps when user can view vessel manning', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.overview.view',
-        'crew_operations.deployments.view',
-        'crew_operations.deployments.create',
-        'crew_operations.deployments.update',
-        'crew_operations.deployments.delete',
-        'crew_operations.deployments.export',
         'crew_operations.vessel_manning.view',
     ]);
-
-    $vessel = makeCrewDeploymentVessel('Overview Manning Gap');
 
     VesselManning::query()->create([
         'company_id' => $company->id,
@@ -235,13 +178,7 @@ test('crew operations overview exposes manning gaps when user can view vessel ma
         'required_count' => 2,
     ]);
 
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => $vessel->id,
-        'joined_date' => CarbonImmutable::today()->subDays(2),
-    ]);
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     $this->actingAs($user)
         ->get(route('organization.crew-operations.index'))
@@ -256,14 +193,10 @@ test('crew operations overview exposes manning gaps when user can view vessel ma
 });
 
 test('crew operations overview includes deployment trends for the last six months', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
 
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'rank_id' => $rank->id,
-        'vessel_id' => makeCrewDeploymentVessel('Trend Vessel')->id,
-        'joined_date' => CarbonImmutable::now()->startOfMonth()->toDateString(),
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel, [
+        'started_at' => CarbonImmutable::now()->startOfMonth(),
     ]);
 
     $this->actingAs($user)
@@ -275,9 +208,7 @@ test('crew operations overview includes deployment trends for the last six month
 });
 
 test('crew operations overview hides manning gaps without vessel manning permission', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
-
-    $vessel = makeCrewDeploymentVessel('Hidden Manning Gap');
+    ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
 
     VesselManning::query()->create([
         'company_id' => $company->id,

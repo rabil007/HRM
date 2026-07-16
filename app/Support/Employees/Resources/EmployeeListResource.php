@@ -3,8 +3,7 @@
 namespace App\Support\Employees\Resources;
 
 use App\Models\Employee;
-use App\Models\EmployeeDeployment;
-use App\Support\CrewDeployments\EmployeeCrewStatusPresenter;
+use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 
 final class EmployeeListResource
@@ -12,7 +11,7 @@ final class EmployeeListResource
     /**
      * @return array<string, mixed>
      */
-    public static function toArray(Employee $employee, ?EmployeeDeployment $latestDeployment = null): array
+    public static function toArray(Employee $employee): array
     {
         $payload = [
             'id' => $employee->id,
@@ -79,7 +78,7 @@ final class EmployeeListResource
         ];
 
         if (EmployeeProfileTemplateResolver::employeeFieldVisible($employee->employeeProfileTemplate, 'crew_status')) {
-            $payload['crew_status'] = EmployeeCrewStatusPresenter::fromDeployment($latestDeployment);
+            $payload['crew_status'] = (new CrewAssignmentStatusResolver)->forEmployee($employee);
         }
 
         return $payload;

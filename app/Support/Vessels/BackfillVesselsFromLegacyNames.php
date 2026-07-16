@@ -16,7 +16,6 @@ final class BackfillVesselsFromLegacyNames
      *     vessels_to_create: int,
      *     sea_services_linked: int,
      *     sea_services_unlinked: int,
-     *     deployments_linked: int,
      *     type_conflicts: list<string>,
      *     grt_conflicts: list<string>,
      *     bhp_conflicts: list<string>,
@@ -33,7 +32,6 @@ final class BackfillVesselsFromLegacyNames
      *     vessels_to_create: int,
      *     sea_services_linked: int,
      *     sea_services_unlinked: int,
-     *     deployments_linked: int,
      *     type_conflicts: list<string>,
      *     grt_conflicts: list<string>,
      *     bhp_conflicts: list<string>,
@@ -50,7 +48,6 @@ final class BackfillVesselsFromLegacyNames
      *     vessels_to_create: int,
      *     sea_services_linked: int,
      *     sea_services_unlinked: int,
-     *     deployments_linked: int,
      *     type_conflicts: list<string>,
      *     grt_conflicts: list<string>,
      *     bhp_conflicts: list<string>,
@@ -64,7 +61,6 @@ final class BackfillVesselsFromLegacyNames
                 'vessels_to_create' => 0,
                 'sea_services_linked' => 0,
                 'sea_services_unlinked' => 0,
-                'deployments_linked' => 0,
                 'type_conflicts' => [],
                 'grt_conflicts' => [],
                 'bhp_conflicts' => [],
@@ -156,65 +152,11 @@ final class BackfillVesselsFromLegacyNames
             }
         }
 
-        $deploymentsLinked = 0;
-        $deploymentRows = DB::table('employee_deployments')
-            ->select(['id', 'employee_id', 'vessel_name'])
-            ->whereNotNull('vessel_name')
-            ->where('vessel_name', '!=', '')
-            ->get();
-
-        foreach ($deploymentRows as $row) {
-            $normalizedName = Vessel::normalizeName((string) $row->vessel_name);
-
-            if ($normalizedName === '') {
-                continue;
-            }
-
-            if (! isset($vesselIdByNormalizedName[$normalizedName])) {
-                $canonicalName = trim((string) $row->vessel_name);
-                $existing = $this->findVesselByNormalizedName($normalizedName);
-
-                if ($existing !== null) {
-                    $vesselIdByNormalizedName[$normalizedName] = $existing->id;
-                } else {
-                    $context = $this->resolveDeploymentContext((int) $row->employee_id, $canonicalName);
-                    $typeId = $context['vessel_type_id'] ?? $fallbackTypeId;
-
-                    if ($typeId === null) {
-                        continue;
-                    }
-
-                    if ($dryRun) {
-                        $vesselsToCreate++;
-                        $vesselIdByNormalizedName[$normalizedName] = -1;
-                    } else {
-                        $vessel = Vessel::query()->create([
-                            'name' => $canonicalName,
-                            'vessel_type_id' => $typeId,
-                            'grt' => $context['grt'],
-                            'bhp' => $context['bhp'],
-                            'is_active' => true,
-                        ]);
-                        $vesselIdByNormalizedName[$normalizedName] = $vessel->id;
-                    }
-                }
-            }
-
-            $deploymentsLinked++;
-
-            if (! $dryRun && isset($vesselIdByNormalizedName[$normalizedName]) && $vesselIdByNormalizedName[$normalizedName] > 0) {
-                DB::table('employee_deployments')
-                    ->where('id', $row->id)
-                    ->update(['vessel_id' => $vesselIdByNormalizedName[$normalizedName]]);
-            }
-        }
-
         return [
             'distinct_names' => $grouped->count(),
             'vessels_to_create' => $vesselsToCreate,
             'sea_services_linked' => $seaServicesLinked,
             'sea_services_unlinked' => $seaServicesUnlinked,
-            'deployments_linked' => $deploymentsLinked,
             'type_conflicts' => $typeConflicts,
             'grt_conflicts' => $grtConflicts,
             'bhp_conflicts' => $bhpConflicts,

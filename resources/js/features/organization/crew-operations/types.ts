@@ -1,5 +1,18 @@
 import type { RecentActivityItem } from '@/components/recent-activity-card';
-import type { DeploymentSummary } from '@/features/organization/crew-deployments/types';
+
+export type AssignmentSummary = {
+    pre_mobilisation: number;
+    travel_in: number;
+    join_standby: number;
+    training: number;
+    ready_to_join: number;
+    on_vessel: number;
+    demob_standby: number;
+    home_redeploy: number;
+    in_home: number;
+    movement_update_required: number;
+    total: number;
+};
 
 export type CrewOperationsAlertCounts = {
     needs_update: number;
@@ -58,12 +71,10 @@ export type CrewOperationsPagePermissions = {
     overview: boolean;
     planning: boolean;
     vessel_manning: boolean;
-    deployments: boolean;
-    deployments_create: boolean;
 };
 
 export type CrewOperationsDashboardProps = {
-    deployment_summary: DeploymentSummary;
+    deployment_summary: AssignmentSummary;
     alert_counts: CrewOperationsAlertCounts;
     attention_items: CrewOperationsAttentionItem[];
     manning_gaps: CrewOperationsManningGaps;

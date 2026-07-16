@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -40,8 +41,6 @@ class CrewAssignment extends Model
         'started_at',
         'closed_at',
         'previous_assignment_id',
-        'employee_deployment_id',
-        'crew_planning_assignment_id',
         'source',
         'remarks',
         'created_by',
@@ -65,8 +64,6 @@ class CrewAssignment extends Model
                 'started_at',
                 'closed_at',
                 'previous_assignment_id',
-                'employee_deployment_id',
-                'crew_planning_assignment_id',
                 'source',
                 'remarks',
             ])
@@ -87,8 +84,6 @@ class CrewAssignment extends Model
             'company_visa_type_id' => 'integer',
             'current_phase_id' => 'integer',
             'previous_assignment_id' => 'integer',
-            'employee_deployment_id' => 'integer',
-            'crew_planning_assignment_id' => 'integer',
             'created_by' => 'integer',
             'updated_by' => 'integer',
             'status' => CrewAssignmentStatus::class,
@@ -156,14 +151,9 @@ class CrewAssignment extends Model
         return $this->hasMany(self::class, 'previous_assignment_id');
     }
 
-    public function employeeDeployment(): BelongsTo
+    public function planningAssignment(): HasOne
     {
-        return $this->belongsTo(EmployeeDeployment::class);
-    }
-
-    public function crewPlanningAssignment(): BelongsTo
-    {
-        return $this->belongsTo(CrewPlanningAssignment::class);
+        return $this->hasOne(CrewPlanningAssignment::class);
     }
 
     public function creator(): BelongsTo

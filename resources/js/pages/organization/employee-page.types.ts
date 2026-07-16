@@ -35,7 +35,7 @@ export type ResolvedEmployeeTemplate = {
 };
 
 export type EmployeeCrewStatus = {
-    deployment_id: number | null;
+    assignment_id: number | null;
     status: string;
     label: string;
     hint?: string | null;

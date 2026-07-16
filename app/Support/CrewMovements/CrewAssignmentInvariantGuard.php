@@ -6,7 +6,6 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseStatus;
 use App\Exceptions\CrewMovementException;
 use App\Models\CrewAssignment;
-use App\Models\CrewAssignmentPhase;
 
 class CrewAssignmentInvariantGuard
 {
@@ -17,8 +16,7 @@ class CrewAssignmentInvariantGuard
             'phases',
             'currentPhase',
             'previousAssignment',
-            'employeeDeployment',
-            'crewPlanningAssignment',
+            'planningAssignment',
         ]);
 
         $this->assertCompanyIntegrity($assignment);
@@ -63,16 +61,8 @@ class CrewAssignmentInvariantGuard
             );
         }
 
-        if ($assignment->employeeDeployment !== null
-            && (int) $assignment->employeeDeployment->company_id !== (int) $assignment->company_id) {
-            throw CrewMovementException::make(
-                'Linked deployment company does not match assignment company.',
-                'company_mismatch_deployment',
-            );
-        }
-
-        if ($assignment->crewPlanningAssignment !== null
-            && (int) $assignment->crewPlanningAssignment->company_id !== (int) $assignment->company_id) {
+        if ($assignment->planningAssignment !== null
+            && (int) $assignment->planningAssignment->company_id !== (int) $assignment->company_id) {
             throw CrewMovementException::make(
                 'Linked planning assignment company does not match assignment company.',
                 'company_mismatch_planning',
@@ -90,17 +80,9 @@ class CrewAssignmentInvariantGuard
             );
         }
 
-        if ($assignment->employeeDeployment !== null
-            && (int) $assignment->employeeDeployment->employee_id !== (int) $assignment->employee_id) {
-            throw CrewMovementException::make(
-                'Linked deployment belongs to a different employee.',
-                'employee_mismatch_deployment',
-            );
-        }
-
-        if ($assignment->crewPlanningAssignment !== null
-            && $assignment->crewPlanningAssignment->employee_id !== null
-            && (int) $assignment->crewPlanningAssignment->employee_id !== (int) $assignment->employee_id) {
+        if ($assignment->planningAssignment !== null
+            && $assignment->planningAssignment->employee_id !== null
+            && (int) $assignment->planningAssignment->employee_id !== (int) $assignment->employee_id) {
             throw CrewMovementException::make(
                 'Linked planning assignment belongs to a different employee.',
                 'employee_mismatch_planning',
@@ -224,14 +206,5 @@ class CrewAssignmentInvariantGuard
                 'active_missing_started_at',
             );
         }
-    }
-
-    /**
-     * @param  list<CrewAssignmentPhase>  $phases
-     */
-    public function assertPhasesForAssignment(CrewAssignment $assignment, array $phases): void
-    {
-        $assignment->setRelation('phases', collect($phases));
-        $this->assertValid($assignment);
     }
 }

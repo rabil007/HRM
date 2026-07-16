@@ -6,6 +6,7 @@ use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\EmployeeDeployment;
+use Illuminate\Support\Facades\Schema;
 
 test('assignment belongs to a company and employee', function () {
     ['company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
@@ -204,31 +205,16 @@ test('phase scopes active and completed work', function () {
         ->and($assignment->phases()->completed()->count())->toBe(1);
 });
 
-test('existing crew deployment functionality remains unaffected', function () {
-    ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewDeploymentFixtures();
+test('crew assignment is the movement source of truth without deployments', function () {
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
 
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.deployments.view',
-    ]);
-
-    $deployment = EmployeeDeployment::factory()
+    $assignment = CrewAssignment::factory()
         ->forEmployee($employee)
         ->create([
-            'joined_date' => '2026-01-10',
-            'disembarked_date' => null,
+            'source' => 'manual',
         ]);
 
-    CrewAssignment::factory()
-        ->forEmployee($employee)
-        ->create([
-            'employee_deployment_id' => $deployment->id,
-            'source' => 'legacy_deployment',
-        ]);
-
-    $this->actingAs($user)
-        ->get(route('organization.crew-deployments.show', $deployment))
-        ->assertOk();
-
-    expect($deployment->fresh())->not->toBeNull()
-        ->and(EmployeeDeployment::query()->whereKey($deployment->id)->exists())->toBeTrue();
+    expect($assignment->fresh())->not->toBeNull()
+        ->and(Schema::hasTable('employee_deployments'))->toBeFalse()
+        ->and(class_exists(EmployeeDeployment::class))->toBeFalse();
 });

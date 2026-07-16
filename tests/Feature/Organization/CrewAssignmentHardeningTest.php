@@ -5,45 +5,32 @@ use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewPlanningAssignment;
-use App\Models\EmployeeDeployment;
 use Illuminate\Database\QueryException;
 
-test('same deployment cannot link to two assignments', function () {
-    ['employee' => $employee] = makeCrewAssignmentFixtures();
-
-    $deployment = EmployeeDeployment::factory()->forEmployee($employee)->create([
-        'joined_date' => '2026-01-10',
-        'disembarked_date' => null,
-    ]);
-
-    CrewAssignment::factory()->forEmployee($employee)->create([
-        'employee_deployment_id' => $deployment->id,
-    ]);
-
-    expect(fn () => CrewAssignment::factory()->forEmployee($employee)->create([
-        'employee_deployment_id' => $deployment->id,
-    ]))->toThrow(QueryException::class);
-});
-
-test('same planning assignment cannot link to two assignments', function () {
+test('same crew assignment cannot link to two planning assignments', function () {
     ['employee' => $employee, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Planning Link');
 
-    $planning = CrewPlanningAssignment::query()->create([
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->create();
+
+    CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
         'employee_id' => $employee->id,
+        'crew_assignment_id' => $assignment->id,
         'planned_join_date' => '2026-03-01',
         'planned_leave_date' => '2026-06-01',
     ]);
 
-    CrewAssignment::factory()->forEmployee($employee)->create([
-        'crew_planning_assignment_id' => $planning->id,
-    ]);
-
-    expect(fn () => CrewAssignment::factory()->forEmployee($employee)->create([
-        'crew_planning_assignment_id' => $planning->id,
+    expect(fn () => CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'crew_assignment_id' => $assignment->id,
+        'planned_join_date' => '2026-04-01',
+        'planned_leave_date' => '2026-07-01',
     ]))->toThrow(QueryException::class);
 });
 
@@ -85,17 +72,11 @@ test('repeatable phase codes remain allowed', function () {
     expect($assignment->phases()->where('phase_code', CrewPhaseCode::JoinStandby)->count())->toBe(2);
 });
 
-test('multiple null compatibility links remain allowed', function () {
+test('multiple assignments without planning links remain allowed', function () {
     ['employee' => $employee] = makeCrewAssignmentFixtures();
 
-    CrewAssignment::factory()->forEmployee($employee)->create([
-        'employee_deployment_id' => null,
-        'crew_planning_assignment_id' => null,
-    ]);
-    CrewAssignment::factory()->forEmployee($employee)->create([
-        'employee_deployment_id' => null,
-        'crew_planning_assignment_id' => null,
-    ]);
+    CrewAssignment::factory()->forEmployee($employee)->create();
+    CrewAssignment::factory()->forEmployee($employee)->create();
 
     expect(CrewAssignment::query()->where('employee_id', $employee->id)->count())->toBe(2);
 });

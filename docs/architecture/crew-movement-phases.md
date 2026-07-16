@@ -1,8 +1,8 @@
 # Crew Movement Phases
 
-Phase 0 foundation plus Phase 1 transactional movement service and legacy backfill. This document describes the domain model and service behaviour. It does not replace the live Crew Deployments module.
+CrewAssignment is the **single source of truth** for crew movement lifecycle. This document describes the domain model and service behaviour.
 
-**This phase does not include UI.** Dual-write to `employee_deployments` / sea services / planning is **not** implemented yet.
+**EmployeeDeployment has been removed.** CrewAssignment now drives sea service sync, employee crew status, manning queries, and planning integration.
 
 ## 1. Purpose of `CrewAssignment`
 
@@ -10,7 +10,7 @@ Phase 0 foundation plus Phase 1 transactional movement service and legacy backfi
 
 It is the parent record for ordered, repeatable phase occurrences and the home for movement actions (Phase 1+).
 
-## 2. Assignment vs phase vs deployment vs planning vs sea service
+## 2. Assignment vs phase vs planning vs sea service
 
 | Concept | Role |
 |---------|------|
@@ -31,7 +31,6 @@ CrewAssignment
 ├── Vessel
 ├── CompanyVisaType
 ├── Previous CrewAssignment
-├── EmployeeDeployment
 └── CrewPlanningAssignment
 ```
 
@@ -124,7 +123,9 @@ Sequence for new phases: `max(sequence including soft-deleted) + 1` while the as
 
 **Close convention:** `current_phase_id` remains the completed P6.
 
-**Dual-write:** not called. Do not invoke `SyncSeaServiceFromDeployment` or `SyncPlanningAssignmentFromDeployment` from this service yet.
+**Sea service sync:** `SyncSeaServiceFromCrewAssignment::syncFromPhase()` creates/updates `EmployeeSeaService` when P4 is completed with both `actual_start_at` and `actual_end_at`. Links via `crew_assignment_phase_id`.
+
+**Planning integration:** `CreateCrewAssignmentFromPlanning::handle()` creates draft assignment from planning. Updates `CrewPlanningAssignment.crew_assignment_id` for linkage. Idempotent.
 
 ## 9. Action semantics (Phase 1)
 
@@ -138,24 +139,18 @@ Cancel: allowed for draft/active **before** active P4; requires reason.
 
 ## 10. Assignment numbers
 
-- New: `CA-{year}-{000001}` via locked allocation per company
-- Legacy backfill: deterministic `LEGACY-{employee_deployment_id}`
+Assignment numbers: `CA-{year}-{000001}` via sequential allocation per company using `crew_assignment_sequences` table with row-level locking (`CrewAssignmentNumberGenerator`).
 
-## 11. Legacy backfill mapping
+## 11. Legacy removal
 
-`LegacyDeploymentBackfillService` + `php artisan crew-movements:backfill`:
+**EmployeeDeployment and all related code has been removed:**
+- `employee_deployments` table dropped
+- `EmployeeDeployment` model deleted
+- `LegacyDeploymentBackfillService` removed
+- `php artisan crew-movements:backfill` command removed
+- Crew Deployments board UI routes removed (`/organization/crew-deployments`)
 
-- Default is **dry run** (no writes). `--commit` persists.
-- Idempotent via unique `employee_deployment_id` link.
-- Does not modify deployments.
-- Date-only legacy fields → company timezone **start of day**.
-- Future `disembarked_date` → planned sign-off only (not P4 actual end).
-- Past `disembarked_date` → P4 `actual_end_at`.
-- Infers P1 / P2A / P4 / P5 / P6 only; never invents P0 / P2B / P3.
-- Legacy cycles may start at the earliest inferable phase (compatibility exception).
-- All-completed cycles without P6 are marked completed with `closed_at` from the last actual end (compatibility exception).
-
-See `docs/runbooks/crew-movement-backfill.md`.
+No backfill is available. CrewAssignment is the only crew movement record going forward.
 
 ## 12. Transfer and redeployment concept
 
@@ -165,8 +160,8 @@ Transfer/redeploy should create a **new** `CrewAssignment` linked via `previous_
 
 - Every assignment and phase row has `company_id`.
 - Service mutations lock and scope by company.
-- `assignment_no` is unique **per company**.
-- Unique nullable links: `employee_deployment_id`, `crew_planning_assignment_id`.
+- `assignment_no` is unique **per company** (enforced at DB level).
+- Planning links via `CrewPlanningAssignment.crew_assignment_id` and `relieves_crew_assignment_id` (nullable, FK to `crew_assignments`).
 - Employee FK uses **restrict on delete** so movement history is preserved.
 
 ## 14. Audit requirements
@@ -177,11 +172,13 @@ Models use `LogsActivityWithCompany`. Important assignment and phase attributes 
 
 `details` JSON on phases is reserved for later cost/billing payloads. This phase does **not** calculate payroll, client billing, or invoices.
 
-## 16. Deliberately excluded from this phase
+## 16. Current integration status
 
-- Crew Movement UI / Current Crew board / quick-action dialogs
-- Movement HTTP endpoints / assignment CRUD pages
-- Dual-write synchronization either direction
-- Payroll, billing, hotel/training/flight/visa costs, margin, invoices
-- Transfer / redeploy / correction execution
-- Removal or modification of existing deployment columns, forms, sea-service sync, or planning sync
+- ✅ Employee crew status uses `CrewAssignmentStatusResolver::forEmployee()`
+- ✅ Sea service sync from completed P4 phases via `SyncSeaServiceFromCrewAssignment`
+- ✅ Crew planning creates draft assignments via `CreateCrewAssignmentFromPlanning`
+- ✅ Manning gap queries count active P4 phases via `CrewOperationsManningGapQuery`
+- ✅ Deployment trends and analytics from assignments
+- ⏳ Crew Movement CRUD UI (assignments and phases)
+- ⏳ Transfer / redeploy / correction execution
+- ⏳ Payroll, billing, hotel/training/flight/visa costs, margin, invoices

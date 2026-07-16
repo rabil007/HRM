@@ -32,7 +32,6 @@ import { ManningGapsCard } from '@/features/organization/crew-operations/compone
 import type { CrewOperationsDashboardProps } from '@/features/organization/crew-operations/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import { index as crewDeploymentsIndex } from '@/routes/organization/crew-deployments';
 import crewOperations from '@/routes/organization/crew-operations';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
 import { index as vesselManningIndex } from '@/routes/organization/vessel-manning';
@@ -102,18 +101,6 @@ export function CrewOperationsDashboardContent({
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                    {can.deployments ? (
-                        <Button
-                            variant="outline"
-                            className="rounded-xl glass-card"
-                            asChild
-                        >
-                            <Link href={crewDeploymentsIndex.url()}>
-                                <Ship className="mr-2 h-4 w-4" />
-                                Deployments
-                            </Link>
-                        </Button>
-                    ) : null}
                     {can.planning ? (
                         <Button
                             variant="outline"
@@ -155,9 +142,7 @@ export function CrewOperationsDashboardContent({
 
             {hasUrgentAlerts ? (
                 <Link
-                    href={crewDeploymentsIndex.url({
-                        query: { status: 'unknown' },
-                    })}
+                    href={crewOperations.index.url()}
                     className="group mb-8 flex items-center gap-3 rounded-2xl border border-red-500/25 bg-red-500/5 px-5 py-4 transition-all duration-300 hover:border-red-500/40 hover:bg-red-500/10"
                 >
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10">
@@ -197,14 +182,12 @@ export function CrewOperationsDashboardContent({
                 <MetricCard
                     title="Needs update"
                     value={alertCounts.needs_update.toLocaleString()}
-                    hint="Incomplete deployment records"
+                    hint="Incomplete assignment records"
                     icon={AlertTriangle}
                     iconColor="text-red-400"
                     iconBg="bg-red-500/10 border-red-500/20"
                     accent="border-red-500/20 hover:border-red-500/30"
-                    href={crewDeploymentsIndex.url({
-                        query: { status: 'unknown' },
-                    })}
+                    href={crewOperations.index.url()}
                 />
                 <MetricCard
                     title="Due soon"
@@ -214,7 +197,7 @@ export function CrewOperationsDashboardContent({
                     iconColor="text-orange-400"
                     iconBg="bg-orange-500/10 border-orange-500/20"
                     accent="border-orange-500/20 hover:border-orange-500/30"
-                    href={crewDeploymentsIndex.url()}
+                    href={crewOperations.index.url()}
                 />
                 <MetricCard
                     title="Over home limit"
@@ -224,9 +207,7 @@ export function CrewOperationsDashboardContent({
                     iconColor="text-teal-400"
                     iconBg="bg-teal-500/10 border-teal-500/20"
                     accent="border-teal-500/20 hover:border-teal-500/30"
-                    href={crewDeploymentsIndex.url({
-                        query: { status: 'in_home' },
-                    })}
+                    href={crewOperations.index.url()}
                 />
                 <MetricCard
                     title="Upcoming joins"

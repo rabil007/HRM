@@ -36,7 +36,7 @@ class SeaServicesExport implements FromQuery, WithHeadings, WithMapping, WithStr
             'Months',
             'Days',
             'Offshore',
-            'Linked Deployment',
+            'Linked Assignment Phase',
         ];
     }
 
@@ -55,7 +55,7 @@ class SeaServicesExport implements FromQuery, WithHeadings, WithMapping, WithStr
             $seaService->total_months,
             $seaService->total_days,
             $seaService->is_offshore ? 'Yes' : 'No',
-            $seaService->employee_deployment_id ? 'Yes' : 'No',
+            $seaService->crew_assignment_phase_id ? 'Yes' : 'No',
         ];
     }
 }

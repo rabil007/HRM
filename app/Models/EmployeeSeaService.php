@@ -27,7 +27,7 @@ class EmployeeSeaService extends Model
                 'company_id',
                 'employee_id',
                 'sort_order',
-                'employee_deployment_id',
+                'crew_assignment_phase_id',
                 'vessel_type_id',
                 'vessel_id',
                 'rank_id',
@@ -45,7 +45,7 @@ class EmployeeSeaService extends Model
     {
         return [
             'sort_order' => 'integer',
-            'employee_deployment_id' => 'integer',
+            'crew_assignment_phase_id' => 'integer',
             'vessel_type_id' => 'integer',
             'vessel_id' => 'integer',
             'rank_id' => 'integer',
@@ -88,8 +88,8 @@ class EmployeeSeaService extends Model
         return $this->belongsTo(Client::class);
     }
 
-    public function deployment(): BelongsTo
+    public function crewAssignmentPhase(): BelongsTo
     {
-        return $this->belongsTo(EmployeeDeployment::class, 'employee_deployment_id');
+        return $this->belongsTo(CrewAssignmentPhase::class);
     }
 }

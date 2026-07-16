@@ -4,8 +4,8 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
-use App\Models\EmployeeDeployment;
 use App\Models\EmployeeSeaService;
+use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
@@ -203,7 +203,7 @@ test('deleting a vessel is blocked when referenced by sea service records', func
     expect(Vessel::query()->find($vessel->id))->not->toBeNull();
 });
 
-test('deleting a vessel is blocked when referenced by deployment records', function () {
+test('deleting a vessel is blocked when referenced by crew assignment records', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -233,6 +233,7 @@ test('deleting a vessel is blocked when referenced by deployment records', funct
     ]);
 
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $rank = Rank::query()->create(['name' => 'VDP Rank', 'is_active' => true]);
     $vesselType = VesselType::query()->create(['name' => 'OSV', 'is_active' => true]);
     $vessel = Vessel::query()->create([
         'name' => 'Deployed Vessel',
@@ -240,11 +241,7 @@ test('deleting a vessel is blocked when referenced by deployment records', funct
         'is_active' => true,
     ]);
 
-    EmployeeDeployment::factory()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'vessel_id' => $vessel->id,
-    ]);
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     grantCompanyPermissions($user, $company, [
         'settings.master-data.vessels.view',

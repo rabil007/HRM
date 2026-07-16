@@ -35,8 +35,8 @@ final class SeaServiceListResource
             'total_months' => (int) $seaService->total_months,
             'total_days' => (int) $seaService->total_days,
             'is_offshore' => (bool) $seaService->is_offshore,
-            'employee_deployment_id' => $seaService->employee_deployment_id,
-            'has_deployment' => $seaService->employee_deployment_id !== null,
+            'crew_assignment_phase_id' => $seaService->crew_assignment_phase_id,
+            'has_assignment_phase' => $seaService->crew_assignment_phase_id !== null,
             'sort_order' => (int) $seaService->sort_order,
             'total_sea_services' => (int) ($seaService->total_sea_services ?? 1),
         ];
@@ -62,8 +62,8 @@ final class SeaServiceListResource
             'total_months' => (int) $seaService->total_months,
             'total_days' => (int) $seaService->total_days,
             'is_offshore' => (bool) $seaService->is_offshore,
-            'employee_deployment_id' => $seaService->employee_deployment_id,
-            'has_deployment' => $seaService->employee_deployment_id !== null,
+            'crew_assignment_phase_id' => $seaService->crew_assignment_phase_id,
+            'has_assignment_phase' => $seaService->crew_assignment_phase_id !== null,
             'sort_order' => (int) $seaService->sort_order,
         ];
     }

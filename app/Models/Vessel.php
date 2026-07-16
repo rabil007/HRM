@@ -49,9 +49,9 @@ class Vessel extends Model
         return $this->hasMany(EmployeeSeaService::class);
     }
 
-    public function deployments(): HasMany
+    public function crewAssignments(): HasMany
     {
-        return $this->hasMany(EmployeeDeployment::class);
+        return $this->hasMany(CrewAssignment::class);
     }
 
     public function manning(): HasMany

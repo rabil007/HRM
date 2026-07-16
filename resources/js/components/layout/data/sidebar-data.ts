@@ -127,11 +127,6 @@ const baseSidebarData: SidebarData = {
                     icon: LayoutDashboard,
                 },
                 {
-                    title: 'Deployments',
-                    url: '/organization/crew-deployments',
-                    icon: Ship,
-                },
-                {
                     title: 'Planning',
                     url: '/organization/crew-planning',
                     icon: CalendarRange,
@@ -313,13 +308,6 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 : null;
                         case '/organization/crew-operations':
                             return canViewCrewOperationsOverview(permissions)
-                                ? item
-                                : null;
-                        case '/organization/crew-deployments':
-                            return has(
-                                permissions,
-                                'crew_operations.deployments.view',
-                            )
                                 ? item
                                 : null;
                         case '/organization/vessel-manning':

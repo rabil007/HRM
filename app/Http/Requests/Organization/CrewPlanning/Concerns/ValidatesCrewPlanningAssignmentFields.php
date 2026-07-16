@@ -30,14 +30,14 @@ trait ValidatesCrewPlanningAssignmentFields
     /**
      * @return array<string, mixed>
      */
-    protected function crewPlanningRelievesDeploymentIdRule(): array
+    protected function crewPlanningRelievesAssignmentIdRule(): array
     {
         $companyId = (int) $this->attributes->get('current_company_id');
 
         return [
             'nullable',
             'integer',
-            Rule::exists('employee_deployments', 'id')->where(fn ($query) => $query
+            Rule::exists('crew_assignments', 'id')->where(fn ($query) => $query
                 ->where('company_id', $companyId)),
         ];
     }
@@ -86,9 +86,9 @@ trait ValidatesCrewPlanningAssignmentFields
 
             ValidatesCrewPlanningReliefLink::validate($validator, [
                 'company_id' => $companyId,
-                'relieves_employee_deployment_id' => $this->has('relieves_employee_deployment_id')
-                    ? $this->input('relieves_employee_deployment_id')
-                    : $existing?->relieves_employee_deployment_id,
+                'relieves_crew_assignment_id' => $this->has('relieves_crew_assignment_id')
+                    ? $this->input('relieves_crew_assignment_id')
+                    : $existing?->relieves_crew_assignment_id,
                 'vessel_id' => $this->has('vessel_id')
                     ? $this->input('vessel_id')
                     : $existing?->vessel_id,

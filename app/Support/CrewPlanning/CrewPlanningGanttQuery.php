@@ -83,7 +83,7 @@ final class CrewPlanningGanttQuery
             'employee:id,name',
             'rank:id,name',
             'vessel:id,name',
-            'relievedDeployment.employee:id,name',
+            'relievedAssignment.employee:id,name',
         ])
             ->map(fn (CrewPlanningAssignment $assignment) => [
                 'id' => $assignment->id,
@@ -101,10 +101,10 @@ final class CrewPlanningGanttQuery
                 'rank_name' => $assignment->rank?->name,
                 'vessel_name' => $assignment->vessel?->name,
                 'notes' => $assignment->notes,
-                'employee_deployment_id' => $assignment->employee_deployment_id,
-                'relieves_employee_deployment_id' => $assignment->relieves_employee_deployment_id,
-                'relieves_employee_name' => $assignment->relievedDeployment?->employee?->name,
-                'is_deployed' => $assignment->employee_deployment_id !== null,
+                'crew_assignment_id' => $assignment->crew_assignment_id,
+                'relieves_crew_assignment_id' => $assignment->relieves_crew_assignment_id,
+                'relieves_employee_name' => $assignment->relievedAssignment?->employee?->name,
+                'is_assigned' => $assignment->crew_assignment_id !== null,
             ])
             ->values()
             ->all();
@@ -139,7 +139,7 @@ final class CrewPlanningGanttQuery
             'vessel:id,name',
             'rank:id,name',
             'employee:id,name',
-            'relievedDeployment.employee:id,name',
+            'relievedAssignment.employee:id,name',
         ]);
 
         $grouped = [];
@@ -172,8 +172,8 @@ final class CrewPlanningGanttQuery
                     ->map(fn (CrewPlanningAssignment $assignment): array => [
                         'employee_id' => $assignment->employee_id,
                         'employee_name' => $assignment->employee?->name ?? 'Vacant',
-                        'is_deployed' => $assignment->employee_deployment_id !== null,
-                        'relieves_employee_name' => $assignment->relievedDeployment?->employee?->name,
+                        'is_assigned' => $assignment->crew_assignment_id !== null,
+                        'relieves_employee_name' => $assignment->relievedAssignment?->employee?->name,
                     ])
                     ->values()
                     ->all(),

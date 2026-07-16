@@ -1,7 +1,12 @@
 <?php
 
+use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewPhaseCode;
+use App\Enums\CrewPhaseStatus;
 use App\Models\Company;
 use App\Models\Country;
+use App\Models\CrewAssignment;
+use App\Models\CrewAssignmentPhase;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\Rank;
@@ -76,4 +81,39 @@ function makeCrewMovementVessel(string $name): Vessel
         ])->id,
         'is_active' => true,
     ]);
+}
+
+/**
+ * @param  array<string, mixed>  $overrides
+ */
+function makeActiveOnVesselAssignment(
+    Company $company,
+    Employee $employee,
+    Rank $rank,
+    Vessel $vessel,
+    array $overrides = [],
+): CrewAssignment {
+    $assignment = CrewAssignment::query()->create(array_merge([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-'.now()->year.'-'.Str::upper(Str::random(6)),
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Active,
+        'started_at' => now()->subDays(10),
+        'source' => 'manual',
+    ], $overrides));
+
+    $phase = CrewAssignmentPhase::query()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => now()->subDays(5),
+    ]);
+
+    $assignment->update(['current_phase_id' => $phase->id]);
+
+    return $assignment->fresh(['currentPhase', 'vessel', 'employee']);
 }

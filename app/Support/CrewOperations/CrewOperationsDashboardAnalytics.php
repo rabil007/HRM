@@ -2,13 +2,12 @@
 
 namespace App\Support\CrewOperations;
 
+use App\Enums\CrewAssignmentStatus;
+use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
-use App\Models\EmployeeDeployment;
+use App\Models\Employee;
 use App\Models\User;
-use App\Support\CrewDeployments\CrewDeploymentLatestRecords;
-use App\Support\CrewDeployments\CrewDeploymentSummary;
-use App\Support\CrewDeployments\DeploymentStatus;
-use App\Support\CrewDeployments\EmployeeDeploymentPresenter;
+use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -30,9 +29,6 @@ final class CrewOperationsDashboardAnalytics
         $maxHomeDays = CrewOperationsSettings::maxHomeDays($companyId);
         $today = CarbonImmutable::today();
 
-        $deployments = $this->companyDeployments($companyId);
-        $inHomeIds = CrewDeploymentLatestRecords::inHomeDeploymentIds($deployments, $today);
-
         $manningGaps = $permissions['vessel_manning']
             ? CrewOperationsManningGapQuery::forCompany($companyId, $today)
             : [
@@ -41,19 +37,23 @@ final class CrewOperationsDashboardAnalytics
                 'items' => [],
             ];
 
-        $alertCounts = $this->alertCounts($deployments, $inHomeIds, $maxHomeDays, $companyId, $today, $permissions['planning']);
-        $attentionItems = $this->attentionItems(
-            $deployments,
-            $inHomeIds,
-            $maxHomeDays,
+        $deploymentSummary = $this->deploymentSummary($companyId);
+        $alertCounts = $this->alertCounts(
             $companyId,
+            $maxHomeDays,
+            $today,
+            $permissions['planning'],
+        );
+        $attentionItems = $this->attentionItems(
+            $companyId,
+            $maxHomeDays,
             $today,
             $permissions['planning'],
             $manningGaps['items'],
         );
 
         return [
-            'deployment_summary' => CrewDeploymentSummary::forCompany($companyId),
+            'deployment_summary' => $deploymentSummary,
             'alert_counts' => array_merge($alertCounts, [
                 'manning_gaps' => $manningGaps['understaffed_positions'],
             ]),
@@ -74,25 +74,47 @@ final class CrewOperationsDashboardAnalytics
     }
 
     /**
-     * @return Collection<int, EmployeeDeployment>
+     * @return array<string, mixed>
      */
-    private function companyDeployments(int $companyId): Collection
+    private function deploymentSummary(int $companyId): array
     {
-        return EmployeeDeployment::query()
+        $employees = Employee::query()
             ->where('company_id', $companyId)
-            ->with([
-                'employee.nationalityRef',
-                'rank',
-                'client',
-                'companyVisaType',
-                'vessel',
-            ])
+            ->active()
+            ->with(['company'])
             ->get();
+
+        $summary = [
+            'pre_mobilisation' => 0,
+            'travel_in' => 0,
+            'join_standby' => 0,
+            'training' => 0,
+            'ready_to_join' => 0,
+            'on_vessel' => 0,
+            'demob_standby' => 0,
+            'home_redeploy' => 0,
+            'in_home' => 0,
+            'movement_update_required' => 0,
+            'total' => 0,
+        ];
+
+        $resolver = new CrewAssignmentStatusResolver;
+
+        foreach ($employees as $employee) {
+            $resolved = $resolver->forEmployee($employee);
+            $status = $resolved['status'];
+
+            if (isset($summary[$status])) {
+                $summary[$status]++;
+            }
+
+            $summary['total']++;
+        }
+
+        return $summary;
     }
 
     /**
-     * @param  Collection<int, EmployeeDeployment>  $deployments
-     * @param  Collection<int, int>  $inHomeIds
      * @return array{
      *     needs_update: int,
      *     due_soon: int,
@@ -101,36 +123,46 @@ final class CrewOperationsDashboardAnalytics
      * }
      */
     private function alertCounts(
-        Collection $deployments,
-        Collection $inHomeIds,
-        int $maxHomeDays,
         int $companyId,
+        int $maxHomeDays,
         CarbonImmutable $today,
         bool $canViewPlanning,
     ): array {
+        $employees = Employee::query()
+            ->where('company_id', $companyId)
+            ->active()
+            ->with(['company'])
+            ->get();
+
+        $resolver = new CrewAssignmentStatusResolver;
         $needsUpdate = 0;
         $dueSoon = 0;
         $overdueHome = 0;
 
-        foreach ($deployments as $deployment) {
-            $status = DeploymentStatus::resolve($deployment, $today)['status'];
+        foreach ($employees as $employee) {
+            $resolved = $resolver->forEmployee($employee);
 
-            if ($status === DeploymentStatus::UNKNOWN) {
+            if ($resolved['status'] === 'movement_update_required') {
                 $needsUpdate++;
-
-                continue;
             }
 
-            if (DeploymentStatus::dueSoonDateFields($deployment, $today) !== []) {
-                $dueSoon++;
+            if ($resolved['assignment_id'] !== null) {
+                $assignment = CrewAssignment::query()->find($resolved['assignment_id']);
+
+                if ($assignment !== null && $assignment->status === CrewAssignmentStatus::Active) {
+                    if ($assignment->planned_signoff_at !== null) {
+                        $daysUntilSignoff = $today->diffInDays($assignment->planned_signoff_at, false);
+                        if ($daysUntilSignoff >= 0 && $daysUntilSignoff <= 2) {
+                            $dueSoon++;
+                        }
+                    }
+                }
             }
 
-            if (
-                $inHomeIds->contains($deployment->id)
-                && ($days = DeploymentStatus::inHomeDays($deployment, $today)) !== null
-                && $days > $maxHomeDays
-            ) {
-                $overdueHome++;
+            if ($resolved['status'] === 'in_home' && $resolved['in_home_days'] !== null) {
+                if ($resolved['in_home_days'] > $maxHomeDays) {
+                    $overdueHome++;
+                }
             }
         }
 
@@ -145,8 +177,6 @@ final class CrewOperationsDashboardAnalytics
     }
 
     /**
-     * @param  Collection<int, EmployeeDeployment>  $deployments
-     * @param  Collection<int, int>  $inHomeIds
      * @return list<array{
      *     type: string,
      *     title: string,
@@ -157,61 +187,71 @@ final class CrewOperationsDashboardAnalytics
      * }>
      */
     private function attentionItems(
-        Collection $deployments,
-        Collection $inHomeIds,
-        int $maxHomeDays,
         int $companyId,
+        int $maxHomeDays,
         CarbonImmutable $today,
         bool $canViewPlanning,
         array $manningGapItems,
     ): array {
         $items = [];
-        $seenDeploymentIds = [];
+        $seenEmployeeIds = [];
 
-        foreach ($deployments as $deployment) {
+        $employees = Employee::query()
+            ->where('company_id', $companyId)
+            ->active()
+            ->with(['company', 'rank'])
+            ->get();
+
+        $resolver = new CrewAssignmentStatusResolver;
+
+        foreach ($employees as $employee) {
             if (count($items) >= self::ATTENTION_LIMIT) {
                 break;
             }
 
-            if (DeploymentStatus::resolve($deployment, $today)['status'] !== DeploymentStatus::UNKNOWN) {
+            $resolved = $resolver->forEmployee($employee);
+
+            if ($resolved['status'] !== 'movement_update_required') {
                 continue;
             }
 
-            $presented = EmployeeDeploymentPresenter::toArray($deployment);
-            $items[] = $this->deploymentAttentionItem(
+            $items[] = $this->employeeAttentionItem(
                 'needs_update',
-                $presented,
-                $presented['status_hint'] ?? 'Deployment record needs an update',
+                $employee,
+                $resolved,
+                $resolved['warning'] ?? 'Assignment needs an update',
                 'critical',
             );
-            $seenDeploymentIds[$deployment->id] = true;
+            $seenEmployeeIds[$employee->id] = true;
         }
 
-        foreach ($deployments as $deployment) {
+        foreach ($employees as $employee) {
             if (count($items) >= self::ATTENTION_LIMIT) {
                 break;
             }
 
-            if (isset($seenDeploymentIds[$deployment->id])) {
+            if (isset($seenEmployeeIds[$employee->id])) {
                 continue;
             }
 
-            if (
-                ! $inHomeIds->contains($deployment->id)
-                || ($days = DeploymentStatus::inHomeDays($deployment, $today)) === null
-                || $days <= $maxHomeDays
-            ) {
+            $resolved = $resolver->forEmployee($employee);
+
+            if ($resolved['status'] !== 'in_home' || $resolved['in_home_days'] === null) {
                 continue;
             }
 
-            $presented = EmployeeDeploymentPresenter::toArray($deployment);
-            $items[] = $this->deploymentAttentionItem(
+            if ($resolved['in_home_days'] <= $maxHomeDays) {
+                continue;
+            }
+
+            $items[] = $this->employeeAttentionItem(
                 'overdue_home',
-                $presented,
-                sprintf('In home %d days — exceeds %d day limit', $days, $maxHomeDays),
+                $employee,
+                $resolved,
+                sprintf('In home %d days — exceeds %d day limit', $resolved['in_home_days'], $maxHomeDays),
                 'critical',
             );
-            $seenDeploymentIds[$deployment->id] = true;
+            $seenEmployeeIds[$employee->id] = true;
         }
 
         if ($manningGapItems !== []) {
@@ -236,27 +276,44 @@ final class CrewOperationsDashboardAnalytics
             }
         }
 
-        foreach ($deployments as $deployment) {
+        foreach ($employees as $employee) {
             if (count($items) >= self::ATTENTION_LIMIT) {
                 break;
             }
 
-            if (isset($seenDeploymentIds[$deployment->id])) {
+            if (isset($seenEmployeeIds[$employee->id])) {
                 continue;
             }
 
-            if (DeploymentStatus::dueSoonDateFields($deployment, $today) === []) {
+            $resolved = $resolver->forEmployee($employee);
+
+            if ($resolved['assignment_id'] === null) {
                 continue;
             }
 
-            $presented = EmployeeDeploymentPresenter::toArray($deployment);
-            $items[] = $this->deploymentAttentionItem(
+            $assignment = CrewAssignment::query()->find($resolved['assignment_id']);
+
+            if ($assignment === null || $assignment->status !== CrewAssignmentStatus::Active) {
+                continue;
+            }
+
+            if ($assignment->planned_signoff_at === null) {
+                continue;
+            }
+
+            $daysUntilSignoff = $today->diffInDays($assignment->planned_signoff_at, false);
+            if ($daysUntilSignoff < 0 || $daysUntilSignoff > 2) {
+                continue;
+            }
+
+            $items[] = $this->employeeAttentionItem(
                 'due_soon',
-                $presented,
-                'Key date due within '.$this->dueSoonWindowDays().' days',
+                $employee,
+                $resolved,
+                'Planned signoff within 2 days',
                 'warning',
             );
-            $seenDeploymentIds[$deployment->id] = true;
+            $seenEmployeeIds[$employee->id] = true;
         }
 
         if ($canViewPlanning) {
@@ -286,7 +343,7 @@ final class CrewOperationsDashboardAnalytics
     }
 
     /**
-     * @param  array<string, mixed>  $presented
+     * @param  array<string, mixed>  $resolved
      * @return array{
      *     type: string,
      *     title: string,
@@ -296,21 +353,22 @@ final class CrewOperationsDashboardAnalytics
      *     severity: string
      * }
      */
-    private function deploymentAttentionItem(
+    private function employeeAttentionItem(
         string $type,
-        array $presented,
+        Employee $employee,
+        array $resolved,
         string $hint,
         string $severity,
     ): array {
         return [
             'type' => $type,
-            'title' => (string) ($presented['employee_name'] ?? 'Unknown employee'),
+            'title' => $employee->name,
             'subtitle' => trim(implode(' · ', array_filter([
-                $presented['rank_name'] ?? null,
-                $presented['vessel_name'] ?? $presented['current_vessel'] ?? null,
+                $employee->rank?->name,
+                $resolved['current_vessel'] ?? null,
             ]))) ?: null,
             'hint' => $hint,
-            'href' => route('organization.crew-deployments.show', ['deployment' => $presented['id']]),
+            'href' => route('organization.employees.show', ['employee' => $employee->id]),
             'severity' => $severity,
         ];
     }
@@ -369,10 +427,5 @@ final class CrewOperationsDashboardAnalytics
             ->with(['employee:id,name', 'vessel:id,name', 'rank:id,name'])
             ->orderBy('planned_join_date')
             ->orderBy('id');
-    }
-
-    private function dueSoonWindowDays(): int
-    {
-        return 2;
     }
 }
