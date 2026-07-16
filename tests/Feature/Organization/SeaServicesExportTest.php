@@ -114,6 +114,18 @@ test('authenticated users with permission can export sea services as csv, excel,
     $this->get(route('organization.sea-services.export', ['format' => 'pdf']))->assertOk();
 });
 
+test('sea services export template links assignment phases instead of deployments', function () {
+    $html = view('exports.sea-services', [
+        'seaServices' => collect(),
+        'generatedAt' => now(),
+    ])->render();
+
+    expect($html)
+        ->toContain('Linked Assignment Phase')
+        ->not->toContain('Linked Deployment')
+        ->not->toContain('employee_deployment_id');
+});
+
 test('sea services export respects offshore filter parameter', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

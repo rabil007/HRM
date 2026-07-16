@@ -115,8 +115,14 @@ final class EmployeeDirectoryQuery
                 });
             })
             ->when(
-                $filters->crewStatus !== '' && EmployeeCrewStatusFilter::isValid($filters->crewStatus),
+                $filters->crewStatus !== '',
                 function (Builder $q) use ($companyId, $filters): void {
+                    if (! EmployeeCrewStatusFilter::isValid($filters->crewStatus)) {
+                        $q->whereRaw('1 = 0');
+
+                        return;
+                    }
+
                     $matchingIds = EmployeeCrewStatusFilter::matchingEmployeeIds($companyId, $filters->crewStatus);
 
                     if ($matchingIds === []) {

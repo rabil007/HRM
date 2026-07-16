@@ -401,3 +401,25 @@ test('employee directory can filter by crew status', function () {
             ->where('employees.0.id', $onVesselEmployee->id)
             ->where('filters.crew_status', 'on_vessel'));
 });
+
+test('legacy crew status filter values do not match employees', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
+
+    $vessel = makeEmployeeCrewStatusVessel('Legacy Filter Vessel');
+    makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->actingAs($user)
+        ->get(route('organization.employees', ['crew_status' => 'disembarked']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 0)
+            ->where('filters.crew_status', 'disembarked'));
+
+    $this->actingAs($user)
+        ->get(route('organization.employees', ['crew_status' => 'leave_standby']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 0));
+});

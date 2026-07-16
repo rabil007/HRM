@@ -32,7 +32,7 @@
             <th>Months</th>
             <th>Days</th>
             <th>Offshore</th>
-            <th>Linked Deployment</th>
+            <th>Linked Assignment Phase</th>
         </tr>
         </thead>
         <tbody>
@@ -50,7 +50,7 @@
                 <td>{{ $seaService->total_months }}</td>
                 <td>{{ $seaService->total_days }}</td>
                 <td>{{ $seaService->is_offshore ? 'Yes' : 'No' }}</td>
-                <td>{{ $seaService->employee_deployment_id ? 'Yes' : 'No' }}</td>
+                <td>{{ $seaService->crew_assignment_phase_id ? 'Yes' : 'No' }}</td>
             </tr>
         @endforeach
         </tbody>

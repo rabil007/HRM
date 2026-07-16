@@ -338,28 +338,38 @@ export function EmployeeFiltersSheet({
                         <AppSelectItem value="available">
                             Available
                         </AppSelectItem>
-                        <AppSelectItem value="on_vessel">
-                            On vessel
+                        <AppSelectItem value="in_home">In home</AppSelectItem>
+                        <AppSelectItem value="pre_mobilisation">
+                            Pre-mobilisation
+                        </AppSelectItem>
+                        <AppSelectItem value="travel_in">
+                            Travel in
                         </AppSelectItem>
                         <AppSelectItem value="join_standby">
                             Join standby
                         </AppSelectItem>
-                        <AppSelectItem value="leave_standby">
-                            Leave standby
+                        <AppSelectItem value="training">Training</AppSelectItem>
+                        <AppSelectItem value="ready_to_join">
+                            Ready to join
                         </AppSelectItem>
-                        <AppSelectItem value="arrived">Arrived</AppSelectItem>
-                        <AppSelectItem value="travel">Travelled</AppSelectItem>
-                        <AppSelectItem value="disembarked">
-                            Disembarked
+                        <AppSelectItem value="on_vessel">
+                            On vessel
                         </AppSelectItem>
-                        <AppSelectItem value="in_home">In home</AppSelectItem>
+                        <AppSelectItem value="demob_standby">
+                            Demob standby
+                        </AppSelectItem>
+                        <AppSelectItem value="home_redeploy">
+                            Home / redeploy
+                        </AppSelectItem>
+                        <AppSelectItem value="movement_update_required">
+                            Needs update
+                        </AppSelectItem>
                     </AppSelect>
                 </div>
 
-                {/* Deployment & Association Group */}
                 <div className="border-b border-border/40 pt-4 pb-2 sm:col-span-2">
                     <span className="text-[11px] font-bold tracking-wider text-primary uppercase">
-                        Deployment & Association
+                        Assignment & Association
                     </span>
                 </div>
 
