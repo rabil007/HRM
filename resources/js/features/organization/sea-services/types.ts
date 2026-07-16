@@ -1,3 +1,4 @@
+import type { RecentActivityItem } from '@/components/recent-activity-card';
 import type { DepartmentTreeNode, RankOption } from '@/features/organization/employees/types';
 import type {
     ClientOption,
@@ -107,7 +108,7 @@ export type SeaServiceShowProps = {
     template_fields: Record<string, TemplateFieldConfig> | null;
     can: SeaServicePageCan;
     back: SeaServiceBackNavigation;
-    recent_activity: import('@/components/recent-activity-card').RecentActivityItem[];
+    recent_activity: RecentActivityItem[];
     can_view_audit: boolean;
 };
 
