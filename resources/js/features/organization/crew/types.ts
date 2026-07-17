@@ -174,6 +174,7 @@ export interface CrewAssignmentFormOptions {
     vessels: Array<{ id: number; name: string }>;
     clients: Array<{ id: number; name: string }>;
     visa_types: Array<{ id: number; name: string }>;
+    courses: Array<{ id: number; name: string }>;
 }
 
 export interface CrewAssignmentSummary {

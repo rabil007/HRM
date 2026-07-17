@@ -10,6 +10,7 @@ use App\Http\Requests\Organization\StoreCrewAssignmentRequest;
 use App\Http\Requests\Organization\UpdateCrewAssignmentRequest;
 use App\Models\Client;
 use App\Models\CompanyVisaType;
+use App\Models\Course;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\Rank;
@@ -96,6 +97,7 @@ class CrewAssignmentController extends Controller
                 'vessels' => $this->activeVessels(),
                 'clients' => $this->activeClients(),
                 'visa_types' => $this->activeVisaTypes(),
+                'courses' => $this->activeCourses(),
             ],
             'can' => CrewAssignmentPagePermissions::for($request->user()),
         ]);
@@ -125,6 +127,7 @@ class CrewAssignmentController extends Controller
             'vessels' => $this->activeVessels(),
             'clients' => $this->activeClients(),
             'visa_types' => $this->activeVisaTypes(),
+            'courses' => $this->activeCourses(),
         ];
 
         return Inertia::render('organization/crew/create', [
@@ -204,6 +207,7 @@ class CrewAssignmentController extends Controller
                 'vessels' => $this->activeVessels(),
                 'clients' => $this->activeClients(),
                 'visa_types' => $this->activeVisaTypes(),
+                'courses' => $this->activeCourses(),
             ],
             'can' => CrewAssignmentPagePermissions::for($request->user()),
         ]);
@@ -243,6 +247,7 @@ class CrewAssignmentController extends Controller
             'vessels' => $this->activeVessels(),
             'clients' => $this->activeClients(),
             'visa_types' => $this->activeVisaTypes(),
+            'courses' => $this->activeCourses(),
         ];
 
         return Inertia::render('organization/crew/edit', [
@@ -352,6 +357,20 @@ class CrewAssignmentController extends Controller
             ->orderBy('name')
             ->get(['id', 'name'])
             ->map(fn (CompanyVisaType $visaType) => ['id' => $visaType->id, 'name' => $visaType->name])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private function activeCourses(): array
+    {
+        return Course::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Course $course) => ['id' => $course->id, 'name' => $course->name])
             ->values()
             ->all();
     }

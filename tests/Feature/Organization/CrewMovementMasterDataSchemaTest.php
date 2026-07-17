@@ -55,5 +55,6 @@ test('create assignment page loads without querying nonexistent master company_i
             ->has('form_options.clients')
             ->has('form_options.ranks')
             ->has('form_options.vessels')
+            ->has('form_options.courses')
             ->has('form_options.employees'));
 });

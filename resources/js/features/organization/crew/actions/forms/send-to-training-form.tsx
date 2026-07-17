@@ -2,6 +2,13 @@ import type { ReactElement } from 'react';
 import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
@@ -9,12 +16,17 @@ import type { MovementActionFormProps } from './movement-form-shared';
 export function SendToTrainingForm({
     form,
     config,
+    formOptions,
     firstFieldRef,
 }: MovementActionFormProps): ReactElement {
     const expectedBeforeStart =
         form.data.planned_end_at &&
         form.data.occurred_at &&
         form.data.planned_end_at < form.data.occurred_at;
+
+    const selectedCourseId =
+        formOptions?.courses.find((course) => course.name === form.data.course)
+            ?.id ?? null;
 
     return (
         <div className="space-y-4">
@@ -41,16 +53,40 @@ export function SendToTrainingForm({
                     <InputError message={form.errors.provider} />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="movement-course">
-                        Course / programme (optional)
-                    </Label>
-                    <Input
-                        id="movement-course"
-                        value={form.data.course}
-                        onChange={(event) =>
-                            form.setData('course', event.target.value)
-                        }
-                    />
+                    <Label htmlFor="movement-course">Course (optional)</Label>
+                    {formOptions ? (
+                        <Select
+                            value={selectedCourseId?.toString() ?? ''}
+                            onValueChange={(value) => {
+                                const course = formOptions.courses.find(
+                                    (item) => item.id.toString() === value,
+                                );
+                                form.setData('course', course?.name ?? '');
+                            }}
+                        >
+                            <SelectTrigger id="movement-course">
+                                <SelectValue placeholder="Select course..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {formOptions.courses.map((course) => (
+                                    <SelectItem
+                                        key={course.id}
+                                        value={course.id.toString()}
+                                    >
+                                        {course.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    ) : (
+                        <Input
+                            id="movement-course"
+                            value={form.data.course}
+                            onChange={(event) =>
+                                form.setData('course', event.target.value)
+                            }
+                        />
+                    )}
                     <InputError message={form.errors.course} />
                 </div>
             </div>

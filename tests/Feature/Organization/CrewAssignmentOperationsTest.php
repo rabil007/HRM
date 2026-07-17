@@ -63,6 +63,7 @@ test('authorized users can view current crew index', function () {
             ->has('form_options.vessels')
             ->has('form_options.clients')
             ->has('form_options.visa_types')
+            ->has('form_options.courses')
             ->has('filters')
             ->has('can')
             ->has('assignments.0.available_actions')
@@ -94,7 +95,8 @@ test('authorized users can open create with global master data options', functio
             ->has('form_options.ranks')
             ->has('form_options.vessels')
             ->has('form_options.clients')
-            ->has('form_options.visa_types'));
+            ->has('form_options.visa_types')
+            ->has('form_options.courses'));
 });
 
 test('authorized users can create a draft assignment', function () {
