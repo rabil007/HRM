@@ -26,6 +26,7 @@ import {
     GraduationCap,
     Anchor,
     Waves,
+    BarChart3,
 } from 'lucide-react';
 import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import { dashboard } from '@/routes';
@@ -36,6 +37,7 @@ import {
     seaServices,
     training,
 } from '@/routes/organization';
+import { index as crewMovementHistory } from '@/routes/organization/reports/crew-movement-history';
 import type { SidebarData } from '../types';
 
 const baseSidebarData: SidebarData = {
@@ -158,6 +160,16 @@ const baseSidebarData: SidebarData = {
                     title: 'Settings',
                     url: '/organization/crew-operations/settings',
                     icon: Settings,
+                },
+            ],
+        },
+        {
+            title: 'Reports',
+            items: [
+                {
+                    title: 'Crew Movement History',
+                    url: crewMovementHistory.url(),
+                    icon: BarChart3,
                 },
             ],
         },
@@ -354,6 +366,13 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(
                                 permissions,
                                 'crew_operations.planning.view',
+                            )
+                                ? item
+                                : null;
+                        case crewMovementHistory.url():
+                            return has(
+                                permissions,
+                                'reports.crew_movement_history.view',
                             )
                                 ? item
                                 : null;

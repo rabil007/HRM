@@ -31,6 +31,7 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 | Documents | `documents.view|download|share|upload|delete` |
 | Bulk documents / signatures | `bulk_documents.view|generate|delete|email`, `bulk_documents.signatures.review` |
 | Crew operations | `crew_operations.overview.view`, `crew_operations.deployments.*`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*` |
+| Reports | `reports.crew_movement_history.view|export` |
 | Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` |
 | Payroll | `payroll.overview.view`, `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, `payroll.payslips.*`, `payroll.wps.export` |
 | Hikvision | `hikvision.persons.*`, `hikvision.devices.*`, `hikvision.events.*`, `hikvision.webhook.manage` |

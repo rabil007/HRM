@@ -16,4 +16,6 @@ test('permissions seeder creates expected permissions and is idempotent', functi
 
     expect(Permission::query()->where('name', 'companies.view')->exists())->toBeTrue();
     expect(Permission::query()->where('name', 'users.export')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'reports.crew_movement_history.view')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'reports.crew_movement_history.export')->exists())->toBeTrue();
 });

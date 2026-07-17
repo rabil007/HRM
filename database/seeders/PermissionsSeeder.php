@@ -246,6 +246,9 @@ class PermissionsSeeder extends Seeder
             'crew_operations.movements.perform',
             'crew_operations.assignments.cancel',
 
+            'reports.crew_movement_history.view',
+            'reports.crew_movement_history.export',
+
             'audit.view',
 
             'employee_profile_templates.view',

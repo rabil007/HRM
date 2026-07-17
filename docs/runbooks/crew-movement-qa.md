@@ -80,3 +80,18 @@ Operational checklist after deploying Crew Movement changes.
 ## 10. Unsupported actions
 
 - [ ] `transfer_vessel`, `redeploy`, `correct_movement` return clear validation/safe errors
+
+## 11. Crew Movement History report
+
+- [ ] Report is visible under Reports only with `reports.crew_movement_history.view`
+- [ ] Draft P0, active P1, P3, active P4, completed P4/P5/P6, and cancelled assignments appear once each
+- [ ] The same employee can have multiple assignment rows
+- [ ] Repeated P2A and P2B periods remain visible in sequence order
+- [ ] Training provider and course values match each P2B occurrence
+- [ ] Active phases display Ongoing and calculate through company-local today
+- [ ] Planned Sign-Off remains separate from Actual Disembarkation
+- [ ] Filters, sorting, 25/50/100 page sizes, and Clear Filters work
+- [ ] View Assignment and View Employee open the existing read-only destinations
+- [ ] Excel and CSV contain the same filtered assignment set as the table
+- [ ] Company A cannot view or export Company B assignment history
+- [ ] No `EmployeeDeployment` or duplicate movement/report table is created

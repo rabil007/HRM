@@ -49,6 +49,7 @@ use App\Http\Controllers\Organization\ContractsIndexController;
 use App\Http\Controllers\Organization\ContractsNoContractController;
 use App\Http\Controllers\Organization\CrewAssignmentController;
 use App\Http\Controllers\Organization\CrewMovementActionController;
+use App\Http\Controllers\Organization\CrewMovementHistoryController;
 use App\Http\Controllers\Organization\CrewOperationsDashboardController;
 use App\Http\Controllers\Organization\CrewOperationsSettingsController;
 use App\Http\Controllers\Organization\CrewPlanningAssignmentController;
@@ -245,6 +246,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('organization/users/{user}/memberships/{company}', [UserController::class, 'destroyMembership'])->middleware('can:users.update')->name('organization.users.memberships.destroy');
 
     Route::get('organization/crew-operations', CrewOperationsDashboardController::class)->middleware('can:crew_operations.overview.view')->name('organization.crew-operations.index');
+
+    Route::get('organization/reports/crew-movement-history', [CrewMovementHistoryController::class, 'index'])
+        ->middleware('can:reports.crew_movement_history.view')
+        ->name('organization.reports.crew-movement-history.index');
+    Route::get('organization/reports/crew-movement-history/export', [CrewMovementHistoryController::class, 'export'])
+        ->middleware('can:reports.crew_movement_history.export')
+        ->name('organization.reports.crew-movement-history.export');
 
     Route::get('organization/vessel-manning', [VesselManningController::class, 'index'])->middleware('can:crew_operations.vessel_manning.view')->name('organization.vessel-manning.index');
     Route::get('organization/vessel-manning/{vessel}', [VesselManningController::class, 'show'])->middleware('can:crew_operations.vessel_manning.view')->name('organization.vessel-manning.show');
