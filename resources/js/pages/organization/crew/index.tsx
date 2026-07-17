@@ -3,6 +3,7 @@ import { CurrentCrewContent } from '@/features/organization/crew';
 import type {
     CrewAssignmentFilterOptions,
     CrewAssignmentFilters,
+    CrewAssignmentFormOptions,
     CrewAssignmentListItem,
     CrewAssignmentPagePermissions,
     CrewAssignmentSummary,
@@ -16,6 +17,7 @@ export default function CrewAssignmentsIndex({
     filters,
     summary,
     filter_options,
+    form_options,
     can,
 }: {
     assignments: CrewAssignmentListItem[];
@@ -24,6 +26,7 @@ export default function CrewAssignmentsIndex({
     filters: Partial<CrewAssignmentFilters> | Record<string, unknown>;
     summary: CrewAssignmentSummary;
     filter_options: CrewAssignmentFilterOptions;
+    form_options?: CrewAssignmentFormOptions;
     can: CrewAssignmentPagePermissions;
 }) {
     return (
@@ -36,6 +39,7 @@ export default function CrewAssignmentsIndex({
                 filters={filters}
                 summary={summary}
                 filter_options={filter_options}
+                form_options={form_options}
                 can={can}
             />
         </>

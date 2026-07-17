@@ -1,4 +1,4 @@
-import { ChevronDown } from 'lucide-react';
+import { ArrowRightLeft, ChevronDown } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ export function MovementActionMenu({
     defaultClientId,
     defaultVisaTypeId,
     defaultPlannedSignoffAt,
+    size = 'default',
 }: {
     assignmentId: number;
     availableActions: string[];
@@ -32,6 +33,7 @@ export function MovementActionMenu({
     defaultClientId?: number | null;
     defaultVisaTypeId?: number | null;
     defaultPlannedSignoffAt?: string | null;
+    size?: 'default' | 'sm';
 }): ReactElement | null {
     const [selectedAction, setSelectedAction] =
         useState<CrewMovementAction | null>(null);
@@ -54,14 +56,29 @@ export function MovementActionMenu({
         }
     };
 
+    const isCompact = size === 'sm';
+
     return (
         <>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button>
-                        Record Movement
-                        <ChevronDown className="h-4 w-4" />
-                    </Button>
+                    {isCompact ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100"
+                            title="Record Movement"
+                            aria-label="Record Movement"
+                        >
+                            <ArrowRightLeft className="size-4" />
+                        </Button>
+                    ) : (
+                        <Button>
+                            Record Movement
+                            <ChevronDown className="h-4 w-4" />
+                        </Button>
+                    )}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                     {availableActions.map((actionValue) => {

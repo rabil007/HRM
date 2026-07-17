@@ -20,6 +20,10 @@ export interface CrewAssignmentListItem {
         id: number;
         name: string;
     } | null;
+    company_visa_type: {
+        id: number;
+        name: string;
+    } | null;
     current_phase: {
         code: string;
         label: string;
@@ -30,6 +34,7 @@ export interface CrewAssignmentListItem {
     planned_signoff_at: string | null;
     created_at: string | null;
     warnings: CrewAssignmentWarning[];
+    available_actions: string[];
 }
 
 export interface CrewAssignmentDetail {

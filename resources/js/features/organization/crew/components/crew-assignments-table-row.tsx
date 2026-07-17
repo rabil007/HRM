@@ -9,8 +9,12 @@ import {
 import { ListTableCrudActions } from '@/components/list-table-actions';
 import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
+import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
-import type { CrewAssignmentListItem } from '@/features/organization/crew/types';
+import type {
+    CrewAssignmentFormOptions,
+    CrewAssignmentListItem,
+} from '@/features/organization/crew/types';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -21,13 +25,22 @@ export function CrewAssignmentsTableRow({
     viewHref,
     editHref,
     canUpdate,
+    canPerformMovement,
+    canCancel,
+    formOptions,
 }: {
     assignment: CrewAssignmentListItem;
     viewHref: string;
     editHref?: string;
     canUpdate: boolean;
+    canPerformMovement: boolean;
+    canCancel: boolean;
+    formOptions?: CrewAssignmentFormOptions;
 }) {
     const warningCount = assignment.warnings.length;
+    const showMovementActions =
+        (canPerformMovement || canCancel) &&
+        assignment.available_actions.length > 0;
 
     return (
         <TableRow
@@ -165,16 +178,36 @@ export function CrewAssignmentsTableRow({
                 className={dataTableActionsCellClass()}
                 onClick={(event) => event.stopPropagation()}
             >
-                <ListTableCrudActions
-                    viewHref={viewHref}
-                    onEdit={
-                        canUpdate && editHref
-                            ? () => router.visit(editHref)
-                            : undefined
-                    }
-                    showEdit={canUpdate && Boolean(editHref)}
-                    showDelete={false}
-                />
+                <div className="flex items-center justify-end gap-1.5">
+                    {showMovementActions ? (
+                        <MovementActionMenu
+                            assignmentId={assignment.id}
+                            availableActions={assignment.available_actions}
+                            currentPhase={assignment.current_phase}
+                            formOptions={formOptions}
+                            defaultVesselId={assignment.vessel?.id}
+                            defaultRankId={assignment.rank?.id}
+                            defaultClientId={assignment.client?.id}
+                            defaultVisaTypeId={
+                                assignment.company_visa_type?.id
+                            }
+                            defaultPlannedSignoffAt={
+                                assignment.planned_signoff_at
+                            }
+                            size="sm"
+                        />
+                    ) : null}
+                    <ListTableCrudActions
+                        viewHref={viewHref}
+                        onEdit={
+                            canUpdate && editHref
+                                ? () => router.visit(editHref)
+                                : undefined
+                        }
+                        showEdit={canUpdate && Boolean(editHref)}
+                        showDelete={false}
+                    />
+                </div>
             </TableCell>
         </TableRow>
     );

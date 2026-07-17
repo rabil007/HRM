@@ -20,15 +20,14 @@ import { CrewSummaryCards } from '@/features/organization/crew/components/crew-s
 import type {
     CrewAssignmentFilterOptions,
     CrewAssignmentFilters,
+    CrewAssignmentFormOptions,
     CrewAssignmentListItem,
     CrewAssignmentPagePermissions,
     CrewAssignmentSummary,
 } from '@/features/organization/crew/types';
 import { CREW_PHASE_LABELS } from '@/features/organization/crew/types';
-import {
-    useCrewIndexFilters,
-    type CrewSummaryFilter,
-} from '@/features/organization/crew/use-crew-index-filters';
+import { useCrewIndexFilters } from '@/features/organization/crew/use-crew-index-filters';
+import type { CrewSummaryFilter } from '@/features/organization/crew/use-crew-index-filters';
 import { cn } from '@/lib/utils';
 import {
     create as createAssignment,
@@ -82,6 +81,7 @@ export function CurrentCrewContent({
     filters: rawFilters,
     summary,
     filter_options: filterOptions,
+    form_options: formOptions,
     can,
 }: {
     assignments: CrewAssignmentListItem[];
@@ -90,6 +90,7 @@ export function CurrentCrewContent({
     filters: Partial<CrewAssignmentFilters> | Record<string, unknown>;
     summary: CrewAssignmentSummary;
     filter_options: CrewAssignmentFilterOptions;
+    form_options?: CrewAssignmentFormOptions;
     can: CrewAssignmentPagePermissions;
 }) {
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -288,7 +289,7 @@ export function CurrentCrewContent({
                                 <DataTableHead className="w-[130px]">
                                     Status
                                 </DataTableHead>
-                                <DataTableHead className="w-[88px]">
+                                <DataTableHead className="w-[120px]">
                                     Actions
                                 </DataTableHead>
                             </DataTableHeaderRow>
@@ -305,6 +306,9 @@ export function CurrentCrewContent({
                                             : undefined
                                     }
                                     canUpdate={can.update}
+                                    canPerformMovement={can.perform_movement}
+                                    canCancel={can.cancel}
+                                    formOptions={formOptions}
                                 />
                             ))}
                         </TableBody>

@@ -85,6 +85,13 @@ class CrewAssignmentController extends Controller
             ],
             'summary' => $summary,
             'filter_options' => $filterOptions,
+            'form_options' => [
+                'employees' => [],
+                'ranks' => $this->activeRanks(),
+                'vessels' => $this->activeVessels(),
+                'clients' => $this->activeClients(),
+                'visa_types' => $this->activeVisaTypes(),
+            ],
             'can' => CrewAssignmentPagePermissions::for($request->user()),
         ]);
     }

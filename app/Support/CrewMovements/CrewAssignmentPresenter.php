@@ -37,6 +37,10 @@ class CrewAssignmentPresenter
                 'id' => $assignment->client->id,
                 'name' => $assignment->client->name,
             ] : null,
+            'company_visa_type' => $assignment->companyVisaType ? [
+                'id' => $assignment->companyVisaType->id,
+                'name' => $assignment->companyVisaType->name,
+            ] : null,
             'current_phase' => $current ? [
                 'code' => $current->phase_code->value,
                 'label' => $current->phase_code->label(),
@@ -49,6 +53,7 @@ class CrewAssignmentPresenter
             'warnings' => property_exists($assignment, 'attention_warnings')
                 ? $assignment->attention_warnings
                 : CrewMovementAttentionQuery::forAssignment($assignment),
+            'available_actions' => CrewMovementAvailableActions::for($assignment),
         ];
     }
 

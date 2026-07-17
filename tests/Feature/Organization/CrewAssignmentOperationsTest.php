@@ -59,8 +59,13 @@ test('authorized users can view current crew index', function () {
             ->has('assignments')
             ->has('summary')
             ->has('filter_options')
+            ->has('form_options.ranks')
+            ->has('form_options.vessels')
+            ->has('form_options.clients')
+            ->has('form_options.visa_types')
             ->has('filters')
             ->has('can')
+            ->has('assignments.0.available_actions')
             ->where('summary.total', 1));
 });
 

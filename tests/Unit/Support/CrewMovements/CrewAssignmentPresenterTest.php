@@ -71,7 +71,11 @@ test('list presenter includes warnings payload shape', function () {
         'company',
     ]));
 
-    expect($item['warnings'])->toBeArray();
+    expect($item['warnings'])->toBeArray()
+        ->and($item['available_actions'])->toBe([
+            CrewMovementAction::ApproveMobilisation->value,
+            CrewMovementAction::CancelAssignment->value,
+        ]);
 
     if ($item['warnings'] !== []) {
         expect($item['warnings'][0])->toHaveKeys(['code', 'severity', 'label', 'message', 'date']);
