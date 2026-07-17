@@ -1,4 +1,5 @@
 import type { InertiaFormProps } from '@inertiajs/react';
+import { Info } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ReactElement } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
@@ -13,6 +14,7 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import { assignmentDurationDays } from '../lib/planning-gantt-math';
 import type {
     AssignmentFormData,
     GanttBar,
@@ -55,6 +57,15 @@ export function AssignCrewSheet({
             (employee) => employee.rank_id === Number(form.data.rank_id),
         );
     }, [employees, form.data.rank_id]);
+
+    const plannedDurationDays =
+        form.data.planned_join_date !== '' &&
+        form.data.planned_leave_date !== ''
+            ? assignmentDurationDays(
+                  form.data.planned_join_date,
+                  form.data.planned_leave_date,
+              )
+            : null;
 
     const handleRankChange = (value: string): void => {
         const selectedEmployee =
@@ -114,31 +125,56 @@ export function AssignCrewSheet({
             >
                 <SheetHeader className="border-b border-border/60 p-8 pb-6">
                     <SheetTitle className="text-xl font-bold tracking-tight">
-                        {isEdit
-                            ? 'Edit planned assignment'
-                            : 'Plan crew assignment'}
+                        {isEdit ? 'Edit Plan' : 'Save Plan'}
                     </SheetTitle>
                     <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
                         {isEdit
-                            ? 'Update the planned assignment details.'
+                            ? 'Update the planned assignment on the Gantt board.'
                             : 'Schedule crew on a vessel and rank for the selected dates.'}
                     </SheetDescription>
                 </SheetHeader>
 
                 <div className="flex-1 space-y-8 overflow-y-auto p-8">
-                    {form.data.relieves_crew_assignment_id !== '' &&
-                    relievesEmployeeName !== '' ? (
+                    <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-3 text-sm text-sky-900 dark:text-sky-100">
+                        <div className="flex gap-3">
+                            <Info
+                                className="mt-0.5 size-4 shrink-0 text-sky-700 dark:text-sky-300"
+                                aria-hidden
+                            />
+                            <div className="space-y-1">
+                                <p>
+                                    This creates a Planning record only. It does
+                                    not start mobilisation or place the employee
+                                    onboard.
+                                </p>
+                                <p>
+                                    After conversion to Current Crew,
+                                    operational dates and movements are
+                                    controlled from Current Crew.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {relievesEmployeeName !== '' ? (
                         <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-3 text-sm">
                             <p className="font-semibold text-sky-800 dark:text-sky-300">
-                                Planned relief
+                                Relieving summary
                             </p>
                             <p className="mt-1 text-muted-foreground">
-                                Replacing{' '}
+                                Relieving:{' '}
                                 <span className="font-medium text-foreground">
                                     {relievesEmployeeName}
-                                </span>{' '}
-                                after their assignment ends.
+                                </span>
                             </p>
+                            {form.data.planned_join_date !== '' ? (
+                                <p className="mt-1 text-muted-foreground">
+                                    Suggested relief join:{' '}
+                                    <span className="font-medium text-foreground">
+                                        {form.data.planned_join_date}
+                                    </span>
+                                </p>
+                            ) : null}
                         </div>
                     ) : null}
 
@@ -148,7 +184,7 @@ export function AssignCrewSheet({
                                 htmlFor="vessel_id"
                                 className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
-                                Vessel
+                                Vessel *
                             </Label>
                             <AppSelect
                                 value={form.data.vessel_id}
@@ -177,7 +213,7 @@ export function AssignCrewSheet({
                                 htmlFor="rank_id"
                                 className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
-                                Rank
+                                Rank *
                             </Label>
                             <AppSelect
                                 value={form.data.rank_id}
@@ -211,7 +247,10 @@ export function AssignCrewSheet({
                                 htmlFor="employee_id"
                                 className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
-                                Crew member (optional)
+                                Crew member{' '}
+                                <span className="font-normal tracking-normal normal-case">
+                                    (optional)
+                                </span>
                             </Label>
                             <AppSelect
                                 value={form.data.employee_id}
@@ -271,7 +310,7 @@ export function AssignCrewSheet({
                                     htmlFor="planned_join_date"
                                     className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
-                                    Planned join
+                                    Planned join *
                                 </Label>
                                 <Input
                                     id="planned_join_date"
@@ -297,7 +336,7 @@ export function AssignCrewSheet({
                                     htmlFor="planned_leave_date"
                                     className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                                 >
-                                    Planned leave
+                                    Planned leave *
                                 </Label>
                                 <Input
                                     id="planned_leave_date"
@@ -318,6 +357,17 @@ export function AssignCrewSheet({
                                 ) : null}
                             </div>
                         </div>
+
+                        {plannedDurationDays !== null &&
+                        plannedDurationDays > 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                                Planned duration:{' '}
+                                <span className="font-medium text-foreground">
+                                    {plannedDurationDays}{' '}
+                                    {plannedDurationDays === 1 ? 'day' : 'days'}
+                                </span>
+                            </p>
+                        ) : null}
                     </div>
 
                     <div className="space-y-5 border-t border-border/60 pt-4">
@@ -326,7 +376,10 @@ export function AssignCrewSheet({
                                 htmlFor="notes"
                                 className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                             >
-                                Notes
+                                Notes{' '}
+                                <span className="font-normal tracking-normal normal-case">
+                                    (optional)
+                                </span>
                             </Label>
                             <Textarea
                                 id="notes"
@@ -362,11 +415,7 @@ export function AssignCrewSheet({
                         disabled={form.processing}
                         onClick={onSubmit}
                     >
-                        {form.processing
-                            ? 'Saving…'
-                            : isEdit
-                              ? 'Save changes'
-                              : 'Create assignment'}
+                        {form.processing ? 'Saving…' : 'Save Plan'}
                     </Button>
                 </div>
             </SheetContent>

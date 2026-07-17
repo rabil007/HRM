@@ -1,4 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import { Info } from 'lucide-react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,26 @@ export default function CrewAssignmentCreate({
                     backHref={crewAssignmentsIndex.url()}
                     backLabel="Back to Current Crew"
                 />
+
+                <div className="mb-6 rounded-xl border border-sky-500/35 bg-sky-500/10 p-4">
+                    <div className="flex gap-3">
+                        <Info
+                            className="mt-0.5 size-4 shrink-0 text-sky-700 dark:text-sky-300"
+                            aria-hidden
+                        />
+                        <div className="space-y-1 text-sm text-sky-900 dark:text-sky-100">
+                            <p>
+                                This creates a P0 Pre-Mobilisation draft. It
+                                does not start travel or mark the employee
+                                onboard.
+                            </p>
+                            <p>
+                                Use Approve Mobilisation when the mobilisation
+                                actually begins.
+                            </p>
+                        </div>
+                    </div>
+                </div>
 
                 <Card className="border-border/80 dark:border-white/10">
                     <CardContent className="p-6 md:p-8">

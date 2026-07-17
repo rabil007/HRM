@@ -256,7 +256,7 @@ final class CrewMovementService
             null,
             $actorId,
             [
-                'planned_start_at' => $payload['planned_start_at'] ?? null,
+                'planned_start_at' => $payload['planned_start_at'] ?? $occurredAt,
                 'planned_end_at' => $payload['planned_end_at'] ?? null,
                 'details' => $details === [] ? null : $details,
                 'remarks' => $payload['remarks'] ?? null,

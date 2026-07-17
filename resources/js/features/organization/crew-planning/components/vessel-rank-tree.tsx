@@ -307,7 +307,7 @@ export function VesselRankTree({
                     No planned vessels or ranks
                 </p>
                 <p className="max-w-[200px] text-xs leading-relaxed text-muted-foreground/70">
-                    No planned assignments in this date range. Assign crew from
+                    No planned assignments in this date range. Save a plan from
                     the planning board.
                 </p>
             </div>

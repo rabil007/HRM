@@ -39,8 +39,6 @@ class CrewMovementAvailableActions
             return match ($phase) {
                 CrewPhaseCode::TravelIn => [
                     CrewMovementAction::RecordArrival->value,
-                    CrewMovementAction::StartJoinStandby->value,
-                    CrewMovementAction::MarkReady->value,
                     CrewMovementAction::CancelAssignment->value,
                 ],
                 CrewPhaseCode::JoinStandby => [
@@ -51,7 +49,6 @@ class CrewMovementAvailableActions
                 ],
                 CrewPhaseCode::Training => [
                     CrewMovementAction::CompleteTraining->value,
-                    CrewMovementAction::MarkReady->value,
                     CrewMovementAction::CancelAssignment->value,
                 ],
                 CrewPhaseCode::ReadyToJoin => [

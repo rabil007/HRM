@@ -78,7 +78,7 @@ test('unsupported transfer action is rejected', function () {
         ->from(route('organization.crew-assignments.show', $assignment))
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
             'action' => CrewMovementAction::TransferVessel->value,
-            'occurred_at' => '2026-01-01 08:00:00',
+            'occurred_at' => '2026-06-01 08:00:00',
         ])
         ->assertRedirect()
         ->assertSessionHasErrors('error');
@@ -193,4 +193,53 @@ test('cancel assignment succeeds with reason', function () {
         ->assertRedirect();
 
     expect($assignment->fresh()->status)->toBe(CrewAssignmentStatus::Cancelled);
+});
+
+test('record arrival rejects invalid next phase', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
+
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'rank_id' => $rank->id,
+    ], $user->id);
+    app(CrewMovementService::class)->perform($company->id, $assignment->id, CrewMovementAction::ApproveMobilisation, [
+        'occurred_at' => '2026-01-01 08:00:00',
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.show', $assignment))
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2026-01-05 10:00:00',
+            'next_phase' => 'p4',
+        ])
+        ->assertSessionHasErrors('next_phase');
+});
+
+test('disembarkation before actual join is rejected', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
+    $vessel = makeCrewMovementVessel('Early Disembark Vessel');
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.show', $assignment))
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::ConfirmDisembarkation->value,
+            'occurred_at' => '2025-12-01 08:00:00',
+            'next_phase' => 'p5',
+        ])
+        ->assertSessionHasErrors('occurred_at');
+});
+
+test('planned signoff before actual join is rejected', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
+    $vessel = makeCrewMovementVessel('Early Signoff Vessel');
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.show', $assignment))
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::PlanSignoff->value,
+            'planned_signoff_at' => '2025-12-01',
+        ])
+        ->assertSessionHasErrors('planned_signoff_at');
 });

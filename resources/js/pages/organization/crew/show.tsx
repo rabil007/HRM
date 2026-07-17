@@ -11,6 +11,7 @@ import { MovementActionMenu } from '@/features/organization/crew/actions/movemen
 import { CrewMetadataField } from '@/features/organization/crew/components/crew-metadata-field';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { CrewPhaseProgress } from '@/features/organization/crew/components/crew-phase-progress';
+import { formatDaysInPhase } from '@/features/organization/crew/format-days-in-phase';
 import type {
     CrewAssignmentDetail,
     CrewAssignmentFormOptions,
@@ -71,11 +72,9 @@ export default function CrewAssignmentShow({
                             ) : null}
                             {assignment.days_in_phase !== null ? (
                                 <span className="text-muted-foreground">
-                                    {assignment.days_in_phase}{' '}
-                                    {assignment.days_in_phase === 1
-                                        ? 'day'
-                                        : 'days'}{' '}
-                                    in phase
+                                    {formatDaysInPhase(
+                                        assignment.days_in_phase,
+                                    )}
                                 </span>
                             ) : null}
                         </span>
@@ -90,17 +89,10 @@ export default function CrewAssignmentShow({
                                     availableActions={
                                         assignment.available_actions
                                     }
-                                    currentPhase={assignment.current_phase}
+                                    movementContext={
+                                        assignment.movement_context
+                                    }
                                     formOptions={form_options}
-                                    defaultVesselId={assignment.vessel?.id}
-                                    defaultRankId={assignment.rank?.id}
-                                    defaultClientId={assignment.client?.id}
-                                    defaultVisaTypeId={
-                                        assignment.company_visa_type?.id
-                                    }
-                                    defaultPlannedSignoffAt={
-                                        assignment.planned_signoff_at
-                                    }
                                 />
                             ) : null}
                             {can.update ? (

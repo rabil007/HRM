@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
+import { formatDaysInPhase } from '@/features/organization/crew/format-days-in-phase';
 import type {
     CrewAssignmentFormOptions,
     CrewAssignmentListItem,
@@ -120,9 +121,7 @@ export function CrewAssignmentsTableRow({
                 )}
                 {assignment.days_in_phase !== null ? (
                     <p className="mt-1 text-[11px] text-muted-foreground/70">
-                        {assignment.days_in_phase}{' '}
-                        {assignment.days_in_phase === 1 ? 'day' : 'days'} in
-                        phase
+                        {formatDaysInPhase(assignment.days_in_phase)}
                     </p>
                 ) : null}
             </TableCell>
@@ -183,15 +182,8 @@ export function CrewAssignmentsTableRow({
                         <MovementActionMenu
                             assignmentId={assignment.id}
                             availableActions={assignment.available_actions}
-                            currentPhase={assignment.current_phase}
+                            movementContext={assignment.movement_context}
                             formOptions={formOptions}
-                            defaultVesselId={assignment.vessel?.id}
-                            defaultRankId={assignment.rank?.id}
-                            defaultClientId={assignment.client?.id}
-                            defaultVisaTypeId={assignment.company_visa_type?.id}
-                            defaultPlannedSignoffAt={
-                                assignment.planned_signoff_at
-                            }
                             size="sm"
                         />
                     ) : null}

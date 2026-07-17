@@ -305,7 +305,7 @@ export function PlanningToolbar({
                         onClick={onAssign}
                     >
                         <Plus className="h-3.5 w-3.5" />
-                        Assign
+                        Save Plan
                     </Button>
                 ) : null}
             </div>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import InputError from '@/components/input-error';
@@ -32,6 +33,32 @@ export function CrewAssignmentFormFields({
     lockEmployee?: boolean;
     employeeLabel?: string | null;
 }): ReactElement {
+    const [rankDefaultedFromProfile, setRankDefaultedFromProfile] =
+        useState(false);
+
+    const selectedEmployee = formOptions.employees.find(
+        (employee) => employee.id === form.data.employee_id,
+    );
+
+    const profileRankName =
+        selectedEmployee?.rank_id != null
+            ? (formOptions.ranks.find(
+                  (rank) => rank.id === selectedEmployee.rank_id,
+              )?.name ?? null)
+            : null;
+
+    const signOffBeforeJoin =
+        form.data.planned_join_at !== '' &&
+        form.data.planned_signoff_at !== '' &&
+        form.data.planned_signoff_at < form.data.planned_join_at;
+
+    const showPlanningSyncNotice =
+        form.data.vessel_id !== null &&
+        form.data.rank_id !== null &&
+        form.data.planned_join_at !== '' &&
+        form.data.planned_signoff_at !== '' &&
+        !signOffBeforeJoin;
+
     const setOptionalId = (
         key:
             | 'employee_id'
@@ -75,13 +102,16 @@ export function CrewAssignmentFormFields({
                                 const selected = formOptions.employees.find(
                                     (employee) => employee.id === employeeId,
                                 );
+                                const defaultRankId = selected?.rank_id ?? null;
 
                                 form.setData({
                                     ...form.data,
                                     employee_id: employeeId,
-                                    rank_id:
-                                        selected?.rank_id ?? form.data.rank_id,
+                                    rank_id: defaultRankId ?? form.data.rank_id,
                                 });
+                                setRankDefaultedFromProfile(
+                                    defaultRankId !== null,
+                                );
                             }}
                             variant="dark"
                             placeholder="Select employee..."
@@ -99,6 +129,26 @@ export function CrewAssignmentFormFields({
                                 </AppSelectItem>
                             ))}
                         </AppSelect>
+                        {selectedEmployee ? (
+                            <div className="space-y-1 text-xs text-muted-foreground">
+                                {selectedEmployee.employee_no ? (
+                                    <p>
+                                        Employee number:{' '}
+                                        <span className="font-medium text-foreground">
+                                            {selectedEmployee.employee_no}
+                                        </span>
+                                    </p>
+                                ) : null}
+                                {profileRankName ? (
+                                    <p>
+                                        Default rank:{' '}
+                                        <span className="font-medium text-foreground">
+                                            {profileRankName}
+                                        </span>
+                                    </p>
+                                ) : null}
+                            </div>
+                        ) : null}
                         <InputError message={form.errors.employee_id} />
                     </div>
                 )}
@@ -117,12 +167,18 @@ export function CrewAssignmentFormFields({
 
                 <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                        <Label htmlFor="crew-rank">Rank</Label>
+                        <Label htmlFor="crew-rank">
+                            Rank{' '}
+                            <span className="font-normal text-muted-foreground">
+                                (optional until vessel joining)
+                            </span>
+                        </Label>
                         <AppSelect
                             value={form.data.rank_id?.toString() ?? ''}
-                            onValueChange={(value) =>
-                                setOptionalId('rank_id', value)
-                            }
+                            onValueChange={(value) => {
+                                setOptionalId('rank_id', value);
+                                setRankDefaultedFromProfile(false);
+                            }}
                             variant="dark"
                             placeholder="Select rank..."
                             searchPlaceholder="Search rank..."
@@ -137,11 +193,21 @@ export function CrewAssignmentFormFields({
                                 </AppSelectItem>
                             ))}
                         </AppSelect>
+                        {rankDefaultedFromProfile && !lockEmployee ? (
+                            <p className="text-xs font-medium text-sky-700 dark:text-sky-300">
+                                Defaulted from employee profile
+                            </p>
+                        ) : null}
                         <InputError message={form.errors.rank_id} />
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="crew-vessel">Vessel</Label>
+                        <Label htmlFor="crew-vessel">
+                            Vessel{' '}
+                            <span className="font-normal text-muted-foreground">
+                                (optional until vessel joining)
+                            </span>
+                        </Label>
                         <AppSelect
                             value={form.data.vessel_id?.toString() ?? ''}
                             onValueChange={(value) =>
@@ -165,7 +231,12 @@ export function CrewAssignmentFormFields({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="crew-client">Client</Label>
+                        <Label htmlFor="crew-client">
+                            Client{' '}
+                            <span className="font-normal text-muted-foreground">
+                                (optional)
+                            </span>
+                        </Label>
                         <AppSelect
                             value={form.data.client_id?.toString() ?? ''}
                             onValueChange={(value) =>
@@ -189,7 +260,12 @@ export function CrewAssignmentFormFields({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="crew-visa">Visa type</Label>
+                        <Label htmlFor="crew-visa">
+                            Visa type{' '}
+                            <span className="font-normal text-muted-foreground">
+                                (optional)
+                            </span>
+                        </Label>
                         <AppSelect
                             value={
                                 form.data.company_visa_type_id?.toString() ?? ''
@@ -221,7 +297,10 @@ export function CrewAssignmentFormFields({
             <section className="space-y-4">
                 <div>
                     <h3 className="text-sm font-semibold tracking-tight">
-                        Planned dates
+                        Planned dates{' '}
+                        <span className="font-normal text-muted-foreground">
+                            (optional)
+                        </span>
                     </h3>
                     <p className="text-xs text-muted-foreground">
                         Planned Sign-Off is a plan only — it does not disembark
@@ -231,7 +310,12 @@ export function CrewAssignmentFormFields({
 
                 <div className="grid gap-4 md:grid-cols-3">
                     <div className="space-y-2">
-                        <Label htmlFor="planned_join_at">Planned Join</Label>
+                        <Label htmlFor="planned_join_at">
+                            Planned Join{' '}
+                            <span className="font-normal text-muted-foreground">
+                                (optional)
+                            </span>
+                        </Label>
                         <Input
                             id="planned_join_at"
                             type="date"
@@ -244,16 +328,28 @@ export function CrewAssignmentFormFields({
                                 )
                             }
                         />
+                        <p className="text-xs text-muted-foreground">
+                            Expected vessel joining date. Actual joining is
+                            recorded using Join Vessel.
+                        </p>
                         <InputError message={form.errors.planned_join_at} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="planned_signoff_at">
-                            Planned Sign-Off
+                            Planned Sign-Off{' '}
+                            <span className="font-normal text-muted-foreground">
+                                (optional)
+                            </span>
                         </Label>
                         <Input
                             id="planned_signoff_at"
                             type="date"
                             className="h-11"
+                            min={
+                                form.data.planned_join_at !== ''
+                                    ? form.data.planned_join_at
+                                    : undefined
+                            }
                             value={form.data.planned_signoff_at}
                             onChange={(event) =>
                                 form.setData(
@@ -262,11 +358,23 @@ export function CrewAssignmentFormFields({
                                 )
                             }
                         />
+                        <p className="text-xs text-muted-foreground">
+                            Expected vessel leave date. Actual leaving is
+                            recorded using Confirm Disembarkation.
+                        </p>
+                        {signOffBeforeJoin ? (
+                            <p className="text-xs font-medium text-destructive">
+                                Planned Sign-Off cannot be before Planned Join.
+                            </p>
+                        ) : null}
                         <InputError message={form.errors.planned_signoff_at} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="planned_travel_at">
-                            Planned Travel
+                            Planned Travel Home{' '}
+                            <span className="font-normal text-muted-foreground">
+                                (optional)
+                            </span>
                         </Label>
                         <Input
                             id="planned_travel_at"
@@ -280,13 +388,28 @@ export function CrewAssignmentFormFields({
                                 )
                             }
                         />
+                        <p className="text-xs text-muted-foreground">
+                            Expected return-travel date after vessel service.
+                        </p>
                         <InputError message={form.errors.planned_travel_at} />
                     </div>
                 </div>
+
+                {showPlanningSyncNotice ? (
+                    <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-3 text-sm text-sky-900 dark:text-sky-100">
+                        A linked Planning bar will be created or updated
+                        automatically.
+                    </div>
+                ) : null}
             </section>
 
             <section className="space-y-2">
-                <Label htmlFor="remarks">Remarks</Label>
+                <Label htmlFor="remarks">
+                    Remarks{' '}
+                    <span className="font-normal text-muted-foreground">
+                        (optional)
+                    </span>
+                </Label>
                 <Textarea
                     id="remarks"
                     value={form.data.remarks}

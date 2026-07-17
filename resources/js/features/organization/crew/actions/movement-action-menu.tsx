@@ -8,31 +8,25 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { CrewAssignmentFormOptions, CrewMovementAction } from '../types';
+import type {
+    CrewAssignmentFormOptions,
+    CrewMovementAction,
+    CrewMovementContext,
+} from '../types';
 import { CREW_MOVEMENT_ACTION_LABELS } from '../types';
 import { MovementActionDialog } from './movement-action-dialog';
 
 export function MovementActionMenu({
     assignmentId,
     availableActions,
-    currentPhase,
+    movementContext,
     formOptions,
-    defaultVesselId,
-    defaultRankId,
-    defaultClientId,
-    defaultVisaTypeId,
-    defaultPlannedSignoffAt,
     size = 'default',
 }: {
     assignmentId: number;
     availableActions: string[];
-    currentPhase: { code: string; label: string } | null;
+    movementContext: CrewMovementContext;
     formOptions?: CrewAssignmentFormOptions;
-    defaultVesselId?: number | null;
-    defaultRankId?: number | null;
-    defaultClientId?: number | null;
-    defaultVisaTypeId?: number | null;
-    defaultPlannedSignoffAt?: string | null;
     size?: 'default' | 'sm';
 }): ReactElement | null {
     const [selectedAction, setSelectedAction] =
@@ -106,13 +100,8 @@ export function MovementActionMenu({
                 onOpenChange={handleDialogOpenChange}
                 action={selectedAction}
                 assignmentId={assignmentId}
-                currentPhase={currentPhase}
+                movementContext={movementContext}
                 formOptions={formOptions}
-                defaultVesselId={defaultVesselId}
-                defaultRankId={defaultRankId}
-                defaultClientId={defaultClientId}
-                defaultVisaTypeId={defaultVisaTypeId}
-                defaultPlannedSignoffAt={defaultPlannedSignoffAt}
             />
         </>
     );

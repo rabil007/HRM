@@ -1,3 +1,35 @@
+export type CrewMovementContext = {
+    assignment_id: number;
+    assignment_no: string;
+    employee_id: number | null;
+    employee_name: string | null;
+    employee_no: string | null;
+    current_phase_code: string | null;
+    current_phase_label: string | null;
+    current_phase_started_at: string | null;
+    days_in_phase: number | null;
+    days_onboard: number | null;
+    days_in_training: number | null;
+    vessel_id: number | null;
+    vessel_name: string | null;
+    rank_id: number | null;
+    rank_name: string | null;
+    client_id: number | null;
+    client_name: string | null;
+    visa_type_id: number | null;
+    visa_type_name: string | null;
+    planned_join_at: string | null;
+    planned_signoff_at: string | null;
+    planned_travel_at: string | null;
+    actual_join_at: string | null;
+    actual_disembarkation_at: string | null;
+    training_provider: string | null;
+    training_course: string | null;
+    training_started_at: string | null;
+    training_expected_completion_at: string | null;
+    company_timezone: string;
+};
+
 export interface CrewAssignmentListItem {
     id: number;
     assignment_no: string;
@@ -28,13 +60,17 @@ export interface CrewAssignmentListItem {
         code: string;
         label: string;
         status: string;
+        started_at?: string | null;
     } | null;
     days_in_phase: number | null;
     planned_join_at: string | null;
     planned_signoff_at: string | null;
+    planned_travel_at?: string | null;
     created_at: string | null;
+    company_timezone?: string;
     warnings: CrewAssignmentWarning[];
     available_actions: string[];
+    movement_context: CrewMovementContext;
 }
 
 export interface CrewAssignmentDetail {
@@ -68,8 +104,11 @@ export interface CrewAssignmentDetail {
         label: string;
         status: string;
         status_label: string;
+        started_at?: string | null;
     } | null;
     days_in_phase: number | null;
+    days_onboard?: number | null;
+    days_in_training?: number | null;
     planned_join_at: string | null;
     planned_signoff_at: string | null;
     planned_travel_at: string | null;
@@ -81,10 +120,12 @@ export interface CrewAssignmentDetail {
     remarks: string | null;
     created_at: string | null;
     updated_at: string | null;
+    company_timezone?: string;
     phase_timeline: PhaseTimelineItem[];
     warnings: CrewAssignmentWarning[];
     available_actions: string[];
     planning_assignment_id: number | null;
+    movement_context: CrewMovementContext;
 }
 
 export interface PhaseTimelineItem {
