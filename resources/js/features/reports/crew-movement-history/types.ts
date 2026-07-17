@@ -74,6 +74,10 @@ export type CrewMovementHistoryRow = {
     remarks: string | null;
     needs_attention: boolean;
     warnings: string[];
+    has_corrections: boolean;
+    correction_count: number;
+    last_corrected_at: string | null;
+    has_pending_corrections: boolean;
     company_timezone: string;
 };
 
@@ -97,6 +101,8 @@ export type CrewMovementHistoryFilters = {
     assignment_started_to: string;
     assignment_closed_from: string;
     assignment_closed_to: string;
+    has_approved_corrections: string;
+    has_pending_corrections: string;
     sort: string;
     direction: string;
 };

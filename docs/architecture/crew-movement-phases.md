@@ -54,7 +54,7 @@ Employee Sea Service
 | `close_assignment` | P6 → Completed |
 | `cancel_assignment` | Draft/Active → Cancelled |
 
-## Unsupported (future)
+## Unsupported as immediate movement actions
 
 ```text
 transfer_vessel
@@ -63,6 +63,8 @@ correct_movement
 ```
 
 These return a clear `CrewMovementException` (`action_not_implemented`).
+
+Movement field corrections use a dedicated approval workflow instead of `correct_movement`. See [crew-movement-corrections.md](./crew-movement-corrections.md).
 
 ## Permissions
 
@@ -74,6 +76,10 @@ crew_operations.assignments.create
 crew_operations.assignments.update
 crew_operations.movements.perform
 crew_operations.assignments.cancel
+crew_operations.corrections.view
+crew_operations.corrections.request
+crew_operations.corrections.approve
+crew_operations.corrections.override
 audit.view
 ```
 

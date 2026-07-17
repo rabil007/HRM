@@ -3,7 +3,9 @@
 namespace App\Support\CrewOperations;
 
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewMovementCorrectionStatus;
 use App\Models\CrewAssignment;
+use App\Models\CrewMovementCorrection;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\User;
@@ -43,6 +45,7 @@ final class CrewOperationsDashboardAnalytics
             $maxHomeDays,
             $today,
             $permissions['planning'],
+            $permissions['corrections_approve'] ?? false,
         );
         $attentionItems = $this->attentionItems(
             $companyId,
@@ -50,6 +53,7 @@ final class CrewOperationsDashboardAnalytics
             $today,
             $permissions['planning'],
             $manningGaps['items'],
+            $permissions['corrections_approve'] ?? false,
         );
 
         return [
@@ -119,7 +123,8 @@ final class CrewOperationsDashboardAnalytics
      *     needs_update: int,
      *     due_soon: int,
      *     overdue_home: int,
-     *     upcoming_planning: int
+     *     upcoming_planning: int,
+     *     pending_corrections: int
      * }
      */
     private function alertCounts(
@@ -127,6 +132,7 @@ final class CrewOperationsDashboardAnalytics
         int $maxHomeDays,
         CarbonImmutable $today,
         bool $canViewPlanning,
+        bool $canApproveCorrections,
     ): array {
         $employees = Employee::query()
             ->where('company_id', $companyId)
@@ -173,6 +179,12 @@ final class CrewOperationsDashboardAnalytics
             'upcoming_planning' => $canViewPlanning
                 ? $this->upcomingPlanningCount($companyId, $today)
                 : 0,
+            'pending_corrections' => $canApproveCorrections
+                ? CrewMovementCorrection::query()
+                    ->where('company_id', $companyId)
+                    ->where('status', CrewMovementCorrectionStatus::Pending)
+                    ->count()
+                : 0,
         ];
     }
 
@@ -192,9 +204,30 @@ final class CrewOperationsDashboardAnalytics
         CarbonImmutable $today,
         bool $canViewPlanning,
         array $manningGapItems,
+        bool $canApproveCorrections,
     ): array {
         $items = [];
         $seenEmployeeIds = [];
+
+        if ($canApproveCorrections) {
+            $pendingCount = CrewMovementCorrection::query()
+                ->where('company_id', $companyId)
+                ->where('status', CrewMovementCorrectionStatus::Pending)
+                ->count();
+
+            if ($pendingCount > 0) {
+                $items[] = [
+                    'type' => 'pending_corrections',
+                    'title' => 'Movement corrections pending',
+                    'subtitle' => null,
+                    'hint' => sprintf('%d correction%s awaiting review', $pendingCount, $pendingCount === 1 ? '' : 's'),
+                    'href' => route('organization.crew-movement-corrections.index', [
+                        'status' => CrewMovementCorrectionStatus::Pending->value,
+                    ]),
+                    'severity' => 'warning',
+                ];
+            }
+        }
 
         $employees = Employee::query()
             ->where('company_id', $companyId)

@@ -49,6 +49,8 @@ use App\Http\Controllers\Organization\ContractsIndexController;
 use App\Http\Controllers\Organization\ContractsNoContractController;
 use App\Http\Controllers\Organization\CrewAssignmentController;
 use App\Http\Controllers\Organization\CrewMovementActionController;
+use App\Http\Controllers\Organization\CrewMovementCorrectionController;
+use App\Http\Controllers\Organization\CrewMovementCorrectionDecisionController;
 use App\Http\Controllers\Organization\CrewMovementHistoryController;
 use App\Http\Controllers\Organization\CrewOperationsDashboardController;
 use App\Http\Controllers\Organization\CrewOperationsSettingsController;
@@ -270,6 +272,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/crew/{assignment}/edit', [CrewAssignmentController::class, 'edit'])->middleware('can:crew_operations.assignments.update')->name('organization.crew-assignments.edit');
     Route::put('organization/crew/{assignment}', [CrewAssignmentController::class, 'update'])->middleware('can:crew_operations.assignments.update')->name('organization.crew-assignments.update');
     Route::post('organization/crew/{assignment}/actions', CrewMovementActionController::class)->name('organization.crew-assignments.perform-action');
+    Route::post('organization/crew/{assignment}/corrections', [CrewMovementCorrectionController::class, 'store'])
+        ->middleware('can:crew_operations.corrections.request')
+        ->name('organization.crew-assignments.corrections.store');
+
+    Route::get('organization/crew-movement-corrections', [CrewMovementCorrectionController::class, 'index'])
+        ->middleware('can:crew_operations.corrections.view')
+        ->name('organization.crew-movement-corrections.index');
+    Route::get('organization/crew-movement-corrections/{correction}', [CrewMovementCorrectionController::class, 'show'])
+        ->middleware('can:crew_operations.corrections.view')
+        ->name('organization.crew-movement-corrections.show');
+    Route::post('organization/crew-movement-corrections/{correction}/approve', [CrewMovementCorrectionDecisionController::class, 'approve'])
+        ->middleware('can:crew_operations.corrections.approve')
+        ->name('organization.crew-movement-corrections.approve');
+    Route::post('organization/crew-movement-corrections/{correction}/reject', [CrewMovementCorrectionDecisionController::class, 'reject'])
+        ->middleware('can:crew_operations.corrections.approve')
+        ->name('organization.crew-movement-corrections.reject');
+    Route::post('organization/crew-movement-corrections/{correction}/cancel', [CrewMovementCorrectionDecisionController::class, 'cancel'])
+        ->name('organization.crew-movement-corrections.cancel');
 
     Route::get('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'index'])->middleware('can:crew_operations.planning.view')->name('organization.crew-operations.settings.index');
     Route::put('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'update'])->middleware('can:crew_operations.planning.update')->name('organization.crew-operations.settings.update');

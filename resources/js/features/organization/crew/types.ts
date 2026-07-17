@@ -1,3 +1,8 @@
+import type {
+    CrewMovementCorrectionFieldValue,
+    CrewMovementCorrectionListItem,
+} from '@/features/organization/crew-movement-corrections/types';
+
 export type CrewMovementContext = {
     assignment_id: number;
     assignment_no: string;
@@ -141,6 +146,8 @@ export interface PhaseTimelineItem {
     actual_end_at: string | null;
     details: Record<string, unknown> | null;
     remarks: string | null;
+    has_pending_correction: boolean;
+    has_approved_correction: boolean;
 }
 
 export interface CrewAssignmentWarning {
@@ -216,6 +223,33 @@ export interface CrewAssignmentPagePermissions {
     perform_movement: boolean;
     cancel: boolean;
     view_audit: boolean;
+    request_correction: boolean;
+    view_corrections: boolean;
+    approve_corrections: boolean;
+    override_corrections: boolean;
+}
+
+export interface CorrectablePhase {
+    id: number;
+    phase_code: string;
+    phase_label: string;
+    status: string;
+    status_label: string;
+    actual_start_at: string | null;
+    actual_end_at: string | null;
+    remarks: string | null;
+    details: Record<string, unknown> | null;
+    allowed_fields: string[];
+    has_pending_correction: boolean;
+    current_values: Record<string, CrewMovementCorrectionFieldValue>;
+}
+
+export interface CorrectionsSummary {
+    pending: CrewMovementCorrectionListItem[];
+    history: CrewMovementCorrectionListItem[];
+    pending_count: number;
+    approved_count: number;
+    correctable_phases: CorrectablePhase[];
 }
 
 export type CrewMovementAction =

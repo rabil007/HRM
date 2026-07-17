@@ -76,6 +76,9 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             'Remarks',
             'Needs Attention',
             'Warnings',
+            'Has Corrections',
+            'Correction Count',
+            'Last Corrected At',
         ];
     }
 
@@ -135,6 +138,9 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             $row['remarks'],
             $row['needs_attention'] ? 'Yes' : 'No',
             implode('; ', $row['warnings']),
+            ($row['has_corrections'] ?? false) ? 'Yes' : 'No',
+            $row['correction_count'] ?? 0,
+            $this->date($row['last_corrected_at'] ?? null),
         ];
     }
 

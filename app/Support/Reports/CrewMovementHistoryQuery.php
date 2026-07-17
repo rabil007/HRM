@@ -3,6 +3,7 @@
 namespace App\Support\Reports;
 
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewMovementCorrectionStatus;
 use App\Enums\CrewPhaseCode;
 use App\Models\Client;
 use App\Models\CrewAssignment;
@@ -99,6 +100,19 @@ final class CrewMovementHistoryQuery
                 'companyVisaType:id,name',
                 'currentPhase:id,crew_assignment_id,phase_code,status,actual_start_at,actual_end_at',
                 'phases:id,company_id,crew_assignment_id,phase_code,sequence,status,planned_start_at,planned_end_at,actual_start_at,actual_end_at,details,remarks',
+                'corrections' => fn ($query) => $query
+                    ->select([
+                        'id',
+                        'company_id',
+                        'crew_assignment_id',
+                        'status',
+                        'decided_at',
+                        'requested_at',
+                    ])
+                    ->whereIn('status', [
+                        CrewMovementCorrectionStatus::Approved,
+                        CrewMovementCorrectionStatus::Pending,
+                    ]),
             ]);
         }
 
@@ -131,7 +145,15 @@ final class CrewMovementHistoryQuery
             ->when($this->filters->assignmentStartedFrom !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.started_at', '>=', $this->filters->assignmentStartedFrom))
             ->when($this->filters->assignmentStartedTo !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.started_at', '<=', $this->filters->assignmentStartedTo))
             ->when($this->filters->assignmentClosedFrom !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.closed_at', '>=', $this->filters->assignmentClosedFrom))
-            ->when($this->filters->assignmentClosedTo !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.closed_at', '<=', $this->filters->assignmentClosedTo));
+            ->when($this->filters->assignmentClosedTo !== '', fn (Builder $inner) => $inner->whereDate('crew_assignments.closed_at', '<=', $this->filters->assignmentClosedTo))
+            ->when($this->filters->hasApprovedCorrections === '1', fn (Builder $inner) => $inner->whereHas(
+                'corrections',
+                fn (Builder $correction) => $correction->where('status', CrewMovementCorrectionStatus::Approved),
+            ))
+            ->when($this->filters->hasPendingCorrections === '1', fn (Builder $inner) => $inner->whereHas(
+                'corrections',
+                fn (Builder $correction) => $correction->where('status', CrewMovementCorrectionStatus::Pending),
+            ));
 
         $this->applyOnVesselDateFilters($query);
 

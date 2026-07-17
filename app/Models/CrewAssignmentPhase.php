@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CrewMovementCorrectionStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\Concerns\LogsActivityWithCompany;
@@ -10,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Support\LogOptions;
@@ -105,6 +107,23 @@ class CrewAssignmentPhase extends Model
     public function seaService(): HasOne
     {
         return $this->hasOne(EmployeeSeaService::class);
+    }
+
+    /**
+     * @return HasMany<CrewMovementCorrection, $this>
+     */
+    public function corrections(): HasMany
+    {
+        return $this->hasMany(CrewMovementCorrection::class);
+    }
+
+    /**
+     * @return HasMany<CrewMovementCorrection, $this>
+     */
+    public function pendingCorrections(): HasMany
+    {
+        return $this->hasMany(CrewMovementCorrection::class)
+            ->where('status', CrewMovementCorrectionStatus::Pending);
     }
 
     /**

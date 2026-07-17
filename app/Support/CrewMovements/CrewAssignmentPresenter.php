@@ -2,6 +2,7 @@
 
 namespace App\Support\CrewMovements;
 
+use App\Enums\CrewMovementCorrectionStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
@@ -77,20 +78,31 @@ class CrewAssignmentPresenter
         $trainingPhase = self::latestPhase($assignment, CrewPhaseCode::Training);
 
         $phaseTimeline = $assignment->phases
-            ->map(fn ($phase) => [
-                'id' => $phase->id,
-                'sequence' => $phase->sequence,
-                'phase_code' => $phase->phase_code->value,
-                'phase_label' => $phase->phase_code->label(),
-                'status' => $phase->status->value,
-                'status_label' => $phase->status->label(),
-                'planned_start_at' => $phase->planned_start_at?->toDateString(),
-                'planned_end_at' => $phase->planned_end_at?->toDateString(),
-                'actual_start_at' => $phase->actual_start_at?->toDateString(),
-                'actual_end_at' => $phase->actual_end_at?->toDateString(),
-                'details' => $phase->details,
-                'remarks' => $phase->remarks,
-            ])
+            ->map(function ($phase) {
+                $hasPending = $phase->relationLoaded('pendingCorrections')
+                    ? $phase->pendingCorrections->isNotEmpty()
+                    : false;
+                $hasApproved = $phase->relationLoaded('corrections')
+                    ? $phase->corrections->where('status', CrewMovementCorrectionStatus::Approved)->isNotEmpty()
+                    : false;
+
+                return [
+                    'id' => $phase->id,
+                    'sequence' => $phase->sequence,
+                    'phase_code' => $phase->phase_code->value,
+                    'phase_label' => $phase->phase_code->label(),
+                    'status' => $phase->status->value,
+                    'status_label' => $phase->status->label(),
+                    'planned_start_at' => $phase->planned_start_at?->toDateString(),
+                    'planned_end_at' => $phase->planned_end_at?->toDateString(),
+                    'actual_start_at' => $phase->actual_start_at?->toDateString(),
+                    'actual_end_at' => $phase->actual_end_at?->toDateString(),
+                    'details' => $phase->details,
+                    'remarks' => $phase->remarks,
+                    'has_pending_correction' => $hasPending,
+                    'has_approved_correction' => $hasApproved,
+                ];
+            })
             ->sortBy('sequence')
             ->values()
             ->all();

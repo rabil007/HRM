@@ -546,19 +546,41 @@ export function CrewMovementHistoryReportTable({
                                             </p>
                                         ) : null}
                                     </div>
-                                    <Badge
-                                        variant={
-                                            row.status === 'active'
-                                                ? 'success'
-                                                : row.status === 'draft'
-                                                  ? 'secondary'
-                                                  : row.status === 'cancelled'
-                                                    ? 'destructive'
-                                                    : 'outline'
-                                        }
-                                    >
-                                        {row.status_label}
-                                    </Badge>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        <Badge
+                                            variant={
+                                                row.status === 'active'
+                                                    ? 'success'
+                                                    : row.status === 'draft'
+                                                      ? 'secondary'
+                                                      : row.status ===
+                                                          'cancelled'
+                                                        ? 'destructive'
+                                                        : 'outline'
+                                            }
+                                        >
+                                            {row.status_label}
+                                        </Badge>
+                                        {row.has_pending_corrections ? (
+                                            <Badge
+                                                variant="warning"
+                                                title="Correction pending review"
+                                            >
+                                                Pending Correction
+                                            </Badge>
+                                        ) : row.has_corrections ? (
+                                            <Badge
+                                                variant="secondary"
+                                                title={
+                                                    row.last_corrected_at
+                                                        ? `${row.correction_count} correction(s) · last on ${formatDisplayDate(row.last_corrected_at)}`
+                                                        : `${row.correction_count} correction(s)`
+                                                }
+                                            >
+                                                Corrected
+                                            </Badge>
+                                        ) : null}
+                                    </div>
                                 </div>
                             </Cell>
                             <Cell className={COL.rank}>

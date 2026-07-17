@@ -20,6 +20,7 @@ export type CrewOperationsAlertCounts = {
     overdue_home: number;
     upcoming_planning: number;
     manning_gaps: number;
+    pending_corrections: number;
 };
 
 export type CrewOperationsAttentionItem = {
@@ -28,7 +29,8 @@ export type CrewOperationsAttentionItem = {
         | 'overdue_home'
         | 'due_soon'
         | 'upcoming_join'
-        | 'manning_gap';
+        | 'manning_gap'
+        | 'pending_corrections';
     title: string;
     subtitle: string | null;
     hint: string;
@@ -71,6 +73,8 @@ export type CrewOperationsPagePermissions = {
     overview: boolean;
     planning: boolean;
     vessel_manning: boolean;
+    corrections_view: boolean;
+    corrections_approve: boolean;
 };
 
 export type CrewOperationsDashboardProps = {

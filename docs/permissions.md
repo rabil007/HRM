@@ -30,7 +30,7 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 | Contracts / bank / training / sea service | `contracts.view|create|update|delete|import`, `contracts.salary_revisions.view|create|update|delete`, `bank_accounts.view|create|update|delete|import`, `training.view|create|update|delete|import`, `sea_services.view|create|update|delete|import` |
 | Documents | `documents.view|download|share|upload|delete` |
 | Bulk documents / signatures | `bulk_documents.view|generate|delete|email`, `bulk_documents.signatures.review` |
-| Crew operations | `crew_operations.overview.view`, `crew_operations.deployments.*`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*` |
+| Crew operations | `crew_operations.overview.view`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*`, `crew_operations.assignments.*`, `crew_operations.movements.perform`, `crew_operations.corrections.view|request|approve|override` |
 | Reports | `reports.crew_movement_history.view|export` |
 | Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` |
 | Payroll | `payroll.overview.view`, `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, `payroll.payslips.*`, `payroll.wps.export` |

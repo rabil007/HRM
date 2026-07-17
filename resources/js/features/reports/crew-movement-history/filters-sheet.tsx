@@ -182,6 +182,18 @@ export function CrewMovementHistoryFiltersSheet({
                 options={[{ value: '1', label: 'Needs attention' }]}
                 onChange={(value) => set('needs_attention', value)}
             />
+            <SelectFilter
+                label="Approved corrections"
+                value={draft.has_approved_corrections}
+                options={[{ value: '1', label: 'Has approved corrections' }]}
+                onChange={(value) => set('has_approved_corrections', value)}
+            />
+            <SelectFilter
+                label="Pending corrections"
+                value={draft.has_pending_corrections}
+                options={[{ value: '1', label: 'Has pending corrections' }]}
+                onChange={(value) => set('has_pending_corrections', value)}
+            />
             <DateRange
                 label="Planned join"
                 from={draft.planned_join_from}

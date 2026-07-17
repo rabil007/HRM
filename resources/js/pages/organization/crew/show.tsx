@@ -1,5 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertTriangle, Pencil } from 'lucide-react';
+import { AlertTriangle, FilePenLine, Pencil } from 'lucide-react';
+import { useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { RecentActivityCard } from '@/components/recent-activity-card';
@@ -11,8 +12,12 @@ import { MovementActionMenu } from '@/features/organization/crew/actions/movemen
 import { CrewMetadataField } from '@/features/organization/crew/components/crew-metadata-field';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { CrewPhaseProgress } from '@/features/organization/crew/components/crew-phase-progress';
+import { CorrectionHistoryCard } from '@/features/organization/crew/corrections/correction-history-card';
+import { PendingCorrectionBanner } from '@/features/organization/crew/corrections/pending-correction-banner';
+import { RequestCorrectionDialog } from '@/features/organization/crew/corrections/request-correction-dialog';
 import { formatDaysInPhase } from '@/features/organization/crew/format-days-in-phase';
 import type {
+    CorrectionsSummary,
     CrewAssignmentDetail,
     CrewAssignmentFormOptions,
     CrewAssignmentPagePermissions,
@@ -28,15 +33,18 @@ import { index as crewPlanningIndex } from '@/routes/organization/crew-planning'
 
 export default function CrewAssignmentShow({
     assignment,
+    corrections,
     recent_activity,
     form_options,
     can,
 }: {
     assignment: CrewAssignmentDetail;
+    corrections?: CorrectionsSummary;
     recent_activity: RecentActivityItem[];
     form_options?: CrewAssignmentFormOptions;
     can: CrewAssignmentPagePermissions;
 }) {
+    const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = useState(false);
     const showMovementActions =
         (can.perform_movement || can.cancel) &&
         assignment.available_actions.length > 0;
@@ -110,9 +118,28 @@ export default function CrewAssignmentShow({
                                     Edit
                                 </Button>
                             ) : null}
+                            {can.request_correction &&
+                            (corrections?.correctable_phases.length ?? 0) >
+                                0 ? (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="h-12 rounded-xl px-5"
+                                    onClick={() =>
+                                        setIsCorrectionDialogOpen(true)
+                                    }
+                                >
+                                    <FilePenLine className="mr-2 h-4 w-4" />
+                                    Request Correction
+                                </Button>
+                            ) : null}
                         </div>
                     }
                 />
+
+                {corrections ? (
+                    <PendingCorrectionBanner corrections={corrections} />
+                ) : null}
 
                 {assignment.warnings.length > 0 ? (
                     <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
@@ -214,6 +241,16 @@ export default function CrewAssignmentShow({
                                                                             Current
                                                                         </Badge>
                                                                     ) : null}
+                                                                    {phase.has_pending_correction ? (
+                                                                        <Badge variant="warning">
+                                                                            Pending
+                                                                            Correction
+                                                                        </Badge>
+                                                                    ) : phase.has_approved_correction ? (
+                                                                        <Badge variant="secondary">
+                                                                            Corrected
+                                                                        </Badge>
+                                                                    ) : null}
                                                                 </div>
                                                                 <p className="text-sm text-muted-foreground">
                                                                     {
@@ -256,6 +293,10 @@ export default function CrewAssignmentShow({
                                 )}
                             </CardContent>
                         </Card>
+
+                        {can.view_corrections && corrections ? (
+                            <CorrectionHistoryCard corrections={corrections} />
+                        ) : null}
 
                         {(can.perform_movement || can.cancel) &&
                         assignment.available_actions.length === 0 &&
@@ -450,6 +491,16 @@ export default function CrewAssignmentShow({
                     </div>
                 </div>
             </Main>
+
+            {corrections ? (
+                <RequestCorrectionDialog
+                    open={isCorrectionDialogOpen}
+                    onOpenChange={setIsCorrectionDialogOpen}
+                    assignmentId={assignment.id}
+                    correctablePhases={corrections.correctable_phases}
+                    formOptions={form_options}
+                />
+            ) : null}
         </>
     );
 }

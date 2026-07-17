@@ -3,6 +3,7 @@
 namespace App\Support\Reports;
 
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewMovementCorrectionStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
@@ -41,6 +42,12 @@ final class CrewMovementHistoryPresenter
 
         $onVessel = $summaries[CrewPhaseCode::OnVessel->value];
         $training = $summaries[CrewPhaseCode::Training->value];
+        $approvedCorrections = $assignment->relationLoaded('corrections')
+            ? $assignment->corrections->where('status', CrewMovementCorrectionStatus::Approved)
+            : collect();
+        $pendingCorrections = $assignment->relationLoaded('corrections')
+            ? $assignment->corrections->where('status', CrewMovementCorrectionStatus::Pending)
+            : collect();
 
         return [
             'id' => $assignment->id,
@@ -95,6 +102,13 @@ final class CrewMovementHistoryPresenter
             'remarks' => $assignment->remarks,
             'needs_attention' => $warnings !== [],
             'warnings' => collect($warnings)->pluck('label')->values()->all(),
+            'has_corrections' => $approvedCorrections->isNotEmpty(),
+            'correction_count' => $approvedCorrections->count(),
+            'last_corrected_at' => self::date(
+                $approvedCorrections->sortByDesc('decided_at')->first()?->decided_at,
+                $timezone,
+            ),
+            'has_pending_corrections' => $pendingCorrections->isNotEmpty(),
             'company_timezone' => $timezone,
         ];
     }

@@ -26,6 +26,8 @@ final class CrewMovementHistoryFilters
         public readonly string $assignmentStartedTo = '',
         public readonly string $assignmentClosedFrom = '',
         public readonly string $assignmentClosedTo = '',
+        public readonly string $hasApprovedCorrections = '',
+        public readonly string $hasPendingCorrections = '',
         public readonly string $sort = 'started_at',
         public readonly string $direction = 'desc',
     ) {}
@@ -52,6 +54,8 @@ final class CrewMovementHistoryFilters
             assignmentStartedTo: (string) $request->query('assignment_started_to', ''),
             assignmentClosedFrom: (string) $request->query('assignment_closed_from', ''),
             assignmentClosedTo: (string) $request->query('assignment_closed_to', ''),
+            hasApprovedCorrections: self::booleanFilter($request->query('has_approved_corrections')),
+            hasPendingCorrections: self::booleanFilter($request->query('has_pending_corrections')),
             sort: (string) $request->query('sort', 'started_at'),
             direction: strtolower((string) $request->query('direction', 'desc')) === 'asc' ? 'asc' : 'desc',
         );
@@ -82,6 +86,8 @@ final class CrewMovementHistoryFilters
             'assignment_started_to' => $this->assignmentStartedTo,
             'assignment_closed_from' => $this->assignmentClosedFrom,
             'assignment_closed_to' => $this->assignmentClosedTo,
+            'has_approved_corrections' => $this->hasApprovedCorrections,
+            'has_pending_corrections' => $this->hasPendingCorrections,
             'sort' => $this->sort,
             'direction' => $this->direction,
         ], fn (string $value, string $key): bool => $value !== '' && ! ($key === 'sort' && $value === 'started_at') && ! ($key === 'direction' && $value === 'desc'), ARRAY_FILTER_USE_BOTH);
@@ -112,6 +118,8 @@ final class CrewMovementHistoryFilters
             'assignment_started_to' => $this->assignmentStartedTo,
             'assignment_closed_from' => $this->assignmentClosedFrom,
             'assignment_closed_to' => $this->assignmentClosedTo,
+            'has_approved_corrections' => $this->hasApprovedCorrections,
+            'has_pending_corrections' => $this->hasPendingCorrections,
             'sort' => $this->sort,
             'direction' => $this->direction,
         ];

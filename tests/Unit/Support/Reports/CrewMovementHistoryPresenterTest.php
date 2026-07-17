@@ -169,3 +169,43 @@ test('planned only phases do not report actual duration', function () {
     expect($row['pre_mobilisation']['total_days'])->toBeNull()
         ->and($row['pre_mobilisation']['total_days_label'])->toBe('Not recorded');
 });
+
+test('it exposes approved correction metadata without treating pending as official corrections', function () {
+    ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->create();
+
+    \App\Models\CrewMovementCorrection::factory()
+        ->forAssignment($assignment)
+        ->approved()
+        ->create([
+            'requested_by' => $user->id,
+            'decided_by' => $user->id,
+            'decided_at' => '2026-07-10 12:00:00',
+        ]);
+
+    \App\Models\CrewMovementCorrection::factory()
+        ->forAssignment($assignment)
+        ->pending()
+        ->create([
+            'requested_by' => $user->id,
+        ]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh([
+            'company',
+            'employee',
+            'rank',
+            'vessel',
+            'client',
+            'companyVisaType',
+            'currentPhase',
+            'phases',
+            'corrections',
+        ]),
+    );
+
+    expect($row['has_corrections'])->toBeTrue()
+        ->and($row['correction_count'])->toBe(1)
+        ->and($row['last_corrected_at'])->toBe('2026-07-10')
+        ->and($row['has_pending_corrections'])->toBeTrue();
+});

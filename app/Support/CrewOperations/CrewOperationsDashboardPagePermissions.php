@@ -23,6 +23,8 @@ final class CrewOperationsDashboardPagePermissions
             'vessel_manning' => $user?->can('crew_operations.vessel_manning.view') ?? false,
             'deployments' => false,
             'deployments_create' => false,
+            'corrections_view' => $user?->can('crew_operations.corrections.view') ?? false,
+            'corrections_approve' => $user?->can('crew_operations.corrections.approve') ?? false,
         ];
     }
 }

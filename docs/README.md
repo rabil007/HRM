@@ -14,6 +14,7 @@ Product and developer documentation for the Herd OMS-HRM application. These guid
 | [Email configuration](./email-configuration.md) | Admins, developers | SMTP settings, test email |
 | [Payroll](./payroll.md) | Payroll users, developers | Periods, salary inputs, timesheets, payslips, WPS, state transitions |
 | [Crew Movement History](./reports/crew-movement-history.md) | Operations, management, developers | One-row assignment history, phase mapping, durations, exports |
+| [Crew Movement Corrections](./architecture/crew-movement-corrections.md) | Operations, developers | Request/approve workflow for in-place movement field corrections |
 | [Architecture overview](./architecture/project-analysis.md) | Developers | Application structure, stack, risks, conventions |
 | [Domain map](./architecture/domains.md) | Product, developers | Core HR, documents, attendance, payroll, crew operations |
 | [Golden files](./architecture/golden-files.md) | Developers | Preferred implementation references |

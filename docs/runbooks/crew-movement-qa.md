@@ -79,7 +79,10 @@ Operational checklist after deploying Crew Movement changes.
 
 ## 10. Unsupported actions
 
-- [ ] `transfer_vessel`, `redeploy`, `correct_movement` return clear validation/safe errors
+- [ ] `transfer_vessel` and `redeploy` return clear validation/safe errors
+- [ ] Movement corrections go through request → approve/reject (not immediate `correct_movement`)
+- [ ] Pending/rejected/cancelled corrections leave official phase dates unchanged
+- [ ] Approved corrections update assignment/phase fields and re-sync planning + completed P4 sea service
 
 ## 11. Crew Movement History report
 

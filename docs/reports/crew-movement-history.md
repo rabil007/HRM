@@ -44,7 +44,9 @@ The start day is day zero. A phase started today displays `Started today`; the f
 
 ## Filters and summary
 
-The report supports identity, assignment status, current phase, vessel, rank, client, visa type, source, attention, and planned/actual date filters. Pagination and exports preserve all filters. Summary counts use the active company and the active filter set.
+The report supports identity, assignment status, current phase, vessel, rank, client, visa type, source, attention, planned/actual date filters, and correction filters (`has_approved_corrections`, `has_pending_corrections`). Pagination and exports preserve all filters. Summary counts use the active company and the active filter set.
+
+Approved corrections add report metadata only (`has_corrections`, `correction_count`, `last_corrected_at`). Pending proposals never change official dates in the report.
 
 ## Permissions
 
@@ -55,4 +57,6 @@ Both report routes enforce their permission independently. Company scoping is al
 
 ## Export
 
-Excel and CSV exports contain one row per assignment. Repeated phase periods and training details use semicolon-separated plain text. Filenames use `crew-movement-history-YYYY-MM-DD`.
+Excel and CSV exports contain one row per assignment. Repeated phase periods and training details use semicolon-separated plain text. Correction metadata columns are included for approved corrections. Filenames use `crew-movement-history-YYYY-MM-DD`.
+
+See also [Crew Movement Corrections](../architecture/crew-movement-corrections.md).

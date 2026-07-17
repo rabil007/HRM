@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewMovementCorrectionStatus;
 use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\CrewAssignmentFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -154,6 +155,23 @@ class CrewAssignment extends Model
     public function planningAssignment(): HasOne
     {
         return $this->hasOne(CrewPlanningAssignment::class);
+    }
+
+    /**
+     * @return HasMany<CrewMovementCorrection, $this>
+     */
+    public function corrections(): HasMany
+    {
+        return $this->hasMany(CrewMovementCorrection::class);
+    }
+
+    /**
+     * @return HasMany<CrewMovementCorrection, $this>
+     */
+    public function pendingCorrections(): HasMany
+    {
+        return $this->hasMany(CrewMovementCorrection::class)
+            ->where('status', CrewMovementCorrectionStatus::Pending);
     }
 
     public function creator(): BelongsTo

@@ -25,6 +25,10 @@ class CrewAssignmentPagePermissions
             'perform_movement' => $user?->can('crew_operations.movements.perform') ?? false,
             'cancel' => $user?->can('crew_operations.assignments.cancel') ?? false,
             'view_audit' => $user?->can('audit.view') ?? false,
+            'request_correction' => $user?->can('crew_operations.corrections.request') ?? false,
+            'view_corrections' => $user?->can('crew_operations.corrections.view') ?? false,
+            'approve_corrections' => $user?->can('crew_operations.corrections.approve') ?? false,
+            'override_corrections' => $user?->can('crew_operations.corrections.override') ?? false,
         ];
     }
 }

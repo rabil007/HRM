@@ -16,6 +16,7 @@ use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\Vessel;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\CrewMovements\Corrections\CrewMovementCorrectionPresenter;
 use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewAssignmentPagePermissions;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
@@ -188,11 +189,16 @@ class CrewAssignmentController extends Controller
             'vessel',
             'companyVisaType',
             'currentPhase',
-            'phases',
+            'phases.pendingCorrections',
+            'phases.corrections' => fn ($query) => $query->where('status', 'approved')->latest('decided_at'),
             'planningAssignment',
+            'corrections.requester:id,name',
+            'corrections.decisionMaker:id,name',
+            'corrections.phase',
         ]);
 
         $detail = CrewAssignmentPresenter::detail($assignment);
+        $corrections = app(CrewMovementCorrectionPresenter::class)->assignmentSummary($assignment);
 
         $recentActivity = Gate::allows('viewAudit', CrewAssignment::class)
             ? RecentActivityQuery::for($request->user(), $companyId, CrewAssignment::class, $assignment->id)
@@ -200,6 +206,7 @@ class CrewAssignmentController extends Controller
 
         return Inertia::render('organization/crew/show', [
             'assignment' => $detail,
+            'corrections' => $corrections,
             'recent_activity' => $recentActivity,
             'form_options' => [
                 'employees' => [],

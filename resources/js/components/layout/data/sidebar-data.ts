@@ -27,6 +27,7 @@ import {
     Anchor,
     Waves,
     BarChart3,
+    FilePenLine,
 } from 'lucide-react';
 import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import { dashboard } from '@/routes';
@@ -37,6 +38,7 @@ import {
     seaServices,
     training,
 } from '@/routes/organization';
+import { index as crewMovementCorrections } from '@/routes/organization/crew-movement-corrections';
 import { index as crewMovementHistory } from '@/routes/organization/reports/crew-movement-history';
 import type { SidebarData } from '../types';
 
@@ -157,6 +159,11 @@ const baseSidebarData: SidebarData = {
                     icon: Anchor,
                 },
                 {
+                    title: 'Movement Corrections',
+                    url: crewMovementCorrections.url(),
+                    icon: FilePenLine,
+                },
+                {
                     title: 'Settings',
                     url: '/organization/crew-operations/settings',
                     icon: Settings,
@@ -247,7 +254,8 @@ function canViewCrewOperations(permissions: string[]): boolean {
         canViewCrewOperationsOverview(permissions) ||
         has(permissions, 'crew_operations.assignments.view') ||
         has(permissions, 'crew_operations.vessel_manning.view') ||
-        has(permissions, 'crew_operations.planning.view')
+        has(permissions, 'crew_operations.planning.view') ||
+        has(permissions, 'crew_operations.corrections.view')
     );
 }
 
@@ -366,6 +374,13 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(
                                 permissions,
                                 'crew_operations.planning.view',
+                            )
+                                ? item
+                                : null;
+                        case crewMovementCorrections.url():
+                            return has(
+                                permissions,
+                                'crew_operations.corrections.view',
                             )
                                 ? item
                                 : null;
