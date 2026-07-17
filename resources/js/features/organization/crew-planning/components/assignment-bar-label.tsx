@@ -43,9 +43,13 @@ export function AssignmentBarLabel({
                     'shrink-0 rounded bg-background/50 px-1 py-0.5 text-[10px] font-semibold text-muted-foreground tabular-nums',
                     className,
                 )}
-                title={`${totalDays} days`}
+                title={
+                    bar.is_open_ended
+                        ? 'Open-ended — no sign-off planned'
+                        : `${totalDays} days`
+                }
             >
-                {totalDays}d
+                {bar.is_open_ended ? 'Open' : `${totalDays}d`}
             </span>
         </>
     );

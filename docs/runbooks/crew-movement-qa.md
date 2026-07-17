@@ -48,7 +48,14 @@ Operational checklist after deploying Crew Movement changes.
 ## 6. Planning
 
 - [ ] Confirming a planning assignment creates one draft CrewAssignment
-- [ ] Repeat confirm is idempotent
+- [ ] Repeat confirm is idempotent and keeps exactly one planning row
+- [ ] Manual Current Crew draft with vessel/rank/join/sign-off creates a planning bar
+- [ ] Join vessel without sign-off shows an open-ended Assigned bar on the Gantt
+- [ ] Plan sign-off updates the same planning bar leave date
+- [ ] Confirm disembarkation sets leave to actual end and keeps one planning row
+- [ ] Linked planning bars cannot be edited/deleted from Planning (open Current Crew instead)
+- [ ] Unlinked planned-relief bars remain editable
+- [ ] Cancel before P4 removes the future planning bar
 - [ ] Gantt shows `is_assigned` / Assigned styling
 - [ ] No EmployeeDeployment created
 

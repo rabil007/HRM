@@ -21,8 +21,10 @@ use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewMovementService;
 use App\Support\CrewMovements\CurrentCrewQuery;
+use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -31,7 +33,10 @@ class CrewAssignmentController extends Controller
 {
     use ResolvesPerPage;
 
-    public function __construct(private CrewMovementService $service) {}
+    public function __construct(
+        private CrewMovementService $service,
+        private SyncPlanningAssignmentFromCrewAssignment $planningSync,
+    ) {}
 
     public function index(Request $request)
     {
@@ -136,21 +141,27 @@ class CrewAssignmentController extends Controller
         $validated = $request->validated();
 
         try {
-            $assignment = $this->service->createDraft(
-                $companyId,
-                (int) $validated['employee_id'],
-                [
-                    'rank_id' => $validated['rank_id'] ?? null,
-                    'client_id' => $validated['client_id'] ?? null,
-                    'vessel_id' => $validated['vessel_id'] ?? null,
-                    'company_visa_type_id' => $validated['company_visa_type_id'] ?? null,
-                    'planned_join_at' => $validated['planned_join_at'] ?? null,
-                    'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
-                    'planned_travel_at' => $validated['planned_travel_at'] ?? null,
-                    'remarks' => $validated['remarks'] ?? null,
-                ],
-                $request->user()?->id,
-            );
+            $assignment = DB::transaction(function () use ($companyId, $validated, $request) {
+                $assignment = $this->service->createDraft(
+                    $companyId,
+                    (int) $validated['employee_id'],
+                    [
+                        'rank_id' => $validated['rank_id'] ?? null,
+                        'client_id' => $validated['client_id'] ?? null,
+                        'vessel_id' => $validated['vessel_id'] ?? null,
+                        'company_visa_type_id' => $validated['company_visa_type_id'] ?? null,
+                        'planned_join_at' => $validated['planned_join_at'] ?? null,
+                        'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
+                        'planned_travel_at' => $validated['planned_travel_at'] ?? null,
+                        'remarks' => $validated['remarks'] ?? null,
+                    ],
+                    $request->user()?->id,
+                );
+
+                $this->planningSync->sync($assignment);
+
+                return $assignment->fresh() ?? $assignment;
+            });
 
             return redirect()
                 ->route('organization.crew-assignments.show', $assignment)
@@ -279,7 +290,10 @@ class CrewAssignmentController extends Controller
             'updated_by' => $request->user()?->id,
         ], fn ($v) => $v !== null);
 
-        $assignment->update($updateData);
+        DB::transaction(function () use ($assignment, $updateData): void {
+            $assignment->update($updateData);
+            $this->planningSync->sync($assignment->fresh(['phases', 'employee', 'company']) ?? $assignment);
+        });
 
         return redirect()
             ->route('organization.crew-assignments.show', $assignment)

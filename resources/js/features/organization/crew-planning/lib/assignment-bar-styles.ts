@@ -28,16 +28,25 @@ export const vacantBarAvatarClass =
 type AssignmentStyleInput = {
     employee_id: number | null;
     is_assigned: boolean;
+    is_open_ended?: boolean;
 };
 
 export function barSurfaceClass(bar: AssignmentStyleInput): string {
+    let surface: string;
+
     if (bar.employee_id === null) {
-        return vacantBarSurfaceClass;
+        surface = vacantBarSurfaceClass;
+    } else {
+        surface = bar.is_assigned
+            ? deployedBarSurfaceClass
+            : plannedReliefBarSurfaceClass;
     }
 
-    return bar.is_assigned
-        ? deployedBarSurfaceClass
-        : plannedReliefBarSurfaceClass;
+    if (bar.is_open_ended) {
+        return `${surface} border-r-2 border-r-dashed pr-1`;
+    }
+
+    return surface;
 }
 
 export function barAvatarClass(bar: AssignmentStyleInput): string {

@@ -8,6 +8,7 @@ use App\Http\Requests\Organization\CrewPlanning\UpdateCrewPlanningAssignmentRequ
 use App\Models\CrewPlanningAssignment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class CrewPlanningAssignmentController extends Controller
 {
@@ -27,6 +28,12 @@ class CrewPlanningAssignmentController extends Controller
     {
         abort_if($assignment->company_id !== (int) $request->attributes->get('current_company_id'), 404);
 
+        if ($assignment->crew_assignment_id !== null) {
+            throw ValidationException::withMessages([
+                'error' => 'This planning bar is controlled by Current Crew. Update the linked crew assignment instead.',
+            ]);
+        }
+
         $assignment->update($request->validated());
 
         return back()->with('success', 'Assignment updated.');
@@ -35,6 +42,12 @@ class CrewPlanningAssignmentController extends Controller
     public function destroy(Request $request, CrewPlanningAssignment $assignment): RedirectResponse
     {
         abort_if($assignment->company_id !== (int) $request->attributes->get('current_company_id'), 404);
+
+        if ($assignment->crew_assignment_id !== null) {
+            throw ValidationException::withMessages([
+                'error' => 'This planning bar is controlled by Current Crew. Cancel or update the linked crew assignment instead.',
+            ]);
+        }
 
         $assignment->delete();
 

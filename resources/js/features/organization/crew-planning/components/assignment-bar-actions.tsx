@@ -1,6 +1,7 @@
-import { Pencil, Trash2 } from 'lucide-react';
+import { ExternalLink, Pencil, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
+import { show as showAssignment } from '@/routes/organization/crew-assignments';
 import type { GanttBar, PlanningPagePermissions } from '../types';
 
 type Props = {
@@ -16,6 +17,24 @@ export function AssignmentBarActions({
     onEdit,
     onDelete,
 }: Props): ReactElement | null {
+    if (bar.is_assigned && bar.crew_assignment_id !== null) {
+        return (
+            <div className="flex flex-wrap gap-2 border-t pt-2">
+                <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 flex-1 gap-1 rounded-lg text-xs"
+                    asChild
+                >
+                    <a href={showAssignment.url(bar.crew_assignment_id)}>
+                        <ExternalLink className="h-3 w-3" />
+                        Open Current Crew
+                    </a>
+                </Button>
+            </div>
+        );
+    }
+
     if (!can.update && !can.delete) {
         return null;
     }

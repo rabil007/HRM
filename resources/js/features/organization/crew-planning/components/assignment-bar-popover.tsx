@@ -114,8 +114,17 @@ function AssignmentBarPopoverContent({
                 />
                 <InfoRow
                     label="Planned leave"
-                    value={formatDate(bar.planned_leave_date)}
+                    value={
+                        bar.is_open_ended || bar.planned_leave_date === null
+                            ? 'No sign-off planned'
+                            : formatDate(bar.planned_leave_date)
+                    }
                 />
+                {bar.is_open_ended ? (
+                    <p className="mt-1 rounded-md border border-dashed border-muted-foreground/40 bg-muted/40 px-2 py-1.5 text-muted-foreground">
+                        Open-ended on-vessel assignment
+                    </p>
+                ) : null}
                 {bar.relieves_employee_name ? (
                     <InfoRow
                         label="Replacing"
@@ -128,7 +137,7 @@ function AssignmentBarPopoverContent({
                     </p>
                 ) : null}
             </div>
-            {can.update || can.delete ? (
+            {can.update || can.delete || bar.is_assigned ? (
                 <div className="border-t px-4 pb-3">
                     <AssignmentBarActions
                         bar={bar}

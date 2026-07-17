@@ -15,6 +15,7 @@ use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\Vessel;
+use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -25,6 +26,7 @@ use Illuminate\Support\Facades\DB;
  *
  * CrewAssignment is the single source of truth for crew movement.
  * Completed P4 phases sync EmployeeSeaService within the same transaction.
+ * Eligible assignments sync CrewPlanningAssignment after each movement action.
  */
 final class CrewMovementService
 {
@@ -32,6 +34,7 @@ final class CrewMovementService
         private CrewAssignmentInvariantGuard $invariants,
         private CrewAssignmentNumberGenerator $numbers,
         private SyncSeaServiceFromCrewAssignment $seaServiceSync,
+        private SyncPlanningAssignmentFromCrewAssignment $planningSync,
         private CrewMovementMasterDataGuard $masters,
     ) {}
 
@@ -151,8 +154,9 @@ final class CrewMovementService
 
             $result = $this->reloadLocked($companyId, $result->id);
             $this->invariants->assertValid($result);
+            $this->planningSync->sync($result);
 
-            return $result;
+            return $this->reloadLocked($companyId, $result->id);
         });
     }
 

@@ -10,7 +10,10 @@ use Illuminate\Support\Facades\DB;
 
 final class CreateCrewAssignmentFromPlanning
 {
-    public function __construct(private CrewMovementService $movements) {}
+    public function __construct(
+        private CrewMovementService $movements,
+        private SyncPlanningAssignmentFromCrewAssignment $planningSync,
+    ) {}
 
     public function handle(CrewPlanningAssignment $planning, ?int $actorId = null): CrewAssignment
     {
@@ -27,7 +30,9 @@ final class CreateCrewAssignmentFromPlanning
                     ->first();
 
                 if ($existing !== null) {
-                    return $existing;
+                    $this->planningSync->sync($existing);
+
+                    return $existing->fresh(['phases', 'currentPhase', 'planningAssignment']) ?? $existing;
                 }
             }
 
@@ -72,7 +77,9 @@ final class CreateCrewAssignmentFromPlanning
                 'crew_assignment_id' => $assignment->id,
             ]);
 
-            return $assignment->fresh(['phases', 'currentPhase']) ?? $assignment;
+            $this->planningSync->sync($assignment->fresh(['phases', 'employee', 'company']) ?? $assignment);
+
+            return $assignment->fresh(['phases', 'currentPhase', 'planningAssignment']) ?? $assignment;
         });
     }
 }

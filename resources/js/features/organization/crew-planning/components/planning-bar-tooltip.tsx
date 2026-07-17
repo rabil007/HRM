@@ -24,7 +24,7 @@ export function PlanningGanttBar({
     onEdit,
     onDelete,
 }: Props): ReactElement {
-    if (can.update) {
+    if (can.update && !bar.is_assigned) {
         return (
             <DraggableAssignmentBar
                 bar={bar}

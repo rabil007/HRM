@@ -19,7 +19,8 @@ export type GanttBar = {
     start: string;
     end: string;
     planned_join_date: string;
-    planned_leave_date: string;
+    planned_leave_date: string | null;
+    is_open_ended: boolean;
     total_days: number;
     rank_name: string | null;
     vessel_name: string | null;

@@ -85,27 +85,32 @@ final class CrewPlanningGanttQuery
             'vessel:id,name',
             'relievedAssignment.employee:id,name',
         ])
-            ->map(fn (CrewPlanningAssignment $assignment) => [
-                'id' => $assignment->id,
-                'row_key' => "vessel:{$assignment->vessel_id}|rank:{$assignment->rank_id}",
-                'employee_id' => $assignment->employee_id,
-                'employee_name' => $assignment->employee?->name ?? 'Vacant',
-                'start' => $assignment->planned_join_date->toDateString(),
-                'end' => $assignment->planned_leave_date->toDateString(),
-                'planned_join_date' => $assignment->planned_join_date->toDateString(),
-                'planned_leave_date' => $assignment->planned_leave_date->toDateString(),
-                'total_days' => CrewPlanningAssignmentDuration::inclusiveDays(
-                    $assignment->planned_join_date->toDateString(),
-                    $assignment->planned_leave_date->toDateString(),
-                ),
-                'rank_name' => $assignment->rank?->name,
-                'vessel_name' => $assignment->vessel?->name,
-                'notes' => $assignment->notes,
-                'crew_assignment_id' => $assignment->crew_assignment_id,
-                'relieves_crew_assignment_id' => $assignment->relieves_crew_assignment_id,
-                'relieves_employee_name' => $assignment->relievedAssignment?->employee?->name,
-                'is_assigned' => $assignment->crew_assignment_id !== null,
-            ])
+            ->map(function (CrewPlanningAssignment $assignment) use ($to) {
+                $joinDate = $assignment->planned_join_date->toDateString();
+                $leaveDate = $assignment->planned_leave_date?->toDateString();
+                $isOpenEnded = $leaveDate === null;
+                $displayEnd = $leaveDate ?? $to;
+
+                return [
+                    'id' => $assignment->id,
+                    'row_key' => "vessel:{$assignment->vessel_id}|rank:{$assignment->rank_id}",
+                    'employee_id' => $assignment->employee_id,
+                    'employee_name' => $assignment->employee?->name ?? 'Vacant',
+                    'start' => $joinDate,
+                    'end' => $displayEnd,
+                    'planned_join_date' => $joinDate,
+                    'planned_leave_date' => $leaveDate,
+                    'is_open_ended' => $isOpenEnded,
+                    'total_days' => CrewPlanningAssignmentDuration::inclusiveDays($joinDate, $displayEnd),
+                    'rank_name' => $assignment->rank?->name,
+                    'vessel_name' => $assignment->vessel?->name,
+                    'notes' => $assignment->notes,
+                    'crew_assignment_id' => $assignment->crew_assignment_id,
+                    'relieves_crew_assignment_id' => $assignment->relieves_crew_assignment_id,
+                    'relieves_employee_name' => $assignment->relievedAssignment?->employee?->name,
+                    'is_assigned' => $assignment->crew_assignment_id !== null,
+                ];
+            })
             ->values()
             ->all();
     }
@@ -200,7 +205,10 @@ final class CrewPlanningGanttQuery
             ->whereNotNull('vessel_id')
             ->whereNotNull('rank_id')
             ->where('planned_join_date', '<=', $to)
-            ->where('planned_leave_date', '>=', $from)
+            ->where(function (Builder $query) use ($from): void {
+                $query->where('planned_leave_date', '>=', $from)
+                    ->orWhereNull('planned_leave_date');
+            })
             ->when($vesselId !== null, fn (Builder $query) => $query->where('vessel_id', $vesselId))
             ->when($rankId !== null, fn (Builder $query) => $query->where('rank_id', $rankId))
             ->with($with)

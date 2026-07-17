@@ -188,9 +188,7 @@ export function CrewAssignmentsTableRow({
                             defaultVesselId={assignment.vessel?.id}
                             defaultRankId={assignment.rank?.id}
                             defaultClientId={assignment.client?.id}
-                            defaultVisaTypeId={
-                                assignment.company_visa_type?.id
-                            }
+                            defaultVisaTypeId={assignment.company_visa_type?.id}
                             defaultPlannedSignoffAt={
                                 assignment.planned_signoff_at
                             }

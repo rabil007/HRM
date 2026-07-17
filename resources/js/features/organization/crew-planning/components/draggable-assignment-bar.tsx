@@ -86,11 +86,11 @@ export function DraggableAssignmentBar({
             mode,
             startX: e.clientX,
             originalStart: bar.planned_join_date,
-            originalEnd: bar.planned_leave_date,
+            originalEnd: bar.planned_leave_date ?? bar.end,
             containerWidth,
         };
         optimisticStartRef.current = bar.planned_join_date;
-        optimisticEndRef.current = bar.planned_leave_date;
+        optimisticEndRef.current = bar.planned_leave_date ?? bar.end;
 
         setIsDragging(true);
         setLiveStyle(style);
@@ -204,7 +204,7 @@ export function DraggableAssignmentBar({
 
     const computedStyle = liveStyle ?? style;
     const displayStart = liveDates?.start ?? bar.planned_join_date;
-    const displayEnd = liveDates?.end ?? bar.planned_leave_date;
+    const displayEnd = liveDates?.end ?? bar.planned_leave_date ?? bar.end;
     const surfaceClass = barSurfaceClass(bar);
     const resizeHandleClass = barResizeHandleClass(bar);
 

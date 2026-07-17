@@ -85,7 +85,37 @@ Legacy `crew_operations.deployments.*` permissions are removed and migrated onto
 
 ## Planning
 
-`CreateCrewAssignmentFromPlanning` creates a draft assignment (`source = crew_planning`) and sets `crew_planning_assignments.crew_assignment_id`. Relief linking uses `relieves_crew_assignment_id`. Gantt payload uses `is_assigned` when a planning row is linked to a CrewAssignment.
+Bidirectional sync:
+
+1. **Planning → Assignment** — `CreateCrewAssignmentFromPlanning` creates a draft (`source = crew_planning`), links `crew_planning_assignments.crew_assignment_id`, then runs `SyncPlanningAssignmentFromCrewAssignment` so the original planning row is reused (no duplicate).
+2. **Assignment → Planning** — `SyncPlanningAssignmentFromCrewAssignment` creates/updates the linked planning bar after Current Crew create/update and after every `CrewMovementService::perform()` action.
+
+### Date precedence (Assignment → Planning)
+
+- Join: `P4.actual_start_at` → `planned_join_at`
+- Leave: `P4.actual_end_at` → `planned_signoff_at` → `P4.planned_end_at` → `null` (open-ended active P4)
+
+Actual disembarkation replaces planned sign-off on the planning bar. Planned sign-off is never treated as actual disembarkation.
+
+### Open-ended P4
+
+Active P4 without planned/actual leave may store `planned_leave_date = null`. Gantt includes those rows (`planned_leave_date IS NULL` overlaps the range). Display `end` uses the requested Gantt `to` date only; it is not persisted. Payload includes `is_open_ended: true`.
+
+### Linked-row ownership
+
+Once `crew_assignment_id` is set, Current Crew is source of truth. Planning update/delete of linked rows is rejected; the UI links to the assignment instead.
+
+### Cancellation
+
+- Cancelled before any completed P4: soft-delete the linked planning bar.
+- Completed P4 history: preserve the planning bar with actual join/leave dates.
+- Incomplete pre-P4 eligibility (missing vessel/dates) does **not** delete an existing planning-origin row.
+
+### Idempotency
+
+Lookup by `crew_assignment_id` (unique), restore soft-deleted linked rows, never create a second planning row for one assignment.
+
+Relief linking uses `relieves_crew_assignment_id`. Gantt `is_assigned` is true when `crew_assignment_id` is set.
 
 ## Sea service
 

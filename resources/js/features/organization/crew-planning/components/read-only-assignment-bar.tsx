@@ -41,7 +41,7 @@ export function ReadOnlyAssignmentBar({
                     <AssignmentBarLabel
                         bar={bar}
                         start={bar.planned_join_date}
-                        end={bar.planned_leave_date}
+                        end={bar.end}
                     />
                 </div>
             </PopoverTrigger>

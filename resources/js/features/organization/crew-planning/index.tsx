@@ -173,7 +173,7 @@ export function CrewPlanningContent({
             rank_id: bar.row_key.split('|')[1].replace('rank:', ''),
             employee_id: bar.employee_id != null ? String(bar.employee_id) : '',
             planned_join_date: bar.planned_join_date,
-            planned_leave_date: bar.planned_leave_date,
+            planned_leave_date: bar.planned_leave_date ?? '',
             notes: bar.notes ?? '',
             relieves_crew_assignment_id:
                 bar.relieves_crew_assignment_id != null

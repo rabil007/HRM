@@ -16,10 +16,13 @@ export function findRelievedAssignment(
             (bar) =>
                 bar.row_key === rowKey &&
                 bar.is_assigned &&
-                bar.crew_assignment_id !== null,
+                bar.crew_assignment_id !== null &&
+                bar.planned_leave_date !== null,
         )
         .sort((a, b) =>
-            a.planned_leave_date.localeCompare(b.planned_leave_date),
+            (a.planned_leave_date ?? '').localeCompare(
+                b.planned_leave_date ?? '',
+            ),
         );
 
     if (assignedBars.length === 0) {
@@ -27,14 +30,17 @@ export function findRelievedAssignment(
     }
 
     const preceding = assignedBars.filter(
-        (bar) => bar.planned_leave_date <= nearDate,
+        (bar) => (bar.planned_leave_date ?? '') <= nearDate,
     );
     const match =
         preceding.length > 0
             ? preceding[preceding.length - 1]
             : assignedBars[0];
 
-    if (match.crew_assignment_id === null) {
+    if (
+        match.crew_assignment_id === null ||
+        match.planned_leave_date === null
+    ) {
         return null;
     }
 
