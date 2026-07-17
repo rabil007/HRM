@@ -12,6 +12,7 @@ import {
     dataTableBodyRowClass,
     dataTableCellClass,
 } from '@/components/data-table';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -38,12 +39,11 @@ import type {
 
 const COL = {
     assignment: 'w-[148px] min-w-[148px] max-w-[148px]',
-    employeeName: 'w-[220px] min-w-[220px] max-w-[220px]',
+    employeeName: 'w-[240px] min-w-[240px] max-w-[240px]',
     rank: 'w-[140px] min-w-[140px]',
     vessel: 'w-[160px] min-w-[160px]',
     client: 'w-[150px] min-w-[150px]',
     visa: 'w-[160px] min-w-[160px]',
-    status: 'w-[110px] min-w-[110px]',
     phase: 'w-[140px] min-w-[140px]',
     date: 'w-[120px] min-w-[120px]',
     days: 'w-[100px] min-w-[100px]',
@@ -208,7 +208,7 @@ export function CrewMovementHistoryReportTable({
         >
             <TableHeader>
                 <TableRow>
-                    <DataTableHead colSpan={8} className={groupClass}>
+                    <DataTableHead colSpan={7} className={groupClass}>
                         Identity
                     </DataTableHead>
                     <DataTableHead colSpan={4} className={groupClass}>
@@ -293,13 +293,6 @@ export function CrewMovementHistoryReportTable({
                         filters={filters}
                         onSort={onSort}
                         className={cn(headerClass, COL.visa)}
-                    />
-                    <SortHead
-                        column="status"
-                        label="Status"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.status)}
                     />
                     <SortHead
                         label="Current Phase"
@@ -532,24 +525,40 @@ export function CrewMovementHistoryReportTable({
                                 )}
                             >
                                 <div
-                                    className="min-w-0"
+                                    className="min-w-0 space-y-1.5"
                                     title={
                                         [
                                             row.employee.name,
                                             row.employee.employee_no,
+                                            row.status_label,
                                         ]
                                             .filter(Boolean)
                                             .join(' · ') || undefined
                                     }
                                 >
-                                    <p className="truncate font-medium text-foreground">
-                                        {row.employee.name ?? '—'}
-                                    </p>
-                                    {row.employee.employee_no ? (
-                                        <p className="truncate font-mono text-[11px] text-muted-foreground/75">
-                                            {row.employee.employee_no}
+                                    <div className="min-w-0">
+                                        <p className="truncate font-medium text-foreground">
+                                            {row.employee.name ?? '—'}
                                         </p>
-                                    ) : null}
+                                        {row.employee.employee_no ? (
+                                            <p className="truncate font-mono text-[11px] text-muted-foreground/75">
+                                                {row.employee.employee_no}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                    <Badge
+                                        variant={
+                                            row.status === 'active'
+                                                ? 'success'
+                                                : row.status === 'draft'
+                                                  ? 'secondary'
+                                                  : row.status === 'cancelled'
+                                                    ? 'destructive'
+                                                    : 'outline'
+                                        }
+                                    >
+                                        {row.status_label}
+                                    </Badge>
                                 </div>
                             </Cell>
                             <Cell className={COL.rank}>
@@ -571,9 +580,6 @@ export function CrewMovementHistoryReportTable({
                                 <Truncate title={row.visa_type?.name}>
                                     {row.visa_type?.name ?? '—'}
                                 </Truncate>
-                            </Cell>
-                            <Cell className={COL.status}>
-                                {row.status_label}
                             </Cell>
                             <Cell className={COL.phase}>
                                 <Truncate title={row.current_phase?.label}>
