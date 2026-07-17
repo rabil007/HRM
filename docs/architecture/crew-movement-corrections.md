@@ -62,32 +62,32 @@ Notification failures after commit are reported and never roll back approval.
 - Crew Operations → **Movement Corrections**
 - Crew Operations overview: compact pending/overdue summary for users with correction view permission
 
-## Pending SLA and ageing
+## Pending Age tracking
 
-`CrewMovementCorrectionSla` calculates pending age from `requested_at`, falling back to `created_at` for legacy rows. Age is the number of completed calendar days between the request date and today in the active company timezone. The browser clock is not used and derived values are not stored.
+`CrewMovementCorrectionAge` calculates pending age from `requested_at`, falling back to `created_at` for legacy rows. Age is the number of completed calendar days between the request date and today in the active company timezone. The browser clock is not used and derived values are not stored.
 
-| Completed days | SLA |
-|----------------|-----|
-| 0–1 | Normal |
-| 2–3 | Attention |
+| Completed days | Request Status |
+|----------------|----------------|
+| 0–1 | On Time |
+| 2–3 | Needs Attention |
 | 4+ | Overdue |
 
-Approved, rejected, and cancelled corrections have `not_applicable` SLA status. Thresholds are centralized in the SLA class so they can be made configurable later without changing presenters or queries.
+These Age Rules apply only while a correction is pending. Approved, rejected, and cancelled corrections use `not_applicable` and no longer show active Pending Age. Thresholds are centralized in the Age class so they can be made configurable later without changing presenters or queries.
 
-The correction list uses SQL cutoffs derived from the same SLA thresholds for filtering, priority ordering, and aggregate counts. Pending rows sort overdue → attention → normal; non-pending decisions follow newest first. The compound `company_id`, `status`, `requested_at` index supports company-scoped pending lookups.
+The correction list uses SQL cutoffs derived from the same Age Rules for filtering, priority ordering, and aggregate counts. Pending rows sort overdue → needs attention → on time; non-pending decisions follow newest first. The compound `company_id`, `status`, `requested_at` index supports company-scoped pending lookups.
 
 ## Page responsibilities
 
-**Crew Operations overview → high-level operational attention only**
+**Crew Operations overview → high-level correction summary only**
 
 - One compact correction summary
 - Pending count
 - Overdue count
 - Link to Movement Corrections
 
-**Movement Corrections page → detailed correction management and approval**
+**Movement Corrections page → detailed correction review and approval**
 
-- SLA age, status, filters, and priority order
+- Pending Age, Request Status, filters, and priority order
 - Requester, assignment, phase, and field counts
 - Original/proposed/live comparisons
 - Approval, rejection, cancellation, conflicts, and decision history

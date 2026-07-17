@@ -35,10 +35,10 @@ import {
     index as correctionsIndex,
     show as showCorrection,
 } from '@/routes/organization/crew-movement-corrections';
+import { CrewMovementCorrectionAgeBadge } from './components/crew-movement-correction-age-badge';
 import type { CorrectionDecisionMode } from './components/crew-movement-correction-decision-dialog';
 import { CrewMovementCorrectionDecisionDialog } from './components/crew-movement-correction-decision-dialog';
 import { CrewMovementCorrectionRowActions } from './components/crew-movement-correction-row-actions';
-import { CrewMovementCorrectionSlaBadge } from './components/crew-movement-correction-sla-badge';
 import { CrewMovementCorrectionStatusBadge } from './components/crew-movement-correction-status-badge';
 import type {
     CrewMovementCorrectionListItem,
@@ -114,7 +114,7 @@ export function CrewMovementCorrectionsContent({
         list.applyFilters({
             status: config.status,
             scope: config.scope,
-            sla_status: '',
+            age_status: '',
         });
     };
 
@@ -127,18 +127,18 @@ export function CrewMovementCorrectionsContent({
                 list.applyFilters({
                     status: 'pending',
                     scope: '',
-                    sla_status: '',
+                    age_status: '',
                 }),
         },
         {
-            key: 'attention',
-            label: 'Attention',
-            count: summary_counts.attention,
+            key: 'needs_attention',
+            label: 'Needs Attention',
+            count: summary_counts.needs_attention,
             select: () =>
                 list.applyFilters({
                     status: 'pending',
                     scope: '',
-                    sla_status: 'attention',
+                    age_status: 'needs_attention',
                 }),
         },
         {
@@ -149,7 +149,7 @@ export function CrewMovementCorrectionsContent({
                 list.applyFilters({
                     status: 'pending',
                     scope: '',
-                    sla_status: 'overdue',
+                    age_status: 'overdue',
                 }),
         },
         {
@@ -160,7 +160,7 @@ export function CrewMovementCorrectionsContent({
                 list.applyFilters({
                     status: '',
                     scope: 'my_requests',
-                    sla_status: '',
+                    age_status: '',
                 }),
         },
     ];
@@ -225,7 +225,7 @@ export function CrewMovementCorrectionsContent({
                     />
                 </div>
                 <Select
-                    value={initialFilters.sla_status || 'all'}
+                    value={initialFilters.age_status || 'all'}
                     onValueChange={(value) =>
                         list.applyFilters({
                             status:
@@ -233,24 +233,31 @@ export function CrewMovementCorrectionsContent({
                                     ? initialFilters.status
                                     : 'pending',
                             scope: value === 'all' ? initialFilters.scope : '',
-                            sla_status: value === 'all' ? '' : value,
+                            age_status: value === 'all' ? '' : value,
                         })
                     }
                 >
-                    <SelectTrigger className="w-full lg:w-44">
-                        <SelectValue placeholder="SLA status" />
+                    <SelectTrigger
+                        aria-label="Request Status"
+                        className="w-full lg:w-52"
+                    >
+                        <SelectValue placeholder="Request Status" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All SLA statuses</SelectItem>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="attention">Attention</SelectItem>
+                        <SelectItem value="all">
+                            All Request Statuses
+                        </SelectItem>
+                        <SelectItem value="on_time">On Time</SelectItem>
+                        <SelectItem value="needs_attention">
+                            Needs Attention
+                        </SelectItem>
                         <SelectItem value="overdue">Overdue</SelectItem>
                     </SelectContent>
                 </Select>
                 <Button
                     type="button"
                     variant={
-                        initialFilters.sla_status === 'overdue'
+                        initialFilters.age_status === 'overdue'
                             ? 'destructive'
                             : 'outline'
                     }
@@ -258,8 +265,8 @@ export function CrewMovementCorrectionsContent({
                         list.applyFilters({
                             status: 'pending',
                             scope: '',
-                            sla_status:
-                                initialFilters.sla_status === 'overdue'
+                            age_status:
+                                initialFilters.age_status === 'overdue'
                                     ? ''
                                     : 'overdue',
                         })
@@ -284,8 +291,8 @@ export function CrewMovementCorrectionsContent({
                             <DataTableHead>Fields</DataTableHead>
                             <DataTableHead>Requested by</DataTableHead>
                             <DataTableHead>Requested at</DataTableHead>
-                            <DataTableHead>Age</DataTableHead>
-                            <DataTableHead>SLA</DataTableHead>
+                            <DataTableHead>Pending Age</DataTableHead>
+                            <DataTableHead>Request Status</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
                             <DataTableHead className="text-right">
                                 Actions
@@ -345,16 +352,19 @@ export function CrewMovementCorrectionsContent({
                                         )}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        {correction.age_label}
+                                        {correction.pending_age_label ?? '—'}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        {correction.sla_status ===
-                                        'not_applicable' ? (
+                                        {correction.age_status ===
+                                            'not_applicable' ||
+                                        !correction.age_status_label ? (
                                             '—'
                                         ) : (
-                                            <CrewMovementCorrectionSlaBadge
-                                                status={correction.sla_status}
-                                                label={correction.sla_label}
+                                            <CrewMovementCorrectionAgeBadge
+                                                status={correction.age_status}
+                                                label={
+                                                    correction.age_status_label
+                                                }
                                             />
                                         )}
                                     </TableCell>

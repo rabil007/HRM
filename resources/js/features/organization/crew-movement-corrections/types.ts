@@ -6,9 +6,9 @@ export type CrewMovementCorrectionStatus =
     | 'rejected'
     | 'cancelled';
 
-export type CrewMovementCorrectionSlaStatus =
-    | 'normal'
-    | 'attention'
+export type CrewMovementCorrectionAgeStatus =
+    | 'on_time'
+    | 'needs_attention'
     | 'overdue'
     | 'not_applicable';
 
@@ -30,13 +30,13 @@ export type CrewMovementCorrectionListItem = {
     decision_notes: string | null;
     requested_at: string | null;
     decided_at: string | null;
-    age_days: number | null;
-    age_label: string;
-    sla_status: CrewMovementCorrectionSlaStatus;
-    sla_label: string;
-    is_attention: boolean;
+    pending_days: number | null;
+    pending_age_label: string | null;
+    age_status: CrewMovementCorrectionAgeStatus;
+    age_status_label: string | null;
+    needs_attention: boolean;
     is_overdue: boolean;
-    days_beyond_sla: number;
+    overdue_days: number;
     assignment: {
         id: number;
         assignment_no: string;
@@ -89,12 +89,12 @@ export type CrewMovementCorrectionStatusCounts = {
 export type CrewMovementCorrectionFilters = {
     status: string;
     scope: string;
-    sla_status: string;
+    age_status: string;
 };
 
 export type CrewMovementCorrectionSummaryCounts = {
     pending: number;
-    attention: number;
+    needs_attention: number;
     overdue: number;
     my_requests: number;
 };

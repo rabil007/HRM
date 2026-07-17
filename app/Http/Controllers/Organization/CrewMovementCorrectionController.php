@@ -48,7 +48,7 @@ class CrewMovementCorrectionController extends Controller
             'filters' => [
                 'status' => trim((string) $request->query('status', '')),
                 'scope' => trim((string) $request->query('scope', '')),
-                'sla_status' => trim((string) $request->query('sla_status', '')),
+                'age_status' => trim((string) $request->query('age_status', '')),
             ],
             'can' => CrewMovementCorrectionPagePermissions::for($request->user()),
         ]);

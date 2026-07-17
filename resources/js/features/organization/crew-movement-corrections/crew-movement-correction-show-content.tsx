@@ -10,9 +10,9 @@ import { formatDisplayDate, formatDisplayDateTime12h } from '@/lib/format-date';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
 import { index as correctionsIndex } from '@/routes/organization/crew-movement-corrections';
 import { CorrectionValuesTable } from './components/correction-values-table';
+import { CrewMovementCorrectionAgeBadge } from './components/crew-movement-correction-age-badge';
 import type { CorrectionDecisionMode } from './components/crew-movement-correction-decision-dialog';
 import { CrewMovementCorrectionDecisionDialog } from './components/crew-movement-correction-decision-dialog';
-import { CrewMovementCorrectionSlaBadge } from './components/crew-movement-correction-sla-badge';
 import { CrewMovementCorrectionStatusBadge } from './components/crew-movement-correction-status-badge';
 import type { CrewMovementCorrectionShowProps } from './types';
 
@@ -164,7 +164,7 @@ export function CrewMovementCorrectionShowContent({
                         <Card className="border-border/80 dark:border-white/10">
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-base">
-                                    Approval SLA
+                                    Pending Age
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3 pt-0">
@@ -188,27 +188,32 @@ export function CrewMovementCorrectionShowContent({
                                 </div>
                                 <div className="flex items-center justify-between gap-3 text-sm">
                                     <span className="text-muted-foreground">
-                                        Age
+                                        Pending Age
                                     </span>
-                                    <span>{correction.age_label}</span>
+                                    <span>
+                                        {correction.pending_age_label ?? '—'}
+                                    </span>
                                 </div>
                                 <div className="flex items-center justify-between gap-3 text-sm">
                                     <span className="text-muted-foreground">
-                                        SLA
+                                        Request Status
                                     </span>
-                                    <CrewMovementCorrectionSlaBadge
-                                        status={correction.sla_status}
-                                        label={correction.sla_label}
-                                    />
+                                    {correction.age_status_label ? (
+                                        <CrewMovementCorrectionAgeBadge
+                                            status={correction.age_status}
+                                            label={correction.age_status_label}
+                                        />
+                                    ) : (
+                                        '—'
+                                    )}
                                 </div>
                                 {correction.is_overdue &&
-                                correction.days_beyond_sla > 0 ? (
+                                correction.overdue_days > 0 ? (
                                     <p className="border-t border-border/70 pt-3 text-xs text-destructive">
-                                        {correction.days_beyond_sla}{' '}
-                                        {correction.days_beyond_sla === 1
+                                        Overdue by {correction.overdue_days}{' '}
+                                        {correction.overdue_days === 1
                                             ? 'day'
-                                            : 'days'}{' '}
-                                        beyond the 4-day SLA
+                                            : 'days'}
                                     </p>
                                 ) : null}
                             </CardContent>

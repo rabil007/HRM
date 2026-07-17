@@ -18,9 +18,9 @@ final class CrewMovementCorrectionIndexQuery
         private readonly string $status = '',
         private readonly string $search = '',
         private readonly string $scope = '',
-        private readonly string $slaStatus = '',
+        private readonly string $ageStatus = '',
         private readonly string $timezone = 'UTC',
-        private readonly CrewMovementCorrectionSla $sla = new CrewMovementCorrectionSla,
+        private readonly CrewMovementCorrectionAge $age = new CrewMovementCorrectionAge,
     ) {}
 
     public static function fromRequest(Request $request, int $companyId): self
@@ -31,7 +31,7 @@ final class CrewMovementCorrectionIndexQuery
             status: trim((string) $request->query('status', '')),
             search: trim((string) $request->query('search', '')),
             scope: trim((string) $request->query('scope', '')),
-            slaStatus: trim((string) $request->query('sla_status', '')),
+            ageStatus: trim((string) $request->query('age_status', '')),
             timezone: (string) (Company::query()->whereKey($companyId)->value('timezone')
                 ?? config('app.timezone', 'UTC')),
         );
@@ -58,11 +58,11 @@ final class CrewMovementCorrectionIndexQuery
                 });
             });
 
-        if (in_array($this->slaStatus, ['normal', 'attention', 'overdue'], true)) {
-            $this->sla->applyFilter($query, $this->slaStatus, $this->timezone);
+        if (in_array($this->ageStatus, ['on_time', 'needs_attention', 'overdue'], true)) {
+            $this->age->applyFilter($query, $this->ageStatus, $this->timezone);
         }
 
-        $this->sla->applyPriorityOrder($query, $this->timezone);
+        $this->age->applyPriorityOrder($query, $this->timezone);
 
         return $query
             ->paginate($perPage)
@@ -99,7 +99,7 @@ final class CrewMovementCorrectionIndexQuery
     {
         $base = CrewMovementCorrection::query()
             ->where('company_id', $this->companyId);
-        $pendingCounts = $this->sla->pendingCounts(clone $base, $this->timezone);
+        $pendingCounts = $this->age->pendingCounts(clone $base, $this->timezone);
 
         return [
             ...$pendingCounts,

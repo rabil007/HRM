@@ -8,9 +8,9 @@ use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 
-final class CrewMovementCorrectionSla
+final class CrewMovementCorrectionAge
 {
-    public const ATTENTION_MIN_DAYS = 2;
+    public const NEEDS_ATTENTION_MIN_DAYS = 2;
 
     public const OVERDUE_MIN_DAYS = 4;
 
@@ -21,13 +21,13 @@ final class CrewMovementCorrectionSla
     ): array {
         if ($correction->status !== CrewMovementCorrectionStatus::Pending) {
             return [
-                'age_days' => null,
-                'age_label' => $correction->status->label(),
-                'sla_status' => 'not_applicable',
-                'sla_label' => 'Not applicable',
-                'is_attention' => false,
+                'pending_days' => null,
+                'pending_age_label' => null,
+                'age_status' => 'not_applicable',
+                'age_status_label' => null,
+                'needs_attention' => false,
                 'is_overdue' => false,
-                'days_beyond_sla' => 0,
+                'overdue_days' => 0,
             ];
         }
 
@@ -38,58 +38,58 @@ final class CrewMovementCorrectionSla
         $requestedDate = CarbonImmutable::instance($requestedAt ?? $today)
             ->setTimezone($timezone)
             ->startOfDay();
-        $ageDays = $requestedDate->greaterThan($today)
+        $pendingDays = $requestedDate->greaterThan($today)
             ? 0
             : (int) $requestedDate->diffInDays($today);
-        $slaStatus = $this->statusForAge($ageDays);
+        $ageStatus = $this->statusForAge($pendingDays);
 
         return [
-            'age_days' => $ageDays,
-            'age_label' => match ($ageDays) {
+            'pending_days' => $pendingDays,
+            'pending_age_label' => match ($pendingDays) {
                 0 => 'Pending today',
                 1 => 'Pending for 1 day',
-                default => sprintf('Pending for %d days', $ageDays),
+                default => sprintf('Pending for %d days', $pendingDays),
             },
-            'sla_status' => $slaStatus,
-            'sla_label' => match ($slaStatus) {
-                'attention' => 'Attention',
+            'age_status' => $ageStatus,
+            'age_status_label' => match ($ageStatus) {
+                'needs_attention' => 'Needs Attention',
                 'overdue' => 'Overdue',
-                default => 'Normal',
+                default => 'On Time',
             },
-            'is_attention' => $slaStatus === 'attention',
-            'is_overdue' => $slaStatus === 'overdue',
-            'days_beyond_sla' => max(0, $ageDays - self::OVERDUE_MIN_DAYS),
+            'needs_attention' => $ageStatus === 'needs_attention',
+            'is_overdue' => $ageStatus === 'overdue',
+            'overdue_days' => max(0, $pendingDays - self::OVERDUE_MIN_DAYS),
         ];
     }
 
-    public function statusForAge(int $ageDays): string
+    public function statusForAge(int $pendingDays): string
     {
-        if ($ageDays >= self::OVERDUE_MIN_DAYS) {
+        if ($pendingDays >= self::OVERDUE_MIN_DAYS) {
             return 'overdue';
         }
 
-        if ($ageDays >= self::ATTENTION_MIN_DAYS) {
-            return 'attention';
+        if ($pendingDays >= self::NEEDS_ATTENTION_MIN_DAYS) {
+            return 'needs_attention';
         }
 
-        return 'normal';
+        return 'on_time';
     }
 
     public function applyFilter(
         Builder $query,
-        string $slaStatus,
+        string $ageStatus,
         string $timezone,
         ?CarbonInterface $now = null,
     ): void {
-        [$attentionCutoff, $overdueCutoff] = $this->cutoffs($timezone, $now);
+        [$needsAttentionCutoff, $overdueCutoff] = $this->cutoffs($timezone, $now);
         $timestamp = 'COALESCE(requested_at, created_at)';
 
         $query->where('status', CrewMovementCorrectionStatus::Pending);
 
-        match ($slaStatus) {
-            'normal' => $query->whereRaw("{$timestamp} >= ?", [$attentionCutoff]),
-            'attention' => $query
-                ->whereRaw("{$timestamp} < ?", [$attentionCutoff])
+        match ($ageStatus) {
+            'on_time' => $query->whereRaw("{$timestamp} >= ?", [$needsAttentionCutoff]),
+            'needs_attention' => $query
+                ->whereRaw("{$timestamp} < ?", [$needsAttentionCutoff])
                 ->whereRaw("{$timestamp} >= ?", [$overdueCutoff]),
             'overdue' => $query->whereRaw("{$timestamp} < ?", [$overdueCutoff]),
             default => null,
@@ -101,7 +101,7 @@ final class CrewMovementCorrectionSla
         string $timezone,
         ?CarbonInterface $now = null,
     ): void {
-        [$attentionCutoff, $overdueCutoff] = $this->cutoffs($timezone, $now);
+        [$needsAttentionCutoff, $overdueCutoff] = $this->cutoffs($timezone, $now);
         $pending = CrewMovementCorrectionStatus::Pending->value;
 
         $query
@@ -112,7 +112,7 @@ final class CrewMovementCorrectionSla
                     WHEN status = ? THEN 2
                     ELSE 3
                 END',
-                [$pending, $overdueCutoff, $pending, $attentionCutoff, $pending],
+                [$pending, $overdueCutoff, $pending, $needsAttentionCutoff, $pending],
             )
             ->orderByRaw(
                 'CASE WHEN status = ? THEN COALESCE(requested_at, created_at) END ASC',
@@ -127,7 +127,7 @@ final class CrewMovementCorrectionSla
         string $timezone,
         ?CarbonInterface $now = null,
     ): array {
-        [$attentionCutoff, $overdueCutoff] = $this->cutoffs($timezone, $now);
+        [$needsAttentionCutoff, $overdueCutoff] = $this->cutoffs($timezone, $now);
         $pending = CrewMovementCorrectionStatus::Pending->value;
         $timestamp = 'COALESCE(requested_at, created_at)';
 
@@ -135,8 +135,8 @@ final class CrewMovementCorrectionSla
             ->where('status', $pending)
             ->selectRaw('COUNT(*) as pending_count')
             ->selectRaw(
-                "SUM(CASE WHEN {$timestamp} < ? AND {$timestamp} >= ? THEN 1 ELSE 0 END) as attention_count",
-                [$attentionCutoff, $overdueCutoff],
+                "SUM(CASE WHEN {$timestamp} < ? AND {$timestamp} >= ? THEN 1 ELSE 0 END) as needs_attention_count",
+                [$needsAttentionCutoff, $overdueCutoff],
             )
             ->selectRaw(
                 "SUM(CASE WHEN {$timestamp} < ? THEN 1 ELSE 0 END) as overdue_count",
@@ -146,7 +146,7 @@ final class CrewMovementCorrectionSla
 
         return [
             'pending' => (int) ($counts?->pending_count ?? 0),
-            'attention' => (int) ($counts?->attention_count ?? 0),
+            'needs_attention' => (int) ($counts?->needs_attention_count ?? 0),
             'overdue' => (int) ($counts?->overdue_count ?? 0),
         ];
     }
@@ -159,7 +159,7 @@ final class CrewMovementCorrectionSla
 
         return [
             $today
-                ->subDays(self::ATTENTION_MIN_DAYS - 1)
+                ->subDays(self::NEEDS_ATTENTION_MIN_DAYS - 1)
                 ->setTimezone((string) config('app.timezone', 'UTC')),
             $today
                 ->subDays(self::OVERDUE_MIN_DAYS - 1)

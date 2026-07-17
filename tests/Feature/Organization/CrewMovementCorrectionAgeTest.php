@@ -5,7 +5,7 @@ use App\Models\CrewMovementCorrection;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function makeCorrectionSlaFixtures(): array
+function makeCorrectionAgeFixtures(): array
 {
     $fixtures = makeCrewAssignmentFixtures();
     $fixtures['user']->update(['current_company_id' => $fixtures['company']->id]);
@@ -13,7 +13,7 @@ function makeCorrectionSlaFixtures(): array
         'crew_operations.corrections.view',
     ]);
 
-    $vessel = makeCrewMovementVessel('SLA Vessel');
+    $vessel = makeCrewMovementVessel('Age Vessel');
     $assignment = makeActiveOnVesselAssignment(
         $fixtures['company'],
         $fixtures['employee'],
@@ -28,9 +28,9 @@ function makeCorrectionSlaFixtures(): array
     ];
 }
 
-test('overdue filter returns only overdue pending corrections', function () {
+test('request status filter returns only overdue pending corrections', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-17 12:00:00', 'Asia/Dubai'));
-    $fixtures = makeCorrectionSlaFixtures();
+    $fixtures = makeCorrectionAgeFixtures();
 
     foreach ([1, 2, 4, 7] as $ageDays) {
         CrewMovementCorrection::factory()
@@ -44,34 +44,34 @@ test('overdue filter returns only overdue pending corrections', function () {
 
     $this->actingAs($fixtures['user'])
         ->get(route('organization.crew-movement-corrections.index', [
-            'sla_status' => 'overdue',
+            'age_status' => 'overdue',
         ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/crew-movement-corrections/index')
             ->has('corrections', 2)
-            ->where('filters.sla_status', 'overdue')
+            ->where('filters.age_status', 'overdue')
             ->where('summary_counts.pending', 4)
-            ->where('summary_counts.attention', 1)
+            ->where('summary_counts.needs_attention', 1)
             ->where('summary_counts.overdue', 2)
-            ->where('corrections.0.sla_status', 'overdue')
-            ->where('corrections.1.sla_status', 'overdue'));
+            ->where('corrections.0.age_status', 'overdue')
+            ->where('corrections.1.age_status', 'overdue'));
 
     CarbonImmutable::setTestNow();
 });
 
-test('corrections sort overdue then attention then normal then newest decisions', function () {
+test('corrections sort overdue then needs attention then on time then newest decisions', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-17 12:00:00', 'Asia/Dubai'));
-    $fixtures = makeCorrectionSlaFixtures();
+    $fixtures = makeCorrectionAgeFixtures();
 
-    $normal = CrewMovementCorrection::factory()
+    $onTime = CrewMovementCorrection::factory()
         ->forAssignment($fixtures['assignment'], $fixtures['phase'])
         ->pending()
         ->create([
             'requested_by' => $fixtures['user']->id,
             'requested_at' => now()->subDay(),
         ]);
-    $attention = CrewMovementCorrection::factory()
+    $needsAttention = CrewMovementCorrection::factory()
         ->forAssignment($fixtures['assignment'], $fixtures['phase'])
         ->pending()
         ->create([
@@ -98,16 +98,16 @@ test('corrections sort overdue then attention then normal then newest decisions'
         ->get(route('organization.crew-movement-corrections.index'))
         ->assertInertia(fn (Assert $page) => $page
             ->where('corrections.0.id', $overdue->id)
-            ->where('corrections.1.id', $attention->id)
-            ->where('corrections.2.id', $normal->id)
+            ->where('corrections.1.id', $needsAttention->id)
+            ->where('corrections.2.id', $onTime->id)
             ->where('corrections.3.id', $approved->id));
 
     CarbonImmutable::setTestNow();
 });
 
-test('detail exposes active SLA only for pending corrections', function () {
+test('detail exposes active pending age only for pending corrections', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-17 12:00:00', 'Asia/Dubai'));
-    $fixtures = makeCorrectionSlaFixtures();
+    $fixtures = makeCorrectionAgeFixtures();
     $pending = CrewMovementCorrection::factory()
         ->forAssignment($fixtures['assignment'], $fixtures['phase'])
         ->pending()
@@ -119,10 +119,11 @@ test('detail exposes active SLA only for pending corrections', function () {
     $this->actingAs($fixtures['user'])
         ->get(route('organization.crew-movement-corrections.show', $pending))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('correction.age_days', 6)
-            ->where('correction.age_label', 'Pending for 6 days')
-            ->where('correction.sla_status', 'overdue')
-            ->where('correction.days_beyond_sla', 2));
+            ->where('correction.pending_days', 6)
+            ->where('correction.pending_age_label', 'Pending for 6 days')
+            ->where('correction.age_status', 'overdue')
+            ->where('correction.age_status_label', 'Overdue')
+            ->where('correction.overdue_days', 2));
 
     $pending->update([
         'status' => CrewMovementCorrectionStatus::Rejected,
@@ -133,8 +134,9 @@ test('detail exposes active SLA only for pending corrections', function () {
     $this->actingAs($fixtures['user'])
         ->get(route('organization.crew-movement-corrections.show', $pending))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('correction.age_days', null)
-            ->where('correction.sla_status', 'not_applicable')
+            ->where('correction.pending_days', null)
+            ->where('correction.pending_age_label', null)
+            ->where('correction.age_status', 'not_applicable')
             ->where('correction.is_overdue', false));
 
     CarbonImmutable::setTestNow();

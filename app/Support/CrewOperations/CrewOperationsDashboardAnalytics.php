@@ -9,7 +9,7 @@ use App\Models\CrewMovementCorrection;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\User;
-use App\Support\CrewMovements\Corrections\CrewMovementCorrectionSla;
+use App\Support\CrewMovements\Corrections\CrewMovementCorrectionAge;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -24,7 +24,7 @@ final class CrewOperationsDashboardAnalytics
     private const UPCOMING_PLANNING_DAYS = 14;
 
     public function __construct(
-        private readonly CrewMovementCorrectionSla $correctionSla,
+        private readonly CrewMovementCorrectionAge $correctionAge,
     ) {}
 
     /**
@@ -357,7 +357,7 @@ final class CrewOperationsDashboardAnalytics
         $timezone = (string) (Company::query()
             ->whereKey($companyId)
             ->value('timezone') ?? config('app.timezone', 'UTC'));
-        $counts = $this->correctionSla->pendingCounts(
+        $counts = $this->correctionAge->pendingCounts(
             CrewMovementCorrection::query()->where('company_id', $companyId),
             $timezone,
         );
