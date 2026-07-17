@@ -36,6 +36,27 @@ import type {
     PhaseSummary,
 } from './types';
 
+const COL = {
+    assignment: 'w-[148px] min-w-[148px] max-w-[148px]',
+    employeeName: 'w-[220px] min-w-[220px] max-w-[220px]',
+    rank: 'w-[140px] min-w-[140px]',
+    vessel: 'w-[160px] min-w-[160px]',
+    client: 'w-[150px] min-w-[150px]',
+    visa: 'w-[160px] min-w-[160px]',
+    status: 'w-[110px] min-w-[110px]',
+    phase: 'w-[140px] min-w-[140px]',
+    date: 'w-[120px] min-w-[120px]',
+    days: 'w-[100px] min-w-[100px]',
+    periods: 'w-[200px] min-w-[200px]',
+    details: 'w-[200px] min-w-[200px]',
+    remarks: 'w-[220px] min-w-[220px]',
+    attention: 'w-[170px] min-w-[170px]',
+    actions: 'w-[72px] min-w-[72px]',
+} as const;
+
+const stickyHead = 'sticky top-8 z-30 border-r border-border/70 bg-background';
+const stickyCell =
+    'sticky z-10 border-r border-border/70 bg-background group-hover:bg-muted';
 function SortHead({
     column,
     label,
@@ -50,7 +71,11 @@ function SortHead({
     className?: string;
 }) {
     if (!column) {
-        return <DataTableHead className={className}>{label}</DataTableHead>;
+        return (
+            <DataTableHead className={cn('whitespace-nowrap', className)}>
+                {label}
+            </DataTableHead>
+        );
     }
 
     const active = filters.sort === column;
@@ -61,14 +86,14 @@ function SortHead({
         : ChevronsUpDown;
 
     return (
-        <DataTableHead className={className}>
+        <DataTableHead className={cn('whitespace-nowrap', className)}>
             <button
                 type="button"
                 onClick={() => onSort(column)}
-                className="inline-flex items-center gap-1"
+                className="inline-flex max-w-full items-center gap-1 truncate"
             >
-                {label}
-                <Icon className="size-3.5" aria-hidden />
+                <span className="truncate">{label}</span>
+                <Icon className="size-3.5 shrink-0" aria-hidden />
             </button>
         </DataTableHead>
     );
@@ -91,7 +116,7 @@ function Periods({ summary }: { summary: PhaseSummary }) {
         .join('\n');
 
     return (
-        <div className="max-w-[220px] space-y-1 whitespace-normal" title={text}>
+        <div className="space-y-1 whitespace-normal" title={text}>
             {summary.periods.slice(0, 2).map((period) => (
                 <Period key={period.sequence} period={period} />
             ))}
@@ -106,7 +131,7 @@ function Periods({ summary }: { summary: PhaseSummary }) {
 
 function Period({ period }: { period: PhasePeriod }) {
     return (
-        <div className="text-xs">
+        <div className="text-xs leading-snug">
             {formatDisplayDate(period.start)} →{' '}
             {period.status === 'active'
                 ? 'Ongoing'
@@ -136,11 +161,29 @@ function Cell({
 }) {
     return (
         <TableCell
-            className={cn(dataTableCellClass(), 'align-top', className)}
+            className={cn(
+                dataTableCellClass(),
+                'align-top whitespace-nowrap',
+                className,
+            )}
             title={title}
         >
             {children}
         </TableCell>
+    );
+}
+
+function Truncate({
+    children,
+    title,
+}: {
+    children: ReactNode;
+    title?: string | null;
+}) {
+    return (
+        <span className="block truncate" title={title ?? undefined}>
+            {children}
+        </span>
     );
 }
 
@@ -159,13 +202,13 @@ export function CrewMovementHistoryReportTable({
 }) {
     return (
         <OrganizationDataTable
-            minWidth="min-w-[6700px]"
+            minWidth="min-w-[5960px]"
             compact
             tableClassName="table-fixed"
         >
             <TableHeader>
                 <TableRow>
-                    <DataTableHead colSpan={10} className={groupClass}>
+                    <DataTableHead colSpan={8} className={groupClass}>
                         Identity
                     </DataTableHead>
                     <DataTableHead colSpan={4} className={groupClass}>
@@ -198,7 +241,10 @@ export function CrewMovementHistoryReportTable({
                     <DataTableHead colSpan={5} className={groupClass}>
                         Completion
                     </DataTableHead>
-                    <DataTableHead rowSpan={2} className={groupClass}>
+                    <DataTableHead
+                        rowSpan={2}
+                        className={cn(groupClass, COL.actions, 'align-middle')}
+                    >
                         Actions
                     </DataTableHead>
                 </TableRow>
@@ -208,25 +254,17 @@ export function CrewMovementHistoryReportTable({
                         label="Assignment No"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(
-                            headerClass,
-                            'sticky left-0 z-30 w-[150px]',
-                        )}
-                    />
-                    <SortHead
-                        label="Employee No"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, 'w-[130px]')}
+                        className={cn(stickyHead, COL.assignment, 'left-0')}
                     />
                     <SortHead
                         column="employee_name"
-                        label="Employee Name"
+                        label="Employee"
                         filters={filters}
                         onSort={onSort}
                         className={cn(
-                            headerClass,
-                            'sticky left-[150px] z-30 w-[220px]',
+                            stickyHead,
+                            COL.employeeName,
+                            'left-[148px]',
                         )}
                     />
                     <SortHead
@@ -234,46 +272,40 @@ export function CrewMovementHistoryReportTable({
                         label="Rank"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[140px]')}
+                        className={cn(headerClass, COL.rank)}
                     />
                     <SortHead
                         column="vessel"
                         label="Vessel"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[160px]')}
+                        className={cn(headerClass, COL.vessel)}
                     />
                     <SortHead
                         column="client"
                         label="Client"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[150px]')}
+                        className={cn(headerClass, COL.client)}
                     />
                     <SortHead
                         label="Sponsor / Visa Type"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[170px]')}
+                        className={cn(headerClass, COL.visa)}
                     />
                     <SortHead
                         column="status"
                         label="Status"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[120px]')}
+                        className={cn(headerClass, COL.status)}
                     />
                     <SortHead
                         label="Current Phase"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[150px]')}
-                    />
-                    <SortHead
-                        label="Source"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, 'w-[130px]')}
+                        className={cn(headerClass, COL.phase)}
                     />
                     {[
                         'Planned Travel In',
@@ -293,7 +325,7 @@ export function CrewMovementHistoryReportTable({
                             label={label}
                             filters={filters}
                             onSort={onSort}
-                            className={cn(headerClass, 'w-[140px]')}
+                            className={cn(headerClass, COL.date)}
                         />
                     ))}
                     {['From', 'To', 'Days', 'From', 'Arrival Date', 'Days'].map(
@@ -303,7 +335,10 @@ export function CrewMovementHistoryReportTable({
                                 label={label}
                                 filters={filters}
                                 onSort={onSort}
-                                className={cn(headerClass, 'w-[125px]')}
+                                className={cn(
+                                    headerClass,
+                                    label === 'Days' ? COL.days : COL.date,
+                                )}
                             />
                         ),
                     )}
@@ -311,79 +346,79 @@ export function CrewMovementHistoryReportTable({
                         label="Periods"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[230px]')}
+                        className={cn(headerClass, COL.periods)}
                     />
                     <SortHead
                         label="Total Days"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[110px]')}
+                        className={cn(headerClass, COL.days)}
                     />
                     <SortHead
                         label="Periods"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[230px]')}
+                        className={cn(headerClass, COL.periods)}
                     />
                     <SortHead
                         label="Total Days"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[110px]')}
+                        className={cn(headerClass, COL.days)}
                     />
                     <SortHead
                         label="Provider / Course"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[220px]')}
+                        className={cn(headerClass, COL.details)}
                     />
                     <SortHead
                         label="Periods"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[230px]')}
+                        className={cn(headerClass, COL.periods)}
                     />
                     <SortHead
                         label="From"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[125px]')}
+                        className={cn(headerClass, COL.date)}
                     />
                     <SortHead
                         label="To"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[125px]')}
+                        className={cn(headerClass, COL.date)}
                     />
                     <SortHead
                         label="Days"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[120px]')}
+                        className={cn(headerClass, COL.days)}
                     />
                     <SortHead
                         label="On-Vessel Periods"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[230px]')}
+                        className={cn(headerClass, COL.periods)}
                     />
                     <SortHead
                         label="Actual Join"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[130px]')}
+                        className={cn(headerClass, COL.date)}
                     />
                     <SortHead
                         label="Actual Disembarkation"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[170px]')}
+                        className={cn(headerClass, COL.date)}
                     />
                     <SortHead
                         label="Vessel Days"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[120px]')}
+                        className={cn(headerClass, COL.days)}
                     />
                     {[
                         'Periods',
@@ -402,7 +437,11 @@ export function CrewMovementHistoryReportTable({
                             onSort={onSort}
                             className={cn(
                                 headerClass,
-                                index % 4 === 0 ? 'w-[220px]' : 'w-[125px]',
+                                label === 'Periods'
+                                    ? COL.periods
+                                    : label === 'Days'
+                                      ? COL.days
+                                      : COL.date,
                             )}
                         />
                     ))}
@@ -411,32 +450,32 @@ export function CrewMovementHistoryReportTable({
                         label="Assignment Started"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[150px]')}
+                        className={cn(headerClass, COL.date)}
                     />
                     <SortHead
                         column="closed_at"
                         label="Assignment Closed"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[150px]')}
+                        className={cn(headerClass, COL.date)}
                     />
                     <SortHead
                         label="Total Days"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[120px]')}
+                        className={cn(headerClass, COL.days)}
                     />
                     <SortHead
                         label="Remarks"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[240px]')}
+                        className={cn(headerClass, COL.remarks)}
                     />
                     <SortHead
                         label="Needs Attention"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, 'w-[180px]')}
+                        className={cn(headerClass, COL.attention)}
                     />
                 </TableRow>
             </TableHeader>
@@ -469,147 +508,236 @@ export function CrewMovementHistoryReportTable({
                                 'group',
                             )}
                         >
-                            <Cell className="sticky left-0 z-10 bg-background font-semibold group-hover:bg-muted">
-                                <Link
-                                    href={showAssignment.url(row.id)}
-                                    className="text-primary hover:underline"
+                            <Cell
+                                className={cn(
+                                    stickyCell,
+                                    COL.assignment,
+                                    'left-0 font-semibold',
+                                )}
+                            >
+                                <Truncate title={row.assignment_no}>
+                                    <Link
+                                        href={showAssignment.url(row.id)}
+                                        className="text-primary hover:underline"
+                                    >
+                                        {row.assignment_no}
+                                    </Link>
+                                </Truncate>
+                            </Cell>
+                            <Cell
+                                className={cn(
+                                    stickyCell,
+                                    COL.employeeName,
+                                    'left-[148px]',
+                                )}
+                            >
+                                <div
+                                    className="min-w-0"
+                                    title={
+                                        [
+                                            row.employee.name,
+                                            row.employee.employee_no,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' · ') || undefined
+                                    }
                                 >
-                                    {row.assignment_no}
-                                </Link>
+                                    <p className="truncate font-medium text-foreground">
+                                        {row.employee.name ?? '—'}
+                                    </p>
+                                    {row.employee.employee_no ? (
+                                        <p className="truncate font-mono text-[11px] text-muted-foreground/75">
+                                            {row.employee.employee_no}
+                                        </p>
+                                    ) : null}
+                                </div>
                             </Cell>
-                            <Cell>{row.employee.employee_no ?? '—'}</Cell>
-                            <Cell className="sticky left-[150px] z-10 bg-background font-medium group-hover:bg-muted">
-                                {row.employee.name ?? '—'}
+                            <Cell className={COL.rank}>
+                                <Truncate title={row.rank?.name}>
+                                    {row.rank?.name ?? '—'}
+                                </Truncate>
                             </Cell>
-                            <Cell>{row.rank?.name ?? '—'}</Cell>
-                            <Cell>{row.vessel?.name ?? '—'}</Cell>
-                            <Cell>{row.client?.name ?? '—'}</Cell>
-                            <Cell>{row.visa_type?.name ?? '—'}</Cell>
-                            <Cell>{row.status_label}</Cell>
-                            <Cell>{row.current_phase?.label ?? '—'}</Cell>
-                            <Cell>{row.source_label}</Cell>
-                            <Cell>
+                            <Cell className={COL.vessel}>
+                                <Truncate title={row.vessel?.name}>
+                                    {row.vessel?.name ?? '—'}
+                                </Truncate>
+                            </Cell>
+                            <Cell className={COL.client}>
+                                <Truncate title={row.client?.name}>
+                                    {row.client?.name ?? '—'}
+                                </Truncate>
+                            </Cell>
+                            <Cell className={COL.visa}>
+                                <Truncate title={row.visa_type?.name}>
+                                    {row.visa_type?.name ?? '—'}
+                                </Truncate>
+                            </Cell>
+                            <Cell className={COL.status}>
+                                {row.status_label}
+                            </Cell>
+                            <Cell className={COL.phase}>
+                                <Truncate title={row.current_phase?.label}>
+                                    {row.current_phase?.label ?? '—'}
+                                </Truncate>
+                            </Cell>
+                            <Cell className={COL.date}>
                                 <DateCell value={row.planned_travel_in} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell value={row.planned_join} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell value={row.planned_signoff} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell value={row.planned_travel_home} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell value={row.pre_mobilisation.from} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell
                                     value={row.pre_mobilisation.to}
                                     ongoing={p0Ongoing}
                                 />
                             </Cell>
-                            <Cell>{row.pre_mobilisation.total_days_label}</Cell>
-                            <Cell>
+                            <Cell className={COL.days}>
+                                {row.pre_mobilisation.total_days_label}
+                            </Cell>
+                            <Cell className={COL.date}>
                                 <DateCell value={row.travel_in.from} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell
                                     value={row.travel_in.to}
                                     ongoing={p1Ongoing}
                                 />
                             </Cell>
-                            <Cell>{row.travel_in.total_days_label}</Cell>
-                            <Cell>
+                            <Cell className={COL.days}>
+                                {row.travel_in.total_days_label}
+                            </Cell>
+                            <Cell
+                                className={cn(COL.periods, 'whitespace-normal')}
+                            >
                                 <Periods summary={row.join_standby} />
                             </Cell>
-                            <Cell>{row.join_standby.total_days_label}</Cell>
-                            <Cell>
+                            <Cell className={COL.days}>
+                                {row.join_standby.total_days_label}
+                            </Cell>
+                            <Cell
+                                className={cn(COL.periods, 'whitespace-normal')}
+                            >
                                 <Periods summary={row.training} />
                             </Cell>
-                            <Cell>{row.training.total_days_label}</Cell>
-                            <Cell title={row.training.details.join('\n')}>
+                            <Cell className={COL.days}>
+                                {row.training.total_days_label}
+                            </Cell>
+                            <Cell
+                                className={cn(COL.details, 'whitespace-normal')}
+                                title={row.training.details.join('\n')}
+                            >
                                 {row.training.details.length
                                     ? row.training.details.join('; ')
                                     : '—'}
                             </Cell>
-                            <Cell>
+                            <Cell
+                                className={cn(COL.periods, 'whitespace-normal')}
+                            >
                                 <Periods summary={row.ready_to_join} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell value={row.ready_to_join.from} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell
                                     value={row.ready_to_join.to}
                                     ongoing={readyOngoing}
                                 />
                             </Cell>
-                            <Cell>{row.ready_to_join.total_days_label}</Cell>
-                            <Cell>
+                            <Cell className={COL.days}>
+                                {row.ready_to_join.total_days_label}
+                            </Cell>
+                            <Cell
+                                className={cn(COL.periods, 'whitespace-normal')}
+                            >
                                 <Periods summary={row.on_vessel} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell value={row.on_vessel.actual_join} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell
                                     value={row.on_vessel.actual_disembarkation}
                                     ongoing={vesselOngoing}
                                 />
                             </Cell>
-                            <Cell>{row.on_vessel.total_days_label}</Cell>
-                            <Cell>
+                            <Cell className={COL.days}>
+                                {row.on_vessel.total_days_label}
+                            </Cell>
+                            <Cell
+                                className={cn(COL.periods, 'whitespace-normal')}
+                            >
                                 <Periods summary={row.demob_standby} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell value={row.demob_standby.from} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell
                                     value={row.demob_standby.to}
                                     ongoing={demobOngoing}
                                 />
                             </Cell>
-                            <Cell>{row.demob_standby.total_days_label}</Cell>
-                            <Cell>
+                            <Cell className={COL.days}>
+                                {row.demob_standby.total_days_label}
+                            </Cell>
+                            <Cell
+                                className={cn(COL.periods, 'whitespace-normal')}
+                            >
                                 <Periods summary={row.home_redeploy} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell value={row.home_redeploy.from} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell
                                     value={row.home_redeploy.to}
                                     ongoing={homeOngoing}
                                 />
                             </Cell>
-                            <Cell>{row.home_redeploy.total_days_label}</Cell>
-                            <Cell>
+                            <Cell className={COL.days}>
+                                {row.home_redeploy.total_days_label}
+                            </Cell>
+                            <Cell className={COL.date}>
                                 <DateCell value={row.assignment_started} />
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.date}>
                                 <DateCell
                                     value={row.assignment_closed}
                                     ongoing={row.status === 'active'}
                                 />
                             </Cell>
-                            <Cell>{row.total_assignment_days_label}</Cell>
+                            <Cell className={COL.days}>
+                                {row.total_assignment_days_label}
+                            </Cell>
                             <Cell
-                                className="whitespace-normal"
+                                className={cn(COL.remarks, 'whitespace-normal')}
                                 title={row.remarks ?? undefined}
                             >
                                 {row.remarks ?? '—'}
                             </Cell>
                             <Cell
-                                className="whitespace-normal"
+                                className={cn(
+                                    COL.attention,
+                                    'whitespace-normal',
+                                )}
                                 title={row.warnings.join('\n')}
                             >
                                 {row.needs_attention
                                     ? row.warnings.join(', ')
                                     : 'No'}
                             </Cell>
-                            <Cell>
+                            <Cell className={COL.actions}>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button
