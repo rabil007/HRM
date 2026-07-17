@@ -3,6 +3,7 @@
 namespace App\Listeners;
 
 use App\Models\User;
+use App\Support\Auth\RememberSession;
 use Illuminate\Auth\Events\Login;
 
 class RecordUserLastLogin
@@ -11,6 +12,12 @@ class RecordUserLastLogin
     {
         if (! $event->user instanceof User) {
             return;
+        }
+
+        if ($event->remember) {
+            RememberSession::mark();
+        } else {
+            RememberSession::forget();
         }
 
         $event->user->forceFill([

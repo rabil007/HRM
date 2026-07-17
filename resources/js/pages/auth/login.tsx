@@ -132,6 +132,11 @@ export default function Login({ status, canResetPassword }: Props) {
                         </div>
 
                         <div className="flex items-center gap-2.5 pt-0.5">
+                            <input
+                                type="hidden"
+                                name="remember"
+                                value={remember ? '1' : '0'}
+                            />
                             <Checkbox
                                 id="remember"
                                 checked={remember}
@@ -141,13 +146,6 @@ export default function Login({ status, canResetPassword }: Props) {
                                     setRemember(checked === true)
                                 }
                             />
-                            {remember ? (
-                                <input
-                                    type="hidden"
-                                    name="remember"
-                                    value="1"
-                                />
-                            ) : null}
                             <label
                                 htmlFor="remember"
                                 className="cursor-pointer text-sm text-muted-foreground select-none"

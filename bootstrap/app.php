@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\ExtendRememberedSessionLifetime;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\LogFailedFileUploads;
@@ -32,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->web(append: [
+            ExtendRememberedSessionLifetime::class,
             HandleAppearance::class,
             SetCurrentCompany::class,
             HandleInertiaRequests::class,
