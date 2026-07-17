@@ -3,12 +3,13 @@
 namespace App\Support\CrewOperations;
 
 use App\Enums\CrewAssignmentStatus;
-use App\Enums\CrewMovementCorrectionStatus;
+use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\CrewMovementCorrection;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\User;
+use App\Support\CrewMovements\Corrections\CrewMovementCorrectionSla;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,6 +22,10 @@ final class CrewOperationsDashboardAnalytics
     private const UPCOMING_PLANNING_LIMIT = 8;
 
     private const UPCOMING_PLANNING_DAYS = 14;
+
+    public function __construct(
+        private readonly CrewMovementCorrectionSla $correctionSla,
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -45,7 +50,6 @@ final class CrewOperationsDashboardAnalytics
             $maxHomeDays,
             $today,
             $permissions['planning'],
-            $permissions['corrections_approve'] ?? false,
         );
         $attentionItems = $this->attentionItems(
             $companyId,
@@ -53,7 +57,6 @@ final class CrewOperationsDashboardAnalytics
             $today,
             $permissions['planning'],
             $manningGaps['items'],
-            $permissions['corrections_approve'] ?? false,
         );
 
         return [
@@ -70,6 +73,9 @@ final class CrewOperationsDashboardAnalytics
             'pool_snapshot' => [
                 'count' => count(CrewOperationsSettings::poolEmployees($companyId)),
             ],
+            ...($permissions['corrections_view']
+                ? ['movement_corrections' => $this->movementCorrectionSummary($companyId)]
+                : []),
             'recent_activity' => CrewOperationsRecentActivityQuery::forCompany($user, $companyId),
             'max_home_days' => $maxHomeDays,
             'can' => $permissions,
@@ -123,8 +129,7 @@ final class CrewOperationsDashboardAnalytics
      *     needs_update: int,
      *     due_soon: int,
      *     overdue_home: int,
-     *     upcoming_planning: int,
-     *     pending_corrections: int
+     *     upcoming_planning: int
      * }
      */
     private function alertCounts(
@@ -132,7 +137,6 @@ final class CrewOperationsDashboardAnalytics
         int $maxHomeDays,
         CarbonImmutable $today,
         bool $canViewPlanning,
-        bool $canApproveCorrections,
     ): array {
         $employees = Employee::query()
             ->where('company_id', $companyId)
@@ -179,12 +183,6 @@ final class CrewOperationsDashboardAnalytics
             'upcoming_planning' => $canViewPlanning
                 ? $this->upcomingPlanningCount($companyId, $today)
                 : 0,
-            'pending_corrections' => $canApproveCorrections
-                ? CrewMovementCorrection::query()
-                    ->where('company_id', $companyId)
-                    ->where('status', CrewMovementCorrectionStatus::Pending)
-                    ->count()
-                : 0,
         ];
     }
 
@@ -204,30 +202,9 @@ final class CrewOperationsDashboardAnalytics
         CarbonImmutable $today,
         bool $canViewPlanning,
         array $manningGapItems,
-        bool $canApproveCorrections,
     ): array {
         $items = [];
         $seenEmployeeIds = [];
-
-        if ($canApproveCorrections) {
-            $pendingCount = CrewMovementCorrection::query()
-                ->where('company_id', $companyId)
-                ->where('status', CrewMovementCorrectionStatus::Pending)
-                ->count();
-
-            if ($pendingCount > 0) {
-                $items[] = [
-                    'type' => 'pending_corrections',
-                    'title' => 'Movement corrections pending',
-                    'subtitle' => null,
-                    'hint' => sprintf('%d correction%s awaiting review', $pendingCount, $pendingCount === 1 ? '' : 's'),
-                    'href' => route('organization.crew-movement-corrections.index', [
-                        'status' => CrewMovementCorrectionStatus::Pending->value,
-                    ]),
-                    'severity' => 'warning',
-                ];
-            }
-        }
 
         $employees = Employee::query()
             ->where('company_id', $companyId)
@@ -373,6 +350,23 @@ final class CrewOperationsDashboardAnalytics
         }
 
         return $items;
+    }
+
+    private function movementCorrectionSummary(int $companyId): array
+    {
+        $timezone = (string) (Company::query()
+            ->whereKey($companyId)
+            ->value('timezone') ?? config('app.timezone', 'UTC'));
+        $counts = $this->correctionSla->pendingCounts(
+            CrewMovementCorrection::query()->where('company_id', $companyId),
+            $timezone,
+        );
+
+        return [
+            'pending' => $counts['pending'],
+            'overdue' => $counts['overdue'],
+            'url' => route('organization.crew-movement-corrections.index'),
+        ];
     }
 
     /**

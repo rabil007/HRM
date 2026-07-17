@@ -8,7 +8,6 @@ import {
     CalendarRange,
     ChevronRight,
     Clock,
-    FilePenLine,
     Home,
     LayoutDashboard,
     Ship,
@@ -33,7 +32,6 @@ import { ManningGapsCard } from '@/features/organization/crew-operations/compone
 import type { CrewOperationsDashboardProps } from '@/features/organization/crew-operations/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import { index as crewMovementCorrections } from '@/routes/organization/crew-movement-corrections';
 import crewOperations from '@/routes/organization/crew-operations';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
 import { index as vesselManningIndex } from '@/routes/organization/vessel-manning';
@@ -50,7 +48,6 @@ const SEVERITY_BADGE: Record<string, 'destructive' | 'warning' | 'secondary'> =
 const ALERT_GRID_COLS: Record<number, string> = {
     4: 'lg:grid-cols-4',
     5: 'lg:grid-cols-5',
-    6: 'lg:grid-cols-6',
 };
 
 export function CrewOperationsDashboardContent({
@@ -61,6 +58,7 @@ export function CrewOperationsDashboardContent({
     deployment_trends: deploymentTrends,
     upcoming_planning: upcomingPlanning,
     pool_snapshot: poolSnapshot,
+    movement_corrections: movementCorrections,
     recent_activity: recentActivity,
     max_home_days: maxHomeDays,
     can,
@@ -73,6 +71,7 @@ export function CrewOperationsDashboardContent({
             'attention_items',
             'manning_gaps',
             'deployment_trends',
+            'movement_corrections',
         ],
     });
 
@@ -87,8 +86,7 @@ export function CrewOperationsDashboardContent({
         alertCounts.needs_update +
             alertCounts.overdue_home +
             alertCounts.due_soon +
-            (can.vessel_manning ? alertCounts.manning_gaps : 0) +
-            (can.corrections_approve ? alertCounts.pending_corrections : 0) >
+            (can.vessel_manning ? alertCounts.manning_gaps : 0) >
         0;
 
     return (
@@ -172,9 +170,6 @@ export function CrewOperationsDashboardContent({
                                 can.vessel_manning &&
                                     alertCounts.manning_gaps > 0 &&
                                     `${alertCounts.manning_gaps} manning gap${alertCounts.manning_gaps !== 1 ? 's' : ''}`,
-                                can.corrections_approve &&
-                                    alertCounts.pending_corrections > 0 &&
-                                    `${alertCounts.pending_corrections} pending correction${alertCounts.pending_corrections !== 1 ? 's' : ''}`,
                             ]
                                 .filter(Boolean)
                                 .join(' · ')}
@@ -188,11 +183,7 @@ export function CrewOperationsDashboardContent({
             <div
                 className={cn(
                     'mb-6 grid gap-4 sm:grid-cols-2',
-                    ALERT_GRID_COLS[
-                        4 +
-                            Number(can.vessel_manning) +
-                            Number(can.corrections_approve)
-                    ],
+                    ALERT_GRID_COLS[4 + Number(can.vessel_manning)],
                 )}
             >
                 <MetricCard
@@ -251,21 +242,52 @@ export function CrewOperationsDashboardContent({
                         href={vesselManningIndex.url()}
                     />
                 ) : null}
-                {can.corrections_approve ? (
-                    <MetricCard
-                        title="Pending corrections"
-                        value={alertCounts.pending_corrections.toLocaleString()}
-                        hint="Movement corrections awaiting review"
-                        icon={FilePenLine}
-                        iconColor="text-purple-400"
-                        iconBg="bg-purple-500/10 border-purple-500/20"
-                        accent="border-purple-500/20 hover:border-purple-500/30"
-                        href={crewMovementCorrections.url({
-                            query: { status: 'pending' },
-                        })}
-                    />
-                ) : null}
             </div>
+
+            {movementCorrections ? (
+                <Link
+                    href={movementCorrections.url}
+                    className="mb-8 block rounded-xl border border-border/70 bg-card p-4 transition-colors hover:bg-muted/30 dark:border-white/10"
+                >
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <p className="text-sm font-semibold">
+                                Movement Corrections
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Approval queue summary
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-6 text-sm">
+                            <div>
+                                <span className="text-muted-foreground">
+                                    Pending
+                                </span>
+                                <span className="ml-2 font-semibold tabular-nums">
+                                    {movementCorrections.pending}
+                                </span>
+                            </div>
+                            <div>
+                                <span className="text-muted-foreground">
+                                    Overdue
+                                </span>
+                                <span
+                                    className={cn(
+                                        'ml-2 font-semibold tabular-nums',
+                                        movementCorrections.overdue > 0 &&
+                                            'text-destructive',
+                                    )}
+                                >
+                                    {movementCorrections.overdue}
+                                </span>
+                            </div>
+                            <span className="text-xs font-medium text-primary">
+                                Review Corrections →
+                            </span>
+                        </div>
+                    </div>
+                </Link>
+            ) : null}
 
             <SectionLabel icon={Ship} label="Deployment status" />
             <div className="mb-8">

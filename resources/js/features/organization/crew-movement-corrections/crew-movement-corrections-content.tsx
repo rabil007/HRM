@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
@@ -15,6 +15,14 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
+import { Button } from '@/components/ui/button';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import {
     TableBody,
     TableCell,
@@ -23,7 +31,6 @@ import {
 } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDateTime12h } from '@/lib/format-date';
-import { cn } from '@/lib/utils';
 import {
     index as correctionsIndex,
     show as showCorrection,
@@ -31,6 +38,7 @@ import {
 import type { CorrectionDecisionMode } from './components/crew-movement-correction-decision-dialog';
 import { CrewMovementCorrectionDecisionDialog } from './components/crew-movement-correction-decision-dialog';
 import { CrewMovementCorrectionRowActions } from './components/crew-movement-correction-row-actions';
+import { CrewMovementCorrectionSlaBadge } from './components/crew-movement-correction-sla-badge';
 import { CrewMovementCorrectionStatusBadge } from './components/crew-movement-correction-status-badge';
 import type {
     CrewMovementCorrectionListItem,
@@ -68,6 +76,7 @@ export function CrewMovementCorrectionsContent({
     corrections,
     pagination,
     status_counts,
+    summary_counts,
     search: initialSearch,
     filters: initialFilters,
     can,
@@ -102,8 +111,59 @@ export function CrewMovementCorrectionsContent({
             return;
         }
 
-        list.applyFilters({ status: config.status, scope: config.scope });
+        list.applyFilters({
+            status: config.status,
+            scope: config.scope,
+            sla_status: '',
+        });
     };
+
+    const summaryCards = [
+        {
+            key: 'pending',
+            label: 'Pending',
+            count: summary_counts.pending,
+            select: () =>
+                list.applyFilters({
+                    status: 'pending',
+                    scope: '',
+                    sla_status: '',
+                }),
+        },
+        {
+            key: 'attention',
+            label: 'Attention',
+            count: summary_counts.attention,
+            select: () =>
+                list.applyFilters({
+                    status: 'pending',
+                    scope: '',
+                    sla_status: 'attention',
+                }),
+        },
+        {
+            key: 'overdue',
+            label: 'Overdue',
+            count: summary_counts.overdue,
+            select: () =>
+                list.applyFilters({
+                    status: 'pending',
+                    scope: '',
+                    sla_status: 'overdue',
+                }),
+        },
+        {
+            key: 'my_requests',
+            label: 'My Requests',
+            count: summary_counts.my_requests,
+            select: () =>
+                list.applyFilters({
+                    status: '',
+                    scope: 'my_requests',
+                    sla_status: '',
+                }),
+        },
+    ];
 
     const openDecision = (
         correction: CrewMovementCorrectionListItem,
@@ -121,40 +181,93 @@ export function CrewMovementCorrectionsContent({
                 description="Review and decide on crew movement correction requests."
             />
 
-            <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
-                {TABS.map((tab) => {
-                    const isActive = activeTab === tab.key;
-                    const count = status_counts[tab.key];
-
-                    return (
-                        <button
-                            key={tab.key}
-                            type="button"
-                            onClick={() => selectTab(tab.key)}
-                            aria-pressed={isActive}
-                            className={cn(
-                                'group relative overflow-hidden rounded-2xl border glass-card p-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md',
-                                isActive
-                                    ? 'border-primary/30 bg-primary/5 text-primary ring-1 ring-primary/20'
-                                    : 'border-border/60 bg-card/80 hover:border-border hover:bg-card dark:hover:border-white/10',
-                            )}
-                        >
-                            <span className="text-[10px] font-bold tracking-[0.18em] text-muted-foreground/70 uppercase group-hover:text-foreground">
-                                {tab.label}
-                            </span>
-                            <div className="mt-2 text-2xl font-extrabold text-foreground tabular-nums">
-                                {count}
-                            </div>
-                        </button>
-                    );
-                })}
+            <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+                {summaryCards.map((card) => (
+                    <button
+                        key={card.key}
+                        type="button"
+                        onClick={card.select}
+                        className="rounded-xl border border-border/70 bg-card p-4 text-left transition-colors hover:bg-muted/30 dark:border-white/10"
+                    >
+                        <span className="text-xs font-medium text-muted-foreground">
+                            {card.label}
+                        </span>
+                        <div className="mt-1 text-2xl font-bold tabular-nums">
+                            {card.count}
+                        </div>
+                    </button>
+                ))}
             </div>
 
-            <SearchBar
-                placeholder="Search assignment number or employee..."
-                value={list.searchInput}
-                onChange={list.onSearchChange}
-            />
+            <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-border/70 pb-3">
+                {TABS.map((tab) => (
+                    <Button
+                        key={tab.key}
+                        type="button"
+                        size="sm"
+                        variant={activeTab === tab.key ? 'secondary' : 'ghost'}
+                        onClick={() => selectTab(tab.key)}
+                    >
+                        {tab.label}
+                        <span className="ml-1 text-xs text-muted-foreground">
+                            {status_counts[tab.key]}
+                        </span>
+                    </Button>
+                ))}
+            </div>
+
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="min-w-0 flex-1">
+                    <SearchBar
+                        placeholder="Search assignment number or employee..."
+                        value={list.searchInput}
+                        onChange={list.onSearchChange}
+                    />
+                </div>
+                <Select
+                    value={initialFilters.sla_status || 'all'}
+                    onValueChange={(value) =>
+                        list.applyFilters({
+                            status:
+                                value === 'all'
+                                    ? initialFilters.status
+                                    : 'pending',
+                            scope: value === 'all' ? initialFilters.scope : '',
+                            sla_status: value === 'all' ? '' : value,
+                        })
+                    }
+                >
+                    <SelectTrigger className="w-full lg:w-44">
+                        <SelectValue placeholder="SLA status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All SLA statuses</SelectItem>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="attention">Attention</SelectItem>
+                        <SelectItem value="overdue">Overdue</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Button
+                    type="button"
+                    variant={
+                        initialFilters.sla_status === 'overdue'
+                            ? 'destructive'
+                            : 'outline'
+                    }
+                    onClick={() =>
+                        list.applyFilters({
+                            status: 'pending',
+                            scope: '',
+                            sla_status:
+                                initialFilters.sla_status === 'overdue'
+                                    ? ''
+                                    : 'overdue',
+                        })
+                    }
+                >
+                    Overdue only
+                </Button>
+            </div>
 
             {corrections.length === 0 ? (
                 <EmptyState
@@ -162,7 +275,7 @@ export function CrewMovementCorrectionsContent({
                     description="Try adjusting your search or filters."
                 />
             ) : (
-                <OrganizationDataTable minWidth="min-w-[1160px]">
+                <OrganizationDataTable minWidth="min-w-[1280px]">
                     <TableHeader>
                         <DataTableHeaderRow>
                             <DataTableHead>Assignment</DataTableHead>
@@ -171,6 +284,8 @@ export function CrewMovementCorrectionsContent({
                             <DataTableHead>Fields</DataTableHead>
                             <DataTableHead>Requested by</DataTableHead>
                             <DataTableHead>Requested at</DataTableHead>
+                            <DataTableHead>Age</DataTableHead>
+                            <DataTableHead>SLA</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
                             <DataTableHead className="text-right">
                                 Actions
@@ -194,7 +309,7 @@ export function CrewMovementCorrectionsContent({
                                     <TableCell
                                         className={dataTableCellPrimaryClass()}
                                     >
-                                        <a
+                                        <Link
                                             className="text-primary hover:underline"
                                             href={showCorrection.url(
                                                 correction.id,
@@ -202,7 +317,7 @@ export function CrewMovementCorrectionsContent({
                                         >
                                             {correction.assignment
                                                 ?.assignment_no ?? '—'}
-                                        </a>
+                                        </Link>
                                         {correction.has_conflict ? (
                                             <span className="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400">
                                                 Conflict
@@ -227,6 +342,20 @@ export function CrewMovementCorrectionsContent({
                                     <TableCell className={dataTableCellClass()}>
                                         {formatDisplayDateTime12h(
                                             correction.requested_at,
+                                        )}
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass()}>
+                                        {correction.age_label}
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass()}>
+                                        {correction.sla_status ===
+                                        'not_applicable' ? (
+                                            '—'
+                                        ) : (
+                                            <CrewMovementCorrectionSlaBadge
+                                                status={correction.sla_status}
+                                                label={correction.sla_label}
+                                            />
                                         )}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>

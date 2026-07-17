@@ -20,7 +20,6 @@ export type CrewOperationsAlertCounts = {
     overdue_home: number;
     upcoming_planning: number;
     manning_gaps: number;
-    pending_corrections: number;
 };
 
 export type CrewOperationsAttentionItem = {
@@ -29,8 +28,7 @@ export type CrewOperationsAttentionItem = {
         | 'overdue_home'
         | 'due_soon'
         | 'upcoming_join'
-        | 'manning_gap'
-        | 'pending_corrections';
+        | 'manning_gap';
     title: string;
     subtitle: string | null;
     hint: string;
@@ -85,6 +83,11 @@ export type CrewOperationsDashboardProps = {
     deployment_trends: CrewOperationsDeploymentTrendPoint[];
     upcoming_planning: CrewOperationsUpcomingPlanningItem[];
     pool_snapshot: { count: number };
+    movement_corrections?: {
+        pending: number;
+        overdue: number;
+        url: string;
+    };
     recent_activity: RecentActivityItem[];
     max_home_days: number;
     can: CrewOperationsPagePermissions;

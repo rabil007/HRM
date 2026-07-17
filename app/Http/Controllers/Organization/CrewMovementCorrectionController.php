@@ -43,10 +43,12 @@ class CrewMovementCorrectionController extends Controller
                 ->all(),
             'pagination' => $this->paginationMeta($paginator),
             'status_counts' => $query->statusCounts(),
+            'summary_counts' => $query->summaryCounts(),
             'search' => trim((string) $request->query('search', '')),
             'filters' => [
                 'status' => trim((string) $request->query('status', '')),
                 'scope' => trim((string) $request->query('scope', '')),
+                'sla_status' => trim((string) $request->query('sla_status', '')),
             ],
             'can' => CrewMovementCorrectionPagePermissions::for($request->user()),
         ]);
@@ -58,6 +60,7 @@ class CrewMovementCorrectionController extends Controller
         CrewMovementCorrectionAccess::assertInCompany($correction, $companyId);
 
         $correction->load([
+            'company:id,timezone',
             'assignment.employee:id,company_id,employee_no,name',
             'assignment.vessel:id,name',
             'assignment.rank:id,name',

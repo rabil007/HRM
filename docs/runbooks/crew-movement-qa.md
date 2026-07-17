@@ -98,3 +98,46 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Excel and CSV contain the same filtered assignment set as the table
 - [ ] Company A cannot view or export Company B assignment history
 - [ ] No `EmployeeDeployment` or duplicate movement/report table is created
+
+## Movement Correction Production Readiness QA
+
+### Reusable pre-deployment checklist
+
+- [ ] Pending request leaves assignment, phase, Planning, Sea Service, and Movement History unchanged
+- [ ] Approval by another authorized user applies the correction atomically
+- [ ] Approved completed P4 correction re-syncs Planning and Sea Service
+- [ ] Rejection and requester cancellation preserve official movement data
+- [ ] Self-approval is blocked without override and succeeds with override
+- [ ] Stale originals block approval without partial writes
+- [ ] Pending ages classify 0–1 Normal, 2–3 Attention, and 4+ Overdue
+- [ ] Overdue filter and priority sorting are company-scoped
+- [ ] Correction detail shows SLA only while pending
+- [ ] Crew Operations shows only pending count, overdue count, and review link
+- [ ] Crew Operations hides correction summary without view permission
+- [ ] Company A cannot view, decide, filter, or count Company B corrections
+- [ ] Narrow viewport and dark mode remain readable without horizontal page overflow
+- [ ] Focused correction tests, related regressions, full backend suite, and frontend checks pass
+
+### Production-readiness execution record
+
+| Field | Value |
+|-------|-------|
+| Test date | 2026-07-17 |
+| Environment | Local Laravel Herd application and test database |
+| Tester | Cursor Agent |
+
+| Scenario | Expected result | Actual result | Result | Notes / reference |
+|----------|-----------------|---------------|--------|-------------------|
+| A — Pending correction | Official P4, Planning, and Sea Service remain unchanged; request appears pending | Local integration workflow left official phase data unchanged and returned one pending request | Pass | `CrewMovementCorrectionRequestTest` |
+| B — Approval and re-sync | P4, Planning, Sea Service, report metadata, and audit update atomically | Local integration workflow applied approved values and re-synced Planning and completed P4 Sea Service | Pass | `CrewMovementCorrectionApprovalTest`, `CrewMovementCorrectionSyncTest` |
+| C — Rejection | Official movement data remains unchanged and reason is visible | Rejection persisted decision status and notes without changing the phase | Pass | `CrewMovementCorrectionLifecycleTest` |
+| D — Cancellation | Official movement data remains unchanged and status is Cancelled | Requester cancellation persisted Cancelled without changing the phase | Pass | `CrewMovementCorrectionLifecycleTest` |
+| E — Self-approval | Blocked without override; allowed with override | Permission integration blocked self-approval and separately verified override access | Pass | `CrewMovementCorrectionPermissionsTest` |
+| F — Stale request | Conflict blocks approval with no partial changes | Stale originals produced a conflict and transaction assertions confirmed no partial writes | Pass | `CrewMovementCorrectionConflictTest` |
+| G — SLA ageing | 0–1 Normal, 2–3 Attention, 4+ Overdue in company timezone | Browser QA displayed six synthetic ages in overdue, attention, normal order; quick filter returned only two overdue rows; detail showed 3 days beyond SLA | Pass | Browser QA snapshot; `CrewMovementCorrectionSlaTest` |
+| H — Dashboard simplification | Only pending, overdue, and review link are shown | Browser QA showed one compact card with Pending 6, Overdue 2, and Review Corrections; no correction row or actor data appeared | Pass | Desktop, dark-mode, and 390 px browser QA snapshots; `CrewOperationsCorrectionSummaryTest` |
+| I — Tenant isolation | Cross-company records are absent from pages, counts, and direct URLs | Company-scoped list, direct URL, decision, and dashboard count assertions excluded foreign-company corrections | Pass | `CrewMovementCorrectionCompanyScopeTest`, `CrewOperationsCorrectionSummaryTest` |
+
+Do not record employee names, credentials, or other sensitive production data in this execution record. Store screenshots only in approved QA evidence storage and reference them here without embedding sensitive content.
+
+The correction list, detail SLA panel, filters, and compact dashboard card passed desktop dark-mode and narrow-viewport checks. The pre-existing operational phase summary strip remains dense at a 390 px viewport; this does not duplicate correction data or affect correction actions, but should be handled as a separate Crew Operations responsive-layout improvement.

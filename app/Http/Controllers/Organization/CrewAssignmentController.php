@@ -183,6 +183,7 @@ class CrewAssignmentController extends Controller
         CrewAssignmentAccess::assertInCompany($assignment, $companyId);
 
         $assignment->load([
+            'company:id,timezone',
             'employee',
             'rank',
             'client',

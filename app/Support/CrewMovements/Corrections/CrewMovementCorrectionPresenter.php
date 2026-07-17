@@ -13,15 +13,18 @@ final class CrewMovementCorrectionPresenter
     public function __construct(
         private readonly CrewMovementCorrectionValueSnapshot $snapshot = new CrewMovementCorrectionValueSnapshot,
         private readonly CrewMovementCorrectionFieldCatalog $catalog = new CrewMovementCorrectionFieldCatalog,
+        private readonly CrewMovementCorrectionSla $sla = new CrewMovementCorrectionSla,
     ) {}
 
     /**
      * @return array<string, mixed>
      */
-    public function listItem(CrewMovementCorrection $correction): array
+    public function listItem(CrewMovementCorrection $correction, ?string $timezone = null): array
     {
         $assignment = $correction->assignment;
         $phase = $correction->phase;
+        $timezone ??= (string) ($correction->company?->timezone
+            ?? config('app.timezone', 'UTC'));
 
         return [
             'id' => $correction->id,
@@ -29,8 +32,9 @@ final class CrewMovementCorrectionPresenter
             'status_label' => $correction->status->label(),
             'reason' => $correction->reason,
             'decision_notes' => $correction->decision_notes,
-            'requested_at' => $correction->requested_at?->toIso8601String(),
+            'requested_at' => ($correction->requested_at ?? $correction->created_at)?->toIso8601String(),
             'decided_at' => $correction->decided_at?->toIso8601String(),
+            ...$this->sla->forCorrection($correction, $timezone),
             'assignment' => $assignment ? [
                 'id' => $assignment->id,
                 'assignment_no' => $assignment->assignment_no,
@@ -111,10 +115,16 @@ final class CrewMovementCorrectionPresenter
 
         $pending = $corrections->where('status', CrewMovementCorrectionStatus::Pending)->values();
         $history = $corrections->values();
+        $timezone = (string) ($assignment->company?->timezone
+            ?? config('app.timezone', 'UTC'));
 
         return [
-            'pending' => $pending->map(fn (CrewMovementCorrection $correction) => $this->listItem($correction))->all(),
-            'history' => $history->map(fn (CrewMovementCorrection $correction) => $this->listItem($correction))->all(),
+            'pending' => $pending
+                ->map(fn (CrewMovementCorrection $correction) => $this->listItem($correction, $timezone))
+                ->all(),
+            'history' => $history
+                ->map(fn (CrewMovementCorrection $correction) => $this->listItem($correction, $timezone))
+                ->all(),
             'pending_count' => $pending->count(),
             'approved_count' => $corrections->where('status', CrewMovementCorrectionStatus::Approved)->count(),
             'correctable_phases' => $assignment->phases

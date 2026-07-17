@@ -5,6 +5,7 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\CrewMovementCorrection;
 use App\Support\Reports\CrewMovementHistoryPresenter;
 use Carbon\CarbonImmutable;
 
@@ -174,7 +175,7 @@ test('it exposes approved correction metadata without treating pending as offici
     ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
     $assignment = CrewAssignment::factory()->forEmployee($employee)->create();
 
-    \App\Models\CrewMovementCorrection::factory()
+    CrewMovementCorrection::factory()
         ->forAssignment($assignment)
         ->approved()
         ->create([
@@ -183,7 +184,7 @@ test('it exposes approved correction metadata without treating pending as offici
             'decided_at' => '2026-07-10 12:00:00',
         ]);
 
-    \App\Models\CrewMovementCorrection::factory()
+    CrewMovementCorrection::factory()
         ->forAssignment($assignment)
         ->pending()
         ->create([

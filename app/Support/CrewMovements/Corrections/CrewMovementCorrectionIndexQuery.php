@@ -3,6 +3,7 @@
 namespace App\Support\CrewMovements\Corrections;
 
 use App\Enums\CrewMovementCorrectionStatus;
+use App\Models\Company;
 use App\Models\CrewMovementCorrection;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -17,6 +18,9 @@ final class CrewMovementCorrectionIndexQuery
         private readonly string $status = '',
         private readonly string $search = '',
         private readonly string $scope = '',
+        private readonly string $slaStatus = '',
+        private readonly string $timezone = 'UTC',
+        private readonly CrewMovementCorrectionSla $sla = new CrewMovementCorrectionSla,
     ) {}
 
     public static function fromRequest(Request $request, int $companyId): self
@@ -27,6 +31,9 @@ final class CrewMovementCorrectionIndexQuery
             status: trim((string) $request->query('status', '')),
             search: trim((string) $request->query('search', '')),
             scope: trim((string) $request->query('scope', '')),
+            slaStatus: trim((string) $request->query('sla_status', '')),
+            timezone: (string) (Company::query()->whereKey($companyId)->value('timezone')
+                ?? config('app.timezone', 'UTC')),
         );
     }
 
@@ -35,7 +42,7 @@ final class CrewMovementCorrectionIndexQuery
      */
     public function paginate(int $perPage): LengthAwarePaginator
     {
-        return $this->baseQuery()
+        $query = $this->baseQuery()
             ->when($this->status !== '', fn (Builder $query) => $query->where('status', $this->status))
             ->when($this->scope === 'my_requests' && $this->user !== null, fn (Builder $query) => $query->where('requested_by', $this->user->id))
             ->when($this->search !== '', function (Builder $query): void {
@@ -49,8 +56,15 @@ final class CrewMovementCorrectionIndexQuery
                             });
                     });
                 });
-            })
-            ->latest('id')
+            });
+
+        if (in_array($this->slaStatus, ['normal', 'attention', 'overdue'], true)) {
+            $this->sla->applyFilter($query, $this->slaStatus, $this->timezone);
+        }
+
+        $this->sla->applyPriorityOrder($query, $this->timezone);
+
+        return $query
             ->paginate($perPage)
             ->withQueryString();
     }
@@ -81,6 +95,20 @@ final class CrewMovementCorrectionIndexQuery
         ];
     }
 
+    public function summaryCounts(): array
+    {
+        $base = CrewMovementCorrection::query()
+            ->where('company_id', $this->companyId);
+        $pendingCounts = $this->sla->pendingCounts(clone $base, $this->timezone);
+
+        return [
+            ...$pendingCounts,
+            'my_requests' => $this->user === null
+                ? 0
+                : (clone $base)->where('requested_by', $this->user->id)->count(),
+        ];
+    }
+
     /**
      * @return Builder<CrewMovementCorrection>
      */
@@ -88,6 +116,7 @@ final class CrewMovementCorrectionIndexQuery
     {
         return CrewMovementCorrection::query()
             ->with([
+                'company:id,timezone',
                 'assignment.employee:id,company_id,employee_no,name',
                 'assignment.vessel:id,name',
                 'phase:id,crew_assignment_id,phase_code,status',
