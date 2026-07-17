@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import { AlertTriangle, CalendarClock, Clock, FileEdit } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
@@ -31,6 +32,7 @@ import {
 } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDateTime12h } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 import {
     index as correctionsIndex,
     show as showCorrection,
@@ -123,6 +125,10 @@ export function CrewMovementCorrectionsContent({
             key: 'pending',
             label: 'Pending',
             count: summary_counts.pending,
+            icon: Clock,
+            iconColor: 'text-amber-500',
+            iconBg: 'bg-amber-500/10 border-amber-500/20',
+            accent: 'border-amber-500/20 hover:border-amber-500/30',
             select: () =>
                 list.applyFilters({
                     status: 'pending',
@@ -134,6 +140,10 @@ export function CrewMovementCorrectionsContent({
             key: 'needs_attention',
             label: 'Needs Attention',
             count: summary_counts.needs_attention,
+            icon: CalendarClock,
+            iconColor: 'text-orange-500',
+            iconBg: 'bg-orange-500/10 border-orange-500/20',
+            accent: 'border-orange-500/20 hover:border-orange-500/30',
             select: () =>
                 list.applyFilters({
                     status: 'pending',
@@ -145,6 +155,10 @@ export function CrewMovementCorrectionsContent({
             key: 'overdue',
             label: 'Overdue',
             count: summary_counts.overdue,
+            icon: AlertTriangle,
+            iconColor: 'text-red-500',
+            iconBg: 'bg-red-500/10 border-red-500/20',
+            accent: 'border-red-500/20 hover:border-red-500/30',
             select: () =>
                 list.applyFilters({
                     status: 'pending',
@@ -156,6 +170,10 @@ export function CrewMovementCorrectionsContent({
             key: 'my_requests',
             label: 'My Requests',
             count: summary_counts.my_requests,
+            icon: FileEdit,
+            iconColor: 'text-blue-500',
+            iconBg: 'bg-blue-500/10 border-blue-500/20',
+            accent: 'border-blue-500/20 hover:border-blue-500/30',
             select: () =>
                 list.applyFilters({
                     status: '',
@@ -181,25 +199,49 @@ export function CrewMovementCorrectionsContent({
                 description="Review and decide on crew movement correction requests."
             />
 
-            <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-                {summaryCards.map((card) => (
-                    <button
-                        key={card.key}
-                        type="button"
-                        onClick={card.select}
-                        className="rounded-xl border border-border/70 bg-card p-4 text-left transition-colors hover:bg-muted/30 dark:border-white/10"
-                    >
-                        <span className="text-xs font-medium text-muted-foreground">
-                            {card.label}
-                        </span>
-                        <div className="mt-1 text-2xl font-bold tabular-nums">
-                            {card.count}
-                        </div>
-                    </button>
-                ))}
+            <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+                {summaryCards.map((card) => {
+                    const Icon = card.icon;
+
+                    return (
+                        <button
+                            key={card.key}
+                            type="button"
+                            onClick={card.select}
+                            className={cn(
+                                'group relative overflow-hidden rounded-2xl border glass-card p-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg',
+                                card.accent,
+                            )}
+                        >
+                            <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                    <span className="text-xs font-semibold tracking-wider text-muted-foreground/80 uppercase">
+                                        {card.label}
+                                    </span>
+                                    <div className="mt-2 text-3xl font-bold tracking-tight tabular-nums">
+                                        {card.count}
+                                    </div>
+                                </div>
+                                <div
+                                    className={cn(
+                                        'flex h-10 w-10 items-center justify-center rounded-xl border transition-transform duration-300 group-hover:scale-110',
+                                        card.iconBg,
+                                    )}
+                                >
+                                    <Icon
+                                        className={cn(
+                                            'h-5 w-5',
+                                            card.iconColor,
+                                        )}
+                                    />
+                                </div>
+                            </div>
+                        </button>
+                    );
+                })}
             </div>
 
-            <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-border/70 pb-3">
+            <div className="mb-6 flex flex-wrap items-center gap-2">
                 {TABS.map((tab) => (
                     <Button
                         key={tab.key}
@@ -207,16 +249,28 @@ export function CrewMovementCorrectionsContent({
                         size="sm"
                         variant={activeTab === tab.key ? 'secondary' : 'ghost'}
                         onClick={() => selectTab(tab.key)}
+                        className={cn(
+                            'rounded-xl transition-all duration-200',
+                            activeTab === tab.key &&
+                                'shadow-sm ring-2 ring-primary/10',
+                        )}
                     >
                         {tab.label}
-                        <span className="ml-1 text-xs text-muted-foreground">
+                        <span
+                            className={cn(
+                                'ml-1.5 rounded-md px-1.5 py-0.5 text-xs font-semibold transition-colors',
+                                activeTab === tab.key
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'bg-muted text-muted-foreground',
+                            )}
+                        >
                             {status_counts[tab.key]}
                         </span>
                     </Button>
                 ))}
             </div>
 
-            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="mb-6 flex flex-col gap-3 rounded-2xl border glass-card border-border/60 bg-muted/20 p-4 lg:flex-row lg:items-center">
                 <div className="min-w-0 flex-1">
                     <SearchBar
                         placeholder="Search assignment number or employee..."
@@ -239,7 +293,7 @@ export function CrewMovementCorrectionsContent({
                 >
                     <SelectTrigger
                         aria-label="Request Status"
-                        className="w-full lg:w-52"
+                        className="w-full rounded-xl lg:w-52"
                     >
                         <SelectValue placeholder="Request Status" />
                     </SelectTrigger>
@@ -261,6 +315,7 @@ export function CrewMovementCorrectionsContent({
                             ? 'destructive'
                             : 'outline'
                     }
+                    className="rounded-xl"
                     onClick={() =>
                         list.applyFilters({
                             status: 'pending',
@@ -272,6 +327,7 @@ export function CrewMovementCorrectionsContent({
                         })
                     }
                 >
+                    <AlertTriangle className="mr-2 h-4 w-4" />
                     Overdue only
                 </Button>
             </div>
@@ -282,121 +338,181 @@ export function CrewMovementCorrectionsContent({
                     description="Try adjusting your search or filters."
                 />
             ) : (
-                <OrganizationDataTable minWidth="min-w-[1280px]">
-                    <TableHeader>
-                        <DataTableHeaderRow>
-                            <DataTableHead>Assignment</DataTableHead>
-                            <DataTableHead>Employee</DataTableHead>
-                            <DataTableHead>Phase</DataTableHead>
-                            <DataTableHead>Fields</DataTableHead>
-                            <DataTableHead>Requested by</DataTableHead>
-                            <DataTableHead>Requested at</DataTableHead>
-                            <DataTableHead>Pending Age</DataTableHead>
-                            <DataTableHead>Request Status</DataTableHead>
-                            <DataTableHead>Status</DataTableHead>
-                            <DataTableHead className="text-right">
-                                Actions
-                            </DataTableHead>
-                        </DataTableHeaderRow>
-                    </TableHeader>
-                    <TableBody>
-                        {corrections.map((correction) => {
-                            const canCancelRow =
-                                correction.status === 'pending' &&
-                                (can.override ||
-                                    (currentUserId !== null &&
-                                        correction.requester?.id ===
-                                            currentUserId));
+                <div className="rounded-2xl border border-border/60 bg-card/50 backdrop-blur-sm">
+                    <OrganizationDataTable minWidth="min-w-[1280px]">
+                        <TableHeader>
+                            <DataTableHeaderRow>
+                                <DataTableHead>Assignment</DataTableHead>
+                                <DataTableHead>Employee</DataTableHead>
+                                <DataTableHead>Phase</DataTableHead>
+                                <DataTableHead>Fields</DataTableHead>
+                                <DataTableHead>Requested by</DataTableHead>
+                                <DataTableHead>Requested at</DataTableHead>
+                                <DataTableHead>Pending Age</DataTableHead>
+                                <DataTableHead>Request Status</DataTableHead>
+                                <DataTableHead>Status</DataTableHead>
+                                <DataTableHead className="text-right">
+                                    Actions
+                                </DataTableHead>
+                            </DataTableHeaderRow>
+                        </TableHeader>
+                        <TableBody>
+                            {corrections.map((correction) => {
+                                const canCancelRow =
+                                    correction.status === 'pending' &&
+                                    (can.override ||
+                                        (currentUserId !== null &&
+                                            correction.requester?.id ===
+                                                currentUserId));
 
-                            return (
-                                <TableRow
-                                    key={correction.id}
-                                    className={dataTableBodyRowClass()}
-                                >
-                                    <TableCell
-                                        className={dataTableCellPrimaryClass()}
+                                return (
+                                    <TableRow
+                                        key={correction.id}
+                                        className={cn(
+                                            dataTableBodyRowClass(),
+                                            'transition-colors hover:bg-muted/30',
+                                        )}
                                     >
-                                        <Link
-                                            className="text-primary hover:underline"
-                                            href={showCorrection.url(
-                                                correction.id,
+                                        <TableCell
+                                            className={dataTableCellPrimaryClass()}
+                                        >
+                                            <Link
+                                                className="font-semibold text-primary transition-colors hover:text-primary/80 hover:underline"
+                                                href={showCorrection.url(
+                                                    correction.id,
+                                                )}
+                                            >
+                                                {correction.assignment
+                                                    ?.assignment_no ?? '—'}
+                                            </Link>
+                                            {correction.has_conflict ? (
+                                                <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                                                    <AlertTriangle className="h-3 w-3" />
+                                                    Conflict
+                                                </span>
+                                            ) : null}
+                                        </TableCell>
+                                        <TableCell
+                                            className={cn(
+                                                dataTableCellClass(),
+                                                'font-medium',
                                             )}
                                         >
-                                            {correction.assignment
-                                                ?.assignment_no ?? '—'}
-                                        </Link>
-                                        {correction.has_conflict ? (
-                                            <span className="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400">
-                                                Conflict
+                                            {correction.assignment?.employee
+                                                ?.name ?? '—'}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {correction.phase ? (
+                                                <span className="inline-flex items-center gap-1.5">
+                                                    <span className="font-mono text-xs font-bold text-muted-foreground">
+                                                        {correction.phase.phase_code.toUpperCase()}
+                                                    </span>
+                                                    <span className="text-muted-foreground">
+                                                        ·
+                                                    </span>
+                                                    <span>
+                                                        {
+                                                            correction.phase
+                                                                .phase_label
+                                                        }
+                                                    </span>
+                                                </span>
+                                            ) : (
+                                                '—'
+                                            )}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold">
+                                                <FileEdit className="h-3 w-3" />
+                                                {correction.field_count}
                                             </span>
-                                        ) : null}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {correction.assignment?.employee
-                                            ?.name ?? '—'}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {correction.phase
-                                            ? `${correction.phase.phase_code.toUpperCase()} · ${correction.phase.phase_label}`
-                                            : '—'}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {correction.field_count}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {correction.requester?.name ?? '—'}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {formatDisplayDateTime12h(
-                                            correction.requested_at,
-                                        )}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {correction.pending_age_label ?? '—'}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {correction.age_status ===
-                                            'not_applicable' ||
-                                        !correction.age_status_label ? (
-                                            '—'
-                                        ) : (
-                                            <CrewMovementCorrectionAgeBadge
-                                                status={correction.age_status}
-                                                label={
-                                                    correction.age_status_label
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {correction.requester?.name ?? '—'}
+                                        </TableCell>
+                                        <TableCell
+                                            className={cn(
+                                                dataTableCellClass(),
+                                                'text-muted-foreground',
+                                            )}
+                                        >
+                                            {formatDisplayDateTime12h(
+                                                correction.requested_at,
+                                            )}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {correction.pending_age_label ? (
+                                                <span className="flex items-center gap-1.5 text-sm">
+                                                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                                                    {
+                                                        correction.pending_age_label
+                                                    }
+                                                </span>
+                                            ) : (
+                                                '—'
+                                            )}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {correction.age_status ===
+                                                'not_applicable' ||
+                                            !correction.age_status_label ? (
+                                                '—'
+                                            ) : (
+                                                <CrewMovementCorrectionAgeBadge
+                                                    status={
+                                                        correction.age_status
+                                                    }
+                                                    label={
+                                                        correction.age_status_label
+                                                    }
+                                                />
+                                            )}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            <CrewMovementCorrectionStatusBadge
+                                                status={correction.status}
+                                                label={correction.status_label}
+                                            />
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableActionsCellClass()}
+                                        >
+                                            <CrewMovementCorrectionRowActions
+                                                correction={correction}
+                                                canApprove={can.approve}
+                                                canCancel={canCancelRow}
+                                                onApprove={(item) =>
+                                                    openDecision(
+                                                        item,
+                                                        'approve',
+                                                    )
+                                                }
+                                                onReject={(item) =>
+                                                    openDecision(item, 'reject')
+                                                }
+                                                onCancel={(item) =>
+                                                    openDecision(item, 'cancel')
                                                 }
                                             />
-                                        )}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        <CrewMovementCorrectionStatusBadge
-                                            status={correction.status}
-                                            label={correction.status_label}
-                                        />
-                                    </TableCell>
-                                    <TableCell
-                                        className={dataTableActionsCellClass()}
-                                    >
-                                        <CrewMovementCorrectionRowActions
-                                            correction={correction}
-                                            canApprove={can.approve}
-                                            canCancel={canCancelRow}
-                                            onApprove={(item) =>
-                                                openDecision(item, 'approve')
-                                            }
-                                            onReject={(item) =>
-                                                openDecision(item, 'reject')
-                                            }
-                                            onCancel={(item) =>
-                                                openDecision(item, 'cancel')
-                                            }
-                                        />
-                                    </TableCell>
-                                </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                </OrganizationDataTable>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </OrganizationDataTable>
+                </div>
             )}
 
             <Pagination {...list.paginationProps} label="corrections" />
