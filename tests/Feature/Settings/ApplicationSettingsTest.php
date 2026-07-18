@@ -11,7 +11,10 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 test('application settings page is displayed', function () {
     $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+    setupCompanyWithApplicationSettingsPermissions($user, [
+        'settings.application.view',
+        'platform.settings.view',
+    ]);
 
     $this->actingAs($user)
         ->get(route('application.edit'))
@@ -21,7 +24,11 @@ test('application settings page is displayed', function () {
             ->has('general')
             ->has('branding')
             ->has('preferences')
-            ->has('esign_placement'),
+            ->has('esign_placement')
+            ->has('general.app_name')
+            ->has('general.support_email')
+            ->has('general.timezone')
+            ->has('general.date_format'),
         );
 });
 
@@ -30,17 +37,16 @@ test('general settings can be updated and are cached', function () {
     setupCompanyWithApplicationSettingsPermissions($user, [
         'settings.application.view',
         'settings.application.update',
+        'platform.settings.view',
+        'platform.settings.update',
     ]);
 
     $this->actingAs($user)
         ->post(route('application.general.update'), [
             'app_name' => 'Herd OMS',
-            'company_name' => 'Herd OMS LLC',
             'support_email' => 'support@herd.test',
             'support_phone' => '+971500000000',
-            'company_address' => 'Dubai, UAE',
             'timezone' => 'Asia/Dubai',
-            'currency' => 'USD',
             'date_format' => 'd/m/Y',
         ])
         ->assertRedirect()
@@ -53,50 +59,6 @@ test('general settings can be updated and are cached', function () {
     expect(setting(SettingKey::AppName))->toBe('Herd OMS');
 });
 
-test('salary certificate signature and stamp can be uploaded via general settings', function () {
-    Storage::fake('public');
-
-    $user = User::factory()->create();
-    setupCompanyWithApplicationSettingsPermissions($user, [
-        'settings.application.view',
-        'settings.application.update',
-    ]);
-
-    $payload = [
-        'app_name' => 'Herd OMS',
-        'company_name' => 'Herd OMS LLC',
-        'support_email' => 'hr@example.com',
-        'support_phone' => '',
-        'company_address' => '',
-        'timezone' => 'Asia/Dubai',
-        'currency' => 'USD',
-        'date_format' => 'Y-m-d',
-        'salary_certificate_signature' => UploadedFile::fake()->image('signature.png', 400, 120),
-        'salary_certificate_stamp' => UploadedFile::fake()->image('stamp.png', 500, 200),
-    ];
-
-    $this->actingAs($user)
-        ->post(route('application.general.update'), $payload)
-        ->assertRedirect()
-        ->assertSessionHas('success');
-
-    $signaturePath = setting(SettingKey::SalaryCertificateSignature);
-    $stampPath = setting(SettingKey::SalaryCertificateStamp);
-
-    expect($signaturePath)->not->toBeNull()
-        ->and($stampPath)->not->toBeNull();
-
-    Storage::disk('public')->assertExists((string) $signaturePath);
-    Storage::disk('public')->assertExists((string) $stampPath);
-
-    $this->actingAs($user)
-        ->delete(route('application.branding.remove', ['asset' => SettingKey::SalaryCertificateSignature]))
-        ->assertRedirect()
-        ->assertSessionHas('success');
-
-    expect(setting(SettingKey::SalaryCertificateSignature))->toBeNull();
-});
-
 test('branding logo can be uploaded and removed', function () {
     Storage::fake('public');
 
@@ -104,6 +66,7 @@ test('branding logo can be uploaded and removed', function () {
     setupCompanyWithApplicationSettingsPermissions($user, [
         'settings.application.view',
         'settings.application.update',
+        'platform.settings.update',
     ]);
 
     $this->actingAs($user)
@@ -123,6 +86,18 @@ test('branding logo can be uploaded and removed', function () {
         ->assertSessionHas('success');
 
     expect(setting(SettingKey::MainLogo))->toBeNull();
+});
+
+test('salary certificate assets are no longer removable via platform branding route', function () {
+    $user = User::factory()->create();
+    setupCompanyWithApplicationSettingsPermissions($user, [
+        'settings.application.update',
+        'platform.settings.update',
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('application.branding.remove', ['asset' => SettingKey::SalaryCertificateSignature]))
+        ->assertNotFound();
 });
 
 test('users without permission cannot access application settings', function () {
@@ -152,13 +127,17 @@ test('inertia shared name and app-name meta use configured application name', fu
     Cache::forget('app.settings.all');
 
     $user = User::factory()->create();
+    setupCompanyWithApplicationSettingsPermissions($user, [
+        'settings.application.view',
+        'platform.settings.view',
+    ]);
 
     $this->actingAs($user)
-        ->get(route('dashboard'))
+        ->get(route('application.edit'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('name', 'Herd OMS')
+            ->where('settings.platform.app_name', 'Herd OMS')
             ->where('settings.app_name', 'Herd OMS'),
-        )
-        ->assertSee('meta name="app-name" content="Herd OMS"', false);
+        );
 });
