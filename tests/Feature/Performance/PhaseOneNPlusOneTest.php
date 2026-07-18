@@ -1,10 +1,15 @@
 <?php
 
+use App\Enums\CrewAssignmentStatus;
 use App\Exports\RolesExport;
 use App\Models\AppSetting;
+use App\Models\CrewAssignment;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\LeaveRequest;
+use App\Models\LeaveType;
 use App\Models\PayrollPeriod;
+use App\Models\Rank;
 use App\Services\Settings\SettingService;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\Departments\DepartmentManagerExportContext;
@@ -12,6 +17,7 @@ use App\Support\Employees\EmployeeCrewStatusFilter;
 use App\Support\Employees\EmployeeExportFieldResolver;
 use App\Support\Payroll\OfficeLeavePeriodSummary;
 use App\Support\Payroll\PayrollPeriodBoardQuery;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
@@ -19,21 +25,65 @@ use Spatie\Permission\Models\Role;
 
 test('employee directory crew status batch query count stays bounded', function () {
     ['company' => $company] = makePayrollFixtures();
-    $firstEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $rank = Rank::query()->create(['name' => 'Perf Rank', 'is_active' => true]);
+    $firstEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'rank_id' => $rank->id,
+    ]);
+    $firstVessel = makeCrewMovementVessel('Perf First Vessel');
+    CrewAssignment::query()->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-PERF-FIRST',
+        'employee_id' => $firstEmployee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $firstVessel->id,
+        'status' => CrewAssignmentStatus::Completed,
+        'started_at' => CarbonImmutable::today()->subDays(20),
+        'closed_at' => CarbonImmutable::today()->subDays(5),
+        'source' => 'manual',
+    ]);
 
     DB::flushQueryLog();
     DB::enableQueryLog();
-    app(CrewAssignmentStatusResolver::class)->forEmployeeIds($company->id, [$firstEmployee->id]);
+    $smallResults = app(CrewAssignmentStatusResolver::class)->forEmployeeIds($company->id, [$firstEmployee->id]);
     $smallPageQueryCount = count(DB::getQueryLog());
 
-    $employeeIds = Employee::factory()->count(10)->forCompany($company)->create(['status' => 'active'])->pluck('id')->all();
+    expect($smallResults[$firstEmployee->id]['vessel_name'])->toBe($firstVessel->name);
+
+    $employees = Employee::factory()->count(10)->forCompany($company)->create([
+        'status' => 'active',
+        'rank_id' => $rank->id,
+    ]);
+
+    foreach ($employees as $index => $employee) {
+        $vessel = makeCrewMovementVessel("Perf Completed Vessel {$index}");
+        CrewAssignment::query()->create([
+            'company_id' => $company->id,
+            'assignment_no' => "CA-PERF-DONE-{$index}",
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'status' => CrewAssignmentStatus::Completed,
+            'started_at' => CarbonImmutable::today()->subDays(30),
+            'closed_at' => CarbonImmutable::today()->subDays(2 + $index),
+            'source' => 'manual',
+        ]);
+    }
+
+    $employeeIds = $employees->pluck('id')->map(intval(...))->all();
     $employeeIds[] = $firstEmployee->id;
 
     DB::flushQueryLog();
     DB::enableQueryLog();
-    app(CrewAssignmentStatusResolver::class)->forEmployeeIds($company->id, $employeeIds);
+    $results = app(CrewAssignmentStatusResolver::class)->forEmployeeIds($company->id, $employeeIds);
+    $queries = collect(DB::getQueryLog());
+    $vesselQueries = $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'vessels'));
 
-    expect(count(DB::getQueryLog()))->toBeLessThanOrEqual($smallPageQueryCount + 1);
+    expect(count(DB::getQueryLog()))->toBeLessThanOrEqual($smallPageQueryCount + 1)
+        ->and($vesselQueries)->toHaveCount(1)
+        ->and($results[$firstEmployee->id]['vessel_name'])->toBe($firstVessel->name)
+        ->and($results[$employees->first()->id]['status'])->toBe('in_home')
+        ->and($results[$employees->first()->id]['vessel_name'])->not->toBeNull();
 });
 
 test('crew status filtering query count stays bounded', function () {
@@ -131,23 +181,46 @@ test('office leave empty summary loads leave types once', function () {
 
 test('payroll board loads office leave only for paginated employees', function () {
     ['company' => $company] = makePayrollFixtures();
-    $period = PayrollPeriod::factory()->for($company)->office()->create();
-    [$firstEmployee, $secondEmployee] = [
-        createOfficeEmployeeWithContract($company, 'PERF-001', 1000, 0, 0, 0),
-        createOfficeEmployeeWithContract($company, 'PERF-002', 1000, 0, 0, 0),
-    ];
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+    $firstEmployee = createOfficeEmployeeWithContract($company, 'PERF-001', 1000, 0, 0, 0);
+    $secondEmployee = createOfficeEmployeeWithContract($company, 'PERF-002', 1000, 0, 0, 0);
+    $firstEmployee->update(['name' => 'AAA Page One']);
+    $secondEmployee->update(['name' => 'ZZZ Page Two']);
+
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'code' => 'AL',
+        'status' => 'active',
+    ]);
+
+    foreach ([$firstEmployee, $secondEmployee] as $employee) {
+        LeaveRequest::query()->create([
+            'company_id' => $company->id,
+            'employee_id' => $employee->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-02',
+            'end_date' => '2026-06-03',
+            'total_days' => 2,
+            'status' => 'approved',
+        ]);
+    }
 
     DB::flushQueryLog();
     DB::enableQueryLog();
-    app(PayrollPeriodBoardQuery::class)->paginate($company->id, $period, perPage: 1);
+    $page = app(PayrollPeriodBoardQuery::class)->paginate($company->id, $period, perPage: 1);
 
-    $leaveRequestQuery = collect(DB::getQueryLog())
-        ->first(fn (array $query): bool => str_contains($query['query'], 'leave_requests'));
+    $leaveRequestQueries = collect(DB::getQueryLog())
+        ->filter(fn (array $query): bool => str_contains($query['query'], 'leave_requests'));
+    $leaveRequestQuery = $leaveRequestQueries->first();
+    $pageEmployeeId = (int) $page->getCollection()->first()['employee']['id'];
 
-    expect($leaveRequestQuery)->not->toBeNull()
-        ->and(collect(DB::getQueryLog())
-            ->filter(fn (array $query): bool => str_contains($query['query'], 'leave_requests')))
-        ->toHaveCount(1);
+    expect($page->total())->toBe(2)
+        ->and($pageEmployeeId)->toBe($firstEmployee->id)
+        ->and($leaveRequestQueries)->toHaveCount(1)
+        ->and($leaveRequestQuery['bindings'])->toContain($firstEmployee->id)
+        ->and($leaveRequestQuery['bindings'])->not->toContain($secondEmployee->id);
 });
 
 test('setting service memoizes repeated reads per instance', function () {

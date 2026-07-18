@@ -130,6 +130,7 @@ final class EmployeeCrewStatusFilter
                 ->from('crew_assignments')
                 ->whereColumn('crew_assignments.employee_id', 'employees.id')
                 ->where('crew_assignments.company_id', $companyId)
+                ->whereNull('crew_assignments.deleted_at')
                 ->whereIn('crew_assignments.status', $statuses);
         };
     }

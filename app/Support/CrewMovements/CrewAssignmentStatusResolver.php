@@ -139,6 +139,7 @@ final class CrewAssignmentStatusResolver
             ->where('company_id', $companyId)
             ->whereIn('employee_id', $employeeIds)
             ->where('status', CrewAssignmentStatus::Completed)
+            ->with('vessel:id,name')
             ->orderByDesc('closed_at')
             ->orderByDesc('id')
             ->get()
