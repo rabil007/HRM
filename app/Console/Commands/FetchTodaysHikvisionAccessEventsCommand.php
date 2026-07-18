@@ -16,32 +16,38 @@ class FetchTodaysHikvisionAccessEventsCommand extends Command
 
     public function handle(): int
     {
-        $settings = HikvisionSetting::current();
-
-        if (! $settings->isConfigured()) {
-            $this->warn('Hikvision integration is not configured.');
-
-            return self::SUCCESS;
-        }
-
-        if (! $this->option('force') && ! HikvisionEveningAccessEventsFetchSchedule::isEnabled()) {
-            $this->line('Evening access events fetch is disabled.');
-
-            return self::SUCCESS;
-        }
-
-        if ($settings->isEventsFetchProcessing()) {
-            $this->warn('A fetch is already in progress.');
-
-            return self::SUCCESS;
-        }
-
         $date = now(ApplicationTimezone::identifier())->toDateString();
+        $settings = $this->option('force')
+            ? HikvisionSetting::query()->get()->filter(fn (HikvisionSetting $setting): bool => $setting->isConfigured())->values()
+            : HikvisionEveningAccessEventsFetchSchedule::settingsDueForDispatch();
 
-        $settings->beginEventsFetch();
-        FetchHikvisionAccessEventsJob::dispatch($date);
+        if ($settings->isEmpty()) {
+            if (! $this->option('force') && ! HikvisionEveningAccessEventsFetchSchedule::isEnabled()) {
+                $this->line('Evening access events fetch is disabled.');
+            } elseif (! $this->option('force')) {
+                $this->line('No Hikvision companies are due for evening fetch.');
+            }
 
-        $this->info("Dispatched Hikvision access events fetch job for {$date}.");
+            return self::SUCCESS;
+        }
+
+        $dispatched = 0;
+
+        foreach ($settings as $setting) {
+            if ($setting->isEventsFetchProcessing()) {
+                continue;
+            }
+
+            $setting->beginEventsFetch();
+            FetchHikvisionAccessEventsJob::dispatch($setting->id, $date);
+            $dispatched++;
+        }
+
+        if ($dispatched === 1) {
+            $this->info("Dispatched Hikvision access events fetch job for {$date}.");
+        } else {
+            $this->info("Dispatched {$dispatched} Hikvision access events fetch job(s) for {$date}.");
+        }
 
         return self::SUCCESS;
     }

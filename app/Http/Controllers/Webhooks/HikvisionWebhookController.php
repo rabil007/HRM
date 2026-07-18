@@ -12,16 +12,22 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class HikvisionWebhookController extends Controller
 {
-    public function __invoke(Request $request): Response|SymfonyResponse
+    public function __invoke(Request $request, string $publicIntegrationId): Response|SymfonyResponse
     {
-        if ($request->isMethod('GET')) {
-            return $this->handleVerification($request);
+        $settings = HikvisionSetting::findByPublicId($publicIntegrationId);
+
+        if ($settings === null) {
+            abort(404);
         }
 
-        return $this->handleEvent($request);
+        if ($request->isMethod('GET')) {
+            return $this->handleVerification($request, $settings);
+        }
+
+        return $this->handleEvent($request, $settings);
     }
 
-    private function handleVerification(Request $request): Response
+    private function handleVerification(Request $request, HikvisionSetting $settings): Response
     {
         $batchId = (string) $request->header('X-Hook-Batch-Id', '');
         $timestamp = (string) $request->header('X-Hook-Timestamp', '');
@@ -31,7 +37,7 @@ class HikvisionWebhookController extends Controller
         }
 
         try {
-            $secret = HikvisionSetting::current()->resolveWebhookSignSecret();
+            $secret = $settings->resolveWebhookSignSecret();
         } catch (\RuntimeException) {
             return response('Webhook sign secret is not configured.', 503);
         }
@@ -41,10 +47,8 @@ class HikvisionWebhookController extends Controller
         return response('', 200)->header('X-Hook-Signature', $signature);
     }
 
-    private function handleEvent(Request $request): Response
+    private function handleEvent(Request $request, HikvisionSetting $settings): Response
     {
-        $settings = HikvisionSetting::current();
-
         if ($this->authenticationFailureReason($request, $settings) !== null) {
             return response('Forbidden', 403);
         }
@@ -60,7 +64,7 @@ class HikvisionWebhookController extends Controller
             return response()->noContent();
         }
 
-        ProcessHikvisionWebhookEventJob::dispatch($payload);
+        ProcessHikvisionWebhookEventJob::dispatch($payload, $settings->id);
         $settings->markWebhookEventReceived();
 
         return response()->noContent();

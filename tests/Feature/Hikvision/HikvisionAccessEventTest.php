@@ -39,10 +39,11 @@ function postHikvisionAccessEventsFetch(User $user, ?string $date = null): TestR
 
 function runHikvisionAccessEventsFetchJob(?string $date = null): void
 {
-    $hikvision = app(HikvisionService::class);
+    $settings = hikvisionSettings()->fresh();
+    $hikvision = HikvisionService::forSetting($settings);
 
-    (new FetchHikvisionAccessEventsJob($date))->handle($hikvision);
-    (new SyncHikvisionAttendanceJob($date))->handle(app(DispatchHikvisionAttendanceSync::class));
+    (new FetchHikvisionAccessEventsJob($settings->id, $date))->handle($hikvision);
+    (new SyncHikvisionAttendanceJob($date, (int) $settings->company_id))->handle(app(DispatchHikvisionAttendanceSync::class));
 }
 
 function fakeHikvisionAcsEventsFetch(array $attendanceReportDataList = []): void
@@ -150,12 +151,14 @@ test('access events page resolves hikvision person photo by name when person id 
     setupCompanyWithSettingsPermissions($user, ['hikvision.events.view']);
 
     HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'person-maher-id',
         'full_name' => 'Maher',
         'photo_path' => 'https://example.com/maher-headshot.jpg',
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'system_id' => 'acs:photo-by-name',
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-06-08 09:00:00',
@@ -183,12 +186,14 @@ test('access events page falls back to hikvision person photo when snap url is m
     setupCompanyWithSettingsPermissions($user, ['hikvision.events.view']);
 
     HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'person-photo-fallback',
         'full_name' => 'Maysa',
         'photo_path' => 'https://example.com/person-headshot.jpg',
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'system_id' => 'acs:photo-fallback',
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-06-08 08:08:00',
@@ -217,6 +222,7 @@ test('access events page includes certificate-backed events with snap urls', fun
     setupCompanyWithSettingsPermissions($user, ['hikvision.events.view']);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'system_id' => 'cert:test-1',
         'msg_type' => 'acs/certificate-record',
         'occurrence_time' => '2026-06-05 08:30:00',
@@ -241,6 +247,7 @@ test('access events page includes certificate-backed events with snap urls', fun
 
 test('access events can be filtered by device', function () {
     HikvisionAccessEvent::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'system_id' => 'test:dil:door',
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-06-05 08:00:00',
@@ -253,6 +260,7 @@ test('access events can be filtered by device', function () {
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'system_id' => 'test:mathew:mobile',
         'msg_type' => 'attendance/totaltimecard',
         'occurrence_time' => '2026-06-04 09:11:00',
@@ -279,6 +287,7 @@ test('access events can be filtered by device', function () {
 
 test('access events can be filtered by name date and attendance status', function () {
     HikvisionAccessEvent::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'system_id' => 'test:dil:checkin',
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-06-05 08:00:00',
@@ -290,6 +299,7 @@ test('access events can be filtered by name date and attendance status', functio
     ]);
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'system_id' => 'test:maysa:checkout',
         'msg_type' => 'acs/5/75',
         'occurrence_time' => '2026-06-04 17:00:00',
@@ -344,7 +354,7 @@ test('fetch dispatches background job instead of running synchronously', functio
 
     Queue::assertPushed(FetchHikvisionAccessEventsJob::class, fn (FetchHikvisionAccessEventsJob $job): bool => $job->date === now(config('app.timezone'))->format('Y-m-d'));
 
-    expect(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_QUEUED);
+    expect(hikvisionSettings()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_QUEUED);
 });
 
 test('fetch dispatches background job for selected date', function () {
@@ -432,11 +442,11 @@ test('background job fetches records for selected date window', function () {
     ]);
 
     configuredHikvisionSettings();
-    HikvisionSetting::current()->beginEventsFetch();
+    hikvisionSettings()->beginEventsFetch();
 
     runHikvisionAccessEventsFetchJob('2026-06-07');
 
-    expect(HikvisionSetting::current()->events_fetch_message)->toBe('Fetched 0 access record(s) for 2026-06-07 (0 device, 0 mobile app).');
+    expect(hikvisionSettings()->events_fetch_message)->toBe('Fetched 0 access record(s) for 2026-06-07 (0 device, 0 mobile app).');
 });
 
 test('fetch rejects future dates', function () {
@@ -541,13 +551,13 @@ test('fetch ignores door system events without person identity', function () {
     ]);
 
     configuredHikvisionSettings();
-    HikvisionSetting::current()->beginEventsFetch();
+    hikvisionSettings()->beginEventsFetch();
 
     runHikvisionAccessEventsFetchJob('2026-06-05');
 
     expect(HikvisionAccessEvent::query()->count())->toBe(1)
         ->and(HikvisionAccessEvent::query()->value('person_name'))->toBe('Dil')
-        ->and(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_COMPLETED);
+        ->and(hikvisionSettings()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_COMPLETED);
 });
 
 test('background job stores mobile app attendance records from total time card api', function () {
@@ -621,15 +631,15 @@ test('background job stores mobile app attendance records from total time card a
         ], 200),
     ]);
     configuredHikvisionSettings();
-    HikvisionSetting::current()->beginEventsFetch();
+    hikvisionSettings()->beginEventsFetch();
 
     runHikvisionAccessEventsFetchJob('2026-06-05');
 
     expect(HikvisionAccessEvent::query()->where('transaction_source', 'mobile_app')->count())->toBe(2)
         ->and(HikvisionAccessEvent::query()->where('person_name', 'Mathew')->where('attendance_status', 'checkIn')->exists())->toBeTrue()
         ->and(HikvisionAccessEvent::query()->where('person_name', 'Mathew')->where('attendance_status', 'checkOut')->exists())->toBeTrue()
-        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('mobile app')
-        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('for today');
+        ->and(hikvisionSettings()->events_fetch_message)->toContain('mobile app')
+        ->and(hikvisionSettings()->events_fetch_message)->toContain('for today');
 
     Http::assertSent(fn ($request) => $request->url() === 'https://isgp.hikcentralconnect.com/api/hccgw/attendance/v1/report/totaltimecard/list');
 });
@@ -638,6 +648,7 @@ test('background job stores person hikvision id on mobile app access events when
     freezeHikvisionAccessEventFetchDate();
 
     HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'hv-person-7',
         'person_code' => '7',
         'full_name' => 'Mathew',
@@ -711,7 +722,7 @@ test('background job stores person hikvision id on mobile app access events when
         ], 200),
     ]);
     configuredHikvisionSettings();
-    HikvisionSetting::current()->beginEventsFetch();
+    hikvisionSettings()->beginEventsFetch();
 
     runHikvisionAccessEventsFetchJob('2026-06-05');
 
@@ -722,7 +733,7 @@ test('background job stores person hikvision id on mobile app access events when
 test('background job stores acs access records from isapi proxypass', function () {
     fakeHikvisionAcsEventsFetch();
     configuredHikvisionSettings();
-    HikvisionSetting::current()->beginEventsFetch();
+    hikvisionSettings()->beginEventsFetch();
 
     runHikvisionAccessEventsFetchJob('2026-06-05');
 
@@ -730,8 +741,8 @@ test('background job stores acs access records from isapi proxypass', function (
         ->and(HikvisionAccessEvent::query()->where('person_name', 'Dil')->value('attendance_status'))->toBe('checkIn')
         ->and(HikvisionAccessEvent::query()->where('person_name', 'Dil')->value('transaction_source'))->toBe('device')
         ->and(HikvisionAccessEvent::query()->where('person_name', 'maysa')->value('device_name'))->toBe('OMS-Door')
-        ->and(HikvisionSetting::current()->events_last_fetched_at)->not->toBeNull()
-        ->and(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_COMPLETED);
+        ->and(hikvisionSettings()->events_last_fetched_at)->not->toBeNull()
+        ->and(hikvisionSettings()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_COMPLETED);
 
     Http::assertSent(fn ($request) => $request->url() === 'https://isgp.hikcentralconnect.com/api/hccgw/video/v1/isapi/proxypass'
         && ($request['id'] ?? null) === 'device-acs-1');
@@ -741,12 +752,12 @@ test('daily fetch does not call certificate records api', function () {
     freezeHikvisionAccessEventFetchDate();
     fakeHikvisionAcsEventsFetch();
     configuredHikvisionSettings();
-    HikvisionSetting::current()->beginEventsFetch();
+    hikvisionSettings()->beginEventsFetch();
 
     runHikvisionAccessEventsFetchJob('2026-06-05');
 
     Http::assertNotSent(fn ($request) => str_contains($request->url(), 'certificaterecords/search'));
-    expect(HikvisionSetting::current()->events_fetch_message)->not->toContain('certificate');
+    expect(hikvisionSettings()->events_fetch_message)->not->toContain('certificate');
 });
 
 test('fetch fails when hikvision is not configured', function () {
@@ -788,19 +799,19 @@ test('background job fails when no access controller devices exist', function ()
     ]);
 
     configuredHikvisionSettings();
-    HikvisionSetting::current()->beginEventsFetch();
+    hikvisionSettings()->beginEventsFetch();
 
     runHikvisionAccessEventsFetchJob('2026-06-05');
 
-    expect(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_FAILED)
-        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('No access controller devices found');
+    expect(hikvisionSettings()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_FAILED)
+        ->and(hikvisionSettings()->events_fetch_message)->toContain('No access controller devices found');
 });
 
 test('index acknowledges completed fetch and resets status to idle', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['hikvision.events.view']);
 
-    HikvisionSetting::current()->markEventsFetchCompleted('Fetched 5 access record(s) for today.');
+    hikvisionSettings()->markEventsFetchCompleted('Fetched 5 access record(s) for today.');
 
     $this->actingAs($user)
         ->get(route('hikvision.access-events.index'))
@@ -810,14 +821,14 @@ test('index acknowledges completed fetch and resets status to idle', function ()
             ->where('fetch_message', 'Fetched 5 access record(s) for today.'),
         );
 
-    expect(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_IDLE);
+    expect(hikvisionSettings()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_IDLE);
 });
 
 test('index marks stale queued fetch as failed', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['hikvision.events.view']);
 
-    $settings = HikvisionSetting::current();
+    $settings = hikvisionSettings();
     $settings->update([
         'events_fetch_status' => HikvisionSetting::EVENTS_FETCH_QUEUED,
         'events_fetch_started_at' => now()->subMinutes(5),
@@ -871,6 +882,7 @@ test('access events page does not expose employees linked in another company', f
     linkHikvisionPersonToUserCompany($otherEmployee, 'cross-company-person-id');
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'system_id' => 'acs:cross-company',
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-06-08 09:00:00',
@@ -1002,15 +1014,15 @@ test('scheduled morning fetch stores yesterdays door events but zero mobile when
 
     fakeHikvisionEveningScheduledFetchJune11();
     configuredHikvisionSettings();
-    HikvisionSetting::current()->beginEventsFetch();
+    hikvisionSettings()->beginEventsFetch();
 
     runHikvisionAccessEventsFetchJob();
 
     expect(HikvisionAccessEvent::query()->where('transaction_source', 'device')->count())->toBe(1)
         ->and(HikvisionAccessEvent::query()->where('transaction_source', 'mobile_app')->count())->toBe(0)
-        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('Scheduled fetch:')
-        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('1 device, 0 mobile app')
-        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('2026-06-11');
+        ->and(hikvisionSettings()->events_fetch_message)->toContain('Scheduled fetch:')
+        ->and(hikvisionSettings()->events_fetch_message)->toContain('1 device, 0 mobile app')
+        ->and(hikvisionSettings()->events_fetch_message)->toContain('2026-06-11');
 });
 
 test('scheduled fetch backfills yesterdays mobile on the next mornings run', function () {
@@ -1117,15 +1129,15 @@ test('scheduled fetch backfills yesterdays mobile on the next mornings run', fun
     });
 
     configuredHikvisionSettings();
-    HikvisionSetting::current()->beginEventsFetch();
+    hikvisionSettings()->beginEventsFetch();
 
     runHikvisionAccessEventsFetchJob();
 
     expect(HikvisionAccessEvent::query()->where('transaction_source', 'mobile_app')->count())->toBe(2)
         ->and(HikvisionAccessEvent::query()->where('transaction_source', 'device')->count())->toBe(1)
-        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('Scheduled fetch:')
-        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('2026-06-11')
-        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('2 mobile app');
+        ->and(hikvisionSettings()->events_fetch_message)->toContain('Scheduled fetch:')
+        ->and(hikvisionSettings()->events_fetch_message)->toContain('2026-06-11')
+        ->and(hikvisionSettings()->events_fetch_message)->toContain('2 mobile app');
 });
 
 test('manual fetch for a specific date stores mobile once hikconnect publishes that days records', function () {
@@ -1146,11 +1158,11 @@ test('manual fetch for a specific date stores mobile once hikconnect publishes t
         ],
     ]);
     configuredHikvisionSettings();
-    HikvisionSetting::current()->beginEventsFetch();
+    hikvisionSettings()->beginEventsFetch();
 
     runHikvisionAccessEventsFetchJob('2026-06-11');
 
     expect(HikvisionAccessEvent::query()->where('transaction_source', 'mobile_app')->count())->toBe(2)
-        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('2 mobile app')
-        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('2026-06-11');
+        ->and(hikvisionSettings()->events_fetch_message)->toContain('2 mobile app')
+        ->and(hikvisionSettings()->events_fetch_message)->toContain('2026-06-11');
 });

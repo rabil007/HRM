@@ -20,6 +20,7 @@ test('sync hikvision attendance job dispatches per-company jobs for yesterday wh
     Carbon::setTestNow('2026-06-26 10:00:00', config('app.timezone'));
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'dispatch-person-1',
         'full_name' => 'Dispatch Employee',
         'person_code' => '11',
@@ -45,6 +46,7 @@ test('sync hikvision attendance job dispatches dated day and backfills yesterday
     Carbon::setTestNow('2026-06-26 10:00:00', config('app.timezone'));
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'dispatch-person-2',
         'full_name' => 'Dispatch Employee Two',
         'person_code' => '12',
@@ -86,12 +88,14 @@ test('dispatch hikvision attendance sync dispatches no jobs when no linked activ
 
 test('dispatch hikvision attendance sync dispatches one job per company', function () {
     $personOne = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'dispatch-person-3',
         'full_name' => 'Company One Employee',
         'person_code' => '13',
     ]);
 
     $personTwo = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'dispatch-person-4',
         'full_name' => 'Company Two Employee',
         'person_code' => '14',
@@ -129,6 +133,7 @@ test('sync attendance skips unchanged records to avoid expensive model updates',
     Carbon::setTestNow('2026-06-26 10:00:00', config('app.timezone'));
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'perf-person-1',
         'full_name' => 'Perf Employee',
         'person_code' => '99',
@@ -143,6 +148,7 @@ test('sync attendance skips unchanged records to avoid expensive model updates',
     $company = $employee->company;
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'system_id' => 'perf:checkin',
         'msg_type' => 'webhook/event/110013',
         'occurrence_time' => '2026-06-26 08:30:00',
@@ -184,12 +190,14 @@ test('sync company preloads leave and attendance queries once per company', func
     Carbon::setTestNow('2026-06-26 10:00:00', config('app.timezone'));
 
     $personOne = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'batch-person-1',
         'full_name' => 'Batch Employee One',
         'person_code' => '21',
     ]);
 
     $personTwo = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'batch-person-2',
         'full_name' => 'Batch Employee Two',
         'person_code' => '22',

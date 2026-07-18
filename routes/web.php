@@ -166,7 +166,7 @@ Route::match(['get', 'post'], 'whatsapp/webhook', WhatsAppWebhookController::cla
 Route::match(['get', 'post'], 'webhooks/whatsapp', WhatsAppWebhookController::class)
     ->name('webhooks.whatsapp');
 
-Route::match(['get', 'post'], 'webhooks/hikvision', HikvisionWebhookController::class)
+Route::match(['get', 'post'], 'integrations/hikvision/webhook/{publicIntegrationId}', HikvisionWebhookController::class)
     ->middleware('throttle:120,1')
     ->name('webhooks.hikvision');
 

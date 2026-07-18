@@ -5,8 +5,16 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
 
-function setupCompanyWithSettingsPermissions(User $user, array $permissions): void
+function setupCompanyWithSettingsPermissions(User $user, array $permissions): Company
 {
+    $existingCompany = Company::query()->first();
+
+    if ($existingCompany !== null) {
+        grantCompanyPermissions($user, $existingCompany, $permissions);
+
+        return $existingCompany;
+    }
+
     $country = Country::query()->create([
         'code' => 'CMP',
         'name' => 'CompanyLand',
@@ -33,4 +41,6 @@ function setupCompanyWithSettingsPermissions(User $user, array $permissions): vo
     ]);
 
     grantCompanyPermissions($user, $company, $permissions);
+
+    return $company;
 }

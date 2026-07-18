@@ -114,7 +114,7 @@ test('user with webhook permission can register hikvision webhook', function () 
         ->assertRedirect()
         ->assertSessionHas('success');
 
-    expect(HikvisionSetting::current()->webhook_registered_at)->not->toBeNull();
+    expect(hikvisionSettings()->webhook_registered_at)->not->toBeNull();
 });
 
 test('users without hikvision permission do not receive hikvision settings props', function () {
@@ -151,7 +151,7 @@ test('hikvision settings can be saved with encrypted secrets', function () {
         ->assertRedirect()
         ->assertSessionHas('success');
 
-    $settings = HikvisionSetting::current();
+    $settings = hikvisionSettings();
 
     expect($settings->api_host)->toBe('https://isgp.hikcentralconnect.com')
         ->and($settings->api_key)->toBe('test-api-key')
@@ -172,7 +172,7 @@ test('hikvision secrets are kept when update omits them', function () {
         'settings.integrations.hikvision.update',
     ]);
 
-    HikvisionSetting::current()->storeFromValidated([
+    hikvisionSettings()->storeFromValidated([
         'api_host' => 'https://isgp.hikcentralconnect.com',
         'api_key' => 'keep-api-key',
         'api_secret' => 'keep-api-secret',
@@ -186,7 +186,7 @@ test('hikvision secrets are kept when update omits them', function () {
         'webhook_verify_token' => '',
     ]))->assertRedirect();
 
-    $settings = HikvisionSetting::current();
+    $settings = hikvisionSettings();
 
     expect($settings->api_key)->toBe('keep-api-key')
         ->and($settings->api_secret)->toBe('keep-api-secret')
@@ -251,7 +251,7 @@ test('hikvision test connection returns error message on failure', function () {
 });
 
 test('application settings page masks hikvision credentials', function () {
-    HikvisionSetting::current()->storeFromValidated([
+    hikvisionSettings()->storeFromValidated([
         'api_host' => 'https://isgp.hikcentralconnect.com',
         'api_key' => 'stored-api-key',
         'api_secret' => 'stored-api-secret',
@@ -279,7 +279,7 @@ test('hikvision settings page reports env fallback when database credentials are
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.hikvision.view']);
 
-    $settings = HikvisionSetting::current()->toSettingsPageArray();
+    $settings = hikvisionSettings()->toSettingsPageArray();
 
     if (
         filled(env('HIKVISION_API_HOST'))
@@ -435,7 +435,7 @@ test('application settings tolerates stale hikvision encrypted credentials in lo
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.hikvision.view']);
 
-    HikvisionSetting::current();
+    hikvisionSettings();
 
     DB::table('hikvision_settings')
         ->where('id', 1)

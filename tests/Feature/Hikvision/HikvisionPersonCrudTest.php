@@ -85,6 +85,7 @@ test('user with permission can update hikvision person', function () {
     fakeHikvisionPersonCrudApi('person-update-1');
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'person-update-1',
         'full_name' => 'Old Name',
         'first_name' => 'Old',
@@ -129,18 +130,20 @@ test('user with permission can delete hikvision person and clear employee link',
     configuredHikvisionSettings();
     fakeHikvisionPersonCrudApi('person-delete-1');
 
+    $company = hikvisionTestCompany();
     $person = HikvisionPerson::query()->create([
+        'company_id' => $company->id,
         'person_id' => 'person-delete-1',
         'full_name' => 'Delete Me',
         'photo_path' => 'hikvision/persons/person-delete-1.jpg',
     ]);
 
-    $employee = Employee::factory()->create([
+    $employee = Employee::factory()->forCompany($company)->create([
         'hikvision_person_id' => $person->id,
     ]);
 
     $user = User::factory()->create();
-    grantCompanyPermissions($user, $employee->company, ['hikvision.persons.delete']);
+    grantCompanyPermissions($user, $company, ['hikvision.persons.delete']);
 
     $this->actingAs($user)
         ->from(route('hikvision.persons.index'))
@@ -171,6 +174,7 @@ test('user with permission can upload hikvision person photo', function () {
     fakeHikvisionPersonCrudApi('person-photo-1');
 
     $person = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'person-photo-1',
         'full_name' => 'Photo User',
     ]);

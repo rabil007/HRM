@@ -91,5 +91,6 @@ Integration permission families include:
 - `settings.integrations.email-templates.view|create|update|delete`
 
 Hikvision administration additionally uses the `hikvision.*` permissions listed above. SMTP updates use the application-settings routes; see [Email configuration](./email-configuration.md).
+Hikvision settings and records are additionally scoped to the active company; webhook callback identifiers resolve one company before signature verification.
 
 Credential permissions never imply that decrypted secrets may be sent to the browser. Settings responses expose masked placeholders and `has_*` flags, and empty secret submissions preserve the stored value.

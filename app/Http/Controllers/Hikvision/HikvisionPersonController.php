@@ -26,13 +26,12 @@ class HikvisionPersonController extends Controller
 {
     use ResolvesPerPage;
 
-    public function __construct(private HikvisionService $hikvision) {}
-
     public function index(Request $request): Response
     {
+        $companyId = (int) $request->attributes->get('current_company_id');
         $perPage = $this->resolvePerPage($request);
 
-        $groupOptions = HikvisionPersonGroup::filterOptions();
+        $groupOptions = HikvisionPersonGroup::filterOptions($companyId);
         $groupIds = array_column($groupOptions, 'value');
         $group = $request->string('group')->toString();
 
@@ -53,16 +52,16 @@ class HikvisionPersonController extends Controller
         ];
 
         $paginator = HikvisionPerson::query()
+            ->forCompany($companyId)
             ->with(['group', 'employee:id,company_id,name,employee_no,hikvision_person_id'])
             ->filtered($filters)
             ->orderBy('full_name')
             ->paginate($perPage)
             ->withQueryString();
 
-        $settings = HikvisionSetting::current();
+        $settings = HikvisionSetting::forCompany($companyId);
         $lastSyncedAt = $settings->persons_last_synced_at
-            ?? HikvisionPerson::query()->max('synced_at');
-        $companyId = (int) $request->attributes->get('current_company_id');
+            ?? HikvisionPerson::query()->forCompany($companyId)->max('synced_at');
         $canLinkEmployee = $request->user()?->can('hikvision.persons.link') ?? false;
 
         return Inertia::render('hikvision/persons', [
@@ -123,6 +122,7 @@ class HikvisionPersonController extends Controller
         SyncEmployeeHikvisionPersonLink $syncLink,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
+        $this->assertPersonInCompany($person, $companyId);
         $employeeId = $request->integer('employee_id') ?: null;
 
         if ($employeeId === null) {
@@ -155,9 +155,11 @@ class HikvisionPersonController extends Controller
     public function store(StoreHikvisionPersonRequest $request): RedirectResponse
     {
         try {
-            $this->ensureHikvisionConfigured();
+            $companyId = (int) $request->attributes->get('current_company_id');
+            $hikvision = $this->hikvision($companyId);
+            $this->ensureHikvisionConfigured($companyId);
 
-            $result = $this->hikvision->createPerson(
+            $result = $hikvision->createPerson(
                 HikvisionPersonWritePayload::forCreate($request->validated()),
             );
             $personId = (string) ($result['personId'] ?? '');
@@ -166,9 +168,9 @@ class HikvisionPersonController extends Controller
                 throw new RuntimeException('Hikvision did not return a person ID.');
             }
 
-            $detail = $this->hikvision->getPersonDetail($personId);
+            $detail = $hikvision->getPersonDetail($personId);
 
-            HikvisionPerson::upsertFromApi([
+            HikvisionPerson::upsertFromApi($companyId, [
                 'personInfo' => $detail,
                 'fingerList' => [],
                 'pinCode' => '',
@@ -184,16 +186,20 @@ class HikvisionPersonController extends Controller
 
     public function update(UpdateHikvisionPersonRequest $request, HikvisionPerson $person): RedirectResponse
     {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $this->assertPersonInCompany($person, $companyId);
+
         try {
-            $this->ensureHikvisionConfigured();
+            $hikvision = $this->hikvision($companyId);
+            $this->ensureHikvisionConfigured($companyId);
 
-            $detail = $this->hikvision->getPersonDetail($person->person_id);
+            $detail = $hikvision->getPersonDetail($person->person_id);
 
-            $this->hikvision->updatePerson(
+            $hikvision->updatePerson(
                 HikvisionPersonWritePayload::forUpdate($request->validated(), $detail),
             );
 
-            HikvisionPerson::upsertFromApi([
+            HikvisionPerson::upsertFromApi($companyId, [
                 'personInfo' => HikvisionPersonWritePayload::mergeUpdatedDetail($request->validated(), $detail),
                 'fingerList' => [],
                 'pinCode' => '',
@@ -207,15 +213,20 @@ class HikvisionPersonController extends Controller
         }
     }
 
-    public function destroy(HikvisionPerson $person): RedirectResponse
+    public function destroy(Request $request, HikvisionPerson $person): RedirectResponse
     {
-        try {
-            $this->ensureHikvisionConfigured();
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $this->assertPersonInCompany($person, $companyId);
 
-            DB::transaction(function () use ($person): void {
-                $this->hikvision->deletePerson($person->person_id);
+        try {
+            $hikvision = $this->hikvision($companyId);
+            $this->ensureHikvisionConfigured($companyId);
+
+            DB::transaction(function () use ($person, $hikvision, $companyId): void {
+                $hikvision->deletePerson($person->person_id);
 
                 Employee::query()
+                    ->where('company_id', $companyId)
                     ->where('hikvision_person_id', $person->id)
                     ->update(['hikvision_person_id' => null]);
 
@@ -238,14 +249,18 @@ class HikvisionPersonController extends Controller
             'photo' => ['required', 'image', 'max:5120'],
         ]);
 
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $this->assertPersonInCompany($person, $companyId);
+
         try {
-            $this->ensureHikvisionConfigured();
+            $hikvision = $this->hikvision($companyId);
+            $this->ensureHikvisionConfigured($companyId);
 
             $photoBase64 = base64_encode((string) file_get_contents($request->file('photo')->getRealPath()));
-            $this->hikvision->uploadPersonPhoto($person->person_id, $photoBase64);
-            $detail = $this->hikvision->getPersonDetail($person->person_id);
+            $hikvision->uploadPersonPhoto($person->person_id, $photoBase64);
+            $detail = $hikvision->getPersonDetail($person->person_id);
 
-            $person = HikvisionPerson::upsertFromApi([
+            $person = HikvisionPerson::upsertFromApi($companyId, [
                 'personInfo' => $detail,
                 'fingerList' => [],
                 'pinCode' => '',
@@ -268,9 +283,10 @@ class HikvisionPersonController extends Controller
     public function sync(Request $request): RedirectResponse
     {
         try {
-            $this->ensureHikvisionConfigured();
+            $companyId = (int) $request->attributes->get('current_company_id');
+            $this->ensureHikvisionConfigured($companyId);
 
-            $result = $this->hikvision->syncPersons();
+            $result = $this->hikvision($companyId)->syncPersons();
 
             return back()->with('success', $result['message']);
         } catch (RuntimeException $exception) {
@@ -280,10 +296,20 @@ class HikvisionPersonController extends Controller
         }
     }
 
-    private function ensureHikvisionConfigured(): void
+    private function ensureHikvisionConfigured(int $companyId): void
     {
-        if (! HikvisionSetting::current()->isConfigured()) {
+        if (! HikvisionSetting::forCompany($companyId)->isConfigured()) {
             throw new RuntimeException('Hikvision integration is not configured. Add credentials in Application settings.');
         }
+    }
+
+    private function hikvision(int $companyId): HikvisionService
+    {
+        return HikvisionService::forCompany($companyId);
+    }
+
+    private function assertPersonInCompany(HikvisionPerson $person, int $companyId): void
+    {
+        abort_unless((int) $person->company_id === $companyId, 404);
     }
 }

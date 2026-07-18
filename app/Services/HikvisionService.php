@@ -19,8 +19,19 @@ use RuntimeException;
 class HikvisionService
 {
     public function __construct(
+        private readonly HikvisionSetting $setting,
         private readonly SyncAttendanceRecordsFromHikvision $attendanceSync,
     ) {}
+
+    public static function forSetting(HikvisionSetting $setting): self
+    {
+        return new self($setting, app(SyncAttendanceRecordsFromHikvision::class));
+    }
+
+    public static function forCompany(int $companyId): self
+    {
+        return self::forSetting(HikvisionSetting::forCompany($companyId));
+    }
 
     /**
      * @var array{access_token: string, expire_time: int, user_id: string, area_domain: string}|null
@@ -34,7 +45,7 @@ class HikvisionService
     public function resolveCredentials(?array $override = null): array
     {
         $override = $override ?? [];
-        $stored = HikvisionSetting::current();
+        $stored = $this->setting;
 
         $apiHost = (string) ($override['api_host'] ?? $stored->api_host ?? config('hikvision.api_host', ''));
         $apiKey = (string) ($override['api_key'] ?? $stored->api_key ?? config('hikvision.api_key', ''));
@@ -243,7 +254,7 @@ class HikvisionService
                     // Keep list data even when detail fetch fails for a device.
                 }
 
-                HikvisionDevice::upsertFromApi($apiDevice, $detail);
+                HikvisionDevice::upsertFromApi((int) $this->setting->company_id, $apiDevice, $detail);
                 $syncedCount++;
             }
 
@@ -312,7 +323,7 @@ class HikvisionService
                 continue;
             }
 
-            HikvisionPersonGroup::upsertFromApi($group);
+            HikvisionPersonGroup::upsertFromApi((int) $this->setting->company_id, $group);
             $syncedCount++;
         }
 
@@ -348,7 +359,7 @@ class HikvisionService
                 }
 
                 $apiPersonIds[] = $personId;
-                HikvisionPerson::upsertFromApi($apiPerson);
+                HikvisionPerson::upsertFromApi((int) $this->setting->company_id, $apiPerson);
                 $syncedCount++;
             }
 
@@ -357,7 +368,7 @@ class HikvisionService
 
         $deletedCount = $this->pruneStalePersons($apiPersonIds);
 
-        HikvisionSetting::current()->update([
+        $this->setting->update([
             'persons_last_synced_at' => now(),
         ]);
 
@@ -378,7 +389,7 @@ class HikvisionService
      */
     private function pruneStalePersons(array $apiPersonIds): int
     {
-        $stalePersonsQuery = HikvisionPerson::query();
+        $stalePersonsQuery = HikvisionPerson::query()->forCompany((int) $this->setting->company_id);
 
         if ($apiPersonIds !== []) {
             $stalePersonsQuery->whereNotIn('person_id', $apiPersonIds);
@@ -394,6 +405,7 @@ class HikvisionService
 
         DB::transaction(function () use ($stalePersons, $staleLocalIds): void {
             Employee::query()
+                ->where('company_id', $this->setting->company_id)
                 ->whereIn('hikvision_person_id', $staleLocalIds)
                 ->update(['hikvision_person_id' => null]);
 
@@ -415,6 +427,7 @@ class HikvisionService
     public function getCachedAccessControllerDevices(): array
     {
         return HikvisionDevice::query()
+            ->forCompany((int) $this->setting->company_id)
             ->where('category', 'accessControllerDevice')
             ->orderBy('name')
             ->get()
@@ -546,7 +559,7 @@ class HikvisionService
                     $hasInWindowRecord = true;
                 }
 
-                $stored = HikvisionAccessEvent::upsertFromAcsEvent($event, $deviceId, $deviceName, $startTime, $endTime);
+                $stored = HikvisionAccessEvent::upsertFromAcsEvent((int) $this->setting->company_id, $event, $deviceId, $deviceName, $startTime, $endTime);
 
                 if ($stored !== null) {
                     $storedCount++;
@@ -598,13 +611,13 @@ class HikvisionService
                     $hasInWindowRecord = true;
                 }
 
-                $checkIn = HikvisionAccessEvent::upsertFromTimeCardRow($row, HikvisionAccessEvent::ATTENDANCE_CHECK_IN, $startTime, $endTime);
+                $checkIn = HikvisionAccessEvent::upsertFromTimeCardRow((int) $this->setting->company_id, $row, HikvisionAccessEvent::ATTENDANCE_CHECK_IN, $startTime, $endTime);
 
                 if ($checkIn !== null) {
                     $storedCount++;
                 }
 
-                $checkOut = HikvisionAccessEvent::upsertFromTimeCardRow($row, HikvisionAccessEvent::ATTENDANCE_CHECK_OUT, $startTime, $endTime);
+                $checkOut = HikvisionAccessEvent::upsertFromTimeCardRow((int) $this->setting->company_id, $row, HikvisionAccessEvent::ATTENDANCE_CHECK_OUT, $startTime, $endTime);
 
                 if ($checkOut !== null) {
                     $storedCount++;
@@ -670,19 +683,7 @@ class HikvisionService
 
     private function syncAttendanceRecordsForWindow(CarbonInterface $startTime, CarbonInterface $endTime): int
     {
-        $companyIds = Employee::query()
-            ->where('status', 'active')
-            ->whereNotNull('hikvision_person_id')
-            ->distinct()
-            ->pluck('company_id');
-
-        $synced = 0;
-
-        foreach ($companyIds as $companyId) {
-            $synced += $this->attendanceSync->syncCompany((int) $companyId, $startTime, $endTime);
-        }
-
-        return $synced;
+        return $this->attendanceSync->syncCompany((int) $this->setting->company_id, $startTime, $endTime);
     }
 
     /**
@@ -742,7 +743,7 @@ class HikvisionService
                     $hasInWindowRecord = true;
                 }
 
-                $stored = HikvisionAccessEvent::upsertFromCertificateRecord($record, $startTime, $endTime);
+                $stored = HikvisionAccessEvent::upsertFromCertificateRecord((int) $this->setting->company_id, $record, $startTime, $endTime);
 
                 if ($stored !== null) {
                     $storedCount++;
@@ -856,7 +857,7 @@ class HikvisionService
      */
     public function registerWebhook(string $callbackUrl, ?array $override = null): array
     {
-        $settings = HikvisionSetting::current();
+        $settings = $this->setting;
         $settings->ensureWebhookVerifyToken();
 
         $payload = [
@@ -891,7 +892,7 @@ class HikvisionService
      */
     public function ensureWebhookConfigured(string $callbackUrl): array
     {
-        $settings = HikvisionSetting::current();
+        $settings = $this->setting;
         $settings->ensureWebhookVerifyToken();
 
         if ($settings->webhook_registered_at !== null && $settings->webhook_callback_url === $callbackUrl) {
@@ -910,7 +911,7 @@ class HikvisionService
 
     protected function ensureConfigured(): void
     {
-        if (! HikvisionSetting::current()->isConfigured()) {
+        if (! $this->setting->isConfigured()) {
             throw new RuntimeException('Hikvision integration is not configured. Add credentials in Application settings.');
         }
     }

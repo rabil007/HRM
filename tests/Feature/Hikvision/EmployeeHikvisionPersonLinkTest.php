@@ -6,8 +6,9 @@ use App\Models\User;
 
 test('user with permission can link employee to hikvision person from persons page', function () {
     $auth = User::factory()->create();
-    $employee = Employee::factory()->create();
+    $employee = Employee::factory()->forCompany(hikvisionTestCompany())->create();
     $person = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'link-person-1',
         'full_name' => 'Link Person',
         'person_code' => 'EMP100',
@@ -31,8 +32,9 @@ test('user with permission can link employee to hikvision person from persons pa
 
 test('linking hikvision person unlinks previous employee', function () {
     $auth = User::factory()->create();
-    $company = Employee::factory()->create()->company;
+    $company = hikvisionTestCompany();
     $person = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'relink-person-1',
         'full_name' => 'Shared Person',
     ]);
@@ -60,10 +62,11 @@ test('linking hikvision person unlinks previous employee', function () {
 test('user can unlink employee from hikvision person', function () {
     $auth = User::factory()->create();
     $person = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'unlink-person-1',
         'full_name' => 'Unlink Person',
     ]);
-    $employee = Employee::factory()->create([
+    $employee = Employee::factory()->forCompany(hikvisionTestCompany())->create([
         'hikvision_person_id' => $person->id,
     ]);
 
@@ -83,8 +86,9 @@ test('user can unlink employee from hikvision person', function () {
 
 test('user without link permission cannot update hikvision person employee link', function () {
     $auth = User::factory()->create();
-    $employee = Employee::factory()->create();
+    $employee = Employee::factory()->forCompany(hikvisionTestCompany())->create();
     $person = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'blocked-link-1',
         'full_name' => 'Blocked',
     ]);

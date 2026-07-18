@@ -16,7 +16,7 @@ class SyncHikvisionAttendanceJob implements ShouldQueue
 
     public int $timeout = 60;
 
-    public function __construct(public ?string $date = null) {}
+    public function __construct(public ?string $date = null, public ?int $companyId = null) {}
 
     public function handle(DispatchHikvisionAttendanceSync $dispatch): void
     {
@@ -28,6 +28,7 @@ class SyncHikvisionAttendanceJob implements ShouldQueue
             $dispatched += $dispatch->dispatchForWindow(
                 $day->copy()->startOfDay(),
                 $day->copy()->endOfDay(),
+                $this->companyId,
             );
 
             if ($day->isToday()) {
@@ -35,6 +36,7 @@ class SyncHikvisionAttendanceJob implements ShouldQueue
                 $dispatched += $dispatch->dispatchForWindow(
                     $yesterday->copy()->startOfDay(),
                     $yesterday->copy()->endOfDay(),
+                    $this->companyId,
                 );
             }
         } else {
@@ -42,6 +44,7 @@ class SyncHikvisionAttendanceJob implements ShouldQueue
             $dispatched += $dispatch->dispatchForWindow(
                 $yesterday->copy()->startOfDay(),
                 $yesterday->copy()->endOfDay(),
+                $this->companyId,
             );
         }
 

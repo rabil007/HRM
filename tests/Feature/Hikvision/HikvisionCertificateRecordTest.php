@@ -59,7 +59,7 @@ function fakeHikvisionCertificateRecordsApi(array $records = []): void
 }
 
 test('certificate record upsert stores snap urls and person id', function () {
-    $stored = HikvisionAccessEvent::upsertFromCertificateRecord([
+    $stored = HikvisionAccessEvent::upsertFromCertificateRecord(hikvisionTestCompany()->id, [
         'recordId' => 'cert-upsert-1',
         'personInfo' => [
             'personId' => 'hv-person-1',
@@ -84,6 +84,7 @@ test('certificate record upsert stores snap urls and person id', function () {
 
 test('certificate record dedupe skips overlapping access records', function () {
     HikvisionAccessEvent::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'system_id' => 'attendance:EMP001:2026-06-05T08:00:00+04:00:checkIn',
         'occurrence_time' => '2026-06-05 08:00:00',
         'msg_type' => 'attendance/totaltimecard',
@@ -94,7 +95,7 @@ test('certificate record dedupe skips overlapping access records', function () {
         'fetched_at' => now(),
     ]);
 
-    $duplicate = HikvisionAccessEvent::upsertFromCertificateRecord([
+    $duplicate = HikvisionAccessEvent::upsertFromCertificateRecord(hikvisionTestCompany()->id, [
         'recordId' => 'cert-dedupe-1',
         'personInfo' => [
             'personName' => 'Cert User',
@@ -112,7 +113,7 @@ test('fetch certificate records stores access events', function () {
     configuredHikvisionSettings();
     fakeHikvisionCertificateRecordsApi();
 
-    $count = app(HikvisionService::class)->fetchCertificateRecords(
+    $count = HikvisionService::forSetting(hikvisionSettings())->fetchCertificateRecords(
         now()->startOfDay(),
         now()->endOfDay(),
     );
@@ -122,7 +123,7 @@ test('fetch certificate records stores access events', function () {
 });
 
 test('certificate record upsert skips nameless records', function () {
-    $stored = HikvisionAccessEvent::upsertFromCertificateRecord([
+    $stored = HikvisionAccessEvent::upsertFromCertificateRecord(hikvisionTestCompany()->id, [
         'recordId' => 'cert-nameless-1',
         'occurTime' => '2026-06-08T08:00:00+04:00',
         'attendanceStatus' => '1',
@@ -135,7 +136,7 @@ test('certificate record upsert skips nameless records', function () {
 test('certificate record upsert resolves hik connect person info shape', function () {
     Carbon::setTestNow('2026-06-08 10:00:00', config('app.timezone'));
 
-    $stored = HikvisionAccessEvent::upsertFromCertificateRecord([
+    $stored = HikvisionAccessEvent::upsertFromCertificateRecord(hikvisionTestCompany()->id, [
         'recordGuid' => 'cert-hcc-shape-1',
         'occurTime' => '2026-06-08T05:58:20Z',
         'deviceTime' => '2026-06-08T09:58:20+04:00',
@@ -179,7 +180,7 @@ test('fetch certificate records ignores historical api responses outside today w
         ], 200),
     ]);
 
-    $count = app(HikvisionService::class)->fetchCertificateRecords(
+    $count = HikvisionService::forSetting(hikvisionSettings())->fetchCertificateRecords(
         now()->startOfDay(),
         now()->endOfDay(),
     );
@@ -220,7 +221,7 @@ test('fetch certificate records stores only todays named records from mixed api 
         ], 200),
     ]);
 
-    $count = app(HikvisionService::class)->fetchCertificateRecords(
+    $count = HikvisionService::forSetting(hikvisionSettings())->fetchCertificateRecords(
         now()->startOfDay(),
         now()->endOfDay(),
     );

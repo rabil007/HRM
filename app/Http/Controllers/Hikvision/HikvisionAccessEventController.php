@@ -31,7 +31,7 @@ class HikvisionAccessEventController extends Controller
             $attendanceStatus = '';
         }
 
-        $deviceOptions = HikvisionAccessEvent::deviceNameOptions();
+        $deviceOptions = HikvisionAccessEvent::deviceNameOptions($companyId);
         $device = $request->string('device')->toString();
 
         if ($device !== '' && ! in_array($device, $deviceOptions, true)) {
@@ -47,20 +47,21 @@ class HikvisionAccessEventController extends Controller
         ];
 
         $paginator = HikvisionAccessEvent::query()
+            ->forCompany($companyId)
             ->accessRecords()
             ->filtered($filters)
             ->orderByDesc('occurrence_time')
             ->paginate($perPage)
             ->withQueryString();
 
-        $settings = HikvisionSetting::current();
+        $settings = HikvisionSetting::forCompany($companyId);
         $settings->resolveStaleEventsFetch();
         $settings->refresh();
 
         $fetchResult = $settings->acknowledgeFetchResult();
 
         $lastFetchedAt = $settings->events_last_fetched_at
-            ?? HikvisionAccessEvent::query()->max('fetched_at');
+            ?? HikvisionAccessEvent::query()->forCompany($companyId)->max('fetched_at');
 
         $personHikvisionIds = $paginator->getCollection()
             ->pluck('person_hikvision_id')
@@ -79,6 +80,7 @@ class HikvisionAccessEventController extends Controller
                 ->keyBy(fn (Employee $employee): string => (string) $employee->hikvisionPerson?->person_id);
 
         $personsWithPhotos = HikvisionPerson::query()
+            ->forCompany($companyId)
             ->whereNotNull('photo_path')
             ->where('photo_path', '!=', '')
             ->get(['person_id', 'full_name', 'photo_path']);
@@ -142,7 +144,8 @@ class HikvisionAccessEventController extends Controller
 
     public function fetch(FetchHikvisionAccessEventsRequest $request): RedirectResponse
     {
-        $settings = HikvisionSetting::current();
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $settings = HikvisionSetting::forCompany($companyId);
 
         if (! $settings->isConfigured()) {
             return back()->withErrors([
@@ -158,7 +161,7 @@ class HikvisionAccessEventController extends Controller
         $dateParam = $date->toDateString();
 
         $settings->beginEventsFetch();
-        FetchHikvisionAccessEventsJob::dispatch($dateParam);
+        FetchHikvisionAccessEventsJob::dispatch($settings->id, $dateParam);
 
         $label = $date->isToday() ? 'today' : $date->format('d-m-Y');
 

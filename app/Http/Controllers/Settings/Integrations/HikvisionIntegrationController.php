@@ -12,27 +12,26 @@ use App\Services\HikvisionService;
 use App\Support\Settings\ApplicationTimezone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 use RuntimeException;
 
 class HikvisionIntegrationController extends Controller
 {
-    public function __construct(private HikvisionService $hikvision) {}
-
     /**
      * @return array<string, mixed>|null
      */
-    public static function pageProps(?User $user): ?array
+    public static function pageProps(?User $user, int $companyId): ?array
     {
         if (! $user?->can('settings.integrations.hikvision.view')) {
             return null;
         }
 
-        $settings = HikvisionSetting::current();
+        $settings = HikvisionSetting::forCompany($companyId);
 
         $props = [
             'settings' => $settings->toSettingsPageArray(),
-            'webhook_url' => URL::route('webhooks.hikvision', absolute: true),
+            'webhook_url' => URL::route('webhooks.hikvision', ['publicIntegrationId' => $settings->public_id], absolute: true),
             'scheduler_timezone' => ApplicationTimezone::identifier(),
             'can' => [
                 'update' => $user->can('settings.integrations.hikvision.update'),
@@ -41,7 +40,7 @@ class HikvisionIntegrationController extends Controller
         ];
 
         if ($user->can('hikvision.devices.view')) {
-            $props['devices'] = self::devicesPageProps($user);
+            $props['devices'] = self::devicesPageProps($user, $companyId);
         }
 
         return $props;
@@ -54,12 +53,13 @@ class HikvisionIntegrationController extends Controller
      *     can: array{sync: bool}
      * }
      */
-    public static function devicesPageProps(User $user): array
+    public static function devicesPageProps(User $user, int $companyId): array
     {
-        $lastSyncedAt = HikvisionDevice::query()->max('synced_at');
+        $lastSyncedAt = HikvisionDevice::query()->forCompany($companyId)->max('synced_at');
 
         return [
             'items' => HikvisionDevice::query()
+                ->forCompany($companyId)
                 ->orderBy('name')
                 ->get()
                 ->map(fn (HikvisionDevice $device) => $device->toPageArray())
@@ -72,10 +72,10 @@ class HikvisionIntegrationController extends Controller
         ];
     }
 
-    public function syncDevices(): RedirectResponse
+    public function syncDevices(Request $request): RedirectResponse
     {
         try {
-            $result = $this->hikvision->syncDevices();
+            $result = HikvisionService::forCompany((int) $request->attributes->get('current_company_id'))->syncDevices();
 
             return back()->with('success', $result['message']);
         } catch (RuntimeException $exception) {
@@ -87,7 +87,7 @@ class HikvisionIntegrationController extends Controller
 
     public function update(UpdateHikvisionIntegrationRequest $request): RedirectResponse
     {
-        $settings = HikvisionSetting::current();
+        $settings = HikvisionSetting::forCompany((int) $request->attributes->get('current_company_id'));
         $settings->storeFromValidated($request->settingsPayload());
 
         if ($request->boolean('webhook_enabled') && ! filled($settings->webhook_verify_token)) {
@@ -100,7 +100,7 @@ class HikvisionIntegrationController extends Controller
     public function testConnection(TestHikvisionConnectionRequest $request): JsonResponse
     {
         $override = $request->credentialsOverride();
-        $stored = HikvisionSetting::current();
+        $stored = HikvisionSetting::forCompany((int) $request->attributes->get('current_company_id'));
 
         if (! filled($override['api_key'] ?? null)) {
             $override['api_key'] = $stored->api_key;
@@ -110,14 +110,14 @@ class HikvisionIntegrationController extends Controller
             $override['api_secret'] = $stored->api_secret;
         }
 
-        $result = $this->hikvision->testConnection($override);
+        $result = HikvisionService::forSetting($stored)->testConnection($override);
 
         return response()->json($result, $result['success'] ? 200 : 422);
     }
 
-    public function registerWebhook(): RedirectResponse
+    public function registerWebhook(Request $request): RedirectResponse
     {
-        $settings = HikvisionSetting::current();
+        $settings = HikvisionSetting::forCompany((int) $request->attributes->get('current_company_id'));
 
         if (! $settings->isConfigured()) {
             return back()->withErrors([
@@ -125,10 +125,10 @@ class HikvisionIntegrationController extends Controller
             ]);
         }
 
-        $callbackUrl = URL::route('webhooks.hikvision', absolute: true);
+        $callbackUrl = URL::route('webhooks.hikvision', ['publicIntegrationId' => $settings->public_id], absolute: true);
 
         try {
-            $result = $this->hikvision->ensureWebhookConfigured($callbackUrl);
+            $result = HikvisionService::forSetting($settings)->ensureWebhookConfigured($callbackUrl);
 
             return back()->with('success', $result['message']);
         } catch (RuntimeException $exception) {

@@ -3,8 +3,11 @@
 namespace App\Models;
 
 use App\Support\Eloquent\IgnoresInvalidEncryptionInLocal;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class HikvisionSetting extends Model
 {
@@ -24,6 +27,8 @@ class HikvisionSetting extends Model
     public const EVENTS_FETCH_FAILED = 'failed';
 
     protected $fillable = [
+        'company_id',
+        'public_id',
         'api_host',
         'api_key',
         'api_secret',
@@ -56,6 +61,7 @@ class HikvisionSetting extends Model
     protected function casts(): array
     {
         return [
+            'company_id' => 'integer',
             'api_key' => 'encrypted',
             'api_secret' => 'encrypted',
             'enabled' => 'boolean',
@@ -145,12 +151,13 @@ class HikvisionSetting extends Model
         ];
     }
 
-    public static function current(): self
+    public static function forCompany(int $companyId): self
     {
         $setting = self::withTrashed()->firstOrCreate(
-            ['id' => 1],
+            ['company_id' => $companyId],
             [
                 'enabled' => false,
+                'public_id' => (string) Str::uuid(),
             ],
         );
 
@@ -158,7 +165,39 @@ class HikvisionSetting extends Model
             $setting->restore();
         }
 
+        if (! filled($setting->public_id)) {
+            $setting->forceFill(['public_id' => (string) Str::uuid()])->save();
+        }
+
         return $setting;
+    }
+
+    public static function findByPublicId(string $publicId): ?self
+    {
+        return self::query()->where('public_id', $publicId)->first();
+    }
+
+    /**
+     * @return BelongsTo<Company, $this>
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    public function scopeConfigured(Builder $query): Builder
+    {
+        return $query
+            ->where('enabled', true)
+            ->whereNotNull('api_host')
+            ->where('api_host', '!=', '')
+            ->whereNotNull('api_key')
+            ->where('api_key', '!=', '')
+            ->whereNotNull('api_secret')
+            ->where('api_secret', '!=', '');
     }
 
     public function hasStoredCredentials(): bool

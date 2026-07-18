@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class HikvisionDevice extends Model
@@ -10,6 +12,7 @@ class HikvisionDevice extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'company_id',
         'hikvision_id',
         'serial_no',
         'name',
@@ -27,6 +30,7 @@ class HikvisionDevice extends Model
     protected function casts(): array
     {
         return [
+            'company_id' => 'integer',
             'online_status' => 'integer',
             'raw_list_payload' => 'array',
             'raw_detail_payload' => 'array',
@@ -66,7 +70,7 @@ class HikvisionDevice extends Model
         ];
     }
 
-    public static function upsertFromApi(array $apiDevice, ?array $apiDetail = null): self
+    public static function upsertFromApi(int $companyId, array $apiDevice, ?array $apiDetail = null): self
     {
         $attributes = [
             'hikvision_id' => (string) ($apiDevice['id'] ?? ''),
@@ -83,7 +87,7 @@ class HikvisionDevice extends Model
         }
 
         $device = self::withTrashed()->updateOrCreate(
-            ['serial_no' => (string) ($apiDevice['serialNo'] ?? '')],
+            ['company_id' => $companyId, 'serial_no' => (string) ($apiDevice['serialNo'] ?? '')],
             $attributes,
         );
 
@@ -92,5 +96,21 @@ class HikvisionDevice extends Model
         }
 
         return $device;
+    }
+
+    /**
+     * @return BelongsTo<Company, $this>
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    public function scopeForCompany(Builder $query, int $companyId): Builder
+    {
+        return $query->where('company_id', $companyId);
     }
 }

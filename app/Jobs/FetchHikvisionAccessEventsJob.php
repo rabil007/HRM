@@ -19,16 +19,22 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
 
     public int $timeout = 180;
 
-    public function __construct(public ?string $date = null)
+    public function __construct(public int $hikvisionSettingId, public ?string $date = null)
     {
         if (! filled($this->date)) {
             $this->timeout = 180;
         }
     }
 
-    public function handle(HikvisionService $hikvision): void
+    public function handle(?HikvisionService $hikvision = null): void
     {
-        $settings = HikvisionSetting::current();
+        $settings = HikvisionSetting::find($this->hikvisionSettingId);
+
+        if ($settings === null) {
+            throw new RuntimeException('Hikvision settings no longer exist.');
+        }
+
+        $hikvision ??= HikvisionService::forSetting($settings);
         $settings->markEventsFetchRunning();
 
         $timezone = (string) config('app.timezone', 'UTC');
@@ -49,9 +55,9 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
         } finally {
             if (! $fetchFailed) {
                 if (filled($this->date) && $date instanceof Carbon) {
-                    SyncHikvisionAttendanceJob::dispatch($date->toDateString());
+                    SyncHikvisionAttendanceJob::dispatch($date->toDateString(), (int) $settings->company_id);
                 } elseif (! filled($this->date)) {
-                    SyncHikvisionAttendanceJob::dispatch();
+                    SyncHikvisionAttendanceJob::dispatch(null, (int) $settings->company_id);
                 }
             }
         }
@@ -74,10 +80,8 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
 
     public function failed(Throwable $exception): void
     {
-        HikvisionSetting::current()->markEventsFetchFailed(
-            $exception->getMessage() !== ''
-                ? $exception->getMessage()
-                : 'Failed to fetch Hikvision access records.',
+        HikvisionSetting::find($this->hikvisionSettingId)?->markEventsFetchFailed(
+            $exception->getMessage() !== '' ? $exception->getMessage() : 'Failed to fetch Hikvision access records.',
         );
     }
 }

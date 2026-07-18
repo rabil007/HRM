@@ -23,6 +23,7 @@ class HikvisionPerson extends Model
     public const CREDENTIAL_NONE = 'none';
 
     protected $fillable = [
+        'company_id',
         'person_id',
         'group_id',
         'person_code',
@@ -45,6 +46,7 @@ class HikvisionPerson extends Model
     protected function casts(): array
     {
         return [
+            'company_id' => 'integer',
             'has_fingerprint' => 'boolean',
             'has_pin' => 'boolean',
             'raw_payload' => 'array',
@@ -55,7 +57,7 @@ class HikvisionPerson extends Model
     /**
      * @param  array<string, mixed>  $apiPerson
      */
-    public static function upsertFromApi(array $apiPerson, ?self $preserveCredentialsFrom = null): self
+    public static function upsertFromApi(int $companyId, array $apiPerson, ?self $preserveCredentialsFrom = null): self
     {
         $personInfo = is_array($apiPerson['personInfo'] ?? null) ? $apiPerson['personInfo'] : [];
         $fingerList = is_array($apiPerson['fingerList'] ?? null) ? $apiPerson['fingerList'] : [];
@@ -89,7 +91,7 @@ class HikvisionPerson extends Model
         }
 
         $person = self::withTrashed()->updateOrCreate(
-            ['person_id' => (string) ($personInfo['personId'] ?? '')],
+            ['company_id' => $companyId, 'person_id' => (string) ($personInfo['personId'] ?? '')],
             [
                 'group_id' => filled($personInfo['groupId'] ?? null) ? (string) $personInfo['groupId'] : null,
                 'person_code' => filled($personInfo['personCode'] ?? null) ? (string) $personInfo['personCode'] : null,
@@ -130,7 +132,8 @@ class HikvisionPerson extends Model
      */
     public function group(): BelongsTo
     {
-        return $this->belongsTo(HikvisionPersonGroup::class, 'group_id', 'group_id');
+        return $this->belongsTo(HikvisionPersonGroup::class, 'group_id', 'group_id')
+            ->where('company_id', $this->company_id);
     }
 
     /**
@@ -139,6 +142,22 @@ class HikvisionPerson extends Model
     public function employee(): HasOne
     {
         return $this->hasOne(Employee::class);
+    }
+
+    /**
+     * @return BelongsTo<Company, $this>
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    public function scopeForCompany(Builder $query, int $companyId): Builder
+    {
+        return $query->where('company_id', $companyId);
     }
 
     /**

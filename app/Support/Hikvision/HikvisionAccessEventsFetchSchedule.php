@@ -4,6 +4,7 @@ namespace App\Support\Hikvision;
 
 use App\Models\HikvisionSetting;
 use App\Support\Settings\ApplicationTimezone;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
 class HikvisionAccessEventsFetchSchedule
@@ -17,7 +18,11 @@ class HikvisionAccessEventsFetchSchedule
                 return $default;
             }
 
-            $value = HikvisionSetting::query()->value('events_fetch_schedule_at');
+            $value = HikvisionSetting::query()
+                ->whereNotNull('events_fetch_schedule_at')
+                ->where('events_fetch_schedule_at', '!=', '')
+                ->orderBy('id')
+                ->value('events_fetch_schedule_at');
 
             if (! is_string($value) || ! self::isValidTime($value)) {
                 return $default;
@@ -41,10 +46,10 @@ class HikvisionAccessEventsFetchSchedule
                 return false;
             }
 
-            $settings = HikvisionSetting::current();
-
-            return $settings->events_fetch_schedule_enabled
-                && $settings->isConfigured();
+            return HikvisionSetting::query()
+                ->where('events_fetch_schedule_enabled', true)
+                ->get()
+                ->contains(fn (HikvisionSetting $setting): bool => $setting->isConfigured());
         } catch (\Throwable) {
             return false;
         }
@@ -53,5 +58,30 @@ class HikvisionAccessEventsFetchSchedule
     public static function isValidTime(string $value): bool
     {
         return preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $value) === 1;
+    }
+
+    /**
+     * @return Collection<int, HikvisionSetting>
+     */
+    public static function settingsDueForDispatch(): Collection
+    {
+        $time = now(self::timezone())->format('H:i');
+        $default = (string) config('hikvision.events_fetch_schedule_at', '18:00');
+
+        return HikvisionSetting::query()
+            ->where('events_fetch_schedule_enabled', true)
+            ->get()
+            ->filter(function (HikvisionSetting $setting) use ($time, $default): bool {
+                if (! $setting->isConfigured()) {
+                    return false;
+                }
+
+                $scheduleAt = filled($setting->events_fetch_schedule_at)
+                    ? (string) $setting->events_fetch_schedule_at
+                    : $default;
+
+                return $scheduleAt === $time;
+            })
+            ->values();
     }
 }

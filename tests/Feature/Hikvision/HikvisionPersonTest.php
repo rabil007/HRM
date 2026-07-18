@@ -4,7 +4,6 @@ use App\Models\Company;
 use App\Models\Employee;
 use App\Models\HikvisionPerson;
 use App\Models\HikvisionPersonGroup;
-use App\Models\HikvisionSetting;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -91,6 +90,7 @@ test('persons index paginates results and returns correct pagination meta', func
 
     foreach (range(1, 21) as $index) {
         HikvisionPerson::query()->create([
+            'company_id' => hikvisionTestCompany()->id,
             'person_id' => "paginated-person-{$index}",
             'full_name' => sprintf('Person %02d', $index),
             'synced_at' => now(),
@@ -98,6 +98,7 @@ test('persons index paginates results and returns correct pagination meta', func
     }
 
     HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'paginated-person-syam',
         'full_name' => 'Syam',
         'synced_at' => now(),
@@ -170,7 +171,12 @@ test('persons page does not expose employees linked in another company', functio
             'employee_no' => 'OTH-001',
         ]);
 
-    linkHikvisionPersonToUserCompany($otherEmployee, 'person-other-co');
+    $person = HikvisionPerson::query()->create([
+        'company_id' => $viewerCompany->id,
+        'person_id' => 'person-other-co',
+        'full_name' => 'Hidden Linked Employee',
+    ]);
+    $otherEmployee->update(['hikvision_person_id' => $person->id]);
 
     $this->actingAs($user)
         ->get(route('hikvision.persons.index'))
@@ -231,7 +237,7 @@ test('sync upserts persons and departments from hikvision api', function () {
         ->and(HikvisionPerson::query()->where('person_id', 'person-1')->value('has_pin'))->toBeTrue()
         ->and(HikvisionPersonGroup::query()->where('group_id', 'group-1')->value('name'))->toBe('Engineering');
 
-    expect(HikvisionSetting::current()->persons_last_synced_at)->not->toBeNull();
+    expect(hikvisionSettings()->persons_last_synced_at)->not->toBeNull();
 });
 
 test('sync removes local persons deleted from hikvision portal', function () {
@@ -278,7 +284,7 @@ test('sync removes local persons deleted from hikvision portal', function () {
 
     configuredHikvisionSettings();
 
-    HikvisionPerson::upsertFromApi([
+    HikvisionPerson::upsertFromApi(hikvisionTestCompany()->id, [
         'personInfo' => [
             'personId' => 'person-1',
             'groupId' => 'group-1',
@@ -290,11 +296,12 @@ test('sync removes local persons deleted from hikvision portal', function () {
     ]);
 
     $removedPerson = HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'person-removed',
         'full_name' => 'Removed User',
     ]);
 
-    $employee = Employee::factory()->create([
+    $employee = Employee::factory()->forCompany(hikvisionTestCompany())->create([
         'hikvision_person_id' => $removedPerson->id,
     ]);
 
@@ -359,13 +366,13 @@ test('re-sync updates existing hikvision persons', function () {
 
     configuredHikvisionSettings();
 
-    HikvisionPersonGroup::upsertFromApi([
+    HikvisionPersonGroup::upsertFromApi(hikvisionTestCompany()->id, [
         'groupId' => 'group-1',
         'groupName' => 'Old Department',
         'parentId' => '',
     ]);
 
-    HikvisionPerson::upsertFromApi([
+    HikvisionPerson::upsertFromApi(hikvisionTestCompany()->id, [
         'personInfo' => [
             'personId' => 'person-1',
             'groupId' => 'group-1',
@@ -390,13 +397,13 @@ test('re-sync updates existing hikvision persons', function () {
 });
 
 test('persons index supports search filter', function () {
-    HikvisionPersonGroup::upsertFromApi([
+    HikvisionPersonGroup::upsertFromApi(hikvisionTestCompany()->id, [
         'groupId' => 'group-1',
         'groupName' => 'Engineering',
         'parentId' => '',
     ]);
 
-    HikvisionPerson::upsertFromApi([
+    HikvisionPerson::upsertFromApi(hikvisionTestCompany()->id, [
         'personInfo' => [
             'personId' => 'person-1',
             'groupId' => 'group-1',
@@ -408,7 +415,7 @@ test('persons index supports search filter', function () {
         'pinCode' => '',
     ]);
 
-    HikvisionPerson::upsertFromApi([
+    HikvisionPerson::upsertFromApi(hikvisionTestCompany()->id, [
         'personInfo' => [
             'personId' => 'person-2',
             'groupId' => 'group-1',
@@ -434,19 +441,19 @@ test('persons index supports search filter', function () {
 });
 
 test('persons index supports department filter', function () {
-    HikvisionPersonGroup::upsertFromApi([
+    HikvisionPersonGroup::upsertFromApi(hikvisionTestCompany()->id, [
         'groupId' => 'group-1',
         'groupName' => 'Engineering',
         'parentId' => '',
     ]);
 
-    HikvisionPersonGroup::upsertFromApi([
+    HikvisionPersonGroup::upsertFromApi(hikvisionTestCompany()->id, [
         'groupId' => 'group-2',
         'groupName' => 'Operations',
         'parentId' => '',
     ]);
 
-    HikvisionPerson::upsertFromApi([
+    HikvisionPerson::upsertFromApi(hikvisionTestCompany()->id, [
         'personInfo' => [
             'personId' => 'person-1',
             'groupId' => 'group-1',
@@ -457,7 +464,7 @@ test('persons index supports department filter', function () {
         'pinCode' => '',
     ]);
 
-    HikvisionPerson::upsertFromApi([
+    HikvisionPerson::upsertFromApi(hikvisionTestCompany()->id, [
         'personInfo' => [
             'personId' => 'person-2',
             'groupId' => 'group-2',
@@ -483,7 +490,7 @@ test('persons index supports department filter', function () {
 });
 
 test('persons index supports unassigned department filter', function () {
-    HikvisionPerson::upsertFromApi([
+    HikvisionPerson::upsertFromApi(hikvisionTestCompany()->id, [
         'personInfo' => [
             'personId' => 'person-1',
             'firstName' => 'No',
@@ -493,13 +500,13 @@ test('persons index supports unassigned department filter', function () {
         'pinCode' => '',
     ]);
 
-    HikvisionPersonGroup::upsertFromApi([
+    HikvisionPersonGroup::upsertFromApi(hikvisionTestCompany()->id, [
         'groupId' => 'group-1',
         'groupName' => 'Engineering',
         'parentId' => '',
     ]);
 
-    HikvisionPerson::upsertFromApi([
+    HikvisionPerson::upsertFromApi(hikvisionTestCompany()->id, [
         'personInfo' => [
             'personId' => 'person-2',
             'groupId' => 'group-1',
@@ -524,7 +531,7 @@ test('persons index supports unassigned department filter', function () {
 });
 
 test('persons index supports credential filter', function () {
-    HikvisionPerson::upsertFromApi([
+    HikvisionPerson::upsertFromApi(hikvisionTestCompany()->id, [
         'personInfo' => [
             'personId' => 'person-1',
             'firstName' => 'Fingerprint',
@@ -534,7 +541,7 @@ test('persons index supports credential filter', function () {
         'pinCode' => '',
     ]);
 
-    HikvisionPerson::upsertFromApi([
+    HikvisionPerson::upsertFromApi(hikvisionTestCompany()->id, [
         'personInfo' => [
             'personId' => 'person-2',
             'firstName' => 'Pin',
@@ -544,7 +551,7 @@ test('persons index supports credential filter', function () {
         'pinCode' => '1234',
     ]);
 
-    HikvisionPerson::upsertFromApi([
+    HikvisionPerson::upsertFromApi(hikvisionTestCompany()->id, [
         'personInfo' => [
             'personId' => 'person-3',
             'firstName' => 'No',
@@ -643,6 +650,7 @@ test('sync skips re-downloading photo when remote object key is unchanged', func
     $secondPhotoUrl = 'https://hpc-sgp-prod-s3-person-data-storage.oss-ap-southeast-1.aliyuncs.com'.$remoteKey.'?sig=second';
 
     HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'person-long-url',
         'full_name' => 'Syam',
         'photo_path' => 'hikvision/persons/person-long-url.jpg',
@@ -704,6 +712,7 @@ test('sync replaces cached photo when remote object key changes', function () {
     $newPhotoUrl = 'https://hpc-sgp-prod-s3-person-data-storage.oss-ap-southeast-1.aliyuncs.com/GDPR001/new/picture.data?sig=new';
 
     HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'person-long-url',
         'full_name' => 'Syam',
         'photo_path' => 'hikvision/persons/person-long-url.jpg',
@@ -764,6 +773,7 @@ test('sync removes cached photo when hikvision clears headPicUrl', function () {
     Storage::disk('public')->put('hikvision/persons/person-long-url.jpg', 'old-image');
 
     HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'person-long-url',
         'full_name' => 'Syam',
         'photo_path' => 'hikvision/persons/person-long-url.jpg',
@@ -825,6 +835,7 @@ test('sync prunes stale persons and deletes cached photos', function () {
     Storage::disk('public')->put('hikvision/persons/person-stale.jpg', 'stale-image');
 
     HikvisionPerson::query()->create([
+        'company_id' => hikvisionTestCompany()->id,
         'person_id' => 'person-stale',
         'full_name' => 'Stale User',
         'photo_path' => 'hikvision/persons/person-stale.jpg',

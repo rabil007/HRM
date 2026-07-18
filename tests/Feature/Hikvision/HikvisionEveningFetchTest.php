@@ -12,7 +12,7 @@ test('evening fetch command dispatches manual-style job for today when enabled',
     Carbon::setTestNow('2026-06-26 20:00:00', 'Asia/Dubai');
 
     configuredHikvisionSettings();
-    HikvisionSetting::current()->update([
+    hikvisionSettings()->update([
         'events_evening_fetch_schedule_enabled' => true,
         'events_evening_fetch_schedule_at' => '20:00',
     ]);
@@ -26,14 +26,14 @@ test('evening fetch command dispatches manual-style job for today when enabled',
         fn (FetchHikvisionAccessEventsJob $job): bool => $job->date === '2026-06-26',
     );
 
-    expect(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_QUEUED);
+    expect(hikvisionSettings()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_QUEUED);
 });
 
 test('evening fetch command does nothing when schedule is disabled', function () {
     Queue::fake();
 
     configuredHikvisionSettings();
-    HikvisionSetting::current()->update([
+    hikvisionSettings()->update([
         'events_evening_fetch_schedule_enabled' => false,
     ]);
 
@@ -49,7 +49,7 @@ test('evening fetch command can be forced when schedule is disabled', function (
     Carbon::setTestNow('2026-06-26 20:00:00', 'Asia/Dubai');
 
     configuredHikvisionSettings();
-    HikvisionSetting::current()->update([
+    hikvisionSettings()->update([
         'events_evening_fetch_schedule_enabled' => false,
     ]);
 
@@ -63,7 +63,7 @@ test('evening fetch command can be forced when schedule is disabled', function (
 });
 
 test('evening schedule uses configured time from hikvision settings', function () {
-    HikvisionSetting::current()->update([
+    hikvisionSettings()->update([
         'api_host' => 'https://isgp.hikcentralconnect.com',
         'api_key' => 'test-key',
         'api_secret' => 'test-secret',
@@ -96,7 +96,7 @@ test('hikvision settings can save evening fetch schedule', function () {
     ])->assertRedirect()
         ->assertSessionHas('success');
 
-    $settings = HikvisionSetting::current();
+    $settings = hikvisionSettings();
 
     expect($settings->events_evening_fetch_schedule_enabled)->toBeTrue()
         ->and($settings->events_evening_fetch_schedule_at)->toBe('20:00');

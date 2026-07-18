@@ -9,7 +9,7 @@ use Illuminate\Support\Collection;
 
 final class DispatchHikvisionAttendanceSync
 {
-    public function dispatchForWindow(CarbonInterface $from, CarbonInterface $to): int
+    public function dispatchForWindow(CarbonInterface $from, CarbonInterface $to, ?int $companyId = null): int
     {
         $timezone = (string) config('app.timezone', 'UTC');
         $rangeStart = $from->copy()->timezone($timezone)->startOfDay();
@@ -19,7 +19,9 @@ final class DispatchHikvisionAttendanceSync
 
         $dispatched = 0;
 
-        foreach ($this->companyIdsForSync() as $companyId) {
+        $companyIds = $companyId === null ? $this->companyIdsForSync() : collect([$companyId]);
+
+        foreach ($companyIds as $companyId) {
             SyncCompanyHikvisionAttendanceJob::dispatch((int) $companyId, $fromString, $toString);
             $dispatched++;
         }

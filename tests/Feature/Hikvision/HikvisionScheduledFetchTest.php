@@ -10,9 +10,10 @@ use Illuminate\Support\Facades\Queue;
 
 test('scheduled fetch command dispatches job when schedule is enabled', function () {
     Queue::fake();
+    Carbon::setTestNow('2026-06-26 18:00:00', config('app.timezone'));
 
     configuredHikvisionSettings();
-    HikvisionSetting::current()->update([
+    hikvisionSettings()->update([
         'events_fetch_schedule_enabled' => true,
         'events_fetch_schedule_at' => '18:00',
     ]);
@@ -23,14 +24,14 @@ test('scheduled fetch command dispatches job when schedule is enabled', function
 
     Queue::assertPushed(FetchHikvisionAccessEventsJob::class);
 
-    expect(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_QUEUED);
+    expect(hikvisionSettings()->fresh()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_QUEUED);
 });
 
 test('scheduled fetch command does nothing when schedule is disabled', function () {
     Queue::fake();
 
     configuredHikvisionSettings();
-    HikvisionSetting::current()->update([
+    hikvisionSettings()->update([
         'events_fetch_schedule_enabled' => false,
     ]);
 
@@ -45,7 +46,7 @@ test('scheduled fetch command can be forced when schedule is disabled', function
     Queue::fake();
 
     configuredHikvisionSettings();
-    HikvisionSetting::current()->update([
+    hikvisionSettings()->update([
         'events_fetch_schedule_enabled' => false,
     ]);
 
@@ -63,7 +64,7 @@ test('scheduled fetch job does not dispatch sync when fetch fails', function () 
 
     Queue::fake();
 
-    (new FetchHikvisionAccessEventsJob)->handle($hikvision);
+    (new FetchHikvisionAccessEventsJob(hikvisionSettings()->id))->handle($hikvision);
 
     Queue::assertNotPushed(SyncHikvisionAttendanceJob::class);
 });
@@ -77,7 +78,7 @@ test('scheduled fetch job dispatches attendance sync as a separate job', functio
 
     Queue::fake();
 
-    (new FetchHikvisionAccessEventsJob)->handle($hikvision);
+    (new FetchHikvisionAccessEventsJob(hikvisionSettings()->id))->handle($hikvision);
 
     Queue::assertPushed(SyncHikvisionAttendanceJob::class);
 });
@@ -130,7 +131,7 @@ test('hikvision settings can save automatic fetch schedule', function () {
     ])->assertRedirect()
         ->assertSessionHas('success');
 
-    $settings = HikvisionSetting::current();
+    $settings = hikvisionSettings();
 
     expect($settings->events_fetch_schedule_enabled)->toBeTrue()
         ->and($settings->events_fetch_schedule_at)->toBe('22:15');

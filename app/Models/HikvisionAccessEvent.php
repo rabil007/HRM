@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class HikvisionAccessEvent extends Model
@@ -36,6 +37,9 @@ class HikvisionAccessEvent extends Model
     public const EVENT_SOURCE_WEBHOOK = 'webhook';
 
     protected $fillable = [
+        'company_id',
+        'hikvision_person_id',
+        'hikvision_device_id',
         'system_id',
         'msg_type',
         'occurrence_time',
@@ -63,6 +67,9 @@ class HikvisionAccessEvent extends Model
     protected function casts(): array
     {
         return [
+            'company_id' => 'integer',
+            'hikvision_person_id' => 'integer',
+            'hikvision_device_id' => 'integer',
             'occurrence_time' => 'datetime',
             'raw_payload' => 'array',
             'snap_urls' => 'array',
@@ -218,9 +225,10 @@ class HikvisionAccessEvent extends Model
     /**
      * @return list<string>
      */
-    public static function deviceNameOptions(): array
+    public static function deviceNameOptions(int $companyId): array
     {
         return self::query()
+            ->forCompany($companyId)
             ->accessRecords()
             ->whereNotNull('device_name')
             ->where('device_name', '!=', '')
@@ -274,16 +282,7 @@ class HikvisionAccessEvent extends Model
      */
     public function scopeForCompany(Builder $query, int $companyId): Builder
     {
-        $personTable = (new HikvisionPerson)->getTable();
-        $employeeTable = (new Employee)->getTable();
-
-        return $query->whereIn('person_hikvision_id', function ($subquery) use ($companyId, $personTable, $employeeTable): void {
-            $subquery->select("{$personTable}.person_id")
-                ->from($employeeTable)
-                ->join($personTable, "{$personTable}.id", '=', "{$employeeTable}.hikvision_person_id")
-                ->where("{$employeeTable}.company_id", $companyId)
-                ->whereNotNull("{$employeeTable}.hikvision_person_id");
-        });
+        return $query->where('company_id', $companyId);
     }
 
     /**
@@ -325,6 +324,7 @@ class HikvisionAccessEvent extends Model
      * @param  array<string, mixed>  $row
      */
     public static function upsertFromTimeCardRow(
+        int $companyId,
         array $row,
         string $attendanceStatus,
         ?CarbonInterface $windowStart = null,
@@ -359,7 +359,7 @@ class HikvisionAccessEvent extends Model
             return null;
         }
 
-        $personHikvisionId = self::resolveTimeCardPersonHikvisionId($row, $personCode, $personName);
+        $personHikvisionId = self::resolveTimeCardPersonHikvisionId($companyId, $row, $personCode, $personName);
         $identity = $personCode !== '' ? $personCode : $personName;
 
         $systemId = implode(':', [
@@ -371,11 +371,13 @@ class HikvisionAccessEvent extends Model
 
         return self::updateOrCreateIncludingTrashed(
             [
+                'company_id' => $companyId,
                 'system_id' => $systemId,
-                'occurrence_time' => $occurrenceTime,
-                'msg_type' => 'attendance/totaltimecard',
             ],
             [
+                ...self::relatedModelIds($companyId, $personHikvisionId, null, null),
+                'occurrence_time' => $occurrenceTime,
+                'msg_type' => 'attendance/totaltimecard',
                 'person_name' => $personName !== '' ? $personName : null,
                 'person_hikvision_id' => $personHikvisionId !== '' ? $personHikvisionId : null,
                 'device_name' => $deviceName !== '' ? $deviceName : 'Mobile App',
@@ -391,7 +393,7 @@ class HikvisionAccessEvent extends Model
     /**
      * @param  array<string, mixed>  $row
      */
-    protected static function resolveTimeCardPersonHikvisionId(array $row, string $personCode, string $personName): string
+    protected static function resolveTimeCardPersonHikvisionId(int $companyId, array $row, string $personCode, string $personName): string
     {
         $personId = trim((string) ($row['personId'] ?? ''));
 
@@ -401,6 +403,7 @@ class HikvisionAccessEvent extends Model
 
         if ($personCode !== '') {
             $resolvedByCode = HikvisionPerson::query()
+                ->forCompany($companyId)
                 ->where('person_code', $personCode)
                 ->value('person_id');
 
@@ -411,6 +414,7 @@ class HikvisionAccessEvent extends Model
 
         if ($personName !== '') {
             $resolvedByName = HikvisionPerson::query()
+                ->forCompany($companyId)
                 ->whereRaw('LOWER(full_name) = ?', [mb_strtolower($personName)])
                 ->value('person_id');
 
@@ -442,6 +446,7 @@ class HikvisionAccessEvent extends Model
      * @param  array<string, mixed>  $acsEvent
      */
     public static function upsertFromAcsEvent(
+        int $companyId,
         array $acsEvent,
         string $deviceId,
         string $deviceName,
@@ -465,7 +470,7 @@ class HikvisionAccessEvent extends Model
         $serialNo = isset($acsEvent['serialNo']) ? (string) $acsEvent['serialNo'] : '';
 
         if ($serialNo !== '') {
-            $existing = self::findByDeviceAndSerialNo($deviceId, $serialNo);
+            $existing = self::findByDeviceAndSerialNo($companyId, $deviceId, $serialNo);
 
             if ($existing !== null) {
                 $existing->update([
@@ -497,11 +502,13 @@ class HikvisionAccessEvent extends Model
 
         return self::updateOrCreateIncludingTrashed(
             [
+                'company_id' => $companyId,
                 'system_id' => $systemId,
-                'occurrence_time' => $occurrenceTime,
-                'msg_type' => "acs/{$major}/{$minor}",
             ],
             [
+                ...self::relatedModelIds($companyId, null, $deviceId, null),
+                'occurrence_time' => $occurrenceTime,
+                'msg_type' => "acs/{$major}/{$minor}",
                 'device_id' => $deviceId,
                 'device_name' => $deviceName,
                 'resource_name' => $doorNo !== null ? "Door {$doorNo}" : null,
@@ -567,6 +574,7 @@ class HikvisionAccessEvent extends Model
      * @param  array<string, mixed>  $record
      */
     public static function upsertFromCertificateRecord(
+        int $companyId,
         array $record,
         ?CarbonInterface $windowStart = null,
         ?CarbonInterface $windowEnd = null,
@@ -588,7 +596,7 @@ class HikvisionAccessEvent extends Model
         $recordId = trim((string) ($record['recordId'] ?? $record['id'] ?? ''));
         $transactionSource = self::mapCertificateRecordSource($record);
 
-        if (self::isDuplicateAccessRecord($personName, $occurrenceTime, $attendanceStatus, $transactionSource)) {
+        if (self::isDuplicateAccessRecord($companyId, $personName, $occurrenceTime, $attendanceStatus, $transactionSource)) {
             return null;
         }
 
@@ -600,11 +608,13 @@ class HikvisionAccessEvent extends Model
 
         return self::updateOrCreateIncludingTrashed(
             [
+                'company_id' => $companyId,
                 'system_id' => $systemId,
-                'occurrence_time' => $occurrenceTime,
-                'msg_type' => 'acs/certificate-record',
             ],
             [
+                ...self::relatedModelIds($companyId, $personHikvisionId, null, $deviceName),
+                'occurrence_time' => $occurrenceTime,
+                'msg_type' => 'acs/certificate-record',
                 'person_name' => $personName !== '' ? $personName : null,
                 'person_hikvision_id' => $personHikvisionId !== '' ? $personHikvisionId : null,
                 'device_name' => $deviceName !== '' ? $deviceName : null,
@@ -623,7 +633,7 @@ class HikvisionAccessEvent extends Model
     /**
      * @param  array<string, mixed>  $payload
      */
-    public static function upsertFromWebhook(array $payload): ?self
+    public static function upsertFromWebhook(array $payload, int $companyId): ?self
     {
         if (isset($payload['list']) && is_array($payload['list'])) {
             $batchId = filled($payload['batchId'] ?? null) ? (string) $payload['batchId'] : null;
@@ -634,7 +644,7 @@ class HikvisionAccessEvent extends Model
                     continue;
                 }
 
-                $stored = self::upsertFromHikConnectListItem($item, $batchId) ?? $stored;
+                $stored = self::upsertFromHikConnectListItem($companyId, $item, $batchId) ?? $stored;
             }
 
             return $stored;
@@ -648,19 +658,19 @@ class HikvisionAccessEvent extends Model
                     continue;
                 }
 
-                $stored = self::upsertFromWebhookRecord($record) ?? $stored;
+                $stored = self::upsertFromWebhookRecord($companyId, $record) ?? $stored;
             }
 
             return $stored;
         }
 
-        return self::upsertFromWebhookRecord($payload);
+        return self::upsertFromWebhookRecord($companyId, $payload);
     }
 
     /**
      * @param  array<string, mixed>  $item
      */
-    public static function upsertFromHikConnectListItem(array $item, ?string $batchId = null): ?self
+    public static function upsertFromHikConnectListItem(int $companyId, array $item, ?string $batchId = null): ?self
     {
         $itemBasicInfo = is_array($item['basicInfo'] ?? null) ? $item['basicInfo'] : [];
         $device = is_array($itemBasicInfo['device'] ?? null) ? $itemBasicInfo['device'] : [];
@@ -671,7 +681,7 @@ class HikvisionAccessEvent extends Model
             return null;
         }
 
-        $person = self::resolveWebhookPersonIdentity($intelliInfo, $data, $item);
+        $person = self::resolveWebhookPersonIdentity($companyId, $intelliInfo, $data, $item);
         $personName = $person['person_name'];
         $personHikvisionId = $person['person_hikvision_id'];
         $occurrenceTime = self::parseOccurrenceTime((string) (
@@ -695,7 +705,7 @@ class HikvisionAccessEvent extends Model
         }
 
         if ($serialNo !== null && $deviceId !== null) {
-            $existing = self::findByDeviceAndSerialNo($deviceId, $serialNo);
+            $existing = self::findByDeviceAndSerialNo($companyId, $deviceId, $serialNo);
 
             if ($existing !== null) {
                 $existing->update([
@@ -719,11 +729,13 @@ class HikvisionAccessEvent extends Model
 
         return self::updateOrCreateIncludingTrashed(
             [
+                'company_id' => $companyId,
                 'system_id' => $systemId,
-                'occurrence_time' => $occurrenceTime,
-                'msg_type' => "webhook/event/{$eventType}",
             ],
             [
+                ...self::relatedModelIds($companyId, $personHikvisionId, $deviceId, $deviceName),
+                'occurrence_time' => $occurrenceTime,
+                'msg_type' => "webhook/event/{$eventType}",
                 'batch_id' => $batchId,
                 'device_id' => $deviceId,
                 'device_name' => $deviceName !== '' ? $deviceName : null,
@@ -743,9 +755,10 @@ class HikvisionAccessEvent extends Model
         );
     }
 
-    public static function findByDeviceAndSerialNo(string $deviceId, string $serialNo): ?self
+    public static function findByDeviceAndSerialNo(int $companyId, string $deviceId, string $serialNo): ?self
     {
         return self::query()
+            ->forCompany($companyId)
             ->where('device_id', $deviceId)
             ->orderByDesc('id')
             ->get()
@@ -805,7 +818,7 @@ class HikvisionAccessEvent extends Model
      * @param  array<string, mixed>  $item
      * @return array{person_name: string, person_hikvision_id: string}
      */
-    protected static function resolveWebhookPersonIdentity(array $intelliInfo, array $data, array $item): array
+    protected static function resolveWebhookPersonIdentity(int $companyId, array $intelliInfo, array $data, array $item): array
     {
         ['eventBasicInfo' => $eventBasicInfo, 'intelliInfo' => $nestedIntelliInfo] = self::resolveOpenDoorEventParts($data);
         $intelliInfo = $intelliInfo !== [] ? $intelliInfo : $nestedIntelliInfo;
@@ -839,6 +852,7 @@ class HikvisionAccessEvent extends Model
 
         if ($personName === '' && $personHikvisionId !== '') {
             $syncedPerson = HikvisionPerson::query()
+                ->forCompany($companyId)
                 ->where('person_id', $personHikvisionId)
                 ->first();
 
@@ -927,10 +941,10 @@ class HikvisionAccessEvent extends Model
     /**
      * @param  array<string, mixed>  $record
      */
-    public static function upsertFromWebhookRecord(array $record): ?self
+    public static function upsertFromWebhookRecord(int $companyId, array $record): ?self
     {
         if (isset($record['personInfo']) || isset($record['occurTime']) || isset($record['swipeTime'])) {
-            $stored = self::upsertFromCertificateRecord($record);
+            $stored = self::upsertFromCertificateRecord($companyId, $record);
 
             if ($stored !== null) {
                 $stored->update(['event_source' => self::EVENT_SOURCE_WEBHOOK]);
@@ -959,11 +973,18 @@ class HikvisionAccessEvent extends Model
 
         return self::updateOrCreateIncludingTrashed(
             [
+                'company_id' => $companyId,
                 'system_id' => $systemId,
-                'occurrence_time' => $occurrenceTime,
-                'msg_type' => (string) ($basicInfo['msgType'] ?? 'webhook/event'),
             ],
             [
+                ...self::relatedModelIds(
+                    $companyId,
+                    null,
+                    filled($device['id'] ?? null) ? (string) $device['id'] : null,
+                    $deviceName,
+                ),
+                'occurrence_time' => $occurrenceTime,
+                'msg_type' => (string) ($basicInfo['msgType'] ?? 'webhook/event'),
                 'device_id' => filled($device['id'] ?? null) ? (string) $device['id'] : null,
                 'device_name' => $deviceName !== '' ? $deviceName : null,
                 'person_name' => $personName !== '' ? $personName : null,
@@ -1020,6 +1041,7 @@ class HikvisionAccessEvent extends Model
     }
 
     protected static function isDuplicateAccessRecord(
+        int $companyId,
         string $personName,
         Carbon $occurrenceTime,
         string $attendanceStatus,
@@ -1030,6 +1052,7 @@ class HikvisionAccessEvent extends Model
         }
 
         return self::query()
+            ->forCompany($companyId)
             ->where('person_name', $personName)
             ->where('occurrence_time', $occurrenceTime)
             ->where('attendance_status', $attendanceStatus !== '' ? $attendanceStatus : null)
@@ -1050,5 +1073,61 @@ class HikvisionAccessEvent extends Model
         }
 
         return $event;
+    }
+
+    /**
+     * @return array{hikvision_person_id: int|null, hikvision_device_id: int|null}
+     */
+    protected static function relatedModelIds(
+        int $companyId,
+        ?string $personHikvisionId,
+        ?string $deviceHikvisionId,
+        ?string $deviceName,
+    ): array {
+        $personId = filled($personHikvisionId)
+            ? HikvisionPerson::query()->forCompany($companyId)->where('person_id', $personHikvisionId)->value('id')
+            : null;
+
+        $deviceQuery = HikvisionDevice::query()->forCompany($companyId);
+
+        if (filled($deviceHikvisionId)) {
+            $deviceQuery->where('hikvision_id', $deviceHikvisionId);
+        } elseif (filled($deviceName)) {
+            $deviceQuery->where('name', $deviceName);
+        } else {
+            return [
+                'hikvision_person_id' => $personId,
+                'hikvision_device_id' => null,
+            ];
+        }
+
+        return [
+            'hikvision_person_id' => $personId,
+            'hikvision_device_id' => $deviceQuery->value('id'),
+        ];
+    }
+
+    /**
+     * @return BelongsTo<Company, $this>
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * @return BelongsTo<HikvisionPerson, $this>
+     */
+    public function hikvisionPerson(): BelongsTo
+    {
+        return $this->belongsTo(HikvisionPerson::class);
+    }
+
+    /**
+     * @return BelongsTo<HikvisionDevice, $this>
+     */
+    public function hikvisionDevice(): BelongsTo
+    {
+        return $this->belongsTo(HikvisionDevice::class);
     }
 }

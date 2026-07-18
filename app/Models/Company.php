@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -89,5 +90,10 @@ class Company extends Model
     public function payrollPeriods(): HasMany
     {
         return $this->hasMany(PayrollPeriod::class);
+    }
+
+    public function hikvisionSetting(): HasOne
+    {
+        return $this->hasOne(HikvisionSetting::class);
     }
 }

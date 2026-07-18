@@ -15,30 +15,37 @@ class FetchHikvisionAccessEventsCommand extends Command
 
     public function handle(): int
     {
-        $settings = HikvisionSetting::current();
+        $settings = $this->option('force')
+            ? HikvisionSetting::query()->get()->filter(fn (HikvisionSetting $setting): bool => $setting->isConfigured())->values()
+            : HikvisionAccessEventsFetchSchedule::settingsDueForDispatch();
 
-        if (! $settings->isConfigured()) {
-            $this->warn('Hikvision integration is not configured.');
-
-            return self::SUCCESS;
-        }
-
-        if (! $this->option('force') && ! HikvisionAccessEventsFetchSchedule::isEnabled()) {
-            $this->line('Scheduled access events fetch is disabled.');
-
-            return self::SUCCESS;
-        }
-
-        if ($settings->isEventsFetchProcessing()) {
-            $this->warn('A fetch is already in progress.');
+        if ($settings->isEmpty()) {
+            if (! $this->option('force') && ! HikvisionAccessEventsFetchSchedule::isEnabled()) {
+                $this->line('Scheduled access events fetch is disabled.');
+            } elseif (! $this->option('force')) {
+                $this->line('No Hikvision companies are due for scheduled fetch.');
+            }
 
             return self::SUCCESS;
         }
 
-        $settings->beginEventsFetch();
-        FetchHikvisionAccessEventsJob::dispatch();
+        $dispatched = 0;
 
-        $this->info('Dispatched Hikvision access events fetch job.');
+        foreach ($settings as $setting) {
+            if ($setting->isEventsFetchProcessing()) {
+                continue;
+            }
+
+            $setting->beginEventsFetch();
+            FetchHikvisionAccessEventsJob::dispatch($setting->id);
+            $dispatched++;
+        }
+
+        if ($dispatched === 1) {
+            $this->info('Dispatched Hikvision access events fetch job.');
+        } else {
+            $this->info("Dispatched {$dispatched} Hikvision access events fetch job(s).");
+        }
 
         return self::SUCCESS;
     }

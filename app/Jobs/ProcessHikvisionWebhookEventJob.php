@@ -2,8 +2,8 @@
 
 namespace App\Jobs;
 
-use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
+use App\Models\HikvisionSetting;
 use App\Models\JobRun;
 use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
 use Carbon\Carbon;
@@ -17,13 +17,19 @@ class ProcessHikvisionWebhookEventJob implements ShouldQueue
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function __construct(public array $payload) {}
+    public function __construct(public array $payload, public int $hikvisionSettingId) {}
 
     public function handle(?SyncAttendanceRecordsFromHikvision $attendanceSync = null): void
     {
         $attendanceSync ??= app(SyncAttendanceRecordsFromHikvision::class);
 
-        $storedEvent = HikvisionAccessEvent::upsertFromWebhook($this->payload);
+        $settings = HikvisionSetting::find($this->hikvisionSettingId);
+
+        if ($settings === null) {
+            return;
+        }
+
+        $storedEvent = HikvisionAccessEvent::upsertFromWebhook($this->payload, (int) $settings->company_id);
 
         if ($storedEvent?->occurrence_time === null) {
             $jobId = $this->job ? $this->job->uuid() : null;
@@ -41,17 +47,7 @@ class ProcessHikvisionWebhookEventJob implements ShouldQueue
         $start = $eventDay->copy()->startOfDay();
         $end = $eventDay->copy()->endOfDay();
 
-        $companyIds = Employee::query()
-            ->where('status', 'active')
-            ->whereNotNull('hikvision_person_id')
-            ->distinct()
-            ->pluck('company_id');
-
-        $synced = 0;
-
-        foreach ($companyIds as $companyId) {
-            $synced += $attendanceSync->syncCompany((int) $companyId, $start, $end);
-        }
+        $synced = $attendanceSync->syncCompany((int) $settings->company_id, $start, $end);
 
         $jobId = $this->job ? $this->job->uuid() : null;
         if ($jobId) {

@@ -79,7 +79,7 @@ class ApplicationSettingsController extends Controller
             'currencies' => $currencies,
             'smtp' => $this->mailSettings->forSettingsPage(),
             'whatsapp' => WhatsAppIntegrationController::pageProps($user),
-            'hikvision' => HikvisionIntegrationController::pageProps($user),
+            'hikvision' => HikvisionIntegrationController::pageProps($user, $companyId),
             'esign_placement' => $user?->can('settings.application.view')
                 ? [
                     'document_type' => SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY,
