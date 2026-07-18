@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\MassPrunable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class JobRun extends Model
 {
+    use MassPrunable;
     use SoftDeletes;
 
     public const TYPE_QUEUE = 'queue';
@@ -40,6 +43,17 @@ class JobRun extends Model
         'finished_at',
         'duration_ms',
     ];
+
+    /**
+     * @return Builder<self>
+     */
+    public function prunable(): Builder
+    {
+        $retentionDays = max(1, (int) config('queue.job_run_retention_days', 90));
+
+        return self::withTrashed()
+            ->where('created_at', '<=', now()->subDays($retentionDays));
+    }
 
     /**
      * @return array<string, string>

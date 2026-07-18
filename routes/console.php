@@ -37,3 +37,8 @@ Schedule::command('contracts:mirror-effective-salary-revisions')
     ->dailyAt('01:15')
     ->timezone(config('app.timezone', 'UTC'))
     ->withoutOverlapping();
+
+Schedule::command('model:prune', ['--model' => [\App\Models\JobRun::class]])
+    ->dailyAt('02:00')
+    ->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping();

@@ -67,6 +67,15 @@ class JobRunController extends Controller
             $pagination = $this->paginationMeta($paginator);
         }
 
+        $historyStats = JobRun::query()
+            ->selectRaw('COUNT(*) as history_count')
+            ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as completed_count', [JobRun::STATUS_COMPLETED])
+            ->selectRaw(
+                'AVG(CASE WHEN status = ? AND duration_ms IS NOT NULL THEN duration_ms END) as avg_duration_ms',
+                [JobRun::STATUS_COMPLETED],
+            )
+            ->first();
+
         return Inertia::render('jobs', [
             'tab' => $tab,
             'history_runs' => $historyRuns,
@@ -78,11 +87,11 @@ class JobRunController extends Controller
             'registry' => JobRegistry::entries(),
             'scheduler_timezone' => ApplicationTimezone::identifier(),
             'stats' => [
-                'history_count' => JobRun::query()->count(),
-                'completed_count' => JobRun::query()->where('status', JobRun::STATUS_COMPLETED)->count(),
+                'history_count' => (int) ($historyStats?->history_count ?? 0),
+                'completed_count' => (int) ($historyStats?->completed_count ?? 0),
                 'failed_count' => DB::table('failed_jobs')->count(),
                 'pending_count' => DB::table('jobs')->count(),
-                'avg_duration_ms' => (int) JobRun::query()->where('status', JobRun::STATUS_COMPLETED)->whereNotNull('duration_ms')->avg('duration_ms'),
+                'avg_duration_ms' => (int) ($historyStats?->avg_duration_ms ?? 0),
             ],
             'filters' => [
                 'status' => $validated['status'] ?? '',

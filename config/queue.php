@@ -9,7 +9,7 @@ return [
     |
     | Laravel's queue supports a variety of backends via a single, unified
     | API, giving you convenient access to each backend using identical
-    | syntax for each. The default queue connection is defined below.
+    | syntax for each. The default connection is defined below.
     |
     */
 
@@ -68,7 +68,7 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 660),
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 660),
             'block_for' => null,
             'after_commit' => false,
         ],
@@ -97,8 +97,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | The following options configure the database and table that store job
-    | batching information. These options can be updated to any database
-    | connection and table which has been defined by your application.
+    | batching information. These options can be updated to use any database
+    | connection and table which have been defined by your application.
     |
     */
 
@@ -127,5 +127,7 @@ return [
     ],
 
     'failed_job_alert_email' => env('QUEUE_FAILED_ALERT_EMAIL', 'rabil@overseas-ms.com'),
+
+    'job_run_retention_days' => (int) env('JOB_RUN_RETENTION_DAYS', 90),
 
 ];
