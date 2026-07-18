@@ -6,6 +6,10 @@ use App\Models\Company;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Services\Settings\SettingService;
+use App\Support\Settings\CompanyCurrency;
+use App\Support\Settings\CompanyDocumentSettingResolver;
+use App\Support\Settings\CompanyDocumentType;
+use App\Support\Settings\CompanyTimezone;
 use App\Support\Settings\SettingKey;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
@@ -18,7 +22,7 @@ final class SalaryCertificateData
     public static function for(Employee $employee, int $companyId): array
     {
         $employee->load([
-            'company:id,name,logo,currency_id',
+            'company:id,name,logo,email,phone,address,currency_id,timezone',
             'company.currency:id,code,symbol',
             'position:id,title',
             'rank:id,name',
@@ -29,15 +33,28 @@ final class SalaryCertificateData
         abort_unless((int) $employee->company_id === $companyId, 404);
 
         $settings = app(SettingService::class);
-        $company = $employee->company ?? Company::query()->with('currency:id,code,symbol')->find($companyId);
+        $company = $employee->company ?? Company::query()
+            ->with('currency:id,code,symbol')
+            ->find($companyId);
+
+        abort_unless($company !== null && (int) $company->id === $companyId, 404);
+
+        $documentSettings = app(CompanyDocumentSettingResolver::class)
+            ->resolve($companyId, CompanyDocumentType::SalaryCertificate);
+
         $contract = $employee->currentContract;
-        $timezone = (string) ($company?->timezone ?? config('app.timezone', 'UTC'));
+        $timezone = CompanyTimezone::forCompany($company);
         $issuedOn = now($timezone);
 
-        $companyName = (string) ($settings->get(SettingKey::CompanyName) ?: $company?->name ?: '');
-        $hrEmail = (string) ($settings->get(SettingKey::SupportEmail) ?: $company?->email ?: '');
+        $companyName = filled($company->name)
+            ? (string) $company->name
+            : (string) ($settings->get(SettingKey::CompanyName) ?: '');
 
-        $currencyCode = (string) ($company?->currency?->code ?? 'AED');
+        $hrEmail = filled($company->email)
+            ? (string) $company->email
+            : (string) ($settings->get(SettingKey::SupportEmail) ?: '');
+
+        $currencyCode = CompanyCurrency::codeForCompany($company);
         $basicSalary = self::formatMoney($contract?->basic_salary);
         $totalSalary = self::formatMoney(self::totalSalaryAmount($contract));
 
@@ -45,16 +62,17 @@ final class SalaryCertificateData
 
         return [
             'company_logo_url' => self::resolveCompanyLogoSrc($company, $settings),
-            'signature_image_url' => self::resolveOptionalImageSrc(
-                $settings,
-                SettingKey::SalaryCertificateSignature,
-                'images/salary-certificate/signature.png',
+            'signature_image_url' => self::embedResolvedPath(
+                $documentSettings['signature_path'],
+                $documentSettings['signature_source'],
             ),
-            'stamp_image_url' => self::resolveOptionalImageSrc(
-                $settings,
-                SettingKey::SalaryCertificateStamp,
-                'images/salary-certificate/stamp.png',
+            'stamp_image_url' => self::embedResolvedPath(
+                $documentSettings['stamp_path'],
+                $documentSettings['stamp_source'],
             ),
+            'signatory_name' => $documentSettings['signatory_name'],
+            'signatory_title' => $documentSettings['signatory_title'],
+            'footer_text' => $documentSettings['footer_text'],
             'issued_on' => $issuedOn->format('M d, Y'),
             'company_name' => $companyName,
             'employment_basis' => 'Full-Time',
@@ -117,22 +135,17 @@ final class SalaryCertificateData
         return null;
     }
 
-    private static function resolveOptionalImageSrc(
-        SettingService $settings,
-        string $settingKey,
-        string $publicRelativePath,
-    ): ?string {
-        $path = $settings->get($settingKey);
-
-        if (filled($path)) {
-            $embedded = self::embedPublicDiskPath((string) $path);
-
-            if ($embedded !== null) {
-                return $embedded;
-            }
+    private static function embedResolvedPath(?string $path, string $source): ?string
+    {
+        if (! filled($path)) {
+            return null;
         }
 
-        return self::embedFilePath(public_path($publicRelativePath));
+        if ($source === 'fallback') {
+            return self::embedFilePath((string) $path);
+        }
+
+        return self::embedPublicDiskPath((string) $path);
     }
 
     private static function embedPublicDiskPath(string $path): ?string

@@ -10,7 +10,7 @@ use App\Models\HikvisionPersonGroup;
 use App\Models\HikvisionSetting;
 use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
 use App\Support\Hikvision\HikvisionPersonPhotoStorage;
-use App\Support\Settings\ApplicationTimezone;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -697,7 +697,7 @@ class HikvisionService
      */
     public function fetchScheduledAccessEvents(): array
     {
-        $timezone = ApplicationTimezone::identifier();
+        $timezone = CompanyTimezone::forCompany((int) $this->setting->company_id);
         $yesterday = now($timezone)->copy()->subDay()->startOfDay();
         $yesterdayResult = $this->fetchAccessEvents($yesterday);
 
@@ -709,7 +709,7 @@ class HikvisionService
 
     public function syncAttendanceForDay(CarbonInterface $day): int
     {
-        $timezone = ApplicationTimezone::identifier();
+        $timezone = CompanyTimezone::forCompany((int) $this->setting->company_id);
         $normalizedDay = $day->copy()->timezone($timezone);
 
         return $this->syncAttendanceRecordsForWindow(
@@ -720,7 +720,7 @@ class HikvisionService
 
     public function syncAttendanceForYesterday(): int
     {
-        $timezone = ApplicationTimezone::identifier();
+        $timezone = CompanyTimezone::forCompany((int) $this->setting->company_id);
         $yesterday = now($timezone)->copy()->subDay()->startOfDay();
 
         return $this->syncAttendanceForDay($yesterday);

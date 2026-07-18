@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
 use App\Models\LeaveRequest;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -32,7 +33,7 @@ final class SyncAttendanceRecordsFromHikvision
 
     private function runSyncCompany(int $companyId, CarbonInterface $from, CarbonInterface $to): int
     {
-        $timezone = (string) config('app.timezone', 'UTC');
+        $timezone = CompanyTimezone::forCompany($companyId);
         $workingDays = $this->resolveWorkingDays($companyId);
         $synced = 0;
 

@@ -2,10 +2,10 @@
 
 namespace App\Support\Attendance;
 
-use App\Models\Company;
 use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
 use App\Models\LeaveRequest;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -58,8 +58,7 @@ final class TodayAttendanceTimeline
             return null;
         }
 
-        $timezone = (string) (Company::query()->whereKey($companyId)->value('timezone')
-            ?? config('app.timezone', 'UTC'));
+        $timezone = CompanyTimezone::forCompany($companyId);
         $now = now($timezone);
         $today = $now->toDateString();
         $selectedDate = $this->resolveDate($date, $today, $timezone);
