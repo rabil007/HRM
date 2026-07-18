@@ -60,3 +60,30 @@ export type CompanyFormData = {
     wps_employer_iban: string;
     status: 'active' | 'suspended' | 'inactive';
 };
+
+export type CompanyDocumentSettings = {
+    document_type: string;
+    signatory_name: string | null;
+    signatory_title: string | null;
+    footer_text: string | null;
+    signature_url: string | null;
+    stamp_url: string | null;
+    has_signature: boolean;
+    has_stamp: boolean;
+    using_legacy_signature: boolean;
+    using_legacy_stamp: boolean;
+    effective_from: string | null;
+    effective_to: string | null;
+    can_update: boolean;
+};
+
+export type CompanyDocumentSettingsFormData = {
+    document_type: string;
+    signatory_name: string;
+    signatory_title: string;
+    footer_text: string;
+    effective_from: string;
+    effective_to: string;
+    signature: File | null;
+    stamp: File | null;
+};

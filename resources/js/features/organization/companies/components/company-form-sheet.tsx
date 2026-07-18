@@ -28,6 +28,7 @@ export function CompanyFormSheet({
     company,
     countries,
     currencies,
+    timezones,
     form,
     onSubmit,
 }: {
@@ -36,6 +37,7 @@ export function CompanyFormSheet({
     company: Company | null;
     countries: Country[];
     currencies: Currency[];
+    timezones?: string[];
     form: InertiaFormProps<CompanyFormData>;
     onSubmit: () => void;
 }) {
@@ -370,15 +372,41 @@ export function CompanyFormSheet({
                             >
                                 Timezone
                             </Label>
-                            <Input
-                                id="timezone"
-                                placeholder="Asia/Dubai"
-                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
-                                value={form.data.timezone}
-                                onChange={(e) =>
-                                    form.setData('timezone', e.target.value)
-                                }
-                            />
+                            {timezones && timezones.length > 0 ? (
+                                <AppSelect
+                                    value={form.data.timezone}
+                                    onValueChange={(v) =>
+                                        form.setData('timezone', v)
+                                    }
+                                    variant="card"
+                                    placeholder="Select timezone"
+                                    searchPlaceholder="Search timezones..."
+                                >
+                                    {timezones.map((timezone) => (
+                                        <AppSelectItem
+                                            key={timezone}
+                                            value={timezone}
+                                        >
+                                            {timezone}
+                                        </AppSelectItem>
+                                    ))}
+                                </AppSelect>
+                            ) : (
+                                <Input
+                                    id="timezone"
+                                    placeholder="Asia/Dubai"
+                                    className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
+                                    value={form.data.timezone}
+                                    onChange={(e) =>
+                                        form.setData('timezone', e.target.value)
+                                    }
+                                />
+                            )}
+                            {form.errors.timezone ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.timezone}
+                                </div>
+                            ) : null}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">

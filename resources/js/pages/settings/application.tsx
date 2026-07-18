@@ -10,12 +10,12 @@ import {
     PenLine,
     Send,
     Settings2,
-    ScrollText,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { BrandingUploadField } from '@/components/settings/branding-upload-field';
 import { SettingsSecretInput } from '@/components/settings/settings-secret-input';
 import { ThemeColorPicker } from '@/components/settings/theme-color-picker';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -38,36 +38,29 @@ import type { WhatsAppSettingsPanelProps } from '@/features/settings/whatsapp-se
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
-type CurrencyOption = { code: string; name: string; symbol: string };
-
 type Props = {
+    scope?: 'platform';
     general: {
         app_name: string;
-        company_name: string;
         support_email: string;
         support_phone: string;
-        company_address: string;
         timezone: string;
-        currency: string;
         date_format: string;
-        salary_certificate_signature_url: string | null;
-        salary_certificate_stamp_url: string | null;
-    };
+    } | null;
     branding: {
         main_logo_url: string | null;
         login_logo_url: string | null;
         favicon_url: string | null;
         login_background_url: string | null;
         email_branding_logo_url: string | null;
-    };
+    } | null;
     preferences: {
         primary_color: string;
         accent_color: string;
         sidebar_compact_default: boolean;
-    };
-    timezones: string[];
-    date_formats: { value: string; label: string }[];
-    currencies: CurrencyOption[];
+    } | null;
+    timezones: string[] | null;
+    date_formats: { value: string; label: string }[] | null;
     smtp: {
         host: string;
         port: number;
@@ -85,13 +78,18 @@ type Props = {
             website: string;
             certifications: string;
         };
-    };
+    } | null;
     whatsapp: WhatsAppSettingsPanelProps | null;
     esign_placement: {
         document_type: string;
         label: string;
         placement: SignaturePlacementConfig;
     } | null;
+    can: {
+        platform_view: boolean;
+        platform_update: boolean;
+        whatsapp_view: boolean;
+    };
 };
 
 const ALL_NAV_ITEMS = [
@@ -158,11 +156,13 @@ function SectionHeading({
     title,
     description,
     color = 'bg-primary/10 border-primary/20 text-primary',
+    badge,
 }: {
     icon: React.ComponentType<{ className?: string }>;
     title: string;
     description?: string;
     color?: string;
+    badge?: string;
 }) {
     return (
         <div className="mb-6 flex items-center gap-4">
@@ -174,10 +174,17 @@ function SectionHeading({
             >
                 <Icon className="h-5 w-5" />
             </div>
-            <div>
-                <h2 className="text-base font-bold tracking-tight text-foreground">
-                    {title}
-                </h2>
+            <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-base font-bold tracking-tight text-foreground">
+                        {title}
+                    </h2>
+                    {badge ? (
+                        <Badge variant="secondary" className="text-[10px]">
+                            {badge}
+                        </Badge>
+                    ) : null}
+                </div>
                 {description ? (
                     <p className="mt-0.5 text-xs text-muted-foreground">
                         {description}
@@ -245,10 +252,10 @@ export default function ApplicationSettings({
     preferences,
     timezones,
     date_formats,
-    currencies,
     smtp,
     whatsapp,
     esign_placement,
+    can,
 }: Props) {
     const auth = usePage().props.auth;
     const authUser = auth?.user as { email?: string } | undefined;
@@ -258,16 +265,26 @@ export default function ApplicationSettings({
         [auth],
     );
 
-    const canUpdateApplication = permissions.includes(
-        'settings.application.update',
-    );
+    const canUpdateApplication = can.platform_update;
+
+    const canViewPlatform =
+        can.platform_view ||
+        permissions.includes('settings.application.view') ||
+        permissions.includes('platform.settings.view');
 
     const navItems = useMemo(
         () =>
-            ALL_NAV_ITEMS.filter((item) =>
-                permissions.includes(item.permission),
-            ),
-        [permissions],
+            ALL_NAV_ITEMS.filter((item) => {
+                if (item.id === 'whatsapp') {
+                    return (
+                        can.whatsapp_view ||
+                        permissions.includes(item.permission)
+                    );
+                }
+
+                return canViewPlatform;
+            }),
+        [permissions, can.whatsapp_view, canViewPlatform],
     );
 
     const requestedTab =
@@ -284,39 +301,34 @@ export default function ApplicationSettings({
         );
     const [testRecipient, setTestRecipient] = useState('');
     const [testSubject, setTestSubject] = useState(
-        () => `${general.app_name || 'HRM'} — SMTP test`,
+        () => `${general?.app_name || 'HRM'} — SMTP test`,
     );
     const [testBody, setTestBody] = useState(
-        () => `This is a test email from ${general.app_name || 'HRM'}.`,
+        () => `This is a test email from ${general?.app_name || 'HRM'}.`,
     );
     const [testAttachment, setTestAttachment] = useState<File | null>(null);
     const [isSendingTest, setIsSendingTest] = useState(false);
 
     const generalForm = useForm({
-        app_name: general.app_name ?? '',
-        company_name: general.company_name ?? '',
-        support_email: general.support_email ?? '',
-        support_phone: general.support_phone ?? '',
-        company_address: general.company_address ?? '',
-        timezone: general.timezone ?? 'UTC',
-        currency: general.currency ?? 'USD',
-        date_format: general.date_format ?? 'Y-m-d',
-        salary_certificate_signature: null as File | null,
-        salary_certificate_stamp: null as File | null,
+        app_name: general?.app_name ?? '',
+        support_email: general?.support_email ?? '',
+        support_phone: general?.support_phone ?? '',
+        timezone: general?.timezone ?? 'UTC',
+        date_format: general?.date_format ?? 'Y-m-d',
     });
 
     const smtpForm = useForm({
-        host: smtp.host ?? '',
-        port: smtp.port ?? 587,
-        username: smtp.username ?? '',
+        host: smtp?.host ?? '',
+        port: smtp?.port ?? 587,
+        username: smtp?.username ?? '',
         password: '',
-        encryption: smtp.encryption ?? 'tls',
-        from_address: smtp.from_address ?? '',
-        from_name: smtp.from_name ?? '',
+        encryption: smtp?.encryption ?? 'tls',
+        from_address: smtp?.from_address ?? '',
+        from_name: smtp?.from_name ?? '',
         email_branding_logo: null as File | null,
-        mail_footer_tagline: smtp.email_footer?.tagline ?? '',
-        mail_footer_website: smtp.email_footer?.website ?? '',
-        mail_footer_certifications: smtp.email_footer?.certifications ?? '',
+        mail_footer_tagline: smtp?.email_footer?.tagline ?? '',
+        mail_footer_website: smtp?.email_footer?.website ?? '',
+        mail_footer_certifications: smtp?.email_footer?.certifications ?? '',
     });
 
     const brandingForm = useForm({
@@ -327,9 +339,9 @@ export default function ApplicationSettings({
     });
 
     const preferencesForm = useForm({
-        primary_color: preferences.primary_color ?? '#6366f1',
-        accent_color: preferences.accent_color ?? '#8b5cf6',
-        sidebar_compact_default: preferences.sidebar_compact_default ?? false,
+        primary_color: preferences?.primary_color ?? '#6366f1',
+        accent_color: preferences?.accent_color ?? '#8b5cf6',
+        sidebar_compact_default: preferences?.sidebar_compact_default ?? false,
     });
 
     function submitGeneral(e: React.FormEvent) {
@@ -341,7 +353,6 @@ export default function ApplicationSettings({
 
         generalForm.post('/settings/application/general', {
             preserveScroll: true,
-            forceFormData: true,
         });
     }
 
@@ -514,19 +525,19 @@ export default function ApplicationSettings({
                 {/* ── Main content ── */}
                 <main className="space-y-6 lg:col-span-9">
                     {/* ══ GENERAL ══ */}
-                    {tab === 'general' && (
+                    {tab === 'general' && general ? (
                         <form onSubmit={submitGeneral} className="space-y-6">
-                            {/* Identity */}
                             <SettingsCard>
                                 <SectionHeading
                                     icon={Building2}
-                                    title="Application identity"
-                                    description="Core names used across the platform and emails."
+                                    title="Platform identity"
+                                    description="These values apply across the entire OMS-HRM platform. Company-specific information is managed from Organization → Companies."
+                                    badge="Platform-wide"
                                 />
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="space-y-1.5 sm:col-span-2">
                                         <FieldLabel htmlFor="app_name">
-                                            Application name
+                                            Platform name
                                         </FieldLabel>
                                         <FieldInput
                                             id="app_name"
@@ -546,35 +557,9 @@ export default function ApplicationSettings({
                                         ) : null}
                                     </div>
 
-                                    <div className="space-y-1.5 sm:col-span-2">
-                                        <FieldLabel htmlFor="company_name">
-                                            Company name
-                                        </FieldLabel>
-                                        <FieldInput
-                                            id="company_name"
-                                            value={
-                                                generalForm.data.company_name
-                                            }
-                                            onChange={(e) =>
-                                                generalForm.setData(
-                                                    'company_name',
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
-                                        {generalForm.errors.company_name ? (
-                                            <p className="text-xs text-destructive">
-                                                {
-                                                    generalForm.errors
-                                                        .company_name
-                                                }
-                                            </p>
-                                        ) : null}
-                                    </div>
-
                                     <div className="space-y-1.5">
                                         <FieldLabel htmlFor="support_email">
-                                            Support email
+                                            Platform support email
                                         </FieldLabel>
                                         <FieldInput
                                             id="support_email"
@@ -593,7 +578,7 @@ export default function ApplicationSettings({
 
                                     <div className="space-y-1.5">
                                         <FieldLabel htmlFor="support_phone">
-                                            Support phone
+                                            Platform support phone
                                         </FieldLabel>
                                         <FieldInput
                                             id="support_phone"
@@ -608,40 +593,22 @@ export default function ApplicationSettings({
                                             }
                                         />
                                     </div>
-
-                                    <div className="space-y-1.5 sm:col-span-2">
-                                        <FieldLabel htmlFor="company_address">
-                                            Company address
-                                        </FieldLabel>
-                                        <Textarea
-                                            id="company_address"
-                                            rows={3}
-                                            value={
-                                                generalForm.data.company_address
-                                            }
-                                            onChange={(e) =>
-                                                generalForm.setData(
-                                                    'company_address',
-                                                    e.target.value,
-                                                )
-                                            }
-                                            className="resize-none rounded-xl border-input bg-background/50 px-4 py-3 text-foreground transition-all focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
-                                        />
-                                    </div>
                                 </div>
                             </SettingsCard>
 
-                            {/* Regional */}
                             <SettingsCard>
                                 <SectionHeading
                                     icon={Settings2}
                                     title="Regional defaults"
-                                    description="Timezone, currency, and date display used across the platform."
+                                    description="Fallback timezone and date format used when company-specific values are not set."
                                     color="bg-sky-500/10 border-sky-500/20 text-sky-500"
+                                    badge="Platform-wide"
                                 />
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <div className="space-y-1.5">
-                                        <FieldLabel>Timezone</FieldLabel>
+                                        <FieldLabel>
+                                            Fallback system timezone
+                                        </FieldLabel>
                                         <Select
                                             value={generalForm.data.timezone}
                                             onValueChange={(value) =>
@@ -655,7 +622,7 @@ export default function ApplicationSettings({
                                                 <SelectValue placeholder="Select timezone" />
                                             </SelectTrigger>
                                             <SelectContent className="max-h-64">
-                                                {timezones.map((tz) => (
+                                                {(timezones ?? []).map((tz) => (
                                                     <SelectItem
                                                         key={tz}
                                                         value={tz}
@@ -668,34 +635,9 @@ export default function ApplicationSettings({
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <FieldLabel>Currency</FieldLabel>
-                                        <Select
-                                            value={generalForm.data.currency}
-                                            onValueChange={(value) =>
-                                                generalForm.setData(
-                                                    'currency',
-                                                    value,
-                                                )
-                                            }
-                                        >
-                                            <SelectTrigger className="h-11 rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5">
-                                                <SelectValue placeholder="Select currency" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {currencies.map((c) => (
-                                                    <SelectItem
-                                                        key={c.code}
-                                                        value={c.code}
-                                                    >
-                                                        {c.code} — {c.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="space-y-1.5 sm:col-span-2">
-                                        <FieldLabel>Date format</FieldLabel>
+                                        <FieldLabel>
+                                            Default date format
+                                        </FieldLabel>
                                         <Select
                                             value={generalForm.data.date_format}
                                             onValueChange={(value) =>
@@ -709,66 +651,23 @@ export default function ApplicationSettings({
                                                 <SelectValue placeholder="Select format" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {date_formats.map((f) => (
-                                                    <SelectItem
-                                                        key={f.value}
-                                                        value={f.value}
-                                                    >
-                                                        {f.label}
-                                                    </SelectItem>
-                                                ))}
+                                                {(date_formats ?? []).map(
+                                                    (f) => (
+                                                        <SelectItem
+                                                            key={f.value}
+                                                            value={f.value}
+                                                        >
+                                                            {f.label}
+                                                        </SelectItem>
+                                                    ),
+                                                )}
                                             </SelectContent>
                                         </Select>
+                                        <p className="ml-0.5 text-[10px] text-muted-foreground/50">
+                                            Platform default — only used on
+                                            supported screens
+                                        </p>
                                     </div>
-                                </div>
-                            </SettingsCard>
-
-                            <SettingsCard>
-                                <SectionHeading
-                                    icon={ScrollText}
-                                    title="Salary certificate"
-                                    description="Signature and company stamp shown on printed employee salary certificates."
-                                    color="bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
-                                />
-                                <div className="space-y-6">
-                                    <BrandingUploadField
-                                        label="Authorized signature"
-                                        assetKey="salary_certificate_signature"
-                                        currentUrl={
-                                            general.salary_certificate_signature_url
-                                        }
-                                        accept="image/png,image/jpeg,image/jpg"
-                                        hint="PNG or JPG — max 2 MB"
-                                        onFileChange={(file) =>
-                                            generalForm.setData(
-                                                'salary_certificate_signature',
-                                                file,
-                                            )
-                                        }
-                                        error={
-                                            generalForm.errors
-                                                .salary_certificate_signature
-                                        }
-                                    />
-                                    <BrandingUploadField
-                                        label="Company stamp"
-                                        assetKey="salary_certificate_stamp"
-                                        currentUrl={
-                                            general.salary_certificate_stamp_url
-                                        }
-                                        accept="image/png,image/jpeg,image/jpg"
-                                        hint="PNG or JPG — max 2 MB"
-                                        onFileChange={(file) =>
-                                            generalForm.setData(
-                                                'salary_certificate_stamp',
-                                                file,
-                                            )
-                                        }
-                                        error={
-                                            generalForm.errors
-                                                .salary_certificate_stamp
-                                        }
-                                    />
                                 </div>
                             </SettingsCard>
 
@@ -784,14 +683,14 @@ export default function ApplicationSettings({
                                     {generalForm.processing ? (
                                         <Spinner />
                                     ) : null}
-                                    Save general settings
+                                    Save platform settings
                                 </Button>
                             </div>
                         </form>
-                    )}
+                    ) : null}
 
                     {/* ══ BRANDING ══ */}
-                    {tab === 'branding' && (
+                    {tab === 'branding' && branding ? (
                         <form onSubmit={submitBranding} className="space-y-6">
                             <SettingsCard>
                                 <SectionHeading
@@ -874,10 +773,10 @@ export default function ApplicationSettings({
                                 </Button>
                             </div>
                         </form>
-                    )}
+                    ) : null}
 
                     {/* ══ SMTP ══ */}
-                    {tab === 'smtp' && (
+                    {tab === 'smtp' && smtp ? (
                         <div className="space-y-6">
                             {smtp.uses_env_fallback ? (
                                 <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-400">
@@ -1279,7 +1178,7 @@ export default function ApplicationSettings({
                                 </div>
                             </SettingsCard>
                         </div>
-                    )}
+                    ) : null}
 
                     {/* ══ WHATSAPP ══ */}
                     {tab === 'whatsapp' && whatsapp ? (
@@ -1306,7 +1205,7 @@ export default function ApplicationSettings({
                     ) : null}
 
                     {/* ══ PREFERENCES ══ */}
-                    {tab === 'preferences' && (
+                    {tab === 'preferences' && preferences ? (
                         <form
                             onSubmit={submitPreferences}
                             className="space-y-6"
@@ -1412,7 +1311,7 @@ export default function ApplicationSettings({
                                 </Button>
                             </div>
                         </form>
-                    )}
+                    ) : null}
                 </main>
             </div>
         </>

@@ -12,6 +12,7 @@ type Props = {
     accept?: string;
     hint?: string;
     onFileChange: (file: File | null) => void;
+    onRemove?: () => void;
     error?: string;
 };
 
@@ -22,6 +23,7 @@ export function BrandingUploadField({
     accept = 'image/png,image/jpeg,image/jpg,image/svg+xml',
     hint,
     onFileChange,
+    onRemove,
     error,
 }: Props) {
     const inputId = useId();
@@ -41,6 +43,12 @@ export function BrandingUploadField({
     }
 
     function removeImage() {
+        if (onRemove) {
+            onRemove();
+
+            return;
+        }
+
         router.delete(`/settings/application/branding/${assetKey}`, {
             preserveScroll: true,
         });
