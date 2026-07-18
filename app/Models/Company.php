@@ -92,6 +92,11 @@ class Company extends Model
         return $this->hasMany(PayrollPeriod::class);
     }
 
+    public function documentSettings(): HasMany
+    {
+        return $this->hasMany(CompanyDocumentSetting::class);
+    }
+
     public function hikvisionSetting(): HasOne
     {
         return $this->hasOne(HikvisionSetting::class);
