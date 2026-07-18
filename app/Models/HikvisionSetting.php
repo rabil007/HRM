@@ -162,25 +162,21 @@ class HikvisionSetting extends Model
 
     public static function resolveForUpdate(int $companyId): self
     {
-        $setting = self::withTrashed()->where('company_id', $companyId)->first();
+        $setting = self::query()->where('company_id', $companyId)->first();
 
-        if ($setting === null) {
-            return new self([
-                'company_id' => $companyId,
-                'enabled' => false,
-                'public_id' => (string) Str::uuid(),
-            ]);
+        if ($setting !== null) {
+            if (! filled($setting->public_id)) {
+                $setting->public_id = (string) Str::uuid();
+            }
+
+            return $setting;
         }
 
-        if ($setting->trashed()) {
-            $setting->restore();
-        }
-
-        if (! filled($setting->public_id)) {
-            $setting->public_id = (string) Str::uuid();
-        }
-
-        return $setting;
+        return new self([
+            'company_id' => $companyId,
+            'enabled' => false,
+            'public_id' => (string) Str::uuid(),
+        ]);
     }
 
     public static function findActiveWebhookIntegration(string $publicId): ?self
@@ -306,6 +302,13 @@ class HikvisionSetting extends Model
             $this->events_evening_fetch_schedule_at = filled($data['events_evening_fetch_schedule_at'])
                 ? (string) $data['events_evening_fetch_schedule_at']
                 : null;
+        }
+
+        if (! $this->exists) {
+            self::onlyTrashed()
+                ->where('company_id', $this->company_id)
+                ->get()
+                ->each(fn (self $trashed): bool => $trashed->forceDelete());
         }
 
         $this->save();

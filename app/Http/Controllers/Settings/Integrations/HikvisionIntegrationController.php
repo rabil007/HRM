@@ -146,7 +146,8 @@ class HikvisionIntegrationController extends Controller
 
     public function registerWebhook(Request $request): RedirectResponse
     {
-        $settings = HikvisionSetting::resolveForUpdate((int) $request->attributes->get('current_company_id'));
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $settings = HikvisionSetting::forCompany($companyId);
 
         if (! $settings->exists || ! $settings->isConfigured()) {
             return back()->withErrors([

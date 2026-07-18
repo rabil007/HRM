@@ -32,7 +32,7 @@ function putHikvisionSettings(User $user, array $payload): TestResponse
 {
     actingAsWithCsrf($user);
 
-    return test()->actingAs($user)->put(route('application.hikvision.update'), [
+    return test()->actingAs($user)->put(route('integrations.hikvision.update'), [
         '_token' => csrf_token(),
         ...$payload,
     ]);
@@ -47,14 +47,14 @@ function postHikvisionConnectionTest(User $user, array $payload): TestResponse
 
     return test()->actingAs($user)
         ->withHeader('X-CSRF-TOKEN', (string) csrf_token())
-        ->postJson(route('application.hikvision.test'), $payload);
+        ->postJson(route('integrations.hikvision.test'), $payload);
 }
 
 function postHikvisionDevicesSync(User $user): TestResponse
 {
     actingAsWithCsrf($user);
 
-    return test()->actingAs($user)->post(route('application.hikvision.devices.sync'), [
+    return test()->actingAs($user)->post(route('integrations.hikvision.devices.sync'), [
         '_token' => csrf_token(),
     ]);
 }
@@ -110,7 +110,7 @@ test('user with webhook permission can register hikvision webhook', function () 
 
     $this->actingAs($user)
         ->from(route('integrations.hikvision.edit'))
-        ->post(route('application.hikvision.webhook.register'))
+        ->post(route('integrations.hikvision.webhook.register'))
         ->assertRedirect()
         ->assertSessionHas('success');
 
@@ -421,7 +421,7 @@ test('user without sync permission cannot sync hikvision devices', function () {
     actingAsWithCsrf($user);
 
     test()->actingAs($user)
-        ->post(route('application.hikvision.devices.sync'), ['_token' => csrf_token()])
+        ->post(route('integrations.hikvision.devices.sync'), ['_token' => csrf_token()])
         ->assertForbidden();
 });
 

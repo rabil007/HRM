@@ -10,7 +10,7 @@ Configure credentials and schedules under:
 
 Select the company first. Switching companies loads that company’s Hikvision configuration only. Hikvision fields live in `hikvision_settings`, not on the `companies` table. Each company has at most one settings row (`unique(company_id)`).
 
-Opening the settings page is read-only: it does not create or restore settings rows. Rows are created or restored only when an authorized user saves.
+Opening the settings page is read-only: it does not create or restore settings rows. Soft-deleted settings stay deleted. Saving new settings (permission `settings.integrations.hikvision.update`) creates a clean row and permanently replaces any soft-deleted row for that company—without reusing old credentials, tokens, schedules, or sync state. Webhook registration never restores deleted settings.
 
 ## Credentials and secrets
 

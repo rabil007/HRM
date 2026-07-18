@@ -12,6 +12,7 @@ use App\Models\HikvisionSetting;
 use App\Models\User;
 use App\Support\Hikvision\HikvisionWebhookSignature;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 
@@ -492,4 +493,129 @@ test('hikvision api upserts reject invalid company ids', function () {
     expect(fn () => HikvisionPerson::upsertFromApi(0, []))->toThrow(InvalidArgumentException::class)
         ->and(fn () => HikvisionDevice::upsertFromApi(-1, []))->toThrow(InvalidArgumentException::class)
         ->and(fn () => HikvisionPersonGroup::upsertFromApi(0, []))->toThrow(InvalidArgumentException::class);
+});
+
+test('webhook manager cannot restore deleted hikvision settings', function () {
+    Http::fake();
+
+    $user = User::factory()->create();
+    $company = setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.hikvision.view',
+        'hikvision.webhook.manage',
+    ]);
+    $settings = configuredHikvisionSettings($company->id);
+    $oldPublicId = $settings->public_id;
+    $oldApiKey = $settings->api_key;
+    $settings->delete();
+
+    $this->actingAs($user)
+        ->from(route('integrations.hikvision.edit'))
+        ->post(route('integrations.hikvision.webhook.register'))
+        ->assertRedirect()
+        ->assertSessionHasErrors('webhook');
+
+    expect(HikvisionSetting::withTrashed()->find($settings->id)?->trashed())->toBeTrue()
+        ->and(HikvisionSetting::query()->where('company_id', $company->id)->exists())->toBeFalse()
+        ->and(HikvisionSetting::withTrashed()->find($settings->id)?->public_id)->toBe($oldPublicId)
+        ->and(HikvisionSetting::withTrashed()->find($settings->id)?->api_key)->toBe($oldApiKey);
+
+    Http::assertNothingSent();
+});
+
+test('updating after deletion does not reuse old credentials and creates company owned settings', function () {
+    $user = User::factory()->create();
+    $company = setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.hikvision.view',
+        'settings.integrations.hikvision.update',
+    ]);
+    $settings = configuredHikvisionSettings($company->id);
+    $deletedId = $settings->id;
+    $oldApiKey = $settings->api_key;
+    $oldPublicId = $settings->public_id;
+    $settings->update([
+        'webhook_verify_token' => 'oldtoken1',
+        'webhook_callback_url' => 'https://old.example/hook',
+        'events_fetch_schedule_enabled' => true,
+    ]);
+    $settings->delete();
+
+    $this->actingAs($user)->put(route('integrations.hikvision.update'), [
+        'api_host' => 'https://new.example.test',
+        'api_key' => 'brand-new-key',
+        'api_secret' => 'brand-new-secret',
+        'enabled' => true,
+    ])->assertRedirect();
+
+    $fresh = HikvisionSetting::query()->where('company_id', $company->id)->first();
+
+    expect($fresh)->not->toBeNull()
+        ->and($fresh->company_id)->toBe($company->id)
+        ->and($fresh->id)->not->toBe($deletedId)
+        ->and($fresh->api_key)->toBe('brand-new-key')
+        ->and($fresh->api_key)->not->toBe($oldApiKey)
+        ->and($fresh->api_secret)->toBe('brand-new-secret')
+        ->and($fresh->public_id)->not->toBe($oldPublicId)
+        ->and($fresh->webhook_verify_token)->toBeNull()
+        ->and($fresh->webhook_callback_url)->toBeNull()
+        ->and($fresh->events_fetch_schedule_enabled)->toBeFalse()
+        ->and(HikvisionSetting::withTrashed()->find($deletedId))->toBeNull();
+});
+
+test('blank credential update after deletion does not revive deleted secrets', function () {
+    $user = User::factory()->create();
+    $company = setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.hikvision.view',
+        'settings.integrations.hikvision.update',
+    ]);
+    $settings = configuredHikvisionSettings($company->id);
+    $settings->delete();
+
+    $this->actingAs($user)->put(route('integrations.hikvision.update'), [
+        'api_host' => 'https://new.example.test',
+        'api_key' => '',
+        'api_secret' => '',
+        'enabled' => true,
+    ])->assertRedirect();
+
+    $fresh = HikvisionSetting::query()->where('company_id', $company->id)->first();
+
+    expect($fresh)->not->toBeNull()
+        ->and($fresh->api_key)->toBeNull()
+        ->and($fresh->api_secret)->toBeNull()
+        ->and($fresh->isConfigured())->toBeFalse()
+        ->and($fresh->toSettingsPageArray()['has_api_key'])->toBeFalse()
+        ->and($fresh->toSettingsPageArray()['has_api_secret'])->toBeFalse();
+});
+
+test('cross company deleted settings cannot be restored or accessed', function () {
+    Http::fake();
+
+    $user = User::factory()->create();
+    $companyA = setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.hikvision.view',
+        'settings.integrations.hikvision.update',
+        'hikvision.webhook.manage',
+    ]);
+    $companyB = additionalHikvisionTestCompany($companyA, 'hikvision-deleted-cross');
+    $settingsB = configuredHikvisionSettings($companyB->id);
+    $settingsB->delete();
+
+    $this->actingAs($user)
+        ->from(route('integrations.hikvision.edit'))
+        ->post(route('integrations.hikvision.webhook.register'))
+        ->assertRedirect()
+        ->assertSessionHasErrors('webhook');
+
+    expect(HikvisionSetting::withTrashed()->find($settingsB->id)?->trashed())->toBeTrue()
+        ->and(HikvisionSetting::forCompany($companyA->id)->exists)->toBeFalse()
+        ->and(HikvisionSetting::forCompany($companyB->id)->exists)->toBeFalse();
+
+    Http::assertNothingSent();
+
+    $this->actingAs($user)
+        ->get(route('integrations.hikvision.edit'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('settings.is_configured', false)
+            ->where('settings.has_api_key', false));
 });

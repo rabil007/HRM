@@ -141,7 +141,7 @@ export function HikvisionSettingsPanel({
             return;
         }
 
-        form.put('/settings/application/hikvision', {
+        form.put('/settings/integrations/hikvision', {
             preserveScroll: true,
             onSuccess: () => {
                 form.setData('api_key', '');
@@ -162,7 +162,7 @@ export function HikvisionSettingsPanel({
 
         try {
             const result = await testHikvisionConnection(
-                '/settings/application/hikvision/test',
+                '/settings/integrations/hikvision/test',
                 {
                     api_host: form.data.api_host,
                     api_key: form.data.api_key,
@@ -201,7 +201,7 @@ export function HikvisionSettingsPanel({
         setRegisteringWebhook(true);
 
         router.post(
-            '/settings/application/hikvision/webhook/register',
+            '/settings/integrations/hikvision/webhook/register',
             {},
             {
                 preserveScroll: true,

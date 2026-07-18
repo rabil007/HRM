@@ -112,6 +112,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:settings.integrations.hikvision.view')
         ->name('integrations.hikvision.edit');
 
+    Route::put('settings/integrations/hikvision', [HikvisionIntegrationController::class, 'update'])
+        ->middleware('can:settings.integrations.hikvision.update')
+        ->name('integrations.hikvision.update');
+
+    Route::post('settings/integrations/hikvision/test', [HikvisionIntegrationController::class, 'testConnection'])
+        ->middleware('can:settings.integrations.hikvision.update')
+        ->name('integrations.hikvision.test');
+
+    Route::post('settings/integrations/hikvision/webhook/register', [HikvisionIntegrationController::class, 'registerWebhook'])
+        ->middleware('can:hikvision.webhook.manage')
+        ->name('integrations.hikvision.webhook.register');
+
+    Route::post('settings/integrations/hikvision/devices/sync', [HikvisionIntegrationController::class, 'syncDevices'])
+        ->middleware('can:hikvision.devices.sync')
+        ->name('integrations.hikvision.devices.sync');
+
     Route::redirect('settings/application/hikvision', '/settings/integrations/hikvision');
 
     Route::put('settings/application/hikvision', [HikvisionIntegrationController::class, 'update'])

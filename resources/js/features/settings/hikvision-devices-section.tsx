@@ -86,7 +86,7 @@ export function HikvisionDevicesSection({
         setSyncing(true);
 
         router.post(
-            '/settings/application/hikvision/devices/sync',
+            '/settings/integrations/hikvision/devices/sync',
             {},
             {
                 preserveScroll: true,
