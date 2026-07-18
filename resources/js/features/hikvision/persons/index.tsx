@@ -48,6 +48,7 @@ import {
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDateTime } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
+import { edit as hikvisionIntegrationSettings } from '@/routes/integrations/hikvision';
 import type { PaginationMeta } from '@/types/pagination';
 import { LinkPersonEmployeeDialog } from './link-person-employee-dialog';
 import { HikvisionPersonDeleteDialog } from './person-delete-dialog';
@@ -242,7 +243,7 @@ export function HikvisionPersonsContent({
                     <AlertDescription>
                         Add your API credentials in{' '}
                         <Link
-                            href="/settings/integrations/hikvision"
+                            href={hikvisionIntegrationSettings.url()}
                             className="font-medium text-primary underline-offset-4 hover:underline"
                         >
                             Company Settings → Integrations → Hikvision

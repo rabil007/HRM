@@ -45,17 +45,6 @@ class JobRun extends Model
     ];
 
     /**
-     * @return Builder<self>
-     */
-    public function prunable(): Builder
-    {
-        $retentionDays = max(1, (int) config('queue.job_run_retention_days', 90));
-
-        return self::withTrashed()
-            ->where('created_at', '<=', now()->subDays($retentionDays));
-    }
-
-    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -66,5 +55,39 @@ class JobRun extends Model
             'finished_at' => 'datetime',
             'duration_ms' => 'integer',
         ];
+    }
+
+    public static function retentionDays(): int
+    {
+        return max(1, (int) config('queue.job_run_retention_days', 90));
+    }
+
+    /**
+     * @return Builder<self>
+     */
+    public function prunable(): Builder
+    {
+        $cutoff = now()->subDays(self::retentionDays());
+
+        return static::query()
+            ->withTrashed()
+            ->where(function (Builder $query) use ($cutoff): void {
+                $query->where(function (Builder $query) use ($cutoff): void {
+                    $query->whereIn('status', [self::STATUS_COMPLETED, self::STATUS_FAILED])
+                        ->where(function (Builder $query) use ($cutoff): void {
+                            $query->where('finished_at', '<=', $cutoff)
+                                ->orWhere(function (Builder $query) use ($cutoff): void {
+                                    $query->whereNull('finished_at')
+                                        ->where('created_at', '<=', $cutoff);
+                                });
+                        });
+                })->orWhere(function (Builder $query) use ($cutoff): void {
+                    $query->where('status', self::STATUS_RUNNING)
+                        ->where('created_at', '<=', $cutoff);
+                })->orWhere(function (Builder $query) use ($cutoff): void {
+                    $query->whereNotNull('deleted_at')
+                        ->where('deleted_at', '<=', $cutoff);
+                });
+            });
     }
 }

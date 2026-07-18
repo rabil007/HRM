@@ -22,6 +22,7 @@ import {
     Users,
     Wallet,
 } from 'lucide-react';
+import { edit as hikvisionIntegrationSettings } from '@/routes/integrations/hikvision';
 
 export type SettingsNavItem = {
     title: string;
@@ -72,7 +73,7 @@ export const SETTINGS_SYSTEM_ITEMS: SettingsNavItem[] = [
 export const SETTINGS_INTEGRATION_ITEMS: SettingsNavItem[] = [
     {
         title: 'Hikvision',
-        href: '/settings/integrations/hikvision',
+        href: hikvisionIntegrationSettings.url(),
         permission: 'settings.integrations.hikvision.view',
         icon: Camera,
         color: 'bg-sky-500/10 text-sky-600',

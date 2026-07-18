@@ -147,6 +147,28 @@ composer run dev
 
 Or with Herd: `npm run dev` and visit `http://oms-hrm.test`.
 
+### Production scheduler and queues
+
+Production must run Laravel’s scheduler every minute (or a supervised long-running scheduler):
+
+```bash
+* * * * * cd /path/to/oms-hrm && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Alternatively under a process supervisor:
+
+```bash
+php artisan schedule:work
+```
+
+Scheduled tasks include document expiry alerts, leave balance rollover, Hikvision access-event fetches, contract maintenance, and **job-run pruning**. Job-run pruning will not execute unless the scheduler is running.
+
+Also run one or more queue workers, for example:
+
+```bash
+php artisan queue:work --tries=1 --timeout=600
+```
+
 ---
 
 ## Testing
@@ -157,7 +179,7 @@ php artisan test --compact tests/Feature/Organization/DocumentBrowseTest.php
 ```
 
 ```bash
-composer ci:check    # lint + format + types + tests
+composer ci:check    # lint + format + types + build + tests
 ```
 
 ---

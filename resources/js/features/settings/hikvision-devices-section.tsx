@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/table';
 import { formatDisplayDateTime } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
+import { sync as syncHikvisionDevices } from '@/routes/integrations/hikvision/devices';
 
 type HikvisionDeviceDetail = {
     baseInfo?: Record<string, unknown>;
@@ -86,7 +87,7 @@ export function HikvisionDevicesSection({
         setSyncing(true);
 
         router.post(
-            '/settings/integrations/hikvision/devices/sync',
+            syncHikvisionDevices.url(),
             {},
             {
                 preserveScroll: true,

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\JobRun;
 use App\Support\EmployeeDocuments\DocumentExpiryAlertSchedule;
 use App\Support\Hikvision\HikvisionAccessEventsFetchSchedule;
 use App\Support\Hikvision\HikvisionEveningAccessEventsFetchSchedule;
@@ -38,7 +39,10 @@ Schedule::command('contracts:mirror-effective-salary-revisions')
     ->timezone(config('app.timezone', 'UTC'))
     ->withoutOverlapping();
 
-Schedule::command('model:prune', ['--model' => [\App\Models\JobRun::class]])
+Schedule::command('model:prune', [
+    '--model' => [JobRun::class],
+])
     ->dailyAt('02:00')
     ->timezone(config('app.timezone', 'UTC'))
-    ->withoutOverlapping();
+    ->withoutOverlapping()
+    ->name('job-runs-prune');

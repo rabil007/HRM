@@ -128,6 +128,17 @@ return [
 
     'failed_job_alert_email' => env('QUEUE_FAILED_ALERT_EMAIL', 'rabil@overseas-ms.com'),
 
-    'job_run_retention_days' => (int) env('JOB_RUN_RETENTION_DAYS', 90),
+    /*
+    |--------------------------------------------------------------------------
+    | Job Run Retention
+    |--------------------------------------------------------------------------
+    |
+    | Completed, failed, and soft-deleted job_runs older than this many days are
+    | permanently pruned by the scheduled model:prune task. Values below 1 day
+    | are coerced to 1 so retention cannot be disabled by misconfiguration.
+    |
+    */
+
+    'job_run_retention_days' => max(1, (int) env('JOB_RUN_RETENTION_DAYS', 90)),
 
 ];

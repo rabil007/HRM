@@ -25,6 +25,11 @@ import { testHikvisionConnection } from '@/features/settings/test-hikvision-conn
 import { formatDisplayDateTime } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import {
+    test as testHikvisionRoute,
+    update as updateHikvisionSettings,
+} from '@/routes/integrations/hikvision';
+import { register as registerHikvisionWebhook } from '@/routes/integrations/hikvision/webhook';
 
 type ConnectionStatus = 'idle' | 'connected' | 'failed';
 
@@ -141,7 +146,7 @@ export function HikvisionSettingsPanel({
             return;
         }
 
-        form.put('/settings/integrations/hikvision', {
+        form.put(updateHikvisionSettings.url(), {
             preserveScroll: true,
             onSuccess: () => {
                 form.setData('api_key', '');
@@ -162,7 +167,7 @@ export function HikvisionSettingsPanel({
 
         try {
             const result = await testHikvisionConnection(
-                '/settings/integrations/hikvision/test',
+                testHikvisionRoute.url(),
                 {
                     api_host: form.data.api_host,
                     api_key: form.data.api_key,
@@ -201,7 +206,7 @@ export function HikvisionSettingsPanel({
         setRegisteringWebhook(true);
 
         router.post(
-            '/settings/integrations/hikvision/webhook/register',
+            registerHikvisionWebhook.url(),
             {},
             {
                 preserveScroll: true,
