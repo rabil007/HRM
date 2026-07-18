@@ -14,7 +14,10 @@ class PositionsExport implements FromQuery, WithHeadings, WithMapping, WithStric
     /**
      * @param  Builder<Position>  $query
      */
-    public function __construct(private readonly Builder $query) {}
+    public function __construct(
+        private readonly Builder $query,
+        private readonly ?string $companyName,
+    ) {}
 
     public function query(): Builder
     {
@@ -40,7 +43,7 @@ class PositionsExport implements FromQuery, WithHeadings, WithMapping, WithStric
     {
         return [
             $position->id,
-            $position->company?->name,
+            $this->companyName,
             $position->department?->name,
             $position->title,
             $position->grade,

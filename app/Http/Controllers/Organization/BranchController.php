@@ -265,7 +265,8 @@ class BranchController extends Controller
             });
         }
 
-        $export = new BranchesExport($query);
+        $companyName = Company::query()->whereKey($companyId)->value('name');
+        $export = new BranchesExport($query, $companyName);
 
         $timestamp = now()->format('Y-m-d_His');
         $baseName = "branches_{$timestamp}";
@@ -278,6 +279,7 @@ class BranchController extends Controller
             $branches = $query->get();
             $pdf = Pdf::loadView('exports.branches', [
                 'branches' => $branches,
+                'companyName' => $companyName,
                 'generatedAt' => now(),
             ]);
 

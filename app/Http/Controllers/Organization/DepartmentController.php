@@ -9,6 +9,7 @@ use App\Http\Requests\Organization\Department\StoreDepartmentRequest;
 use App\Http\Requests\Organization\Department\UpdateDepartmentRequest;
 use App\Http\Requests\Organization\Department\UpdateDepartmentStatusRequest;
 use App\Models\Branch;
+use App\Models\Company;
 use App\Models\Department;
 use App\Models\Position;
 use App\Support\Activity\RecentActivityQuery;
@@ -382,7 +383,8 @@ class DepartmentController extends Controller
             });
         }
 
-        $export = new DepartmentsExport($query);
+        $companyName = Company::query()->whereKey($companyId)->value('name');
+        $export = new DepartmentsExport($query, $companyName);
 
         $timestamp = now()->format('Y-m-d_His');
         $baseName = "departments_{$timestamp}";
@@ -395,6 +397,7 @@ class DepartmentController extends Controller
             $departments = $query->get();
             $pdf = Pdf::loadView('exports.departments', [
                 'departments' => $departments,
+                'companyName' => $companyName,
                 'generatedAt' => now(),
             ]);
 

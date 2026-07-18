@@ -27,6 +27,7 @@ class RoleController extends Controller
 
         $paginator = Role::query()
             ->where('company_id', $companyId)
+            ->with('permissions:id,name')
             ->when($search, fn ($q) => $q->where('name', 'like', "%{$search}%"))
             ->when($hasPermissions === 'true', fn ($q) => $q->has('permissions'))
             ->when($hasPermissions === 'false', fn ($q) => $q->doesntHave('permissions'))
@@ -37,7 +38,7 @@ class RoleController extends Controller
         $roles = $paginator->through(fn (Role $role) => [
             'id' => $role->id,
             'name' => $role->name,
-            'permissions' => $role->permissions()->pluck('name')->all(),
+            'permissions' => $role->permissions->pluck('name')->all(),
             'created_at' => $role->created_at,
         ]);
 
@@ -159,6 +160,7 @@ class RoleController extends Controller
 
         $query = Role::query()
             ->where('company_id', $companyId)
+            ->with('permissions:id,name')
             ->latest('id');
 
         if ($search !== '') {

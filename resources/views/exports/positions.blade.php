@@ -34,7 +34,7 @@
                 @foreach ($positions as $position)
                     <tr>
                         <td class="nowrap">{{ $position->id }}</td>
-                        <td>{{ $position->company?->name }}</td>
+                        <td>{{ $companyName }}</td>
                         <td>{{ $position->department?->name }}</td>
                         <td>{{ $position->title }}</td>
                         <td class="nowrap">{{ $position->grade }}</td>

@@ -10,7 +10,9 @@ use App\Http\Requests\Organization\Employee\UpdateEmployeeRequest;
 use App\Http\Requests\Organization\Employee\UpdateEmployeeStatusRequest;
 use App\Models\Employee;
 use App\Models\EmployeeProfileTemplate;
+use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use App\Support\Employees\Actions\CreateEmployee;
 use App\Support\Employees\Actions\CreateEmployeeFromName;
 use App\Support\Employees\Actions\SyncEmployeeWorkAssignments;
@@ -56,8 +58,25 @@ class EmployeeController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
+        $pageEmployees = $paginator->getCollection();
+        $crewStatusByEmployeeId = [];
+
+        $needsCrewStatus = $pageEmployees->contains(
+            fn (Employee $employee): bool => EmployeeProfileTemplateResolver::employeeFieldVisible(
+                $employee->employeeProfileTemplate,
+                'crew_status',
+            ),
+        );
+
+        if ($needsCrewStatus) {
+            $crewStatusByEmployeeId = (new CrewAssignmentStatusResolver)->forEmployees(
+                $pageEmployees,
+                $companyId,
+            );
+        }
+
         $employees = $paginator->through(
-            fn (Employee $employee) => EmployeeListResource::toArray($employee),
+            fn (Employee $employee) => EmployeeListResource::toArray($employee, $crewStatusByEmployeeId),
         );
 
         return Inertia::render('organization/employees', [

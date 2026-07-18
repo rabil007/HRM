@@ -34,7 +34,7 @@
                 @foreach ($branches as $branch)
                     <tr>
                         <td class="nowrap">{{ $branch->id }}</td>
-                        <td>{{ $branch->company?->name }}</td>
+                        <td>{{ $companyName }}</td>
                         <td>{{ $branch->name }}</td>
                         <td class="nowrap">{{ $branch->code }}</td>
                         <td>{{ $branch->city }}</td>

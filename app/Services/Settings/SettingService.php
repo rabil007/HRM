@@ -19,14 +19,23 @@ class SettingService
 
     private const STORAGE_DIR = 'settings';
 
+    private ?bool $ready = null;
+
+    /** @var array<string, string|null>|null */
+    private ?array $resolvedSettings = null;
+
     public function isReady(): bool
     {
+        if ($this->ready !== null) {
+            return $this->ready;
+        }
+
         try {
             DB::connection()->getPdo();
 
-            return Schema::hasTable('app_settings');
+            return $this->ready = Schema::hasTable('app_settings');
         } catch (\Throwable) {
-            return false;
+            return $this->ready = false;
         }
     }
 
@@ -48,11 +57,15 @@ class SettingService
     /** @return array<string, string|null> */
     public function all(): array
     {
-        if (! $this->isReady()) {
-            return SettingKey::defaults();
+        if ($this->resolvedSettings !== null) {
+            return $this->resolvedSettings;
         }
 
-        return Cache::rememberForever(self::CACHE_KEY, function (): array {
+        if (! $this->isReady()) {
+            return $this->resolvedSettings = SettingKey::defaults();
+        }
+
+        return $this->resolvedSettings = Cache::rememberForever(self::CACHE_KEY, function (): array {
             $stored = AppSetting::query()
                 ->get(['key', 'value'])
                 ->pluck('value', 'key')
@@ -75,6 +88,8 @@ class SettingService
     public function clearCache(): void
     {
         Cache::forget(self::CACHE_KEY);
+        $this->ready = null;
+        $this->resolvedSettings = null;
     }
 
     public function appName(): string
@@ -85,20 +100,27 @@ class SettingService
     /** @return array<string, mixed> */
     public function forInertia(): array
     {
+        $settings = $this->all();
+        $value = fn (string $key, string $default = ''): string => (string) (
+            ($settings[$key] ?? null) === '' || ($settings[$key] ?? null) === null
+                ? (SettingKey::defaults()[$key] ?? $default)
+                : $settings[$key]
+        );
+
         return [
-            'app_name' => $this->appName(),
-            'company_name' => (string) $this->get(SettingKey::CompanyName, ''),
-            'support_email' => (string) $this->get(SettingKey::SupportEmail, ''),
-            'support_phone' => (string) $this->get(SettingKey::SupportPhone, ''),
-            'company_address' => (string) $this->get(SettingKey::CompanyAddress, ''),
-            'timezone' => (string) $this->get(SettingKey::Timezone, 'UTC'),
-            'currency' => (string) $this->get(SettingKey::Currency, 'USD'),
-            'date_format' => (string) $this->get(SettingKey::DateFormat, 'Y-m-d'),
+            'app_name' => $value(SettingKey::AppName, (string) config('app.name', 'Laravel')),
+            'company_name' => $value(SettingKey::CompanyName),
+            'support_email' => $value(SettingKey::SupportEmail),
+            'support_phone' => $value(SettingKey::SupportPhone),
+            'company_address' => $value(SettingKey::CompanyAddress),
+            'timezone' => $value(SettingKey::Timezone, 'UTC'),
+            'currency' => $value(SettingKey::Currency, 'USD'),
+            'date_format' => $value(SettingKey::DateFormat, 'Y-m-d'),
             'branding' => $this->brandingUrls(),
             'preferences' => [
-                'primary_color' => (string) $this->get(SettingKey::PrimaryColor, '#6366f1'),
-                'accent_color' => (string) $this->get(SettingKey::AccentColor, '#8b5cf6'),
-                'sidebar_compact_default' => $this->get(SettingKey::SidebarCompactDefault, '0') === '1',
+                'primary_color' => $value(SettingKey::PrimaryColor, '#6366f1'),
+                'accent_color' => $value(SettingKey::AccentColor, '#8b5cf6'),
+                'sidebar_compact_default' => $value(SettingKey::SidebarCompactDefault, '0') === '1',
             ],
         ];
     }
@@ -270,10 +292,23 @@ class SettingService
     /** @param array<string, string|null> $values */
     public function setMany(array $values): void
     {
+        $settings = [];
+
         foreach ($values as $key => $value) {
-            $type = in_array($key, SettingKey::fileKeys(), true) ? 'file' : 'string';
-            $this->set($key, $value, $type);
+            $settings[] = [
+                'key' => $key,
+                'value' => $value,
+                'type' => in_array($key, SettingKey::fileKeys(), true) ? 'file' : 'string',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
         }
+
+        DB::transaction(function () use ($settings): void {
+            AppSetting::query()->upsert($settings, ['key'], ['value', 'type', 'updated_at']);
+        });
+
+        $this->clearCache();
     }
 
     private function disk(): Filesystem

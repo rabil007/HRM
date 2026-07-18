@@ -5,10 +5,12 @@ namespace App\Support\CrewMovements;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 
 final class CrewAssignmentStatusResolver
 {
@@ -32,48 +34,123 @@ final class CrewAssignmentStatusResolver
      */
     public function forEmployee(Employee $employee, ?CarbonImmutable $today = null): array
     {
-        $today ??= CarbonImmutable::today($employee->company?->timezone ?? config('app.timezone'));
+        return $this->forEmployees([$employee], (int) $employee->company_id, $today)[(int) $employee->id]
+            ?? $this->available();
+    }
 
-        $assignment = CrewAssignment::query()
-            ->where('company_id', $employee->company_id)
-            ->where('employee_id', $employee->id)
+    /**
+     * @param  iterable<Employee>  $employees
+     * @return array<int, array<string, mixed>>
+     */
+    public function forEmployees(iterable $employees, int $companyId, ?CarbonImmutable $today = null): array
+    {
+        $employees = Collection::make($employees)
+            ->filter(fn (Employee $employee): bool => (int) $employee->company_id === $companyId)
+            ->values();
+
+        if ($employees->isEmpty()) {
+            return [];
+        }
+
+        return $this->forEmployeeIds(
+            $companyId,
+            $employees->map(fn (Employee $employee): int => (int) $employee->id)->all(),
+            $today,
+        );
+    }
+
+    /**
+     * @param  list<int>  $employeeIds
+     * @return array<int, array<string, mixed>>
+     */
+    public function forEmployeeIds(int $companyId, array $employeeIds, ?CarbonImmutable $today = null): array
+    {
+        $employeeIds = array_values(array_unique(array_map('intval', $employeeIds)));
+
+        if ($employeeIds === []) {
+            return [];
+        }
+
+        $today ??= $this->resolveToday($companyId);
+        $openByEmployee = $this->preferredOpenAssignments($companyId, $employeeIds);
+        $missingIds = array_values(array_diff($employeeIds, $openByEmployee->keys()->all()));
+        $completedByEmployee = $missingIds === []
+            ? collect()
+            : $this->latestCompletedAssignments($companyId, $missingIds);
+
+        $map = [];
+
+        foreach ($employeeIds as $employeeId) {
+            $open = $openByEmployee->get($employeeId);
+
+            if ($open instanceof CrewAssignment) {
+                $map[$employeeId] = $this->fromOpenAssignment($open, $today);
+
+                continue;
+            }
+
+            $completed = $completedByEmployee->get($employeeId);
+
+            if ($completed instanceof CrewAssignment) {
+                $map[$employeeId] = $this->fromCompletedAssignment($completed, $today);
+
+                continue;
+            }
+
+            $map[$employeeId] = $this->available();
+        }
+
+        return $map;
+    }
+
+    private function resolveToday(int $companyId): CarbonImmutable
+    {
+        $timezone = Company::query()->whereKey($companyId)->value('timezone')
+            ?? config('app.timezone', 'UTC');
+
+        return CarbonImmutable::today($timezone);
+    }
+
+    /**
+     * @param  list<int>  $employeeIds
+     * @return Collection<int, CrewAssignment>
+     */
+    private function preferredOpenAssignments(int $companyId, array $employeeIds): Collection
+    {
+        return CrewAssignment::query()
+            ->where('company_id', $companyId)
+            ->whereIn('employee_id', $employeeIds)
             ->whereIn('status', [CrewAssignmentStatus::Active, CrewAssignmentStatus::Draft])
             ->with(['currentPhase', 'vessel:id,name'])
             ->orderByRaw("CASE WHEN status = 'active' THEN 0 WHEN status = 'draft' THEN 1 ELSE 2 END")
             ->orderByDesc('id')
-            ->first();
+            ->get()
+            ->groupBy(fn (CrewAssignment $assignment): int => (int) $assignment->employee_id)
+            ->map(fn (Collection $group): CrewAssignment => $group->first());
+    }
 
-        if ($assignment === null) {
-            $completed = CrewAssignment::query()
-                ->where('company_id', $employee->company_id)
-                ->where('employee_id', $employee->id)
-                ->where('status', CrewAssignmentStatus::Completed)
-                ->orderByDesc('closed_at')
-                ->orderByDesc('id')
-                ->first();
+    /**
+     * @param  list<int>  $employeeIds
+     * @return Collection<int, CrewAssignment>
+     */
+    private function latestCompletedAssignments(int $companyId, array $employeeIds): Collection
+    {
+        return CrewAssignment::query()
+            ->where('company_id', $companyId)
+            ->whereIn('employee_id', $employeeIds)
+            ->where('status', CrewAssignmentStatus::Completed)
+            ->orderByDesc('closed_at')
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy(fn (CrewAssignment $assignment): int => (int) $assignment->employee_id)
+            ->map(fn (Collection $group): CrewAssignment => $group->first());
+    }
 
-            if ($completed !== null) {
-                $inHomeDays = $completed->closed_at !== null
-                    ? $completed->closed_at->startOfDay()->diffInDays($today)
-                    : null;
-
-                return $this->payload(
-                    status: 'in_home',
-                    label: $inHomeDays !== null ? "In home · {$inHomeDays}d" : 'In home',
-                    assignment: $completed,
-                    currentPhase: null,
-                    currentVessel: null,
-                    since: $completed->closed_at?->toIso8601String(),
-                    daysInPhase: $inHomeDays,
-                    plannedNext: null,
-                    warning: null,
-                    inHomeDays: $inHomeDays,
-                );
-            }
-
-            return $this->available();
-        }
-
+    /**
+     * @return array<string, mixed>
+     */
+    private function fromOpenAssignment(CrewAssignment $assignment, CarbonImmutable $today): array
+    {
         $phase = $assignment->currentPhase;
         $vesselName = $assignment->vessel?->name;
 
@@ -106,20 +183,26 @@ final class CrewAssignmentStatusResolver
     }
 
     /**
-     * @param  Collection<int, Employee>|iterable<Employee>  $employees
-     * @return array<int, array<string, mixed>>
+     * @return array<string, mixed>
      */
-    public function forEmployees(iterable $employees, int $companyId, ?CarbonImmutable $today = null): array
+    private function fromCompletedAssignment(CrewAssignment $completed, CarbonImmutable $today): array
     {
-        $map = [];
-        foreach ($employees as $employee) {
-            if ((int) $employee->company_id !== $companyId) {
-                continue;
-            }
-            $map[(int) $employee->id] = $this->forEmployee($employee, $today);
-        }
+        $inHomeDays = $completed->closed_at !== null
+            ? $completed->closed_at->startOfDay()->diffInDays($today)
+            : null;
 
-        return $map;
+        return $this->payload(
+            status: 'in_home',
+            label: $inHomeDays !== null ? "In home · {$inHomeDays}d" : 'In home',
+            assignment: $completed,
+            currentPhase: null,
+            currentVessel: null,
+            since: $completed->closed_at?->toIso8601String(),
+            daysInPhase: $inHomeDays,
+            plannedNext: null,
+            warning: null,
+            inHomeDays: $inHomeDays,
+        );
     }
 
     private function fromPhase(

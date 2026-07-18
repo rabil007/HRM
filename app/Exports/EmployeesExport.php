@@ -19,8 +19,8 @@ class EmployeesExport implements FromQuery, WithHeadings, WithMapping, WithStric
      */
     public function __construct(
         private readonly Builder $query,
+        private readonly EmployeeExportFieldResolver $resolver,
         private readonly array $selectedFields = EmployeeExportFieldRegistry::DEFAULT_FIELD_KEYS,
-        private readonly ?EmployeeExportFieldResolver $resolver = null,
     ) {}
 
     public function query(): Builder
@@ -45,7 +45,7 @@ class EmployeesExport implements FromQuery, WithHeadings, WithMapping, WithStric
      */
     public function map($employee): array
     {
-        $values = ($this->resolver ?? new EmployeeExportFieldResolver)->resolve(
+        $values = $this->resolver->resolve(
             $employee,
             $this->selectedFields,
         );

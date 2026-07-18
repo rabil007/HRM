@@ -3,19 +3,23 @@
 namespace App\Support\Employees;
 
 use App\Models\Employee;
-use App\Support\Departments\ResolveDepartmentEffectiveManager;
+use App\Support\Departments\DepartmentManagerExportContext;
 use Throwable;
 
 final class EmployeeExportFieldResolver
 {
+    public function __construct(
+        private readonly DepartmentManagerExportContext $departmentManagerContext,
+    ) {}
+
     /**
      * @param  list<string>  $keys
      * @return array<string, mixed>
      */
     public function resolve(Employee $employee, array $keys): array
     {
-        $contract = $employee->currentContract;
-        $bankAccount = $employee->primaryBankAccount;
+        $contract = $this->requiresContract($keys) ? $employee->currentContract : null;
+        $bankAccount = $this->requiresBankAccount($keys) ? $employee->primaryBankAccount : null;
 
         $resolved = [];
 
@@ -24,6 +28,22 @@ final class EmployeeExportFieldResolver
         }
 
         return $resolved;
+    }
+
+    /**
+     * @param  list<string>  $keys
+     */
+    private function requiresContract(array $keys): bool
+    {
+        return collect($keys)->contains(fn (string $key): bool => str_starts_with($key, 'contract_'));
+    }
+
+    /**
+     * @param  list<string>  $keys
+     */
+    private function requiresBankAccount(array $keys): bool
+    {
+        return collect($keys)->contains(fn (string $key): bool => str_starts_with($key, 'bank_'));
     }
 
     private function value(
@@ -42,7 +62,7 @@ final class EmployeeExportFieldResolver
             'rank' => $employee->rank?->name,
             'project' => $employee->project?->title,
             'client' => $employee->client?->name,
-            'manager' => ResolveDepartmentEffectiveManager::managerForEmployee($employee)?->name,
+            'manager' => $this->departmentManagerContext->managerNameForEmployee($employee),
             'work_email' => $employee->work_email,
             'personal_email' => $employee->personal_email,
             'phone' => $employee->phone,

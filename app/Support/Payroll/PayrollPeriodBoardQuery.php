@@ -84,39 +84,48 @@ final class PayrollPeriodBoardQuery
 
         PayrollPeriodBoardEmployeeScope::apply($query, $companyId, $period, $search, $filters);
 
-        $leaveByEmployee = $payrollCategory === PayrollCategory::Office
-            ? $this->loadOfficeLeaveByEmployee($companyId, $period, $filters)
-            : Collection::make();
-
-        return $query
+        $paginator = $query
             ->orderBy('employees.name')
             ->paginate($perPage)
-            ->withQueryString()
-            ->through(function (Employee $employee) use ($period, $payrollCategory, $leaveByEmployee, $companyId) {
-                if ($payrollCategory === PayrollCategory::Crew) {
-                    /** @var CrewTimesheet|null $timesheet */
-                    $timesheet = $employee->crewTimesheets->first();
+            ->withQueryString();
 
-                    return CrewTimesheetResource::toBoardRow(
-                        $employee,
-                        $timesheet,
-                        $period->id,
-                        $period->start_date,
-                    );
-                }
+        $leaveByEmployee = $payrollCategory === PayrollCategory::Office
+            ? $this->leavePeriodSummary->forEmployees(
+                $companyId,
+                $period->start_date->toDateString(),
+                $period->end_date->toDateString(),
+                $paginator->getCollection()->pluck('id')->map(intval(...))->all(),
+            )
+            : Collection::make();
+        $emptyLeaveSummary = $payrollCategory === PayrollCategory::Office
+            ? $this->leavePeriodSummary->empty($companyId)
+            : null;
 
-                $summary = $leaveByEmployee->get(
-                    $employee->id,
-                    $this->leavePeriodSummary->empty($companyId),
-                );
+        return $paginator->through(function (Employee $employee) use ($period, $payrollCategory, $leaveByEmployee, $emptyLeaveSummary) {
+            if ($payrollCategory === PayrollCategory::Crew) {
+                /** @var CrewTimesheet|null $timesheet */
+                $timesheet = $employee->crewTimesheets->first();
 
-                return OfficePayrollBoardRow::toArray(
+                return CrewTimesheetResource::toBoardRow(
                     $employee,
+                    $timesheet,
                     $period->id,
-                    $summary,
                     $period->start_date,
                 );
-            });
+            }
+
+            $summary = $leaveByEmployee->get(
+                $employee->id,
+                $emptyLeaveSummary,
+            );
+
+            return OfficePayrollBoardRow::toArray(
+                $employee,
+                $period->id,
+                $summary,
+                $period->start_date,
+            );
+        });
     }
 
     /**
@@ -143,36 +152,5 @@ final class PayrollPeriodBoardQuery
             ->map(fn ($id) => (int) $id)
             ->values()
             ->all();
-    }
-
-    /**
-     * @return Collection<int, EmployeeLeavePeriodSummary>
-     */
-    private function loadOfficeLeaveByEmployee(
-        int $companyId,
-        PayrollPeriod $period,
-        PayrollPeriodBoardFilters $filters,
-    ): Collection {
-        $employeeIdsQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Office);
-
-        PayrollPeriodBoardEmployeeScope::apply(
-            $employeeIdsQuery,
-            $companyId,
-            $period,
-            null,
-            $filters,
-        );
-
-        $employeeIds = $employeeIdsQuery
-            ->pluck('employees.id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-
-        return $this->leavePeriodSummary->forEmployees(
-            $companyId,
-            $period->start_date->toDateString(),
-            $period->end_date->toDateString(),
-            $employeeIds,
-        );
     }
 }
