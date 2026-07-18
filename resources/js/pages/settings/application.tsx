@@ -1,7 +1,6 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
 import {
     Building2,
-    Camera,
     CheckCircle2,
     ImageIcon,
     Layout,
@@ -33,8 +32,6 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import type { SignaturePlacementConfig } from '@/features/settings/esign-placement/esign-placement-coordinates';
 import { EsignPlacementPanel } from '@/features/settings/esign-placement/esign-placement-panel';
-import { HikvisionSettingsPanel } from '@/features/settings/hikvision-settings-panel';
-import type { HikvisionSettingsPanelProps } from '@/features/settings/hikvision-settings-panel';
 import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
 import { WhatsAppSettingsPanel } from '@/features/settings/whatsapp-settings-panel';
 import type { WhatsAppSettingsPanelProps } from '@/features/settings/whatsapp-settings-panel';
@@ -90,7 +87,6 @@ type Props = {
         };
     };
     whatsapp: WhatsAppSettingsPanelProps | null;
-    hikvision: HikvisionSettingsPanelProps | null;
     esign_placement: {
         document_type: string;
         label: string;
@@ -126,13 +122,6 @@ const ALL_NAV_ITEMS = [
         icon: MessageCircle,
         description: 'Business messaging',
         permission: 'settings.integrations.whatsapp.view',
-    },
-    {
-        id: 'hikvision',
-        label: 'Hikvision',
-        icon: Camera,
-        description: 'Access control API',
-        permission: 'settings.integrations.hikvision.view',
     },
     {
         id: 'esign',
@@ -259,7 +248,6 @@ export default function ApplicationSettings({
     currencies,
     smtp,
     whatsapp,
-    hikvision,
     esign_placement,
 }: Props) {
     const auth = usePage().props.auth;
@@ -1296,11 +1284,6 @@ export default function ApplicationSettings({
                     {/* ══ WHATSAPP ══ */}
                     {tab === 'whatsapp' && whatsapp ? (
                         <WhatsAppSettingsPanel {...whatsapp} />
-                    ) : null}
-
-                    {/* ══ HIKVISION ══ */}
-                    {tab === 'hikvision' && hikvision ? (
-                        <HikvisionSettingsPanel {...hikvision} />
                     ) : null}
 
                     {/* ══ E-SIGNATURE ══ */}

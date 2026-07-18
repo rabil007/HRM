@@ -14,7 +14,7 @@ class HikvisionWebhookController extends Controller
 {
     public function __invoke(Request $request, string $publicIntegrationId): Response|SymfonyResponse
     {
-        $settings = HikvisionSetting::findByPublicId($publicIntegrationId);
+        $settings = HikvisionSetting::findActiveWebhookIntegration($publicIntegrationId);
 
         if ($settings === null) {
             abort(404);
@@ -39,7 +39,7 @@ class HikvisionWebhookController extends Controller
         try {
             $secret = $settings->resolveWebhookSignSecret();
         } catch (\RuntimeException) {
-            return response('Webhook sign secret is not configured.', 503);
+            abort(404);
         }
 
         $signature = HikvisionWebhookSignature::generate($secret, $timestamp, $batchId);
@@ -50,11 +50,7 @@ class HikvisionWebhookController extends Controller
     private function handleEvent(Request $request, HikvisionSetting $settings): Response
     {
         if ($this->authenticationFailureReason($request, $settings) !== null) {
-            return response('Forbidden', 403);
-        }
-
-        if (! $settings->webhook_enabled) {
-            return response('Webhook ingestion is disabled.', 403);
+            abort(404);
         }
 
         /** @var array<string, mixed> $payload */

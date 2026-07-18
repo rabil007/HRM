@@ -635,6 +635,10 @@ class HikvisionAccessEvent extends Model
      */
     public static function upsertFromWebhook(array $payload, int $companyId): ?self
     {
+        if ($companyId <= 0) {
+            throw new \InvalidArgumentException('Hikvision access events require a company_id.');
+        }
+
         if (isset($payload['list']) && is_array($payload['list'])) {
             $batchId = filled($payload['batchId'] ?? null) ? (string) $payload['batchId'] : null;
             $stored = null;
@@ -1066,6 +1070,10 @@ class HikvisionAccessEvent extends Model
      */
     protected static function updateOrCreateIncludingTrashed(array $attributes, array $values): self
     {
+        if (! isset($attributes['company_id']) || (int) $attributes['company_id'] <= 0) {
+            throw new \InvalidArgumentException('Hikvision access events require a company_id.');
+        }
+
         $event = self::withTrashed()->updateOrCreate($attributes, $values);
 
         if ($event->trashed()) {

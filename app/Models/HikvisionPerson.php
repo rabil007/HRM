@@ -59,6 +59,10 @@ class HikvisionPerson extends Model
      */
     public static function upsertFromApi(int $companyId, array $apiPerson, ?self $preserveCredentialsFrom = null): self
     {
+        if ($companyId <= 0) {
+            throw new \InvalidArgumentException('Hikvision persons require a company_id.');
+        }
+
         $personInfo = is_array($apiPerson['personInfo'] ?? null) ? $apiPerson['personInfo'] : [];
         $fingerList = is_array($apiPerson['fingerList'] ?? null) ? $apiPerson['fingerList'] : [];
         $hasFingerprint = $fingerList !== [];

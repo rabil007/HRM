@@ -22,7 +22,7 @@ function hikvisionSettingsUpdatePayload(array $overrides = []): array
 
 function actingAsWithCsrf(User $user): TestResponse
 {
-    return test()->actingAs($user)->get(route('application.edit'));
+    return test()->actingAs($user)->get(route('integrations.hikvision.edit'));
 }
 
 /**
@@ -64,18 +64,18 @@ test('owner can view hikvision integration settings page', function () {
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.hikvision.view']);
 
     $this->actingAs($user)
-        ->get(route('application.edit'))
+        ->get(route('integrations.hikvision.edit'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('settings/application')
-            ->has('hikvision.settings')
-            ->where('hikvision.settings.api_host', fn ($value) => is_string($value))
-            ->has('hikvision.webhook_url')
-            ->has('hikvision.scheduler_timezone')
-            ->has('hikvision.settings.events_fetch_schedule_enabled')
-            ->has('hikvision.settings.events_fetch_schedule_at')
-            ->has('hikvision.settings.events_evening_fetch_schedule_enabled')
-            ->has('hikvision.settings.events_evening_fetch_schedule_at'),
+            ->component('settings/integrations/hikvision')
+            ->has('settings')
+            ->where('settings.api_host', fn ($value) => is_string($value))
+            ->has('webhook_url')
+            ->has('scheduler_timezone')
+            ->has('settings.events_fetch_schedule_enabled')
+            ->has('settings.events_fetch_schedule_at')
+            ->has('settings.events_evening_fetch_schedule_enabled')
+            ->has('settings.events_evening_fetch_schedule_at'),
         );
 });
 
@@ -109,7 +109,7 @@ test('user with webhook permission can register hikvision webhook', function () 
     ]);
 
     $this->actingAs($user)
-        ->from(route('application.edit'))
+        ->from(route('integrations.hikvision.edit'))
         ->post(route('application.hikvision.webhook.register'))
         ->assertRedirect()
         ->assertSessionHas('success');
@@ -117,27 +117,23 @@ test('user with webhook permission can register hikvision webhook', function () 
     expect(hikvisionSettings()->webhook_registered_at)->not->toBeNull();
 });
 
-test('users without hikvision permission do not receive hikvision settings props', function () {
+test('users without hikvision permission cannot view integration settings', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['settings.application.view']);
 
     $this->actingAs($user)
-        ->get(route('application.edit'))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('settings/application')
-            ->where('hikvision', null),
-        );
+        ->get(route('integrations.hikvision.edit'))
+        ->assertForbidden();
 });
 
-test('users with hikvision permission can open application settings without application view', function () {
+test('users with hikvision permission can open integration settings without application view', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.hikvision.view']);
 
     $this->actingAs($user)
-        ->get(route('application.edit'))
+        ->get(route('integrations.hikvision.edit'))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->has('hikvision'));
+        ->assertInertia(fn ($page) => $page->component('settings/integrations/hikvision'));
 });
 
 test('hikvision settings can be saved with encrypted secrets', function () {
@@ -211,6 +207,7 @@ test('hikvision test connection returns success when api responds ok', function 
         'settings.integrations.hikvision.view',
         'settings.integrations.hikvision.update',
     ]);
+    configuredHikvisionSettings();
 
     postHikvisionConnectionTest($user, [
         'api_host' => 'https://isgp.hikcentralconnect.com',
@@ -237,6 +234,7 @@ test('hikvision test connection returns error message on failure', function () {
         'settings.integrations.hikvision.view',
         'settings.integrations.hikvision.update',
     ]);
+    configuredHikvisionSettings();
 
     postHikvisionConnectionTest($user, [
         'api_host' => 'https://isgp.hikcentralconnect.com',
@@ -250,7 +248,7 @@ test('hikvision test connection returns error message on failure', function () {
         ]);
 });
 
-test('application settings page masks hikvision credentials', function () {
+test('hikvision integration settings page masks credentials', function () {
     hikvisionSettings()->storeFromValidated([
         'api_host' => 'https://isgp.hikcentralconnect.com',
         'api_key' => 'stored-api-key',
@@ -263,36 +261,32 @@ test('application settings page masks hikvision credentials', function () {
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.hikvision.view']);
 
     $this->actingAs($user)
-        ->get(route('application.edit'))
+        ->get(route('integrations.hikvision.edit'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('hikvision.settings.api_key', '')
-            ->where('hikvision.settings.api_secret', '')
-            ->where('hikvision.settings.webhook_verify_token', '')
-            ->where('hikvision.settings.has_api_key', true)
-            ->where('hikvision.settings.has_api_secret', true)
-            ->where('hikvision.settings.has_webhook_verify_token', true),
+            ->where('settings.api_key', '')
+            ->where('settings.api_secret', '')
+            ->where('settings.webhook_verify_token', '')
+            ->where('settings.has_api_key', true)
+            ->where('settings.has_api_secret', true)
+            ->where('settings.has_webhook_verify_token', true),
         );
 });
 
-test('hikvision settings page reports env fallback when database credentials are empty', function () {
+test('hikvision settings page ignores configured env credentials', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.hikvision.view']);
 
-    $settings = hikvisionSettings()->toSettingsPageArray();
+    config()->set('hikvision.api_host', 'https://env.example.test');
+    config()->set('hikvision.api_key', 'env-api-key');
+    config()->set('hikvision.api_secret', 'env-api-secret');
 
-    if (
-        filled(env('HIKVISION_API_HOST'))
-        && filled(env('HIKVISION_API_KEY'))
-        && filled(env('HIKVISION_API_SECRET'))
-    ) {
-        expect($settings['uses_env_fallback'])->toBeTrue()
-            ->and($settings['has_api_key'])->toBeTrue()
-            ->and($settings['has_api_secret'])->toBeTrue()
-            ->and($settings['api_host'])->toBe((string) env('HIKVISION_API_HOST'));
-    } else {
-        expect($settings['uses_env_fallback'])->toBeFalse();
-    }
+    $settings = HikvisionSetting::forCompany(hikvisionTestCompany()->id)->toSettingsPageArray();
+
+    expect($settings['api_host'])->toBe('')
+        ->and($settings['has_api_key'])->toBeFalse()
+        ->and($settings['has_api_secret'])->toBeFalse()
+        ->and($settings['is_configured'])->toBeFalse();
 });
 
 test('user with permission sees devices on hikvision settings tab', function () {
@@ -303,12 +297,12 @@ test('user with permission sees devices on hikvision settings tab', function () 
     ]);
 
     $this->actingAs($user)
-        ->get(route('application.edit'))
+        ->get(route('integrations.hikvision.edit'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('settings/application')
-            ->has('hikvision.devices.items')
-            ->has('hikvision.devices.can'),
+            ->component('settings/integrations/hikvision')
+            ->has('devices.items')
+            ->has('devices.can'),
         );
 });
 
@@ -317,11 +311,11 @@ test('user without devices permission does not receive devices props', function 
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.hikvision.view']);
 
     $this->actingAs($user)
-        ->get(route('application.edit'))
+        ->get(route('integrations.hikvision.edit'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('settings/application')
-            ->missing('hikvision.devices'),
+            ->component('settings/integrations/hikvision')
+            ->missing('devices'),
         );
 });
 
@@ -331,7 +325,7 @@ test('legacy devices url redirects to hikvision settings tab', function () {
 
     $this->actingAs($user)
         ->get('/hikvision/devices')
-        ->assertRedirect('/settings/application?tab=hikvision');
+        ->assertRedirect('/settings/integrations/hikvision');
 });
 
 test('sync upserts devices and detail from hikvision api', function () {
@@ -447,7 +441,7 @@ test('application settings tolerates stale hikvision encrypted credentials in lo
     app()->detectEnvironment(fn () => 'local');
 
     $this->actingAs($user)
-        ->get(route('application.edit'))
+        ->get(route('integrations.hikvision.edit'))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->component('settings/application'));
+        ->assertInertia(fn ($page) => $page->component('settings/integrations/hikvision'));
 });

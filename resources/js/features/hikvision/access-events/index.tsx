@@ -357,10 +357,10 @@ export function HikvisionAccessEventsContent({
                     <AlertDescription>
                         Add your API credentials in{' '}
                         <Link
-                            href="/settings/application?tab=hikvision"
+                            href="/settings/integrations/hikvision"
                             className="font-medium text-primary underline-offset-4 hover:underline"
                         >
-                            Application settings → Hikvision
+                            Company Settings → Integrations → Hikvision
                         </Link>{' '}
                         before fetching records.
                     </AlertDescription>

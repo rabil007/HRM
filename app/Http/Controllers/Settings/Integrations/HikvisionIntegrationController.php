@@ -14,10 +14,30 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
+use Inertia\Inertia;
+use Inertia\Response;
 use RuntimeException;
 
 class HikvisionIntegrationController extends Controller
 {
+    public function edit(Request $request): Response
+    {
+        $user = $request->user();
+        abort_unless($user?->can('settings.integrations.hikvision.view'), 403);
+
+        $companyId = (int) $request->attributes->get('current_company_id');
+
+        return Inertia::render('settings/integrations/hikvision', self::pageProps($user, $companyId) ?? [
+            'settings' => HikvisionSetting::forCompany($companyId)->toSettingsPageArray(),
+            'webhook_url' => null,
+            'scheduler_timezone' => ApplicationTimezone::identifier(),
+            'can' => [
+                'update' => false,
+                'webhook_manage' => false,
+            ],
+        ]);
+    }
+
     /**
      * @return array<string, mixed>|null
      */
@@ -31,7 +51,9 @@ class HikvisionIntegrationController extends Controller
 
         $props = [
             'settings' => $settings->toSettingsPageArray(),
-            'webhook_url' => URL::route('webhooks.hikvision', ['publicIntegrationId' => $settings->public_id], absolute: true),
+            'webhook_url' => filled($settings->public_id)
+                ? URL::route('webhooks.hikvision', ['publicIntegrationId' => $settings->public_id], absolute: true)
+                : null,
             'scheduler_timezone' => ApplicationTimezone::identifier(),
             'can' => [
                 'update' => $user->can('settings.integrations.hikvision.update'),
@@ -87,7 +109,7 @@ class HikvisionIntegrationController extends Controller
 
     public function update(UpdateHikvisionIntegrationRequest $request): RedirectResponse
     {
-        $settings = HikvisionSetting::forCompany((int) $request->attributes->get('current_company_id'));
+        $settings = HikvisionSetting::resolveForUpdate((int) $request->attributes->get('current_company_id'));
         $settings->storeFromValidated($request->settingsPayload());
 
         if ($request->boolean('webhook_enabled') && ! filled($settings->webhook_verify_token)) {
@@ -101,6 +123,13 @@ class HikvisionIntegrationController extends Controller
     {
         $override = $request->credentialsOverride();
         $stored = HikvisionSetting::forCompany((int) $request->attributes->get('current_company_id'));
+
+        if (! $stored->exists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Save Hikvision credentials for this company before testing the connection.',
+            ], 422);
+        }
 
         if (! filled($override['api_key'] ?? null)) {
             $override['api_key'] = $stored->api_key;
@@ -117,9 +146,9 @@ class HikvisionIntegrationController extends Controller
 
     public function registerWebhook(Request $request): RedirectResponse
     {
-        $settings = HikvisionSetting::forCompany((int) $request->attributes->get('current_company_id'));
+        $settings = HikvisionSetting::resolveForUpdate((int) $request->attributes->get('current_company_id'));
 
-        if (! $settings->isConfigured()) {
+        if (! $settings->exists || ! $settings->isConfigured()) {
             return back()->withErrors([
                 'webhook' => 'Configure Hikvision API credentials before registering the webhook.',
             ]);

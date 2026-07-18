@@ -17,7 +17,7 @@ function configuredHikvisionSettings(?int $companyId = null): HikvisionSetting
         throw new InvalidArgumentException('configuredHikvisionSettings requires a company. Call setupCompanyWithSettingsPermissions first or pass companyId.');
     }
 
-    $settings = HikvisionSetting::forCompany($companyId);
+    $settings = HikvisionSetting::resolveForUpdate($companyId);
 
     $settings->storeFromValidated([
         'api_host' => 'https://isgp.hikcentralconnect.com',
@@ -26,7 +26,7 @@ function configuredHikvisionSettings(?int $companyId = null): HikvisionSetting
         'enabled' => true,
     ]);
 
-    return $settings;
+    return $settings->fresh() ?? $settings;
 }
 
 function hikvisionTestCompany(): Company
@@ -42,7 +42,10 @@ function hikvisionTestCompany(): Company
 
 function hikvisionSettings(): HikvisionSetting
 {
-    return HikvisionSetting::forCompany(hikvisionTestCompany()->id);
+    $companyId = hikvisionTestCompany()->id;
+
+    return HikvisionSetting::query()->where('company_id', $companyId)->first()
+        ?? configuredHikvisionSettings($companyId);
 }
 
 foreach ([
@@ -52,7 +55,9 @@ foreach ([
     HikvisionPersonGroup::class,
 ] as $model) {
     $model::creating(function ($model): void {
-        if ($model->company_id === null) {
+        $companyId = $model->getAttributes()['company_id'] ?? null;
+
+        if ($companyId === null || (int) $companyId <= 0) {
             $model->company_id = hikvisionTestCompany()->id;
         }
     });

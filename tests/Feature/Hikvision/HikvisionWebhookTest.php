@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Queue;
 test('webhook verification get returns signature header', function () {
     hikvisionSettings()->update([
         'webhook_verify_token' => 'abc12345',
+        'webhook_enabled' => true,
     ]);
 
     $timestamp = (string) time();
@@ -33,7 +34,7 @@ test('webhook rejects requests with invalid verify token', function () {
         'attendanceStatus' => 'checkIn',
     ], [
         'X-HCC-Webhook-Token' => 'wrong-token',
-    ])->assertForbidden();
+    ])->assertNotFound();
 });
 
 test('webhook rejects requests when ingestion is disabled', function () {
@@ -50,7 +51,7 @@ test('webhook rejects requests when ingestion is disabled', function () {
         'occurTime' => now()->toIso8601String(),
     ], [
         'X-HCC-Webhook-Token' => 'expected-token',
-    ])->assertForbidden();
+    ])->assertNotFound();
 
     Queue::assertNothingPushed();
 });

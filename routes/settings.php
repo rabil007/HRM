@@ -108,6 +108,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:settings.integrations.whatsapp.update')
         ->name('application.whatsapp.send-test-document-template');
 
+    Route::get('settings/integrations/hikvision', [HikvisionIntegrationController::class, 'edit'])
+        ->middleware('can:settings.integrations.hikvision.view')
+        ->name('integrations.hikvision.edit');
+
+    Route::redirect('settings/application/hikvision', '/settings/integrations/hikvision');
+
     Route::put('settings/application/hikvision', [HikvisionIntegrationController::class, 'update'])
         ->middleware('can:settings.integrations.hikvision.update')
         ->name('application.hikvision.update');

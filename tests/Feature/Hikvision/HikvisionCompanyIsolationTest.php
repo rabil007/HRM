@@ -38,10 +38,10 @@ test('company a cannot view company b hikvision settings', function () {
     configuredHikvisionSettings($companyB->id)->update(['api_host' => 'https://b.example.test']);
 
     $this->actingAs($user)
-        ->get(route('application.edit'))
+        ->get(route('integrations.hikvision.edit'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('hikvision.settings.api_host', 'https://a.example.test'));
+            ->where('settings.api_host', 'https://a.example.test'));
 });
 
 test('company a update does not change company b hikvision settings', function () {
@@ -54,7 +54,7 @@ test('company a update does not change company b hikvision settings', function (
 
     configuredHikvisionSettings($companyB->id)->update(['api_host' => 'https://b.example.test']);
 
-    $this->actingAs($user)->get(route('application.edit'));
+    $this->actingAs($user)->get(route('integrations.hikvision.edit'));
 
     $this->actingAs($user)->put(route('application.hikvision.update'), [
         '_token' => csrf_token(),
@@ -82,24 +82,30 @@ test('company switching loads the selected company hikvision configuration', fun
         ->assertRedirect();
 
     $this->actingAs($user)
-        ->get(route('application.edit'))
+        ->get(route('integrations.hikvision.edit'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('hikvision.settings.api_host', 'https://b.example.test'));
+            ->where('settings.api_host', 'https://b.example.test'));
 });
 
-test('company without configuration receives disabled settings state', function () {
+test('company without stored credentials receives disabled settings state even when config credentials are set', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.hikvision.view']);
+    config()->set('hikvision.api_host', 'https://env.example.test');
+    config()->set('hikvision.api_key', 'env-api-key');
+    config()->set('hikvision.api_secret', 'env-api-secret');
 
     $this->actingAs($user)
-        ->get(route('application.edit'))
+        ->get(route('integrations.hikvision.edit'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('hikvision.settings.enabled', false)
-            ->where('hikvision.settings.is_configured', false)
-            ->where('hikvision.settings.api_key', '')
-            ->where('hikvision.settings.api_secret', ''));
+            ->where('settings.enabled', false)
+            ->where('settings.is_configured', false)
+            ->where('settings.api_host', '')
+            ->where('settings.api_key', '')
+            ->where('settings.api_secret', '')
+            ->where('settings.has_api_key', false)
+            ->where('settings.has_api_secret', false));
 });
 
 test('hikvision credentials stay in hikvision_settings not companies', function () {
@@ -112,13 +118,13 @@ test('hikvision credentials stay in hikvision_settings not companies', function 
         ->and(DB::table('hikvision_settings')->where('company_id', $company->id)->exists())->toBeTrue();
 });
 
-test('each company has one hikvision settings record', function () {
+test('forCompany does not create hikvision settings records', function () {
     $company = setupCompanyWithSettingsPermissions(User::factory()->create(), []);
 
     HikvisionSetting::forCompany($company->id);
     HikvisionSetting::forCompany($company->id);
 
-    expect(HikvisionSetting::query()->where('company_id', $company->id)->count())->toBe(1);
+    expect(HikvisionSetting::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
 test('same remote identifiers are permitted in separate companies', function () {
@@ -193,9 +199,9 @@ test('persons devices groups and events indexes are company scoped', function ()
         ->assertInertia(fn ($page) => $page->has('events', 0));
 
     $this->actingAs($user)
-        ->get(route('application.edit'))
+        ->get(route('integrations.hikvision.edit'))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->has('hikvision.devices.items', 0));
+        ->assertInertia(fn ($page) => $page->has('devices.items', 0));
 });
 
 test('cross company employee to person linking is rejected', function () {
@@ -329,15 +335,15 @@ test('secrets are masked and blank updates preserve stored values', function () 
     configuredHikvisionSettings($company->id);
 
     $this->actingAs($user)
-        ->get(route('application.edit'))
+        ->get(route('integrations.hikvision.edit'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('hikvision.settings.api_key', '')
-            ->where('hikvision.settings.api_secret', '')
-            ->where('hikvision.settings.has_api_key', true)
-            ->where('hikvision.settings.has_api_secret', true));
+            ->where('settings.api_key', '')
+            ->where('settings.api_secret', '')
+            ->where('settings.has_api_key', true)
+            ->where('settings.has_api_secret', true));
 
-    $this->actingAs($user)->get(route('application.edit'));
+    $this->actingAs($user)->get(route('integrations.hikvision.edit'));
 
     $this->actingAs($user)->put(route('application.hikvision.update'), [
         '_token' => csrf_token(),
@@ -387,11 +393,11 @@ test('relinking an employee does not change historical event ownership', functio
 test('ambiguous unlinked persons are not assigned by matching employee name', function () {
     $company = setupCompanyWithSettingsPermissions(User::factory()->create(), []);
 
-    $person = HikvisionPerson::query()->create([
+    $person = HikvisionPerson::withoutEvents(fn () => HikvisionPerson::query()->create([
         'company_id' => null,
         'person_id' => 'orphan-person',
         'full_name' => 'Same Name',
-    ]);
+    ]));
     Employee::factory()->forCompany($company)->create([
         'name' => 'Same Name',
     ]);
@@ -417,4 +423,73 @@ test('users without hikvision permissions receive forbidden', function () {
             'enabled' => true,
         ])
         ->assertForbidden();
+});
+
+test('webhook settings without company ownership return not found', function () {
+    $settings = HikvisionSetting::withoutEvents(fn () => HikvisionSetting::query()->create([
+        'company_id' => null,
+        'public_id' => '00000000-0000-0000-0000-000000000001',
+        'webhook_verify_token' => 'expected-token',
+        'webhook_enabled' => true,
+    ]));
+
+    $this->postJson(route('webhooks.hikvision', $settings->public_id), [], [
+        'X-HCC-Webhook-Token' => 'expected-token',
+    ])->assertNotFound();
+});
+
+test('fetch job fails safely when settings have no company ownership', function () {
+    $settings = HikvisionSetting::withoutEvents(fn () => HikvisionSetting::query()->create([
+        'company_id' => null,
+        'public_id' => '00000000-0000-0000-0000-000000000002',
+    ]));
+
+    (new FetchHikvisionAccessEventsJob($settings->id))->handle();
+
+    expect($settings->fresh()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_FAILED)
+        ->and($settings->fresh()->events_fetch_message)->toBe('Hikvision settings have no company ownership.');
+});
+
+test('webhook job exits safely when settings have no company ownership', function () {
+    $settings = HikvisionSetting::withoutEvents(fn () => HikvisionSetting::query()->create([
+        'company_id' => null,
+        'public_id' => '00000000-0000-0000-0000-000000000003',
+    ]));
+
+    (new ProcessHikvisionWebhookEventJob([], $settings->id))->handle();
+
+    expect(HikvisionAccessEvent::query()->count())->toBe(0);
+});
+
+test('deleted settings remain deleted after viewing the integration page', function () {
+    $user = User::factory()->create();
+    $company = setupCompanyWithSettingsPermissions($user, ['settings.integrations.hikvision.view']);
+    $settings = configuredHikvisionSettings($company->id);
+    $settings->delete();
+
+    $this->actingAs($user)
+        ->get(route('integrations.hikvision.edit'))
+        ->assertOk();
+
+    expect(HikvisionSetting::withTrashed()->find($settings->id)?->trashed())->toBeTrue()
+        ->and(HikvisionSetting::forCompany($company->id)->exists)->toBeFalse();
+});
+
+test('viewing integration settings does not create a settings record', function () {
+    $user = User::factory()->create();
+    $company = setupCompanyWithSettingsPermissions($user, ['settings.integrations.hikvision.view']);
+
+    expect(HikvisionSetting::query()->where('company_id', $company->id)->count())->toBe(0);
+
+    $this->actingAs($user)
+        ->get(route('integrations.hikvision.edit'))
+        ->assertOk();
+
+    expect(HikvisionSetting::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('hikvision api upserts reject invalid company ids', function () {
+    expect(fn () => HikvisionPerson::upsertFromApi(0, []))->toThrow(InvalidArgumentException::class)
+        ->and(fn () => HikvisionDevice::upsertFromApi(-1, []))->toThrow(InvalidArgumentException::class)
+        ->and(fn () => HikvisionPersonGroup::upsertFromApi(0, []))->toThrow(InvalidArgumentException::class);
 });

@@ -149,7 +149,7 @@ class HikvisionAccessEventController extends Controller
 
         if (! $settings->isConfigured()) {
             return back()->withErrors([
-                'fetch' => 'Hikvision integration is not configured. Add credentials in Application settings.',
+                'fetch' => 'Hikvision integration is not configured. Add credentials in Company Settings → Integrations → Hikvision.',
             ]);
         }
 

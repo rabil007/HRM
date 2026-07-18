@@ -153,28 +153,43 @@ class HikvisionSetting extends Model
 
     public static function forCompany(int $companyId): self
     {
-        $setting = self::withTrashed()->firstOrCreate(
-            ['company_id' => $companyId],
-            [
+        return self::query()->where('company_id', $companyId)->first()
+            ?? new self([
+                'company_id' => $companyId,
+                'enabled' => false,
+            ]);
+    }
+
+    public static function resolveForUpdate(int $companyId): self
+    {
+        $setting = self::withTrashed()->where('company_id', $companyId)->first();
+
+        if ($setting === null) {
+            return new self([
+                'company_id' => $companyId,
                 'enabled' => false,
                 'public_id' => (string) Str::uuid(),
-            ],
-        );
+            ]);
+        }
 
         if ($setting->trashed()) {
             $setting->restore();
         }
 
         if (! filled($setting->public_id)) {
-            $setting->forceFill(['public_id' => (string) Str::uuid()])->save();
+            $setting->public_id = (string) Str::uuid();
         }
 
         return $setting;
     }
 
-    public static function findByPublicId(string $publicId): ?self
+    public static function findActiveWebhookIntegration(string $publicId): ?self
     {
-        return self::query()->where('public_id', $publicId)->first();
+        return self::query()
+            ->where('public_id', $publicId)
+            ->whereNotNull('company_id')
+            ->where('webhook_enabled', true)
+            ->first();
     }
 
     /**
@@ -191,6 +206,7 @@ class HikvisionSetting extends Model
     public function scopeConfigured(Builder $query): Builder
     {
         return $query
+            ->whereNotNull('company_id')
             ->where('enabled', true)
             ->whereNotNull('api_host')
             ->where('api_host', '!=', '')
@@ -209,15 +225,7 @@ class HikvisionSetting extends Model
 
     public function isConfigured(): bool
     {
-        if (! $this->enabled) {
-            return false;
-        }
-
-        $host = filled($this->api_host) ? $this->api_host : (string) config('hikvision.api_host', '');
-        $key = filled($this->api_key) ? $this->api_key : (string) config('hikvision.api_key', '');
-        $secret = filled($this->api_secret) ? $this->api_secret : (string) config('hikvision.api_secret', '');
-
-        return filled($host) && filled($key) && filled($secret);
+        return $this->enabled && $this->hasStoredCredentials() && $this->company_id !== null;
     }
 
     /**
@@ -225,24 +233,13 @@ class HikvisionSetting extends Model
      */
     public function toSettingsPageArray(): array
     {
-        $hasStoredHost = filled($this->api_host);
-        $hasStoredKey = filled($this->api_key);
-        $hasStoredSecret = filled($this->api_secret);
-        $hasStoredCredentials = $this->hasStoredCredentials();
-
-        $envHost = (string) config('hikvision.api_host', '');
-        $envKey = (string) config('hikvision.api_key', '');
-        $envSecret = (string) config('hikvision.api_secret', '');
-        $hasEnvCredentials = filled($envHost) && filled($envKey) && filled($envSecret);
-
         return [
-            'api_host' => $hasStoredHost ? (string) $this->api_host : $envHost,
+            'api_host' => filled($this->api_host) ? (string) $this->api_host : '',
             'api_key' => '',
             'api_secret' => '',
             'enabled' => (bool) $this->enabled,
-            'has_api_key' => $hasStoredKey || filled($envKey),
-            'has_api_secret' => $hasStoredSecret || filled($envSecret),
-            'uses_env_fallback' => ! $hasStoredCredentials && $hasEnvCredentials,
+            'has_api_key' => filled($this->api_key),
+            'has_api_secret' => filled($this->api_secret),
             'is_configured' => $this->isConfigured(),
             'webhook_verify_token' => '',
             'webhook_enabled' => (bool) $this->webhook_enabled,
@@ -264,6 +261,14 @@ class HikvisionSetting extends Model
      */
     public function storeFromValidated(array $data): void
     {
+        if ($this->company_id === null) {
+            throw new \InvalidArgumentException('Hikvision settings require a company_id.');
+        }
+
+        if (! filled($this->public_id)) {
+            $this->public_id = (string) Str::uuid();
+        }
+
         $this->api_host = $data['api_host'] ?? null;
         $this->enabled = (bool) ($data['enabled'] ?? false);
 
@@ -326,7 +331,7 @@ class HikvisionSetting extends Model
             return $token;
         }
 
-        $secret = trim((string) ($this->api_secret ?? config('hikvision.api_secret', '')));
+        $secret = trim((string) ($this->api_secret ?? ''));
 
         if ($secret === '') {
             throw new \RuntimeException('Webhook sign secret is not configured.');

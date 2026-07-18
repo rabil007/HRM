@@ -83,7 +83,7 @@ test('hikvision settings can save evening fetch schedule', function () {
         'settings.integrations.hikvision.update',
     ]);
 
-    test()->actingAs($user)->get(route('application.edit'));
+    test()->actingAs($user)->get(route('integrations.hikvision.edit'));
 
     test()->actingAs($user)->put(route('application.hikvision.update'), [
         '_token' => csrf_token(),

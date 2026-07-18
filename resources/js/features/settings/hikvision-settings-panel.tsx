@@ -37,7 +37,6 @@ export type HikvisionSettingsPanelProps = {
         has_api_key: boolean;
         has_api_secret: boolean;
         is_configured: boolean;
-        uses_env_fallback: boolean;
         webhook_verify_token: string;
         webhook_enabled: boolean;
         webhook_registered_at: string | null;
@@ -49,7 +48,7 @@ export type HikvisionSettingsPanelProps = {
         events_evening_fetch_schedule_at: string;
         events_last_fetched_at: string | null;
     };
-    webhook_url: string;
+    webhook_url: string | null;
     scheduler_timezone: string;
     can: {
         update: boolean;
@@ -245,17 +244,6 @@ export function HikvisionSettingsPanel({
 
     return (
         <div className="space-y-6">
-            {settings.uses_env_fallback ? (
-                <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-400">
-                    <span className="mt-0.5 shrink-0">⚠</span>
-                    <p>
-                        Currently using values from{' '}
-                        <code className="font-mono text-xs">.env</code> until
-                        you save Hikvision settings here.
-                    </p>
-                </div>
-            ) : null}
-
             <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
                 <CardContent className="space-y-5 p-6">
                     <div className="flex items-center gap-4">
@@ -772,7 +760,8 @@ export function HikvisionSettingsPanel({
                             <div className="flex items-center gap-2 rounded-xl border border-border/80 bg-muted/20 px-4 py-3 dark:border-white/10 dark:bg-white/5">
                                 <Link2 className="h-4 w-4 shrink-0 text-muted-foreground/50" />
                                 <span className="truncate font-mono text-xs">
-                                    {webhook_url}
+                                    {webhook_url ??
+                                        'Save settings to generate this company’s webhook URL.'}
                                 </span>
                             </div>
                         </div>

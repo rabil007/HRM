@@ -645,7 +645,8 @@ test('attendance sync updates stale biometric record when mobile events were bac
         'fetched_at' => '2026-06-20 08:51:47',
     ]);
 
-    app(HikvisionService::class)->syncAttendanceForDay(Carbon::parse('2026-06-19'));
+    configuredHikvisionSettings($company->id);
+    HikvisionService::forCompany($company->id)->syncAttendanceForDay(Carbon::parse('2026-06-19'));
 
     $record = AttendanceRecord::query()
         ->where('employee_id', $employee->id)

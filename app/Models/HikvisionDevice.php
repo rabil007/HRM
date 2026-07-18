@@ -72,6 +72,10 @@ class HikvisionDevice extends Model
 
     public static function upsertFromApi(int $companyId, array $apiDevice, ?array $apiDetail = null): self
     {
+        if ($companyId <= 0) {
+            throw new \InvalidArgumentException('Hikvision devices require a company_id.');
+        }
+
         $attributes = [
             'hikvision_id' => (string) ($apiDevice['id'] ?? ''),
             'name' => (string) ($apiDevice['name'] ?? ''),

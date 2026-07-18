@@ -8,6 +8,7 @@ use App\Services\HikvisionService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
@@ -31,9 +32,23 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
         $settings = HikvisionSetting::find($this->hikvisionSettingId);
 
         if ($settings === null) {
-            throw new RuntimeException('Hikvision settings no longer exist.');
+            Log::warning('Hikvision fetch skipped because settings no longer exist.', [
+                'hikvision_setting_id' => $this->hikvisionSettingId,
+            ]);
+
+            return;
         }
 
+        if ($settings->company_id === null) {
+            Log::warning('Hikvision fetch skipped because settings have no company ownership.', [
+                'hikvision_setting_id' => $settings->id,
+            ]);
+            $settings->markEventsFetchFailed('Hikvision settings have no company ownership.');
+
+            return;
+        }
+
+        $companyId = (int) $settings->company_id;
         $hikvision ??= HikvisionService::forSetting($settings);
         $settings->markEventsFetchRunning();
 
@@ -55,9 +70,9 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
         } finally {
             if (! $fetchFailed) {
                 if (filled($this->date) && $date instanceof Carbon) {
-                    SyncHikvisionAttendanceJob::dispatch($date->toDateString(), (int) $settings->company_id);
+                    SyncHikvisionAttendanceJob::dispatch($date->toDateString(), $companyId);
                 } elseif (! filled($this->date)) {
-                    SyncHikvisionAttendanceJob::dispatch(null, (int) $settings->company_id);
+                    SyncHikvisionAttendanceJob::dispatch(null, $companyId);
                 }
             }
         }
@@ -72,6 +87,7 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
                     'context' => [
                         'fetched_count' => $result['fetched_count'],
                         'date' => $this->date,
+                        'company_id' => $companyId,
                     ],
                 ]);
             }

@@ -4,6 +4,7 @@ import Heading from '@/components/heading';
 import { Card } from '@/components/ui/card';
 import {
     filterSettingsNavItems,
+    SETTINGS_INTEGRATION_ITEMS,
     SETTINGS_MASTER_DATA_ITEMS,
     SETTINGS_SYSTEM_ITEMS,
 } from '@/lib/settings-nav';
@@ -16,6 +17,12 @@ const SETTINGS_GROUPS = [
         description:
             'Application branding, email, WhatsApp, security, and appearance.',
         items: SETTINGS_SYSTEM_ITEMS,
+    },
+    {
+        title: 'Integrations',
+        description:
+            'Company-owned integrations such as Hikvision access control.',
+        items: SETTINGS_INTEGRATION_ITEMS,
     },
     {
         title: 'Master data',

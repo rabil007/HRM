@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
     Award,
     BadgeCheck,
+    Camera,
     FileText,
     FolderKanban,
     Globe2,
@@ -65,6 +66,16 @@ export const SETTINGS_SYSTEM_ITEMS: SettingsNavItem[] = [
         permission: 'settings.appearance.view',
         icon: Palette,
         color: 'bg-accent/10 text-accent',
+    },
+];
+
+export const SETTINGS_INTEGRATION_ITEMS: SettingsNavItem[] = [
+    {
+        title: 'Hikvision',
+        href: '/settings/integrations/hikvision',
+        permission: 'settings.integrations.hikvision.view',
+        icon: Camera,
+        color: 'bg-sky-500/10 text-sky-600',
     },
 ];
 
@@ -186,6 +197,7 @@ export const SETTINGS_MASTER_DATA_ITEMS: SettingsNavItem[] = [
 /** Keep in sync with App\Support\Settings\SettingsHubAccess::viewPermissions() */
 export const SETTINGS_VIEW_PERMISSIONS: string[] = [
     ...SETTINGS_SYSTEM_ITEMS.map((item) => item.permission),
+    ...SETTINGS_INTEGRATION_ITEMS.map((item) => item.permission),
     'settings.integrations.whatsapp.view',
     'settings.integrations.whatsapp-templates.view',
     'settings.integrations.email-templates.view',
@@ -214,6 +226,10 @@ export function getSettingsSidebarSubItems(permissions: string[]): {
         SETTINGS_SYSTEM_ITEMS,
         permissions,
     );
+    const integrationItems = filterSettingsNavItems(
+        SETTINGS_INTEGRATION_ITEMS,
+        permissions,
+    );
 
     if (!hasSettingsAccess(permissions)) {
         return [];
@@ -226,6 +242,11 @@ export function getSettingsSidebarSubItems(permissions: string[]): {
             icon: LayoutGrid,
         },
         ...systemItems.map((item) => ({
+            title: item.title,
+            url: item.href,
+            icon: item.icon,
+        })),
+        ...integrationItems.map((item) => ({
             title: item.title,
             url: item.href,
             icon: item.icon,

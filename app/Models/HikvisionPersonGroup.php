@@ -42,6 +42,10 @@ class HikvisionPersonGroup extends Model
      */
     public static function upsertFromApi(int $companyId, array $apiGroup): self
     {
+        if ($companyId <= 0) {
+            throw new \InvalidArgumentException('Hikvision person groups require a company_id.');
+        }
+
         $group = self::withTrashed()->updateOrCreate(
             ['company_id' => $companyId, 'group_id' => (string) ($apiGroup['groupId'] ?? '')],
             [

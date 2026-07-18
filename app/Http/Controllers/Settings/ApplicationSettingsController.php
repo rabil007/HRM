@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\Settings\Integrations\HikvisionIntegrationController;
 use App\Http\Controllers\Settings\Integrations\WhatsAppIntegrationController;
 use App\Http\Requests\Settings\TestApplicationMailRequest;
 use App\Http\Requests\Settings\UpdateApplicationBrandingRequest;
@@ -37,7 +36,6 @@ class ApplicationSettingsController extends Controller
         if (
             ! $user?->can('settings.application.view')
             && ! $user?->can('settings.integrations.whatsapp.view')
-            && ! $user?->can('settings.integrations.hikvision.view')
         ) {
             abort(403);
         }
@@ -46,8 +44,6 @@ class ApplicationSettingsController extends Controller
             ->where('is_active', true)
             ->orderBy('code')
             ->get(['code', 'name', 'symbol']);
-
-        $companyId = (int) request()->attributes->get('current_company_id');
 
         return Inertia::render('settings/application', [
             'general' => [
@@ -79,7 +75,6 @@ class ApplicationSettingsController extends Controller
             'currencies' => $currencies,
             'smtp' => $this->mailSettings->forSettingsPage(),
             'whatsapp' => WhatsAppIntegrationController::pageProps($user),
-            'hikvision' => HikvisionIntegrationController::pageProps($user, $companyId),
             'esign_placement' => $user?->can('settings.application.view')
                 ? [
                     'document_type' => SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY,

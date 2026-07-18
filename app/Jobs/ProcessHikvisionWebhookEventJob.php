@@ -9,6 +9,7 @@ use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 
 class ProcessHikvisionWebhookEventJob implements ShouldQueue
 {
@@ -26,10 +27,23 @@ class ProcessHikvisionWebhookEventJob implements ShouldQueue
         $settings = HikvisionSetting::find($this->hikvisionSettingId);
 
         if ($settings === null) {
+            Log::warning('Hikvision webhook job skipped because settings no longer exist.', [
+                'hikvision_setting_id' => $this->hikvisionSettingId,
+            ]);
+
             return;
         }
 
-        $storedEvent = HikvisionAccessEvent::upsertFromWebhook($this->payload, (int) $settings->company_id);
+        if ($settings->company_id === null) {
+            Log::warning('Hikvision webhook job skipped because settings have no company ownership.', [
+                'hikvision_setting_id' => $settings->id,
+            ]);
+
+            return;
+        }
+
+        $companyId = (int) $settings->company_id;
+        $storedEvent = HikvisionAccessEvent::upsertFromWebhook($this->payload, $companyId);
 
         if ($storedEvent?->occurrence_time === null) {
             $jobId = $this->job ? $this->job->uuid() : null;
@@ -47,7 +61,7 @@ class ProcessHikvisionWebhookEventJob implements ShouldQueue
         $start = $eventDay->copy()->startOfDay();
         $end = $eventDay->copy()->endOfDay();
 
-        $synced = $attendanceSync->syncCompany((int) $settings->company_id, $start, $end);
+        $synced = $attendanceSync->syncCompany($companyId, $start, $end);
 
         $jobId = $this->job ? $this->job->uuid() : null;
         if ($jobId) {
@@ -57,6 +71,7 @@ class ProcessHikvisionWebhookEventJob implements ShouldQueue
                     'person_name' => $storedEvent->person_name,
                     'synced_records_count' => $synced,
                     'event_date' => $eventDay->toDateString(),
+                    'company_id' => $companyId,
                 ],
             ]);
         }

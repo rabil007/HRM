@@ -74,8 +74,10 @@ function makeTodayAccessEvent(
     string $attendanceStatus,
     string $time,
     string $transactionSource = HikvisionAccessEvent::TRANSACTION_DEVICE,
+    ?int $companyId = null,
 ): void {
     HikvisionAccessEvent::query()->create([
+        'company_id' => $companyId ?? hikvisionTestCompany()->id,
         'system_id' => 'timeline-test:'.fake()->uuid(),
         'msg_type' => 'acs/5/38',
         'occurrence_time' => "2026-07-16 {$time}:00",
@@ -226,6 +228,7 @@ test('today_timeline ignores events without check-in or check-out status', funct
     linkHikvisionPersonToUserCompany($employee, 'timeline-person-noise');
     makeTodayAccessEvent('timeline-person-noise', HikvisionAccessEvent::ATTENDANCE_CHECK_IN, '09:05');
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'timeline-test:'.fake()->uuid(),
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-07-16 10:30:00',
@@ -344,6 +347,7 @@ test('today_timeline can load a previous day via timeline_date', function () {
     linkHikvisionPersonToUserCompany($employee, 'timeline-person-prev');
 
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'timeline-test:'.fake()->uuid(),
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-07-15 09:15:00',
@@ -356,6 +360,7 @@ test('today_timeline can load a previous day via timeline_date', function () {
         'fetched_at' => now(),
     ]);
     HikvisionAccessEvent::query()->create([
+        'company_id' => $company->id,
         'system_id' => 'timeline-test:'.fake()->uuid(),
         'msg_type' => 'acs/5/38',
         'occurrence_time' => '2026-07-15 17:40:00',

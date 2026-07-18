@@ -30,7 +30,13 @@ class HikvisionService
 
     public static function forCompany(int $companyId): self
     {
-        return self::forSetting(HikvisionSetting::forCompany($companyId));
+        $setting = HikvisionSetting::query()->where('company_id', $companyId)->first();
+
+        if ($setting === null) {
+            throw new RuntimeException('Hikvision integration is not configured. Add credentials in Company Settings → Integrations → Hikvision.');
+        }
+
+        return self::forSetting($setting);
     }
 
     /**
@@ -47,9 +53,9 @@ class HikvisionService
         $override = $override ?? [];
         $stored = $this->setting;
 
-        $apiHost = (string) ($override['api_host'] ?? $stored->api_host ?? config('hikvision.api_host', ''));
-        $apiKey = (string) ($override['api_key'] ?? $stored->api_key ?? config('hikvision.api_key', ''));
-        $apiSecret = (string) ($override['api_secret'] ?? $stored->api_secret ?? config('hikvision.api_secret', ''));
+        $apiHost = (string) ($override['api_host'] ?? $stored->api_host ?? '');
+        $apiKey = (string) ($override['api_key'] ?? $stored->api_key ?? '');
+        $apiSecret = (string) ($override['api_secret'] ?? $stored->api_secret ?? '');
 
         return [
             'api_host' => rtrim($apiHost, '/'),
@@ -912,7 +918,11 @@ class HikvisionService
     protected function ensureConfigured(): void
     {
         if (! $this->setting->isConfigured()) {
-            throw new RuntimeException('Hikvision integration is not configured. Add credentials in Application settings.');
+            throw new RuntimeException('Hikvision integration is not configured. Add credentials in Company Settings → Integrations → Hikvision.');
+        }
+
+        if ($this->setting->company_id === null) {
+            throw new RuntimeException('Hikvision integration has no company ownership.');
         }
     }
 }

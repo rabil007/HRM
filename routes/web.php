@@ -611,7 +611,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:hikvision.persons.link')
         ->name('hikvision.persons.employee.link');
 
-    Route::redirect('hikvision/devices', '/settings/application?tab=hikvision');
+    Route::redirect('hikvision/devices', '/settings/integrations/hikvision');
 
     Route::get('attendance/overview', AttendanceOverviewController::class)
         ->middleware('can:attendance.overview.view')

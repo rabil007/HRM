@@ -299,7 +299,7 @@ class HikvisionPersonController extends Controller
     private function ensureHikvisionConfigured(int $companyId): void
     {
         if (! HikvisionSetting::forCompany($companyId)->isConfigured()) {
-            throw new RuntimeException('Hikvision integration is not configured. Add credentials in Application settings.');
+            throw new RuntimeException('Hikvision integration is not configured. Add credentials in Company Settings → Integrations → Hikvision.');
         }
     }
 
