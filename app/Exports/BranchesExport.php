@@ -14,7 +14,10 @@ class BranchesExport implements FromQuery, WithHeadings, WithMapping, WithStrict
     /**
      * @param  Builder<Branch>  $query
      */
-    public function __construct(private readonly Builder $query) {}
+    public function __construct(
+        private readonly Builder $query,
+        private readonly ?string $companyName,
+    ) {}
 
     public function query(): Builder
     {
@@ -43,7 +46,7 @@ class BranchesExport implements FromQuery, WithHeadings, WithMapping, WithStrict
     {
         return [
             $branch->id,
-            $branch->company?->name,
+            $this->companyName,
             $branch->name,
             $branch->code,
             $branch->address,

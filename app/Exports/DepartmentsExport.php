@@ -14,7 +14,10 @@ class DepartmentsExport implements FromQuery, WithHeadings, WithMapping, WithStr
     /**
      * @param  Builder<Department>  $query
      */
-    public function __construct(private readonly Builder $query) {}
+    public function __construct(
+        private readonly Builder $query,
+        private readonly ?string $companyName,
+    ) {}
 
     public function query(): Builder
     {
@@ -40,7 +43,7 @@ class DepartmentsExport implements FromQuery, WithHeadings, WithMapping, WithStr
     {
         return [
             $department->id,
-            $department->company?->name,
+            $this->companyName,
             $department->branch?->name,
             $department->parent?->name,
             $department->manager?->name,

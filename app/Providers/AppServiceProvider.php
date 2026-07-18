@@ -15,6 +15,7 @@ use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Console\Events\ScheduledTaskFinished;
 use Illuminate\Console\Events\ScheduledTaskStarting;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
@@ -245,6 +246,7 @@ class AppServiceProvider extends ServiceProvider
     protected function configureDefaults(): void
     {
         Date::use(CarbonImmutable::class);
+        Model::preventLazyLoading($this->app->environment(['local', 'testing']));
 
         DB::prohibitDestructiveCommands(
             app()->isProduction(),

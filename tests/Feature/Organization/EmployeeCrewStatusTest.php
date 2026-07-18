@@ -16,6 +16,7 @@ use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
+use App\Support\Employees\EmployeeCrewStatusFilter;
 use Carbon\CarbonImmutable;
 
 function makeEmployeeCrewStatusVessel(string $name): Vessel
@@ -422,4 +423,128 @@ test('legacy crew status filter values do not match employees', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->has('employees', 0));
+});
+
+test('soft-deleted active assignment does not block available filter', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
+    $vessel = makeEmployeeCrewStatusVessel('Soft Deleted Active Vessel');
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+    $assignment->delete();
+
+    $status = (new CrewAssignmentStatusResolver)->forEmployee($employee->fresh());
+
+    expect($status)
+        ->assignment_id->toBeNull()
+        ->label->toBe('Available')
+        ->and(EmployeeCrewStatusFilter::matchingEmployeeIds($company->id, 'available'))
+        ->toContain($employee->id)
+        ->and(EmployeeCrewStatusFilter::matchingEmployeeIds($company->id, 'on_vessel'))
+        ->not->toContain($employee->id);
+});
+
+test('soft-deleted draft assignment does not block available filter', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
+    $vessel = makeEmployeeCrewStatusVessel('Soft Deleted Draft Vessel');
+
+    $assignment = CrewAssignment::query()->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-'.now()->year.'-SOFTDRAFT',
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Draft,
+        'source' => 'manual',
+    ]);
+    $assignment->delete();
+
+    expect(EmployeeCrewStatusFilter::matchingEmployeeIds($company->id, 'available'))
+        ->toContain($employee->id)
+        ->and((new CrewAssignmentStatusResolver)->forEmployee($employee->fresh())['label'])
+        ->toBe('Available');
+});
+
+test('soft-deleted completed assignment does not classify employee as in-home days', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
+    $vessel = makeEmployeeCrewStatusVessel('Soft Deleted Completed Vessel');
+
+    $assignment = CrewAssignment::query()->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-'.now()->year.'-SOFTDONE',
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Completed,
+        'started_at' => CarbonImmutable::today()->subDays(40),
+        'closed_at' => CarbonImmutable::today()->subDays(5),
+        'source' => 'manual',
+    ]);
+    $assignment->delete();
+
+    $status = (new CrewAssignmentStatusResolver)->forEmployee($employee->fresh());
+
+    expect($status)
+        ->assignment_id->toBeNull()
+        ->label->toBe('Available')
+        ->in_home_days->toBeNull()
+        ->and(EmployeeCrewStatusFilter::matchingEmployeeIds($company->id, 'available'))
+        ->toContain($employee->id);
+});
+
+test('crew status filters ignore assignments from other companies', function () {
+    ['company' => $company, 'employee' => $employee] = makeEmployeeCrewStatusFixtures();
+    ['company' => $otherCompany, 'rank' => $otherRank] = makeCrewAssignmentFixtures();
+    $vessel = makeEmployeeCrewStatusVessel('Foreign Company Vessel');
+
+    CrewAssignment::query()->create([
+        'company_id' => $otherCompany->id,
+        'assignment_no' => 'CA-'.now()->year.'-FOREIGN',
+        'employee_id' => $employee->id,
+        'rank_id' => $otherRank->id,
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Active,
+        'started_at' => CarbonImmutable::today()->subDays(2),
+        'source' => 'manual',
+    ]);
+
+    expect(EmployeeCrewStatusFilter::matchingEmployeeIds($company->id, 'available'))
+        ->toContain($employee->id)
+        ->and(EmployeeCrewStatusFilter::matchingEmployeeIds($company->id, 'on_vessel'))
+        ->not->toContain($employee->id)
+        ->and(EmployeeCrewStatusFilter::matchingEmployeeIds($otherCompany->id, 'available'))
+        ->not->toContain($employee->id);
+});
+
+test('completed assignment status resolution eager loads vessels without lazy loading', function () {
+    ['company' => $company, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
+    $employees = Employee::factory()->count(3)->forCompany($company)->create([
+        'rank_id' => $rank->id,
+        'status' => 'active',
+    ]);
+
+    foreach ($employees as $index => $employee) {
+        $vessel = makeEmployeeCrewStatusVessel("Completed Vessel {$index}");
+        CrewAssignment::query()->create([
+            'company_id' => $company->id,
+            'assignment_no' => 'CA-'.now()->year.'-DONE'.$index,
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'status' => CrewAssignmentStatus::Completed,
+            'started_at' => CarbonImmutable::today()->subDays(20),
+            'closed_at' => CarbonImmutable::today()->subDays(3 + $index),
+            'source' => 'manual',
+        ]);
+    }
+
+    $results = (new CrewAssignmentStatusResolver)->forEmployeeIds(
+        $company->id,
+        $employees->pluck('id')->map(intval(...))->all(),
+    );
+
+    foreach ($employees as $index => $employee) {
+        expect($results[$employee->id])
+            ->status->toBe('in_home')
+            ->vessel_name->toBe("Completed Vessel {$index}")
+            ->assignment_id->not->toBeNull();
+    }
 });

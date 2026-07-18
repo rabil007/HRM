@@ -6,9 +6,11 @@ use App\Exports\EmployeesExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\ExportEmployeesRequest;
 use App\Models\Employee;
+use App\Support\Departments\DepartmentManagerExportContext;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use App\Support\Employees\EmployeeExportFieldRegistry;
+use App\Support\Employees\EmployeeExportFieldResolver;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Excel as ExcelWriter;
@@ -74,19 +76,24 @@ class EmployeeExportController extends Controller
 
         $timestamp = now()->format('Y-m-d_His');
         $baseName = "employees_{$timestamp}";
+        $managerContext = DepartmentManagerExportContext::forCompany($companyId);
+        $resolver = new EmployeeExportFieldResolver($managerContext);
 
         if ($format === 'xlsx' || $format === 'excel') {
-            $export = new EmployeesExport($query, $this->withUsdAfterAed($fields));
+            $export = new EmployeesExport($query, $resolver, $this->withUsdAfterAed($fields));
 
             return Excel::download($export, "{$baseName}.xlsx", ExcelWriter::XLSX);
         }
 
-        $export = new EmployeesExport($query, $fields);
+        $export = new EmployeesExport($query, $resolver, $fields);
 
         if ($format === 'pdf') {
             $employees = $query->get();
             $pdf = Pdf::loadView('exports.employees', [
                 'employees' => $employees,
+                'managerNames' => $employees->mapWithKeys(
+                    fn (Employee $employee): array => [$employee->id => $managerContext->managerNameForEmployee($employee)],
+                ),
                 'generatedAt' => now(),
             ]);
 

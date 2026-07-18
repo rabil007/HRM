@@ -30,7 +30,7 @@
                     <tr>
                         <td class="nowrap">{{ $role->id }}</td>
                         <td>{{ $role->name }}</td>
-                        <td>{{ $role->permissions()->pluck('name')->implode(', ') }}</td>
+                        <td>{{ $role->permissions->pluck('name')->implode(', ') }}</td>
                     </tr>
                 @endforeach
             </tbody>

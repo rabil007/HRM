@@ -72,6 +72,7 @@ final class GenerateOfficePayroll
             $period->end_date->toDateString(),
             $employeeIds,
         );
+        $emptyLeaveSummary = $this->leavePeriodSummary->empty($period->company_id);
 
         $generatedCount = 0;
         $errors = [];
@@ -80,6 +81,7 @@ final class GenerateOfficePayroll
             $period,
             $employees,
             $leaveByEmployee,
+            $emptyLeaveSummary,
             $workingDaysInPeriod,
             $excludedEmployeeIds,
             $employeeDates,
@@ -108,7 +110,7 @@ final class GenerateOfficePayroll
 
                 $leaveSummary = $leaveByEmployee->get(
                     $employee->id,
-                    $this->leavePeriodSummary->empty($period->company_id),
+                    $emptyLeaveSummary,
                 );
 
                 $employeeLeaveDays = (float) $leaveSummary->totalLeaveDays;

@@ -36,7 +36,7 @@ class RolesExport implements FromQuery, WithHeadings, WithMapping, WithStrictNul
         return [
             $role->id,
             $role->name,
-            $role->permissions()->pluck('name')->implode(', '),
+            $role->permissions->pluck('name')->implode(', '),
             optional($role->created_at)->toDateTimeString(),
         ];
     }

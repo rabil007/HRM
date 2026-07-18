@@ -3,15 +3,15 @@
 namespace App\Support\Employees\Resources;
 
 use App\Models\Employee;
-use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 
 final class EmployeeListResource
 {
     /**
+     * @param  array<int, array<string, mixed>>|null  $crewStatusByEmployeeId
      * @return array<string, mixed>
      */
-    public static function toArray(Employee $employee): array
+    public static function toArray(Employee $employee, ?array $crewStatusByEmployeeId = null): array
     {
         $payload = [
             'id' => $employee->id,
@@ -78,7 +78,11 @@ final class EmployeeListResource
         ];
 
         if (EmployeeProfileTemplateResolver::employeeFieldVisible($employee->employeeProfileTemplate, 'crew_status')) {
-            $payload['crew_status'] = (new CrewAssignmentStatusResolver)->forEmployee($employee);
+            $employeeId = (int) $employee->id;
+
+            if ($crewStatusByEmployeeId !== null && array_key_exists($employeeId, $crewStatusByEmployeeId)) {
+                $payload['crew_status'] = $crewStatusByEmployeeId[$employeeId];
+            }
         }
 
         return $payload;

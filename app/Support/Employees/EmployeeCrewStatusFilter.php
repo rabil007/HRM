@@ -2,8 +2,12 @@
 
 namespace App\Support\Employees;
 
+use App\Enums\CrewAssignmentStatus;
+use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 
 final class EmployeeCrewStatusFilter
 {
@@ -43,31 +47,91 @@ final class EmployeeCrewStatusFilter
             return [];
         }
 
-        $employees = Employee::query()
-            ->where('company_id', $companyId)
-            ->active()
-            ->with(['company'])
-            ->get();
+        if ($crewStatus === self::AVAILABLE) {
+            return self::availableEmployeeIds($companyId);
+        }
 
-        if ($employees->isEmpty()) {
+        if ($crewStatus === 'in_home') {
+            return self::activeEmployeeIdsWithoutOpenAssignment($companyId);
+        }
+
+        $employeeIds = self::activeEmployeeIdsWithOpenAssignment($companyId);
+
+        if ($employeeIds === []) {
             return [];
         }
 
-        $resolver = new CrewAssignmentStatusResolver;
-        $matching = [];
+        $statuses = (new CrewAssignmentStatusResolver)->forEmployeeIds($companyId, $employeeIds);
 
-        foreach ($employees as $employee) {
-            $resolved = $resolver->forEmployee($employee);
+        return array_values(array_filter(
+            $employeeIds,
+            fn (int $employeeId): bool => ($statuses[$employeeId]['status'] ?? null) === $crewStatus,
+        ));
+    }
 
-            if ($crewStatus === self::AVAILABLE) {
-                if ($resolved['status'] === 'in_home' && $resolved['assignment_id'] === null) {
-                    $matching[] = $employee->id;
-                }
-            } elseif ($resolved['status'] === $crewStatus) {
-                $matching[] = $employee->id;
-            }
-        }
+    /**
+     * @return list<int>
+     */
+    private static function availableEmployeeIds(int $companyId): array
+    {
+        return self::activeEmployeesQuery($companyId)
+            ->whereNotExists(self::assignmentExists($companyId, [CrewAssignmentStatus::Active, CrewAssignmentStatus::Draft]))
+            ->whereNotExists(self::assignmentExists($companyId, [CrewAssignmentStatus::Completed]))
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+    }
 
-        return $matching;
+    /**
+     * @return list<int>
+     */
+    private static function activeEmployeeIdsWithoutOpenAssignment(int $companyId): array
+    {
+        return self::activeEmployeesQuery($companyId)
+            ->whereNotExists(self::assignmentExists($companyId, [CrewAssignmentStatus::Active, CrewAssignmentStatus::Draft]))
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+    }
+
+    /**
+     * @return list<int>
+     */
+    private static function activeEmployeeIdsWithOpenAssignment(int $companyId): array
+    {
+        return CrewAssignment::query()
+            ->where('company_id', $companyId)
+            ->whereIn('status', [CrewAssignmentStatus::Active, CrewAssignmentStatus::Draft])
+            ->whereIn('employee_id', self::activeEmployeesQuery($companyId)->select('id'))
+            ->distinct()
+            ->pluck('employee_id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+    }
+
+    /**
+     * @return Builder<Employee>
+     */
+    private static function activeEmployeesQuery(int $companyId): Builder
+    {
+        return Employee::query()
+            ->where('company_id', $companyId)
+            ->active();
+    }
+
+    /**
+     * @param  list<CrewAssignmentStatus|string>  $statuses
+     * @return \Closure(QueryBuilder): void
+     */
+    private static function assignmentExists(int $companyId, array $statuses): \Closure
+    {
+        return function (QueryBuilder $query) use ($companyId, $statuses): void {
+            $query->selectRaw('1')
+                ->from('crew_assignments')
+                ->whereColumn('crew_assignments.employee_id', 'employees.id')
+                ->where('crew_assignments.company_id', $companyId)
+                ->whereNull('crew_assignments.deleted_at')
+                ->whereIn('crew_assignments.status', $statuses);
+        };
     }
 }

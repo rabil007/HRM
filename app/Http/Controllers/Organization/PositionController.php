@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Position\StorePositionRequest;
 use App\Http\Requests\Organization\Position\UpdatePositionRequest;
 use App\Http\Requests\Organization\Position\UpdatePositionStatusRequest;
+use App\Models\Company;
 use App\Models\Department;
 use App\Models\Position;
 use App\Support\Activity\RecentActivityQuery;
@@ -275,7 +276,8 @@ class PositionController extends Controller
             });
         }
 
-        $export = new PositionsExport($query);
+        $companyName = Company::query()->whereKey($companyId)->value('name');
+        $export = new PositionsExport($query, $companyName);
 
         $timestamp = now()->format('Y-m-d_His');
         $baseName = "positions_{$timestamp}";
@@ -288,6 +290,7 @@ class PositionController extends Controller
             $positions = $query->get();
             $pdf = Pdf::loadView('exports.positions', [
                 'positions' => $positions,
+                'companyName' => $companyName,
                 'generatedAt' => now(),
             ]);
 
