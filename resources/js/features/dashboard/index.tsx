@@ -23,7 +23,7 @@ import {
     Radio,
     UserRoundCheck,
 } from 'lucide-react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { Main } from '@/components/layout/main';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +35,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { RecordStatusBadge } from '@/features/attendance/records/components/record-status-badge';
 import { AttendanceTrendChart } from '@/features/dashboard/charts/attendance-trend-chart';
 import { DistributionBarChart } from '@/features/dashboard/charts/distribution-bar-chart';
@@ -70,6 +71,88 @@ function nameToHue(name: string): number {
     return Math.abs(hash) % 360;
 }
 
+function ChartSkeleton({ className }: { className?: string }): ReactElement {
+    return (
+        <div
+            className={cn('space-y-3', className)}
+            role="status"
+            aria-live="polite"
+            aria-label="Loading chart"
+        >
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-48 w-full rounded-xl" />
+        </div>
+    );
+}
+
+function ListSkeleton({ rows = 4 }: { rows?: number }): ReactElement {
+    return (
+        <div
+            className="space-y-2"
+            role="status"
+            aria-live="polite"
+            aria-label="Loading list"
+        >
+            {Array.from({ length: rows }).map((_, index) => (
+                <Skeleton key={index} className="h-14 w-full rounded-xl" />
+            ))}
+        </div>
+    );
+}
+
+function DeferredCard({
+    title,
+    description,
+    icon,
+    iconColor,
+    iconBg,
+    loading,
+    children,
+    headerAside,
+}: {
+    title: string;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+    iconColor: string;
+    iconBg: string;
+    loading: boolean;
+    children: ReactNode;
+    headerAside?: ReactNode;
+}): ReactElement {
+    const Icon = icon;
+
+    return (
+        <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
+            <CardHeader className="border-b border-border/60 bg-muted/5 pb-4 dark:border-white/5 dark:bg-white/[0.01]">
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
+                            {title}
+                        </CardTitle>
+                        <CardDescription className="mt-0.5 text-xs font-medium text-muted-foreground/60">
+                            {description}
+                        </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {headerAside}
+                        <div
+                            className={cn(
+                                'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border',
+                                iconBg,
+                            )}
+                        >
+                            <Icon className={cn('h-4 w-4', iconColor)} />
+                        </div>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="pt-5">
+                {loading ? <ChartSkeleton /> : children}
+            </CardContent>
+        </Card>
+    );
+}
+
 export function DashboardContent({
     document_compliance: documentCompliance,
     employee_analytics: employeeAnalytics,
@@ -87,8 +170,20 @@ export function DashboardContent({
             'employee_analytics',
             'recent_hires',
             'attendance_analytics',
+            'workforce_trends',
+            'employees_by_department',
+            'employees_by_branch',
         ],
     });
+
+    const workforceTrendsLoading = workforceTrends === undefined;
+    const departmentLoading = employeesByDepartment === undefined;
+    const branchLoading = employeesByBranch === undefined;
+    const recentHiresLoading = recentHires === undefined;
+    const resolvedRecentHires = recentHires ?? [];
+    const resolvedDepartment = employeesByDepartment ?? [];
+    const resolvedBranch = employeesByBranch ?? [];
+    const resolvedWorkforceTrends = workforceTrends ?? [];
 
     const placeholder = (key: string) =>
         `${dashboard.url()}?module=${encodeURIComponent(key)}`;
@@ -401,51 +496,33 @@ export function DashboardContent({
             </div>
 
             {/* ── Workforce trend — full width ───────────────────────── */}
-            <Card className="mb-6 overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
-                <CardHeader className="border-b border-border/60 bg-muted/5 pb-4 dark:border-white/5 dark:bg-white/[0.01]">
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
-                                Workforce Trends
-                            </CardTitle>
-                            <CardDescription className="mt-0.5 text-xs font-medium text-muted-foreground/60">
-                                Headcount, hiring &amp; documents over the last
-                                6 months
-                            </CardDescription>
-                        </div>
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
-                            <BarChart3 className="h-4 w-4 text-primary" />
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent className="pt-5">
-                    <WorkforceTrendChart data={workforceTrends} />
-                </CardContent>
-            </Card>
+            <div className="mb-6">
+                <DeferredCard
+                    title="Workforce Trends"
+                    description="Headcount, hiring & documents over the last 6 months"
+                    icon={BarChart3}
+                    iconColor="text-primary"
+                    iconBg="border-primary/20 bg-primary/10"
+                    loading={workforceTrendsLoading}
+                >
+                    <WorkforceTrendChart data={resolvedWorkforceTrends} />
+                </DeferredCard>
+            </div>
 
             {/* ── Charts row ────────────────────────────────────────── */}
             <div className="mb-6 grid gap-6 lg:grid-cols-3">
-                <Card className="overflow-hidden glass-card lg:col-span-2 dark:border-white/5 dark:bg-white/[0.02]">
-                    <CardHeader className="border-b border-border/60 bg-muted/5 pb-4 dark:border-white/5 dark:bg-white/[0.01]">
-                        <div className="flex items-start justify-between gap-4">
-                            <div>
-                                <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
-                                    Employees by Department
-                                </CardTitle>
-                                <CardDescription className="mt-0.5 text-xs font-medium text-muted-foreground/60">
-                                    Distribution across your organization
-                                    structure
-                                </CardDescription>
-                            </div>
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
-                                <Layers className="h-4 w-4 text-primary" />
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pt-5">
-                        <DistributionBarChart data={employeesByDepartment} />
-                    </CardContent>
-                </Card>
+                <div className="lg:col-span-2">
+                    <DeferredCard
+                        title="Employees by Department"
+                        description="Distribution across your organization structure"
+                        icon={Layers}
+                        iconColor="text-primary"
+                        iconBg="border-primary/20 bg-primary/10"
+                        loading={departmentLoading}
+                    >
+                        <DistributionBarChart data={resolvedDepartment} />
+                    </DeferredCard>
+                </div>
 
                 <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
                     <CardHeader className="border-b border-border/60 bg-muted/5 pb-4 dark:border-white/5 dark:bg-white/[0.01]">
@@ -471,29 +548,19 @@ export function DashboardContent({
 
             {/* ── Branch + recent hires ─────────────────────────────── */}
             <div className="mb-6 grid gap-6 lg:grid-cols-2">
-                <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
-                    <CardHeader className="border-b border-border/60 bg-muted/5 pb-4 dark:border-white/5 dark:bg-white/[0.01]">
-                        <div className="flex items-start justify-between gap-4">
-                            <div>
-                                <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
-                                    Employees by Branch
-                                </CardTitle>
-                                <CardDescription className="mt-0.5 text-xs font-medium text-muted-foreground/60">
-                                    Headcount per branch location
-                                </CardDescription>
-                            </div>
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-teal-500/20 bg-teal-500/10">
-                                <Building2 className="h-4 w-4 text-teal-400" />
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pt-5">
-                        <DistributionBarChart
-                            data={employeesByBranch}
-                            layout="horizontal"
-                        />
-                    </CardContent>
-                </Card>
+                <DeferredCard
+                    title="Employees by Branch"
+                    description="Headcount per branch location"
+                    icon={Building2}
+                    iconColor="text-teal-400"
+                    iconBg="border-teal-500/20 bg-teal-500/10"
+                    loading={branchLoading}
+                >
+                    <DistributionBarChart
+                        data={resolvedBranch}
+                        layout="horizontal"
+                    />
+                </DeferredCard>
 
                 <Card className="overflow-hidden glass-card dark:border-white/5 dark:bg-white/[0.02]">
                     <CardHeader className="border-b border-border/60 bg-muted/5 pb-4 dark:border-white/5 dark:bg-white/[0.01]">
@@ -507,14 +574,15 @@ export function DashboardContent({
                                 </CardDescription>
                             </div>
                             <div className="flex items-center gap-2">
-                                {recentHires.length > 0 && (
-                                    <Badge
-                                        variant="secondary"
-                                        className="border border-border/80 bg-muted/60 px-2 font-bold tabular-nums dark:border-white/5 dark:bg-white/5"
-                                    >
-                                        {recentHires.length}
-                                    </Badge>
-                                )}
+                                {!recentHiresLoading &&
+                                    resolvedRecentHires.length > 0 && (
+                                        <Badge
+                                            variant="secondary"
+                                            className="border border-border/80 bg-muted/60 px-2 font-bold tabular-nums dark:border-white/5 dark:bg-white/5"
+                                        >
+                                            {resolvedRecentHires.length}
+                                        </Badge>
+                                    )}
                                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-accent/20 bg-accent/10">
                                     <Sparkles className="h-4 w-4 text-accent" />
                                 </div>
@@ -522,7 +590,9 @@ export function DashboardContent({
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-2 pt-4">
-                        {recentHires.length === 0 ? (
+                        {recentHiresLoading ? (
+                            <ListSkeleton />
+                        ) : resolvedRecentHires.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
                                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 dark:border-white/10 dark:bg-white/[0.02]">
                                     <Users className="h-5 w-5 text-muted-foreground/30" />
@@ -532,7 +602,7 @@ export function DashboardContent({
                                 </p>
                             </div>
                         ) : (
-                            recentHires.map((hire) => {
+                            resolvedRecentHires.map((hire) => {
                                 const hue = nameToHue(hire.name);
 
                                 return (

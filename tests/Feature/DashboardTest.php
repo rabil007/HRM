@@ -54,15 +54,21 @@ test('dashboard returns employee analytics and document compliance props', funct
             ->has('document_compliance.expiring_7')
             ->has('document_compliance.uploaded_this_month')
             ->has('document_compliance.compliance_rate')
-            ->has('workforce_trends')
-            ->has('employees_by_department')
-            ->has('employees_by_branch')
+            ->missing('workforce_trends')
+            ->missing('employees_by_department')
+            ->missing('employees_by_branch')
+            ->missing('recent_hires')
             ->has('document_health')
             ->has('organization_snapshot')
-            ->has('recent_hires')
             ->has('attendance_analytics')
             ->has('attendance_analytics.check_ins_today')
             ->has('attendance_analytics.recent_records')
+            ->loadDeferredProps('secondary', fn ($deferred) => $deferred
+                ->has('workforce_trends')
+                ->has('employees_by_department')
+                ->has('employees_by_branch')
+                ->has('recent_hires')
+            )
         );
 });
 

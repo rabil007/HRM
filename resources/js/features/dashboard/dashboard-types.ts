@@ -77,14 +77,14 @@ export type AttendanceAnalytics = {
 export type DashboardProps = {
     document_compliance: DocumentCompliance;
     employee_analytics: EmployeeAnalytics;
-    workforce_trends: WorkforceTrendPoint[];
-    employees_by_department: DistributionPoint[];
-    employees_by_branch: DistributionPoint[];
+    workforce_trends?: WorkforceTrendPoint[];
+    employees_by_department?: DistributionPoint[];
+    employees_by_branch?: DistributionPoint[];
     document_health: DocumentHealthSlice[];
     organization_snapshot: {
         departments: number;
         branches: number;
     };
-    recent_hires: RecentHire[];
+    recent_hires?: RecentHire[];
     attendance_analytics: AttendanceAnalytics;
 };
