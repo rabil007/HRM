@@ -227,6 +227,11 @@ class CompanyController extends Controller
                 ]),
             'countries' => $countries,
             'currencies' => $currencies,
+            'document_settings' => CompanyDocumentSettingController::salaryCertificateProps(
+                (int) $company->id,
+                $request->user(),
+            ),
+            'timezones' => timezone_identifiers_list(),
         ]);
     }
 
