@@ -101,7 +101,7 @@ class SettingService
     /** @return array<string, mixed> */
     public function forInertia(?int $companyId = null): array
     {
-        return app(SharedSettingsPresenter::class)->forInertia($companyId);
+        return (new SharedSettingsPresenter($this))->forInertia($companyId);
     }
 
     /** @return array<string, string|null> */

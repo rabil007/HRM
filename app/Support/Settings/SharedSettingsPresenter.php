@@ -52,7 +52,7 @@ final class SharedSettingsPresenter
             'app_name' => $value(SettingKey::AppName, (string) config('app.name', 'Laravel')),
             'support_email' => $value(SettingKey::SupportEmail),
             'support_phone' => $value(SettingKey::SupportPhone),
-            'fallback_timezone' => ApplicationTimezone::identifier(),
+            'fallback_timezone' => $this->fallbackTimezone(),
             'default_date_format' => $value(SettingKey::DateFormat, 'Y-m-d'),
             'branding' => $this->settings->brandingUrls(),
             'preferences' => [
@@ -119,5 +119,18 @@ final class SharedSettingsPresenter
         $value = $this->settings->get($key, $default);
 
         return (string) ($value ?? $default);
+    }
+
+    private function fallbackTimezone(): string
+    {
+        $timezone = $this->settings->get(SettingKey::Timezone);
+
+        if (is_string($timezone) && in_array($timezone, timezone_identifiers_list(), true)) {
+            return $timezone;
+        }
+
+        $fallback = (string) config('app.timezone', 'UTC');
+
+        return in_array($fallback, timezone_identifiers_list(), true) ? $fallback : 'UTC';
     }
 }
