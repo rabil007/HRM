@@ -4,6 +4,7 @@ namespace App\Services\Settings;
 
 use App\Models\AppSetting;
 use App\Support\Settings\SettingKey;
+use App\Support\Settings\SharedSettingsPresenter;
 use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
@@ -98,31 +99,9 @@ class SettingService
     }
 
     /** @return array<string, mixed> */
-    public function forInertia(): array
+    public function forInertia(?int $companyId = null): array
     {
-        $settings = $this->all();
-        $value = fn (string $key, string $default = ''): string => (string) (
-            ($settings[$key] ?? null) === '' || ($settings[$key] ?? null) === null
-                ? (SettingKey::defaults()[$key] ?? $default)
-                : $settings[$key]
-        );
-
-        return [
-            'app_name' => $value(SettingKey::AppName, (string) config('app.name', 'Laravel')),
-            'company_name' => $value(SettingKey::CompanyName),
-            'support_email' => $value(SettingKey::SupportEmail),
-            'support_phone' => $value(SettingKey::SupportPhone),
-            'company_address' => $value(SettingKey::CompanyAddress),
-            'timezone' => $value(SettingKey::Timezone, 'UTC'),
-            'currency' => $value(SettingKey::Currency, 'USD'),
-            'date_format' => $value(SettingKey::DateFormat, 'Y-m-d'),
-            'branding' => $this->brandingUrls(),
-            'preferences' => [
-                'primary_color' => $value(SettingKey::PrimaryColor, '#6366f1'),
-                'accent_color' => $value(SettingKey::AccentColor, '#8b5cf6'),
-                'sidebar_compact_default' => $value(SettingKey::SidebarCompactDefault, '0') === '1',
-            ],
-        ];
+        return (new SharedSettingsPresenter($this))->forInertia($companyId);
     }
 
     /** @return array<string, string|null> */
@@ -266,27 +245,43 @@ class SettingService
 
     public function storeUpload(string $key, UploadedFile $file): string
     {
-        $this->deleteFile($key);
-
+        $previousPath = $this->get($key);
         $extension = $file->getClientOriginalExtension() ?: $file->extension();
         $filename = Str::slug($key).'-'.Str::uuid().'.'.strtolower((string) $extension);
+        $newPath = null;
 
-        $path = UploadedFileStorage::storeAs($file, self::STORAGE_DIR, $filename, 'public');
+        try {
+            $newPath = UploadedFileStorage::storeAs($file, self::STORAGE_DIR, $filename, 'public');
+            $this->set($key, $newPath, 'file');
+        } catch (\Throwable $exception) {
+            if (is_string($newPath) && $newPath !== '' && $this->disk()->exists($newPath)) {
+                $this->disk()->delete($newPath);
+            }
 
-        $this->set($key, $path, 'file');
+            throw $exception;
+        }
 
-        return $path;
+        if (
+            is_string($previousPath)
+            && $previousPath !== ''
+            && $previousPath !== $newPath
+            && $this->disk()->exists($previousPath)
+        ) {
+            $this->disk()->delete($previousPath);
+        }
+
+        return $newPath;
     }
 
     public function deleteFile(string $key): void
     {
         $path = $this->get($key);
 
+        $this->set($key, null, 'file');
+
         if ($path && $this->disk()->exists($path)) {
             $this->disk()->delete($path);
         }
-
-        $this->set($key, null, 'file');
     }
 
     /** @param array<string, string|null> $values */

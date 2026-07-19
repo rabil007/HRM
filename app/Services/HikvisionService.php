@@ -11,6 +11,7 @@ use App\Models\HikvisionSetting;
 use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
 use App\Support\Hikvision\HikvisionPersonPhotoStorage;
 use App\Support\Settings\ApplicationTimezone;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -697,8 +698,7 @@ class HikvisionService
      */
     public function fetchScheduledAccessEvents(): array
     {
-        $timezone = ApplicationTimezone::identifier();
-        $yesterday = now($timezone)->copy()->subDay()->startOfDay();
+        $yesterday = now($this->operationalTimezone())->copy()->subDay()->startOfDay();
         $yesterdayResult = $this->fetchAccessEvents($yesterday);
 
         return [
@@ -709,8 +709,7 @@ class HikvisionService
 
     public function syncAttendanceForDay(CarbonInterface $day): int
     {
-        $timezone = ApplicationTimezone::identifier();
-        $normalizedDay = $day->copy()->timezone($timezone);
+        $normalizedDay = $day->copy()->timezone($this->operationalTimezone());
 
         return $this->syncAttendanceRecordsForWindow(
             $normalizedDay->copy()->startOfDay(),
@@ -720,10 +719,22 @@ class HikvisionService
 
     public function syncAttendanceForYesterday(): int
     {
-        $timezone = ApplicationTimezone::identifier();
-        $yesterday = now($timezone)->copy()->subDay()->startOfDay();
+        $yesterday = now($this->operationalTimezone())->copy()->subDay()->startOfDay();
 
         return $this->syncAttendanceForDay($yesterday);
+    }
+
+    private function operationalTimezone(): string
+    {
+        if (! isset($this->setting)) {
+            return ApplicationTimezone::identifier();
+        }
+
+        $companyId = (int) $this->setting->company_id;
+
+        return $companyId > 0
+            ? CompanyTimezone::forCompany($companyId)
+            : ApplicationTimezone::identifier();
     }
 
     public function fetchCertificateRecords(

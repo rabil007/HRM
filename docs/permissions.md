@@ -36,7 +36,7 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 | Payroll | `payroll.overview.view`, `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, `payroll.payslips.*`, `payroll.wps.export` |
 | Hikvision | `hikvision.persons.*`, `hikvision.devices.*`, `hikvision.events.*`, `hikvision.webhook.manage` |
 | Employee profile templates | `employee_profile_templates.view|create|update|delete` |
-| Settings | `settings.security.*`, `settings.appearance.view`, `settings.application.*`, integration/template permissions, and `settings.master-data.{resource}.*` |
+| Settings | `settings.security.*`, `settings.appearance.view`, `settings.application.*`, `platform.settings.*`, `company.settings.*`, `company.document-settings.*`, integration/template permissions, and `settings.master-data.{resource}.*` |
 | Audit | `audit.view` |
 
 The `*` notation above is descriptive only; permissions are seeded as explicit strings, not wildcard grants.
@@ -81,7 +81,32 @@ Automatic Spatie activity logging now covers a broad set of organization, master
 
 ## Settings and integrations
 
-Application settings use `settings.application.view|update`; security and appearance have separate permissions. Master data uses `settings.master-data.{resource}.view|create|update|delete`.
+Platform (application) settings use `settings.application.view|update` and the newer `platform.settings.view|update` aliases. Existing administrators receive the platform permissions through a migration that copies grants from `settings.application.*`.
+
+Company identity and regional values are managed on the Company record under **Organization → Companies**, gated by `companies.*` and `company.settings.view|update`.
+
+Company document signing assets (salary certificate signature/stamp/signatory) use:
+
+| Permission | Scope |
+|------------|-------|
+| `company.document-settings.view` | View salary certificate settings on the company show page |
+| `company.document-settings.update` | Update company document settings for the **active** company only |
+
+Trusted tenant context is always `current_company_id` from middleware/session. Client-supplied `company_id` cannot authorize cross-company updates.
+
+### Ownership
+
+| Concern | Source |
+|---------|--------|
+| Platform name, platform support email/phone, fallback timezone, default date format, branding, SMTP | Global `app_settings` |
+| Company name, logo, address, phone, email, website, currency, timezone, payroll cycle, working days, WPS | `companies` row |
+| Salary certificate signature/stamp/signatory | `company_document_settings` |
+
+Legacy global keys (`company_name`, `company_address`, `currency`, `salary_certificate_signature`, `salary_certificate_stamp`) remain as fallbacks only. Prefer company-scoped values after migration.
+
+Shared Inertia props expose `settings.platform` and `settings.company` separately. Deprecated flat keys (`settings.currency`, `settings.company_name`, …) remain temporarily for compatibility.
+
+Security and appearance have separate permissions. Master data uses `settings.master-data.{resource}.view|create|update|delete`.
 
 Integration permission families include:
 

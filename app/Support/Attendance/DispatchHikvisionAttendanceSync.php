@@ -4,6 +4,7 @@ namespace App\Support\Attendance;
 
 use App\Jobs\SyncCompanyHikvisionAttendanceJob;
 use App\Models\Employee;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
@@ -11,18 +12,19 @@ final class DispatchHikvisionAttendanceSync
 {
     public function dispatchForWindow(CarbonInterface $from, CarbonInterface $to, ?int $companyId = null): int
     {
-        $timezone = (string) config('app.timezone', 'UTC');
-        $rangeStart = $from->copy()->timezone($timezone)->startOfDay();
-        $rangeEnd = $to->copy()->timezone($timezone)->endOfDay();
-        $fromString = $rangeStart->toDateTimeString();
-        $toString = $rangeEnd->toDateTimeString();
-
+        $companyIds = $companyId === null ? $this->companyIdsForSync() : collect([$companyId]);
         $dispatched = 0;
 
-        $companyIds = $companyId === null ? $this->companyIdsForSync() : collect([$companyId]);
+        foreach ($companyIds as $id) {
+            $timezone = CompanyTimezone::forCompany((int) $id);
+            $rangeStart = $from->copy()->timezone($timezone)->startOfDay();
+            $rangeEnd = $to->copy()->timezone($timezone)->endOfDay();
 
-        foreach ($companyIds as $companyId) {
-            SyncCompanyHikvisionAttendanceJob::dispatch((int) $companyId, $fromString, $toString);
+            SyncCompanyHikvisionAttendanceJob::dispatch(
+                (int) $id,
+                $rangeStart->toDateTimeString(),
+                $rangeEnd->toDateTimeString(),
+            );
             $dispatched++;
         }
 

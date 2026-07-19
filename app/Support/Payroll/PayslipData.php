@@ -7,6 +7,8 @@ use App\Models\Company;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
 use App\Support\Media\CompanyLogoDataUri;
+use App\Support\Settings\CompanyCurrency;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 
 final class PayslipData
@@ -32,7 +34,7 @@ final class PayslipData
         CarbonImmutable $periodStart,
         CarbonImmutable $periodEnd,
     ): array {
-        $currencyCode = (string) ($company->currency?->code ?? 'AED');
+        $currencyCode = CompanyCurrency::codeForCompany($company);
         $addition = max((float) $row['add_ded'], 0.0);
         $deduction = abs(min((float) $row['add_ded'], 0.0));
         $standbyPay = (float) $row['standby_pay'];
@@ -72,7 +74,7 @@ final class PayslipData
             'period_start' => $periodStart->format('M d, Y'),
             'period_end' => $periodEnd->format('M d, Y'),
             'payment_date' => $periodEnd->format('M d, Y'),
-            'issued_on' => CarbonImmutable::now((string) ($company->timezone ?? config('app.timezone')))->format('M d, Y'),
+            'issued_on' => CarbonImmutable::now(CompanyTimezone::forCompany($company))->format('M d, Y'),
             'currency_code' => $currencyCode,
             'payroll_category' => PayrollCategory::Crew->value,
             'payroll_category_label' => PayrollCategory::Crew->label(),
@@ -118,7 +120,7 @@ final class PayslipData
         $category = $record->payroll_category ?? PayrollCategory::Office;
         $breakdown = $record->calculation_breakdown ?? [];
         $lines = is_array($breakdown['lines'] ?? null) ? $breakdown['lines'] : [];
-        $currencyCode = (string) ($company?->currency?->code ?? 'AED');
+        $currencyCode = CompanyCurrency::codeForCompany($company);
 
         $periodStart = ! empty($breakdown['period_start_date'])
             ? CarbonImmutable::parse($breakdown['period_start_date'])->format('M d, Y')
@@ -138,7 +140,7 @@ final class PayslipData
             'period_start' => $periodStart,
             'period_end' => $periodEnd,
             'payment_date' => $period?->payment_date?->format('M d, Y') ?? '',
-            'issued_on' => CarbonImmutable::now((string) ($company?->timezone ?? config('app.timezone')))->format('M d, Y'),
+            'issued_on' => CarbonImmutable::now(CompanyTimezone::forCompany($company))->format('M d, Y'),
             'currency_code' => $currencyCode,
             'payroll_category' => $category->value,
             'payroll_category_label' => $category->label(),

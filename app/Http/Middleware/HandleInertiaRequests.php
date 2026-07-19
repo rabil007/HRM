@@ -133,11 +133,13 @@ class HandleInertiaRequests extends Middleware
         }
 
         $settingService = app(SettingService::class);
-        $applicationSettings = $settingService->forInertia();
+        $applicationSettings = $settingService->forInertia(
+            $currentCompanyId ? (int) $currentCompanyId : null,
+        );
 
         return [
             ...parent::share($request),
-            'name' => $applicationSettings['app_name'],
+            'name' => $applicationSettings['platform']['app_name'] ?? $applicationSettings['app_name'],
             'settings' => $applicationSettings,
             'flash' => [
                 'success' => $request->session()->pull('success'),

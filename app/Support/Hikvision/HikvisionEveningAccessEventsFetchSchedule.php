@@ -4,6 +4,7 @@ namespace App\Support\Hikvision;
 
 use App\Models\HikvisionSetting;
 use App\Support\Settings\ApplicationTimezone;
+use App\Support\Settings\CompanyTimezone;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
@@ -60,17 +61,17 @@ class HikvisionEveningAccessEventsFetchSchedule
      */
     public static function settingsDueForDispatch(): Collection
     {
-        $time = now(self::timezone())->format('H:i');
         $default = (string) config('hikvision.events_evening_fetch_schedule_at', '20:00');
 
         return HikvisionSetting::query()
             ->where('events_evening_fetch_schedule_enabled', true)
             ->get()
-            ->filter(function (HikvisionSetting $setting) use ($time, $default): bool {
-                if (! $setting->isConfigured()) {
+            ->filter(function (HikvisionSetting $setting) use ($default): bool {
+                if (! $setting->isConfigured() || $setting->company_id === null) {
                     return false;
                 }
 
+                $time = now(CompanyTimezone::forCompany((int) $setting->company_id))->format('H:i');
                 $scheduleAt = filled($setting->events_evening_fetch_schedule_at)
                     ? (string) $setting->events_evening_fetch_schedule_at
                     : $default;

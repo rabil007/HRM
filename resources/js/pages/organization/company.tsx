@@ -20,6 +20,9 @@ import {
     FolderOpen,
     Eye,
     Download,
+    FileSignature,
+    ImageIcon,
+    PenLine,
 } from 'lucide-react';
 import { useState } from 'react';
 import type { ComponentType } from 'react';
@@ -28,9 +31,11 @@ import { Main } from '@/components/layout/main';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CompanyDocumentSettingsSheet } from '@/features/organization/companies/components/company-document-settings-sheet';
 import { CompanyFormSheet } from '@/features/organization/companies/components/company-form-sheet';
 import type {
     Company as SheetCompany,
+    CompanyDocumentSettings,
     CompanyFormData,
     Country,
     Currency,
@@ -172,6 +177,8 @@ export default function CompanyDetails({
     recent_activity,
     countries,
     currencies,
+    timezones,
+    document_settings,
     can_view_audit,
     company_documents,
     company_documents_can,
@@ -180,6 +187,8 @@ export default function CompanyDetails({
     recent_activity: ActivityItem[];
     countries: Country[];
     currencies: Currency[];
+    timezones?: string[];
+    document_settings: CompanyDocumentSettings | null;
     can_view_audit: boolean;
     company_documents: {
         count: number;
@@ -194,6 +203,7 @@ export default function CompanyDetails({
     };
 }) {
     const [editOpen, setEditOpen] = useState(false);
+    const [documentSettingsOpen, setDocumentSettingsOpen] = useState(false);
     const [expandedActivity, setExpandedActivity] = useState<
         Record<number, boolean>
     >({});
@@ -455,6 +465,129 @@ export default function CompanyDetails({
                         </CardContent>
                     </Card>
                 </div>
+
+                {document_settings ? (
+                    <Card className="mt-8 border-border bg-card backdrop-blur-xl dark:border-white/5 dark:bg-white/5">
+                        <CardHeader className="flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between dark:border-white/5">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                                    <FileSignature className="h-4 w-4" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-base font-bold tracking-tight">
+                                        Salary certificate
+                                    </CardTitle>
+                                    <p className="text-xs text-muted-foreground">
+                                        Document settings for printed salary
+                                        certificates. Company identity
+                                        (currency, timezone, and profile) is
+                                        edited via Edit.
+                                    </p>
+                                </div>
+                            </div>
+                            {document_settings.can_update ? (
+                                <Button
+                                    className="h-11 shrink-0 rounded-xl"
+                                    onClick={() =>
+                                        setDocumentSettingsOpen(true)
+                                    }
+                                >
+                                    <PenLine className="mr-2 h-4 w-4" />
+                                    Configure
+                                </Button>
+                            ) : null}
+                        </CardHeader>
+                        <CardContent className="space-y-6 p-6">
+                            {document_settings.using_legacy_signature ||
+                            document_settings.using_legacy_stamp ? (
+                                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+                                    {document_settings.using_legacy_signature &&
+                                    document_settings.using_legacy_stamp
+                                        ? 'Using legacy application signature and stamp until company assets are uploaded.'
+                                        : document_settings.using_legacy_signature
+                                          ? 'Using legacy application signature until a company signature is uploaded.'
+                                          : 'Using legacy application stamp until a company stamp is uploaded.'}
+                                </div>
+                            ) : null}
+
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-2">
+                                    <div className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/80 uppercase">
+                                        Signature
+                                    </div>
+                                    <div className="flex h-24 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/30 dark:border-white/10 dark:bg-white/5">
+                                        {document_settings.signature_url ? (
+                                            <img
+                                                src={
+                                                    document_settings.signature_url
+                                                }
+                                                alt="Authorized signature"
+                                                className="max-h-full max-w-full object-contain p-2"
+                                            />
+                                        ) : (
+                                            <div className="flex flex-col items-center gap-1 text-muted-foreground/50">
+                                                <PenLine className="h-5 w-5" />
+                                                <span className="text-xs">
+                                                    Not set
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/80 uppercase">
+                                        Stamp
+                                    </div>
+                                    <div className="flex h-24 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/30 dark:border-white/10 dark:bg-white/5">
+                                        {document_settings.stamp_url ? (
+                                            <img
+                                                src={
+                                                    document_settings.stamp_url
+                                                }
+                                                alt="Company stamp"
+                                                className="max-h-full max-w-full object-contain p-2"
+                                            />
+                                        ) : (
+                                            <div className="flex flex-col items-center gap-1 text-muted-foreground/50">
+                                                <ImageIcon className="h-5 w-5" />
+                                                <span className="text-xs">
+                                                    Not set
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <div className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/80 uppercase">
+                                        Signatory
+                                    </div>
+                                    <p className="mt-1 text-sm font-medium text-foreground/90">
+                                        {document_settings.signatory_name ??
+                                            '—'}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {document_settings.signatory_title ??
+                                            '—'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <div className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/80 uppercase">
+                                        Effective period
+                                    </div>
+                                    <p className="mt-1 text-sm font-medium text-foreground/90">
+                                        {document_settings.effective_from ||
+                                        document_settings.effective_to
+                                            ? `${document_settings.effective_from ?? '—'} → ${document_settings.effective_to ?? '—'}`
+                                            : '—'}
+                                    </p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ) : null}
 
                 {company_documents ? (
                     <Card className="mt-8 border-border bg-card backdrop-blur-xl dark:border-white/5 dark:bg-white/5">
@@ -739,9 +872,20 @@ export default function CompanyDetails({
                     company={sheetCompany}
                     countries={countries}
                     currencies={currencies}
+                    timezones={timezones}
                     form={form}
                     onSubmit={submit}
                 />
+
+                {document_settings ? (
+                    <CompanyDocumentSettingsSheet
+                        open={documentSettingsOpen}
+                        onOpenChange={setDocumentSettingsOpen}
+                        companyId={company.id}
+                        companyName={company.name}
+                        settings={document_settings}
+                    />
+                ) : null}
             </Main>
         </>
     );

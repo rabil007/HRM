@@ -169,7 +169,8 @@ export function PayrollOverviewContent({
     can,
 }: PayrollOverviewProps): ReactElement {
     const { settings } = usePage().props;
-    const currency = settings.currency || 'USD';
+    const currency =
+        settings.company?.currency?.code || settings.currency || 'AED';
     const [salarySheetDialogOpen, setSalarySheetDialogOpen] = useState(false);
 
     const fmt = (amount: number) =>

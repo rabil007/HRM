@@ -27,7 +27,9 @@ Use test mail to verify credentials before relying on document email or system n
 
 ## Branding (related)
 
-Application branding (logo, name, document title templates, email footer) is managed alongside SMTP in application settings—see recent settings controllers and `app_settings` / cache keys used in `HandleInertiaRequests`.
+Platform branding (logos, platform name, email footer) is managed in **Settings → Application**. Company logos and salary-certificate signature/stamp live on **Organization → Companies**.
+
+Shared Inertia props expose `settings.platform.branding` for platform assets and `settings.company.logo_url` for the active company.
 
 ## Permissions
 

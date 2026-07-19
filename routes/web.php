@@ -39,6 +39,7 @@ use App\Http\Controllers\Organization\CompanyDocumentBulkStoreController;
 use App\Http\Controllers\Organization\CompanyDocumentController;
 use App\Http\Controllers\Organization\CompanyDocumentFileController;
 use App\Http\Controllers\Organization\CompanyDocumentReplacementController;
+use App\Http\Controllers\Organization\CompanyDocumentSettingController;
 use App\Http\Controllers\Organization\CompanyDocumentVersionController;
 use App\Http\Controllers\Organization\CompanySwitchController;
 use App\Http\Controllers\Organization\ContractSalaryRevisionController;
@@ -201,6 +202,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/companies/{company}', [CompanyController::class, 'show'])->middleware('can:companies.view')->name('organization.companies.show');
     Route::post('organization/companies', [CompanyController::class, 'store'])->middleware('can:companies.create')->name('organization.companies.store');
     Route::put('organization/companies/{company}', [CompanyController::class, 'update'])->middleware('can:companies.update')->name('organization.companies.update');
+    Route::put('organization/companies/{company}/document-settings', [CompanyDocumentSettingController::class, 'update'])
+        ->middleware('can:company.document-settings.update')
+        ->name('organization.companies.document-settings.update');
+    Route::delete('organization/companies/{company}/document-settings/{asset}', [CompanyDocumentSettingController::class, 'destroyAsset'])
+        ->middleware('can:company.document-settings.update')
+        ->where('asset', 'signature|stamp')
+        ->name('organization.companies.document-settings.asset.destroy');
     Route::put('organization/companies/{company}/status', [CompanyController::class, 'updateStatus'])->middleware('can:companies.update')->name('organization.companies.status');
     Route::delete('organization/companies/{company}', [CompanyController::class, 'destroy'])->middleware('can:companies.delete')->name('organization.companies.destroy');
     Route::post('organization/companies/switch', CompanySwitchController::class)->name('organization.companies.switch');

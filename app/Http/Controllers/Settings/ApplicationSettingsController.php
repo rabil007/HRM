@@ -8,7 +8,6 @@ use App\Http\Requests\Settings\TestApplicationMailRequest;
 use App\Http\Requests\Settings\UpdateApplicationBrandingRequest;
 use App\Http\Requests\Settings\UpdateApplicationGeneralRequest;
 use App\Http\Requests\Settings\UpdateApplicationSmtpRequest;
-use App\Models\Currency;
 use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
 use App\Support\BulkDocuments\BulkDocumentSignaturePlacementService;
@@ -32,70 +31,93 @@ class ApplicationSettingsController extends Controller
     public function edit(): Response
     {
         $user = request()->user();
+        $canPlatformView = $user?->can('platform.settings.view') || $user?->can('settings.application.view');
+        $canWhatsAppView = $user?->can('settings.integrations.whatsapp.view');
 
-        if (
-            ! $user?->can('settings.application.view')
-            && ! $user?->can('settings.integrations.whatsapp.view')
-        ) {
+        if (! $canPlatformView && ! $canWhatsAppView) {
             abort(403);
         }
 
-        $currencies = Currency::query()
-            ->where('is_active', true)
-            ->orderBy('code')
-            ->get(['code', 'name', 'symbol']);
+        $props = [
+            'scope' => 'platform',
+            'general' => null,
+            'branding' => null,
+            'preferences' => null,
+            'timezones' => null,
+            'date_formats' => null,
+            'smtp' => null,
+            'whatsapp' => null,
+            'esign_placement' => null,
+            'can' => [
+                'platform_view' => (bool) $canPlatformView,
+                'platform_update' => (bool) (
+                    $user?->can('platform.settings.update')
+                    || $user?->can('settings.application.update')
+                ),
+                'whatsapp_view' => (bool) $canWhatsAppView,
+            ],
+        ];
 
-        return Inertia::render('settings/application', [
-            'general' => [
+        if ($canPlatformView) {
+            $props['general'] = [
                 'app_name' => $this->settings->get(SettingKey::AppName),
-                'company_name' => $this->settings->get(SettingKey::CompanyName),
                 'support_email' => $this->settings->get(SettingKey::SupportEmail, ''),
                 'support_phone' => $this->settings->get(SettingKey::SupportPhone, ''),
-                'company_address' => $this->settings->get(SettingKey::CompanyAddress, ''),
                 'timezone' => $this->settings->get(SettingKey::Timezone, 'UTC'),
-                'currency' => $this->settings->get(SettingKey::Currency, 'USD'),
                 'date_format' => $this->settings->get(SettingKey::DateFormat, 'Y-m-d'),
-                'salary_certificate_signature_url' => $this->settings->fileUrl(SettingKey::SalaryCertificateSignature),
-                'salary_certificate_stamp_url' => $this->settings->fileUrl(SettingKey::SalaryCertificateStamp),
-            ],
-            'branding' => $this->settings->brandingUrls(),
-            'preferences' => [
+            ];
+            $props['branding'] = $this->settings->brandingUrls();
+            $props['preferences'] = [
                 'primary_color' => $this->settings->get(SettingKey::PrimaryColor, '#6366f1'),
                 'accent_color' => $this->settings->get(SettingKey::AccentColor, '#8b5cf6'),
                 'sidebar_compact_default' => $this->settings->get(SettingKey::SidebarCompactDefault, '0') === '1',
-            ],
-            'timezones' => timezone_identifiers_list(),
-            'date_formats' => [
+            ];
+            $props['timezones'] = timezone_identifiers_list();
+            $props['date_formats'] = [
                 ['value' => 'Y-m-d', 'label' => '2026-05-21'],
                 ['value' => 'd/m/Y', 'label' => '21/05/2026'],
                 ['value' => 'm/d/Y', 'label' => '05/21/2026'],
                 ['value' => 'd-m-Y', 'label' => '21-05-2026'],
                 ['value' => 'M d, Y', 'label' => 'May 21, 2026'],
-            ],
-            'currencies' => $currencies,
-            'smtp' => $this->mailSettings->forSettingsPage(),
-            'whatsapp' => WhatsAppIntegrationController::pageProps($user),
-            'esign_placement' => $user?->can('settings.application.view')
-                ? [
-                    'document_type' => SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY,
-                    'label' => BulkDocumentTypeRegistry::find(SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY)['label'],
-                    'placement' => app(BulkDocumentSignaturePlacementService::class)->resolve(
-                        SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY,
-                    ),
-                ]
-                : null,
-        ]);
+            ];
+            $props['smtp'] = $this->mailSettings->forSettingsPage();
+            $props['esign_placement'] = [
+                'document_type' => SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY,
+                'label' => BulkDocumentTypeRegistry::find(SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY)['label'],
+                'placement' => app(BulkDocumentSignaturePlacementService::class)->resolve(
+                    SalaryDeclarationSignaturePlacements::DOCUMENT_TYPE_KEY,
+                ),
+            ];
+        }
+
+        if ($canWhatsAppView) {
+            $props['whatsapp'] = WhatsAppIntegrationController::pageProps($user);
+        }
+
+        return Inertia::render('settings/application', $props);
     }
 
     public function updateGeneral(UpdateApplicationGeneralRequest $request): RedirectResponse
     {
-        foreach ($request->uploadFiles() as $key => $file) {
-            $this->settings->storeUpload($key, $file);
-        }
+        $payload = $request->settingPayload();
+        $this->settings->setMany($payload);
 
-        $this->settings->setMany($request->settingPayload());
+        activity()
+            ->causedBy($request->user())
+            ->withProperties([
+                'scope' => 'platform',
+                'keys' => array_keys($payload),
+                'values' => [
+                    SettingKey::AppName => $payload[SettingKey::AppName] ?? null,
+                    SettingKey::SupportEmail => $payload[SettingKey::SupportEmail] ?? null,
+                    SettingKey::SupportPhone => $payload[SettingKey::SupportPhone] ?? null,
+                    SettingKey::Timezone => $payload[SettingKey::Timezone] ?? null,
+                    SettingKey::DateFormat => $payload[SettingKey::DateFormat] ?? null,
+                ],
+            ])
+            ->log('updated platform general settings');
 
-        return back()->with('success', 'General settings saved.');
+        return back()->with('success', 'Platform settings saved.');
     }
 
     public function updateBranding(UpdateApplicationBrandingRequest $request): RedirectResponse
@@ -115,7 +137,7 @@ class ApplicationSettingsController extends Controller
 
     public function removeBranding(string $asset): RedirectResponse
     {
-        if (! in_array($asset, SettingKey::fileKeys(), true)) {
+        if (! in_array($asset, SettingKey::platformBrandingFileKeys(), true)) {
             abort(404);
         }
 

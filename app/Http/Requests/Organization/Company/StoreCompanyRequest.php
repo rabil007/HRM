@@ -4,6 +4,7 @@ namespace App\Http\Requests\Organization\Company;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCompanyRequest extends FormRequest
 {
@@ -31,8 +32,12 @@ class StoreCompanyRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:200'],
             'website' => ['nullable', 'string', 'max:300'],
-            'currency_id' => ['nullable', 'integer', 'exists:currencies,id'],
-            'timezone' => ['nullable', 'string', 'max:100'],
+            'currency_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('currencies', 'id')->where(fn ($query) => $query->where('is_active', true)),
+            ],
+            'timezone' => ['nullable', 'string', Rule::in(timezone_identifiers_list())],
             'payroll_cycle' => ['nullable', 'in:monthly,biweekly,weekly'],
             'working_days' => ['nullable', 'array'],
             'working_days.*' => ['integer'],

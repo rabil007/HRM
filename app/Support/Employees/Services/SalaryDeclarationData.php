@@ -27,7 +27,11 @@ final class SalaryDeclarationData
         $settings = app(SettingService::class);
         $company = $employee->company ?? Company::query()->find($companyId);
 
-        $companyName = (string) ($settings->get(SettingKey::CompanyName) ?: $company?->name ?: '');
+        abort_unless($company !== null && (int) $company->id === $companyId, 404);
+
+        $companyName = filled($company->name)
+            ? (string) $company->name
+            : (string) ($settings->get(SettingKey::CompanyName) ?: '');
 
         $identifier = filled($employee->emirates_id)
             ? (string) $employee->emirates_id
