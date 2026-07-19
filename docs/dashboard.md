@@ -13,6 +13,9 @@ The dashboard is the post-login landing page at `/dashboard`. It provides compan
 - Controller: `App\Http\Controllers\Organization\DashboardController`
 - Service: `App\Support\Dashboard\DashboardAnalytics`
 - Reuses `DocumentBrowseQuery::expirySummary()` for document expiry counts
+- Primary KPI props load immediately; secondary chart/list props use `Inertia::defer()` (`workforce_trends`, `employees_by_department`, `employees_by_branch`, `recent_hires`)
+- Tenant-scoped analytics are cached briefly under `dashboard.analytics.company.{companyId}.{part}` (45s TTL)
+- Workforce trend **headcount** counts employees by `created_at` (record creation), not `hire_date`
 
 ## Metrics provided
 
