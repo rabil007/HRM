@@ -16,6 +16,7 @@ final class CompanyDocumentSettingResolver
     /**
      * @return array{
      *     setting: CompanyDocumentSetting|null,
+     *     is_effective: bool,
      *     signatory_name: string|null,
      *     signatory_title: string|null,
      *     signature_path: string|null,
@@ -28,35 +29,60 @@ final class CompanyDocumentSettingResolver
     public function resolve(int $companyId, string $documentType = CompanyDocumentType::SalaryCertificate): array
     {
         abort_unless(CompanyDocumentType::isValid($documentType), 404);
-        abort_unless(Company::query()->whereKey($companyId)->exists(), 404);
+
+        $company = Company::query()->select(['id', 'timezone'])->find($companyId);
+        abort_unless($company !== null, 404);
 
         $setting = CompanyDocumentSetting::query()
             ->where('company_id', $companyId)
             ->where('document_type', $documentType)
             ->first();
 
+        $isEffective = $this->isEffective($setting, CompanyTimezone::forCompany($company));
+        $effectiveSetting = $isEffective ? $setting : null;
+
         $signature = $this->resolveAsset(
-            $setting?->signature_path,
+            $effectiveSetting?->signature_path,
             SettingKey::SalaryCertificateSignature,
             'images/salary-certificate/signature.png',
         );
 
         $stamp = $this->resolveAsset(
-            $setting?->stamp_path,
+            $effectiveSetting?->stamp_path,
             SettingKey::SalaryCertificateStamp,
             'images/salary-certificate/stamp.png',
         );
 
         return [
             'setting' => $setting,
-            'signatory_name' => $setting?->signatory_name,
-            'signatory_title' => $setting?->signatory_title,
+            'is_effective' => $isEffective,
+            'signatory_name' => $effectiveSetting?->signatory_name,
+            'signatory_title' => $effectiveSetting?->signatory_title,
             'signature_path' => $signature['path'],
             'stamp_path' => $stamp['path'],
-            'footer_text' => $setting?->footer_text,
+            'footer_text' => $effectiveSetting?->footer_text,
             'signature_source' => $signature['source'],
             'stamp_source' => $stamp['source'],
         ];
+    }
+
+    private function isEffective(?CompanyDocumentSetting $setting, string $timezone): bool
+    {
+        if ($setting === null) {
+            return false;
+        }
+
+        $today = now($timezone)->toDateString();
+
+        if ($setting->effective_from !== null && $setting->effective_from->toDateString() > $today) {
+            return false;
+        }
+
+        if ($setting->effective_to !== null && $setting->effective_to->toDateString() < $today) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
