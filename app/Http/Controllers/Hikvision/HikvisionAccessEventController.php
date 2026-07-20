@@ -148,6 +148,10 @@ class HikvisionAccessEventController extends Controller
         $settings = HikvisionSetting::forCompany($companyId);
 
         if (! $settings->isConfigured()) {
+            // #region agent log
+            @file_put_contents(base_path('.cursor/debug-688778.log'), json_encode(['sessionId' => '688778', 'runId' => 'pre-fix', 'hypothesisId' => 'A', 'location' => 'HikvisionAccessEventController.php:fetch', 'message' => 'manual fetch blocked not configured', 'data' => ['company_id' => $companyId, 'setting_exists' => $settings->exists, 'enabled' => (bool) $settings->enabled, 'has_api_host' => filled($settings->api_host), 'has_api_key' => filled($settings->api_key), 'has_api_secret' => filled($settings->api_secret)], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND | LOCK_EX);
+            // #endregion
+
             return back()->withErrors([
                 'fetch' => 'Hikvision integration is not configured. Add credentials in Company Settings → Integrations → Hikvision.',
             ]);

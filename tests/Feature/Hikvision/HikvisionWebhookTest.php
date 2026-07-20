@@ -498,3 +498,52 @@ test('webhook ignores empty payloads without updating last event timestamp', fun
     Queue::assertNothingPushed();
     expect(hikvisionSettings()->fresh()->webhook_last_event_at)->toBeNull();
 });
+
+test('legacy hikvision webhook route still accepts signed posts', function () {
+    Queue::fake();
+
+    hikvisionSettings()->update([
+        'webhook_verify_token' => 'abc12345',
+        'webhook_enabled' => true,
+        'webhook_callback_url' => 'https://hrm.overseas-ms.com/webhooks/hikvision',
+    ]);
+
+    $payload = [
+        'batchId' => 'legacy-batch-1',
+        'personInfo' => [
+            'personId' => 'person-legacy-1',
+            'personName' => 'Legacy Webhook User',
+        ],
+        'occurTime' => '2026-07-20T09:15:00+04:00',
+        'attendanceStatus' => 'checkIn',
+    ];
+
+    $timestamp = (string) time();
+    $batchId = 'legacy-batch-1';
+    $signature = HikvisionWebhookSignature::generate('abc12345', $timestamp, $batchId);
+
+    $this->postJson(route('webhooks.hikvision.legacy'), $payload, [
+        'X-Hook-Batch-Id' => $batchId,
+        'X-Hook-Timestamp' => $timestamp,
+        'X-Hook-Signature' => $signature,
+    ])->assertNoContent();
+
+    Queue::assertPushed(ProcessHikvisionWebhookEventJob::class);
+});
+
+test('legacy hikvision webhook route returns not found when no enabled integration exists', function () {
+    Queue::fake();
+
+    hikvisionSettings()->update([
+        'webhook_verify_token' => 'abc12345',
+        'webhook_enabled' => false,
+    ]);
+
+    $this->postJson(route('webhooks.hikvision.legacy'), [
+        'personName' => 'Should Not Store',
+    ], [
+        'X-HCC-Webhook-Token' => 'abc12345',
+    ])->assertNotFound();
+
+    Queue::assertNothingPushed();
+});

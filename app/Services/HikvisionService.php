@@ -556,10 +556,20 @@ class HikvisionService
             }
 
             $hasInWindowRecord = false;
+            $pageAccessRecordCount = 0;
+            $sampleTimes = [];
 
             foreach ($events as $event) {
                 if (! is_array($event)) {
                     continue;
+                }
+
+                if (HikvisionAccessEvent::isAccessRecord($event)) {
+                    $pageAccessRecordCount++;
+                }
+
+                if (count($sampleTimes) < 3) {
+                    $sampleTimes[] = (string) ($event['time'] ?? '');
                 }
 
                 if (HikvisionAccessEvent::acsEventIsWithinFetchWindow($event, $startTime, $endTime)) {
@@ -573,7 +583,13 @@ class HikvisionService
                 }
             }
 
-            if (! $hasInWindowRecord && $events !== []) {
+            $earlyBreak = ! $hasInWindowRecord && $events !== [];
+
+            // #region agent log
+            @file_put_contents(base_path('.cursor/debug-688778.log'), json_encode(['sessionId' => '688778', 'runId' => 'pre-fix', 'hypothesisId' => 'C', 'location' => 'HikvisionService.php:fetchAcsEventsForDevice', 'message' => 'ACS page result', 'data' => ['device_id' => $deviceId, 'position' => $position, 'page_events' => count($events), 'total_matches' => $totalMatches, 'page_access_records' => $pageAccessRecordCount, 'has_in_window' => $hasInWindowRecord, 'early_break' => $earlyBreak, 'stored_count' => $storedCount, 'sample_times' => $sampleTimes, 'window_start' => $startTime->toIso8601String(), 'window_end' => $endTime->toIso8601String()], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND | LOCK_EX);
+            // #endregion
+
+            if ($earlyBreak) {
                 break;
             }
 
@@ -631,7 +647,13 @@ class HikvisionService
                 }
             }
 
-            if (! $hasInWindowRecord && $rows !== []) {
+            $earlyBreak = ! $hasInWindowRecord && $rows !== [];
+
+            // #region agent log
+            @file_put_contents(base_path('.cursor/debug-688778.log'), json_encode(['sessionId' => '688778', 'runId' => 'pre-fix', 'hypothesisId' => 'E', 'location' => 'HikvisionService.php:fetchAttendanceMobileEvents', 'message' => 'mobile attendance page', 'data' => ['page_index' => $pageIndex, 'row_count' => count($rows), 'more_data' => $moreData, 'has_in_window' => $hasInWindowRecord, 'early_break' => $earlyBreak, 'stored_count' => $storedCount], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND | LOCK_EX);
+            // #endregion
+
+            if ($earlyBreak) {
                 break;
             }
 
@@ -655,10 +677,15 @@ class HikvisionService
         $dateLabel = $day->isToday() ? 'today' : $day->format('Y-m-d');
 
         $devices = $this->getCachedAccessControllerDevices();
+        $usedCachedDevices = $devices !== [];
 
         if ($devices === []) {
             $devices = $this->getAccessControllerDevices();
         }
+
+        // #region agent log
+        @file_put_contents(base_path('.cursor/debug-688778.log'), json_encode(['sessionId' => '688778', 'runId' => 'pre-fix', 'hypothesisId' => 'D', 'location' => 'HikvisionService.php:fetchAccessEvents', 'message' => 'fetch window and devices', 'data' => ['date_label' => $dateLabel, 'timezone' => $timezone, 'start' => $startTime->toIso8601String(), 'end' => $endTime->toIso8601String(), 'device_count' => count($devices), 'used_cached_devices' => $usedCachedDevices, 'device_ids' => array_map(fn (array $d): string => $d['id'], $devices)], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND | LOCK_EX);
+        // #endregion
 
         if ($devices === []) {
             throw new RuntimeException('No access controller devices found. Sync devices first or check Hik-Connect.');
