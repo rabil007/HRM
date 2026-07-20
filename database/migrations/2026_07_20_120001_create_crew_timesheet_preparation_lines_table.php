@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('crew_timesheet_preparation_lines')) {
+            return;
+        }
+
         Schema::create('crew_timesheet_preparation_lines', function (Blueprint $table) {
             $table->id();
             $table->foreignId('company_id')->constrained('companies')->restrictOnDelete();
