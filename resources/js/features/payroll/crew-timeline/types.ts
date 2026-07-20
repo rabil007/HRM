@@ -73,6 +73,9 @@ export type CrewTimelinePreparation = {
     approved_at: string | null;
     returned_by: CrewTimelineUserRef | null;
     returned_at: string | null;
+    applied_by: CrewTimelineUserRef | null;
+    applied_at: string | null;
+    linked_timesheet_count: number;
     decision_notes: string | null;
 };
 
@@ -100,6 +103,7 @@ export type CrewTimelinePagePermissions = {
     submit: boolean;
     approve: boolean;
     return: boolean;
+    apply: boolean;
     view_audit: boolean;
 };
 
@@ -124,4 +128,6 @@ export type CrewTimelinePreparationSummary = {
     submitted_at: string | null;
     approved_at: string | null;
     returned_at: string | null;
+    applied_at: string | null;
+    linked_timesheet_count: number;
 };

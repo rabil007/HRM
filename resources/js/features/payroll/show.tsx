@@ -635,7 +635,8 @@ export function PayrollShowContent({
     const canPrepareTimeline =
         period.status === 'draft' &&
         period.supports_timesheets &&
-        permissions.prepare_timeline;
+        permissions.prepare_timeline &&
+        crew_timeline_preparation?.status !== 'applied';
 
     const canRevertToDraft =
         period.can_revert_to_draft && permissions.revert_to_draft;
@@ -944,7 +945,16 @@ export function PayrollShowContent({
                                 {
                                     crew_timeline_preparation.informational_warning_count
                                 }
+                                {crew_timeline_preparation.status === 'applied'
+                                    ? ` · Applied to ${crew_timeline_preparation.linked_timesheet_count} timesheet(s)`
+                                    : null}
                             </p>
+                            {crew_timeline_preparation.status === 'applied' ? (
+                                <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                                    Operational timesheets came from Crew
+                                    Operations.
+                                </p>
+                            ) : null}
                         </div>
                         <Button
                             variant="outline"
@@ -958,7 +968,9 @@ export function PayrollShowContent({
                             }
                         >
                             <Ship className="mr-2 h-4 w-4" />
-                            Review Timeline
+                            {crew_timeline_preparation.status === 'applied'
+                                ? 'View Timeline'
+                                : 'Review Timeline'}
                         </Button>
                     </CardContent>
                 </Card>

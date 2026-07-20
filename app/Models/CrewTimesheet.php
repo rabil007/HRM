@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\CrewTimesheetSource;
 use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\CrewTimesheetFactory;
@@ -103,5 +104,16 @@ class CrewTimesheet extends Model
     public function operationalApprovedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'operational_approved_by');
+    }
+
+    public function isOperationallyLocked(): bool
+    {
+        if ($this->source !== CrewTimesheetSource::CrewOperations) {
+            return false;
+        }
+
+        $this->loadMissing('preparation');
+
+        return $this->preparation?->status === CrewTimesheetPreparationStatus::Applied;
     }
 }

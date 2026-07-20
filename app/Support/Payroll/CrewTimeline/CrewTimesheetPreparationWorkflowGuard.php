@@ -96,6 +96,36 @@ final class CrewTimesheetPreparationWorkflowGuard
         }
     }
 
+    public function assertNoAppliedPreparation(
+        ?CrewTimesheetPreparation $except = null,
+        ?int $companyId = null,
+        ?int $payrollPeriodId = null,
+    ): void {
+        $companyId ??= $except !== null ? (int) $except->company_id : null;
+        $payrollPeriodId ??= $except !== null ? (int) $except->payroll_period_id : null;
+
+        if ($companyId === null || $payrollPeriodId === null) {
+            throw ValidationException::withMessages([
+                'preparation' => 'Unable to validate applied preparations for this pay period.',
+            ]);
+        }
+
+        $query = CrewTimesheetPreparation::query()
+            ->where('company_id', $companyId)
+            ->where('payroll_period_id', $payrollPeriodId)
+            ->where('status', CrewTimesheetPreparationStatus::Applied);
+
+        if ($except !== null) {
+            $query->whereKeyNot($except->id);
+        }
+
+        if ($query->exists()) {
+            throw ValidationException::withMessages([
+                'preparation' => 'An applied operational snapshot already exists for this pay period. Replacement requires a payroll correction workflow.',
+            ]);
+        }
+    }
+
     public function assertStatus(
         CrewTimesheetPreparation $preparation,
         CrewTimesheetPreparationStatus $expected,

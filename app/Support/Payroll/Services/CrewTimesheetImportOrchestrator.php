@@ -2,6 +2,7 @@
 
 namespace App\Support\Payroll\Services;
 
+use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
 use App\Imports\CrewTimesheetsImport;
 use App\Models\Employee;
@@ -314,6 +315,7 @@ final class CrewTimesheetImportOrchestrator
             'additional_amount' => 0,
             'deduction_amount' => 0,
             'remarks' => $parsedRow['remarks'] ?? null,
+            'source' => CrewTimesheetSource::Import,
         ];
     }
 

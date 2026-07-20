@@ -10,6 +10,8 @@ final class CrewTimelineFreshnessChecker
 {
     public const STALE_MESSAGE = 'The Crew Operations timeline changed after this preparation was created. Prepare a new version before continuing.';
 
+    public const APPLY_STALE_MESSAGE = 'The Crew Operations timeline changed after this preparation was approved. Prepare and approve a new version before applying it to payroll.';
+
     public function __construct(
         private readonly CrewTimelinePhaseQuery $phaseQuery,
         private readonly CrewTimelineSourceHasher $sourceHasher,
@@ -42,10 +44,11 @@ final class CrewTimelineFreshnessChecker
     public function assertFresh(
         CrewTimesheetPreparation $preparation,
         PayrollPeriod $period,
+        ?string $message = null,
     ): void {
         if (! $this->isFresh($preparation, $period)) {
             throw ValidationException::withMessages([
-                'preparation' => self::STALE_MESSAGE,
+                'preparation' => $message ?? self::STALE_MESSAGE,
             ]);
         }
     }

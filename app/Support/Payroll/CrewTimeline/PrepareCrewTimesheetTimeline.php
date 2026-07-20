@@ -66,10 +66,27 @@ final class PrepareCrewTimesheetTimeline
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $nextVersion = (int) CrewTimesheetPreparation::query()
+            CrewTimesheetPreparation::query()
                 ->where('company_id', $companyId)
                 ->where('payroll_period_id', $period->id)
                 ->lockForUpdate()
+                ->get();
+
+            $appliedExists = CrewTimesheetPreparation::query()
+                ->where('company_id', $companyId)
+                ->where('payroll_period_id', $period->id)
+                ->where('status', CrewTimesheetPreparationStatus::Applied)
+                ->exists();
+
+            if ($appliedExists) {
+                throw ValidationException::withMessages([
+                    'payroll_period_id' => 'An applied operational snapshot already exists for this pay period. New timeline versions cannot be prepared until a correction workflow replaces it.',
+                ]);
+            }
+
+            $nextVersion = (int) CrewTimesheetPreparation::query()
+                ->where('company_id', $companyId)
+                ->where('payroll_period_id', $period->id)
                 ->max('version');
 
             $nextVersion++;

@@ -109,6 +109,7 @@ use App\Http\Controllers\Organization\TrainingsImportController;
 use App\Http\Controllers\Organization\TrainingsIndexController;
 use App\Http\Controllers\Organization\UserController;
 use App\Http\Controllers\Organization\VesselManningController;
+use App\Http\Controllers\Payroll\ApplyCrewTimesheetPreparationController;
 use App\Http\Controllers\Payroll\ApproveCrewTimesheetPreparationController;
 use App\Http\Controllers\Payroll\CrewTimesheetPreparationShowController;
 use App\Http\Controllers\Payroll\PayrollController;
@@ -349,6 +350,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('payroll/{payrollPeriod}/crew-timeline/{preparation}/return', ReturnCrewTimesheetPreparationController::class)
         ->middleware('can:payroll.crew_timesheets.return')
         ->name('payroll.crew-timeline.return');
+    Route::post('payroll/{payrollPeriod}/crew-timeline/{preparation}/apply', ApplyCrewTimesheetPreparationController::class)
+        ->middleware('can:payroll.crew_timesheets.apply_approved')
+        ->name('payroll.crew-timeline.apply');
     Route::get('payroll/{payrollPeriod}/export', [PayrollController::class, 'exportPayroll'])
         ->name('payroll.export');
     Route::post('payroll/{payrollPeriod}/generate', [PayrollController::class, 'generatePayroll'])->middleware('can:payroll.periods.update')->name('payroll.generate');

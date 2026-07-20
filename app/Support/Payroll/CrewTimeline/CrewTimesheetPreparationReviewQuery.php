@@ -26,6 +26,7 @@ final class CrewTimesheetPreparationReviewQuery
                 'submittedBy:id,name',
                 'approvedBy:id,name',
                 'returnedBy:id,name',
+                'appliedBy:id,name',
                 'lines' => function ($query) use ($companyId): void {
                     $query->where('company_id', $companyId)
                         ->with([
@@ -38,6 +39,12 @@ final class CrewTimesheetPreparationReviewQuery
                         ->orderBy('employee_id')
                         ->orderBy('from_date')
                         ->orderBy('id');
+                },
+            ])
+            ->withCount([
+                'crewTimesheets as linked_timesheet_count' => function ($query) use ($companyId, $period): void {
+                    $query->where('company_id', $companyId)
+                        ->where('period_id', $period->id);
                 },
             ])
             ->firstOrFail();
@@ -59,6 +66,7 @@ final class CrewTimesheetPreparationReviewQuery
                 'submittedBy:id,name',
                 'approvedBy:id,name',
                 'returnedBy:id,name',
+                'appliedBy:id,name',
                 'lines' => function ($query) use ($companyId): void {
                     $query->where('company_id', $companyId)
                         ->select([
@@ -69,6 +77,12 @@ final class CrewTimesheetPreparationReviewQuery
                             'warning_code',
                             'pay_category',
                         ]);
+                },
+            ])
+            ->withCount([
+                'crewTimesheets as linked_timesheet_count' => function ($query) use ($companyId, $period): void {
+                    $query->where('company_id', $companyId)
+                        ->where('period_id', $period->id);
                 },
             ])
             ->orderByDesc('version')

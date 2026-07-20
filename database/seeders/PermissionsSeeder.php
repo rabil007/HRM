@@ -288,6 +288,7 @@ class PermissionsSeeder extends Seeder
             'payroll.crew_timesheets.submit',
             'payroll.crew_timesheets.approve',
             'payroll.crew_timesheets.return',
+            'payroll.crew_timesheets.apply_approved',
             'payroll.salary_inputs.create',
             'payroll.salary_inputs.update',
             'payroll.salary_inputs.delete',

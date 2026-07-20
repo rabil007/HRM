@@ -25,7 +25,9 @@ final class CrewTimesheetPreparationSummaryResource
      *     prepared_at: string|null,
      *     submitted_at: string|null,
      *     approved_at: string|null,
-     *     returned_at: string|null
+     *     returned_at: string|null,
+     *     applied_at: string|null,
+     *     linked_timesheet_count: int
      * }|null
      */
     public function toArray(
@@ -68,6 +70,8 @@ final class CrewTimesheetPreparationSummaryResource
             'submitted_at' => $preparation->submitted_at?->toIso8601String(),
             'approved_at' => $preparation->approved_at?->toIso8601String(),
             'returned_at' => $preparation->returned_at?->toIso8601String(),
+            'applied_at' => $preparation->applied_at?->toIso8601String(),
+            'linked_timesheet_count' => (int) ($preparation->linked_timesheet_count ?? 0),
         ];
     }
 }

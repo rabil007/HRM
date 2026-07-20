@@ -13,6 +13,7 @@ final class CrewTimelinePagePermissions
      *     submit: bool,
      *     approve: bool,
      *     return: bool,
+     *     apply: bool,
      *     view_audit: bool
      * }
      */
@@ -24,6 +25,7 @@ final class CrewTimelinePagePermissions
             'submit' => $user?->can('payroll.crew_timesheets.submit') ?? false,
             'approve' => $user?->can('payroll.crew_timesheets.approve') ?? false,
             'return' => $user?->can('payroll.crew_timesheets.return') ?? false,
+            'apply' => $user?->can('payroll.crew_timesheets.apply_approved') ?? false,
             'view_audit' => $user?->can('audit.view') ?? false,
         ];
     }

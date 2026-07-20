@@ -1,5 +1,12 @@
 import { router } from '@inertiajs/react';
-import { ArrowLeft, CheckCircle2, RotateCcw, Send, Ship } from 'lucide-react';
+import {
+    ArrowLeft,
+    CheckCircle2,
+    FileSpreadsheet,
+    RotateCcw,
+    Send,
+    Ship,
+} from 'lucide-react';
 import { useState } from 'react';
 import PrepareCrewTimesheetTimelineController from '@/actions/App/Http/Controllers/Payroll/PrepareCrewTimesheetTimelineController';
 import { DetailsHeader } from '@/components/details-header';
@@ -9,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/format-date';
 import { show as payrollShow } from '@/routes/payroll';
+import { CrewTimelineApplyDialog } from './crew-timeline-apply-dialog';
 import { CrewTimelineApproveDialog } from './crew-timeline-approve-dialog';
 import { CrewTimelineEmployeeTable } from './crew-timeline-employee-table';
 import { CrewTimelineReturnDialog } from './crew-timeline-return-dialog';
@@ -39,11 +47,13 @@ export function CrewTimelineReviewContent({
     const [submitOpen, setSubmitOpen] = useState(false);
     const [approveOpen, setApproveOpen] = useState(false);
     const [returnOpen, setReturnOpen] = useState(false);
+    const [applyOpen, setApplyOpen] = useState(false);
     const [isPreparing, setIsPreparing] = useState(false);
 
     const canPrepareNewVersion =
         permissions.prepare &&
         period.status === 'draft' &&
+        preparation.status !== 'applied' &&
         (preparation.status === 'draft' ||
             preparation.status === 'returned' ||
             preparation.is_stale);
@@ -66,6 +76,13 @@ export function CrewTimelineReviewContent({
     const canReturn =
         permissions.return &&
         preparation.status === 'submitted' &&
+        period.status === 'draft';
+
+    const canApply =
+        permissions.apply &&
+        preparation.status === 'approved' &&
+        preparation.is_fresh &&
+        summary.blocking_warning_count === 0 &&
         period.status === 'draft';
 
     const prepareNewVersion = (): void => {
@@ -143,6 +160,12 @@ export function CrewTimelineReviewContent({
                                 Approve
                             </Button>
                         ) : null}
+                        {canApply ? (
+                            <Button onClick={() => setApplyOpen(true)}>
+                                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                Apply Approved Timeline to Timesheets
+                            </Button>
+                        ) : null}
                     </div>
                 }
             />
@@ -158,9 +181,22 @@ export function CrewTimelineReviewContent({
                         <CheckCircle2 className="h-4 w-4" />
                         <AlertTitle>Approved</AlertTitle>
                         <AlertDescription>
-                            This timeline is approved and read-only. Application
-                            to crew timesheets will be available in a later
-                            phase.
+                            This timeline is approved. Apply it to write
+                            operational day totals into crew timesheets while
+                            preserving overtime and other financial inputs.
+                        </AlertDescription>
+                    </Alert>
+                ) : null}
+
+                {preparation.status === 'applied' ? (
+                    <Alert>
+                        <FileSpreadsheet className="h-4 w-4" />
+                        <AlertTitle>Applied</AlertTitle>
+                        <AlertDescription>
+                            Operational timesheets were written from Crew
+                            Operations. Linked timesheets:{' '}
+                            {preparation.linked_timesheet_count}. Operational
+                            fields are locked; financial fields remain editable.
                         </AlertDescription>
                     </Alert>
                 ) : null}
@@ -218,6 +254,17 @@ export function CrewTimelineReviewContent({
                                 preparation.returned_at,
                             )}
                         />
+                        <Meta
+                            label="Applied"
+                            value={actorLabel(
+                                preparation.applied_by,
+                                preparation.applied_at,
+                            )}
+                        />
+                        <Meta
+                            label="Linked timesheets"
+                            value={String(preparation.linked_timesheet_count)}
+                        />
                     </CardContent>
                 </Card>
 
@@ -240,6 +287,12 @@ export function CrewTimelineReviewContent({
             <CrewTimelineReturnDialog
                 open={returnOpen}
                 onOpenChange={setReturnOpen}
+                periodId={period.id}
+                preparationId={preparation.id}
+            />
+            <CrewTimelineApplyDialog
+                open={applyOpen}
+                onOpenChange={setApplyOpen}
                 periodId={period.id}
                 preparationId={preparation.id}
             />
