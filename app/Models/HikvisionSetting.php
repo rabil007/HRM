@@ -188,6 +188,25 @@ class HikvisionSetting extends Model
             ->first();
     }
 
+    public static function findLegacyWebhookIntegration(): ?self
+    {
+        $settings = self::query()
+            ->whereNotNull('company_id')
+            ->where('webhook_enabled', true)
+            ->get();
+
+        if ($settings->count() === 1) {
+            return $settings->first();
+        }
+
+        $legacy = $settings->first(
+            fn (self $setting): bool => str_contains((string) ($setting->webhook_callback_url ?? ''), '/webhooks/hikvision')
+                && ! str_contains((string) ($setting->webhook_callback_url ?? ''), '/integrations/hikvision/webhook/'),
+        );
+
+        return $legacy;
+    }
+
     /**
      * @return BelongsTo<Company, $this>
      */

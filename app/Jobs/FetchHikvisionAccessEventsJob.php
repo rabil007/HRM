@@ -39,6 +39,10 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
             return;
         }
 
+        // #region agent log
+        @file_put_contents(base_path('.cursor/debug-688778.log'), json_encode(['sessionId' => '688778', 'runId' => 'pre-fix', 'hypothesisId' => 'A', 'location' => 'FetchHikvisionAccessEventsJob.php:handle', 'message' => 'job start settings state', 'data' => ['setting_id' => $settings->id, 'company_id' => $settings->company_id, 'enabled' => (bool) $settings->enabled, 'has_api_host' => filled($settings->api_host), 'has_api_key' => filled($settings->api_key), 'has_api_secret' => filled($settings->api_secret), 'is_configured' => $settings->isConfigured(), 'date' => $this->date, 'env' => app()->environment()], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND | LOCK_EX);
+        // #endregion
+
         if ($settings->company_id === null) {
             Log::warning('Hikvision fetch skipped because settings have no company ownership.', [
                 'hikvision_setting_id' => $settings->id,
@@ -66,6 +70,9 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
                 : $hikvision->fetchScheduledAccessEvents();
         } catch (RuntimeException $exception) {
             $fetchFailed = true;
+            // #region agent log
+            @file_put_contents(base_path('.cursor/debug-688778.log'), json_encode(['sessionId' => '688778', 'runId' => 'pre-fix', 'hypothesisId' => 'A', 'location' => 'FetchHikvisionAccessEventsJob.php:catch', 'message' => 'fetch RuntimeException', 'data' => ['error' => $exception->getMessage(), 'date' => $this->date, 'company_id' => $companyId], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND | LOCK_EX);
+            // #endregion
             $settings->markEventsFetchFailed($exception->getMessage());
         } finally {
             if (! $fetchFailed) {
@@ -78,6 +85,9 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
         }
 
         if (! $fetchFailed && $result !== null) {
+            // #region agent log
+            @file_put_contents(base_path('.cursor/debug-688778.log'), json_encode(['sessionId' => '688778', 'runId' => 'pre-fix', 'hypothesisId' => 'B', 'location' => 'FetchHikvisionAccessEventsJob.php:success', 'message' => 'fetch completed', 'data' => ['fetched_count' => $result['fetched_count'] ?? null, 'message' => $result['message'] ?? null, 'date' => $this->date, 'company_id' => $companyId], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND | LOCK_EX);
+            // #endregion
             $settings->markEventsFetchCompleted($result['message']);
 
             $jobId = $this->job ? $this->job->uuid() : null;

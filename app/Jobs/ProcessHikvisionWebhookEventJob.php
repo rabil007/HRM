@@ -45,6 +45,10 @@ class ProcessHikvisionWebhookEventJob implements ShouldQueue
         $companyId = (int) $settings->company_id;
         $storedEvent = HikvisionAccessEvent::upsertFromWebhook($this->payload, $companyId);
 
+        // #region agent log
+        @file_put_contents(base_path('.cursor/debug-688778.log'), json_encode(['sessionId' => '688778', 'runId' => 'post-fix', 'hypothesisId' => 'W4', 'location' => 'ProcessHikvisionWebhookEventJob.php:handle', 'message' => 'webhook upsert result', 'data' => ['company_id' => $companyId, 'stored' => $storedEvent !== null, 'event_id' => $storedEvent?->id, 'person_name' => $storedEvent?->person_name, 'occurrence_time' => optional($storedEvent?->occurrence_time)->toIso8601String(), 'event_source' => $storedEvent?->event_source, 'system_id' => $storedEvent?->system_id], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND | LOCK_EX);
+        // #endregion
+
         if ($storedEvent?->occurrence_time === null) {
             $jobId = $this->job ? $this->job->uuid() : null;
             if ($jobId) {
