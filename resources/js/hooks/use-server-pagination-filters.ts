@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
+import { useDebouncedSearchInput } from '@/hooks/use-debounced-search-input';
 import type { PaginationMeta } from '@/types/pagination';
 
 export type ServerQueryParams = Record<
@@ -42,21 +43,6 @@ export function useServerPaginationFilters<TFilters extends ServerQueryParams>({
     searchKey = 'search',
     debounceMs = 400,
 }: UseServerPaginationFiltersOptions<TFilters>) {
-    const [searchInput, setSearchInput] = useState(initialSearch);
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    useEffect(() => {
-        setSearchInput(initialSearch);
-    }, [initialSearch]);
-
-    useEffect(() => {
-        return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-        };
-    }, []);
-
     const baseQuery = useCallback(
         (): ServerQueryParams => ({
             ...initialFilters,
@@ -84,19 +70,21 @@ export function useServerPaginationFilters<TFilters extends ServerQueryParams>({
         [url, baseQuery, pagination.per_page],
     );
 
-    const onSearchChange = useCallback(
+    const handleDebouncedSearch = useCallback(
         (value: string) => {
-            setSearchInput(value);
-
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-
-            debounceRef.current = setTimeout(() => {
-                visit({ ...initialFilters, [searchKey]: value, page: null });
-            }, debounceMs);
+            visit({
+                ...initialFilters,
+                [searchKey]: value,
+                page: null,
+            });
         },
-        [debounceMs, initialFilters, searchKey, visit],
+        [initialFilters, searchKey, visit],
+    );
+
+    const { searchInput, onSearchChange } = useDebouncedSearchInput(
+        initialSearch,
+        handleDebouncedSearch,
+        debounceMs,
     );
 
     const applyFilters = useCallback(

@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 import type { PayrollShowFilters } from '@/features/payroll/types';
+import { useDebouncedSearchInput } from '@/hooks/use-debounced-search-input';
 import type { PaginationMeta } from '@/types/pagination';
 
 function cleanParams(
@@ -67,21 +68,6 @@ export function usePayrollShowFilters({
     supportsTimesheets: boolean;
     debounceMs?: number;
 }) {
-    const [searchInput, setSearchInput] = useState(initialSearch);
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    useEffect(() => {
-        setSearchInput(initialSearch);
-    }, [initialSearch]);
-
-    useEffect(() => {
-        return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-        };
-    }, []);
-
     const baseParams = useCallback(
         () => ({
             department_id: payrollFilters.department_id || undefined,
@@ -129,25 +115,23 @@ export function usePayrollShowFilters({
         [isDraft, url],
     );
 
-    const onSearchChange = useCallback(
+    const handleDebouncedSearch = useCallback(
         (value: string) => {
-            setSearchInput(value);
-
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-
-            debounceRef.current = setTimeout(() => {
-                visit({
-                    ...baseParams(),
-                    search: value,
-                    page: null,
-                    records_page: null,
-                    monthly_records_page: null,
-                });
-            }, debounceMs);
+            visit({
+                ...baseParams(),
+                search: value,
+                page: null,
+                records_page: null,
+                monthly_records_page: null,
+            });
         },
-        [baseParams, debounceMs, visit],
+        [baseParams, visit],
+    );
+
+    const { searchInput, onSearchChange } = useDebouncedSearchInput(
+        initialSearch,
+        handleDebouncedSearch,
+        debounceMs,
     );
 
     const applyFilters = useCallback(
