@@ -216,6 +216,7 @@ export type CrewPayrollPermissions = {
     create: boolean;
     update: boolean;
     import_timesheets: boolean;
+    prepare_timeline: boolean;
     generate_payroll: boolean;
     revert_to_draft: boolean;
     revert_to_approved: boolean;

@@ -113,6 +113,7 @@ use App\Http\Controllers\Payroll\PayrollController;
 use App\Http\Controllers\Payroll\PayrollOverviewController;
 use App\Http\Controllers\Payroll\PayrollRecordController;
 use App\Http\Controllers\Payroll\PayslipController;
+use App\Http\Controllers\Payroll\PrepareCrewTimesheetTimelineController;
 use App\Http\Controllers\Payroll\SalaryInputController;
 use App\Http\Controllers\Payroll\SalaryInputTypeController;
 use App\Http\Controllers\Payroll\WpsExportController;
@@ -329,6 +330,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('payroll/{payrollPeriod}/timesheets/import/template', [PayrollController::class, 'importTemplate'])->name('payroll.timesheets.import.template');
     Route::post('payroll/{payrollPeriod}/timesheets/import/preview', [PayrollController::class, 'importPreview'])->name('payroll.timesheets.import.preview');
     Route::post('payroll/{payrollPeriod}/timesheets/import', [PayrollController::class, 'importTimesheets'])->name('payroll.timesheets.import');
+    Route::post('payroll/{payrollPeriod}/crew-timeline/prepare', PrepareCrewTimesheetTimelineController::class)
+        ->middleware('can:payroll.crew_timesheets.prepare')
+        ->name('payroll.crew-timeline.prepare');
     Route::get('payroll/{payrollPeriod}/export', [PayrollController::class, 'exportPayroll'])
         ->name('payroll.export');
     Route::post('payroll/{payrollPeriod}/generate', [PayrollController::class, 'generatePayroll'])->middleware('can:payroll.periods.update')->name('payroll.generate');

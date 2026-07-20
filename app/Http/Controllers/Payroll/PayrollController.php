@@ -350,6 +350,7 @@ class PayrollController extends Controller
             'permissions' => array_merge(CrewPayrollPagePermissions::for($request->user()), [
                 'import_timesheets' => ($request->user()?->can('payroll.crew_timesheets.import') ?? false)
                     || ($request->user()?->can('payroll.crew_timesheets.create') ?? false),
+                'prepare_timeline' => $request->user()?->can('payroll.crew_timesheets.prepare') ?? false,
                 'salary_inputs_create' => ($request->user()?->can('payroll.salary_inputs.create') ?? false)
                     || ($request->user()?->can('payroll.periods.update') ?? false),
                 'salary_inputs_update' => ($request->user()?->can('payroll.salary_inputs.update') ?? false)

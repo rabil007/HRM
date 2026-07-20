@@ -13,6 +13,7 @@ import {
     Filter,
     Paperclip,
     RotateCcw,
+    Ship,
     Upload,
     Users,
     XCircle,
@@ -38,6 +39,7 @@ import {
     show,
     storeTimesheet,
 } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
+import PrepareCrewTimesheetTimelineController from '@/actions/App/Http/Controllers/Payroll/PrepareCrewTimesheetTimelineController';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -169,6 +171,7 @@ export function PayrollShowContent({
     const [removeRecord, setRemoveRecord] =
         useState<PayrollRecordListItem | null>(null);
     const [isRemovingRecord, setIsRemovingRecord] = useState(false);
+    const [isPreparingTimeline, setIsPreparingTimeline] = useState(false);
     const [selectedWpsRecordIds, setSelectedWpsRecordIds] = useState<number[]>(
         () => all_payroll_record_ids,
     );
@@ -625,6 +628,11 @@ export function PayrollShowContent({
     const canEditTimesheets =
         period.status === 'draft' && (permissions.create || permissions.update);
 
+    const canPrepareTimeline =
+        period.status === 'draft' &&
+        period.supports_timesheets &&
+        permissions.prepare_timeline;
+
     const canRevertToDraft =
         period.can_revert_to_draft && permissions.revert_to_draft;
     const canRevertToApproved =
@@ -682,6 +690,7 @@ export function PayrollShowContent({
 
     const hasHeaderActions =
         canGenerate ||
+        canPrepareTimeline ||
         canRevertToDraft ||
         canRevertToApproved ||
         canRevertToProcessing ||
@@ -753,6 +762,34 @@ export function PayrollShowContent({
                                 >
                                     <XCircle className="mr-2 h-4 w-4" />
                                     Cancel pay run
+                                </Button>
+                            ) : null}
+                            {canPrepareTimeline ? (
+                                <Button
+                                    variant="outline"
+                                    className={headerSecondaryActionClass}
+                                    disabled={isPreparingTimeline}
+                                    onClick={() => {
+                                        setIsPreparingTimeline(true);
+                                        router.post(
+                                            PrepareCrewTimesheetTimelineController.url(
+                                                period.id,
+                                            ),
+                                            {},
+                                            {
+                                                preserveScroll: true,
+                                                onFinish: () =>
+                                                    setIsPreparingTimeline(
+                                                        false,
+                                                    ),
+                                            },
+                                        );
+                                    }}
+                                >
+                                    <Ship className="mr-2 h-4 w-4" />
+                                    {isPreparingTimeline
+                                        ? 'Preparing…'
+                                        : 'Prepare from Crew Operations'}
                                 </Button>
                             ) : null}
                             {canRevertToDraft ? (

@@ -77,9 +77,18 @@ Key implementation files:
 - `app/Support/Payroll/Actions/RecalculateCrewPayroll.php`
 - `app/Support/Payroll/ApplyCrewSalaryInputs.php`
 
-### Crew timeline preparation (Phase 1A)
+### Crew timeline preparation (Phase 1A–1B)
 
-Phase 1A adds versioned preparation tables and additive standby/source metadata on `crew_timesheets` for a future Crew Operations → crewing approval → timesheet apply workflow. This phase is data foundation only; no UI, routes, permissions, or payroll blocking exist yet.
+Phase 1A added versioned preparation tables and additive standby/source metadata on `crew_timesheets`.
+
+Phase 1B adds the automatic draft preparation engine:
+
+- authorized users can `POST /payroll/{payrollPeriod}/crew-timeline/prepare`
+- actual Crew Operations phases are clipped into the pay period and allocated by day
+- a new draft `CrewTimesheetPreparation` version is created with lines and warning codes
+- `crew_timesheets` remain unchanged
+
+Permission: `payroll.crew_timesheets.prepare`.
 
 See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md).
 
@@ -245,6 +254,7 @@ All routes below are inside the authenticated and verified web group. Some use r
 | GET | `/payroll/{payrollPeriod}/timesheets/import/template` | `payroll.timesheets.import.template` | No dedicated permission check beyond authenticated access and company/category checks |
 | POST | `/payroll/{payrollPeriod}/timesheets/import/preview` | `payroll.timesheets.import.preview` | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
 | POST | `/payroll/{payrollPeriod}/timesheets/import` | `payroll.timesheets.import` | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
+| POST | `/payroll/{payrollPeriod}/crew-timeline/prepare` | `payroll.crew-timeline.prepare` | `payroll.crew_timesheets.prepare` |
 | GET | `/payroll/salary-inputs` | `payroll.salary-inputs.index` | `payroll.salary_inputs.view` or `payroll.periods.update` |
 | POST | `/payroll/salary-inputs` | `payroll.salary-input-types.store` | `payroll.salary_inputs.create` or `payroll.periods.update` |
 | PUT | `/payroll/salary-inputs/{salaryInputType}` | `payroll.salary-input-types.update` | `payroll.salary_inputs.update` or `payroll.periods.update` |
@@ -288,6 +298,7 @@ payroll.crew_timesheets.view
 payroll.crew_timesheets.create
 payroll.crew_timesheets.update
 payroll.crew_timesheets.import
+payroll.crew_timesheets.prepare
 payroll.salary_inputs.create
 payroll.salary_inputs.update
 payroll.salary_inputs.delete

@@ -1,109 +1,126 @@
 # Crew Payroll Timeline Preparation
 
-This document describes the **Phase 1A data foundation** for the future crew payroll timeline preparation and approval workflow.
+This document describes the crew payroll timeline preparation architecture.
 
-## Intended future flow
+## Intended flow
 
 ```text
-Crew Operations actual phases
-    → monthly timeline preparation
-    → crewing verification
-    → crewing approval
-    → apply approved operational days to CrewTimesheet
+Payroll creates Crew Pay Period manually
+    → Prepare from Crew Operations
+    → draft versioned preparation + lines/issues
+    → crewing verification (Phase 1C)
+    → crewing approval (Phase 1C)
+    → apply approved operational days to CrewTimesheet (Phase 1D)
     → payroll financial inputs
-    → payroll generation
+    → payroll generation (Phase 1E safeguards)
 ```
-
-Phase 1A introduces only the schema and domain models required by later phases. No preparation service, approval UI, routes, permissions, or payroll blocking exist yet.
 
 ## Source-of-truth rules
 
 - `CrewAssignment` and `CrewAssignmentPhase` remain the operational source of truth for movements.
 - Planned dates must never become actual payroll dates.
+- Only `actual_start_at` and `actual_end_at` are used.
 - Payroll must not wait for an assignment to finish before monthly preparation can exist.
-- Phase 1 initially supports automatic movement mapping for **daily** crew only.
-- Monthly crew payroll continues to treat legacy `standby_days` as leave/unpaid days. That behavior is unchanged in Phase 1A.
+- Automatic preparation currently supports **daily** crew only.
+- Monthly crew payroll continues to treat legacy `standby_days` as leave/unpaid days.
+
+## Phase mapping
+
+| Phase | Pay category |
+|-------|--------------|
+| P0 Pre-Mobilisation | Excluded |
+| P1 Travel In | Excluded (informational issue) |
+| P2A Join Standby | Sign-On Standby |
+| P2B Training | Sign-On Standby |
+| P3 Ready to Join | Sign-On Standby |
+| P4 On Vessel | Onsite |
+| P5 Demobilisation Standby | Sign-Off Standby |
+| P6 Home / Redeployment | Excluded |
+
+Day priority when categories overlap:
+
+1. Onsite
+2. Sign-Off Standby
+3. Sign-On Standby
+4. Excluded
+
+Overlaps still create a blocking `overlapping_phases` warning.
+
+## Active phases
+
+When `actual_end_at` is null on an active phase, the effective end is the earliest of:
+
+- payroll period end
+- selected cutoff date
+- company-local current date
+
+Future payable days are never generated.
 
 ## Phase 1A schema
 
 ### Extended `crew_timesheets`
 
-Legacy standby/onsite fields remain in place:
-
-- `standby_from`, `standby_to`, `standby_days`
-- `onsite_from`, `onsite_to`, `onsite_days`
-
-Additive payable standby fields:
-
-- `sign_on_standby_from`, `sign_on_standby_to`, `sign_on_standby_days`
-- `sign_off_standby_from`, `sign_off_standby_to`, `sign_off_standby_days`
-
-Operational source metadata:
-
-- `source` — `manual`, `import`, `crew_operations`
-- `crew_timesheet_preparation_id`
-- `operational_approved_by`, `operational_approved_at`
-- `movement_source_hash`
+Legacy standby/onsite fields remain. Additive payable standby and source metadata fields support later apply steps.
 
 ### `crew_timesheet_preparations`
 
-Versioned, company-scoped preparation records for a payroll period.
-
-Statuses:
-
-- `draft`
-- `submitted`
-- `returned`
-- `approved`
-- `applied`
-- `superseded`
-
-Each `(company_id, payroll_period_id, version)` tuple is unique. Older versions are preserved; later phases must supersede rather than overwrite history.
+Versioned, company-scoped preparation records. Unique `(company_id, payroll_period_id, version)`. Older versions are preserved.
 
 ### `crew_timesheet_preparation_lines`
 
-Line-level proposed operational pay categories for one preparation version.
+Line-level proposed operational pay categories and warning rows (`warning_code`).
 
-Pay categories:
+## Phase 1B preparation engine
 
-- `sign_on_standby`
-- `onsite`
-- `sign_off_standby`
-- `excluded`
+Implemented Support classes under `app/Support/Payroll/CrewTimeline/`:
 
-Lines may repeat for the same employee, assignment, or phase when multiple actual ranges exist in one period.
-
-## Daily legacy backfill
-
-Existing daily crew timesheets were backfilled additively:
-
-- `standby_from` → `sign_on_standby_from`
-- `standby_to` → `sign_on_standby_to`
-- `standby_days` → `sign_on_standby_days`
-
-Monthly crew timesheets were **not** backfilled into the new payable standby fields because monthly payroll currently uses legacy `standby_days` differently.
-
-## Key implementation files
-
-| Layer | Path |
+| Class | Role |
 |---|---|
-| Enums | `app/Enums/CrewTimesheetSource.php`, `CrewTimesheetPreparationStatus.php`, `CrewTimesheetPayCategory.php` |
-| Models | `app/Models/CrewTimesheetPreparation.php`, `CrewTimesheetPreparationLine.php` |
-| Extended model | `app/Models/CrewTimesheet.php` |
-| Migrations | `database/migrations/2026_07_20_120000_create_crew_timesheet_preparations_table.php`, `2026_07_20_120001_create_crew_timesheet_preparation_lines_table.php`, `2026_07_20_120002_add_timeline_preparation_fields_to_crew_timesheets_table.php` |
-| Tests | `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1ATest.php` |
+| `PrepareCrewTimesheetTimeline` | Orchestrates draft preparation creation |
+| `CrewTimelinePhaseQuery` | Loads overlapping actual phases and effective end |
+| `CrewTimelineDayAllocator` | Allocates one category per calendar day |
+| `CrewPhasePayCategoryResolver` | Maps phase → pay category and priority |
+| `CrewTimelineSourceHasher` | SHA-256 source fingerprint |
+| `CrewTimelineIssueDetector` | Warning/issue detection |
+| `CrewTimelineRangeBuilder` | Contiguous ranges per phase/category |
 
-## Out of scope for Phase 1A
+### HTTP
 
-- Timeline preparation service
-- Phase-to-pay-category calculation
-- Daily date allocation
-- Source hash calculation
-- Crewing review UI
-- Submit/return/approve/apply actions
-- New routes, controllers, or permissions
-- Payroll generation blocking
-- Monthly crew movement synchronization
-- Direct Crew Operations → `CrewTimesheet` synchronization
+- `POST /payroll/{payrollPeriod}/crew-timeline/prepare`
+- Route name: `payroll.crew-timeline.prepare`
+- Permission: `payroll.crew_timesheets.prepare`
+- Controller: `PrepareCrewTimesheetTimelineController`
+
+Draft crew periods show a **Prepare from Crew Operations** header action for authorized users.
+
+### Behavior
+
+- Creates a new draft preparation with the next locked version number
+- Does not overwrite older versions
+- Does not approve, apply to `crew_timesheets`, or generate payroll
+- Monthly crew and employees without an active crew contract are skipped with warnings
+- Pending movement corrections produce warnings
+
+## Warning codes
+
+Stored in `crew_timesheet_preparation_lines.warning_code` via `CrewTimelineWarningCode`.
+
+Blocking (for future submit): `missing_actual_start`, `missing_actual_end`, `overlapping_phases`, `pending_movement_correction`, `no_active_crew_contract`, `cross_company_reference`, `invalid_phase_range`
+
+Informational: `timeline_gap`, `monthly_contract_not_supported`, `future_actual_date`, `travel_in_excluded`
+
+## Tests
+
+- Phase 1A: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1ATest.php`
+- Phase 1B: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1BTest.php`
+
+## Out of scope until later phases
+
+- Submit / return / approve workflow (1C)
+- Apply to `crew_timesheets` (1D)
+- Daily calculator/UI/generation safeguards (1E)
+- Monthly crew movement integration
+- Travel payment configuration
+- Vessel transfer / redeployment
 
 See also [crew-movement-phases.md](./crew-movement-phases.md) and [payroll.md](../payroll.md).
