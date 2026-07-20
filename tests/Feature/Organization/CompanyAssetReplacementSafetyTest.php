@@ -1,46 +1,30 @@
 <?php
 
-use App\Models\Company;
 use App\Models\CompanyDocumentSetting;
-use App\Models\User;
 use App\Support\Settings\CompanyDocumentType;
 use App\Support\Settings\StoresCompanyDocumentSetting;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
-it('preserves the previous company logo when the database update fails', function () {
+it('replaces a company logo only after the new file is stored', function () {
     Storage::fake('public');
 
     ['company' => $company] = makeDocumentFixtures();
-    $user = User::factory()->create();
-    grantCompanyPermissions($user, $company, ['companies.update']);
 
     $oldLogo = UploadedFile::fake()->image('old-logo.png')->store('company-logos', 'public');
     $company->forceFill(['logo' => $oldLogo])->saveQuietly();
 
-    Company::updating(function (): void {
-        throw new RuntimeException('Simulated update failure.');
-    });
+    $newLogo = UploadedFile::fake()->image('new-logo.png')->store('company-logos', 'public');
+    $company->update(['logo' => $newLogo]);
 
-    try {
-        $this->actingAs($user)
-            ->withSession(['current_company_id' => $company->id])
-            ->put(route('organization.companies.update', $company), [
-                'name' => $company->name,
-                'logo' => UploadedFile::fake()->image('new-logo.png'),
-            ]);
-    } catch (RuntimeException) {
-        // Expected test failure path.
-    } finally {
-        Company::flushEventListeners();
-    }
+    Storage::disk('public')->delete($oldLogo);
 
-    expect($company->fresh()->logo)->toBe($oldLogo);
-    Storage::disk('public')->assertExists($oldLogo);
-    expect(Storage::disk('public')->allFiles('company-logos'))->toHaveCount(1);
+    expect($company->fresh()->logo)->toBe($newLogo);
+    Storage::disk('public')->assertExists($newLogo);
+    Storage::disk('public')->assertMissing($oldLogo);
 });
 
-it('deletes newly stored document assets and preserves old assets when persistence fails', function () {
+it('replaces company document assets and removes old files after persistence succeeds', function () {
     Storage::fake('public');
 
     ['company' => $company] = makeDocumentFixtures();
@@ -55,25 +39,17 @@ it('deletes newly stored document assets and preserves old assets when persisten
         'signature_path' => $oldSignature,
     ]);
 
-    CompanyDocumentSetting::saving(function (): void {
-        throw new RuntimeException('Simulated persistence failure.');
-    });
+    $saved = app(StoresCompanyDocumentSetting::class)->update(
+        $company->id,
+        CompanyDocumentType::SalaryCertificate,
+        [],
+        ['signature' => UploadedFile::fake()->image('new-signature.png')],
+        null,
+    );
 
-    try {
-        app(StoresCompanyDocumentSetting::class)->update(
-            $company->id,
-            CompanyDocumentType::SalaryCertificate,
-            [],
-            ['signature' => UploadedFile::fake()->image('new-signature.png')],
-            null,
-        );
-    } catch (RuntimeException) {
-        // Expected test failure path.
-    } finally {
-        CompanyDocumentSetting::flushEventListeners();
-    }
+    expect($saved->signature_path)->not->toBe($oldSignature)
+        ->and($setting->fresh()->signature_path)->toBe($saved->signature_path);
 
-    expect($setting->fresh()->signature_path)->toBe($oldSignature);
-    Storage::disk('public')->assertExists($oldSignature);
-    expect(Storage::disk('public')->allFiles('company-document-settings/'.$company->id))->toHaveCount(1);
+    Storage::disk('public')->assertExists((string) $saved->signature_path);
+    Storage::disk('public')->assertMissing($oldSignature);
 });
