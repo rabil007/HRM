@@ -2,6 +2,8 @@
 
 namespace App\Support\Payroll;
 
+use App\Enums\CrewTimesheetPreparationStatus;
+use App\Enums\CrewTimesheetSource;
 use App\Enums\SalaryComponentCode;
 use App\Enums\SalaryComponentStatus;
 use App\Models\ContractSalaryComponent;
@@ -43,8 +45,11 @@ final class CrewPayrollCalculator
         $siteRate = $this->activeAmount($components, SalaryComponentCode::SiteAllowance);
         $supplementaryRate = $this->activeAmount($components, SalaryComponentCode::SupplementaryAllowance);
 
-        $standbyDays = (float) ($timesheet->standby_days ?? 0);
-        $onsiteDays = (float) ($timesheet->onsite_days ?? 0);
+        $operationalDays = $this->resolveOperationalDays($timesheet);
+        $signOnStandbyDays = $operationalDays['sign_on_standby_days'];
+        $signOffStandbyDays = $operationalDays['sign_off_standby_days'];
+        $standbyDays = $operationalDays['total_standby_days'];
+        $onsiteDays = $operationalDays['onsite_days'];
         $overtimeHours = (float) ($timesheet->overtime_hours ?? 0);
         $hasPayableActivity = $standbyDays > 0 || $onsiteDays > 0 || $overtimeHours > 0;
 
@@ -55,7 +60,17 @@ final class CrewPayrollCalculator
         }
 
         $basicRate ??= 0.0;
-        $standbyPay = round($standbyDays * ($basicRate + ($supplementaryRate ?? 0)), 2);
+        $standbyDailyRate = $basicRate + ($supplementaryRate ?? 0);
+        $signOnStandbyPay = round($signOnStandbyDays * $standbyDailyRate, 2);
+        $signOffStandbyPay = round($signOffStandbyDays * $standbyDailyRate, 2);
+        $standbyPay = round($signOnStandbyPay + $signOffStandbyPay, 2);
+
+        if (! $operationalDays['uses_crew_operations']) {
+            $standbyPay = round($standbyDays * $standbyDailyRate, 2);
+            $signOnStandbyPay = 0.0;
+            $signOffStandbyPay = 0.0;
+        }
+
         $onsitePay = round($onsiteDays * $basicRate, 2);
         $siteAllowancePay = round($onsiteDays * ($siteRate ?? 0), 2);
         $supplementaryPay = round($onsiteDays * ($supplementaryRate ?? 0), 2);
@@ -80,6 +95,49 @@ final class CrewPayrollCalculator
         $presentDays = round($standbyDays + $onsiteDays, 2);
         $leaveDays = round(max(0, $workingDaysInPeriod - $presentDays), 2);
 
+        $lines = [
+            'standby_pay' => $standbyPay,
+            'onsite_pay' => $onsitePay,
+            'site_allowance' => $siteAllowancePay,
+            'supplementary_allowance' => $supplementaryPay,
+            'overtime' => $overtimePay,
+            'additional' => $additionalAmount,
+            'deduction' => $deductionAmount,
+        ];
+
+        if ($operationalDays['uses_crew_operations']) {
+            $lines = [
+                'sign_on_standby_pay' => $signOnStandbyPay,
+                'sign_off_standby_pay' => $signOffStandbyPay,
+                ...$lines,
+            ];
+        }
+
+        $breakdown = [
+            'salary_structure' => 'daily',
+            'standby_days' => $standbyDays,
+            'onsite_days' => $onsiteDays,
+            'working_days' => $workingDaysInPeriod,
+            'present_days' => $presentDays,
+            'leave_days' => $leaveDays,
+            'rates' => [
+                'basic_daily' => $basicRate,
+                'site_allowance_daily' => $siteRate ?? 0,
+                'supplementary_allowance_daily' => $supplementaryRate ?? 0,
+            ],
+            'overtime' => $overtimeBreakdown,
+            'lines' => $lines,
+            'gross_salary' => $grossSalary,
+            'net_salary' => $netSalary,
+        ];
+
+        if ($operationalDays['uses_crew_operations']) {
+            $breakdown['sign_on_standby_days'] = $signOnStandbyDays;
+            $breakdown['sign_off_standby_days'] = $signOffStandbyDays;
+            $breakdown['total_standby_days'] = $standbyDays;
+            $breakdown['operational_source'] = 'crew_operations';
+        }
+
         return [
             'basic_salary' => $this->formatMoney($standbyPay + $onsitePay),
             'other_allowances' => $this->formatMoney($siteAllowancePay + $supplementaryPay),
@@ -93,32 +151,56 @@ final class CrewPayrollCalculator
             'working_days' => $workingDaysInPeriod,
             'present_days' => $presentDays,
             'leave_days' => $leaveDays,
-            'calculation_breakdown' => [
-                'salary_structure' => 'daily',
-                'standby_days' => $standbyDays,
-                'onsite_days' => $onsiteDays,
-                'working_days' => $workingDaysInPeriod,
-                'present_days' => $presentDays,
-                'leave_days' => $leaveDays,
-                'rates' => [
-                    'basic_daily' => $basicRate,
-                    'site_allowance_daily' => $siteRate ?? 0,
-                    'supplementary_allowance_daily' => $supplementaryRate ?? 0,
-                ],
-                'overtime' => $overtimeBreakdown,
-                'lines' => [
-                    'standby_pay' => $standbyPay,
-                    'onsite_pay' => $onsitePay,
-                    'site_allowance' => $siteAllowancePay,
-                    'supplementary_allowance' => $supplementaryPay,
-                    'overtime' => $overtimePay,
-                    'additional' => $additionalAmount,
-                    'deduction' => $deductionAmount,
-                ],
-                'gross_salary' => $grossSalary,
-                'net_salary' => $netSalary,
-            ],
+            'calculation_breakdown' => $breakdown,
         ];
+    }
+
+    /**
+     * @return array{
+     *     uses_crew_operations: bool,
+     *     sign_on_standby_days: float,
+     *     sign_off_standby_days: float,
+     *     total_standby_days: float,
+     *     onsite_days: float
+     * }
+     */
+    private function resolveOperationalDays(CrewTimesheet $timesheet): array
+    {
+        if ($this->usesCrewOperationsDays($timesheet)) {
+            $signOn = (float) ($timesheet->sign_on_standby_days ?? 0);
+            $signOff = (float) ($timesheet->sign_off_standby_days ?? 0);
+
+            return [
+                'uses_crew_operations' => true,
+                'sign_on_standby_days' => $signOn,
+                'sign_off_standby_days' => $signOff,
+                'total_standby_days' => round($signOn + $signOff, 2),
+                'onsite_days' => (float) ($timesheet->onsite_days ?? 0),
+            ];
+        }
+
+        return [
+            'uses_crew_operations' => false,
+            'sign_on_standby_days' => 0.0,
+            'sign_off_standby_days' => 0.0,
+            'total_standby_days' => (float) ($timesheet->standby_days ?? 0),
+            'onsite_days' => (float) ($timesheet->onsite_days ?? 0),
+        ];
+    }
+
+    private function usesCrewOperationsDays(CrewTimesheet $timesheet): bool
+    {
+        if ($timesheet->source !== CrewTimesheetSource::CrewOperations) {
+            return false;
+        }
+
+        if ($timesheet->crew_timesheet_preparation_id === null) {
+            return false;
+        }
+
+        $timesheet->loadMissing('preparation');
+
+        return $timesheet->preparation?->status === CrewTimesheetPreparationStatus::Applied;
     }
 
     /**

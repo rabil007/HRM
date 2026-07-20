@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\CrewTimesheetMode;
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\PayrollPeriod;
@@ -27,6 +28,7 @@ class PayrollPeriodFactory extends Factory
                 throw new \InvalidArgumentException('company_id must be set via for()');
             },
             'payroll_category' => PayrollCategory::Crew,
+            'crew_timesheet_mode' => CrewTimesheetMode::Manual,
             'name' => $start->format('F Y'),
             'start_date' => $start->format('Y-m-d'),
             'end_date' => $end->format('Y-m-d'),
@@ -64,6 +66,23 @@ class PayrollPeriodFactory extends Factory
     {
         return $this->state(fn () => [
             'payroll_category' => PayrollCategory::Office,
+            'crew_timesheet_mode' => null,
+        ]);
+    }
+
+    public function crewOperations(): static
+    {
+        return $this->state(fn () => [
+            'payroll_category' => PayrollCategory::Crew,
+            'crew_timesheet_mode' => CrewTimesheetMode::CrewOperations,
+        ]);
+    }
+
+    public function manualTimesheets(): static
+    {
+        return $this->state(fn () => [
+            'payroll_category' => PayrollCategory::Crew,
+            'crew_timesheet_mode' => CrewTimesheetMode::Manual,
         ]);
     }
 }

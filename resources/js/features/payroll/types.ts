@@ -26,6 +26,25 @@ export type PayrollCategoryOption = {
     label: string;
 };
 
+export type CrewTimesheetMode = 'manual' | 'crew_operations';
+
+export type CrewTimesheetModeOption = {
+    value: CrewTimesheetMode;
+    label: string;
+};
+
+export type GenerationReadiness = {
+    ready: boolean;
+    blocking_reason: string | null;
+    applied_preparation_id: number | null;
+    applied_preparation_version: number | null;
+};
+
+export const CREW_TIMESHEET_MODE_OPTIONS: CrewTimesheetModeOption[] = [
+    { value: 'manual', label: 'Manual / Excel Timesheet' },
+    { value: 'crew_operations', label: 'Crew Operations Timeline' },
+];
+
 export type PayrollPeriodStatus =
     | 'draft'
     | 'processing'
@@ -46,6 +65,12 @@ export type PayrollPeriod = {
     payment_date: string;
     payroll_category: PayrollCategory;
     payroll_category_label: string;
+    crew_timesheet_mode: CrewTimesheetMode | null;
+    crew_timesheet_mode_label: string | null;
+    uses_crew_operations_timesheets: boolean;
+    uses_manual_timesheets: boolean;
+    generation_ready?: boolean;
+    generation_blocking_reason?: string | null;
     supports_timesheets: boolean;
     status: string;
     status_label: string;
@@ -79,6 +104,7 @@ export type PayrollPeriodListItem = PayrollPeriod & {
 export type PayrollPeriodFormData = {
     name: string;
     payroll_category: PayrollCategory;
+    crew_timesheet_mode: CrewTimesheetMode | '';
     start_date: string;
     end_date: string;
     payment_date: string;
@@ -111,13 +137,30 @@ export type CrewTimesheet = {
     standby_from: string | null;
     standby_to: string | null;
     standby_days: string | null;
+    sign_on_standby_from: string | null;
+    sign_on_standby_to: string | null;
+    sign_on_standby_days: string | null;
     onsite_from: string | null;
     onsite_to: string | null;
     onsite_days: string | null;
+    sign_off_standby_from: string | null;
+    sign_off_standby_to: string | null;
+    sign_off_standby_days: string | null;
+    total_payable_days: number | null;
     overtime_hours: string;
+    overtime_amount?: string | null;
     additional_amount: string;
     deduction_amount: string;
     remarks: string | null;
+    source: string | null;
+    source_label: string | null;
+    crew_timesheet_preparation_id: number | null;
+    operational_approved_by: number | null;
+    operational_approved_at: string | null;
+    movement_source_hash: string | null;
+    is_operationally_locked: boolean;
+    preparation_status: string | null;
+    preparation_version: number | null;
 };
 
 export type LeaveTypeColumn = {
@@ -429,6 +472,8 @@ export type PayrollShowProps = {
     timesheet_draft: CrewTimesheetFormData | null;
     employee_stats: EmployeeStats | null;
     crew_timeline_preparation: CrewTimelinePreparationSummary | null;
+    generation_readiness: GenerationReadiness | null;
+    crew_timesheet_mode_options: CrewTimesheetModeOption[];
 };
 
 function formatAmount(value: string | null | undefined): string {

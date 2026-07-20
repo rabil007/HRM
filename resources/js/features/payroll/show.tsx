@@ -147,6 +147,7 @@ export function PayrollShowContent({
     wps_preview,
     employee_stats,
     crew_timeline_preparation = null,
+    generation_readiness = null,
 }: PayrollShowProps) {
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -629,11 +630,23 @@ export function PayrollShowContent({
     const canGenerate =
         period.can_generate_payroll && permissions.generate_payroll;
 
+    const isGenerationBlocked =
+        period.supports_timesheets &&
+        period.generation_ready === false &&
+        permissions.generate_payroll &&
+        period.can_generate_crew_payroll;
+
+    const generationBlockingReason =
+        period.generation_blocking_reason ??
+        generation_readiness?.blocking_reason ??
+        'Apply the approved Crew Operations timeline before generating payroll.';
+
     const canEditTimesheets =
         period.status === 'draft' && (permissions.create || permissions.update);
 
     const canPrepareTimeline =
         period.status === 'draft' &&
+        period.uses_crew_operations_timesheets &&
         period.supports_timesheets &&
         permissions.prepare_timeline &&
         crew_timeline_preparation?.status !== 'applied';
@@ -695,6 +708,7 @@ export function PayrollShowContent({
 
     const hasHeaderActions =
         canGenerate ||
+        isGenerationBlocked ||
         canPrepareTimeline ||
         canRevertToDraft ||
         canRevertToApproved ||
@@ -722,6 +736,11 @@ export function PayrollShowContent({
                             status={period.status}
                             label={period.status_label}
                         />
+                        {period.crew_timesheet_mode_label ? (
+                            <Badge variant="outline">
+                                {period.crew_timesheet_mode_label}
+                            </Badge>
+                        ) : null}
                     </span>
                 }
                 description={`${formatDisplayDate(period.start_date)} — ${formatDisplayDate(period.end_date)} · Payment ${formatDisplayDate(period.payment_date)}`}
@@ -862,6 +881,25 @@ export function PayrollShowContent({
                                         ? 'Update payroll'
                                         : 'Generate payroll'}
                                 </Button>
+                            ) : isGenerationBlocked ? (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span className="inline-flex">
+                                            <Button
+                                                disabled
+                                                className={
+                                                    headerPrimaryActionClass
+                                                }
+                                            >
+                                                <Calculator className="mr-2 h-4 w-4" />
+                                                Generate payroll
+                                            </Button>
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        {generationBlockingReason}
+                                    </TooltipContent>
+                                </Tooltip>
                             ) : null}
                             {canApprove ? (
                                 <Button
@@ -906,6 +944,7 @@ export function PayrollShowContent({
 
             {period.supports_timesheets &&
             permissions.view_timeline &&
+            period.uses_crew_operations_timesheets &&
             crew_timeline_preparation ? (
                 <Card className="glass-card">
                     <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
@@ -972,6 +1011,22 @@ export function PayrollShowContent({
                                 ? 'View Timeline'
                                 : 'Review Timeline'}
                         </Button>
+                    </CardContent>
+                </Card>
+            ) : null}
+
+            {isGenerationBlocked ? (
+                <Card className="glass-card border-amber-500/30 bg-amber-500/5">
+                    <CardContent className="flex items-start gap-3 p-5">
+                        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                        <div className="space-y-1">
+                            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                                Payroll generation blocked
+                            </p>
+                            <p className="text-sm text-amber-800/90 dark:text-amber-200/90">
+                                {generationBlockingReason}
+                            </p>
+                        </div>
                     </CardContent>
                 </Card>
             ) : null}
@@ -1429,6 +1484,11 @@ export function PayrollShowContent({
                                               onsiteTo,
                                           ));
 
+                                    const isOperationallyLocked =
+                                        !isMonthlyCrewRow &&
+                                        row.timesheet
+                                            ?.is_operationally_locked === true;
+
                                     const isDirty =
                                         !!crewTimesheetDrafts[row.employee.id];
 
@@ -1533,74 +1593,118 @@ export function PayrollShowContent({
                                                     'border-l border-blue-500/8 bg-blue-500/2',
                                                 )}
                                             >
-                                                <div className="flex flex-col gap-2">
-                                                    <div className="flex items-center gap-1">
-                                                        <Input
-                                                            type="date"
-                                                            value={standbyFrom}
-                                                            onChange={(e) =>
-                                                                handleCrewTimesheetChange(
-                                                                    row.employee
-                                                                        .id,
-                                                                    'standby_from',
-                                                                    e.target
-                                                                        .value,
-                                                                    row.timesheet,
-                                                                )
+                                                {isOperationallyLocked ? (
+                                                    <div className="space-y-2 text-[11px]">
+                                                        <OperationalDateRange
+                                                            label="Sign-on standby"
+                                                            from={
+                                                                row.timesheet
+                                                                    ?.sign_on_standby_from
                                                             }
-                                                            className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                                            disabled={
-                                                                !canEditTimesheets
+                                                            to={
+                                                                row.timesheet
+                                                                    ?.sign_on_standby_to
+                                                            }
+                                                            days={
+                                                                row.timesheet
+                                                                    ?.sign_on_standby_days
                                                             }
                                                         />
-                                                        <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
-                                                            →
-                                                        </span>
-                                                        <Input
-                                                            type="date"
-                                                            value={standbyTo}
-                                                            onChange={(e) =>
-                                                                handleCrewTimesheetChange(
-                                                                    row.employee
-                                                                        .id,
-                                                                    'standby_to',
-                                                                    e.target
-                                                                        .value,
-                                                                    row.timesheet,
-                                                                )
+                                                        <OperationalDateRange
+                                                            label="Sign-off standby"
+                                                            from={
+                                                                row.timesheet
+                                                                    ?.sign_off_standby_from
                                                             }
-                                                            className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                                            disabled={
-                                                                !canEditTimesheets
+                                                            to={
+                                                                row.timesheet
+                                                                    ?.sign_off_standby_to
+                                                            }
+                                                            days={
+                                                                row.timesheet
+                                                                    ?.sign_off_standby_days
                                                             }
                                                         />
                                                     </div>
-                                                    <Badge
-                                                        variant="secondary"
-                                                        className={cn(
-                                                            'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
-                                                            standbyDays &&
-                                                                Number(
-                                                                    standbyDays,
-                                                                ) > 0
-                                                                ? 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300'
-                                                                : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
-                                                        )}
-                                                    >
-                                                        {standbyDays &&
-                                                        Number(standbyDays) >
-                                                            0 ? (
-                                                            <>
-                                                                {formatTimesheetDays(
-                                                                    standbyDays,
-                                                                )}{' '}
-                                                                days
-                                                            </>
-                                                        ) : (
-                                                            <>No dates set</>
-                                                        )}
-                                                    </Badge>
-                                                </div>
+                                                ) : (
+                                                    <div className="flex flex-col gap-2">
+                                                        <div className="flex items-center gap-1">
+                                                            <Input
+                                                                type="date"
+                                                                value={
+                                                                    standbyFrom
+                                                                }
+                                                                onChange={(e) =>
+                                                                    handleCrewTimesheetChange(
+                                                                        row
+                                                                            .employee
+                                                                            .id,
+                                                                        'standby_from',
+                                                                        e.target
+                                                                            .value,
+                                                                        row.timesheet,
+                                                                    )
+                                                                }
+                                                                className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                                disabled={
+                                                                    !canEditTimesheets
+                                                                }
+                                                            />
+                                                            <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
+                                                                →
+                                                            </span>
+                                                            <Input
+                                                                type="date"
+                                                                value={
+                                                                    standbyTo
+                                                                }
+                                                                onChange={(e) =>
+                                                                    handleCrewTimesheetChange(
+                                                                        row
+                                                                            .employee
+                                                                            .id,
+                                                                        'standby_to',
+                                                                        e.target
+                                                                            .value,
+                                                                        row.timesheet,
+                                                                    )
+                                                                }
+                                                                className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                                disabled={
+                                                                    !canEditTimesheets
+                                                                }
+                                                            />
+                                                        </div>
+                                                        <Badge
+                                                            variant="secondary"
+                                                            className={cn(
+                                                                'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
+                                                                standbyDays &&
+                                                                    Number(
+                                                                        standbyDays,
+                                                                    ) > 0
+                                                                    ? 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300'
+                                                                    : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
+                                                            )}
+                                                        >
+                                                            {standbyDays &&
+                                                            Number(
+                                                                standbyDays,
+                                                            ) > 0 ? (
+                                                                <>
+                                                                    {formatTimesheetDays(
+                                                                        standbyDays,
+                                                                    )}{' '}
+                                                                    days
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    No dates set
+                                                                </>
+                                                            )}
+                                                        </Badge>
+                                                    </div>
+                                                )}
                                             </TableCell>
 
                                             {/* Onsite dates */}
@@ -1610,74 +1714,98 @@ export function PayrollShowContent({
                                                     'border-r border-blue-500/8 bg-blue-500/2',
                                                 )}
                                             >
-                                                <div className="flex flex-col gap-2">
-                                                    <div className="flex items-center gap-1">
-                                                        <Input
-                                                            type="date"
-                                                            value={onsiteFrom}
-                                                            onChange={(e) =>
-                                                                handleCrewTimesheetChange(
-                                                                    row.employee
-                                                                        .id,
-                                                                    'onsite_from',
-                                                                    e.target
-                                                                        .value,
-                                                                    row.timesheet,
-                                                                )
-                                                            }
-                                                            className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                                            disabled={
-                                                                !canEditTimesheets
-                                                            }
-                                                        />
-                                                        <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
-                                                            →
-                                                        </span>
-                                                        <Input
-                                                            type="date"
-                                                            value={onsiteTo}
-                                                            onChange={(e) =>
-                                                                handleCrewTimesheetChange(
-                                                                    row.employee
-                                                                        .id,
-                                                                    'onsite_to',
-                                                                    e.target
-                                                                        .value,
-                                                                    row.timesheet,
-                                                                )
-                                                            }
-                                                            className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                                            disabled={
-                                                                !canEditTimesheets
-                                                            }
-                                                        />
+                                                {isOperationallyLocked ? (
+                                                    <OperationalDateRange
+                                                        label="Onsite"
+                                                        from={
+                                                            row.timesheet
+                                                                ?.onsite_from
+                                                        }
+                                                        to={
+                                                            row.timesheet
+                                                                ?.onsite_to
+                                                        }
+                                                        days={
+                                                            row.timesheet
+                                                                ?.onsite_days
+                                                        }
+                                                    />
+                                                ) : (
+                                                    <div className="flex flex-col gap-2">
+                                                        <div className="flex items-center gap-1">
+                                                            <Input
+                                                                type="date"
+                                                                value={
+                                                                    onsiteFrom
+                                                                }
+                                                                onChange={(e) =>
+                                                                    handleCrewTimesheetChange(
+                                                                        row
+                                                                            .employee
+                                                                            .id,
+                                                                        'onsite_from',
+                                                                        e.target
+                                                                            .value,
+                                                                        row.timesheet,
+                                                                    )
+                                                                }
+                                                                className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                                disabled={
+                                                                    !canEditTimesheets
+                                                                }
+                                                            />
+                                                            <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
+                                                                →
+                                                            </span>
+                                                            <Input
+                                                                type="date"
+                                                                value={onsiteTo}
+                                                                onChange={(e) =>
+                                                                    handleCrewTimesheetChange(
+                                                                        row
+                                                                            .employee
+                                                                            .id,
+                                                                        'onsite_to',
+                                                                        e.target
+                                                                            .value,
+                                                                        row.timesheet,
+                                                                    )
+                                                                }
+                                                                className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                                disabled={
+                                                                    !canEditTimesheets
+                                                                }
+                                                            />
+                                                        </div>
+                                                        <Badge
+                                                            variant="secondary"
+                                                            className={cn(
+                                                                'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
+                                                                onsiteDays &&
+                                                                    Number(
+                                                                        onsiteDays,
+                                                                    ) > 0
+                                                                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                                                                    : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
+                                                            )}
+                                                        >
+                                                            {onsiteDays &&
+                                                            Number(onsiteDays) >
+                                                                0 ? (
+                                                                <>
+                                                                    {formatTimesheetDays(
+                                                                        onsiteDays,
+                                                                    )}{' '}
+                                                                    days
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    No dates set
+                                                                </>
+                                                            )}
+                                                        </Badge>
                                                     </div>
-                                                    <Badge
-                                                        variant="secondary"
-                                                        className={cn(
-                                                            'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
-                                                            onsiteDays &&
-                                                                Number(
-                                                                    onsiteDays,
-                                                                ) > 0
-                                                                ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                                                                : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
-                                                        )}
-                                                    >
-                                                        {onsiteDays &&
-                                                        Number(onsiteDays) >
-                                                            0 ? (
-                                                            <>
-                                                                {formatTimesheetDays(
-                                                                    onsiteDays,
-                                                                )}{' '}
-                                                                days
-                                                            </>
-                                                        ) : (
-                                                            <>No dates set</>
-                                                        )}
-                                                    </Badge>
-                                                </div>
+                                                )}
                                             </TableCell>
 
                                             {/* Overtime hours */}
@@ -1790,6 +1918,10 @@ export function PayrollShowContent({
                                 <Calculator className="mr-2 h-4 w-4" />
                                 Generate payroll
                             </Button>
+                        ) : isGenerationBlocked ? (
+                            <p className="max-w-md text-center text-sm text-muted-foreground">
+                                {generationBlockingReason}
+                            </p>
                         ) : undefined
                     }
                 />
@@ -2745,6 +2877,46 @@ function OfficeEmployeesTabContent({
                     <Pagination {...paginationProps} label="employees" />
                 </>
             )}
+        </div>
+    );
+}
+
+function OperationalDateRange({
+    label,
+    from,
+    to,
+    days,
+}: {
+    label: string;
+    from: string | null | undefined;
+    to: string | null | undefined;
+    days: string | null | undefined;
+}) {
+    const hasDays = days !== null && days !== undefined && days !== '';
+    const hasRange = Boolean(from) || Boolean(to);
+
+    return (
+        <div className="space-y-1">
+            <p className="text-[10px] font-semibold tracking-wide text-muted-foreground/70 uppercase">
+                {label}
+            </p>
+            {hasRange ? (
+                <p className="font-mono text-[11px] text-foreground/90">
+                    {formatDisplayDate(from)} → {formatDisplayDate(to)}
+                </p>
+            ) : (
+                <p className="text-[11px] text-muted-foreground/60">
+                    No dates set
+                </p>
+            )}
+            {hasDays && Number(days) > 0 ? (
+                <Badge
+                    variant="secondary"
+                    className="inline-flex w-fit items-center gap-1 rounded-md border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-700 tabular-nums dark:text-blue-300"
+                >
+                    {formatTimesheetDays(days)} days
+                </Badge>
+            ) : null}
         </div>
     );
 }

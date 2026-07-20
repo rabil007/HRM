@@ -25,6 +25,7 @@ test('crew monthly payroll calculator prorates monthly components from working a
     $result = (new CrewMonthlyPayrollCalculator)->calculate($timesheet, $components, 30);
 
     expect($result['calculation_breakdown']['salary_structure'])->toBe('monthly')
+        ->and($result['calculation_breakdown']['leave_days'])->toBe(5.0)
         ->and($result['calculation_breakdown']['lines'])->toMatchArray([
             'basic' => 4166.67,
             'housing' => 1666.67,

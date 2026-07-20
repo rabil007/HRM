@@ -3,6 +3,8 @@
 namespace App\Support\Payroll\Actions;
 
 use App\Enums\ContractSalaryStructure;
+use App\Enums\CrewTimesheetMode;
+use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Enums\SalaryPaymentMethod;
@@ -12,6 +14,7 @@ use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\CrewMonthlyPayrollCalculator;
+use App\Support\Payroll\CrewOperationsPayrollGenerationGuard;
 use App\Support\Payroll\CrewOvertimeMonthlySalary;
 use App\Support\Payroll\CrewPayrollCalculator;
 use App\Support\Payroll\GeneratePayrollResult;
@@ -29,6 +32,7 @@ final class GenerateCrewPayroll
         private readonly CrewMonthlyPayrollCalculator $monthlyCalculator,
         private readonly RecalculateCrewPayroll $recalculateCrewPayroll,
         private readonly ResolveEffectiveContractSalaryComponents $resolveEffectiveComponents,
+        private readonly CrewOperationsPayrollGenerationGuard $crewOperationsGuard,
     ) {}
 
     public function handle(PayrollPeriod $period, array $excludedEmployeeIds = []): GeneratePayrollResult
@@ -60,7 +64,9 @@ final class GenerateCrewPayroll
                     ->orderByDesc('effective_from')
                     ->orderByDesc('version'),
                 'primaryBankAccount',
-                'crewTimesheets' => fn ($query) => $query->where('period_id', $period->id),
+                'crewTimesheets' => fn ($query) => $query
+                    ->where('period_id', $period->id)
+                    ->with('preparation'),
             ])
             ->orderBy('employees.name')
             ->get();
@@ -69,34 +75,41 @@ final class GenerateCrewPayroll
         $skippedEmployees = [];
         $errors = [];
         $workingDaysInPeriod = $period->calendarDayCount();
+        $usesCrewOperations = $period->crew_timesheet_mode === CrewTimesheetMode::CrewOperations;
 
         DB::transaction(function () use (
             $period,
             $employees,
             $excludedEmployeeIds,
             $workingDaysInPeriod,
+            $usesCrewOperations,
             &$generatedCount,
             &$skippedEmployees,
             &$errors,
         ): void {
+            $lockedPeriod = PayrollPeriod::query()
+                ->whereKey($period->id)
+                ->where('company_id', $period->company_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($usesCrewOperations) {
+                $this->crewOperationsGuard->assertReadyForGeneration(
+                    $lockedPeriod,
+                    $employees,
+                    (int) $lockedPeriod->company_id,
+                );
+            }
+
             if ($excludedEmployeeIds !== []) {
                 PayrollRecord::query()
-                    ->where('period_id', $period->id)
+                    ->where('period_id', $lockedPeriod->id)
                     ->whereIn('employee_id', $excludedEmployeeIds)
                     ->forceDelete();
             }
 
             foreach ($employees as $employee) {
                 /** @var Employee $employee */
-                $timesheet = $employee->crewTimesheets->first()
-                    ?? new CrewTimesheet([
-                        'standby_days' => 0,
-                        'onsite_days' => 0,
-                        'overtime_hours' => 0,
-                        'additional_amount' => 0,
-                        'deduction_amount' => 0,
-                    ]);
-
                 $contract = $employee->currentContract;
 
                 if ($contract === null) {
@@ -109,10 +122,28 @@ final class GenerateCrewPayroll
                     continue;
                 }
 
+                $salaryStructure = $contract->resolvedSalaryStructure();
+                $timesheet = $employee->crewTimesheets->first();
+
+                if ($timesheet === null) {
+                    if ($usesCrewOperations && $salaryStructure === ContractSalaryStructure::Daily) {
+                        continue;
+                    }
+
+                    $timesheet = new CrewTimesheet([
+                        'standby_days' => 0,
+                        'onsite_days' => 0,
+                        'overtime_hours' => 0,
+                        'additional_amount' => 0,
+                        'deduction_amount' => 0,
+                        'source' => CrewTimesheetSource::Manual,
+                    ]);
+                }
+
                 try {
-                    $recordAttributes = $contract->resolvedSalaryStructure() === ContractSalaryStructure::Monthly
-                        ? $this->buildMonthlyRecordAttributes($employee, $contract, $timesheet, $workingDaysInPeriod, $period)
-                        : $this->buildDailyRecordAttributes($employee, $contract, $timesheet, $workingDaysInPeriod, $period);
+                    $recordAttributes = $salaryStructure === ContractSalaryStructure::Monthly
+                        ? $this->buildMonthlyRecordAttributes($employee, $contract, $timesheet, $workingDaysInPeriod, $lockedPeriod)
+                        : $this->buildDailyRecordAttributes($employee, $contract, $timesheet, $workingDaysInPeriod, $lockedPeriod);
                 } catch (ValidationException $exception) {
                     $errors[] = PayrollGenerationError::fromValidationException($employee, $exception);
 
@@ -121,9 +152,9 @@ final class GenerateCrewPayroll
 
                 PayrollRecord::query()->updateOrCreate(
                     [
-                        'company_id' => $period->company_id,
+                        'company_id' => $lockedPeriod->company_id,
                         'employee_id' => $employee->id,
-                        'period_id' => $period->id,
+                        'period_id' => $lockedPeriod->id,
                     ],
                     $recordAttributes,
                 );
@@ -135,14 +166,14 @@ final class GenerateCrewPayroll
                 'excluded_employee_ids' => $excludedEmployeeIds,
             ];
 
-            if ($generatedCount > 0 && $period->status === PayrollPeriodStatus::Draft) {
+            if ($generatedCount > 0 && $lockedPeriod->status === PayrollPeriodStatus::Draft) {
                 $periodUpdates['status'] = PayrollPeriodStatus::Processing;
             }
 
-            $period->update($periodUpdates);
+            $lockedPeriod->update($periodUpdates);
 
             if ($generatedCount > 0) {
-                $this->recalculateCrewPayroll->handle($period->fresh());
+                $this->recalculateCrewPayroll->handle($lockedPeriod->fresh());
             }
         });
 

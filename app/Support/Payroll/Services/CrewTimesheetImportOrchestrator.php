@@ -2,9 +2,12 @@
 
 namespace App\Support\Payroll\Services;
 
+use App\Enums\ContractSalaryStructure;
+use App\Enums\CrewTimesheetMode;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
 use App\Imports\CrewTimesheetsImport;
+use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
@@ -42,6 +45,7 @@ final class CrewTimesheetImportOrchestrator
         $parsed = $this->import->parse($file, $companyId);
         $evaluation = $this->evaluateRows(
             $companyId,
+            $period,
             $parsed['rows'],
             $parsed['managed_salary_input_type_ids'],
         );
@@ -71,6 +75,7 @@ final class CrewTimesheetImportOrchestrator
         $parsed = $this->import->parse($file, $companyId);
         $evaluation = $this->evaluateRows(
             $companyId,
+            $period,
             $parsed['rows'],
             $parsed['managed_salary_input_type_ids'],
         );
@@ -141,19 +146,29 @@ final class CrewTimesheetImportOrchestrator
      */
     private function evaluateRows(
         int $companyId,
+        PayrollPeriod $period,
         array $parsedRows,
         array $managedTypeIds,
     ): array {
         $employeesByNo = $this->loadEmployeesByNumber($companyId);
         $typeNamesById = $this->loadSalaryInputTypeNames($companyId, $managedTypeIds);
+        $existingTimesheets = CrewTimesheet::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $period->id)
+            ->with('preparation')
+            ->get()
+            ->keyBy(fn (CrewTimesheet $timesheet) => (int) $timesheet->employee_id);
         $seenEmployeeNumbers = [];
         $rows = [];
         $errors = [];
+        $warnings = [];
+        $isCrewOperationsMode = $period->crew_timesheet_mode === CrewTimesheetMode::CrewOperations;
 
         foreach ($parsedRows as $parsedRow) {
             $rowNumber = (int) $parsedRow['row'];
             $employeeNo = (string) $parsedRow['employee_no'];
             $rowErrors = [];
+            $rowWarnings = [];
 
             if (isset($seenEmployeeNumbers[$employeeNo])) {
                 $rowErrors[] = [
@@ -181,8 +196,40 @@ final class CrewTimesheetImportOrchestrator
                 ];
             }
 
-            $timesheetData = $this->buildTimesheetData($parsedRow);
-            $validator = Validator::make($timesheetData, $this->timesheetRules());
+            $salaryStructure = $employee?->currentContract?->resolvedSalaryStructure()
+                ?? ContractSalaryStructure::Daily;
+            $isDaily = $salaryStructure === ContractSalaryStructure::Daily;
+            $existing = $employee !== null
+                ? $existingTimesheets->get((int) $employee->id)
+                : null;
+
+            $rowMode = 'manual_operational';
+            if ($isCrewOperationsMode && $isDaily) {
+                $rowMode = $existing?->isOperationallyLocked()
+                    ? 'crew_operations_locked'
+                    : 'crew_operations_financial';
+            } elseif ($salaryStructure === ContractSalaryStructure::Monthly) {
+                $rowMode = 'monthly_manual';
+            }
+
+            $hasOperationalImport = filled($parsedRow['standby_from'])
+                || filled($parsedRow['standby_to'])
+                || filled($parsedRow['onsite_from'])
+                || filled($parsedRow['onsite_to']);
+
+            if ($isCrewOperationsMode && $isDaily && $hasOperationalImport) {
+                $rowErrors[] = [
+                    'row' => $rowNumber,
+                    'field' => 'standby_from',
+                    'message' => 'Daily crew operational dates cannot be imported in Crew Operations Timeline mode.',
+                ];
+            }
+
+            $timesheetData = $this->buildTimesheetData(
+                $parsedRow,
+                $isCrewOperationsMode && $isDaily,
+            );
+            $validator = Validator::make($timesheetData, $this->timesheetRules($isCrewOperationsMode && $isDaily));
 
             if ($validator->fails()) {
                 foreach ($validator->errors()->keys() as $field) {
@@ -223,19 +270,28 @@ final class CrewTimesheetImportOrchestrator
                 }
             }
 
+            if ($rowMode === 'crew_operations_locked') {
+                $rowWarnings[] = [
+                    'row' => $rowNumber,
+                    'field' => 'source',
+                    'message' => 'Operational days are locked from the Applied Crew Operations timeline. Only financial fields will be updated.',
+                ];
+            }
+
             $rowResult = [
                 'row' => $rowNumber,
                 'employee_no' => $employeeNo,
                 'name' => $parsedRow['name'],
                 'department' => $parsedRow['department'],
                 'position' => $parsedRow['position'],
-                'standby_days' => $timesheetData['standby_days'],
-                'onsite_days' => $timesheetData['onsite_days'],
+                'row_mode' => $rowMode,
+                'standby_days' => $timesheetData['standby_days'] ?? null,
+                'onsite_days' => $timesheetData['onsite_days'] ?? null,
                 'overtime_hours' => $timesheetData['overtime_hours'],
                 'remarks' => $timesheetData['remarks'],
                 'salary_input_summary' => $this->buildSalaryInputSummary($salaryAmountsByTypeId, $typeNamesById),
                 'errors' => $rowErrors,
-                'warnings' => [],
+                'warnings' => $rowWarnings,
                 'employee' => $employee,
                 'timesheet_data' => $timesheetData,
                 'salary_amounts_by_type_id' => $this->normalizeSalaryAmountsByTypeId($salaryAmountsByTypeId),
@@ -243,6 +299,7 @@ final class CrewTimesheetImportOrchestrator
 
             $rows[] = $rowResult;
             $errors = array_merge($errors, $rowErrors);
+            $warnings = array_merge($warnings, $rowWarnings);
         }
 
         $invalidRows = collect($rows)->filter(fn (array $row) => ! empty($row['errors']))->count();
@@ -250,12 +307,12 @@ final class CrewTimesheetImportOrchestrator
         return [
             'rows' => $rows,
             'errors' => $errors,
-            'warnings' => [],
+            'warnings' => $warnings,
             'summary' => [
                 'total' => count($rows),
                 'valid' => count($rows) - $invalidRows,
                 'invalid' => $invalidRows,
-                'warnings' => 0,
+                'warnings' => count($warnings),
             ],
         ];
     }
@@ -296,8 +353,18 @@ final class CrewTimesheetImportOrchestrator
      * @param  array<string, mixed>  $parsedRow
      * @return array<string, mixed>
      */
-    private function buildTimesheetData(array $parsedRow): array
+    private function buildTimesheetData(array $parsedRow, bool $financialOnly = false): array
     {
+        if ($financialOnly) {
+            return [
+                'overtime_hours' => $parsedRow['overtime_hours'] ?? 0,
+                'additional_amount' => 0,
+                'deduction_amount' => 0,
+                'remarks' => $parsedRow['remarks'] ?? null,
+                'source' => CrewTimesheetSource::Import,
+            ];
+        }
+
         return [
             'standby_from' => $parsedRow['standby_from'],
             'standby_to' => $parsedRow['standby_to'],
@@ -322,8 +389,17 @@ final class CrewTimesheetImportOrchestrator
     /**
      * @return array<string, list<string>>
      */
-    private function timesheetRules(): array
+    private function timesheetRules(bool $financialOnly = false): array
     {
+        if ($financialOnly) {
+            return [
+                'overtime_hours' => ['nullable', 'numeric', 'min:0'],
+                'additional_amount' => ['nullable', 'numeric', 'min:0'],
+                'deduction_amount' => ['nullable', 'numeric', 'min:0'],
+                'remarks' => ['nullable', 'string'],
+            ];
+        }
+
         return [
             'standby_from' => ['nullable', 'date'],
             'standby_to' => ['nullable', 'date', 'after_or_equal:standby_from'],

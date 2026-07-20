@@ -324,19 +324,39 @@ final class CrewTimesheetTemplateExporter
             [''],
             ['1. Open the "'.CrewTimesheetsImport::SHEET_NAME.'" tab.'],
             ['2. Use the header filters (▼) to narrow by Division or Department.'],
-            ['3. Fill the yellow date columns — days are calculated automatically on import.'],
-            ['4. Fill the orange Overtime Hours column when the employee worked overtime. Leave blank when there is no OT.'],
-            ['5. Fill green salary input columns for additions (e.g. Bonus, Commission) and red columns for deductions (e.g. Loan, Late). Leave blank when not applicable.'],
-            ['6. Optional Remarks column at the end for notes.'],
-            ['7. Gray columns are pre-filled — do not change Employee No.'],
-            ['8. Type dates as DD-MM-YYYY text (e.g. 01-07-2026 = 1 July 2026). Do not use the date picker — Excel may swap day and month.'],
-            ['9. Leave a row blank if the employee had no standby or onsite days.'],
-            ['10. Save and upload this file back to payroll.'],
+        ];
+
+        if ($period->usesCrewOperationsTimesheets()) {
+            $lines = array_merge($lines, [
+                ['3. This period uses Crew Operations Timeline. Leave the yellow Daily operational date columns blank — sign-on standby, onsite, and sign-off standby are filled from the Applied timeline.'],
+                ['4. For Daily crew, enter only Overtime Hours, salary input columns, and optional Remarks.'],
+                ['5. Monthly crew employees may still use leave/standby and onsite columns in this template.'],
+                ['6. Fill the orange Overtime Hours column when the employee worked overtime. Leave blank when there is no OT.'],
+                ['7. Fill green salary input columns for additions (e.g. Bonus, Commission) and red columns for deductions (e.g. Loan, Late). Leave blank when not applicable.'],
+                ['8. Optional Remarks column at the end for notes.'],
+                ['9. Gray columns are pre-filled — do not change Employee No.'],
+                ['10. Type dates as DD-MM-YYYY text (e.g. 01-07-2026 = 1 July 2026). Do not use the date picker — Excel may swap day and month.'],
+                ['11. Save and upload this file back to payroll.'],
+            ]);
+        } else {
+            $lines = array_merge($lines, [
+                ['3. Fill the yellow date columns — days are calculated automatically on import.'],
+                ['4. Fill the orange Overtime Hours column when the employee worked overtime. Leave blank when there is no OT.'],
+                ['5. Fill green salary input columns for additions (e.g. Bonus, Commission) and red columns for deductions (e.g. Loan, Late). Leave blank when not applicable.'],
+                ['6. Optional Remarks column at the end for notes.'],
+                ['7. Gray columns are pre-filled — do not change Employee No.'],
+                ['8. Type dates as DD-MM-YYYY text (e.g. 01-07-2026 = 1 July 2026). Do not use the date picker — Excel may swap day and month.'],
+                ['9. Leave a row blank if the employee had no standby or onsite days.'],
+                ['10. Save and upload this file back to payroll.'],
+            ]);
+        }
+
+        $lines = array_merge($lines, [
             [''],
             ['Salary input columns in this template: '.$salaryInputTypes->pluck('name')->join(', ')],
             [''],
             ['Period: '.($period->name ?? 'Payroll period #'.$period->id)],
-        ];
+        ]);
 
         foreach ($lines as $index => $line) {
             $instructions->setCellValue('A'.($index + 1), $line[0]);

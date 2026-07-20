@@ -104,7 +104,7 @@ Phase 1D applies an Approved preparation to `crew_timesheets`:
 - aggregates payable Sign-On / Onsite / Sign-Off days per employee
 - preserves overtime, additions, deductions, remarks, and salary inputs
 - sets `source = crew_operations` and locks operational fields while Applied
-- temporary legacy `standby_days` compatibility for the current daily calculator (Phase 1E will refactor)
+- mirrors combined standby into legacy `standby_days` for compatibility; Phase 1E calculator prefers additive sign-on/sign-off fields for Applied crew-operations daily timesheets
 
 Permissions:
 
@@ -116,6 +116,37 @@ Permissions:
 - `payroll.crew_timesheets.apply_approved`
 
 See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md).
+
+### Dual timesheet mode (Phase 1E)
+
+Each crew pay period stores `crew_timesheet_mode`:
+
+| Mode | Value | Behavior |
+|------|-------|----------|
+| Manual / Excel Timesheet | `manual` | Existing standby/onsite entry, Excel import, and manual payroll generation |
+| Crew Operations Timeline | `crew_operations` | Prepare → review → approve → apply timeline; operational days locked after apply |
+
+Office periods keep `crew_timesheet_mode = null`.
+
+Creation:
+
+- crew periods require a timesheet source on create (`crew_timesheet_mode`)
+- default is `manual` for new crew periods and migrated legacy crew periods
+- mode can change only while draft and before any timesheets, preparations, or payroll records exist
+
+Generation safeguards for `crew_operations`:
+
+- payroll generation requires exactly one Applied Crew Operations preparation
+- the period show page exposes `generation_ready` / `generation_blocking_reason`
+- `CrewPayrollCalculator` uses sign-on/sign-off standby plus onsite for Applied crew-operations daily timesheets; legacy `standby_days` remains the manual/monthly path
+
+Key files:
+
+- `app/Enums/CrewTimesheetMode.php`
+- `app/Support/Payroll/CrewOperationsPayrollGenerationGuard.php`
+- `app/Support/Payroll/Actions/UpdatePayrollPeriodCrewTimesheetMode.php`
+- `resources/js/features/payroll/types.ts`
+- `resources/js/features/payroll/show.tsx`
 
 ### Timesheet entry and import
 

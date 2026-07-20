@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Payroll;
 
+use App\Enums\CrewTimesheetMode;
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Enums\SalaryPaymentMethod;
@@ -35,7 +36,9 @@ use App\Support\Payroll\Actions\MarkPayrollPeriodPaid;
 use App\Support\Payroll\Actions\RevertPayrollPeriodToApproved;
 use App\Support\Payroll\Actions\RevertPayrollPeriodToDraft;
 use App\Support\Payroll\Actions\RevertPayrollPeriodToProcessing;
+use App\Support\Payroll\Actions\UpdatePayrollPeriodCrewTimesheetMode;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
+use App\Support\Payroll\CrewOperationsPayrollGenerationGuard;
 use App\Support\Payroll\CrewPayrollPagePermissions;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewQuery;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationSummaryResource;
@@ -151,6 +154,7 @@ class PayrollController extends Controller
         ProvisionDefaultSalaryInputTypes $provisionDefaultSalaryInputTypes,
         CrewTimesheetPreparationReviewQuery $crewTimelineReviewQuery,
         CrewTimesheetPreparationSummaryResource $crewTimelineSummaryResource,
+        CrewOperationsPayrollGenerationGuard $crewOperationsGenerationGuard,
     ): InertiaResponse|RedirectResponse {
         $this->authorizePayrollShow($request);
 
@@ -382,7 +386,7 @@ class PayrollController extends Controller
             'timesheet_draft' => $payrollPeriod->isCrew()
                 ? $this->timesheetDraftFromOldInput($request)
                 : null,
-            'crew_timeline_preparation' => $payrollPeriod->isCrew()
+            'crew_timeline_preparation' => $payrollPeriod->usesCrewOperationsTimesheets()
                 && ($request->user()?->can('payroll.crew_timesheets.view') ?? false)
                 ? $crewTimelineSummaryResource->toArray(
                     $crewTimelineReviewQuery->latestForPeriod(
@@ -392,6 +396,16 @@ class PayrollController extends Controller
                     $payrollPeriod,
                 )
                 : null,
+            'generation_readiness' => $payrollPeriod->isCrew()
+                ? $crewOperationsGenerationGuard->readiness($payrollPeriod, $companyId)
+                : null,
+            'crew_timesheet_mode_options' => collect(CrewTimesheetMode::cases())
+                ->map(fn (CrewTimesheetMode $mode) => [
+                    'value' => $mode->value,
+                    'label' => $mode->label(),
+                ])
+                ->values()
+                ->all(),
             'employee_stats' => $employeeStats,
         ]);
     }
@@ -582,13 +596,21 @@ class PayrollController extends Controller
         ];
     }
 
-    public function storePeriod(StorePayrollPeriodRequest $request): RedirectResponse
-    {
+    public function storePeriod(
+        StorePayrollPeriodRequest $request,
+        UpdatePayrollPeriodCrewTimesheetMode $resolveMode,
+    ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
+        $category = PayrollCategory::from($request->validated('payroll_category'));
+        $mode = $resolveMode->resolveModeForCreate(
+            $category,
+            $request->validated('crew_timesheet_mode'),
+        );
 
         PayrollPeriod::query()->create([
             'company_id' => $companyId,
-            'payroll_category' => $request->validated('payroll_category'),
+            'payroll_category' => $category,
+            'crew_timesheet_mode' => $mode,
             'name' => $request->validated('name'),
             'start_date' => $request->validated('start_date'),
             'end_date' => $request->validated('end_date'),

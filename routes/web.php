@@ -121,6 +121,7 @@ use App\Http\Controllers\Payroll\ReturnCrewTimesheetPreparationController;
 use App\Http\Controllers\Payroll\SalaryInputController;
 use App\Http\Controllers\Payroll\SalaryInputTypeController;
 use App\Http\Controllers\Payroll\SubmitCrewTimesheetPreparationController;
+use App\Http\Controllers\Payroll\UpdatePayrollPeriodCrewTimesheetModeController;
 use App\Http\Controllers\Payroll\WpsExportController;
 use App\Http\Controllers\Public\DocumentEsign\DownloadDocumentEsignController;
 use App\Http\Controllers\Public\DocumentEsign\ShowDocumentEsignController;
@@ -330,6 +331,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('payroll/payslips/email', [PayslipController::class, 'email'])->name('payroll.payslips.email');
     Route::post('payroll/wps/export', [WpsExportController::class, 'export'])->name('payroll.wps.export');
     Route::post('payroll/periods', [PayrollController::class, 'storePeriod'])->middleware('can:payroll.periods.create')->name('payroll.periods.store');
+    Route::put('payroll/{payrollPeriod}/crew-timesheet-mode', UpdatePayrollPeriodCrewTimesheetModeController::class)
+        ->middleware('can:payroll.periods.update')
+        ->name('payroll.periods.crew-timesheet-mode');
     Route::get('payroll/{payrollPeriod}', [PayrollController::class, 'show'])->name('payroll.show');
     Route::post('payroll/{payrollPeriod}/timesheets', [PayrollController::class, 'storeTimesheet'])->name('payroll.timesheets.store');
     Route::get('payroll/{payrollPeriod}/timesheets/import/template', [PayrollController::class, 'importTemplate'])->name('payroll.timesheets.import.template');

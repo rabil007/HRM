@@ -23,6 +23,13 @@ final class PayrollPeriodResource
             ];
         }
 
+        $generationReadiness = $period->isCrew()
+            ? app(CrewOperationsPayrollGenerationGuard::class)->readiness(
+                $period,
+                (int) $period->company_id,
+            )
+            : null;
+
         return [
             'id' => $period->id,
             'name' => $period->name,
@@ -31,6 +38,10 @@ final class PayrollPeriodResource
             'payment_date' => $period->payment_date?->toDateString(),
             'payroll_category' => $period->payroll_category?->value ?? PayrollCategory::Crew->value,
             'payroll_category_label' => $period->payroll_category?->label() ?? PayrollCategory::Crew->label(),
+            'crew_timesheet_mode' => $period->crew_timesheet_mode?->value,
+            'crew_timesheet_mode_label' => $period->crewTimesheetModeLabel(),
+            'uses_crew_operations_timesheets' => $period->usesCrewOperationsTimesheets(),
+            'uses_manual_timesheets' => $period->usesManualTimesheets(),
             'supports_timesheets' => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Crew,
             'status' => $period->status?->value,
             'status_label' => $period->status?->label(),
@@ -41,7 +52,10 @@ final class PayrollPeriodResource
             )),
             'is_editable' => $period->isEditable(),
             'can_generate_crew_payroll' => $period->canGenerateCrewPayroll(),
-            'can_generate_payroll' => $period->canGeneratePayroll(),
+            'can_generate_payroll' => $period->canGeneratePayroll()
+                && ($generationReadiness === null || $generationReadiness['ready']),
+            'generation_ready' => $generationReadiness['ready'] ?? true,
+            'generation_blocking_reason' => $generationReadiness['blocking_reason'] ?? null,
             'can_revert_to_draft' => $period->canRevertToDraft(),
             'can_revert_to_approved' => $period->canRevertToApproved(),
             'can_revert_to_processing' => $period->canRevertToProcessing(),

@@ -362,7 +362,7 @@ test('monthly crew employees are skipped with warning', function () {
 test('missing active crew contract creates warning and no payable lines', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
 
-    $period = PayrollPeriod::factory()->for($company)->create([
+    $period = PayrollPeriod::factory()->for($company)->crewOperations()->create([
         'status' => PayrollPeriodStatus::Draft,
         'payroll_category' => PayrollCategory::Crew,
         'start_date' => '2026-07-01',
@@ -456,7 +456,7 @@ test('prepare is company isolated', function () {
 
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 1, '2026-07-01 08:00:00', '2026-07-10 18:00:00');
 
-    $otherPeriod = PayrollPeriod::factory()->for($otherCompany)->create([
+    $otherPeriod = PayrollPeriod::factory()->for($otherCompany)->crewOperations()->create([
         'status' => PayrollPeriodStatus::Draft,
         'payroll_category' => PayrollCategory::Crew,
         'start_date' => '2026-07-01',

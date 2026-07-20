@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CrewTimesheetMode;
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\Concerns\LogsActivityWithCompany;
@@ -29,6 +30,7 @@ class PayrollPeriod extends Model
             ->logOnly([
                 'company_id',
                 'payroll_category',
+                'crew_timesheet_mode',
                 'name',
                 'start_date',
                 'end_date',
@@ -51,6 +53,7 @@ class PayrollPeriod extends Model
             'end_date' => 'date',
             'payment_date' => 'date',
             'payroll_category' => PayrollCategory::class,
+            'crew_timesheet_mode' => CrewTimesheetMode::class,
             'status' => PayrollPeriodStatus::class,
             'approved_at' => 'datetime',
             'excluded_employee_ids' => 'array',
@@ -159,6 +162,24 @@ class PayrollPeriod extends Model
     public function isOffice(): bool
     {
         return ($this->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Office;
+    }
+
+    public function usesCrewOperationsTimesheets(): bool
+    {
+        return $this->isCrew()
+            && $this->crew_timesheet_mode === CrewTimesheetMode::CrewOperations;
+    }
+
+    public function usesManualTimesheets(): bool
+    {
+        return $this->isCrew()
+            && ($this->crew_timesheet_mode === null
+                || $this->crew_timesheet_mode === CrewTimesheetMode::Manual);
+    }
+
+    public function crewTimesheetModeLabel(): ?string
+    {
+        return $this->crew_timesheet_mode?->label();
     }
 
     public function calendarDayCount(): int

@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import type { PayrollCategoryOption, PayrollPeriodFormData } from '../types';
+import { CREW_TIMESHEET_MODE_OPTIONS } from '../types';
 
 export function PayrollPeriodFormSheet({
     open,
@@ -52,12 +53,19 @@ export function PayrollPeriodFormSheet({
                         </Label>
                         <AppSelect
                             value={form.data.payroll_category}
-                            onValueChange={(value) =>
-                                form.setData(
-                                    'payroll_category',
-                                    value as PayrollPeriodFormData['payroll_category'],
-                                )
-                            }
+                            onValueChange={(value) => {
+                                const category =
+                                    value as PayrollPeriodFormData['payroll_category'];
+                                form.setData({
+                                    ...form.data,
+                                    payroll_category: category,
+                                    crew_timesheet_mode:
+                                        category === 'crew'
+                                            ? form.data.crew_timesheet_mode ||
+                                              'manual'
+                                            : '',
+                                });
+                            }}
                             variant="card"
                         >
                             {payrollCategories.map((category) => (
@@ -75,6 +83,41 @@ export function PayrollPeriodFormSheet({
                             </div>
                         ) : null}
                     </div>
+
+                    {form.data.payroll_category === 'crew' ? (
+                        <div className="space-y-2">
+                            <Label
+                                htmlFor="crew_timesheet_mode"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
+                                Timesheet source
+                            </Label>
+                            <AppSelect
+                                value={form.data.crew_timesheet_mode}
+                                onValueChange={(value) =>
+                                    form.setData(
+                                        'crew_timesheet_mode',
+                                        value as PayrollPeriodFormData['crew_timesheet_mode'],
+                                    )
+                                }
+                                variant="card"
+                            >
+                                {CREW_TIMESHEET_MODE_OPTIONS.map((option) => (
+                                    <AppSelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                    >
+                                        {option.label}
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+                            {form.errors.crew_timesheet_mode ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.crew_timesheet_mode}
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : null}
 
                     <div className="space-y-2">
                         <Label

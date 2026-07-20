@@ -272,18 +272,33 @@ Per employee (`company_id` + `employee_id` + `period_id`):
 
 Financial fields are preserved: overtime, additions, deductions, remarks, salary inputs.
 
-### Legacy daily compatibility (temporary until Phase 1E)
+### Legacy daily compatibility bridge
 
-`CrewPayrollCalculator` still reads legacy `standby_days` and `onsite_days`.
-
-On apply:
+On apply, Phase 1D still mirrors:
 
 - `standby_days = sign_on_standby_days + sign_off_standby_days`
 - `onsite_days = approved onsite total`
 - when only one standby category exists, copy its dates into `standby_from` / `standby_to`
 - when both Sign-On and Sign-Off standby exist, set legacy standby dates to `null` while keeping combined `standby_days`
 
-Phase 1E should refactor the calculator/UI to use the additive standby fields and remove this compatibility bridge.
+Phase 1E `CrewPayrollCalculator` uses additive sign-on/sign-off standby for Applied `crew_operations` daily timesheets so mirrored legacy `standby_days` is not double-counted. Manual/import/null-source timesheets continue to use legacy `standby_days`.
+
+## Phase 1E — dual mode UI, generation guard, calculator split
+
+Phase 1E completes the crew dual-mode rollout:
+
+- `payroll_periods.crew_timesheet_mode` (`manual` | `crew_operations`)
+- create form timesheet source selector for crew periods
+- period show badge, timeline UI only in crew-operations mode, generation blocking banner
+- operationally locked daily rows display sign-on/sign-off/onsite read-only while overtime/financial fields stay editable
+- import template instructions differ for crew-operations periods (Daily operational columns left blank)
+- `CrewOperationsPayrollGenerationGuard` blocks crew-operations generation until an Applied preparation exists
+- `CrewPayrollCalculator` uses sign-on + sign-off standby for Applied crew-operations daily timesheets; manual/null source keeps legacy `standby_days`
+
+Tests:
+
+- `tests/Feature/Payroll/CrewTimesheetModePhase1ETest.php`
+- `tests/Unit/Support/Payroll/CrewPayrollCalculatorCrewOperationsTest.php`
 
 ### Operational field locking
 
@@ -322,16 +337,15 @@ Informational: `timeline_gap`, `monthly_contract_not_supported`, `future_actual_
 - Phase 1B: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1BTest.php`
 - Phase 1C: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1CTest.php`
 - Phase 1D: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1DTest.php`
+- Phase 1E: `tests/Feature/Payroll/CrewTimesheetModePhase1ETest.php`
 - Shared fixtures: `tests/Support/crew-timeline-fixtures.php`
 
 ## Out of scope until later phases
 
-- Daily calculator/UI/generation safeguards (1E)
 - Monthly crew movement integration
 - Travel payment configuration
 - Vessel transfer / redeployment
 - Direct editing of generated timeline lines
 - Payroll correction workflow for replacing Applied preparations
-- Automatic payroll generation / generation blocking
 
 See also [crew-movement-phases.md](./crew-movement-phases.md) and [payroll.md](../payroll.md).
