@@ -45,15 +45,13 @@ final class StoresCompanyDocumentSetting
         $storedPaths = [];
 
         try {
-            return DB::transaction(function () use (
+            $saved = DB::transaction(function () use (
                 $setting,
                 $data,
                 $files,
                 $updatedBy,
                 $companyId,
                 &$storedPaths,
-                $previousSignature,
-                $previousStamp,
             ): CompanyDocumentSetting {
                 $setting->signatory_name = $data['signatory_name'] ?? null;
                 $setting->signatory_title = $data['signatory_title'] ?? null;
@@ -88,9 +86,6 @@ final class StoresCompanyDocumentSetting
 
                 $setting->save();
 
-                $this->deleteIfUnused($previousSignature, $setting->signature_path);
-                $this->deleteIfUnused($previousStamp, $setting->stamp_path);
-
                 return $setting->refresh();
             });
         } catch (Throwable $exception) {
@@ -102,6 +97,11 @@ final class StoresCompanyDocumentSetting
 
             throw $exception;
         }
+
+        $this->deleteIfUnused($previousSignature, $saved->signature_path);
+        $this->deleteIfUnused($previousStamp, $saved->stamp_path);
+
+        return $saved;
     }
 
     private function storeFile(UploadedFile $file, int $companyId, string $kind): string

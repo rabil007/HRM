@@ -4,6 +4,7 @@ use App\Models\JobRun;
 use App\Support\EmployeeDocuments\DocumentExpiryAlertSchedule;
 use App\Support\Hikvision\HikvisionAccessEventsFetchSchedule;
 use App\Support\Hikvision\HikvisionEveningAccessEventsFetchSchedule;
+use App\Support\Settings\ApplicationTimezone;
 use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('documents:dispatch-expiry-alerts')
@@ -43,6 +44,6 @@ Schedule::command('model:prune', [
     '--model' => [JobRun::class],
 ])
     ->dailyAt('02:00')
-    ->timezone(config('app.timezone', 'UTC'))
+    ->timezone(ApplicationTimezone::identifier())
     ->withoutOverlapping()
     ->name('job-runs-prune');

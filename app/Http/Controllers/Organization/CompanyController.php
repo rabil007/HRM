@@ -27,6 +27,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role as SpatieRole;
 use Spatie\Permission\PermissionRegistrar;
+use Throwable;
 
 class CompanyController extends Controller
 {
@@ -43,37 +44,28 @@ class CompanyController extends Controller
         $country = trim((string) request()->query('country', ''));
         $currency = trim((string) request()->query('currency', ''));
 
-        $countries = Country::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'code', 'name', 'dial_code']);
-
-        $currencies = Currency::query()
-            ->where('is_active', true)
-            ->orderBy('code')
-            ->get(['id', 'code', 'name', 'symbol']);
+        $countries = Country::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name', 'dial_code']);
+        $currencies = Currency::query()->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'symbol']);
 
         $paginator = Company::query()
             ->with(['currency:id,code', 'country:id,code,name'])
-            ->when($search, function ($q) use ($search) {
-                $q->where(function ($inner) use ($search) {
+            ->when($search, function ($query) use ($search): void {
+                $query->where(function ($inner) use ($search): void {
                     $inner->where('name', 'like', "%{$search}%")
                         ->orWhere('industry', 'like', "%{$search}%")
                         ->orWhere('city', 'like', "%{$search}%");
                 });
             })
-            ->when($industry, fn ($q) => $q->where('industry', 'like', "%{$industry}%"))
-            ->when($country, fn ($q) => $q->whereHas('country', fn ($cq) => $cq->where('code', $country)))
-            ->when($currency, fn ($q) => $q->whereHas('currency', fn ($cq) => $cq->where('code', $currency)))
+            ->when($industry, fn ($query) => $query->where('industry', 'like', "%{$industry}%"))
+            ->when($country, fn ($query) => $query->whereHas('country', fn ($countryQuery) => $countryQuery->where('code', $country)))
+            ->when($currency, fn ($query) => $query->whereHas('currency', fn ($currencyQuery) => $currencyQuery->where('code', $currency)))
             ->latest('id')
             ->paginate($perPage)
             ->withQueryString();
 
-        $companies = $paginator->through(function (Company $company) use ($publicDisk, $request, $documentAccess) {
+        $companies = $paginator->through(function (Company $company) use ($publicDisk, $request, $documentAccess): array {
             $logoPath = $company->logo;
-            $logoUrl = $logoPath && $publicDisk->exists($logoPath)
-                ? $publicDisk->url($logoPath)
-                : null;
+            $logoUrl = $logoPath && $publicDisk->exists($logoPath) ? $publicDisk->url($logoPath) : null;
 
             return [
                 'id' => $company->id,
@@ -82,11 +74,7 @@ class CompanyController extends Controller
                 'logo_url' => $logoUrl,
                 'industry' => $company->industry,
                 'city' => $company->city,
-                'country' => [
-                    'id' => $company->country_id,
-                    'code' => $company->country?->code,
-                    'name' => $company->country?->name,
-                ],
+                'country' => ['id' => $company->country_id, 'code' => $company->country?->code, 'name' => $company->country?->name],
                 'company_size' => $company->company_size,
                 'registration_number' => $company->registration_number,
                 'tax_id' => $company->tax_id,
@@ -94,10 +82,7 @@ class CompanyController extends Controller
                 'phone' => $company->phone,
                 'email' => $company->email,
                 'website' => $company->website,
-                'currency' => [
-                    'id' => $company->currency_id,
-                    'code' => $company->currency?->code,
-                ],
+                'currency' => ['id' => $company->currency_id, 'code' => $company->currency?->code],
                 'timezone' => $company->timezone,
                 'payroll_cycle' => $company->payroll_cycle,
                 'working_days' => $company->working_days,
@@ -106,11 +91,7 @@ class CompanyController extends Controller
                 'wps_employer_iban' => $company->wps_employer_iban,
                 'status' => $company->status,
                 'created_at' => $company->created_at,
-                'can_view_documents' => $documentAccess->allows(
-                    $request->user(),
-                    $company,
-                    CompanyDocumentAccess::Abilities['view'],
-                ),
+                'can_view_documents' => $documentAccess->allows($request->user(), $company, CompanyDocumentAccess::Abilities['view']),
             ];
         });
 
@@ -118,34 +99,18 @@ class CompanyController extends Controller
             'companies' => $companies->items(),
             'pagination' => $this->paginationMeta($paginator),
             'search' => $search,
-            'filters' => [
-                'industry' => $industry,
-                'country' => $country,
-                'currency' => $currency,
-            ],
+            'filters' => ['industry' => $industry, 'country' => $country, 'currency' => $currency],
             'countries' => $countries,
             'currencies' => $currencies,
         ]);
     }
 
-    public function show(
-        Request $request,
-        Company $company,
-        CompanyDocumentAccess $documentAccess,
-        CompanyDocumentQuery $documentQuery,
-    ) {
+    public function show(Request $request, Company $company, CompanyDocumentAccess $documentAccess, CompanyDocumentQuery $documentQuery)
+    {
         /** @var FilesystemAdapter $publicDisk */
         $publicDisk = Storage::disk('public');
-
-        $countries = Country::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'code', 'name', 'dial_code']);
-
-        $currencies = Currency::query()
-            ->where('is_active', true)
-            ->orderBy('code')
-            ->get(['id', 'code', 'name', 'symbol']);
+        $countries = Country::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name', 'dial_code']);
+        $currencies = Currency::query()->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'symbol']);
 
         $company->load([
             'country:id,code,name,dial_code',
@@ -154,11 +119,8 @@ class CompanyController extends Controller
         ]);
 
         $companyId = (int) request()->attributes->get('current_company_id');
-
         $companyDocumentPermissions = $documentAccess->permissions($request->user(), $company);
-        $companyDocumentSummary = $companyDocumentPermissions['view']
-            ? $documentQuery->summary($company)
-            : null;
+        $companyDocumentSummary = $companyDocumentPermissions['view'] ? $documentQuery->summary($company) : null;
 
         return Inertia::render('organization/company', [
             'company' => [
@@ -197,40 +159,29 @@ class CompanyController extends Controller
                 'created_at' => $company->created_at,
                 'updated_at' => $company->updated_at,
             ],
-            'recent_activity' => RecentActivityQuery::for(
-                $request->user(),
-                $companyId,
-                Company::class,
-                $company->id,
-            ),
+            'recent_activity' => RecentActivityQuery::for($request->user(), $companyId, Company::class, $company->id),
             'can_view_audit' => $request->user()?->can('audit.view') ?? false,
             'company_documents' => $companyDocumentPermissions['view'] ? [
                 'count' => $companyDocumentSummary['total'],
                 'recent' => $documentQuery->recent($company),
             ] : null,
             'company_documents_can' => $companyDocumentPermissions,
-            'branches' => $company->branches
-                ->sortByDesc('id')
-                ->values()
-                ->map(fn (mixed $branch) => [
-                    'id' => $branch->id,
-                    'name' => $branch->name,
-                    'code' => $branch->code,
-                    'address' => $branch->address,
-                    'city' => $branch->city,
-                    'country' => $branch->country,
-                    'phone' => $branch->phone,
-                    'email' => $branch->email,
-                    'is_headquarters' => (bool) $branch->is_headquarters,
-                    'status' => $branch->status,
-                    'created_at' => $branch->created_at,
-                ]),
+            'branches' => $company->branches->sortByDesc('id')->values()->map(fn (mixed $branch) => [
+                'id' => $branch->id,
+                'name' => $branch->name,
+                'code' => $branch->code,
+                'address' => $branch->address,
+                'city' => $branch->city,
+                'country' => $branch->country,
+                'phone' => $branch->phone,
+                'email' => $branch->email,
+                'is_headquarters' => (bool) $branch->is_headquarters,
+                'status' => $branch->status,
+                'created_at' => $branch->created_at,
+            ]),
             'countries' => $countries,
             'currencies' => $currencies,
-            'document_settings' => CompanyDocumentSettingController::salaryCertificateProps(
-                (int) $company->id,
-                $request->user(),
-            ),
+            'document_settings' => CompanyDocumentSettingController::salaryCertificateProps((int) $company->id, $request->user()),
             'timezones' => timezone_identifiers_list(),
         ]);
     }
@@ -239,22 +190,7 @@ class CompanyController extends Controller
     {
         $data = $request->validated();
 
-        foreach ([
-            'industry',
-            'company_size',
-            'registration_number',
-            'tax_id',
-            'city',
-            'address',
-            'phone',
-            'email',
-            'website',
-            'timezone',
-            'payroll_cycle',
-            'wps_agent_code',
-            'wps_mol_uid',
-            'wps_employer_iban',
-        ] as $key) {
+        foreach ($this->nullableCompanyFields() as $key) {
             if (($data[$key] ?? null) === '') {
                 $data[$key] = null;
             }
@@ -262,7 +198,6 @@ class CompanyController extends Controller
 
         $data['slug'] = $data['slug'] ?? Str::slug($data['name']);
         $data['working_days'] = $data['working_days'] ?? [1, 2, 3, 4, 5];
-
         $data['country_id'] = $data['country_id'] ?? Country::query()->where('code', 'UAE')->value('id');
         $data['currency_id'] = $data['currency_id'] ?? Currency::query()->where('code', 'AED')->value('id');
         $data['timezone'] = $data['timezone'] ?? 'Asia/Dubai';
@@ -270,20 +205,14 @@ class CompanyController extends Controller
         $data['status'] = $data['status'] ?? 'active';
 
         if ($request->hasFile('logo')) {
-            $data['logo'] = UploadedFileStorage::store(
-                $request->file('logo'),
-                'company-logos',
-                'public',
-            );
+            $data['logo'] = UploadedFileStorage::store($request->file('logo'), 'company-logos', 'public');
         }
 
         $company = Company::create($data);
-
         $user = $request->user();
+
         if ($user) {
-            $user->companies()->syncWithoutDetaching([
-                $company->id => ['status' => 'active'],
-            ]);
+            $user->companies()->syncWithoutDetaching([$company->id => ['status' => 'active']]);
 
             $role = SpatieRole::query()->firstOrCreate([
                 'company_id' => $company->id,
@@ -291,44 +220,22 @@ class CompanyController extends Controller
                 'guard_name' => 'web',
             ]);
 
-            $permissions = Permission::query()
-                ->where('guard_name', 'web')
-                ->pluck('name')
-                ->all();
-
+            $permissions = Permission::query()->where('guard_name', 'web')->pluck('name')->all();
             $role->syncPermissions($permissions);
-
             app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
             $user->assignRole($role);
         }
 
         HandleInertiaRequests::forgetCompanySwitcherCacheForCompany($company);
 
-        return redirect()
-            ->route('organization.companies')
-            ->with('success', 'Company created successfully.');
+        return redirect()->route('organization.companies')->with('success', 'Company created successfully.');
     }
 
     public function update(UpdateCompanyRequest $request, Company $company)
     {
         $data = $request->validated();
 
-        foreach ([
-            'industry',
-            'company_size',
-            'registration_number',
-            'tax_id',
-            'city',
-            'address',
-            'phone',
-            'email',
-            'website',
-            'timezone',
-            'payroll_cycle',
-            'wps_agent_code',
-            'wps_mol_uid',
-            'wps_employer_iban',
-        ] as $key) {
+        foreach ($this->nullableCompanyFields() as $key) {
             if (($data[$key] ?? null) === '') {
                 $data[$key] = null;
             }
@@ -337,51 +244,56 @@ class CompanyController extends Controller
         $data['slug'] = $data['slug'] ?? Str::slug($data['name']);
         $data['working_days'] = $data['working_days'] ?? $company->working_days ?? [1, 2, 3, 4, 5];
 
-        if ($request->hasFile('logo')) {
-            if ($company->logo) {
-                Storage::disk('public')->delete($company->logo);
-            }
+        $previousLogo = $company->logo;
+        $newLogo = null;
 
-            $data['logo'] = UploadedFileStorage::store(
-                $request->file('logo'),
-                'company-logos',
-                'public',
-            );
+        if ($request->hasFile('logo')) {
+            $newLogo = UploadedFileStorage::store($request->file('logo'), 'company-logos', 'public');
+            $data['logo'] = $newLogo;
         }
 
-        $company->update($data);
+        try {
+            $company->update($data);
+        } catch (Throwable $exception) {
+            if ($newLogo !== null && Storage::disk('public')->exists($newLogo)) {
+                Storage::disk('public')->delete($newLogo);
+            }
+
+            throw $exception;
+        }
+
+        if (
+            is_string($previousLogo)
+            && $previousLogo !== ''
+            && $previousLogo !== $newLogo
+            && $newLogo !== null
+            && Storage::disk('public')->exists($previousLogo)
+        ) {
+            Storage::disk('public')->delete($previousLogo);
+        }
 
         HandleInertiaRequests::forgetCompanySwitcherCacheForCompany($company);
 
-        return redirect()
-            ->route('organization.companies')
-            ->with('success', 'Company updated successfully.');
+        return redirect()->route('organization.companies')->with('success', 'Company updated successfully.');
     }
 
     public function updateStatus(UpdateCompanyStatusRequest $request, Company $company)
     {
-        $company->update([
-            'status' => $request->validated('status'),
-        ]);
+        $company->update(['status' => $request->validated('status')]);
 
-        return redirect()
-            ->route('organization.companies')
-            ->with('success', 'Company status updated successfully.');
+        return redirect()->route('organization.companies')->with('success', 'Company status updated successfully.');
     }
 
     public function destroy(Company $company)
     {
         $company->delete();
 
-        return redirect()
-            ->route('organization.companies')
-            ->with('success', 'Company deleted successfully.');
+        return redirect()->route('organization.companies')->with('success', 'Company deleted successfully.');
     }
 
     public function export(Request $request)
     {
         $format = strtolower((string) $request->query('format', 'csv'));
-
         $search = trim((string) $request->query('search', ''));
         $industry = trim((string) $request->query('industry', ''));
         $country = trim((string) $request->query('country', ''));
@@ -390,17 +302,15 @@ class CompanyController extends Controller
         $hasEmail = filter_var($request->query('hasEmail', false), FILTER_VALIDATE_BOOL);
         $hasWebsite = filter_var($request->query('hasWebsite', false), FILTER_VALIDATE_BOOL);
 
-        $query = Company::query()
-            ->with(['country:id,code,name', 'currency:id,code'])
-            ->latest('id');
+        $query = Company::query()->with(['country:id,code,name', 'currency:id,code'])->latest('id');
 
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
+            $query->where(function ($companyQuery) use ($search): void {
+                $companyQuery->where('name', 'like', "%{$search}%")
                     ->orWhere('industry', 'like', "%{$search}%")
                     ->orWhere('city', 'like', "%{$search}%")
-                    ->orWhereHas('country', function ($cq) use ($search) {
-                        $cq->where('code', 'like', "%{$search}%")
+                    ->orWhereHas('country', function ($countryQuery) use ($search): void {
+                        $countryQuery->where('code', 'like', "%{$search}%")
                             ->orWhere('name', 'like', "%{$search}%");
                     });
             });
@@ -411,14 +321,14 @@ class CompanyController extends Controller
         }
 
         if ($country !== '') {
-            $query->whereHas('country', function ($cq) use ($country) {
-                $cq->where('code', 'like', "%{$country}%")
+            $query->whereHas('country', function ($countryQuery) use ($country): void {
+                $countryQuery->where('code', 'like', "%{$country}%")
                     ->orWhere('name', 'like', "%{$country}%");
             });
         }
 
         if ($currency !== '') {
-            $query->whereHas('currency', fn ($cq) => $cq->where('code', $currency));
+            $query->whereHas('currency', fn ($currencyQuery) => $currencyQuery->where('code', $currency));
         }
 
         if ($hasLogo) {
@@ -434,7 +344,6 @@ class CompanyController extends Controller
         }
 
         $export = new CompaniesExport($query);
-
         $timestamp = now()->format('Y-m-d_His');
         $baseName = "companies_{$timestamp}";
 
@@ -444,16 +353,34 @@ class CompanyController extends Controller
 
         if ($format === 'pdf') {
             $companies = $query->get();
-            $pdf = Pdf::loadView('exports.companies', [
-                'companies' => $companies,
-                'generatedAt' => now(),
-            ]);
+            $pdf = Pdf::loadView('exports.companies', ['companies' => $companies, 'generatedAt' => now()]);
 
             return $pdf->download("{$baseName}.pdf");
         }
 
-        return Excel::download($export, "{$baseName}.csv", ExcelWriter::CSV, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        return Excel::download($export, "{$baseName}.csv", ExcelWriter::CSV, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function nullableCompanyFields(): array
+    {
+        return [
+            'industry',
+            'company_size',
+            'registration_number',
+            'tax_id',
+            'city',
+            'address',
+            'phone',
+            'email',
+            'website',
+            'timezone',
+            'payroll_cycle',
+            'wps_agent_code',
+            'wps_mol_uid',
+            'wps_employer_iban',
+        ];
     }
 }

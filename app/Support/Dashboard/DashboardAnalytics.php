@@ -4,13 +4,14 @@ namespace App\Support\Dashboard;
 
 use App\Models\AttendanceRecord;
 use App\Models\Branch;
-use App\Models\Company;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 final class DashboardAnalytics
 {
@@ -124,7 +125,6 @@ final class DashboardAnalytics
     public function workforceTrends(int $companyId): array
     {
         return $this->remember($companyId, 'workforce_trends', function () use ($companyId): array {
-            // Headcount uses employee created_at (system record creation), not hire_date.
             $months = [];
             $rangeStart = now()->subMonths(5)->startOfMonth();
             $rangeEnd = now()->endOfMonth();
@@ -143,30 +143,12 @@ final class DashboardAnalytics
                 ->where('created_at', '<', $rangeStart)
                 ->count();
 
-            $hireDates = Employee::query()
-                ->where('company_id', $companyId)
-                ->whereBetween('created_at', [$rangeStart, $rangeEnd])
-                ->pluck('created_at');
+            $hireCounts = $this->monthlyCounts('employees', $companyId, $rangeStart, $rangeEnd);
+            $documentCounts = $this->monthlyCounts('employee_documents', $companyId, $rangeStart, $rangeEnd);
 
-            foreach ($hireDates as $createdAt) {
-                $key = Carbon::parse($createdAt)->format('Y-m');
-
-                if (isset($months[$key])) {
-                    $months[$key]['new_hires']++;
-                }
-            }
-
-            $documentDates = EmployeeDocument::query()
-                ->where('company_id', $companyId)
-                ->whereBetween('created_at', [$rangeStart, $rangeEnd])
-                ->pluck('created_at');
-
-            foreach ($documentDates as $createdAt) {
-                $key = Carbon::parse($createdAt)->format('Y-m');
-
-                if (isset($months[$key])) {
-                    $months[$key]['documents']++;
-                }
+            foreach ($months as $key => $meta) {
+                $months[$key]['new_hires'] = $hireCounts[$key] ?? 0;
+                $months[$key]['documents'] = $documentCounts[$key] ?? 0;
             }
 
             $points = [];
@@ -269,38 +251,17 @@ final class DashboardAnalytics
     }
 
     /**
-     * @return array{
-     *     check_ins_today: int,
-     *     check_outs_today: int,
-     *     events_today: int,
-     *     present_today: int,
-     *     late_today: int,
-     *     absent_today: int,
-     *     active_employees: int,
-     *     weekly_trends: list<array{day: string, check_ins: int, check_outs: int}>,
-     *     recent_records: list<array{
-     *         id: int,
-     *         date: string|null,
-     *         clock_in: string|null,
-     *         clock_out: string|null,
-     *         employee_name: string|null,
-     *         employee_id: int|null,
-     *         status: string,
-     *         source: string|null
-     *     }>
-     * }
+     * @return array<string, mixed>
      */
     private function attendanceAnalytics(int $companyId, int $activeEmployees): array
     {
-        $timezone = Company::query()->whereKey($companyId)->value('timezone')
-            ?? config('app.timezone');
-
+        $timezone = CompanyTimezone::forCompanyId($companyId);
         $todayDate = now($timezone)->toDateString();
         $weekStart = now($timezone)->subDays(6)->toDateString();
 
         $todayRow = AttendanceRecord::query()
             ->where('company_id', $companyId)
-            ->whereDate('date', $todayDate)
+            ->where('date', $todayDate)
             ->selectRaw(
                 'COUNT(*) as events_today,
                 SUM(CASE WHEN clock_in IS NOT NULL THEN 1 ELSE 0 END) as check_ins_today,
@@ -342,14 +303,13 @@ final class DashboardAnalytics
     ): array {
         $rows = AttendanceRecord::query()
             ->where('company_id', $companyId)
-            ->whereDate('date', '>=', $weekStart)
-            ->whereDate('date', '<=', $weekEnd)
+            ->whereBetween('date', [$weekStart, $weekEnd])
             ->selectRaw('date as attendance_date')
             ->selectRaw('SUM(CASE WHEN clock_in IS NOT NULL THEN 1 ELSE 0 END) as check_ins')
             ->selectRaw('SUM(CASE WHEN clock_out IS NOT NULL THEN 1 ELSE 0 END) as check_outs')
             ->groupBy('date')
             ->get()
-            ->keyBy(fn ($row): string => Carbon::parse($row->attendance_date)->timezone($timezone)->toDateString());
+            ->keyBy(fn ($row): string => (string) $row->attendance_date);
 
         $points = [];
 
@@ -369,16 +329,7 @@ final class DashboardAnalytics
     }
 
     /**
-     * @return list<array{
-     *     id: int,
-     *     date: string|null,
-     *     clock_in: string|null,
-     *     clock_out: string|null,
-     *     employee_name: string|null,
-     *     employee_id: int|null,
-     *     status: string,
-     *     source: string|null
-     * }>
+     * @return list<array<string, mixed>>
      */
     private function recentAttendanceRecords(int $companyId): array
     {
@@ -423,6 +374,26 @@ final class DashboardAnalytics
         ])
             ->filter(fn (array $row) => $row['value'] > 0)
             ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function monthlyCounts(string $table, int $companyId, mixed $rangeStart, mixed $rangeEnd): array
+    {
+        $monthExpression = DB::connection()->getDriverName() === 'sqlite'
+            ? "strftime('%Y-%m', created_at)"
+            : "DATE_FORMAT(created_at, '%Y-%m')";
+
+        return DB::table($table)
+            ->where('company_id', $companyId)
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+            ->selectRaw("{$monthExpression} as month_key")
+            ->selectRaw('COUNT(*) as aggregate')
+            ->groupByRaw($monthExpression)
+            ->pluck('aggregate', 'month_key')
+            ->map(fn ($count): int => (int) $count)
             ->all();
     }
 
