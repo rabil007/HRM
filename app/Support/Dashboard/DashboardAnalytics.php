@@ -257,11 +257,13 @@ final class DashboardAnalytics
     {
         $timezone = CompanyTimezone::forCompanyId($companyId);
         $todayDate = now($timezone)->toDateString();
+        $tomorrowDate = now($timezone)->addDay()->toDateString();
         $weekStart = now($timezone)->subDays(6)->toDateString();
 
         $todayRow = AttendanceRecord::query()
             ->where('company_id', $companyId)
-            ->where('date', $todayDate)
+            ->where('date', '>=', $todayDate)
+            ->where('date', '<', $tomorrowDate)
             ->selectRaw(
                 'COUNT(*) as events_today,
                 SUM(CASE WHEN clock_in IS NOT NULL THEN 1 ELSE 0 END) as check_ins_today,
@@ -301,15 +303,18 @@ final class DashboardAnalytics
         string $weekStart,
         string $weekEnd,
     ): array {
+        $weekEndExclusive = Carbon::parse($weekEnd, $timezone)->addDay()->toDateString();
+
         $rows = AttendanceRecord::query()
             ->where('company_id', $companyId)
-            ->whereBetween('date', [$weekStart, $weekEnd])
+            ->where('date', '>=', $weekStart)
+            ->where('date', '<', $weekEndExclusive)
             ->selectRaw('date as attendance_date')
             ->selectRaw('SUM(CASE WHEN clock_in IS NOT NULL THEN 1 ELSE 0 END) as check_ins')
             ->selectRaw('SUM(CASE WHEN clock_out IS NOT NULL THEN 1 ELSE 0 END) as check_outs')
             ->groupBy('date')
             ->get()
-            ->keyBy(fn ($row): string => (string) $row->attendance_date);
+            ->keyBy(fn ($row): string => Carbon::parse((string) $row->attendance_date)->toDateString());
 
         $points = [];
 
