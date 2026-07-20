@@ -10,26 +10,24 @@ export function useDebouncedSearchInput(
     onSearchChange: (value: string) => void;
 } {
     const [searchInput, setSearchInput] = useState(initialSearch);
+    const [submittedSearch, setSubmittedSearch] = useState(initialSearch);
+    const [lastInitialSearch, setLastInitialSearch] = useState(initialSearch);
+    const [isDebouncing, setIsDebouncing] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const submittedSearchRef = useRef(initialSearch);
-    const searchInputRef = useRef(initialSearch);
     const onDebouncedSearchRef = useRef(onDebouncedSearch);
 
-    onDebouncedSearchRef.current = onDebouncedSearch;
-
     useEffect(() => {
-        if (debounceRef.current !== null) {
-            return;
-        }
+        onDebouncedSearchRef.current = onDebouncedSearch;
+    }, [onDebouncedSearch]);
 
-        if (searchInputRef.current !== submittedSearchRef.current) {
-            return;
-        }
+    if (initialSearch !== lastInitialSearch) {
+        setLastInitialSearch(initialSearch);
 
-        setSearchInput(initialSearch);
-        searchInputRef.current = initialSearch;
-        submittedSearchRef.current = initialSearch;
-    }, [initialSearch]);
+        if (!isDebouncing && searchInput === submittedSearch) {
+            setSearchInput(initialSearch);
+            setSubmittedSearch(initialSearch);
+        }
+    }
 
     useEffect(() => {
         return () => {
@@ -42,7 +40,7 @@ export function useDebouncedSearchInput(
     const onSearchChange = useCallback(
         (value: string) => {
             setSearchInput(value);
-            searchInputRef.current = value;
+            setIsDebouncing(true);
 
             if (debounceRef.current) {
                 clearTimeout(debounceRef.current);
@@ -50,7 +48,8 @@ export function useDebouncedSearchInput(
 
             debounceRef.current = setTimeout(() => {
                 debounceRef.current = null;
-                submittedSearchRef.current = value;
+                setIsDebouncing(false);
+                setSubmittedSearch(value);
                 router.cancelAll();
                 onDebouncedSearchRef.current(value);
             }, debounceMs);

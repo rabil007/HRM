@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CrewTimesheetSource;
 use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\CrewTimesheetFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -30,14 +31,25 @@ class CrewTimesheet extends Model
                 'standby_from',
                 'standby_to',
                 'standby_days',
+                'sign_on_standby_from',
+                'sign_on_standby_to',
+                'sign_on_standby_days',
                 'onsite_from',
                 'onsite_to',
                 'onsite_days',
+                'sign_off_standby_from',
+                'sign_off_standby_to',
+                'sign_off_standby_days',
                 'overtime_hours',
                 'overtime_amount',
                 'additional_amount',
                 'deduction_amount',
                 'remarks',
+                'source',
+                'crew_timesheet_preparation_id',
+                'operational_approved_by',
+                'operational_approved_at',
+                'movement_source_hash',
             ])
             ->logOnlyDirty();
     }
@@ -48,13 +60,23 @@ class CrewTimesheet extends Model
             'standby_from' => 'date',
             'standby_to' => 'date',
             'standby_days' => 'decimal:2',
+            'sign_on_standby_from' => 'date',
+            'sign_on_standby_to' => 'date',
+            'sign_on_standby_days' => 'decimal:2',
             'onsite_from' => 'date',
             'onsite_to' => 'date',
             'onsite_days' => 'decimal:2',
+            'sign_off_standby_from' => 'date',
+            'sign_off_standby_to' => 'date',
+            'sign_off_standby_days' => 'decimal:2',
             'overtime_hours' => 'decimal:2',
             'overtime_amount' => 'decimal:2',
             'additional_amount' => 'decimal:2',
             'deduction_amount' => 'decimal:2',
+            'source' => CrewTimesheetSource::class,
+            'crew_timesheet_preparation_id' => 'integer',
+            'operational_approved_by' => 'integer',
+            'operational_approved_at' => 'datetime',
         ];
     }
 
@@ -71,5 +93,15 @@ class CrewTimesheet extends Model
     public function period(): BelongsTo
     {
         return $this->belongsTo(PayrollPeriod::class, 'period_id');
+    }
+
+    public function preparation(): BelongsTo
+    {
+        return $this->belongsTo(CrewTimesheetPreparation::class, 'crew_timesheet_preparation_id');
+    }
+
+    public function operationalApprovedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'operational_approved_by');
     }
 }

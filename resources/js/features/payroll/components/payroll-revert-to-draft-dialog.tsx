@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -26,11 +26,13 @@ export function PayrollRevertToDraftDialog({
 }) {
     const [clearTimesheets, setClearTimesheets] = useState(false);
 
-    useEffect(() => {
-        if (!open) {
+    const handleOpenChange = (nextOpen: boolean) => {
+        if (!nextOpen) {
             setClearTimesheets(false);
         }
-    }, [open]);
+
+        onOpenChange(nextOpen);
+    };
 
     const description = supportsTimesheets
         ? clearTimesheets
@@ -39,7 +41,7 @@ export function PayrollRevertToDraftDialog({
         : 'This removes generated payroll records for this period and resets employee selection. All employees will be included the next time you generate payroll unless you exclude them again on the Employees tab.';
 
     return (
-        <AlertDialog open={open} onOpenChange={onOpenChange}>
+        <AlertDialog open={open} onOpenChange={handleOpenChange}>
             <AlertDialogContent className="glass-card">
                 <AlertDialogHeader>
                     <AlertDialogTitle>

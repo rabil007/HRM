@@ -67,6 +67,8 @@ For a daily structure, the calculator uses standby days, onsite days, overtime h
 
 For a monthly structure, `CrewMonthlyPayrollCalculator` uses monthly basic, housing, transport, and other components, then prorates them using the period and timesheet days. Salary inputs use the office-style addition and deduction application for monthly crew records.
 
+Legacy `standby_days` on monthly crew timesheets continue to represent leave/unpaid days in the current calculator. Phase 1A adds separate sign-on/sign-off standby columns for future daily operational mapping without changing monthly payroll behavior yet.
+
 Key implementation files:
 
 - `app/Support/Payroll/Actions/GenerateCrewPayroll.php`
@@ -74,6 +76,12 @@ Key implementation files:
 - `app/Support/Payroll/CrewMonthlyPayrollCalculator.php`
 - `app/Support/Payroll/Actions/RecalculateCrewPayroll.php`
 - `app/Support/Payroll/ApplyCrewSalaryInputs.php`
+
+### Crew timeline preparation (Phase 1A)
+
+Phase 1A adds versioned preparation tables and additive standby/source metadata on `crew_timesheets` for a future Crew Operations → crewing approval → timesheet apply workflow. This phase is data foundation only; no UI, routes, permissions, or payroll blocking exist yet.
+
+See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md).
 
 ### Timesheet entry and import
 

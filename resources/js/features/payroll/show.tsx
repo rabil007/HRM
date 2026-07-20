@@ -277,7 +277,8 @@ export function PayrollShowContent({
                             if (
                                 draft.standby_from !==
                                     submittedDraft.standby_from ||
-                                draft.standby_to !== submittedDraft.standby_to ||
+                                draft.standby_to !==
+                                    submittedDraft.standby_to ||
                                 draft.onsite_from !==
                                     submittedDraft.onsite_from ||
                                 draft.onsite_to !== submittedDraft.onsite_to ||

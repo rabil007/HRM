@@ -68,6 +68,14 @@ class PayrollPeriod extends Model
         return $this->hasMany(CrewTimesheet::class, 'period_id');
     }
 
+    /**
+     * @return HasMany<CrewTimesheetPreparation, $this>
+     */
+    public function crewTimesheetPreparations(): HasMany
+    {
+        return $this->hasMany(CrewTimesheetPreparation::class, 'payroll_period_id');
+    }
+
     public function payrollRecords(): HasMany
     {
         return $this->hasMany(PayrollRecord::class, 'period_id');

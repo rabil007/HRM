@@ -166,6 +166,14 @@ class CrewAssignment extends Model
     }
 
     /**
+     * @return HasMany<CrewTimesheetPreparationLine, $this>
+     */
+    public function timesheetPreparationLines(): HasMany
+    {
+        return $this->hasMany(CrewTimesheetPreparationLine::class, 'crew_assignment_id');
+    }
+
+    /**
      * @return HasMany<CrewMovementCorrection, $this>
      */
     public function pendingCorrections(): HasMany
