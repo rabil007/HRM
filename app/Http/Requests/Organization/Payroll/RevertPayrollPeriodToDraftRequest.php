@@ -16,6 +16,8 @@ class RevertPayrollPeriodToDraftRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [];
+        return [
+            'clear_timesheets' => ['sometimes', 'boolean'],
+        ];
     }
 }

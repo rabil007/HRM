@@ -762,16 +762,18 @@ class PayrollController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
 
-        $revertPayrollPeriodToDraft->handle($payrollPeriod);
+        $clearTimesheets = $request->boolean('clear_timesheets');
+        $revertPayrollPeriodToDraft->handle($payrollPeriod, $clearTimesheets);
+
+        $successMessage = match (true) {
+            $payrollPeriod->isCrew() && $clearTimesheets => 'Pay period reverted to draft. Timesheets and payroll records were cleared.',
+            $payrollPeriod->isCrew() => 'Pay period reverted to draft. Payroll records were cleared. Timesheets were kept.',
+            default => 'Pay period reverted to draft. Payroll records were cleared.',
+        };
 
         return redirect()
             ->route('payroll.show', $payrollPeriod)
-            ->with(
-                'success',
-                $payrollPeriod->isCrew()
-                    ? 'Pay period reverted to draft. Timesheets and payroll records were cleared.'
-                    : 'Pay period reverted to draft. Payroll records were cleared.',
-            );
+            ->with('success', $successMessage);
     }
 
     public function revertToApproved(

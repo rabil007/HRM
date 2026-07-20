@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 
 final class RevertPayrollPeriodToDraft
 {
-    public function handle(PayrollPeriod $period): PayrollPeriod
+    public function handle(PayrollPeriod $period, bool $clearTimesheets = false): PayrollPeriod
     {
         if (! $period->canRevertToDraft()) {
             throw ValidationException::withMessages([
@@ -19,7 +19,7 @@ final class RevertPayrollPeriodToDraft
             ]);
         }
 
-        return DB::transaction(function () use ($period): PayrollPeriod {
+        return DB::transaction(function () use ($period, $clearTimesheets): PayrollPeriod {
             $period->payrollRecords()
                 ->get()
                 ->each(function (PayrollRecord $record): void {
@@ -31,7 +31,7 @@ final class RevertPayrollPeriodToDraft
             $period->payrollRecords()->forceDelete();
             $period->salaryInputs()->forceDelete();
 
-            if ($period->isCrew()) {
+            if ($period->isCrew() && $clearTimesheets) {
                 $period->crewTimesheets()->forceDelete();
             }
 

@@ -60,7 +60,65 @@ test('authorized users can revert processing pay period to draft', function () {
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.revert-to-draft', $period))
         ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
-        ->assertSessionHas('success');
+        ->assertSessionHas(
+            'success',
+            'Pay period reverted to draft. Payroll records were cleared. Timesheets were kept.',
+        );
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::Draft);
+    expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0);
+    expect(CrewTimesheet::query()->where('period_id', $period->id)->count())->toBe(1);
+
+    $this->assertDatabaseHas('crew_timesheets', [
+        'period_id' => $period->id,
+        'employee_id' => $employee->id,
+        'standby_days' => 2,
+    ]);
+});
+
+test('authorized users can clear timesheets when reverting processing pay period to draft', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.revert_to_draft',
+        'payroll.crew_timesheets.update',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Processing,
+    ]);
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $employee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'active',
+    ]);
+
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'standby_days' => 2,
+    ]);
+
+    PayrollRecord::factory()->for($company)->create([
+        'period_id' => $period->id,
+        'employee_id' => $employee->id,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.revert-to-draft', $period), [
+            'clear_timesheets' => true,
+        ])
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
+        ->assertSessionHas(
+            'success',
+            'Pay period reverted to draft. Timesheets and payroll records were cleared.',
+        );
 
     $period->refresh();
     expect($period->status)->toBe(PayrollPeriodStatus::Draft);

@@ -459,11 +459,15 @@ export function PayrollShowContent({
         );
     };
 
-    const handleRevertToDraft = () => {
+    const handleRevertToDraft = ({
+        clearTimesheets,
+    }: {
+        clearTimesheets: boolean;
+    }) => {
         setIsReverting(true);
         router.post(
             revertToDraft.url(period.id),
-            {},
+            { clear_timesheets: clearTimesheets },
             {
                 preserveScroll: true,
                 onSuccess: () => {
