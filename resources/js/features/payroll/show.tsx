@@ -231,6 +231,8 @@ export function PayrollShowContent({
                 return;
             }
 
+            const submittedDraft: CrewTimesheetDraft = { ...current };
+
             const standby_days = calculateInclusiveDays(
                 current.standby_from,
                 current.standby_to,
@@ -262,7 +264,26 @@ export function PayrollShowContent({
                     only: ['rows'],
                     onSuccess: () => {
                         setCrewTimesheetDrafts((prev) => {
-                            if (!prev[employeeId]) {
+                            const draft = prev[employeeId];
+
+                            if (!draft) {
+                                return prev;
+                            }
+
+                            if (crewSaveTimersRef.current[employeeId]) {
+                                return prev;
+                            }
+
+                            if (
+                                draft.standby_from !==
+                                    submittedDraft.standby_from ||
+                                draft.standby_to !== submittedDraft.standby_to ||
+                                draft.onsite_from !==
+                                    submittedDraft.onsite_from ||
+                                draft.onsite_to !== submittedDraft.onsite_to ||
+                                draft.overtime_hours !==
+                                    submittedDraft.overtime_hours
+                            ) {
                                 return prev;
                             }
 
