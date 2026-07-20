@@ -4,11 +4,12 @@ namespace App\Support\Payroll;
 
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
+use App\Models\Employee;
+use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 final class PayrollOverviewSummary
 {
@@ -298,18 +299,19 @@ final class PayrollOverviewSummary
      */
     private static function departmentEmployeeCounts(int $companyId): array
     {
-        $rows = DB::table('employees')
+        $rows = Employee::query()
             ->where('employees.company_id', $companyId)
             ->where('employees.status', 'active')
-            ->whereExists(function ($query) {
-                $query->select(DB::raw(1))
-                    ->from('employee_contracts')
-                    ->whereColumn('employee_contracts.employee_id', 'employees.id')
-                    ->where('employee_contracts.status', 'active');
-            })
+            ->whereIn(
+                'employees.id',
+                EmployeeContract::query()
+                    ->select('employee_id')
+                    ->where('company_id', $companyId)
+                    ->where('status', 'active'),
+            )
             ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
-            ->selectRaw('COALESCE(departments.name, "Unassigned") as name, COUNT(employees.id) as count')
-            ->groupByRaw('COALESCE(departments.name, "Unassigned")')
+            ->selectRaw("COALESCE(departments.name, 'Unassigned') as name, COUNT(employees.id) as count")
+            ->groupByRaw("COALESCE(departments.name, 'Unassigned')")
             ->orderByDesc('count')
             ->limit(8)
             ->get();

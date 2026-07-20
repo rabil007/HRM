@@ -11,6 +11,7 @@ use App\Http\Requests\Organization\Department\UpdateDepartmentStatusRequest;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Department;
+use App\Models\Employee;
 use App\Models\Position;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\Employees\EmployeeFormOptions;
@@ -19,7 +20,6 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
@@ -173,7 +173,7 @@ class DepartmentController extends Controller
             ->where('department_id', $department->id)
             ->count();
 
-        $usersCount = DB::table('employees')
+        $usersCount = Employee::query()
             ->where('company_id', $companyId)
             ->where('department_id', $department->id)
             ->count();

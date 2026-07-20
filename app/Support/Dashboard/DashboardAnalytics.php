@@ -10,6 +10,8 @@ use App\Models\EmployeeDocument;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -143,8 +145,16 @@ final class DashboardAnalytics
                 ->where('created_at', '<', $rangeStart)
                 ->count();
 
-            $hireCounts = $this->monthlyCounts('employees', $companyId, $rangeStart, $rangeEnd);
-            $documentCounts = $this->monthlyCounts('employee_documents', $companyId, $rangeStart, $rangeEnd);
+            $hireCounts = $this->monthlyCounts(
+                Employee::query()->where('company_id', $companyId),
+                $rangeStart,
+                $rangeEnd,
+            );
+            $documentCounts = $this->monthlyCounts(
+                EmployeeDocument::query()->where('company_id', $companyId),
+                $rangeStart,
+                $rangeEnd,
+            );
 
             foreach ($months as $key => $meta) {
                 $months[$key]['new_hires'] = $hireCounts[$key] ?? 0;
@@ -383,16 +393,16 @@ final class DashboardAnalytics
     }
 
     /**
+     * @param  Builder<Model>  $query
      * @return array<string, int>
      */
-    private function monthlyCounts(string $table, int $companyId, mixed $rangeStart, mixed $rangeEnd): array
+    private function monthlyCounts(Builder $query, mixed $rangeStart, mixed $rangeEnd): array
     {
         $monthExpression = DB::connection()->getDriverName() === 'sqlite'
             ? "strftime('%Y-%m', created_at)"
             : "DATE_FORMAT(created_at, '%Y-%m')";
 
-        return DB::table($table)
-            ->where('company_id', $companyId)
+        return $query
             ->whereBetween('created_at', [$rangeStart, $rangeEnd])
             ->selectRaw("{$monthExpression} as month_key")
             ->selectRaw('COUNT(*) as aggregate')
