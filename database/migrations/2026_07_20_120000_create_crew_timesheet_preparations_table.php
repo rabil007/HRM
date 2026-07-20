@@ -27,9 +27,12 @@ return new class extends Migration
             $table->text('decision_notes')->nullable();
             $table->timestamps();
 
-            $table->unique(['company_id', 'payroll_period_id', 'version']);
-            $table->index(['company_id', 'status']);
-            $table->index(['payroll_period_id', 'status']);
+            $table->unique(
+                ['company_id', 'payroll_period_id', 'version'],
+                'ctp_company_period_version_uq',
+            );
+            $table->index(['company_id', 'status'], 'ctp_company_status_idx');
+            $table->index(['payroll_period_id', 'status'], 'ctp_period_status_idx');
         });
     }
 

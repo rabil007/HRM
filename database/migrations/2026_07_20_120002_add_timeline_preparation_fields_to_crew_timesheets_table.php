@@ -32,8 +32,8 @@ return new class extends Migration
             $table->timestamp('operational_approved_at')->nullable()->after('operational_approved_by');
             $table->string('movement_source_hash', 64)->nullable()->after('operational_approved_at');
 
-            $table->index(['company_id', 'source']);
-            $table->index('crew_timesheet_preparation_id');
+            $table->index(['company_id', 'source'], 'ct_company_source_idx');
+            $table->index('crew_timesheet_preparation_id', 'ct_preparation_idx');
         });
 
         $this->backfillDailyLegacyStandbyFields();
@@ -45,8 +45,8 @@ return new class extends Migration
             $table->dropForeign(['crew_timesheet_preparation_id']);
             $table->dropForeign(['operational_approved_by']);
 
-            $table->dropIndex(['company_id', 'source']);
-            $table->dropIndex(['crew_timesheet_preparation_id']);
+            $table->dropIndex('ct_company_source_idx');
+            $table->dropIndex('ct_preparation_idx');
 
             $table->dropColumn([
                 'sign_on_standby_from',

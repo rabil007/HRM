@@ -12,13 +12,13 @@ return new class extends Migration
             $table->id();
             $table->foreignId('company_id')->constrained('companies')->restrictOnDelete();
             $table->foreignId('crew_timesheet_preparation_id')
-                ->constrained('crew_timesheet_preparations')
+                ->constrained('crew_timesheet_preparations', indexName: 'ctpl_preparation_fk')
                 ->cascadeOnDelete();
             $table->foreignId('employee_id')->constrained('employees')->restrictOnDelete();
             $table->foreignId('crew_assignment_id')->constrained('crew_assignments')->restrictOnDelete();
             $table->foreignId('crew_assignment_phase_id')
                 ->nullable()
-                ->constrained('crew_assignment_phases')
+                ->constrained('crew_assignment_phases', indexName: 'ctpl_phase_fk')
                 ->restrictOnDelete();
             $table->string('phase_code', 8);
             $table->string('pay_category', 32);
@@ -31,10 +31,19 @@ return new class extends Migration
             $table->text('remarks')->nullable();
             $table->timestamps();
 
-            $table->index(['company_id', 'crew_timesheet_preparation_id']);
-            $table->index(['crew_timesheet_preparation_id', 'employee_id']);
-            $table->index(['crew_assignment_id', 'crew_assignment_phase_id']);
-            $table->index(['employee_id', 'pay_category']);
+            $table->index(
+                ['company_id', 'crew_timesheet_preparation_id'],
+                'ctpl_company_preparation_idx',
+            );
+            $table->index(
+                ['crew_timesheet_preparation_id', 'employee_id'],
+                'ctpl_preparation_employee_idx',
+            );
+            $table->index(
+                ['crew_assignment_id', 'crew_assignment_phase_id'],
+                'ctpl_assignment_phase_idx',
+            );
+            $table->index(['employee_id', 'pay_category'], 'ctpl_employee_pay_category_idx');
         });
     }
 
