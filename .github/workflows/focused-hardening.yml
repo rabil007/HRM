@@ -14,11 +14,11 @@ jobs:
           php-version: '8.4'
           tools: composer:v2
           coverage: none
-      - run: composer install --no-interaction --prefer-dist --optimize-autoloader
-      - run: cp .env.example .env
-      - run: php artisan key:generate
-      - name: Focused tests
-        run: |
-          ./vendor/bin/pest tests/Feature/Performance/DashboardAnalyticsHardeningTest.php --compact
-          ./vendor/bin/pest tests/Feature/Settings/CompanyDocumentEffectiveDatesTest.php --compact
-          ./vendor/bin/pest tests/Feature/Organization/CompanyAssetReplacementSafetyTest.php --compact
+      - run: composer install --quiet --no-interaction --prefer-dist --optimize-autoloader
+      - run: cp .env.example .env && php artisan key:generate --quiet
+      - name: Dashboard hardening tests
+        run: ./vendor/bin/pest tests/Feature/Performance/DashboardAnalyticsHardeningTest.php --compact
+      - name: Effective-date tests
+        run: ./vendor/bin/pest tests/Feature/Settings/CompanyDocumentEffectiveDatesTest.php --compact
+      - name: Asset replacement tests
+        run: ./vendor/bin/pest tests/Feature/Organization/CompanyAssetReplacementSafetyTest.php --compact
