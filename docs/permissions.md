@@ -41,6 +41,16 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 
 The `*` notation above is descriptive only; permissions are seeded as explicit strings, not wildcard grants.
 
+Crew timesheet timeline workflow permissions (Phase 1C):
+
+| Permission | Capability |
+|------------|------------|
+| `payroll.crew_timesheets.view` | View timeline preparation review page |
+| `payroll.crew_timesheets.prepare` | Create a new draft preparation version |
+| `payroll.crew_timesheets.submit` | Submit latest draft for crewing approval |
+| `payroll.crew_timesheets.approve` | Approve a submitted preparation (maker-checker) |
+| `payroll.crew_timesheets.return` | Return a submitted preparation with notes |
+
 ## Employee and document details
 
 Employee import has one employee permission plus module imports for related records:

@@ -109,13 +109,17 @@ use App\Http\Controllers\Organization\TrainingsImportController;
 use App\Http\Controllers\Organization\TrainingsIndexController;
 use App\Http\Controllers\Organization\UserController;
 use App\Http\Controllers\Organization\VesselManningController;
+use App\Http\Controllers\Payroll\ApproveCrewTimesheetPreparationController;
+use App\Http\Controllers\Payroll\CrewTimesheetPreparationShowController;
 use App\Http\Controllers\Payroll\PayrollController;
 use App\Http\Controllers\Payroll\PayrollOverviewController;
 use App\Http\Controllers\Payroll\PayrollRecordController;
 use App\Http\Controllers\Payroll\PayslipController;
 use App\Http\Controllers\Payroll\PrepareCrewTimesheetTimelineController;
+use App\Http\Controllers\Payroll\ReturnCrewTimesheetPreparationController;
 use App\Http\Controllers\Payroll\SalaryInputController;
 use App\Http\Controllers\Payroll\SalaryInputTypeController;
+use App\Http\Controllers\Payroll\SubmitCrewTimesheetPreparationController;
 use App\Http\Controllers\Payroll\WpsExportController;
 use App\Http\Controllers\Public\DocumentEsign\DownloadDocumentEsignController;
 use App\Http\Controllers\Public\DocumentEsign\ShowDocumentEsignController;
@@ -333,6 +337,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('payroll/{payrollPeriod}/crew-timeline/prepare', PrepareCrewTimesheetTimelineController::class)
         ->middleware('can:payroll.crew_timesheets.prepare')
         ->name('payroll.crew-timeline.prepare');
+    Route::get('payroll/{payrollPeriod}/crew-timeline/{preparation}', CrewTimesheetPreparationShowController::class)
+        ->middleware('can:payroll.crew_timesheets.view')
+        ->name('payroll.crew-timeline.show');
+    Route::post('payroll/{payrollPeriod}/crew-timeline/{preparation}/submit', SubmitCrewTimesheetPreparationController::class)
+        ->middleware('can:payroll.crew_timesheets.submit')
+        ->name('payroll.crew-timeline.submit');
+    Route::post('payroll/{payrollPeriod}/crew-timeline/{preparation}/approve', ApproveCrewTimesheetPreparationController::class)
+        ->middleware('can:payroll.crew_timesheets.approve')
+        ->name('payroll.crew-timeline.approve');
+    Route::post('payroll/{payrollPeriod}/crew-timeline/{preparation}/return', ReturnCrewTimesheetPreparationController::class)
+        ->middleware('can:payroll.crew_timesheets.return')
+        ->name('payroll.crew-timeline.return');
     Route::get('payroll/{payrollPeriod}/export', [PayrollController::class, 'exportPayroll'])
         ->name('payroll.export');
     Route::post('payroll/{payrollPeriod}/generate', [PayrollController::class, 'generatePayroll'])->middleware('can:payroll.periods.update')->name('payroll.generate');

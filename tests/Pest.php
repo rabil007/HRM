@@ -14,6 +14,7 @@ require __DIR__.'/Support/employee-profile-template-fixtures.php';
 require __DIR__.'/Support/employee-import-template-fixtures.php';
 require __DIR__.'/Support/crew-assignment-fixtures.php';
 require __DIR__.'/Support/crew-operations-fixtures.php';
+require __DIR__.'/Support/crew-timeline-fixtures.php';
 require __DIR__.'/Support/payroll-fixtures.php';
 
 /*

@@ -54,6 +54,7 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
@@ -73,6 +74,7 @@ import { DepartmentFilterControls } from '@/features/organization/employees/comp
 import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import { show as crewTimelineShow } from '@/routes/payroll/crew-timeline';
 import { CrewSalaryStructureToggle } from './components/crew-salary-structure-toggle';
 import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
 import { OfficePayrollRecordsTable } from './components/office-payroll-records-table';
@@ -97,6 +99,7 @@ import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft
 import { PayrollRevertToProcessingDialog } from './components/payroll-revert-to-processing-dialog';
 import { PayrollShowFiltersSheet } from './components/payroll-show-filters-sheet';
 import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
+import { CrewTimelineStatusBadge } from './crew-timeline/crew-timeline-status-badge';
 import { usePayslipGenerationPoll } from './hooks/use-payslip-generation-poll';
 import { calculateInclusiveDays } from './lib/calculate-inclusive-days';
 import {
@@ -143,6 +146,7 @@ export function PayrollShowContent({
     payslip_summary,
     wps_preview,
     employee_stats,
+    crew_timeline_preparation = null,
 }: PayrollShowProps) {
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -898,6 +902,67 @@ export function PayrollShowContent({
                 status={period.status}
                 approver={period.approver}
             />
+
+            {period.supports_timesheets &&
+            permissions.view_timeline &&
+            crew_timeline_preparation ? (
+                <Card className="glass-card">
+                    <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
+                        <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-semibold">
+                                    Crew Operations timeline
+                                </p>
+                                <CrewTimelineStatusBadge
+                                    status={crew_timeline_preparation.status}
+                                    label={
+                                        crew_timeline_preparation.status_label
+                                    }
+                                />
+                                <Badge variant="outline">
+                                    Version {crew_timeline_preparation.version}
+                                </Badge>
+                                <Badge
+                                    variant="outline"
+                                    className={
+                                        crew_timeline_preparation.is_stale
+                                            ? 'border-red-500/40 text-red-700 dark:text-red-300'
+                                            : 'border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+                                    }
+                                >
+                                    {crew_timeline_preparation.is_fresh
+                                        ? 'Fresh'
+                                        : 'Timeline changed'}
+                                </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                Blocking warnings:{' '}
+                                {
+                                    crew_timeline_preparation.blocking_warning_count
+                                }{' '}
+                                · Informational warnings:{' '}
+                                {
+                                    crew_timeline_preparation.informational_warning_count
+                                }
+                            </p>
+                        </div>
+                        <Button
+                            variant="outline"
+                            onClick={() =>
+                                router.visit(
+                                    crewTimelineShow.url([
+                                        period.id,
+                                        crew_timeline_preparation.id,
+                                    ]),
+                                )
+                            }
+                        >
+                            <Ship className="mr-2 h-4 w-4" />
+                            Review Timeline
+                        </Button>
+                    </CardContent>
+                </Card>
+            ) : null}
 
             {/* ── Section 1: Employees / Timesheets ──────── */}
             {period.status === 'draft' && (

@@ -23,8 +23,12 @@ test('crew timesheets module exposes granular permissions only', function () {
         ->all();
 
     expect($modulePermissions)->toBe([
+        'payroll.crew_timesheets.approve',
         'payroll.crew_timesheets.create',
         'payroll.crew_timesheets.import',
+        'payroll.crew_timesheets.prepare',
+        'payroll.crew_timesheets.return',
+        'payroll.crew_timesheets.submit',
         'payroll.crew_timesheets.update',
         'payroll.crew_timesheets.view',
     ]);

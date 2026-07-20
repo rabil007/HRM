@@ -14,7 +14,7 @@ Product and developer documentation for the Herd OMS-HRM application. These guid
 | [Email configuration](./email-configuration.md) | Admins, developers | SMTP settings, test email |
 | [Hikvision integration](./hikvision-integration.md) | Admins, developers | Company settings, webhooks, scheduled syncs |
 | [Payroll](./payroll.md) | Payroll users, developers | Periods, salary inputs, timesheets, payslips, WPS, state transitions |
-| [Crew payroll timeline preparation](./architecture/crew-payroll-timeline-preparation.md) | Payroll, operations, developers | Draft preparation engine from Crew Operations actuals (Phase 1A–1B) |
+| [Crew payroll timeline preparation](./architecture/crew-payroll-timeline-preparation.md) | Payroll, operations, developers | Prepare / review / submit / approve crew timeline from Crew Operations actuals (Phase 1A–1C; apply is 1D) |
 | [Crew Movement History](./reports/crew-movement-history.md) | Operations, management, developers | One-row assignment history, phase mapping, durations, exports |
 | [Crew Movement Corrections](./architecture/crew-movement-corrections.md) | Operations, developers | Request/approve workflow for in-place movement field corrections |
 | [Architecture overview](./architecture/project-analysis.md) | Developers | Application structure, stack, risks, conventions |

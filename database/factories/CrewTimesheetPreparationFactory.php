@@ -37,6 +37,8 @@ class CrewTimesheetPreparationFactory extends Factory
             'submitted_at' => null,
             'approved_by' => null,
             'approved_at' => null,
+            'returned_by' => null,
+            'returned_at' => null,
             'applied_by' => null,
             'applied_at' => null,
             'decision_notes' => null,
@@ -82,6 +84,23 @@ class CrewTimesheetPreparationFactory extends Factory
             'status' => CrewTimesheetPreparationStatus::Applied,
             'applied_by' => User::factory(),
             'applied_at' => now(),
+        ]);
+    }
+
+    public function returned(): static
+    {
+        return $this->state(fn () => [
+            'status' => CrewTimesheetPreparationStatus::Returned,
+            'returned_by' => User::factory(),
+            'returned_at' => now(),
+            'decision_notes' => 'Returned for correction.',
+        ]);
+    }
+
+    public function superseded(): static
+    {
+        return $this->state(fn () => [
+            'status' => CrewTimesheetPreparationStatus::Superseded,
         ]);
     }
 }

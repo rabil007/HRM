@@ -77,7 +77,7 @@ Key implementation files:
 - `app/Support/Payroll/Actions/RecalculateCrewPayroll.php`
 - `app/Support/Payroll/ApplyCrewSalaryInputs.php`
 
-### Crew timeline preparation (Phase 1A–1B)
+### Crew timeline preparation (Phase 1A–1C)
 
 Phase 1A added versioned preparation tables and additive standby/source metadata on `crew_timesheets`.
 
@@ -87,8 +87,26 @@ Phase 1B adds the automatic draft preparation engine:
 - actual Crew Operations phases are clipped into the pay period and allocated by day
 - a new draft `CrewTimesheetPreparation` version is created with lines and warning codes
 - `crew_timesheets` remain unchanged
+- successful prepare redirects to the timeline review page
 
-Permission: `payroll.crew_timesheets.prepare`.
+Phase 1C adds review, submission, return, and approval:
+
+- `GET /payroll/{payrollPeriod}/crew-timeline/{preparation}` for review
+- `POST .../submit`, `POST .../approve`, `POST .../return`
+- Draft → Submitted → Approved or Returned
+- previous Approved versions become Superseded when a newer version is approved
+- maker-checker: approver must differ from `prepared_by` and `submitted_by`
+- stale source hash and blocking warnings prevent submit/approve
+- Additive `returned_by` / `returned_at` audit fields
+- still does not apply data to `crew_timesheets`
+
+Permissions:
+
+- `payroll.crew_timesheets.prepare`
+- `payroll.crew_timesheets.view` (review page)
+- `payroll.crew_timesheets.submit`
+- `payroll.crew_timesheets.approve`
+- `payroll.crew_timesheets.return`
 
 See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md).
 
@@ -255,6 +273,10 @@ All routes below are inside the authenticated and verified web group. Some use r
 | POST | `/payroll/{payrollPeriod}/timesheets/import/preview` | `payroll.timesheets.import.preview` | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
 | POST | `/payroll/{payrollPeriod}/timesheets/import` | `payroll.timesheets.import` | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
 | POST | `/payroll/{payrollPeriod}/crew-timeline/prepare` | `payroll.crew-timeline.prepare` | `payroll.crew_timesheets.prepare` |
+| GET | `/payroll/{payrollPeriod}/crew-timeline/{preparation}` | `payroll.crew-timeline.show` | `payroll.crew_timesheets.view` |
+| POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/submit` | `payroll.crew-timeline.submit` | `payroll.crew_timesheets.submit` |
+| POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/approve` | `payroll.crew-timeline.approve` | `payroll.crew_timesheets.approve` |
+| POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/return` | `payroll.crew-timeline.return` | `payroll.crew_timesheets.return` |
 | GET | `/payroll/salary-inputs` | `payroll.salary-inputs.index` | `payroll.salary_inputs.view` or `payroll.periods.update` |
 | POST | `/payroll/salary-inputs` | `payroll.salary-input-types.store` | `payroll.salary_inputs.create` or `payroll.periods.update` |
 | PUT | `/payroll/salary-inputs/{salaryInputType}` | `payroll.salary-input-types.update` | `payroll.salary_inputs.update` or `payroll.periods.update` |

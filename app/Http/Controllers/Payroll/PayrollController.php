@@ -37,6 +37,8 @@ use App\Support\Payroll\Actions\RevertPayrollPeriodToDraft;
 use App\Support\Payroll\Actions\RevertPayrollPeriodToProcessing;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use App\Support\Payroll\CrewPayrollPagePermissions;
+use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewQuery;
+use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationSummaryResource;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\PayrollHubSummary;
 use App\Support\Payroll\PayrollPeriodBoardFilters;
@@ -147,6 +149,8 @@ class PayrollController extends Controller
         PayrollPeriod $payrollPeriod,
         PayrollPeriodBoardQuery $boardQuery,
         ProvisionDefaultSalaryInputTypes $provisionDefaultSalaryInputTypes,
+        CrewTimesheetPreparationReviewQuery $crewTimelineReviewQuery,
+        CrewTimesheetPreparationSummaryResource $crewTimelineSummaryResource,
     ): InertiaResponse|RedirectResponse {
         $this->authorizePayrollShow($request);
 
@@ -351,6 +355,7 @@ class PayrollController extends Controller
                 'import_timesheets' => ($request->user()?->can('payroll.crew_timesheets.import') ?? false)
                     || ($request->user()?->can('payroll.crew_timesheets.create') ?? false),
                 'prepare_timeline' => $request->user()?->can('payroll.crew_timesheets.prepare') ?? false,
+                'view_timeline' => $request->user()?->can('payroll.crew_timesheets.view') ?? false,
                 'salary_inputs_create' => ($request->user()?->can('payroll.salary_inputs.create') ?? false)
                     || ($request->user()?->can('payroll.periods.update') ?? false),
                 'salary_inputs_update' => ($request->user()?->can('payroll.salary_inputs.update') ?? false)
@@ -376,6 +381,16 @@ class PayrollController extends Controller
             'wps_preview' => $wpsPreview,
             'timesheet_draft' => $payrollPeriod->isCrew()
                 ? $this->timesheetDraftFromOldInput($request)
+                : null,
+            'crew_timeline_preparation' => $payrollPeriod->isCrew()
+                && ($request->user()?->can('payroll.crew_timesheets.view') ?? false)
+                ? $crewTimelineSummaryResource->toArray(
+                    $crewTimelineReviewQuery->latestForPeriod(
+                        $payrollPeriod,
+                        $companyId,
+                    ),
+                    $payrollPeriod,
+                )
                 : null,
             'employee_stats' => $employeeStats,
         ]);

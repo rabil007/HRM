@@ -31,7 +31,7 @@ class PrepareCrewTimesheetTimelineController extends Controller
         );
 
         return redirect()
-            ->route('payroll.show', $payrollPeriod)
+            ->route('payroll.crew-timeline.show', [$payrollPeriod, $preparation])
             ->with(
                 'success',
                 "Crew Operations timeline prepared as draft version {$preparation->version}.",

@@ -34,6 +34,8 @@ class CrewTimesheetPreparation extends Model
         'submitted_at',
         'approved_by',
         'approved_at',
+        'returned_by',
+        'returned_at',
         'applied_by',
         'applied_at',
         'decision_notes',
@@ -54,6 +56,8 @@ class CrewTimesheetPreparation extends Model
                 'submitted_at',
                 'approved_by',
                 'approved_at',
+                'returned_by',
+                'returned_at',
                 'applied_by',
                 'applied_at',
                 'decision_notes',
@@ -73,12 +77,14 @@ class CrewTimesheetPreparation extends Model
             'prepared_by' => 'integer',
             'submitted_by' => 'integer',
             'approved_by' => 'integer',
+            'returned_by' => 'integer',
             'applied_by' => 'integer',
             'status' => CrewTimesheetPreparationStatus::class,
             'cutoff_date' => 'date',
             'prepared_at' => 'datetime',
             'submitted_at' => 'datetime',
             'approved_at' => 'datetime',
+            'returned_at' => 'datetime',
             'applied_at' => 'datetime',
         ];
     }
@@ -122,6 +128,11 @@ class CrewTimesheetPreparation extends Model
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function returnedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'returned_by');
     }
 
     public function appliedBy(): BelongsTo

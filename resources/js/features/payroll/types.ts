@@ -1,6 +1,7 @@
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
 import type { CompanyVisaTypeOption } from '@/features/organization/employees/types';
 import type { PaginationMeta } from '@/types/pagination';
+import type { CrewTimelinePreparationSummary } from './crew-timeline/types';
 
 export type PayrollBoardEmployeeGroup =
     | ''
@@ -217,6 +218,7 @@ export type CrewPayrollPermissions = {
     update: boolean;
     import_timesheets: boolean;
     prepare_timeline: boolean;
+    view_timeline: boolean;
     generate_payroll: boolean;
     revert_to_draft: boolean;
     revert_to_approved: boolean;
@@ -426,6 +428,7 @@ export type PayrollShowProps = {
     wps_preview: WpsPreview | null;
     timesheet_draft: CrewTimesheetFormData | null;
     employee_stats: EmployeeStats | null;
+    crew_timeline_preparation: CrewTimelinePreparationSummary | null;
 };
 
 function formatAmount(value: string | null | undefined): string {
