@@ -41,7 +41,7 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 
 The `*` notation above is descriptive only; permissions are seeded as explicit strings, not wildcard grants.
 
-Crew timesheet timeline workflow permissions (Phase 1C):
+Crew timesheet timeline workflow permissions (Phase 1C–1D):
 
 | Permission | Capability |
 |------------|------------|
@@ -50,6 +50,7 @@ Crew timesheet timeline workflow permissions (Phase 1C):
 | `payroll.crew_timesheets.submit` | Submit latest draft for crewing approval |
 | `payroll.crew_timesheets.approve` | Approve a submitted preparation (maker-checker) |
 | `payroll.crew_timesheets.return` | Return a submitted preparation with notes |
+| `payroll.crew_timesheets.apply_approved` | Apply an approved preparation to crew timesheets |
 
 ## Employee and document details
 

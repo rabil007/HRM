@@ -533,16 +533,17 @@ test('applied version prevents replacement approval', function () {
         'applied_at' => now(),
     ]);
 
-    $current = app(PrepareCrewTimesheetTimeline::class)->handle(
-        $fixtures['period'],
-        (int) $fixtures['company']->id,
-        (int) $fixtures['user']->id,
-    );
-    $current->update([
-        'status' => CrewTimesheetPreparationStatus::Submitted,
-        'submitted_by' => $fixtures['user']->id,
-        'submitted_at' => now(),
-    ]);
+    $current = CrewTimesheetPreparation::factory()
+        ->forPeriod($fixtures['period'])
+        ->version(2)
+        ->create([
+            'status' => CrewTimesheetPreparationStatus::Submitted,
+            'source_hash' => $applied->source_hash,
+            'prepared_by' => $fixtures['user']->id,
+            'prepared_at' => now(),
+            'submitted_by' => $fixtures['user']->id,
+            'submitted_at' => now(),
+        ]);
 
     $this->actingAs($approver)
         ->withSession(['current_company_id' => $fixtures['company']->id])

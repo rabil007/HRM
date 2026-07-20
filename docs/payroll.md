@@ -77,7 +77,7 @@ Key implementation files:
 - `app/Support/Payroll/Actions/RecalculateCrewPayroll.php`
 - `app/Support/Payroll/ApplyCrewSalaryInputs.php`
 
-### Crew timeline preparation (Phase 1A–1C)
+### Crew timeline preparation (Phase 1A–1D)
 
 Phase 1A added versioned preparation tables and additive standby/source metadata on `crew_timesheets`.
 
@@ -86,8 +86,8 @@ Phase 1B adds the automatic draft preparation engine:
 - authorized users can `POST /payroll/{payrollPeriod}/crew-timeline/prepare`
 - actual Crew Operations phases are clipped into the pay period and allocated by day
 - a new draft `CrewTimesheetPreparation` version is created with lines and warning codes
-- `crew_timesheets` remain unchanged
 - successful prepare redirects to the timeline review page
+- prepare is blocked after an Applied preparation exists
 
 Phase 1C adds review, submission, return, and approval:
 
@@ -97,8 +97,14 @@ Phase 1C adds review, submission, return, and approval:
 - previous Approved versions become Superseded when a newer version is approved
 - maker-checker: approver must differ from `prepared_by` and `submitted_by`
 - stale source hash and blocking warnings prevent submit/approve
-- Additive `returned_by` / `returned_at` audit fields
-- still does not apply data to `crew_timesheets`
+
+Phase 1D applies an Approved preparation to `crew_timesheets`:
+
+- `POST .../apply` with `payroll.crew_timesheets.apply_approved`
+- aggregates payable Sign-On / Onsite / Sign-Off days per employee
+- preserves overtime, additions, deductions, remarks, and salary inputs
+- sets `source = crew_operations` and locks operational fields while Applied
+- temporary legacy `standby_days` compatibility for the current daily calculator (Phase 1E will refactor)
 
 Permissions:
 
@@ -107,6 +113,7 @@ Permissions:
 - `payroll.crew_timesheets.submit`
 - `payroll.crew_timesheets.approve`
 - `payroll.crew_timesheets.return`
+- `payroll.crew_timesheets.apply_approved`
 
 See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md).
 
@@ -277,6 +284,7 @@ All routes below are inside the authenticated and verified web group. Some use r
 | POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/submit` | `payroll.crew-timeline.submit` | `payroll.crew_timesheets.submit` |
 | POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/approve` | `payroll.crew-timeline.approve` | `payroll.crew_timesheets.approve` |
 | POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/return` | `payroll.crew-timeline.return` | `payroll.crew_timesheets.return` |
+| POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/apply` | `payroll.crew-timeline.apply` | `payroll.crew_timesheets.apply_approved` |
 | GET | `/payroll/salary-inputs` | `payroll.salary-inputs.index` | `payroll.salary_inputs.view` or `payroll.periods.update` |
 | POST | `/payroll/salary-inputs` | `payroll.salary-input-types.store` | `payroll.salary_inputs.create` or `payroll.periods.update` |
 | PUT | `/payroll/salary-inputs/{salaryInputType}` | `payroll.salary-input-types.update` | `payroll.salary_inputs.update` or `payroll.periods.update` |

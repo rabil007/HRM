@@ -120,7 +120,7 @@ Draft crew periods show a **Prepare from Crew Operations** header action for aut
 | Approved | Superseded | Only when a newer version is approved |
 | Returned | (history) | Do not change Returned back to Draft |
 
-`Applied` exists for Phase 1D and must not be set in Phase 1C.
+`Applied` is set by Phase 1D.
 
 Correction path after return or stale data:
 
@@ -235,6 +235,79 @@ Dates display as `dd-mm-yyyy`. Backend values remain ISO.
 
 Phase 1C does not write to `crew_timesheets`.
 
+## Phase 1D apply approved timeline to timesheets
+
+### Status transition
+
+| From | To | Notes |
+|------|----|-------|
+| Approved | Applied | Only transition that may write `crew_timesheets` |
+
+Only one Applied preparation may exist per company and payroll period.
+
+After Applied exists:
+
+- new prepare versions are blocked
+- the Applied preparation is read-only
+- replacement requires a future payroll correction workflow (not Phase 1D)
+
+### Aggregation
+
+Payable lines only (`sign_on_standby`, `onsite`, `sign_off_standby` with `days > 0`).
+
+Per employee (`company_id` + `employee_id` + `period_id`):
+
+- sum days per category
+- earliest `from_date` / latest `to_date` per category
+- daily crew contracts only; monthly crew employees are skipped
+- excluded / warning-only / zero-day rows do not contribute
+
+### CrewTimesheet fields written
+
+- `sign_on_standby_*`, `onsite_*`, `sign_off_standby_*`
+- `source = crew_operations`
+- `crew_timesheet_preparation_id`
+- `operational_approved_by` / `operational_approved_at` from preparation approval
+- `movement_source_hash = preparation.source_hash`
+
+Financial fields are preserved: overtime, additions, deductions, remarks, salary inputs.
+
+### Legacy daily compatibility (temporary until Phase 1E)
+
+`CrewPayrollCalculator` still reads legacy `standby_days` and `onsite_days`.
+
+On apply:
+
+- `standby_days = sign_on_standby_days + sign_off_standby_days`
+- `onsite_days = approved onsite total`
+- when only one standby category exists, copy its dates into `standby_from` / `standby_to`
+- when both Sign-On and Sign-Off standby exist, set legacy standby dates to `null` while keeping combined `standby_days`
+
+Phase 1E should refactor the calculator/UI to use the additive standby fields and remove this compatibility bridge.
+
+### Operational field locking
+
+When `source = crew_operations` and the linked preparation is Applied, `UpsertCrewTimesheet` (manual and import) may update only financial fields. Operational dates/days and source metadata stay locked.
+
+Manual saves set `source = manual` for non-locked timesheets. Import sets `source = import`.
+
+### Freshness for apply
+
+Stale message:
+
+> The Crew Operations timeline changed after this preparation was approved. Prepare and approve a new version before applying it to payroll.
+
+### Support / HTTP
+
+| Class | Role |
+|---|---|
+| `Actions/ApplyCrewTimesheetPreparation` | Approved → Applied + timesheet upsert |
+| `ApplyCrewTimesheetPreparationResult` | Counts, skips, idempotent flag |
+
+| Method | Path | Route name | Permission |
+|--------|------|------------|------------|
+| POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/apply` | `payroll.crew-timeline.apply` | `payroll.crew_timesheets.apply_approved` |
+
 ## Warning codes
 
 Stored in `crew_timesheet_preparation_lines.warning_code` via `CrewTimelineWarningCode`.
@@ -248,16 +321,17 @@ Informational: `timeline_gap`, `monthly_contract_not_supported`, `future_actual_
 - Phase 1A: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1ATest.php`
 - Phase 1B: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1BTest.php`
 - Phase 1C: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1CTest.php`
+- Phase 1D: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1DTest.php`
 - Shared fixtures: `tests/Support/crew-timeline-fixtures.php`
 
 ## Out of scope until later phases
 
-- Apply to `crew_timesheets` (1D)
 - Daily calculator/UI/generation safeguards (1E)
 - Monthly crew movement integration
 - Travel payment configuration
 - Vessel transfer / redeployment
 - Direct editing of generated timeline lines
 - Payroll correction workflow for replacing Applied preparations
+- Automatic payroll generation / generation blocking
 
 See also [crew-movement-phases.md](./crew-movement-phases.md) and [payroll.md](../payroll.md).
