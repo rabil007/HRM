@@ -28,7 +28,7 @@ final class CrewTimesheetTemplateExporter
 {
     private const INSTRUCTIONS_SHEET_NAME = 'How to fill';
 
-    private const OPERATIONAL_DATE_COLUMNS = ['F', 'G', 'H', 'I'];
+    private const OPERATIONAL_DATE_COLUMNS = ['F', 'G', 'H', 'I', 'J', 'K'];
 
     /** Excel text format — keeps typed DD-MM-YYYY literal (avoids locale date parsing). */
     public const DATE_FORMAT = NumberFormat::FORMAT_TEXT;
@@ -168,6 +168,9 @@ final class CrewTimesheetTemplateExporter
             'H' => 16,
             'I' => 16,
             'J' => 16,
+            'K' => 16,
+            'L' => 16,
+            'M' => 14,
         ];
 
         foreach ($columnWidths as $column => $width) {
@@ -210,9 +213,9 @@ final class CrewTimesheetTemplateExporter
             ],
         ]));
 
-        $standbyStart = $this->schema->columnLetter(6);
-        $standbyEnd = $this->schema->columnLetter(7);
-        $sheet->getStyle("{$standbyStart}1:{$standbyEnd}1")->applyFromArray(array_merge($headerStyle, [
+        $signOnStart = $this->schema->columnLetter(6);
+        $signOnEnd = $this->schema->columnLetter(7);
+        $sheet->getStyle("{$signOnStart}1:{$signOnEnd}1")->applyFromArray(array_merge($headerStyle, [
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'B45309'],
@@ -228,11 +231,28 @@ final class CrewTimesheetTemplateExporter
             ],
         ]));
 
-        $overtimeColumn = $this->schema->columnLetter(10);
-        $sheet->getStyle("{$overtimeColumn}1")->applyFromArray(array_merge($headerStyle, [
+        $signOffStart = $this->schema->columnLetter(10);
+        $signOffEnd = $this->schema->columnLetter(11);
+        $sheet->getStyle("{$signOffStart}1:{$signOffEnd}1")->applyFromArray(array_merge($headerStyle, [
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'B45309'],
+            ],
+        ]));
+
+        $unpaidLeaveColumn = $this->schema->columnLetter(12);
+        $sheet->getStyle("{$unpaidLeaveColumn}1")->applyFromArray(array_merge($headerStyle, [
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '7C3AED'],
+            ],
+        ]));
+
+        $overtimeColumn = $this->schema->columnLetter(13);
+        $sheet->getStyle("{$overtimeColumn}1")->applyFromArray(array_merge($headerStyle, [
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'EA580C'],
             ],
         ]));
 
@@ -282,10 +302,17 @@ final class CrewTimesheetTemplateExporter
             ],
         ]);
 
-        $sheet->getStyle("{$standbyStart}{$dataStart}:{$onsiteEnd}{$lastDataRow}")->applyFromArray([
+        $sheet->getStyle("{$signOnStart}{$dataStart}:{$signOffEnd}{$lastDataRow}")->applyFromArray([
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'FFFBEB'],
+            ],
+        ]);
+
+        $sheet->getStyle("{$unpaidLeaveColumn}{$dataStart}:{$unpaidLeaveColumn}{$lastDataRow}")->applyFromArray([
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F5F3FF'],
             ],
         ]);
 
@@ -296,14 +323,14 @@ final class CrewTimesheetTemplateExporter
             ],
         ]);
 
-        foreach (['F', 'G', 'H', 'I'] as $dateColumn) {
+        foreach (self::OPERATIONAL_DATE_COLUMNS as $dateColumn) {
             $sheet->getStyle("{$dateColumn}{$dataStart}:{$dateColumn}{$lastDataRow}")
                 ->getNumberFormat()
                 ->setFormatCode(self::DATE_FORMAT);
         }
 
         $numericColumns = array_merge(
-            [$overtimeColumn],
+            [$unpaidLeaveColumn, $overtimeColumn],
             collect(range($typedSalaryStart, $remarksColumnIndex - 1))
                 ->map(fn (int $index) => $this->schema->columnLetter($index))
                 ->all(),
@@ -372,7 +399,7 @@ final class CrewTimesheetTemplateExporter
         }
 
         for ($row = CrewTimesheetsImport::DATA_START_ROW; $row <= $lastDataRow; $row++) {
-            foreach (['F', 'G', 'H', 'I'] as $column) {
+            foreach (self::OPERATIONAL_DATE_COLUMNS as $column) {
                 $validation = new DataValidation;
                 $validation->setType(DataValidation::TYPE_CUSTOM);
                 $validation->setAllowBlank(true);

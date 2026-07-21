@@ -129,7 +129,8 @@ test('crew payroll salary sheet export includes overtime pay and formats standby
         ->where('period_id', $period->id)
         ->where('employee_id', $employee->id)
         ->update([
-            'standby_days' => 0,
+            'sign_on_standby_days' => 0,
+            'sign_off_standby_days' => 0,
             'overtime_hours' => 78,
         ]);
 
@@ -141,7 +142,7 @@ test('crew payroll salary sheet export includes overtime pay and formats standby
             'gross_salary' => '56875.21',
             'net_salary' => '56875.21',
             'calculation_breakdown' => [
-                'standby_days' => 0,
+                'total_standby_days' => 0,
                 'onsite_days' => 30,
                 'rates' => [
                     'basic_daily' => 0,
@@ -149,7 +150,7 @@ test('crew payroll salary sheet export includes overtime pay and formats standby
                     'supplementary_allowance_daily' => 0,
                 ],
                 'lines' => [
-                    'standby_pay' => 0,
+                    'total_standby_pay' => 0,
                     'onsite_pay' => 0,
                     'site_allowance' => 0,
                     'supplementary_allowance' => 0,
@@ -180,8 +181,7 @@ test('crew payroll salary sheet export includes salary structure column for mont
             'housing_allowance' => '2000.00',
             'calculation_breakdown' => [
                 'salary_structure' => 'monthly',
-                'standby_days' => 5,
-                'onsite_days' => 25,
+                'unpaid_leave_days' => 5,
                 'rates' => [
                     'basic_monthly' => 5000,
                     'housing_monthly' => 2000,
@@ -318,9 +318,8 @@ function createApprovedCrewExportFixture($company, bool $withClient = true): arr
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_from' => null,
-        'standby_to' => null,
-        'standby_days' => 0,
+        'sign_on_standby_days' => 0,
+        'sign_off_standby_days' => 0,
         'onsite_from' => '2026-06-01',
         'onsite_to' => '2026-06-30',
         'onsite_days' => 30,
@@ -341,7 +340,7 @@ function createApprovedCrewExportFixture($company, bool $withClient = true): arr
         'status' => 'approved',
         'calculation_breakdown' => [
             'salary_structure' => 'daily',
-            'standby_days' => 0,
+            'total_standby_days' => 0,
             'onsite_days' => 30,
             'rates' => [
                 'basic_daily' => 0,
@@ -349,7 +348,7 @@ function createApprovedCrewExportFixture($company, bool $withClient = true): arr
                 'supplementary_allowance_daily' => 0,
             ],
             'lines' => [
-                'standby_pay' => 0,
+                'total_standby_pay' => 0,
                 'onsite_pay' => 0,
                 'site_allowance' => 0,
                 'supplementary_allowance' => 0,

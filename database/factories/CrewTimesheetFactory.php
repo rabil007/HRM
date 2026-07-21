@@ -24,12 +24,24 @@ class CrewTimesheetFactory extends Factory
             'period_id' => static function (): int {
                 throw new \InvalidArgumentException('period_id must be set explicitly');
             },
-            'standby_days' => $this->faker->randomFloat(2, 0, 15),
-            'onsite_days' => $this->faker->randomFloat(2, 0, 15),
+            'sign_on_standby_days' => 0,
+            'onsite_days' => 0,
+            'sign_off_standby_days' => 0,
+            'unpaid_leave_days' => 0,
             'overtime_hours' => 0,
             'additional_amount' => 0,
             'deduction_amount' => 0,
             'remarks' => null,
         ];
+    }
+
+    public function monthly(): static
+    {
+        return $this->state(fn () => [
+            'sign_on_standby_days' => 0,
+            'onsite_days' => 0,
+            'sign_off_standby_days' => 0,
+            'unpaid_leave_days' => 0,
+        ]);
     }
 }

@@ -65,7 +65,7 @@ test('activity log is recorded for crew timesheet creation', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 5,
+        'sign_on_standby_days' => 5,
         'onsite_days' => 10,
     ]);
 

@@ -67,18 +67,24 @@ test('crew timesheet template download includes roster with department and posit
     expect($sheet)->not->toBeNull()
         ->and($sheet->getCell('A1')->getValue())->toBe('Employee No')
         ->and($sheet->getCell('C1')->getValue())->toBe('Division')
+        ->and($sheet->getCell('F1')->getValue())->toBe('Sign-On Standby From')
+        ->and($sheet->getCell('G1')->getValue())->toBe('Sign-On Standby To')
+        ->and($sheet->getCell('H1')->getValue())->toBe('Onsite From')
         ->and($sheet->getCell('I1')->getValue())->toBe('Onsite To')
-        ->and($sheet->getCell('J1')->getValue())->toBe('Overtime Hours')
-        ->and($sheet->getCell('K1')->getValue())->toBe('Bonus')
-        ->and($sheet->getCell('L1')->getValue())->toBe('Commission')
-        ->and($sheet->getCell('Q1')->getValue())->toBe('Remarks')
+        ->and($sheet->getCell('J1')->getValue())->toBe('Sign-Off Standby From')
+        ->and($sheet->getCell('K1')->getValue())->toBe('Sign-Off Standby To')
+        ->and($sheet->getCell('L1')->getValue())->toBe('Unpaid Leave Days')
+        ->and($sheet->getCell('M1')->getValue())->toBe('Overtime Hours')
+        ->and($sheet->getCell('N1')->getValue())->toBe('Bonus')
+        ->and($sheet->getCell('O1')->getValue())->toBe('Commission')
+        ->and($sheet->getCell('T1')->getValue())->toBe('Remarks')
         ->and($sheet->getCell('A2')->getValue())->toBe('2057')
         ->and($sheet->getCell('B2')->getValue())->toBe('AHMED LATECH')
         ->and($sheet->getCell('C2')->getValue())->toBe('Marine')
         ->and($sheet->getCell('D2')->getValue())->toBe('Deck')
         ->and($sheet->getCell('E2')->getValue())->toBe('Chief Officer')
         ->and($sheet->getCell('F2')->getValue())->toBeNull()
-        ->and($sheet->getAutoFilter()->getRange())->toBe('A1:Q2')
+        ->and($sheet->getAutoFilter()->getRange())->toBe('A1:T2')
         ->and($sheet->getStyle('F2')->getNumberFormat()->getFormatCode())->toBe(CrewTimesheetTemplateExporter::DATE_FORMAT);
 
     @unlink($result['path']);
@@ -102,8 +108,8 @@ test('crew timesheet import parses dd-mm-yyyy dates from excel', function () {
         [
             'employee_no' => '2057',
             'name' => 'AHMED LATECH',
-            'standby_from' => '01-07-2026',
-            'standby_to' => '15-07-2026',
+            'sign_on_standby_from' => '01-07-2026',
+            'sign_on_standby_to' => '15-07-2026',
             'onsite_from' => '16-07-2026',
             'onsite_to' => '25-07-2026',
         ],
@@ -116,7 +122,7 @@ test('crew timesheet import parses dd-mm-yyyy dates from excel', function () {
         ->assertOk()
         ->assertJsonPath('summary.total', 1)
         ->assertJsonPath('summary.valid', 1)
-        ->assertJsonPath('rows.0.standby_days', 15)
+        ->assertJsonPath('rows.0.sign_on_standby_days', 15)
         ->assertJsonPath('rows.0.onsite_days', 10);
 });
 
@@ -164,8 +170,8 @@ test('crew timesheet import creates timesheets for valid rows', function () {
         [
             'employee_no' => '2057',
             'name' => 'AHMED LATECH',
-            'standby_from' => '2026-01-16',
-            'standby_to' => '2026-01-17',
+            'sign_on_standby_from' => '2026-01-16',
+            'sign_on_standby_to' => '2026-01-17',
             'onsite_from' => '2026-01-01',
             'onsite_to' => '2026-01-15',
         ],
@@ -184,9 +190,9 @@ test('crew timesheet import creates timesheets for valid rows', function () {
         ->first();
 
     expect($timesheet)->not->toBeNull()
-        ->and($timesheet->standby_days)->toBe('2.00')
+        ->and($timesheet->sign_on_standby_days)->toBe('2.00')
         ->and($timesheet->onsite_days)->toBe('15.00')
-        ->and($timesheet->standby_from?->toDateString())->toBe('2026-01-16')
+        ->and($timesheet->sign_on_standby_from?->toDateString())->toBe('2026-01-16')
         ->and($timesheet->onsite_from?->toDateString())->toBe('2026-01-01')
         ->and($timesheet->overtime_hours)->toBe('0.00');
 });
@@ -209,8 +215,8 @@ test('crew timesheet import stores overtime hours from excel', function () {
         [
             'employee_no' => '2057',
             'name' => 'AHMED LATECH',
-            'standby_from' => '2026-01-16',
-            'standby_to' => '2026-01-17',
+            'sign_on_standby_from' => '2026-01-16',
+            'sign_on_standby_to' => '2026-01-17',
             'onsite_from' => '2026-01-01',
             'onsite_to' => '2026-01-15',
             'overtime_hours' => 76,
@@ -423,7 +429,7 @@ test('crew timesheet import clears typed salary input when column is blank', fun
         ->exists())->toBeFalse();
 });
 
-test('crew timesheet import still accepts legacy ten column files', function () {
+test('crew timesheet import accepts roster-only files without salary or remarks columns', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
@@ -441,8 +447,8 @@ test('crew timesheet import still accepts legacy ten column files', function () 
         [
             'employee_no' => '2057',
             'name' => 'AHMED LATECH',
-            'standby_from' => '2026-01-16',
-            'standby_to' => '2026-01-17',
+            'sign_on_standby_from' => '2026-01-16',
+            'sign_on_standby_to' => '2026-01-17',
             'onsite_from' => '2026-01-01',
             'onsite_to' => '2026-01-15',
         ],
@@ -504,10 +510,13 @@ function makeCrewTimesheetImportFile(int $companyId, array $rows, bool $legacyHe
         $setCell('Division', $row['division'] ?? '');
         $setCell('Department', $row['department'] ?? '');
         $setCell('Position', $row['position'] ?? '');
-        $setCell('Standby From', $row['standby_from'] ?? '');
-        $setCell('Standby To', $row['standby_to'] ?? '');
+        $setCell('Sign-On Standby From', $row['sign_on_standby_from'] ?? '');
+        $setCell('Sign-On Standby To', $row['sign_on_standby_to'] ?? '');
         $setCell('Onsite From', $row['onsite_from'] ?? '');
         $setCell('Onsite To', $row['onsite_to'] ?? '');
+        $setCell('Sign-Off Standby From', $row['sign_off_standby_from'] ?? '');
+        $setCell('Sign-Off Standby To', $row['sign_off_standby_to'] ?? '');
+        $setCell('Unpaid Leave Days', $row['unpaid_leave_days'] ?? '');
         $setCell('Overtime Hours', $row['overtime_hours'] ?? '');
         $setCell('Remarks', $row['remarks'] ?? '');
 

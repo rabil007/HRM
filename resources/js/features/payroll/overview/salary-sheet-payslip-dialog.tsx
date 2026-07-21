@@ -36,7 +36,7 @@ type SalarySheetRow = {
     employee_no: string;
     name: string;
     designation: string;
-    standby_days: number;
+    total_standby_days: number;
     onsite_days: number;
     basic_salary: number;
     supplim_allow: number;
@@ -224,7 +224,7 @@ export function SalarySheetPayslipDialog({
                 row.employee_no,
                 row.name,
                 row.designation,
-                String(row.standby_days),
+                String(row.total_standby_days),
                 String(row.onsite_days),
                 String(row.total_salary),
             ]
@@ -761,7 +761,7 @@ export function SalarySheetPayslipDialog({
                                             <TableHead>Name</TableHead>
                                             <TableHead>Designation</TableHead>
                                             <TableHead className="text-right">
-                                                Standby days
+                                                Total standby days
                                             </TableHead>
                                             <TableHead className="text-right">
                                                 Onsite days
@@ -844,7 +844,7 @@ export function SalarySheetPayslipDialog({
                                                         {row.designation || '—'}
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        {row.standby_days}
+                                                        {row.total_standby_days}
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         {row.onsite_days}

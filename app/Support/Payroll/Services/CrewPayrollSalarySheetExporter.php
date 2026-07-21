@@ -151,7 +151,7 @@ final class CrewPayrollSalarySheetExporter
         $rates = is_array($breakdown['rates'] ?? null) ? $breakdown['rates'] : [];
         $lines = is_array($breakdown['lines'] ?? null) ? $breakdown['lines'] : [];
 
-        $standbyPay = $this->toFloat($lines['standby_pay'] ?? null);
+        $standbyPay = $this->toFloat($lines['total_standby_pay'] ?? null);
         $onsitePay = $this->toFloat($lines['onsite_pay'] ?? null);
         $siteAllowancePay = $this->toFloat($lines['site_allowance'] ?? null);
         $supplementaryPay = $this->toFloat($lines['supplementary_allowance'] ?? null);
@@ -172,9 +172,9 @@ final class CrewPayrollSalarySheetExporter
             'D' => $this->presentValue($employee->position?->title, ! filled($employee->position?->title)),
             'E' => $this->presentValue($employee->client?->name, ! filled($employee->client?->name)),
             'F' => $this->presentValue($employee->project?->title, ! filled($employee->project?->title)),
-            'G' => $this->presentDate($timesheet?->standby_from),
-            'H' => $this->presentDate($timesheet?->standby_to),
-            'I' => $this->presentNumeric($timesheet?->standby_days ?? $breakdown['standby_days'] ?? null),
+            'G' => $this->presentDate($timesheet?->sign_on_standby_from),
+            'H' => $this->presentDate($timesheet?->sign_off_standby_to),
+            'I' => $this->presentNumeric($breakdown['total_standby_days'] ?? null),
             'J' => $this->presentDate($timesheet?->onsite_from),
             'K' => $this->presentDate($timesheet?->onsite_to),
             'L' => $this->presentNumeric($timesheet?->onsite_days ?? $breakdown['onsite_days'] ?? null),

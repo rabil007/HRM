@@ -221,15 +221,17 @@ final class CrewTimesheetImportOrchestrator
                 $rowMode = 'monthly_manual';
             }
 
-            $hasOperationalImport = filled($parsedRow['standby_from'])
-                || filled($parsedRow['standby_to'])
+            $hasOperationalImport = filled($parsedRow['sign_on_standby_from'])
+                || filled($parsedRow['sign_on_standby_to'])
                 || filled($parsedRow['onsite_from'])
-                || filled($parsedRow['onsite_to']);
+                || filled($parsedRow['onsite_to'])
+                || filled($parsedRow['sign_off_standby_from'])
+                || filled($parsedRow['sign_off_standby_to']);
 
             if ($isCrewOperationsMode && $isDaily && $hasOperationalImport) {
                 $rowErrors[] = [
                     'row' => $rowNumber,
-                    'field' => 'standby_from',
+                    'field' => 'sign_on_standby_from',
                     'message' => 'Daily crew operational dates cannot be imported in Crew Operations Timeline mode.',
                 ];
             }
@@ -294,8 +296,13 @@ final class CrewTimesheetImportOrchestrator
                 'department' => $parsedRow['department'],
                 'position' => $parsedRow['position'],
                 'row_mode' => $rowMode,
-                'standby_days' => $timesheetData['standby_days'] ?? null,
+                'sign_on_standby_days' => $timesheetData['sign_on_standby_days'] ?? null,
                 'onsite_days' => $timesheetData['onsite_days'] ?? null,
+                'sign_off_standby_days' => $timesheetData['sign_off_standby_days'] ?? null,
+                'total_standby_days' => isset($timesheetData['sign_on_standby_days']) || isset($timesheetData['sign_off_standby_days'])
+                    ? round((float) ($timesheetData['sign_on_standby_days'] ?? 0) + (float) ($timesheetData['sign_off_standby_days'] ?? 0), 2)
+                    : null,
+                'unpaid_leave_days' => $timesheetData['unpaid_leave_days'] ?? null,
                 'overtime_hours' => $timesheetData['overtime_hours'] ?? null,
                 'remarks' => $timesheetData['remarks'] ?? null,
                 'salary_input_summary' => $this->buildSalaryInputSummary($salaryAmountsByTypeId, $typeNamesById),
@@ -379,11 +386,11 @@ final class CrewTimesheetImportOrchestrator
         }
 
         return [
-            'standby_from' => $parsedRow['standby_from'],
-            'standby_to' => $parsedRow['standby_to'],
-            'standby_days' => $this->calculateInclusiveDays(
-                $parsedRow['standby_from'],
-                $parsedRow['standby_to'],
+            'sign_on_standby_from' => $parsedRow['sign_on_standby_from'],
+            'sign_on_standby_to' => $parsedRow['sign_on_standby_to'],
+            'sign_on_standby_days' => $this->calculateInclusiveDays(
+                $parsedRow['sign_on_standby_from'],
+                $parsedRow['sign_on_standby_to'],
             ),
             'onsite_from' => $parsedRow['onsite_from'],
             'onsite_to' => $parsedRow['onsite_to'],
@@ -391,12 +398,28 @@ final class CrewTimesheetImportOrchestrator
                 $parsedRow['onsite_from'],
                 $parsedRow['onsite_to'],
             ),
+            'sign_off_standby_from' => $parsedRow['sign_off_standby_from'],
+            'sign_off_standby_to' => $parsedRow['sign_off_standby_to'],
+            'sign_off_standby_days' => $this->calculateInclusiveDays(
+                $parsedRow['sign_off_standby_from'],
+                $parsedRow['sign_off_standby_to'],
+            ),
+            'unpaid_leave_days' => $this->numericOrNull($parsedRow['unpaid_leave_days'] ?? null),
             'overtime_hours' => $parsedRow['overtime_hours'] ?? 0,
             'additional_amount' => 0,
             'deduction_amount' => 0,
             'remarks' => $parsedRow['remarks'] ?? null,
             'source' => CrewTimesheetSource::Import,
         ];
+    }
+
+    private function numericOrNull(mixed $value): ?float
+    {
+        if ($value === null || $value === '' || ! is_numeric($value)) {
+            return null;
+        }
+
+        return round((float) $value, 2);
     }
 
     /**
@@ -414,12 +437,16 @@ final class CrewTimesheetImportOrchestrator
         }
 
         return [
-            'standby_from' => ['nullable', 'date'],
-            'standby_to' => ['nullable', 'date', 'after_or_equal:standby_from'],
-            'standby_days' => ['nullable', 'numeric', 'min:0'],
+            'sign_on_standby_from' => ['nullable', 'date'],
+            'sign_on_standby_to' => ['nullable', 'date', 'after_or_equal:sign_on_standby_from'],
+            'sign_on_standby_days' => ['nullable', 'numeric', 'min:0'],
             'onsite_from' => ['nullable', 'date'],
             'onsite_to' => ['nullable', 'date', 'after_or_equal:onsite_from'],
             'onsite_days' => ['nullable', 'numeric', 'min:0'],
+            'sign_off_standby_from' => ['nullable', 'date'],
+            'sign_off_standby_to' => ['nullable', 'date', 'after_or_equal:sign_off_standby_from'],
+            'sign_off_standby_days' => ['nullable', 'numeric', 'min:0'],
+            'unpaid_leave_days' => ['nullable', 'numeric', 'min:0'],
             'overtime_hours' => ['nullable', 'numeric', 'min:0'],
             'additional_amount' => ['nullable', 'numeric', 'min:0'],
             'deduction_amount' => ['nullable', 'numeric', 'min:0'],

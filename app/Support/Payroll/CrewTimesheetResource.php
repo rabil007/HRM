@@ -24,18 +24,13 @@ final class CrewTimesheetResource
         $signOnDays = (float) ($timesheet->sign_on_standby_days ?? 0);
         $signOffDays = (float) ($timesheet->sign_off_standby_days ?? 0);
         $onsiteDays = (float) ($timesheet->onsite_days ?? 0);
-        $legacyStandby = (float) ($timesheet->standby_days ?? 0);
-        $totalPayableDays = $operationallyLocked
-            ? round($signOnDays + $signOffDays + $onsiteDays, 2)
-            : round($legacyStandby + $onsiteDays, 2);
+        $totalStandbyDays = round($signOnDays + $signOffDays, 2);
+        $totalPayableDays = round($signOnDays + $signOffDays + $onsiteDays, 2);
 
         return [
             'id' => $timesheet->id,
             'period_id' => $timesheet->period_id,
             'employee_id' => $timesheet->employee_id,
-            'standby_from' => $timesheet->standby_from?->toDateString(),
-            'standby_to' => $timesheet->standby_to?->toDateString(),
-            'standby_days' => $timesheet->standby_days,
             'sign_on_standby_from' => $timesheet->sign_on_standby_from?->toDateString(),
             'sign_on_standby_to' => $timesheet->sign_on_standby_to?->toDateString(),
             'sign_on_standby_days' => $timesheet->sign_on_standby_days,
@@ -45,6 +40,8 @@ final class CrewTimesheetResource
             'sign_off_standby_from' => $timesheet->sign_off_standby_from?->toDateString(),
             'sign_off_standby_to' => $timesheet->sign_off_standby_to?->toDateString(),
             'sign_off_standby_days' => $timesheet->sign_off_standby_days,
+            'unpaid_leave_days' => $timesheet->unpaid_leave_days,
+            'total_standby_days' => $totalStandbyDays,
             'total_payable_days' => $totalPayableDays,
             'overtime_hours' => $timesheet->overtime_hours,
             'overtime_amount' => $timesheet->overtime_amount,

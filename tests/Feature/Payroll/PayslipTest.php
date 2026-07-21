@@ -304,10 +304,10 @@ test('crew payslip shows overtime in earnings without calculation breakdown', fu
         'net_salary' => 14082.60,
         'status' => 'approved',
         'calculation_breakdown' => [
-            'standby_days' => 30,
+            'total_standby_days' => 30,
             'onsite_days' => 33.5,
             'lines' => [
-                'standby_pay' => 0,
+                'total_standby_pay' => 0,
                 'onsite_pay' => 0,
                 'site_allowance' => 0,
                 'supplementary_allowance' => 0,

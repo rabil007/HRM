@@ -29,9 +29,6 @@ class CrewTimesheet extends Model
                 'company_id',
                 'employee_id',
                 'period_id',
-                'standby_from',
-                'standby_to',
-                'standby_days',
                 'sign_on_standby_from',
                 'sign_on_standby_to',
                 'sign_on_standby_days',
@@ -41,6 +38,7 @@ class CrewTimesheet extends Model
                 'sign_off_standby_from',
                 'sign_off_standby_to',
                 'sign_off_standby_days',
+                'unpaid_leave_days',
                 'overtime_hours',
                 'overtime_amount',
                 'additional_amount',
@@ -58,9 +56,6 @@ class CrewTimesheet extends Model
     protected function casts(): array
     {
         return [
-            'standby_from' => 'date',
-            'standby_to' => 'date',
-            'standby_days' => 'decimal:2',
             'sign_on_standby_from' => 'date',
             'sign_on_standby_to' => 'date',
             'sign_on_standby_days' => 'decimal:2',
@@ -70,6 +65,7 @@ class CrewTimesheet extends Model
             'sign_off_standby_from' => 'date',
             'sign_off_standby_to' => 'date',
             'sign_off_standby_days' => 'decimal:2',
+            'unpaid_leave_days' => 'decimal:2',
             'overtime_hours' => 'decimal:2',
             'overtime_amount' => 'decimal:2',
             'additional_amount' => 'decimal:2',

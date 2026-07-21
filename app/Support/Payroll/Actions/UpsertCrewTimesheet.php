@@ -21,9 +21,6 @@ final class UpsertCrewTimesheet
     ) {}
 
     private const OPERATIONAL_KEYS = [
-        'standby_from',
-        'standby_to',
-        'standby_days',
         'sign_on_standby_from',
         'sign_on_standby_to',
         'sign_on_standby_days',
@@ -103,7 +100,7 @@ final class UpsertCrewTimesheet
             if ($isCrewOperationsMode && $isDaily) {
                 if ($this->hasOperationalPayload($data)) {
                     throw ValidationException::withMessages([
-                        'standby_days' => 'Daily crew operational days come from the Applied Crew Operations timeline and cannot be set manually or via import.',
+                        'sign_on_standby_days' => 'Daily crew operational days come from the Applied Crew Operations timeline and cannot be set manually or via import.',
                     ]);
                 }
 
@@ -133,12 +130,16 @@ final class UpsertCrewTimesheet
                     'period_id' => $period->id,
                 ],
                 [
-                    'standby_from' => $data['standby_from'] ?? null,
-                    'standby_to' => $data['standby_to'] ?? null,
-                    'standby_days' => $data['standby_days'] ?? null,
+                    'sign_on_standby_from' => $data['sign_on_standby_from'] ?? null,
+                    'sign_on_standby_to' => $data['sign_on_standby_to'] ?? null,
+                    'sign_on_standby_days' => $data['sign_on_standby_days'] ?? null,
                     'onsite_from' => $data['onsite_from'] ?? null,
                     'onsite_to' => $data['onsite_to'] ?? null,
                     'onsite_days' => $data['onsite_days'] ?? null,
+                    'sign_off_standby_from' => $data['sign_off_standby_from'] ?? null,
+                    'sign_off_standby_to' => $data['sign_off_standby_to'] ?? null,
+                    'sign_off_standby_days' => $data['sign_off_standby_days'] ?? null,
+                    'unpaid_leave_days' => $data['unpaid_leave_days'] ?? null,
                     'overtime_hours' => $this->financialValue($data, $existing, 'overtime_hours', 0),
                     'additional_amount' => $this->financialValue($data, $existing, 'additional_amount', 0),
                     'deduction_amount' => $this->financialValue($data, $existing, 'deduction_amount', 0),
@@ -194,9 +195,6 @@ final class UpsertCrewTimesheet
     private function hasOperationalPayload(array $data): bool
     {
         foreach ([
-            'standby_from',
-            'standby_to',
-            'standby_days',
             'sign_on_standby_from',
             'sign_on_standby_to',
             'sign_on_standby_days',

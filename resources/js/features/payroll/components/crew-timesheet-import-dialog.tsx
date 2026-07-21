@@ -48,8 +48,11 @@ type ImportPreviewRow = {
     name: string | null;
     department: string | null;
     position: string | null;
-    standby_days: number | null;
+    sign_on_standby_days: number | null;
     onsite_days: number | null;
+    sign_off_standby_days: number | null;
+    total_standby_days: number | null;
+    unpaid_leave_days: number | null;
     overtime_hours: number | string | null;
     remarks: string | null;
     salary_input_summary?: Array<{ name: string; amount: number }>;
@@ -120,8 +123,10 @@ export function CrewTimesheetImportDialog({
                 row.name,
                 row.department,
                 row.position,
-                row.standby_days?.toString(),
+                row.sign_on_standby_days?.toString(),
                 row.onsite_days?.toString(),
+                row.sign_off_standby_days?.toString(),
+                row.unpaid_leave_days?.toString(),
                 row.overtime_hours?.toString(),
                 row.remarks,
                 row.errors[0]?.message,
@@ -372,8 +377,10 @@ export function CrewTimesheetImportDialog({
                                             <TableHead>Row</TableHead>
                                             <TableHead>Emp no.</TableHead>
                                             <TableHead>Name</TableHead>
-                                            <TableHead>Standby</TableHead>
+                                            <TableHead>Sign-on</TableHead>
                                             <TableHead>Onsite</TableHead>
+                                            <TableHead>Sign-off</TableHead>
+                                            <TableHead>Unpaid leave</TableHead>
                                             <TableHead>Overtime</TableHead>
                                             <TableHead>Status</TableHead>
                                         </TableRow>
@@ -382,7 +389,7 @@ export function CrewTimesheetImportDialog({
                                         {filteredRows.length === 0 ? (
                                             <TableRow>
                                                 <TableCell
-                                                    colSpan={7}
+                                                    colSpan={9}
                                                     className="py-8 text-center text-sm text-muted-foreground"
                                                 >
                                                     No rows match your search.
@@ -401,11 +408,19 @@ export function CrewTimesheetImportDialog({
                                                         {row.name ?? '—'}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {row.standby_days ??
+                                                        {row.sign_on_standby_days ??
                                                             '—'}
                                                     </TableCell>
                                                     <TableCell>
                                                         {row.onsite_days ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {row.sign_off_standby_days ??
+                                                            '—'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {row.unpaid_leave_days ??
+                                                            '—'}
                                                     </TableCell>
                                                     <TableCell>
                                                         {row.overtime_hours ??

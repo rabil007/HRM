@@ -14,40 +14,65 @@ import { Textarea } from '@/components/ui/textarea';
 import { calculateInclusiveDays } from '../lib/calculate-inclusive-days';
 import type { CrewPayrollRow, CrewTimesheetFormData } from '../types';
 
-function updateStandbyRange(
-    form: InertiaFormProps<CrewTimesheetFormData>,
-    field: 'standby_from' | 'standby_to',
-    value: string,
-) {
-    form.setData((data) => {
-        const next = { ...data, [field]: value };
+type OperationalRangeField = 'sign_on_standby' | 'onsite' | 'sign_off_standby';
 
-        return {
-            ...next,
-            standby_days: calculateInclusiveDays(
-                next.standby_from,
-                next.standby_to,
-            ),
-        };
-    });
-}
+function OperationalRange({
+    form,
+    field,
+    label,
+    canSave,
+    errors,
+}: {
+    form: InertiaFormProps<CrewTimesheetFormData>;
+    field: OperationalRangeField;
+    label: string;
+    canSave: boolean;
+    errors: Record<string, string | undefined>;
+}) {
+    const fromKey = `${field}_from` as keyof CrewTimesheetFormData;
+    const toKey = `${field}_to` as keyof CrewTimesheetFormData;
+    const days = calculateInclusiveDays(
+        String(form.data[fromKey] ?? ''),
+        String(form.data[toKey] ?? ''),
+    );
 
-function updateOnsiteRange(
-    form: InertiaFormProps<CrewTimesheetFormData>,
-    field: 'onsite_from' | 'onsite_to',
-    value: string,
-) {
-    form.setData((data) => {
-        const next = { ...data, [field]: value };
-
-        return {
-            ...next,
-            onsite_days: calculateInclusiveDays(
-                next.onsite_from,
-                next.onsite_to,
-            ),
-        };
-    });
+    return (
+        <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                        {label} from
+                    </Label>
+                    <Input
+                        type="date"
+                        className="h-11 rounded-xl border-border bg-card"
+                        value={String(form.data[fromKey] ?? '')}
+                        onChange={(e) => form.setData(fromKey, e.target.value)}
+                        disabled={!canSave}
+                    />
+                    <InputError message={errors[fromKey]} className="text-xs" />
+                </div>
+                <div className="space-y-2">
+                    <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                        {label} to
+                    </Label>
+                    <Input
+                        type="date"
+                        className="h-11 rounded-xl border-border bg-card"
+                        value={String(form.data[toKey] ?? '')}
+                        onChange={(e) => form.setData(toKey, e.target.value)}
+                        disabled={!canSave}
+                    />
+                    <InputError message={errors[toKey]} className="text-xs" />
+                </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+                {days && Number(days) > 0
+                    ? `${days} day(s) — calculated on save.`
+                    : 'No dates set.'}
+            </p>
+        </div>
+    );
 }
 
 export function CrewTimesheetFormSheet({
@@ -69,8 +94,6 @@ export function CrewTimesheetFormSheet({
 }) {
     const hasErrors = Object.keys(errors).length > 0;
     const isMonthlyCrew = row?.salary_structure === 'monthly';
-    const standbyLabel = isMonthlyCrew ? 'Leave' : 'Standby';
-    const onsiteLabel = isMonthlyCrew ? 'Working' : 'Onsite';
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -98,154 +121,64 @@ export function CrewTimesheetFormSheet({
 
                     <div className="space-y-5">
                         <h3 className="text-sm font-semibold tracking-tight">
-                            Worked days
+                            {isMonthlyCrew
+                                ? 'Unpaid leave'
+                                : 'Operational days'}
                         </h3>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        {isMonthlyCrew ? (
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                    {standbyLabel} from
+                                    Unpaid leave days
                                 </Label>
                                 <Input
-                                    type="date"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
                                     className="h-11 rounded-xl border-border bg-card"
-                                    value={form.data.standby_from}
+                                    value={form.data.unpaid_leave_days}
                                     onChange={(e) =>
-                                        updateStandbyRange(
-                                            form,
-                                            'standby_from',
+                                        form.setData(
+                                            'unpaid_leave_days',
                                             e.target.value,
                                         )
                                     }
                                     disabled={!canSave}
                                 />
+                                <p className="text-xs text-muted-foreground">
+                                    Unpaid leave days reduce monthly pay for
+                                    this period.
+                                </p>
                                 <InputError
-                                    message={errors.standby_from}
+                                    message={errors.unpaid_leave_days}
                                     className="text-xs"
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                    {standbyLabel} to
-                                </Label>
-                                <Input
-                                    type="date"
-                                    className="h-11 rounded-xl border-border bg-card"
-                                    value={form.data.standby_to}
-                                    onChange={(e) =>
-                                        updateStandbyRange(
-                                            form,
-                                            'standby_to',
-                                            e.target.value,
-                                        )
-                                    }
-                                    disabled={!canSave}
+                        ) : (
+                            <>
+                                <OperationalRange
+                                    form={form}
+                                    field="sign_on_standby"
+                                    label="Sign-on standby"
+                                    canSave={canSave}
+                                    errors={errors}
                                 />
-                                <InputError
-                                    message={errors.standby_to}
-                                    className="text-xs"
+                                <OperationalRange
+                                    form={form}
+                                    field="onsite"
+                                    label="Onsite"
+                                    canSave={canSave}
+                                    errors={errors}
                                 />
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                {standbyLabel} days
-                            </Label>
-                            <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                className="h-11 rounded-xl border-border bg-card"
-                                value={form.data.standby_days}
-                                onChange={(e) =>
-                                    form.setData('standby_days', e.target.value)
-                                }
-                                disabled={!canSave}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                {isMonthlyCrew
-                                    ? 'Leave days reduce monthly pay for this period.'
-                                    : 'Auto-calculated from standby dates (inclusive). You can adjust manually.'}
-                            </p>
-                            <InputError
-                                message={errors.standby_days}
-                                className="text-xs"
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                    {onsiteLabel} from
-                                </Label>
-                                <Input
-                                    type="date"
-                                    className="h-11 rounded-xl border-border bg-card"
-                                    value={form.data.onsite_from}
-                                    onChange={(e) =>
-                                        updateOnsiteRange(
-                                            form,
-                                            'onsite_from',
-                                            e.target.value,
-                                        )
-                                    }
-                                    disabled={!canSave}
+                                <OperationalRange
+                                    form={form}
+                                    field="sign_off_standby"
+                                    label="Sign-off standby"
+                                    canSave={canSave}
+                                    errors={errors}
                                 />
-                                <InputError
-                                    message={errors.onsite_from}
-                                    className="text-xs"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                    {onsiteLabel} to
-                                </Label>
-                                <Input
-                                    type="date"
-                                    className="h-11 rounded-xl border-border bg-card"
-                                    value={form.data.onsite_to}
-                                    onChange={(e) =>
-                                        updateOnsiteRange(
-                                            form,
-                                            'onsite_to',
-                                            e.target.value,
-                                        )
-                                    }
-                                    disabled={!canSave}
-                                />
-                                <InputError
-                                    message={errors.onsite_to}
-                                    className="text-xs"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                {onsiteLabel} days
-                            </Label>
-                            <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                className="h-11 rounded-xl border-border bg-card"
-                                value={form.data.onsite_days}
-                                onChange={(e) =>
-                                    form.setData('onsite_days', e.target.value)
-                                }
-                                disabled={!canSave}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                {isMonthlyCrew
-                                    ? 'Working days recorded for this monthly crew contract.'
-                                    : 'Auto-calculated from onsite dates (inclusive). You can adjust manually.'}
-                            </p>
-                            <InputError
-                                message={errors.onsite_days}
-                                className="text-xs"
-                            />
-                        </div>
+                            </>
+                        )}
                     </div>
 
                     <div className="space-y-5 border-t border-border/60 pt-4">

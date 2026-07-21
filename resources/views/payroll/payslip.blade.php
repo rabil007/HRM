@@ -201,8 +201,9 @@
                 <tr>
                     <td style="padding-right: 20px;">
                         <table class="info-table">
-                            <tr><td class="info-label">Standby days:</td><td>{{ $crew_summary['standby_days'] ?? '0' }}</td></tr>
-                            <tr><td class="info-label">Onsite days:</td><td>{{ $crew_summary['onsite_days'] ?? '0' }}</td></tr>
+                            @foreach($crew_summary as $summaryRow)
+                                <tr><td class="info-label">{{ $summaryRow['label'] }}:</td><td>{{ $summaryRow['value'] ?? '0' }}</td></tr>
+                            @endforeach
                         </table>
                     </td>
                     <td></td>

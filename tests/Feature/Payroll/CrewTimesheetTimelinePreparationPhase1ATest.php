@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\ContractSalaryStructure;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetPreparationStatus;
@@ -13,7 +12,6 @@ use App\Models\CrewTimesheetPreparationLine;
 use App\Models\PayrollPeriod;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 test('crew timeline preparation schema includes new tables and crew timesheet columns', function () {
@@ -167,110 +165,11 @@ test('repeated phases can be stored as separate preparation lines', function () 
     expect(CrewTimesheetPreparationLine::query()->where('crew_timesheet_preparation_id', $preparation->id)->count())->toBe(2);
 });
 
-test('daily legacy standby fields backfill into sign on standby columns', function () {
-    ['company' => $company] = makePayrollFixtures();
-    $employee = createCrewEmployeeWithContract($company, 'CRW-DLY-001', 100, 50, 25);
-    $period = PayrollPeriod::factory()->for($company)->create();
-
-    $timesheet = CrewTimesheet::factory()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'period_id' => $period->id,
-        'standby_from' => '2026-04-01',
-        'standby_to' => '2026-04-05',
-        'standby_days' => 5,
-    ]);
-
-    DB::table('crew_timesheets')
-        ->whereKey($timesheet->id)
-        ->update([
-            'sign_on_standby_from' => null,
-            'sign_on_standby_to' => null,
-            'sign_on_standby_days' => null,
-        ]);
-
-    DB::table('crew_timesheets')
-        ->where(function ($query): void {
-            $query->whereNotNull('standby_from')
-                ->orWhereNotNull('standby_to')
-                ->orWhereNotNull('standby_days');
-        })
-        ->whereNull('sign_on_standby_from')
-        ->whereNull('sign_on_standby_to')
-        ->whereNull('sign_on_standby_days')
-        ->whereExists(function ($query): void {
-            $query->select(DB::raw(1))
-                ->from('employee_contracts')
-                ->whereColumn('employee_contracts.employee_id', 'crew_timesheets.employee_id')
-                ->whereColumn('employee_contracts.company_id', 'crew_timesheets.company_id')
-                ->where('employee_contracts.payroll_category', 'crew')
-                ->where('employee_contracts.salary_structure', 'daily');
-        })
-        ->update([
-            'sign_on_standby_from' => DB::raw('standby_from'),
-            'sign_on_standby_to' => DB::raw('standby_to'),
-            'sign_on_standby_days' => DB::raw('standby_days'),
-        ]);
-
-    $timesheet->refresh();
-
-    expect($timesheet->sign_on_standby_from?->toDateString())->toBe('2026-04-01')
-        ->and($timesheet->sign_on_standby_to?->toDateString())->toBe('2026-04-05')
-        ->and((string) $timesheet->sign_on_standby_days)->toBe('5.00')
-        ->and($timesheet->standby_from?->toDateString())->toBe('2026-04-01');
-});
-
-test('monthly crew legacy standby data is not backfilled into sign on standby columns', function () {
-    ['company' => $company] = makePayrollFixtures();
-    $employee = createCrewMonthlyEmployeeWithContract($company, 'CRW-MTH-001', 10000, 2000, 500, 250);
-    $period = PayrollPeriod::factory()->for($company)->create();
-
-    $timesheet = CrewTimesheet::factory()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'period_id' => $period->id,
-        'standby_days' => 3,
-    ]);
-
-    DB::table('crew_timesheets')
-        ->whereKey($timesheet->id)
-        ->update([
-            'sign_on_standby_from' => null,
-            'sign_on_standby_to' => null,
-            'sign_on_standby_days' => null,
-        ]);
-
-    DB::table('crew_timesheets')
-        ->where(function ($query): void {
-            $query->whereNotNull('standby_from')
-                ->orWhereNotNull('standby_to')
-                ->orWhereNotNull('standby_days');
-        })
-        ->whereNull('sign_on_standby_from')
-        ->whereNull('sign_on_standby_to')
-        ->whereNull('sign_on_standby_days')
-        ->whereExists(function ($query): void {
-            $query->select(DB::raw(1))
-                ->from('employee_contracts')
-                ->whereColumn('employee_contracts.employee_id', 'crew_timesheets.employee_id')
-                ->whereColumn('employee_contracts.company_id', 'crew_timesheets.company_id')
-                ->where('employee_contracts.payroll_category', 'crew')
-                ->where('employee_contracts.salary_structure', 'daily');
-        })
-        ->update([
-            'sign_on_standby_from' => DB::raw('standby_from'),
-            'sign_on_standby_to' => DB::raw('standby_to'),
-            'sign_on_standby_days' => DB::raw('standby_days'),
-        ]);
-
-    $timesheet->refresh();
-
-    expect($timesheet->standby_days)->toBe('3.00')
-        ->and($timesheet->sign_on_standby_from)->toBeNull()
-        ->and($timesheet->sign_on_standby_to)->toBeNull()
-        ->and($timesheet->sign_on_standby_days)->toBeNull()
-        ->and($employee->fresh()->currentContract?->resolvedSalaryStructure())
-        ->toBe(ContractSalaryStructure::Monthly);
+test('legacy generic standby columns are removed from the crew timesheets table', function () {
+    expect(Schema::hasColumn('crew_timesheets', 'standby_from'))->toBeFalse()
+        ->and(Schema::hasColumn('crew_timesheets', 'standby_to'))->toBeFalse()
+        ->and(Schema::hasColumn('crew_timesheets', 'standby_days'))->toBeFalse()
+        ->and(Schema::hasColumn('crew_timesheets', 'unpaid_leave_days'))->toBeTrue();
 });
 
 test('crew timesheet casts and preparation relationships for operational metadata', function () {

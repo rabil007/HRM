@@ -172,13 +172,13 @@ test('crew payroll record can be removed from processing pay run', function () {
     CrewTimesheet::factory()->for($company)->create([
         'employee_id' => $firstEmployee->id,
         'period_id' => $period->id,
-        'standby_days' => 2,
+        'sign_on_standby_days' => 2,
         'onsite_days' => 20,
     ]);
     CrewTimesheet::factory()->for($company)->create([
         'employee_id' => $secondEmployee->id,
         'period_id' => $period->id,
-        'standby_days' => 1,
+        'sign_on_standby_days' => 1,
         'onsite_days' => 15,
     ]);
 
@@ -243,7 +243,7 @@ test('removing the last crew payroll record reverts pay run to draft', function 
     CrewTimesheet::factory()->for($company)->create([
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 2,
+        'sign_on_standby_days' => 2,
         'onsite_days' => 20,
     ]);
 

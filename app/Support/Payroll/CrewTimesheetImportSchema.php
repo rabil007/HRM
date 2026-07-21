@@ -13,6 +13,22 @@ final class CrewTimesheetImportSchema
 
     public const HEADER_REMARKS = 'Remarks';
 
+    public const HEADER_SIGN_ON_STANDBY_FROM = 'Sign-On Standby From';
+
+    public const HEADER_SIGN_ON_STANDBY_TO = 'Sign-On Standby To';
+
+    public const HEADER_ONSITE_FROM = 'Onsite From';
+
+    public const HEADER_ONSITE_TO = 'Onsite To';
+
+    public const HEADER_SIGN_OFF_STANDBY_FROM = 'Sign-Off Standby From';
+
+    public const HEADER_SIGN_OFF_STANDBY_TO = 'Sign-Off Standby To';
+
+    public const HEADER_UNPAID_LEAVE_DAYS = 'Unpaid Leave Days';
+
+    public const HEADER_OVERTIME_HOURS = 'Overtime Hours';
+
     /**
      * @return list<string>
      */
@@ -24,11 +40,14 @@ final class CrewTimesheetImportSchema
             'Division',
             'Department',
             'Position',
-            'Standby From',
-            'Standby To',
-            'Onsite From',
-            'Onsite To',
-            'Overtime Hours',
+            self::HEADER_SIGN_ON_STANDBY_FROM,
+            self::HEADER_SIGN_ON_STANDBY_TO,
+            self::HEADER_ONSITE_FROM,
+            self::HEADER_ONSITE_TO,
+            self::HEADER_SIGN_OFF_STANDBY_FROM,
+            self::HEADER_SIGN_OFF_STANDBY_TO,
+            self::HEADER_UNPAID_LEAVE_DAYS,
+            self::HEADER_OVERTIME_HOURS,
         ];
     }
 

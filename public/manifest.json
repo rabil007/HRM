@@ -1,7 +1,7 @@
 {
-    "name": "OMS-HRM",
+    "name": "OMS-HRM — Overseas",
     "short_name": "OMS-HRM",
-    "description": "Overseas Management System — Human Resources Management",
+    "description": "Overseas — Your Complete Marine Solutions | Human Resources Management",
     "start_url": "/",
     "scope": "/",
     "display": "standalone",

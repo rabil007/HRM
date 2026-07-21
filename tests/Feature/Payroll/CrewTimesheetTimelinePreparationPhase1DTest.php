@@ -35,7 +35,7 @@ test('approved fresh preparation can be applied', function () {
         'additional_amount' => 100,
         'deduction_amount' => 25,
         'remarks' => 'Keep me',
-        'standby_days' => 1,
+        'sign_on_standby_days' => 1,
         'onsite_days' => 1,
     ]);
 
@@ -76,11 +76,6 @@ test('approved fresh preparation can be applied', function () {
         ->and((float) $timesheet->sign_on_standby_days)->toBeGreaterThan(0)
         ->and((float) $timesheet->onsite_days)->toBeGreaterThan(0)
         ->and((float) $timesheet->sign_off_standby_days)->toBeGreaterThan(0)
-        ->and((float) $timesheet->standby_days)->toBe(
-            round((float) $timesheet->sign_on_standby_days + (float) $timesheet->sign_off_standby_days, 2)
-        )
-        ->and($timesheet->standby_from)->toBeNull()
-        ->and($timesheet->standby_to)->toBeNull()
         ->and((float) $timesheet->overtime_hours)->toBe(4.5)
         ->and((float) $timesheet->additional_amount)->toBe(100.0)
         ->and((float) $timesheet->deduction_amount)->toBe(25.0)
@@ -225,7 +220,7 @@ test('zero day and excluded lines do not contribute to timesheet totals', functi
     expect((float) $timesheet->sign_on_standby_days)->toBe($beforeSignOn);
 });
 
-test('only sign on standby populates legacy standby dates', function () {
+test('applied preparation populates only split operational fields', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     grantApplyPermissions($fixtures['user'], $fixtures['company']);
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', '2026-07-05 18:00:00');
@@ -256,9 +251,9 @@ test('only sign on standby populates legacy standby dates', function () {
         ->where('employee_id', $fixtures['employee']->id)
         ->firstOrFail();
 
-    expect($timesheet->standby_from?->toDateString())->toBe($timesheet->sign_on_standby_from?->toDateString())
-        ->and($timesheet->standby_to?->toDateString())->toBe($timesheet->sign_on_standby_to?->toDateString())
-        ->and((float) $timesheet->standby_days)->toBe((float) $timesheet->sign_on_standby_days)
+    expect($timesheet->sign_on_standby_from?->toDateString())->toBe('2026-07-01')
+        ->and($timesheet->sign_on_standby_to?->toDateString())->toBe('2026-07-05')
+        ->and((float) $timesheet->sign_on_standby_days)->toBeGreaterThan(0)
         ->and((float) $timesheet->sign_off_standby_days)->toBe(0.0);
 });
 
@@ -282,9 +277,9 @@ test('manual update cannot overwrite applied operational fields but can update f
     $lockedSource = $timesheet->source;
 
     expect(fn () => app(UpsertCrewTimesheet::class)->handle($fixtures['period'], $fixtures['employee'], [
-        'standby_from' => '2026-07-01',
-        'standby_to' => '2026-07-02',
-        'standby_days' => 99,
+        'sign_on_standby_from' => '2026-07-01',
+        'sign_on_standby_to' => '2026-07-02',
+        'sign_on_standby_days' => 99,
         'onsite_from' => '2026-07-01',
         'onsite_to' => '2026-07-02',
         'onsite_days' => 99,

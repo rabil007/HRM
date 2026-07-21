@@ -135,9 +135,6 @@ export type CrewTimesheet = {
     id: number;
     period_id: number;
     employee_id: number;
-    standby_from: string | null;
-    standby_to: string | null;
-    standby_days: string | null;
     sign_on_standby_from: string | null;
     sign_on_standby_to: string | null;
     sign_on_standby_days: string | null;
@@ -147,6 +144,8 @@ export type CrewTimesheet = {
     sign_off_standby_from: string | null;
     sign_off_standby_to: string | null;
     sign_off_standby_days: string | null;
+    unpaid_leave_days: string | null;
+    total_standby_days: number | null;
     total_payable_days: number | null;
     overtime_hours: string;
     overtime_amount?: string | null;
@@ -225,12 +224,13 @@ export type CrewPayrollRow = {
 export type CrewTimesheetFormData = {
     period_id: number;
     employee_id: number;
-    standby_from: string;
-    standby_to: string;
-    standby_days: string;
+    sign_on_standby_from: string;
+    sign_on_standby_to: string;
     onsite_from: string;
     onsite_to: string;
-    onsite_days: string;
+    sign_off_standby_from: string;
+    sign_off_standby_to: string;
+    unpaid_leave_days: string;
     overtime_hours: string;
     additional_amount: string;
     deduction_amount: string;
@@ -238,10 +238,13 @@ export type CrewTimesheetFormData = {
 };
 
 export type CrewTimesheetDraft = {
-    standby_from: string;
-    standby_to: string;
+    sign_on_standby_from: string;
+    sign_on_standby_to: string;
     onsite_from: string;
     onsite_to: string;
+    sign_off_standby_from: string;
+    sign_off_standby_to: string;
+    unpaid_leave_days: string;
     overtime_hours: string;
 };
 
@@ -249,10 +252,13 @@ export function buildCrewTimesheetDraft(
     timesheet: CrewTimesheet | null | undefined,
 ): CrewTimesheetDraft {
     return {
-        standby_from: timesheet?.standby_from ?? '',
-        standby_to: timesheet?.standby_to ?? '',
+        sign_on_standby_from: timesheet?.sign_on_standby_from ?? '',
+        sign_on_standby_to: timesheet?.sign_on_standby_to ?? '',
         onsite_from: timesheet?.onsite_from ?? '',
         onsite_to: timesheet?.onsite_to ?? '',
+        sign_off_standby_from: timesheet?.sign_off_standby_from ?? '',
+        sign_off_standby_to: timesheet?.sign_off_standby_to ?? '',
+        unpaid_leave_days: timesheet?.unpaid_leave_days ?? '',
         overtime_hours: timesheet?.overtime_hours ?? '',
     };
 }
@@ -333,10 +339,15 @@ export type CrewPayrollRecordListItem = PayrollRecordDeliveryFields & {
     employee: PayrollEmployeeIdentity;
     salary_structure?: 'daily' | 'monthly';
     basic_salary: string;
-    standby_days?: number | null;
+    sign_on_standby_days?: number | null;
     onsite_days?: number | null;
-    standby_pay?: string;
+    sign_off_standby_days?: number | null;
+    total_standby_days?: number | null;
+    unpaid_leave_days?: number | null;
+    sign_on_standby_pay?: string;
     onsite_pay?: string;
+    sign_off_standby_pay?: string;
+    total_standby_pay?: string;
     site_allowance?: string;
     supplementary_allowance?: string;
     housing_allowance?: string;

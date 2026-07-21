@@ -145,7 +145,7 @@ export function PayrollRecordsTable({
                     const netAmount = Number(record.net_salary ?? 0);
                     const grossAmount = Number(record.gross_salary ?? 0);
 
-                    const standbyDays = Number(record.standby_days ?? 0);
+                    const standbyDays = Number(record.total_standby_days ?? 0);
                     const onsiteDays = Number(record.onsite_days ?? 0);
                     const basicDaily = Number(record.rates?.basic_daily ?? 0);
                     const siteDaily = Number(
@@ -155,8 +155,7 @@ export function PayrollRecordsTable({
                         record.rates?.supplementary_allowance_daily ?? 0,
                     );
 
-                    // standby pay = standby_days × (basic + supplementary)
-                    const standbyAmount = Number(record.standby_pay ?? 0);
+                    const standbyAmount = Number(record.total_standby_pay ?? 0);
 
                     // onsite pay = onsite_days × (basic + supplementary + site)
                     const onsiteAmount =

@@ -45,13 +45,7 @@ final class CrewMonthlyPayrollCalculator
         $monthlyTransport = $this->activeAmount($components, SalaryComponentCode::Transport) ?? 0.0;
         $monthlyOther = $this->activeAmount($components, SalaryComponentCode::Other) ?? 0.0;
 
-        $onsiteDays = (float) ($timesheet->onsite_days ?? 0);
-        $leaveDays = (float) ($timesheet->standby_days ?? 0);
-        $hasPayableActivity = $onsiteDays > 0 || $leaveDays > 0;
-
-        if (! $hasPayableActivity) {
-            return $this->emptyResult($workingDaysInPeriod);
-        }
+        $unpaidLeaveDays = (float) ($timesheet->unpaid_leave_days ?? 0);
 
         if ($monthlyBasic === null) {
             throw ValidationException::withMessages([
@@ -60,7 +54,7 @@ final class CrewMonthlyPayrollCalculator
         }
 
         $workingDays = max(0, $workingDaysInPeriod);
-        $activePeriodDays = max(0, $workingDays - $leaveDays);
+        $activePeriodDays = max(0, $workingDays - $unpaidLeaveDays);
         $prorateRatio = $workingDays > 0 ? ($activePeriodDays / $workingDays) : 1.0;
 
         $earnedBasic = round($monthlyBasic * $prorateRatio, 2);
@@ -70,7 +64,7 @@ final class CrewMonthlyPayrollCalculator
 
         $monthlyBase = $monthlyBasic + $monthlyHousing + $monthlyTransport + $monthlyOther;
         $dailyRate = $workingDays > 0 ? ($monthlyBase / $workingDays) : 0.0;
-        $unpaidLeaveDeduction = round($dailyRate * $leaveDays, 2);
+        $unpaidLeaveDeduction = round($dailyRate * $unpaidLeaveDays, 2);
 
         $additionalAmount = round((float) ($timesheet->additional_amount ?? 0), 2);
         $deductionAmount = round((float) ($timesheet->deduction_amount ?? 0), 2);
@@ -82,8 +76,8 @@ final class CrewMonthlyPayrollCalculator
 
         $totalDeductions = round($unpaidLeaveDeduction + $deductionAmount, 2);
         $netSalary = round($grossSalary - $totalDeductions, 2);
-        $presentDays = round($onsiteDays > 0 ? $onsiteDays : $activePeriodDays, 2);
-        $absentDays = round($leaveDays, 2);
+        $presentDays = round($activePeriodDays, 2);
+        $absentDays = round($unpaidLeaveDays, 2);
 
         return [
             'basic_salary' => $this->formatMoney($earnedBasic),
@@ -106,8 +100,7 @@ final class CrewMonthlyPayrollCalculator
             'overtime_hours' => 0.0,
             'calculation_breakdown' => [
                 'salary_structure' => 'monthly',
-                'standby_days' => $leaveDays,
-                'onsite_days' => $onsiteDays,
+                'unpaid_leave_days' => $unpaidLeaveDays,
                 'working_days' => $workingDays,
                 'present_days' => $presentDays,
                 'leave_days' => $absentDays,
@@ -152,58 +145,6 @@ final class CrewMonthlyPayrollCalculator
         }
 
         return (float) $component->amount;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function emptyResult(int $workingDaysInPeriod): array
-    {
-        $workingDays = max(0, $workingDaysInPeriod);
-
-        return [
-            'basic_salary' => $this->formatMoney(0.0),
-            'housing_allowance' => $this->formatMoney(0.0),
-            'transport_allowance' => $this->formatMoney(0.0),
-            'other_allowances' => $this->formatMoney(0.0),
-            'overtime_pay' => $this->formatMoney(0.0),
-            'bonus' => $this->formatMoney(0.0),
-            'other_deductions' => $this->formatMoney(0.0),
-            'unpaid_leave_deduction' => $this->formatMoney(0.0),
-            'late_deduction' => $this->formatMoney(0.0),
-            'loan_deduction' => $this->formatMoney(0.0),
-            'total_deductions' => $this->formatMoney(0.0),
-            'gross_salary' => $this->formatMoney(0.0),
-            'net_salary' => $this->formatMoney(0.0),
-            'working_days' => $workingDays,
-            'present_days' => 0.0,
-            'absent_days' => 0.0,
-            'leave_days' => 0.0,
-            'overtime_hours' => 0.0,
-            'calculation_breakdown' => [
-                'salary_structure' => 'monthly',
-                'standby_days' => 0.0,
-                'onsite_days' => 0.0,
-                'working_days' => $workingDays,
-                'present_days' => 0.0,
-                'leave_days' => 0.0,
-                'absent_days' => 0.0,
-                'lines' => [
-                    'basic' => 0.0,
-                    'housing' => 0.0,
-                    'transport' => 0.0,
-                    'other' => 0.0,
-                    'overtime' => 0.0,
-                    'bonus' => 0.0,
-                    'unpaid_leave_deduction' => 0.0,
-                    'late_deduction' => 0.0,
-                    'loan_deduction' => 0.0,
-                    'other_deduction' => 0.0,
-                ],
-                'gross_salary' => 0.0,
-                'net_salary' => 0.0,
-            ],
-        ];
     }
 
     private function formatMoney(float $amount): string

@@ -39,7 +39,7 @@ test('crew payroll generation uses revised rates from effective date', function 
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 0,
+        'sign_on_standby_days' => 0,
         'onsite_days' => 10,
         'overtime_hours' => 0,
     ]);
@@ -92,7 +92,7 @@ test('crew payroll generation for earlier period keeps prior revision rates', fu
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 0,
+        'sign_on_standby_days' => 0,
         'onsite_days' => 10,
         'overtime_hours' => 0,
     ]);

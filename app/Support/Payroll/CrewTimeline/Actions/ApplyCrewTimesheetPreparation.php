@@ -426,17 +426,6 @@ final class ApplyCrewTimesheetPreparation
         $hasSignOn = $signOnDays > 0;
         $hasSignOff = $signOffDays > 0;
 
-        $legacyStandbyFrom = null;
-        $legacyStandbyTo = null;
-
-        if ($hasSignOn && ! $hasSignOff) {
-            $legacyStandbyFrom = $aggregate['sign_on_standby_from'];
-            $legacyStandbyTo = $aggregate['sign_on_standby_to'];
-        } elseif ($hasSignOff && ! $hasSignOn) {
-            $legacyStandbyFrom = $aggregate['sign_off_standby_from'];
-            $legacyStandbyTo = $aggregate['sign_off_standby_to'];
-        }
-
         return [
             'sign_on_standby_from' => $hasSignOn ? $aggregate['sign_on_standby_from'] : null,
             'sign_on_standby_to' => $hasSignOn ? $aggregate['sign_on_standby_to'] : null,
@@ -447,9 +436,6 @@ final class ApplyCrewTimesheetPreparation
             'sign_off_standby_from' => $hasSignOff ? $aggregate['sign_off_standby_from'] : null,
             'sign_off_standby_to' => $hasSignOff ? $aggregate['sign_off_standby_to'] : null,
             'sign_off_standby_days' => $signOffDays,
-            'standby_from' => $legacyStandbyFrom,
-            'standby_to' => $legacyStandbyTo,
-            'standby_days' => round($signOnDays + $signOffDays, 2),
             'source' => CrewTimesheetSource::CrewOperations,
             'crew_timesheet_preparation_id' => $preparation->id,
             'operational_approved_by' => $preparation->approved_by,
@@ -464,9 +450,6 @@ final class ApplyCrewTimesheetPreparation
     private function operationalSnapshot(CrewTimesheet $timesheet): array
     {
         return [
-            'standby_from' => $timesheet->standby_from?->toDateString(),
-            'standby_to' => $timesheet->standby_to?->toDateString(),
-            'standby_days' => $timesheet->standby_days,
             'sign_on_standby_from' => $timesheet->sign_on_standby_from?->toDateString(),
             'sign_on_standby_to' => $timesheet->sign_on_standby_to?->toDateString(),
             'sign_on_standby_days' => $timesheet->sign_on_standby_days,

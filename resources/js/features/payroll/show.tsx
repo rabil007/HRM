@@ -241,26 +241,19 @@ export function PayrollShowContent({
 
             const submittedDraft: CrewTimesheetDraft = { ...current };
 
-            const standby_days = calculateInclusiveDays(
-                current.standby_from,
-                current.standby_to,
-            );
-            const onsite_days = calculateInclusiveDays(
-                current.onsite_from,
-                current.onsite_to,
-            );
-
             router.post(
                 storeTimesheet.url(period.id),
                 {
                     period_id: period.id,
                     employee_id: employeeId,
-                    standby_from: current.standby_from || null,
-                    standby_to: current.standby_to || null,
-                    standby_days: standby_days ? Number(standby_days) : null,
+                    sign_on_standby_from: current.sign_on_standby_from || null,
+                    sign_on_standby_to: current.sign_on_standby_to || null,
                     onsite_from: current.onsite_from || null,
                     onsite_to: current.onsite_to || null,
-                    onsite_days: onsite_days ? Number(onsite_days) : null,
+                    sign_off_standby_from:
+                        current.sign_off_standby_from || null,
+                    sign_off_standby_to: current.sign_off_standby_to || null,
+                    unpaid_leave_days: current.unpaid_leave_days || null,
                     overtime_hours: current.overtime_hours || 0,
                     additional_amount: initialTimesheet?.additional_amount ?? 0,
                     deduction_amount: initialTimesheet?.deduction_amount ?? 0,
@@ -283,13 +276,19 @@ export function PayrollShowContent({
                             }
 
                             if (
-                                draft.standby_from !==
-                                    submittedDraft.standby_from ||
-                                draft.standby_to !==
-                                    submittedDraft.standby_to ||
+                                draft.sign_on_standby_from !==
+                                    submittedDraft.sign_on_standby_from ||
+                                draft.sign_on_standby_to !==
+                                    submittedDraft.sign_on_standby_to ||
                                 draft.onsite_from !==
                                     submittedDraft.onsite_from ||
                                 draft.onsite_to !== submittedDraft.onsite_to ||
+                                draft.sign_off_standby_from !==
+                                    submittedDraft.sign_off_standby_from ||
+                                draft.sign_off_standby_to !==
+                                    submittedDraft.sign_off_standby_to ||
+                                draft.unpaid_leave_days !==
+                                    submittedDraft.unpaid_leave_days ||
                                 draft.overtime_hours !==
                                     submittedDraft.overtime_hours
                             ) {
@@ -1442,13 +1441,13 @@ export function PayrollShowContent({
 
                                     const currentDraft =
                                         crewTimesheetDrafts[row.employee.id];
-                                    const standbyFrom =
-                                        currentDraft?.standby_from ??
-                                        row.timesheet?.standby_from ??
+                                    const signOnFrom =
+                                        currentDraft?.sign_on_standby_from ??
+                                        row.timesheet?.sign_on_standby_from ??
                                         '';
-                                    const standbyTo =
-                                        currentDraft?.standby_to ??
-                                        row.timesheet?.standby_to ??
+                                    const signOnTo =
+                                        currentDraft?.sign_on_standby_to ??
+                                        row.timesheet?.sign_on_standby_to ??
                                         '';
                                     const onsiteFrom =
                                         currentDraft?.onsite_from ??
@@ -1458,31 +1457,22 @@ export function PayrollShowContent({
                                         currentDraft?.onsite_to ??
                                         row.timesheet?.onsite_to ??
                                         '';
+                                    const signOffFrom =
+                                        currentDraft?.sign_off_standby_from ??
+                                        row.timesheet?.sign_off_standby_from ??
+                                        '';
+                                    const signOffTo =
+                                        currentDraft?.sign_off_standby_to ??
+                                        row.timesheet?.sign_off_standby_to ??
+                                        '';
+                                    const unpaidLeaveDays =
+                                        currentDraft?.unpaid_leave_days ??
+                                        row.timesheet?.unpaid_leave_days ??
+                                        '';
                                     const overtimeHours =
                                         currentDraft?.overtime_hours ??
                                         row.timesheet?.overtime_hours ??
                                         '';
-
-                                    const standbyDays = currentDraft
-                                        ? calculateInclusiveDays(
-                                              standbyFrom,
-                                              standbyTo,
-                                          )
-                                        : (row.timesheet?.standby_days ??
-                                          calculateInclusiveDays(
-                                              standbyFrom,
-                                              standbyTo,
-                                          ));
-                                    const onsiteDays = currentDraft
-                                        ? calculateInclusiveDays(
-                                              onsiteFrom,
-                                              onsiteTo,
-                                          )
-                                        : (row.timesheet?.onsite_days ??
-                                          calculateInclusiveDays(
-                                              onsiteFrom,
-                                              onsiteTo,
-                                          ));
 
                                     const isOperationallyLocked =
                                         !isMonthlyCrewRow &&
@@ -1586,14 +1576,45 @@ export function PayrollShowContent({
                                                 />
                                             </TableCell>
 
-                                            {/* Standby dates */}
+                                            {/* Sign-on / Sign-off standby (daily) or Unpaid leave (monthly) */}
                                             <TableCell
                                                 className={cn(
                                                     dataTableCellClass(),
                                                     'border-l border-blue-500/8 bg-blue-500/2',
                                                 )}
                                             >
-                                                {isOperationallyLocked ? (
+                                                {isMonthlyCrewRow ? (
+                                                    <div className="flex flex-col gap-1">
+                                                        <p className="text-[10px] font-semibold tracking-wide text-muted-foreground/70 uppercase">
+                                                            Unpaid leave days
+                                                        </p>
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.01"
+                                                            inputMode="decimal"
+                                                            placeholder="0"
+                                                            value={
+                                                                unpaidLeaveDays
+                                                            }
+                                                            onChange={(e) =>
+                                                                handleCrewTimesheetChange(
+                                                                    row.employee
+                                                                        .id,
+                                                                    'unpaid_leave_days',
+                                                                    e.target
+                                                                        .value,
+                                                                    row.timesheet,
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                !canEditTimesheets
+                                                            }
+                                                            className="h-8 w-[110px] rounded-md border-border/50 bg-background/60 px-2 font-mono text-[11px] tabular-nums shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50"
+                                                            aria-label={`Unpaid leave days for ${row.employee.name}`}
+                                                        />
+                                                    </div>
+                                                ) : isOperationallyLocked ? (
                                                     <div className="space-y-2 text-[11px]">
                                                         <OperationalDateRange
                                                             label="Sign-on standby"
@@ -1627,82 +1648,59 @@ export function PayrollShowContent({
                                                         />
                                                     </div>
                                                 ) : (
-                                                    <div className="flex flex-col gap-2">
-                                                        <div className="flex items-center gap-1">
-                                                            <Input
-                                                                type="date"
-                                                                value={
-                                                                    standbyFrom
-                                                                }
-                                                                onChange={(e) =>
-                                                                    handleCrewTimesheetChange(
-                                                                        row
-                                                                            .employee
-                                                                            .id,
-                                                                        'standby_from',
-                                                                        e.target
-                                                                            .value,
-                                                                        row.timesheet,
-                                                                    )
-                                                                }
-                                                                className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                                                disabled={
-                                                                    !canEditTimesheets
-                                                                }
-                                                            />
-                                                            <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
-                                                                →
-                                                            </span>
-                                                            <Input
-                                                                type="date"
-                                                                value={
-                                                                    standbyTo
-                                                                }
-                                                                onChange={(e) =>
-                                                                    handleCrewTimesheetChange(
-                                                                        row
-                                                                            .employee
-                                                                            .id,
-                                                                        'standby_to',
-                                                                        e.target
-                                                                            .value,
-                                                                        row.timesheet,
-                                                                    )
-                                                                }
-                                                                className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                                                disabled={
-                                                                    !canEditTimesheets
-                                                                }
-                                                            />
-                                                        </div>
-                                                        <Badge
-                                                            variant="secondary"
-                                                            className={cn(
-                                                                'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
-                                                                standbyDays &&
-                                                                    Number(
-                                                                        standbyDays,
-                                                                    ) > 0
-                                                                    ? 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300'
-                                                                    : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
-                                                            )}
-                                                        >
-                                                            {standbyDays &&
-                                                            Number(
-                                                                standbyDays,
-                                                            ) > 0 ? (
-                                                                <>
-                                                                    {formatTimesheetDays(
-                                                                        standbyDays,
-                                                                    )}{' '}
-                                                                    days
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    No dates set
-                                                                </>
-                                                            )}
-                                                        </Badge>
+                                                    <div className="space-y-2">
+                                                        <CrewRangeEditor
+                                                            label="Sign-on standby"
+                                                            from={signOnFrom}
+                                                            to={signOnTo}
+                                                            disabled={
+                                                                !canEditTimesheets
+                                                            }
+                                                            onFromChange={(v) =>
+                                                                handleCrewTimesheetChange(
+                                                                    row.employee
+                                                                        .id,
+                                                                    'sign_on_standby_from',
+                                                                    v,
+                                                                    row.timesheet,
+                                                                )
+                                                            }
+                                                            onToChange={(v) =>
+                                                                handleCrewTimesheetChange(
+                                                                    row.employee
+                                                                        .id,
+                                                                    'sign_on_standby_to',
+                                                                    v,
+                                                                    row.timesheet,
+                                                                )
+                                                            }
+                                                        />
+                                                        <CrewRangeEditor
+                                                            label="Sign-off standby"
+                                                            from={signOffFrom}
+                                                            to={signOffTo}
+                                                            disabled={
+                                                                !canEditTimesheets
+                                                            }
+                                                            onFromChange={(v) =>
+                                                                handleCrewTimesheetChange(
+                                                                    row.employee
+                                                                        .id,
+                                                                    'sign_off_standby_from',
+                                                                    v,
+                                                                    row.timesheet,
+                                                                )
+                                                            }
+                                                            onToChange={(v) =>
+                                                                handleCrewTimesheetChange(
+                                                                    row.employee
+                                                                        .id,
+                                                                    'sign_off_standby_to',
+                                                                    v,
+                                                                    row.timesheet,
+                                                                )
+                                                            }
+                                                        />
                                                     </div>
                                                 )}
                                             </TableCell>
@@ -1714,7 +1712,11 @@ export function PayrollShowContent({
                                                     'border-r border-blue-500/8 bg-blue-500/2',
                                                 )}
                                             >
-                                                {isOperationallyLocked ? (
+                                                {isMonthlyCrewRow ? (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        —
+                                                    </span>
+                                                ) : isOperationallyLocked ? (
                                                     <OperationalDateRange
                                                         label="Onsite"
                                                         from={
@@ -1731,80 +1733,31 @@ export function PayrollShowContent({
                                                         }
                                                     />
                                                 ) : (
-                                                    <div className="flex flex-col gap-2">
-                                                        <div className="flex items-center gap-1">
-                                                            <Input
-                                                                type="date"
-                                                                value={
-                                                                    onsiteFrom
-                                                                }
-                                                                onChange={(e) =>
-                                                                    handleCrewTimesheetChange(
-                                                                        row
-                                                                            .employee
-                                                                            .id,
-                                                                        'onsite_from',
-                                                                        e.target
-                                                                            .value,
-                                                                        row.timesheet,
-                                                                    )
-                                                                }
-                                                                className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                                                disabled={
-                                                                    !canEditTimesheets
-                                                                }
-                                                            />
-                                                            <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
-                                                                →
-                                                            </span>
-                                                            <Input
-                                                                type="date"
-                                                                value={onsiteTo}
-                                                                onChange={(e) =>
-                                                                    handleCrewTimesheetChange(
-                                                                        row
-                                                                            .employee
-                                                                            .id,
-                                                                        'onsite_to',
-                                                                        e.target
-                                                                            .value,
-                                                                        row.timesheet,
-                                                                    )
-                                                                }
-                                                                className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                                                disabled={
-                                                                    !canEditTimesheets
-                                                                }
-                                                            />
-                                                        </div>
-                                                        <Badge
-                                                            variant="secondary"
-                                                            className={cn(
-                                                                'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
-                                                                onsiteDays &&
-                                                                    Number(
-                                                                        onsiteDays,
-                                                                    ) > 0
-                                                                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                                                                    : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
-                                                            )}
-                                                        >
-                                                            {onsiteDays &&
-                                                            Number(onsiteDays) >
-                                                                0 ? (
-                                                                <>
-                                                                    {formatTimesheetDays(
-                                                                        onsiteDays,
-                                                                    )}{' '}
-                                                                    days
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    No dates set
-                                                                </>
-                                                            )}
-                                                        </Badge>
-                                                    </div>
+                                                    <CrewRangeEditor
+                                                        label="Onsite"
+                                                        from={onsiteFrom}
+                                                        to={onsiteTo}
+                                                        disabled={
+                                                            !canEditTimesheets
+                                                        }
+                                                        activeColorClass="border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                                        onFromChange={(v) =>
+                                                            handleCrewTimesheetChange(
+                                                                row.employee.id,
+                                                                'onsite_from',
+                                                                v,
+                                                                row.timesheet,
+                                                            )
+                                                        }
+                                                        onToChange={(v) =>
+                                                            handleCrewTimesheetChange(
+                                                                row.employee.id,
+                                                                'onsite_to',
+                                                                v,
+                                                                row.timesheet,
+                                                            )
+                                                        }
+                                                    />
                                                 )}
                                             </TableCell>
 
@@ -2877,6 +2830,70 @@ function OfficeEmployeesTabContent({
                     <Pagination {...paginationProps} label="employees" />
                 </>
             )}
+        </div>
+    );
+}
+
+function CrewRangeEditor({
+    label,
+    from,
+    to,
+    onFromChange,
+    onToChange,
+    disabled,
+    activeColorClass = 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300',
+}: {
+    label: string;
+    from: string;
+    to: string;
+    onFromChange: (value: string) => void;
+    onToChange: (value: string) => void;
+    disabled: boolean;
+    activeColorClass?: string;
+}) {
+    const days = calculateInclusiveDays(from, to);
+    const inputClass =
+        'h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert';
+
+    return (
+        <div className="flex flex-col gap-1">
+            <p className="text-[10px] font-semibold tracking-wide text-muted-foreground/70 uppercase">
+                {label}
+            </p>
+            <div className="flex items-center gap-1">
+                <Input
+                    type="date"
+                    value={from}
+                    onChange={(e) => onFromChange(e.target.value)}
+                    className={inputClass}
+                    disabled={disabled}
+                />
+                <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
+                    →
+                </span>
+                <Input
+                    type="date"
+                    value={to}
+                    onChange={(e) => onToChange(e.target.value)}
+                    className={inputClass}
+                    disabled={disabled}
+                />
+            </div>
+            <Badge
+                variant="secondary"
+                className={cn(
+                    'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
+                    days && Number(days) > 0
+                        ? activeColorClass
+                        : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
+                )}
+            >
+                {days && Number(days) > 0 ? (
+                    <>{formatTimesheetDays(days)} days</>
+                ) : (
+                    <>No dates set</>
+                )}
+            </Badge>
         </div>
     );
 }

@@ -22,7 +22,7 @@ Payroll creates Crew Pay Period manually
 - Only `actual_start_at` and `actual_end_at` are used.
 - Payroll must not wait for an assignment to finish before monthly preparation can exist.
 - Automatic preparation currently supports **daily** crew only.
-- Monthly crew payroll continues to treat legacy `standby_days` as leave/unpaid days.
+- Monthly crew payroll uses the explicit `unpaid_leave_days` field for leave/unpaid days.
 
 ## Phase mapping
 
@@ -272,16 +272,15 @@ Per employee (`company_id` + `employee_id` + `period_id`):
 
 Financial fields are preserved: overtime, additions, deductions, remarks, salary inputs.
 
-### Legacy daily compatibility bridge
+### Split operational fields (no legacy compatibility)
 
-On apply, Phase 1D still mirrors:
+On apply, Phase 1D writes only the split operational fields:
 
-- `standby_days = sign_on_standby_days + sign_off_standby_days`
-- `onsite_days = approved onsite total`
-- when only one standby category exists, copy its dates into `standby_from` / `standby_to`
-- when both Sign-On and Sign-Off standby exist, set legacy standby dates to `null` while keeping combined `standby_days`
+- `sign_on_standby_from` / `sign_on_standby_to` / `sign_on_standby_days`
+- `onsite_from` / `onsite_to` / `onsite_days`
+- `sign_off_standby_from` / `sign_off_standby_to` / `sign_off_standby_days`
 
-Phase 1E `CrewPayrollCalculator` uses additive sign-on/sign-off standby for Applied `crew_operations` daily timesheets so mirrored legacy `standby_days` is not double-counted. Manual/import/null-source timesheets continue to use legacy `standby_days`.
+The legacy generic standby columns (`standby_from`, `standby_to`, `standby_days`) were intentionally removed before any production payroll data existed. No mirroring, fallback, or compatibility bridge remains. `CrewPayrollCalculator` computes `total_standby_days = sign_on_standby_days + sign_off_standby_days` for every daily source (Manual, Import, and Applied `crew_operations`); Monthly crew uses `unpaid_leave_days`.
 
 ## Phase 1E — dual mode UI, generation guard, calculator split
 
@@ -293,7 +292,7 @@ Phase 1E completes the crew dual-mode rollout:
 - operationally locked daily rows display sign-on/sign-off/onsite read-only while overtime/financial fields stay editable
 - import template instructions differ for crew-operations periods (Daily operational columns left blank)
 - `CrewOperationsPayrollGenerationGuard` blocks crew-operations generation until an Applied preparation exists
-- `CrewPayrollCalculator` uses sign-on + sign-off standby for Applied crew-operations daily timesheets; manual/null source keeps legacy `standby_days`
+- `CrewPayrollCalculator` uses the same split sign-on/onsite/sign-off structure for all daily sources (Manual, Import, Applied crew-operations); Monthly crew uses `unpaid_leave_days`
 
 Tests:
 

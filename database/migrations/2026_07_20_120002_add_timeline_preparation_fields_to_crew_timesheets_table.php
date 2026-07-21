@@ -76,6 +76,14 @@ return new class extends Migration
             return;
         }
 
+        if (
+            ! Schema::hasColumn('crew_timesheets', 'standby_from')
+            || ! Schema::hasColumn('crew_timesheets', 'standby_to')
+            || ! Schema::hasColumn('crew_timesheets', 'standby_days')
+        ) {
+            return;
+        }
+
         DB::table('crew_timesheets')
             ->where(function ($query): void {
                 $query->whereNotNull('standby_from')

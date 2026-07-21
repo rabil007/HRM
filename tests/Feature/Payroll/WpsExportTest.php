@@ -497,7 +497,7 @@ test('wps excel export outputs crew leave days in column j', function () {
         'leave_days' => 30,
         'calculation_breakdown' => [
             'rates' => ['basic_daily' => 150],
-            'lines' => ['standby_pay' => 0, 'onsite_pay' => 0],
+            'lines' => ['total_standby_pay' => 0, 'onsite_pay' => 0],
         ],
     ]);
 
@@ -567,7 +567,7 @@ test('wps preview warns when crew basic daily rate is missing', function () {
         'status' => 'approved',
         'calculation_breakdown' => [
             'rates' => ['basic_daily' => 0],
-            'lines' => ['standby_pay' => 0, 'onsite_pay' => 0],
+            'lines' => ['total_standby_pay' => 0, 'onsite_pay' => 0],
         ],
     ]);
 

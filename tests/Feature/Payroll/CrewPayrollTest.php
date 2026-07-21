@@ -452,8 +452,10 @@ test('authorized users can upsert crew timesheets for draft periods', function (
     $payload = [
         'period_id' => $period->id,
         'employee_id' => $crewEmployee->id,
-        'standby_days' => 10,
-        'onsite_days' => 15,
+        'sign_on_standby_from' => '2026-06-01',
+        'sign_on_standby_to' => '2026-06-10',
+        'onsite_from' => '2026-06-15',
+        'onsite_to' => '2026-06-29',
         'overtime_hours' => 250.50,
         'additional_amount' => 100,
         'deduction_amount' => 50,
@@ -474,7 +476,7 @@ test('authorized users can upsert crew timesheets for draft periods', function (
         'company_id' => $company->id,
         'employee_id' => $crewEmployee->id,
         'period_id' => $period->id,
-        'standby_days' => 10,
+        'sign_on_standby_days' => 10,
         'onsite_days' => 15,
         'overtime_hours' => 250.50,
         'remarks' => 'May payroll',
@@ -483,7 +485,7 @@ test('authorized users can upsert crew timesheets for draft periods', function (
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.timesheets.store', $period), [
             ...$payload,
-            'standby_days' => 12,
+            'sign_on_standby_to' => '2026-06-12',
             'remarks' => 'Updated',
         ])
         ->assertRedirect();
@@ -493,7 +495,7 @@ test('authorized users can upsert crew timesheets for draft periods', function (
     $this->assertDatabaseHas('crew_timesheets', [
         'employee_id' => $crewEmployee->id,
         'period_id' => $period->id,
-        'standby_days' => 12,
+        'sign_on_standby_days' => 12,
         'remarks' => 'Updated',
     ]);
 });
@@ -522,7 +524,7 @@ test('crew timesheets cannot be saved for non-draft periods', function () {
         ->post(route('payroll.timesheets.store', $period), [
             'period_id' => $period->id,
             'employee_id' => $crewEmployee->id,
-            'standby_days' => 5,
+            'sign_on_standby_days' => 5,
         ])
         ->assertSessionHasErrors('period_id');
 });
@@ -551,7 +553,7 @@ test('crew timesheets cannot be saved for office employees', function () {
         ->post(route('payroll.timesheets.store', $period), [
             'period_id' => $period->id,
             'employee_id' => $officeEmployee->id,
-            'standby_days' => 5,
+            'sign_on_standby_days' => 5,
         ])
         ->assertSessionHasErrors('employee_id');
 });
@@ -580,10 +582,10 @@ test('crew timesheet validation rejects invalid date ranges', function () {
         ->post(route('payroll.timesheets.store', $period), [
             'period_id' => $period->id,
             'employee_id' => $crewEmployee->id,
-            'standby_from' => '2026-06-10',
-            'standby_to' => '2026-06-01',
+            'sign_on_standby_from' => '2026-06-10',
+            'sign_on_standby_to' => '2026-06-01',
         ])
-        ->assertSessionHasErrors('standby_to');
+        ->assertSessionHasErrors('sign_on_standby_to');
 });
 
 test('office pay period lists only office employees', function () {
@@ -646,7 +648,7 @@ test('crew timesheets cannot be saved on office pay periods', function () {
         ->post(route('payroll.timesheets.store', $period), [
             'period_id' => $period->id,
             'employee_id' => $crewEmployee->id,
-            'standby_days' => 5,
+            'sign_on_standby_days' => 5,
         ])
         ->assertNotFound();
 });

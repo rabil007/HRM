@@ -35,7 +35,7 @@ test('crew payroll generation creates records for all active crew employees incl
         'company_id' => $company->id,
         'employee_id' => $crewWithTimesheet->id,
         'period_id' => $period->id,
-        'standby_days' => 5,
+        'sign_on_standby_days' => 5,
         'onsite_days' => 10,
         'overtime_hours' => 0,
         'additional_amount' => 100,
@@ -60,7 +60,7 @@ test('crew payroll generation creates records for all active crew employees incl
         ->and($record->payroll_category)->toBe(PayrollCategory::Crew)
         ->and($record->gross_salary)->toBe('3975.00')
         ->and($record->net_salary)->toBe('3925.00')
-        ->and($record->calculation_breakdown['lines']['standby_pay'])->toEqual(1125);
+        ->and($record->calculation_breakdown['lines']['total_standby_pay'])->toEqual(1125);
 
     expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(2);
 
@@ -98,7 +98,7 @@ test('crew payroll generation calculates overtime pay from hours and period dail
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 0,
+        'sign_on_standby_days' => 0,
         'onsite_days' => 0,
         'overtime_hours' => 98,
     ]);
@@ -138,7 +138,7 @@ test('crew payroll generation uses a fixed 30 day overtime base even in 31 day m
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 0,
+        'sign_on_standby_days' => 0,
         'onsite_days' => 0,
         'overtime_hours' => 78,
     ]);
@@ -175,7 +175,7 @@ test('crew payroll generation upserts existing payroll records on re-generate', 
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 2,
+        'sign_on_standby_days' => 2,
         'onsite_days' => 0,
     ]);
 
@@ -238,7 +238,7 @@ test('crew payroll generation is blocked on approved periods', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 1,
+        'sign_on_standby_days' => 1,
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
@@ -262,7 +262,7 @@ test('timesheets cannot be edited after crew payroll generation moves period to 
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 1,
+        'sign_on_standby_days' => 1,
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
@@ -273,7 +273,7 @@ test('timesheets cannot be edited after crew payroll generation moves period to 
         ->post(route('payroll.timesheets.store', $period), [
             'period_id' => $period->id,
             'employee_id' => $employee->id,
-            'standby_days' => 3,
+            'sign_on_standby_days' => 3,
         ])
         ->assertSessionHasErrors('period_id');
 });
@@ -293,14 +293,14 @@ test('payroll show includes payroll records on payroll tab', function () {
         'gross_salary' => 500,
         'net_salary' => 500,
         'calculation_breakdown' => [
-            'standby_days' => 5,
+            'total_standby_days' => 5,
             'onsite_days' => 0,
             'rates' => [
                 'basic_daily' => 100,
                 'site_allowance_daily' => 0,
                 'supplementary_allowance_daily' => 0,
             ],
-            'lines' => ['standby_pay' => 500],
+            'lines' => ['total_standby_pay' => 500],
         ],
     ]);
 
@@ -348,7 +348,7 @@ test('crew payroll generation snapshots contract and bank account linkage', func
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 1,
+        'sign_on_standby_days' => 1,
         'onsite_days' => 1,
     ]);
 
@@ -384,7 +384,7 @@ test('crew payroll generation from draft only includes selected employees and mo
         'company_id' => $company->id,
         'employee_id' => $includedEmployee->id,
         'period_id' => $period->id,
-        'standby_days' => 5,
+        'sign_on_standby_days' => 5,
         'onsite_days' => 10,
     ]);
 
@@ -392,7 +392,7 @@ test('crew payroll generation from draft only includes selected employees and mo
         'company_id' => $company->id,
         'employee_id' => $excludedEmployee->id,
         'period_id' => $period->id,
-        'standby_days' => 5,
+        'sign_on_standby_days' => 5,
         'onsite_days' => 10,
     ]);
 
@@ -434,7 +434,7 @@ test('crew payroll generation from draft stays draft when all employees are excl
         'company_id' => $company->id,
         'employee_id' => $firstEmployee->id,
         'period_id' => $period->id,
-        'standby_days' => 2,
+        'sign_on_standby_days' => 2,
         'onsite_days' => 8,
     ]);
 
@@ -442,7 +442,7 @@ test('crew payroll generation from draft stays draft when all employees are excl
         'company_id' => $company->id,
         'employee_id' => $secondEmployee->id,
         'period_id' => $period->id,
-        'standby_days' => 2,
+        'sign_on_standby_days' => 2,
         'onsite_days' => 8,
     ]);
 
@@ -477,8 +477,7 @@ test('crew payroll generation calculates monthly crew contracts from working and
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 5,
-        'onsite_days' => 25,
+        'unpaid_leave_days' => 5,
         'additional_amount' => 100,
         'deduction_amount' => 50,
     ]);

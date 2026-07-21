@@ -18,7 +18,7 @@ final class PayslipData
      *     employee_no: string,
      *     name: string,
      *     designation: string,
-     *     standby_days: float,
+     *     total_standby_days: float,
      *     onsite_days: float,
      *     standby_pay: float,
      *     onsite_pay: float,
@@ -43,7 +43,7 @@ final class PayslipData
         $totalSalary = (float) $row['total_salary'];
 
         $earnings = self::filterPositiveLines([
-            ['label' => 'Standby pay', 'amount' => self::formatAmount($standbyPay)],
+            ['label' => 'Total standby pay', 'amount' => self::formatAmount($standbyPay)],
             ['label' => 'Onsite pay', 'amount' => self::formatAmount($onsitePay)],
             ['label' => 'Overtime', 'amount' => self::formatAmount($overtimePay)],
             ['label' => 'Additional amount', 'amount' => self::formatAmount($addition)],
@@ -88,10 +88,8 @@ final class PayslipData
             'earnings' => $earnings,
             'deductions' => $deductions,
             'crew_summary' => [
-                'standby_days' => self::formatDayCount($row['standby_days']),
-                'onsite_days' => self::formatDayCount($row['onsite_days']),
-                'standby_label' => 'Standby days',
-                'onsite_label' => 'On-site days',
+                ['label' => 'Total standby days', 'value' => self::formatDayCount($row['total_standby_days'])],
+                ['label' => 'On-site days', 'value' => self::formatDayCount($row['onsite_days'])],
             ],
         ];
     }
@@ -161,10 +159,8 @@ final class PayslipData
                     'earnings' => self::officeEarnings($record, $salaryInputLines),
                     'deductions' => self::officeDeductions($record, $salaryInputLines),
                     'crew_summary' => [
-                        'standby_days' => self::formatDayCount($breakdown['standby_days'] ?? null),
-                        'onsite_days' => self::formatDayCount($breakdown['onsite_days'] ?? null),
-                        'standby_label' => 'Leave days',
-                        'onsite_label' => 'Working days',
+                        ['label' => 'Unpaid leave days', 'value' => self::formatDayCount($breakdown['unpaid_leave_days'] ?? null)],
+                        ['label' => 'Working days', 'value' => self::formatDayCount($record->working_days)],
                     ],
                     'working_days' => $record->working_days,
                     'present_days' => $record->present_days,
@@ -179,10 +175,10 @@ final class PayslipData
                 'earnings' => self::crewEarnings($record, $lines),
                 'deductions' => self::crewDeductions($record, $breakdown),
                 'crew_summary' => [
-                    'standby_days' => self::formatDayCount($breakdown['standby_days'] ?? null),
-                    'onsite_days' => self::formatDayCount($breakdown['onsite_days'] ?? null),
-                    'standby_label' => 'Standby days',
-                    'onsite_label' => 'On-site days',
+                    ['label' => 'Sign-on standby days', 'value' => self::formatDayCount($breakdown['sign_on_standby_days'] ?? null)],
+                    ['label' => 'On-site days', 'value' => self::formatDayCount($breakdown['onsite_days'] ?? null)],
+                    ['label' => 'Sign-off standby days', 'value' => self::formatDayCount($breakdown['sign_off_standby_days'] ?? null)],
+                    ['label' => 'Total standby days', 'value' => self::formatDayCount($breakdown['total_standby_days'] ?? null)],
                 ],
             ]);
         }
@@ -312,8 +308,9 @@ final class PayslipData
             : 'Overtime';
 
         $rows = [
-            ['label' => 'Standby pay', 'amount' => self::formatAmount($lines['standby_pay'] ?? 0)],
+            ['label' => 'Sign-on standby pay', 'amount' => self::formatAmount($lines['sign_on_standby_pay'] ?? 0)],
             ['label' => 'Onsite pay', 'amount' => self::formatAmount($lines['onsite_pay'] ?? 0)],
+            ['label' => 'Sign-off standby pay', 'amount' => self::formatAmount($lines['sign_off_standby_pay'] ?? 0)],
             ['label' => 'Site allowance', 'amount' => self::formatAmount($lines['site_allowance'] ?? 0)],
             ['label' => 'Supplementary allowance', 'amount' => self::formatAmount($lines['supplementary_allowance'] ?? 0)],
             ['label' => $overtimeLabel, 'amount' => self::formatAmount($record->overtime_pay)],

@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 
 test('crew payroll calculator applies standby onsite allowance and adjustment formulas', function () {
     $timesheet = new CrewTimesheet([
-        'standby_days' => 5,
+        'sign_on_standby_days' => 5,
         'onsite_days' => 10,
         'overtime_hours' => 0,
         'additional_amount' => 100,
@@ -32,7 +32,7 @@ test('crew payroll calculator applies standby onsite allowance and adjustment fo
     );
 
     expect($result['calculation_breakdown']['lines'])->toMatchArray([
-        'standby_pay' => 1125.0,
+        'total_standby_pay' => 1125.0,
         'onsite_pay' => 1500.0,
         'site_allowance' => 500.0,
         'supplementary_allowance' => 750.0,
@@ -47,7 +47,7 @@ test('crew payroll calculator applies standby onsite allowance and adjustment fo
 
 test('crew payroll calculator calculates overtime pay from hours and period daily rates', function () {
     $timesheet = new CrewTimesheet([
-        'standby_days' => 0,
+        'sign_on_standby_days' => 0,
         'onsite_days' => 0,
         'overtime_hours' => 98,
         'additional_amount' => 0,
@@ -76,7 +76,7 @@ test('crew payroll calculator calculates overtime pay from hours and period dail
 
 test('crew payroll calculator requires pay period days when overtime hours are entered', function () {
     $timesheet = new CrewTimesheet([
-        'standby_days' => 0,
+        'sign_on_standby_days' => 0,
         'onsite_days' => 0,
         'overtime_hours' => 10,
     ]);
@@ -95,7 +95,7 @@ test('crew payroll calculator requires pay period days when overtime hours are e
 
 test('crew payroll calculator requires an active basic daily rate', function () {
     $timesheet = new CrewTimesheet([
-        'standby_days' => 5,
+        'sign_on_standby_days' => 5,
         'onsite_days' => 0,
     ]);
 
@@ -108,7 +108,7 @@ test('crew payroll calculator requires an active basic daily rate', function () 
 
 test('crew payroll calculator includes supplementary allowance on standby days', function () {
     $timesheet = new CrewTimesheet([
-        'standby_days' => 2,
+        'sign_on_standby_days' => 2,
         'onsite_days' => 15,
     ]);
 
@@ -121,7 +121,7 @@ test('crew payroll calculator includes supplementary allowance on standby days',
     $result = (new CrewPayrollCalculator(new CrewOvertimePay))->calculate($timesheet, $components, 30, 30);
 
     expect($result['calculation_breakdown']['lines'])->toMatchArray([
-        'standby_pay' => 1322.0,
+        'total_standby_pay' => 1322.0,
         'onsite_pay' => 750.0,
         'site_allowance' => 9915.0,
         'supplementary_allowance' => 9165.0,
@@ -132,7 +132,7 @@ test('crew payroll calculator includes supplementary allowance on standby days',
 
 test('crew payroll calculator returns zero pay and full leave days when employee has no work', function () {
     $timesheet = new CrewTimesheet([
-        'standby_days' => 0,
+        'sign_on_standby_days' => 0,
         'onsite_days' => 0,
         'overtime_hours' => 0,
     ]);
@@ -158,7 +158,7 @@ test('crew payroll calculator returns zero pay and full leave days when employee
 
 test('crew payroll calculator allows missing basic daily rate when there is no payable activity', function () {
     $timesheet = new CrewTimesheet([
-        'standby_days' => 0,
+        'sign_on_standby_days' => 0,
         'onsite_days' => 0,
         'overtime_hours' => 0,
     ]);

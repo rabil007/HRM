@@ -141,7 +141,7 @@ test('preview returns all salary sheet rows sorted alphabetically by name', func
         'employee_no',
         'name',
         'designation',
-        'standby_days',
+        'total_standby_days',
         'onsite_days',
         'basic_salary',
         'supplim_allow',

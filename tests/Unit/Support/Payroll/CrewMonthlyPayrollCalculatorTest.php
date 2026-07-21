@@ -7,10 +7,9 @@ use App\Support\Payroll\CrewMonthlyPayrollCalculator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
-test('crew monthly payroll calculator prorates monthly components from working and leave days', function () {
+test('crew monthly payroll calculator prorates monthly components from unpaid leave days', function () {
     $timesheet = new CrewTimesheet([
-        'standby_days' => 5,
-        'onsite_days' => 25,
+        'unpaid_leave_days' => 5,
         'additional_amount' => 100,
         'deduction_amount' => 50,
     ]);
@@ -38,10 +37,9 @@ test('crew monthly payroll calculator prorates monthly components from working a
         ->and($result['net_salary'])->toBe('5716.67');
 });
 
-test('crew monthly payroll calculator requires basic monthly salary when there is payable activity', function () {
+test('crew monthly payroll calculator requires basic monthly salary', function () {
     $timesheet = new CrewTimesheet([
-        'standby_days' => 2,
-        'onsite_days' => 0,
+        'unpaid_leave_days' => 2,
     ]);
 
     $components = Collection::make([
@@ -51,10 +49,9 @@ test('crew monthly payroll calculator requires basic monthly salary when there i
     (new CrewMonthlyPayrollCalculator)->calculate($timesheet, $components, 30);
 })->throws(ValidationException::class);
 
-test('crew monthly payroll calculator returns zero pay when there is no activity', function () {
+test('crew monthly payroll calculator pays full salary when there is no unpaid leave', function () {
     $timesheet = new CrewTimesheet([
-        'standby_days' => 0,
-        'onsite_days' => 0,
+        'unpaid_leave_days' => 0,
     ]);
 
     $components = Collection::make([
@@ -63,8 +60,8 @@ test('crew monthly payroll calculator returns zero pay when there is no activity
 
     $result = (new CrewMonthlyPayrollCalculator)->calculate($timesheet, $components, 30);
 
-    expect($result['gross_salary'])->toBe('0.00')
-        ->and($result['net_salary'])->toBe('0.00')
+    expect($result['gross_salary'])->toBe('5000.00')
+        ->and($result['net_salary'])->toBe('5000.00')
         ->and($result['leave_days'])->toBe(0.0);
 });
 

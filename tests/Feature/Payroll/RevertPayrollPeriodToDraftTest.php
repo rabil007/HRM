@@ -49,7 +49,7 @@ test('authorized users can revert processing pay period to draft', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 2,
+        'sign_on_standby_days' => 2,
     ]);
 
     PayrollRecord::factory()->for($company)->create([
@@ -73,7 +73,7 @@ test('authorized users can revert processing pay period to draft', function () {
     $this->assertDatabaseHas('crew_timesheets', [
         'period_id' => $period->id,
         'employee_id' => $employee->id,
-        'standby_days' => 2,
+        'sign_on_standby_days' => 2,
     ]);
 });
 
@@ -102,7 +102,7 @@ test('authorized users can clear timesheets when reverting processing pay period
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 2,
+        'sign_on_standby_days' => 2,
     ]);
 
     PayrollRecord::factory()->for($company)->create([
@@ -132,14 +132,15 @@ test('authorized users can clear timesheets when reverting processing pay period
         ->post(route('payroll.timesheets.store', $period), [
             'period_id' => $period->id,
             'employee_id' => $employee->id,
-            'standby_days' => 4,
+            'sign_on_standby_from' => '2026-06-01',
+            'sign_on_standby_to' => '2026-06-04',
         ])
         ->assertRedirect($showUrl);
 
     $this->assertDatabaseHas('crew_timesheets', [
         'period_id' => $period->id,
         'employee_id' => $employee->id,
-        'standby_days' => 4,
+        'sign_on_standby_days' => 4,
     ]);
 });
 

@@ -369,7 +369,7 @@ test('manual crew payroll still generates without an applied timeline', function
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 5,
+        'sign_on_standby_days' => 5,
         'onsite_days' => 10,
         'source' => CrewTimesheetSource::Manual,
     ]);

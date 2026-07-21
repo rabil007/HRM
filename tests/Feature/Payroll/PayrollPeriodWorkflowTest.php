@@ -492,7 +492,7 @@ test('timesheets remain locked after pay period is approved', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 2,
+        'sign_on_standby_days' => 2,
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
@@ -503,7 +503,7 @@ test('timesheets remain locked after pay period is approved', function () {
         ->post(route('payroll.timesheets.store', $period), [
             'period_id' => $period->id,
             'employee_id' => $employee->id,
-            'standby_days' => 4,
+            'sign_on_standby_days' => 4,
         ])
         ->assertSessionHasErrors('period_id');
 });

@@ -135,7 +135,7 @@ final class WpsExportRows
             $breakdown = $record->calculation_breakdown ?? [];
             $lines = is_array($breakdown['lines'] ?? null) ? $breakdown['lines'] : [];
 
-            return (float) ($lines['standby_pay'] ?? 0) + (float) ($lines['onsite_pay'] ?? 0);
+            return (float) ($lines['total_standby_pay'] ?? 0) + (float) ($lines['onsite_pay'] ?? 0);
         }
 
         return (float) $record->basic_salary

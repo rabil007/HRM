@@ -63,11 +63,11 @@ Key implementation files:
 
 Crew periods use `CrewTimesheet` data and support daily and monthly contract salary structures.
 
-For a daily structure, the calculator uses standby days, onsite days, overtime hours, and active daily contract rates. Standby and onsite pay, site allowance, supplementary allowance, overtime, additions, and deductions are recorded separately in the calculation breakdown.
+For a daily structure, the calculator uses the three explicit operational categories — Sign-On Standby, Onsite, and Sign-Off Standby — plus overtime hours and active daily contract rates. Each category's days and pay are recorded separately in the calculation breakdown, along with `total_standby_days` (= `sign_on_standby_days` + `sign_off_standby_days`) and `total_standby_pay`. Site allowance, supplementary allowance, overtime, additions, and deductions are recorded separately.
 
-For a monthly structure, `CrewMonthlyPayrollCalculator` uses monthly basic, housing, transport, and other components, then prorates them using the period and timesheet days. Salary inputs use the office-style addition and deduction application for monthly crew records.
+For a monthly structure, `CrewMonthlyPayrollCalculator` uses monthly basic, housing, transport, and other components, then prorates them by `unpaid_leave_days` over the period working days. Salary inputs use the office-style addition and deduction application for monthly crew records.
 
-Legacy `standby_days` on monthly crew timesheets continue to represent leave/unpaid days in the current calculator. Phase 1A adds separate sign-on/sign-off standby columns for future daily operational mapping without changing monthly payroll behavior yet.
+Daily crew uses only Sign-On Standby → Onsite → Sign-Off Standby. Monthly crew uses `unpaid_leave_days`. The legacy generic standby columns (`standby_from`, `standby_to`, `standby_days`) were intentionally removed by migration `2026_07_21_100000_replace_legacy_standby_fields_on_crew_timesheets` before any production payroll data existed; no compatibility bridge, mirroring, or source-based fallback remains.
 
 Key implementation files:
 
@@ -104,7 +104,7 @@ Phase 1D applies an Approved preparation to `crew_timesheets`:
 - aggregates payable Sign-On / Onsite / Sign-Off days per employee
 - preserves overtime, additions, deductions, remarks, and salary inputs
 - sets `source = crew_operations` and locks operational fields while Applied
-- mirrors combined standby into legacy `standby_days` for compatibility; Phase 1E calculator prefers additive sign-on/sign-off fields for Applied crew-operations daily timesheets
+- writes only the split `sign_on_standby_*`, `onsite_*`, and `sign_off_standby_*` fields; no legacy standby columns are written or mirrored
 
 Permissions:
 
@@ -123,7 +123,7 @@ Each crew pay period stores `crew_timesheet_mode`:
 
 | Mode | Value | Behavior |
 |------|-------|----------|
-| Manual / Excel Timesheet | `manual` | Existing standby/onsite entry, Excel import, and manual payroll generation |
+| Manual / Excel Timesheet | `manual` | Sign-On/Onsite/Sign-Off entry (daily) or unpaid leave (monthly), Excel import, and manual payroll generation |
 | Crew Operations Timeline | `crew_operations` | Prepare → review → approve → apply timeline; operational days locked after apply |
 
 Office periods keep `crew_timesheet_mode = null`.
@@ -138,7 +138,7 @@ Generation safeguards for `crew_operations`:
 
 - payroll generation requires exactly one Applied Crew Operations preparation
 - the period show page exposes `generation_ready` / `generation_blocking_reason`
-- `CrewPayrollCalculator` uses sign-on/sign-off standby plus onsite for Applied crew-operations daily timesheets; legacy `standby_days` remains the manual/monthly path
+- `CrewPayrollCalculator` uses the same split sign-on/onsite/sign-off structure for Manual, Import, and Applied crew-operations daily timesheets; monthly crew uses `unpaid_leave_days`
 
 Key files:
 

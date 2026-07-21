@@ -88,7 +88,7 @@ test('crew timesheet mode cannot change after a timesheet exists', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 1,
+        'sign_on_standby_days' => 1,
         'onsite_days' => 1,
     ]);
 
@@ -156,7 +156,7 @@ test('manual crew payroll generation works without applied timeline preparation'
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
-        'standby_days' => 5,
+        'sign_on_standby_days' => 5,
         'onsite_days' => 10,
     ]);
 
@@ -275,9 +275,9 @@ test('daily operational upsert is blocked in crew operations mode before applied
         $fixtures['period'],
         $fixtures['employee'],
         [
-            'standby_from' => '2026-07-01',
-            'standby_to' => '2026-07-03',
-            'standby_days' => 3,
+            'sign_on_standby_from' => '2026-07-01',
+            'sign_on_standby_to' => '2026-07-03',
+            'sign_on_standby_days' => 3,
             'onsite_from' => '2026-07-04',
             'onsite_to' => '2026-07-10',
             'onsite_days' => 7,
@@ -300,7 +300,7 @@ test('daily financial upsert is allowed in crew operations mode before applied',
 
     expect($timesheet->overtime_hours)->toBe('4.00')
         ->and($timesheet->remarks)->toBe('OT only')
-        ->and($timesheet->standby_days)->toBeNull()
+        ->and($timesheet->sign_on_standby_days)->toBeNull()
         ->and($timesheet->source)->toBe(CrewTimesheetSource::Manual);
 });
 

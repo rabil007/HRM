@@ -143,8 +143,10 @@ final class GenerateCrewPayroll
                     }
 
                     $timesheet = new CrewTimesheet([
-                        'standby_days' => 0,
+                        'sign_on_standby_days' => 0,
                         'onsite_days' => 0,
+                        'sign_off_standby_days' => 0,
+                        'unpaid_leave_days' => 0,
                         'overtime_hours' => 0,
                         'additional_amount' => 0,
                         'deduction_amount' => 0,

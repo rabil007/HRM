@@ -27,15 +27,21 @@ final class CrewTimesheetsImport
 
     private const COL_POSITION = 'E';
 
-    private const COL_STANDBY_FROM = 'F';
+    private const COL_SIGN_ON_STANDBY_FROM = 'F';
 
-    private const COL_STANDBY_TO = 'G';
+    private const COL_SIGN_ON_STANDBY_TO = 'G';
 
     private const COL_ONSITE_FROM = 'H';
 
     private const COL_ONSITE_TO = 'I';
 
-    private const COL_OVERTIME = 'J';
+    private const COL_SIGN_OFF_STANDBY_FROM = 'J';
+
+    private const COL_SIGN_OFF_STANDBY_TO = 'K';
+
+    private const COL_UNPAID_LEAVE_DAYS = 'L';
+
+    private const COL_OVERTIME = 'M';
 
     public function __construct(
         private readonly CrewTimesheetImportSchema $schema,
@@ -80,10 +86,13 @@ final class CrewTimesheetsImport
                     $this->stringValue($sheet, self::COL_DEPARTMENT, $rowNumber),
                 ),
                 'position' => $this->stringValue($sheet, self::COL_POSITION, $rowNumber),
-                'standby_from' => $this->dateValue($sheet, self::COL_STANDBY_FROM, $rowNumber),
-                'standby_to' => $this->dateValue($sheet, self::COL_STANDBY_TO, $rowNumber),
+                'sign_on_standby_from' => $this->dateValue($sheet, self::COL_SIGN_ON_STANDBY_FROM, $rowNumber),
+                'sign_on_standby_to' => $this->dateValue($sheet, self::COL_SIGN_ON_STANDBY_TO, $rowNumber),
                 'onsite_from' => $this->dateValue($sheet, self::COL_ONSITE_FROM, $rowNumber),
                 'onsite_to' => $this->dateValue($sheet, self::COL_ONSITE_TO, $rowNumber),
+                'sign_off_standby_from' => $this->dateValue($sheet, self::COL_SIGN_OFF_STANDBY_FROM, $rowNumber),
+                'sign_off_standby_to' => $this->dateValue($sheet, self::COL_SIGN_OFF_STANDBY_TO, $rowNumber),
+                'unpaid_leave_days' => $this->numericValue($sheet, self::COL_UNPAID_LEAVE_DAYS, $rowNumber),
                 'overtime_hours' => $this->numericValue($sheet, self::COL_OVERTIME, $rowNumber),
                 'remarks' => $columnMap['remarks_column'] !== null
                     ? $this->stringValue($sheet, $columnMap['remarks_column'], $rowNumber)
