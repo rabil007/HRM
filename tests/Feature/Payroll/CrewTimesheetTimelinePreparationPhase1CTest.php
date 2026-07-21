@@ -425,7 +425,7 @@ test('fresh submitted preparation can be approved by different user', function (
         ->and(CrewTimesheet::query()->count())->toBe(0);
 });
 
-test('prepared by cannot approve', function () {
+test('prepared by can approve', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     grantTimelinePermissions($fixtures['user'], $fixtures['company']);
     $preparation = prepareFreshTimeline($fixtures);
@@ -438,10 +438,12 @@ test('prepared by cannot approve', function () {
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
         ->post(route('payroll.crew-timeline.approve', [$fixtures['period'], $preparation]))
-        ->assertSessionHasErrors('preparation');
+        ->assertSessionHasNoErrors();
+
+    expect($preparation->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Approved);
 });
 
-test('submitted by cannot approve', function () {
+test('submitted by can approve', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     $preparer = User::factory()->create();
     $submitter = User::factory()->create();
@@ -457,7 +459,9 @@ test('submitted by cannot approve', function () {
     $this->actingAs($submitter)
         ->withSession(['current_company_id' => $fixtures['company']->id])
         ->post(route('payroll.crew-timeline.approve', [$fixtures['period'], $preparation]))
-        ->assertSessionHasErrors('preparation');
+        ->assertSessionHasNoErrors();
+
+    expect($preparation->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Approved);
 });
 
 test('stale preparation cannot be approved', function () {

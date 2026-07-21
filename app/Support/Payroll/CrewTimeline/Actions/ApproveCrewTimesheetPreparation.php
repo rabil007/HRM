@@ -54,15 +54,6 @@ final class ApproveCrewTimesheetPreparation
             $this->freshnessChecker->assertFresh($preparation, $period);
             $this->guard->assertNoBlockingWarnings($preparation);
 
-            if (
-                (int) $preparation->prepared_by === (int) $actor->id
-                || (int) $preparation->submitted_by === (int) $actor->id
-            ) {
-                throw ValidationException::withMessages([
-                    'preparation' => 'You cannot approve a preparation that you prepared or submitted.',
-                ]);
-            }
-
             $appliedExists = CrewTimesheetPreparation::query()
                 ->where('company_id', $companyId)
                 ->where('payroll_period_id', $period->id)

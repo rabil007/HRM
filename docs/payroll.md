@@ -124,7 +124,7 @@ Phase 1C adds review, submission, return, and approval:
 - `POST .../submit`, `POST .../approve`, `POST .../return`
 - Draft → Submitted → Approved or Returned
 - previous Approved versions become Superseded when a newer version is approved
-- maker-checker: approver must differ from `prepared_by` and `submitted_by`
+- approval requires the `payroll.crew_timesheets.approve` permission (no maker-checker restriction; the preparer/submitter may also approve)
 - stale source hash and blocking warnings prevent submit/approve
 
 Phase 1D applies an Approved preparation to `crew_timesheets`:

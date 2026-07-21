@@ -124,7 +124,7 @@ Draft crew periods show a **Prepare from Crew Operations** header action for aut
 | From | To | Notes |
 |------|----|-------|
 | Draft | Submitted | Latest version only |
-| Submitted | Approved | Maker-checker enforced |
+| Submitted | Approved | Requires approve permission |
 | Submitted | Returned | Return notes required |
 | Approved | Superseded | Only when a newer version is approved |
 | Returned | (history) | Do not change Returned back to Draft |
@@ -152,13 +152,9 @@ Correct Crew Operations movement data
 9. Generated preparation lines cannot be manually edited.
 10. Planned Crew Operations dates must never be used.
 
-### Maker-checker
+### Approval authorization
 
-The approving user must not be `prepared_by` or `submitted_by`.
-
-The same user may prepare and submit. A different authorized user must approve.
-
-No approval override permission in this phase.
+Approval requires the `payroll.crew_timesheets.approve` permission. There is no separation-of-duties (maker-checker) restriction: a user who prepared or submitted a preparation may also approve it, provided they hold the approve permission.
 
 ### Source freshness
 
