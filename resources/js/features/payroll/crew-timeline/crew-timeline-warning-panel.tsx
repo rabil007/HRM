@@ -1,13 +1,54 @@
 import { AlertTriangle, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import type { CrewTimelineSummary } from './types';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import type {
+    CrewTimelineSummary,
+    CrewTimelineWarningBreakdownItem,
+} from './types';
+
+function WarningBreakdownList({
+    items,
+    tone,
+}: {
+    items: CrewTimelineWarningBreakdownItem[];
+    tone: 'blocking' | 'info';
+}) {
+    if (items.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+            {items.map((item) => (
+                <Badge
+                    key={item.code}
+                    variant="outline"
+                    className={cn(
+                        'rounded-md font-medium',
+                        tone === 'blocking'
+                            ? 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-200'
+                            : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-200',
+                    )}
+                >
+                    {item.label}
+                    <span className="ml-1 tabular-nums opacity-70">
+                        ×{item.count}
+                    </span>
+                </Badge>
+            ))}
+        </div>
+    );
+}
 
 export function CrewTimelineWarningPanel({
     summary,
     isStale,
+    breakdown,
 }: {
     summary: CrewTimelineSummary;
     isStale: boolean;
+    breakdown: CrewTimelineWarningBreakdownItem[];
 }) {
     if (
         !isStale &&
@@ -16,6 +57,9 @@ export function CrewTimelineWarningPanel({
     ) {
         return null;
     }
+
+    const blockingItems = breakdown.filter((item) => item.is_blocking);
+    const infoItems = breakdown.filter((item) => !item.is_blocking);
 
     return (
         <div className="space-y-3">
@@ -40,7 +84,12 @@ export function CrewTimelineWarningPanel({
                     <AlertDescription>
                         Blocking warnings prevent submission and approval.
                         Correct Crew Operations data, then prepare a new
-                        version.
+                        version. Open a flagged employee’s details to see the
+                        affected lines.
+                        <WarningBreakdownList
+                            items={blockingItems}
+                            tone="blocking"
+                        />
                     </AlertDescription>
                 </Alert>
             ) : null}
@@ -55,6 +104,7 @@ export function CrewTimelineWarningPanel({
                     <AlertDescription>
                         Informational warnings do not block submission or
                         approval.
+                        <WarningBreakdownList items={infoItems} tone="info" />
                     </AlertDescription>
                 </Alert>
             ) : null}

@@ -9,6 +9,13 @@ export type CrewTimelineWarning = {
     is_blocking: boolean;
 };
 
+export type CrewTimelineWarningBreakdownItem = {
+    code: string;
+    label: string;
+    is_blocking: boolean;
+    count: number;
+};
+
 export type CrewTimelineLine = {
     id: number;
     phase_code: string | null;

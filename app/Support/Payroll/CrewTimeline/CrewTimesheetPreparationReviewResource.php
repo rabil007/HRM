@@ -79,7 +79,7 @@ final class CrewTimesheetPreparationReviewResource
                     'employee_number' => $line->employee?->employee_no,
                     'employee_name' => $line->employee?->name,
                     'rank' => $line->assignment?->rank?->name
-                        ?? $line->employee?->position?->name,
+                        ?? $line->employee?->position?->title,
                     'assignment_id' => $line->crew_assignment_id,
                     'assignment_number' => $line->assignment?->assignment_no,
                     'vessel' => $line->assignment?->vessel?->name,

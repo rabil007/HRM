@@ -44,7 +44,7 @@ Day priority when categories overlap:
 3. Sign-On Standby
 4. Excluded
 
-Overlaps still create a blocking `overlapping_phases` warning.
+The priority winner is assigned the day. A blocking `overlapping_phases` warning is raised only for a genuine overlap — a day that falls *interior* to at least one claiming phase (strictly between its actual start and end). Pure handover days, where contiguous phases only touch at their endpoints (one phase's `actual_end_at` equals the next phase's `actual_start_at`, as recorded by `CrewMovementService`), are not flagged, since day allocation already resolves them correctly by priority.
 
 ## Active phases
 

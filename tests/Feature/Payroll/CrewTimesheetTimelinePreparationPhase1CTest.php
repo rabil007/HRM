@@ -10,6 +10,7 @@ use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\CrewTimesheetPreparationLine;
 use App\Models\PayrollPeriod;
+use App\Models\Position;
 use App\Models\User;
 use App\Support\Payroll\CrewTimeline\Actions\ApproveCrewTimesheetPreparation;
 use App\Support\Payroll\CrewTimeline\PrepareCrewTimesheetTimeline;
@@ -55,6 +56,31 @@ test('authorized user can view preparation review page', function () {
             ->where('preparation.status', 'draft')
             ->where('preparation.is_fresh', true)
             ->where('summary.total_employees', 1)
+            ->has('employees.0.lines'));
+});
+
+test('preparation review falls back to employee position title for rank', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    grantTimelinePermissions($fixtures['user'], $fixtures['company']);
+
+    $position = Position::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'title' => 'Chief Engineer',
+        'status' => 'active',
+    ]);
+    $fixtures['employee']->forceFill(['position_id' => $position->id])->save();
+    $fixtures['assignment']->forceFill(['rank_id' => null])->save();
+
+    $preparation = prepareFreshTimeline($fixtures);
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.crew-timeline.show', [$fixtures['period'], $preparation]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('payroll/crew-timeline/show')
+            ->where('preparation.id', $preparation->id)
+            ->where('employees.0.rank', 'Chief Engineer')
             ->has('employees.0.lines'));
 });
 

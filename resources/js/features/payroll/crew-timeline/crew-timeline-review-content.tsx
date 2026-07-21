@@ -1,13 +1,12 @@
 import { router } from '@inertiajs/react';
 import {
-    ArrowLeft,
     CheckCircle2,
     FileSpreadsheet,
     RotateCcw,
     Send,
     Ship,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import PrepareCrewTimesheetTimelineController from '@/actions/App/Http/Controllers/Payroll/PrepareCrewTimesheetTimelineController';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
@@ -24,7 +23,11 @@ import { CrewTimelineStatusBadge } from './crew-timeline-status-badge';
 import { CrewTimelineSubmitDialog } from './crew-timeline-submit-dialog';
 import { CrewTimelineSummaryCards } from './crew-timeline-summary-cards';
 import { CrewTimelineWarningPanel } from './crew-timeline-warning-panel';
-import type { CrewTimelineShowProps } from './types';
+import { CrewTimelineWorkflowSteps } from './crew-timeline-workflow-steps';
+import type {
+    CrewTimelineShowProps,
+    CrewTimelineWarningBreakdownItem,
+} from './types';
 
 function actorLabel(user: { name: string } | null, at: string | null): string {
     if (!user && !at) {
@@ -49,6 +52,33 @@ export function CrewTimelineReviewContent({
     const [returnOpen, setReturnOpen] = useState(false);
     const [applyOpen, setApplyOpen] = useState(false);
     const [isPreparing, setIsPreparing] = useState(false);
+
+    const warningBreakdown = useMemo<CrewTimelineWarningBreakdownItem[]>(() => {
+        const byCode = new Map<string, CrewTimelineWarningBreakdownItem>();
+
+        for (const employee of employees) {
+            for (const line of employee.lines) {
+                if (!line.warning) {
+                    continue;
+                }
+
+                const existing = byCode.get(line.warning.code);
+
+                if (existing) {
+                    existing.count += 1;
+                } else {
+                    byCode.set(line.warning.code, {
+                        code: line.warning.code,
+                        label: line.warning.label,
+                        is_blocking: line.warning.is_blocking,
+                        count: 1,
+                    });
+                }
+            }
+        }
+
+        return Array.from(byCode.values()).sort((a, b) => b.count - a.count);
+    }, [employees]);
 
     const canPrepareNewVersion =
         permissions.prepare &&
@@ -118,15 +148,6 @@ export function CrewTimelineReviewContent({
                 backLabel="Back to Pay Period"
                 actions={
                     <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() =>
-                                router.visit(payrollShow.url(period.id))
-                            }
-                        >
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Pay Period
-                        </Button>
                         {canPrepareNewVersion ? (
                             <Button
                                 variant="outline"
@@ -171,9 +192,15 @@ export function CrewTimelineReviewContent({
             />
 
             <div className="mt-6 space-y-6">
+                <CrewTimelineWorkflowSteps
+                    status={preparation.status}
+                    isReturned={preparation.status === 'returned'}
+                />
+
                 <CrewTimelineWarningPanel
                     summary={summary}
                     isStale={preparation.is_stale}
+                    breakdown={warningBreakdown}
                 />
 
                 {preparation.status === 'approved' ? (
@@ -269,7 +296,17 @@ export function CrewTimelineReviewContent({
                 </Card>
 
                 <CrewTimelineSummaryCards summary={summary} />
-                <CrewTimelineEmployeeTable employees={employees} />
+
+                <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                        <div className="h-px flex-1 bg-border/60" />
+                        <span className="text-[11px] font-bold tracking-widest text-muted-foreground/50 uppercase">
+                            Employee Breakdown
+                        </span>
+                        <div className="h-px flex-1 bg-border/60" />
+                    </div>
+                    <CrewTimelineEmployeeTable employees={employees} />
+                </div>
             </div>
 
             <CrewTimelineSubmitDialog

@@ -31,7 +31,7 @@ final class CrewTimesheetPreparationReviewQuery
                     $query->where('company_id', $companyId)
                         ->with([
                             'employee:id,employee_no,name,position_id',
-                            'employee.position:id,name',
+                            'employee.position:id,title',
                             'assignment:id,assignment_no,vessel_id,rank_id',
                             'assignment.vessel:id,name',
                             'assignment.rank:id,name',

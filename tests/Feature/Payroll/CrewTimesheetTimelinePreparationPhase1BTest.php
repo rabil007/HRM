@@ -273,7 +273,7 @@ test('prepare supports multiple assignments in one period', function () {
     ]);
 });
 
-test('overlapping phases create blocking overlap warning and onsite wins transition date', function () {
+test('handover transition date does not create overlap warning and onsite wins', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 1, '2026-07-01 08:00:00', '2026-07-06 18:00:00');
@@ -293,6 +293,34 @@ test('overlapping phases create blocking overlap warning and onsite wins transit
         ->get();
 
     expect($julySixth->contains(fn ($line) => $line->pay_category === CrewTimesheetPayCategory::Onsite))->toBeTrue()
+        ->and(
+            CrewTimesheetPreparationLine::query()
+                ->where('crew_timesheet_preparation_id', $preparation->id)
+                ->where('warning_code', CrewTimelineWarningCode::OverlappingPhases->value)
+                ->exists()
+        )->toBeFalse();
+});
+
+test('genuine multi-day overlap creates blocking overlap warning and onsite wins', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 1, '2026-07-01 08:00:00', '2026-07-10 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-06 08:00:00', '2026-07-20 18:00:00');
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $fixtures['period'],
+        (int) $fixtures['company']->id,
+        (int) $fixtures['user']->id,
+    );
+
+    $julyEighth = CrewTimesheetPreparationLine::query()
+        ->where('crew_timesheet_preparation_id', $preparation->id)
+        ->where('days', '>', 0)
+        ->whereDate('from_date', '<=', '2026-07-08')
+        ->whereDate('to_date', '>=', '2026-07-08')
+        ->get();
+
+    expect($julyEighth->contains(fn ($line) => $line->pay_category === CrewTimesheetPayCategory::Onsite))->toBeTrue()
         ->and(
             CrewTimesheetPreparationLine::query()
                 ->where('crew_timesheet_preparation_id', $preparation->id)

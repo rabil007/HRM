@@ -98,7 +98,7 @@ final class CrewTimelineDayAllocator
                 continue;
             }
 
-            [$from, $to] = $range;
+            [$from, $to, $spanStart, $spanEnd] = $range;
             $category = $this->categoryResolver->resolve($phase->phase_code);
 
             for ($day = $from; $day->lte($to); $day = $day->addDay()) {
@@ -113,6 +113,7 @@ final class CrewTimelineDayAllocator
                     'source_actual_start_at' => $phase->actual_start_at,
                     'source_actual_end_at' => $phase->actual_end_at,
                     'priority' => $this->categoryResolver->priority($category),
+                    'is_interior' => $day->gt($spanStart) && $day->lt($spanEnd),
                 ];
             }
         }
@@ -131,7 +132,13 @@ final class CrewTimelineDayAllocator
             });
 
             $winner = $claims[0];
-            $overlapped = count($claims) > 1;
+
+            $overlapped = count($claims) > 1
+                && array_reduce(
+                    $claims,
+                    static fn (bool $carry, array $claim): bool => $carry || $claim['is_interior'],
+                    false,
+                );
 
             $allocated[] = [
                 'employee_id' => $winner['employee_id'],
@@ -155,7 +162,7 @@ final class CrewTimelineDayAllocator
     }
 
     /**
-     * @return array{0: CarbonImmutable, 1: CarbonImmutable}|null
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable, 2: CarbonImmutable, 3: CarbonImmutable}|null
      */
     private function phaseDateRange(
         CrewAssignmentPhase $phase,
@@ -190,6 +197,6 @@ final class CrewTimelineDayAllocator
             return null;
         }
 
-        return [$from, $to];
+        return [$from, $to, $start, $end];
     }
 }

@@ -95,6 +95,7 @@ import {
 import { PayrollRecordRemoveDialog } from './components/payroll-record-remove-dialog';
 import { PayrollRecordsSummaryCards } from './components/payroll-records-summary-cards';
 import { PayrollRecordsTable } from './components/payroll-records-table';
+import { PayrollReprepareTimelineDialog } from './components/payroll-reprepare-timeline-dialog';
 import { PayrollRevertToApprovedDialog } from './components/payroll-revert-to-approved-dialog';
 import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft-dialog';
 import { PayrollRevertToProcessingDialog } from './components/payroll-revert-to-processing-dialog';
@@ -181,6 +182,7 @@ export function PayrollShowContent({
         useState<PayrollRecordListItem | null>(null);
     const [isRemovingRecord, setIsRemovingRecord] = useState(false);
     const [isPreparingTimeline, setIsPreparingTimeline] = useState(false);
+    const [isReprepareDialogOpen, setIsReprepareDialogOpen] = useState(false);
     const [selectedWpsRecordIds, setSelectedWpsRecordIds] = useState<number[]>(
         () => all_payroll_record_ids,
     );
@@ -592,6 +594,21 @@ export function PayrollShowContent({
         });
     };
 
+    const handlePrepareTimeline = () => {
+        setIsPreparingTimeline(true);
+        router.post(
+            PrepareCrewTimesheetTimelineController.url(period.id),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setIsPreparingTimeline(false);
+                    setIsReprepareDialogOpen(false);
+                },
+            },
+        );
+    };
+
     const handleCancel = () => {
         setIsCancelling(true);
         router.post(
@@ -656,6 +673,12 @@ export function PayrollShowContent({
         period.generation_blocking_reason ??
         generation_readiness?.blocking_reason ??
         'Apply the approved Crew Operations timeline before generating payroll.';
+
+    const showTimelineCard =
+        period.supports_timesheets &&
+        permissions.view_timeline &&
+        period.uses_crew_operations_timesheets &&
+        !!crew_timeline_preparation;
 
     const canEditTimesheets =
         period.status === 'draft' && (permissions.create || permissions.update);
@@ -808,27 +831,13 @@ export function PayrollShowContent({
                                     Cancel pay run
                                 </Button>
                             ) : null}
-                            {canPrepareTimeline ? (
+                            {canPrepareTimeline &&
+                            !crew_timeline_preparation ? (
                                 <Button
                                     variant="outline"
                                     className={headerSecondaryActionClass}
                                     disabled={isPreparingTimeline}
-                                    onClick={() => {
-                                        setIsPreparingTimeline(true);
-                                        router.post(
-                                            PrepareCrewTimesheetTimelineController.url(
-                                                period.id,
-                                            ),
-                                            {},
-                                            {
-                                                preserveScroll: true,
-                                                onFinish: () =>
-                                                    setIsPreparingTimeline(
-                                                        false,
-                                                    ),
-                                            },
-                                        );
-                                    }}
+                                    onClick={handlePrepareTimeline}
                                 >
                                     <Ship className="mr-2 h-4 w-4" />
                                     {isPreparingTimeline
@@ -962,80 +971,112 @@ export function PayrollShowContent({
                 approver={period.approver}
             />
 
-            {period.supports_timesheets &&
-            permissions.view_timeline &&
-            period.uses_crew_operations_timesheets &&
-            crew_timeline_preparation ? (
+            {showTimelineCard && crew_timeline_preparation ? (
                 <Card className="glass-card">
-                    <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
-                        <div className="space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-semibold">
-                                    Crew Operations timeline
-                                </p>
-                                <CrewTimelineStatusBadge
-                                    status={crew_timeline_preparation.status}
-                                    label={
-                                        crew_timeline_preparation.status_label
+                    <CardContent className="flex flex-col gap-4 p-5">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                            <div className="space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-semibold">
+                                        Crew Operations timeline
+                                    </p>
+                                    <CrewTimelineStatusBadge
+                                        status={
+                                            crew_timeline_preparation.status
+                                        }
+                                        label={
+                                            crew_timeline_preparation.status_label
+                                        }
+                                    />
+                                    <Badge variant="outline">
+                                        Version{' '}
+                                        {crew_timeline_preparation.version}
+                                    </Badge>
+                                    <Badge
+                                        variant="outline"
+                                        className={
+                                            crew_timeline_preparation.is_stale
+                                                ? 'border-red-500/40 text-red-700 dark:text-red-300'
+                                                : 'border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+                                        }
+                                    >
+                                        {crew_timeline_preparation.is_fresh
+                                            ? 'Fresh'
+                                            : 'Timeline changed'}
+                                    </Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                    Blocking warnings:{' '}
+                                    {
+                                        crew_timeline_preparation.blocking_warning_count
+                                    }{' '}
+                                    · Informational warnings:{' '}
+                                    {
+                                        crew_timeline_preparation.informational_warning_count
                                     }
-                                />
-                                <Badge variant="outline">
-                                    Version {crew_timeline_preparation.version}
-                                </Badge>
-                                <Badge
+                                    {crew_timeline_preparation.status ===
+                                    'applied'
+                                        ? ` · Applied to ${crew_timeline_preparation.linked_timesheet_count} timesheet(s)`
+                                        : null}
+                                </p>
+                                {crew_timeline_preparation.status ===
+                                'applied' ? (
+                                    <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                                        Operational timesheets came from Crew
+                                        Operations.
+                                    </p>
+                                ) : null}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                {canPrepareTimeline ? (
+                                    <Button
+                                        variant="outline"
+                                        disabled={isPreparingTimeline}
+                                        onClick={() =>
+                                            setIsReprepareDialogOpen(true)
+                                        }
+                                    >
+                                        <RotateCcw className="mr-2 h-4 w-4" />
+                                        Re-prepare (new version)
+                                    </Button>
+                                ) : null}
+                                <Button
                                     variant="outline"
-                                    className={
-                                        crew_timeline_preparation.is_stale
-                                            ? 'border-red-500/40 text-red-700 dark:text-red-300'
-                                            : 'border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+                                    onClick={() =>
+                                        router.visit(
+                                            crewTimelineShow.url([
+                                                period.id,
+                                                crew_timeline_preparation.id,
+                                            ]),
+                                        )
                                     }
                                 >
-                                    {crew_timeline_preparation.is_fresh
-                                        ? 'Fresh'
-                                        : 'Timeline changed'}
-                                </Badge>
+                                    <Ship className="mr-2 h-4 w-4" />
+                                    {crew_timeline_preparation.status ===
+                                    'applied'
+                                        ? 'View Timeline'
+                                        : 'Review Timeline'}
+                                </Button>
                             </div>
-                            <p className="text-sm text-muted-foreground">
-                                Blocking warnings:{' '}
-                                {
-                                    crew_timeline_preparation.blocking_warning_count
-                                }{' '}
-                                · Informational warnings:{' '}
-                                {
-                                    crew_timeline_preparation.informational_warning_count
-                                }
-                                {crew_timeline_preparation.status === 'applied'
-                                    ? ` · Applied to ${crew_timeline_preparation.linked_timesheet_count} timesheet(s)`
-                                    : null}
-                            </p>
-                            {crew_timeline_preparation.status === 'applied' ? (
-                                <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                                    Operational timesheets came from Crew
-                                    Operations.
-                                </p>
-                            ) : null}
                         </div>
-                        <Button
-                            variant="outline"
-                            onClick={() =>
-                                router.visit(
-                                    crewTimelineShow.url([
-                                        period.id,
-                                        crew_timeline_preparation.id,
-                                    ]),
-                                )
-                            }
-                        >
-                            <Ship className="mr-2 h-4 w-4" />
-                            {crew_timeline_preparation.status === 'applied'
-                                ? 'View Timeline'
-                                : 'Review Timeline'}
-                        </Button>
+                        {isGenerationBlocked ? (
+                            <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                                <div className="space-y-1">
+                                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                                        Payroll generation blocked
+                                    </p>
+                                    <p className="text-sm text-amber-800/90 dark:text-amber-200/90">
+                                        {generationBlockingReason}
+                                    </p>
+                                </div>
+                            </div>
+                        ) : null}
                     </CardContent>
                 </Card>
             ) : null}
 
-            {isGenerationBlocked ? (
+            {isGenerationBlocked && !showTimelineCard ? (
                 <Card className="glass-card border-amber-500/30 bg-amber-500/5">
                     <CardContent className="flex items-start gap-3 p-5">
                         <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -1278,6 +1319,16 @@ export function PayrollShowContent({
                 processing={isCancelling}
             />
 
+            {crew_timeline_preparation ? (
+                <PayrollReprepareTimelineDialog
+                    open={isReprepareDialogOpen}
+                    onOpenChange={setIsReprepareDialogOpen}
+                    onConfirm={handlePrepareTimeline}
+                    processing={isPreparingTimeline}
+                    currentVersion={crew_timeline_preparation.version}
+                />
+            ) : null}
+
             <PayrollRecordRemoveDialog
                 open={removeRecord !== null}
                 onOpenChange={(open) => {
@@ -1443,10 +1494,10 @@ export function PayrollShowContent({
                                         Site
                                     </DataTableHead>
                                     <DataTableHead className="border-l border-blue-500/10 bg-blue-500/3">
-                                        Leave / Standby
+                                        Standby
                                     </DataTableHead>
                                     <DataTableHead className="border-r border-blue-500/10 bg-blue-500/3">
-                                        Working / Onsite
+                                        Onsite
                                     </DataTableHead>
                                     <DataTableHead className="border-x border-amber-500/10 bg-amber-500/3 text-right">
                                         Hours
