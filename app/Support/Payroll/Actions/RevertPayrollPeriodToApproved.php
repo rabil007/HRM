@@ -25,6 +25,7 @@ final class RevertPayrollPeriodToApproved
 
             $period->update([
                 'status' => PayrollPeriodStatus::Approved,
+                'payment_date' => null,
             ]);
 
             return $period->refresh();

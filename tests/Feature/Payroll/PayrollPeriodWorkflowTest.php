@@ -10,6 +10,7 @@ use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -139,6 +140,91 @@ test('authorized users can mark approved pay period as paid', function () {
     expect($record)->not->toBeNull()
         ->and($record->status)->toBe('paid')
         ->and($record->paid_at)->not->toBeNull();
+});
+
+test('mark paid without an explicit date defaults payment date to company-local today', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.mark_paid']);
+
+    [$period] = createApprovedPayrollPeriodWithRecord($company, $user);
+
+    Carbon::setTestNow('2026-07-15 12:00:00');
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.mark-paid', $period))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
+        ->assertSessionHas('success');
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::Paid)
+        ->and($period->payment_date)->not->toBeNull()
+        ->and($period->payment_date->toDateString())->toBe('2026-07-15');
+
+    Carbon::setTestNow();
+});
+
+test('mark paid stores an explicitly supplied payment date', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.mark_paid']);
+
+    [$period] = createApprovedPayrollPeriodWithRecord($company, $user);
+    $period->update(['start_date' => '2026-06-01', 'end_date' => '2026-06-30']);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.mark-paid', $period), [
+            'payment_date' => '2026-07-04',
+        ])
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]))
+        ->assertSessionHas('success');
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::Paid)
+        ->and($period->payment_date->toDateString())->toBe('2026-07-04');
+});
+
+test('mark paid rejects a payment date before the pay period start', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.mark_paid']);
+
+    [$period] = createApprovedPayrollPeriodWithRecord($company, $user);
+    $period->update(['start_date' => '2026-06-01', 'end_date' => '2026-06-30']);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.mark-paid', $period), [
+            'payment_date' => '2026-05-01',
+        ])
+        ->assertSessionHasErrors('payment_date');
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::Approved)
+        ->and($period->payment_date)->toBeNull();
+});
+
+test('cross-company approved period cannot be marked paid', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $other = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.mark_paid']);
+
+    [$foreignPeriod] = createApprovedPayrollPeriodWithRecord(
+        $other['company'],
+        $other['user'],
+    );
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.mark-paid', $foreignPeriod))
+        ->assertNotFound();
+
+    $foreignPeriod->refresh();
+    expect($foreignPeriod->status)->toBe(PayrollPeriodStatus::Approved)
+        ->and($foreignPeriod->payment_date)->toBeNull();
 });
 
 test('authorized users can mark approved pay period as paid with payment proof document', function () {
@@ -299,9 +385,12 @@ test('authorized users can revert paid pay period to approved', function () {
 
     [$period, $employee] = createProcessingPayrollPeriodWithRecord($company);
 
+    $generatedAt = now()->subDays(3);
     $period->update([
         'status' => PayrollPeriodStatus::Paid,
         'payment_proof_path' => 'test-path.pdf',
+        'payment_date' => '2026-07-04',
+        'generated_at' => $generatedAt,
     ]);
 
     $record = PayrollRecord::query()
@@ -324,7 +413,41 @@ test('authorized users can revert paid pay period to approved', function () {
 
     expect($period->status)->toBe(PayrollPeriodStatus::Approved)
         ->and($record->status)->toBe('approved')
-        ->and($record->paid_at)->toBeNull();
+        ->and($record->paid_at)->toBeNull()
+        ->and($period->payment_date)->toBeNull()
+        ->and($period->generated_at?->toDateTimeString())->toBe($generatedAt->toDateTimeString());
+});
+
+test('marking a reverted period paid again stores a new payment date', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.revert_to_approved',
+        'payroll.periods.mark_paid',
+    ]);
+
+    [$period] = createApprovedPayrollPeriodWithRecord($company, $user);
+    $period->update(['start_date' => '2026-06-01', 'end_date' => '2026-06-30']);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.mark-paid', $period), ['payment_date' => '2026-07-04'])
+        ->assertSessionHas('success');
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.revert-to-approved', $period))
+        ->assertSessionHas('success');
+
+    $period->refresh();
+    expect($period->payment_date)->toBeNull();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.mark-paid', $period), ['payment_date' => '2026-07-10'])
+        ->assertSessionHas('success');
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::Paid)
+        ->and($period->payment_date->toDateString())->toBe('2026-07-10');
 });
 
 test('revert to approved fails for non-paid pay period', function () {

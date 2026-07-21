@@ -11,20 +11,31 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+
+function todayLocalDate(): string {
+    const now = new Date();
+    const offsetMs = now.getTimezoneOffset() * 60_000;
+
+    return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
+}
 
 export function PayrollMarkPaidDialog({
     open,
     onOpenChange,
     onConfirm,
     processing,
+    paymentDateError,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onConfirm: (files: File[]) => void;
+    onConfirm: (files: File[], paymentDate: string) => void;
     processing: boolean;
+    paymentDateError?: string;
 }) {
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [paymentDate, setPaymentDate] = useState<string>(todayLocalDate());
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -56,6 +67,7 @@ export function PayrollMarkPaidDialog({
     const handleClose = (newOpen: boolean) => {
         if (!newOpen) {
             setSelectedFiles([]);
+            setPaymentDate(todayLocalDate());
 
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
@@ -77,6 +89,32 @@ export function PayrollMarkPaidDialog({
                 </AlertDialogHeader>
 
                 <div className="space-y-3 py-2">
+                    <div className="space-y-2">
+                        <Label
+                            htmlFor="payment_date"
+                            className="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
+                        >
+                            Payment Date
+                        </Label>
+                        <Input
+                            id="payment_date"
+                            type="date"
+                            value={paymentDate}
+                            onChange={(e) => setPaymentDate(e.target.value)}
+                            className="h-11 rounded-xl"
+                        />
+                        {paymentDateError ? (
+                            <p className="text-xs font-medium text-destructive">
+                                {paymentDateError}
+                            </p>
+                        ) : (
+                            <p className="text-[11px] text-muted-foreground">
+                                Defaults to today. Set the date employees were
+                                actually paid.
+                            </p>
+                        )}
+                    </div>
+
                     <div className="flex items-center justify-between">
                         <Label className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                             Payment Proof Documents ({selectedFiles.length})
@@ -170,7 +208,7 @@ export function PayrollMarkPaidDialog({
                         disabled={processing}
                         onClick={(event) => {
                             event.preventDefault();
-                            onConfirm(selectedFiles);
+                            onConfirm(selectedFiles, paymentDate);
                         }}
                     >
                         {processing ? 'Saving…' : 'Mark as paid'}

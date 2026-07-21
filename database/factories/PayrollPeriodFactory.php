@@ -32,7 +32,8 @@ class PayrollPeriodFactory extends Factory
             'name' => $start->format('F Y'),
             'start_date' => $start->format('Y-m-d'),
             'end_date' => $end->format('Y-m-d'),
-            'payment_date' => (clone $end)->modify('+5 days')->format('Y-m-d'),
+            'payment_date' => null,
+            'generated_at' => null,
             'status' => PayrollPeriodStatus::Draft,
             'notes' => null,
             'created_by' => null,
@@ -43,15 +44,20 @@ class PayrollPeriodFactory extends Factory
 
     public function approved(): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (array $attributes) => [
             'status' => PayrollPeriodStatus::Approved,
+            'generated_at' => now(),
         ]);
     }
 
     public function paid(): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn (array $attributes) => [
             'status' => PayrollPeriodStatus::Paid,
+            'generated_at' => now(),
+            'payment_date' => (new \DateTimeImmutable((string) $attributes['end_date']))
+                ->modify('+5 days')
+                ->format('Y-m-d'),
         ]);
     }
 

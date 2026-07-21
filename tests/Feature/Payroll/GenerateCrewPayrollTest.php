@@ -81,7 +81,7 @@ test('crew payroll generation creates records for all active crew employees incl
         ->and($summary['skipped_count'])->toBe(0);
 });
 
-test('crew payroll generation stamps payment date with today and refreshes on regeneration', function () {
+test('crew payroll generation stamps generated_at and leaves payment date null, refreshing on regeneration', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
@@ -92,6 +92,7 @@ test('crew payroll generation stamps payment date with today and refreshes on re
         'start_date' => '2026-06-01',
         'end_date' => '2026-06-30',
         'payment_date' => null,
+        'generated_at' => null,
     ]);
 
     createCrewEmployeeWithContract($company, 'CREW-PAY', 150, 50, 75);
@@ -103,16 +104,18 @@ test('crew payroll generation stamps payment date with today and refreshes on re
         ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]));
 
     $period->refresh();
-    expect($period->payment_date?->toDateString())->toBe('2026-07-03');
+    expect($period->generated_at?->toDateTimeString())->toBe('2026-07-03 09:00:00')
+        ->and($period->payment_date)->toBeNull();
 
-    Carbon::setTestNow('2026-07-08 09:00:00');
+    Carbon::setTestNow('2026-07-08 12:30:00');
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.generate', $period))
         ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]));
 
     $period->refresh();
-    expect($period->payment_date?->toDateString())->toBe('2026-07-08');
+    expect($period->generated_at?->toDateTimeString())->toBe('2026-07-08 12:30:00')
+        ->and($period->payment_date)->toBeNull();
 
     Carbon::setTestNow();
 });

@@ -164,6 +164,9 @@ export function PayrollShowContent({
     const [isApproving, setIsApproving] = useState(false);
     const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
     const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+    const [markPaidDateError, setMarkPaidDateError] = useState<
+        string | undefined
+    >(undefined);
     const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -556,9 +559,17 @@ export function PayrollShowContent({
         );
     };
 
-    const handleMarkPaid = (files?: File[] | File | null) => {
+    const handleMarkPaid = (
+        files?: File[] | File | null,
+        paymentDate?: string,
+    ) => {
         setIsMarkingPaid(true);
-        const payload: Record<string, any> = {};
+        setMarkPaidDateError(undefined);
+        const payload: Record<string, string | File | File[]> = {};
+
+        if (paymentDate) {
+            payload.payment_date = paymentDate;
+        }
 
         if (Array.isArray(files) && files.length > 0) {
             payload.payment_proofs = files;
@@ -568,9 +579,14 @@ export function PayrollShowContent({
 
         router.post(markPaid.url(period.id), payload, {
             preserveScroll: true,
+            onError: (errors) => {
+                setMarkPaidDateError(errors.payment_date);
+            },
+            onSuccess: () => {
+                setIsMarkPaidDialogOpen(false);
+            },
             onFinish: () => {
                 setIsMarkingPaid(false);
-                setIsMarkPaidDialogOpen(false);
             },
         });
     };
@@ -742,7 +758,7 @@ export function PayrollShowContent({
                         ) : null}
                     </span>
                 }
-                description={`${formatDisplayDate(period.start_date)} — ${formatDisplayDate(period.end_date)} · Payment ${period.payment_date ? formatDisplayDate(period.payment_date) : 'Pending'}`}
+                description={`${formatDisplayDate(period.start_date)} — ${formatDisplayDate(period.end_date)} · Generated ${period.generated_at ? formatDisplayDate(period.generated_at) : 'Not generated'} · Payment ${period.payment_date ? formatDisplayDate(period.payment_date) : 'Pending'}`}
                 backHref={payrollIndex.url()}
                 backLabel="Go back"
                 actions={
@@ -1238,9 +1254,16 @@ export function PayrollShowContent({
 
             <PayrollMarkPaidDialog
                 open={isMarkPaidDialogOpen}
-                onOpenChange={setIsMarkPaidDialogOpen}
+                onOpenChange={(open) => {
+                    setIsMarkPaidDialogOpen(open);
+
+                    if (!open) {
+                        setMarkPaidDateError(undefined);
+                    }
+                }}
                 onConfirm={handleMarkPaid}
                 processing={isMarkingPaid}
+                paymentDateError={markPaidDateError}
             />
 
             <PayrollCancelDialog

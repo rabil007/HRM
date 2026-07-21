@@ -187,7 +187,7 @@ final class GenerateOfficePayroll
             ];
 
             if ($generatedCount > 0) {
-                $periodUpdates['payment_date'] = now()->toDateString();
+                $periodUpdates['generated_at'] = now();
 
                 if ($period->status === PayrollPeriodStatus::Draft) {
                     $periodUpdates['status'] = PayrollPeriodStatus::Processing;

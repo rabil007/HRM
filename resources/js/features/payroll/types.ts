@@ -64,6 +64,7 @@ export type PayrollPeriod = {
     start_date: string;
     end_date: string;
     payment_date: string | null;
+    generated_at: string | null;
     payroll_category: PayrollCategory;
     payroll_category_label: string;
     crew_timesheet_mode: CrewTimesheetMode | null;

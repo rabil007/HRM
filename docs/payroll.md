@@ -31,10 +31,21 @@ Other supported transitions are:
 
 - `processing -> draft`: removes payroll records and salary inputs; crew periods also lose their timesheets.
 - `approved -> processing`: clears approval data, generated payslip files, and WPS submission fields.
-- `paid -> approved`: removes the paid state from records.
+- `paid -> approved`: removes the paid state from records and clears `payment_date`; `generated_at` is preserved.
 - `draft`, `processing`, or `approved` -> `cancelled`: removes payroll records and salary inputs.
 
 The transition rules live in `app/Models/PayrollPeriod.php` and `app/Support/Payroll/Actions/`.
+
+### Generation and payment timestamps
+
+`payroll_periods` distinguishes when payroll was calculated from when employees were paid:
+
+- `generated_at` — set (and refreshed) whenever `GenerateCrewPayroll` or `GenerateOfficePayroll` successfully produces payroll records. Regeneration refreshes it; failed generation or a run that produces no records leaves it unchanged. It is never treated as a payment date.
+- `payment_date` — the actual salary payment date. It is `null` for draft, processing, and approved periods and is only set during the Mark as Paid transition. Payroll generation never sets `payment_date`.
+
+Mark as Paid (`MarkPayrollPeriodPaid`) accepts an optional `payment_date`; when omitted it defaults to the company-local current date, and it is rejected if it falls before the pay period start. A paid period always has a non-null `payment_date`. Reverting `paid -> approved` clears `payment_date` while keeping `generated_at`; marking the period paid again stores a fresh `payment_date`. Period creation does not accept a payment date.
+
+Payment-date analytics in `PayrollOverviewSummary` remain scoped to paid periods, so unpaid periods (with a null `payment_date`) are excluded from paid aggregations.
 
 ## Office payroll
 

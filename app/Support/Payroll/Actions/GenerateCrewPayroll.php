@@ -181,7 +181,7 @@ final class GenerateCrewPayroll
             ];
 
             if ($generatedCount > 0) {
-                $periodUpdates['payment_date'] = now()->toDateString();
+                $periodUpdates['generated_at'] = now();
 
                 if ($lockedPeriod->status === PayrollPeriodStatus::Draft) {
                     $periodUpdates['status'] = PayrollPeriodStatus::Processing;

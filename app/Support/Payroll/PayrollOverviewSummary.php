@@ -216,6 +216,7 @@ final class PayrollOverviewSummary
         $records = PayrollRecord::query()
             ->where('payroll_records.company_id', $companyId)
             ->join('payroll_periods', 'payroll_records.period_id', '=', 'payroll_periods.id')
+            ->where('payroll_periods.status', PayrollPeriodStatus::Paid->value)
             ->where('payroll_periods.payment_date', '>=', Carbon::now()->subMonths(6)->startOfMonth())
             ->selectRaw('
                 YEAR(payroll_periods.payment_date) as yr,
@@ -270,6 +271,7 @@ final class PayrollOverviewSummary
         $records = PayrollRecord::query()
             ->where('payroll_records.company_id', $companyId)
             ->join('payroll_periods', 'payroll_records.period_id', '=', 'payroll_periods.id')
+            ->where('payroll_periods.status', PayrollPeriodStatus::Paid->value)
             ->where('payroll_periods.payment_date', '>=', Carbon::now()->subMonths(6)->startOfMonth())
             ->selectRaw("
                 YEAR(payroll_periods.payment_date) as yr,

@@ -81,6 +81,16 @@ export function PayrollPeriodCard({
                                 : 'Pending'}
                         </p>
                     </div>
+                    <div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
+                        <p className="text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
+                            Generated
+                        </p>
+                        <p className="mt-1 font-semibold">
+                            {period.generated_at
+                                ? formatDisplayDate(period.generated_at)
+                                : 'Not generated'}
+                        </p>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">

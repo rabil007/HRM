@@ -36,6 +36,7 @@ final class PayrollPeriodResource
             'start_date' => $period->start_date?->toDateString(),
             'end_date' => $period->end_date?->toDateString(),
             'payment_date' => $period->payment_date?->toDateString(),
+            'generated_at' => $period->generated_at?->toDateTimeString(),
             'payroll_category' => $period->payroll_category?->value ?? PayrollCategory::Crew->value,
             'payroll_category_label' => $period->payroll_category?->label() ?? PayrollCategory::Crew->label(),
             'crew_timesheet_mode' => $period->crew_timesheet_mode?->value,

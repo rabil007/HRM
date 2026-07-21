@@ -57,6 +57,7 @@ test('authorized users can list and create payroll periods from payroll hub', fu
         'payroll_category' => 'crew',
         'status' => PayrollPeriodStatus::Draft->value,
         'payment_date' => null,
+        'generated_at' => null,
     ]);
 });
 

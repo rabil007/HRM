@@ -875,7 +875,11 @@ class PayrollController extends Controller
             $proofFiles = [$request->file('payment_proof')];
         }
 
-        $markPayrollPeriodPaid->handle($payrollPeriod, $proofFiles);
+        $markPayrollPeriodPaid->handle(
+            $payrollPeriod,
+            $proofFiles,
+            $request->validated('payment_date'),
+        );
 
         return redirect()
             ->route('payroll.show', $payrollPeriod)
