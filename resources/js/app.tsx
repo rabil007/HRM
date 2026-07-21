@@ -1,4 +1,6 @@
 import { createInertiaApp, router } from '@inertiajs/react';
+import { toast } from 'sonner';
+import { useRegisterSW } from 'virtual:pwa-register/react';
 import { HttpExceptionToasts } from '@/components/http-exception-toasts';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -11,6 +13,27 @@ import {
     seedApplicationAppNameFromDom,
     syncApplicationAppNameFromInertiaPage,
 } from '@/lib/application-app-name';
+
+/**
+ * Listens for a new service worker install and prompts the user
+ * to reload so they get the latest version of the app.
+ */
+function PwaUpdatePrompt() {
+    useRegisterSW({
+        onNeedRefresh(updateSW) {
+            toast('A new version is available', {
+                description: 'Reload to get the latest updates.',
+                duration: Infinity,
+                action: {
+                    label: 'Reload',
+                    onClick: () => updateSW(true),
+                },
+            });
+        },
+    });
+
+    return null;
+}
 
 seedApplicationAppNameFromDom();
 
@@ -42,6 +65,7 @@ createInertiaApp({
     withApp(app) {
         return (
             <TooltipProvider delayDuration={0}>
+                <PwaUpdatePrompt />
                 <HttpExceptionToasts />
                 <Toaster duration={5000} />
                 {app}

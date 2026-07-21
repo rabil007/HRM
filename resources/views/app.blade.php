@@ -6,6 +6,18 @@
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <meta name="app-name" content="{{ $appName ?? config('app.name', 'Laravel') }}">
 
+        {{-- PWA: Web App Manifest --}}
+        <link rel="manifest" href="/manifest.json">
+
+        {{-- PWA: Theme color (matches app's locked dark mode) --}}
+        <meta name="theme-color" content="#1e2638">
+
+        {{-- PWA: Apple / iOS specific meta tags --}}
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="{{ $appName ?? config('app.name', 'OMS-HRM') }}">
+
         {{-- Inline script to detect system dark mode preference and apply it immediately --}}
         <script>
             (function() {
@@ -37,7 +49,8 @@
         @else
             <link rel="icon" href="/favicon.ico" sizes="any">
             <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-            <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+            <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png">
+            <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png">
         @endif
 
         @viteReactRefresh
