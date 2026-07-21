@@ -185,7 +185,9 @@ Submission and approval are blocked when any line has a blocking `CrewTimelineWa
 
 Blocking: `missing_actual_start`, `missing_actual_end`, `overlapping_phases`, `pending_movement_correction`, `no_active_crew_contract`, `cross_company_reference`, `invalid_phase_range`
 
-Informational (allowed): `timeline_gap`, `monthly_contract_not_supported`, `future_actual_date`, `travel_in_excluded`
+Informational (allowed): `timeline_gap`, `monthly_contract_not_supported`, `future_actual_date`
+
+Travel In days are excluded from payable pay directly by the allocator: the phase appears once as an `Excluded` allocation line covering its payable calendar days. No separate whole-period `travel_in_excluded` notice line is generated (it duplicated the phase and spanned the entire period). The `travel_in_excluded` warning code is retained for backward compatibility but is no longer emitted automatically.
 
 ### Approval behavior
 
@@ -337,7 +339,7 @@ Stored in `crew_timesheet_preparation_lines.warning_code` via `CrewTimelineWarni
 
 Blocking: `missing_actual_start`, `missing_actual_end`, `overlapping_phases`, `pending_movement_correction`, `no_active_crew_contract`, `cross_company_reference`, `invalid_phase_range`
 
-Informational: `timeline_gap`, `monthly_contract_not_supported`, `future_actual_date`, `travel_in_excluded`
+Informational: `timeline_gap`, `monthly_contract_not_supported`, `future_actual_date`
 
 ## Production hardening (post Phase 1E)
 

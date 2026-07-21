@@ -163,19 +163,6 @@ final class CrewTimelineIssueDetector
                 );
             }
 
-            if ($phase->phase_code === CrewPhaseCode::TravelIn) {
-                $issues[] = $this->issue(
-                    $employeeId,
-                    (int) $phase->crew_assignment_id,
-                    (int) $phase->id,
-                    $phase->phase_code,
-                    CrewTimelineWarningCode::TravelInExcluded,
-                    'Travel In days are excluded from payroll.',
-                    $periodStart,
-                    $periodEnd,
-                );
-            }
-
             $contract = $contracts->get($employeeId);
 
             if ($contract === null || $contract->payroll_category !== PayrollCategory::Crew) {

@@ -72,6 +72,35 @@ test('genuine timestamp overlap produces a blocking overlap warning', function (
         ->and($julyFifteen->first()->pay_category)->toBe(CrewTimesheetPayCategory::Onsite);
 });
 
+test('travel in phase produces a single line without a duplicate excluded notice', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::PreMobilisation, 1, '2026-07-01 08:00:00', '2026-07-01 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::TravelIn, 2, '2026-07-01 18:00:00', '2026-07-05 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 3, '2026-07-05 10:00:00', '2026-07-08 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 4, '2026-07-08 10:00:00', '2026-07-20 10:00:00');
+
+    $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
+        $fixtures['period'],
+        (int) $fixtures['company']->id,
+        (int) $fixtures['user']->id,
+    );
+
+    $travelInLines = CrewTimesheetPreparationLine::query()
+        ->where('crew_timesheet_preparation_id', $preparation->id)
+        ->where('phase_code', CrewPhaseCode::TravelIn->value)
+        ->get();
+
+    $noticeExists = CrewTimesheetPreparationLine::query()
+        ->where('crew_timesheet_preparation_id', $preparation->id)
+        ->where('warning_code', CrewTimelineWarningCode::TravelInExcluded->value)
+        ->exists();
+
+    expect($noticeExists)->toBeFalse()
+        ->and($travelInLines)->toHaveCount(1)
+        ->and($travelInLines->first()->pay_category)->toBe(CrewTimesheetPayCategory::Excluded);
+});
+
 test('exact join standby to training handoff keeps sign-on standby without overlap warning', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
