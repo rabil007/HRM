@@ -100,8 +100,9 @@ final class PrepareCrewTimesheetTimeline
 
             $effectiveEnd = $this->phaseQuery->effectiveEndDate($period, $cutoffDate);
             $phases = $this->phaseQuery->overlappingPhases($period, $effectiveEnd);
-            $sourceHash = $this->sourceHasher->hash($period, $cutoffDate, $phases);
-            $issues = $this->issueDetector->detect($period, $phases, $effectiveEnd, $companyId);
+            $issuePhases = $this->phaseQuery->issuePhases($period, $effectiveEnd);
+            $sourceHash = $this->sourceHasher->hash($period, $cutoffDate, $issuePhases);
+            $issues = $this->issueDetector->detect($period, $issuePhases, $effectiveEnd, $companyId);
             $allocatedDays = $this->dayAllocator->allocate($period, $phases, $effectiveEnd, $companyId);
             $ranges = $this->rangeBuilder->build($allocatedDays);
             $gapIssues = $this->detectTimelineGaps($allocatedDays, $period);

@@ -16,6 +16,7 @@ use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Payroll\Actions\RecalculateCrewPayroll;
 use App\Support\Payroll\Actions\SyncEmployeeSalaryInputsFromImport;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
+use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
@@ -28,6 +29,7 @@ final class CrewTimesheetImportOrchestrator
         private readonly UpsertCrewTimesheet $upsertCrewTimesheet,
         private readonly SyncEmployeeSalaryInputsFromImport $syncEmployeeSalaryInputsFromImport,
         private readonly RecalculateCrewPayroll $recalculateCrewPayroll,
+        private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
     ) {}
 
     /**
@@ -151,6 +153,10 @@ final class CrewTimesheetImportOrchestrator
         array $managedTypeIds,
     ): array {
         $employeesByNo = $this->loadEmployeesByNumber($companyId);
+        $contractsByEmployeeId = $this->resolveContract->resolveMany(
+            $period,
+            $employeesByNo->map(fn (Employee $employee): int => (int) $employee->id)->values()->all(),
+        );
         $typeNamesById = $this->loadSalaryInputTypeNames($companyId, $managedTypeIds);
         $existingTimesheets = CrewTimesheet::query()
             ->where('company_id', $companyId)
@@ -181,6 +187,9 @@ final class CrewTimesheetImportOrchestrator
             }
 
             $employee = $employeesByNo->get($employeeNo);
+            $contract = $employee !== null
+                ? $contractsByEmployeeId->get((int) $employee->id)
+                : null;
 
             if ($employee === null) {
                 $rowErrors[] = [
@@ -188,7 +197,7 @@ final class CrewTimesheetImportOrchestrator
                     'field' => 'employee_no',
                     'message' => "Employee number {$employeeNo} was not found.",
                 ];
-            } elseif ($employee->currentContract?->payroll_category !== PayrollCategory::Crew) {
+            } elseif ($contract === null || $contract->payroll_category !== PayrollCategory::Crew) {
                 $rowErrors[] = [
                     'row' => $rowNumber,
                     'field' => 'employee_no',
@@ -196,7 +205,7 @@ final class CrewTimesheetImportOrchestrator
                 ];
             }
 
-            $salaryStructure = $employee?->currentContract?->resolvedSalaryStructure()
+            $salaryStructure = $contract?->resolvedSalaryStructure()
                 ?? ContractSalaryStructure::Daily;
             $isDaily = $salaryStructure === ContractSalaryStructure::Daily;
             $existing = $employee !== null
@@ -287,8 +296,8 @@ final class CrewTimesheetImportOrchestrator
                 'row_mode' => $rowMode,
                 'standby_days' => $timesheetData['standby_days'] ?? null,
                 'onsite_days' => $timesheetData['onsite_days'] ?? null,
-                'overtime_hours' => $timesheetData['overtime_hours'],
-                'remarks' => $timesheetData['remarks'],
+                'overtime_hours' => $timesheetData['overtime_hours'] ?? null,
+                'remarks' => $timesheetData['remarks'] ?? null,
                 'salary_input_summary' => $this->buildSalaryInputSummary($salaryAmountsByTypeId, $typeNamesById),
                 'errors' => $rowErrors,
                 'warnings' => $rowWarnings,
@@ -356,13 +365,17 @@ final class CrewTimesheetImportOrchestrator
     private function buildTimesheetData(array $parsedRow, bool $financialOnly = false): array
     {
         if ($financialOnly) {
-            return [
-                'overtime_hours' => $parsedRow['overtime_hours'] ?? 0,
-                'additional_amount' => 0,
-                'deduction_amount' => 0,
-                'remarks' => $parsedRow['remarks'] ?? null,
-                'source' => CrewTimesheetSource::Import,
-            ];
+            $data = ['source' => CrewTimesheetSource::Import];
+
+            if (array_key_exists('overtime_hours', $parsedRow) && $parsedRow['overtime_hours'] !== null && $parsedRow['overtime_hours'] !== '') {
+                $data['overtime_hours'] = $parsedRow['overtime_hours'];
+            }
+
+            if (array_key_exists('remarks', $parsedRow) && $parsedRow['remarks'] !== null && $parsedRow['remarks'] !== '') {
+                $data['remarks'] = $parsedRow['remarks'];
+            }
+
+            return $data;
         }
 
         return [

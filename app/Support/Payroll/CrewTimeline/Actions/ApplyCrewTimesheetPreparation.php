@@ -16,6 +16,8 @@ use App\Models\User;
 use App\Support\Payroll\CrewTimeline\ApplyCrewTimesheetPreparationResult;
 use App\Support\Payroll\CrewTimeline\CrewTimelineFreshnessChecker;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationWorkflowGuard;
+use App\Support\Payroll\CrewTimeline\PayableCrewPreparationLines;
+use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -25,6 +27,7 @@ final class ApplyCrewTimesheetPreparation
     public function __construct(
         private readonly CrewTimesheetPreparationWorkflowGuard $guard,
         private readonly CrewTimelineFreshnessChecker $freshnessChecker,
+        private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
     ) {}
 
     public function handle(
@@ -104,9 +107,10 @@ final class ApplyCrewTimesheetPreparation
             $employees = Employee::query()
                 ->where('company_id', $companyId)
                 ->whereIn('id', $employeeIds !== [] ? $employeeIds : [0])
-                ->with('currentContract')
                 ->get()
                 ->keyBy('id');
+
+            $contracts = $this->resolveContract->resolveMany($period, $employeeIds);
 
             $created = 0;
             $updated = 0;
@@ -122,7 +126,7 @@ final class ApplyCrewTimesheetPreparation
                     abort(404);
                 }
 
-                $contract = $employee->currentContract;
+                $contract = $contracts->get($employeeId);
 
                 if (
                     $contract === null
@@ -245,7 +249,7 @@ final class ApplyCrewTimesheetPreparation
             ->where('movement_source_hash', $preparation->source_hash)
             ->get();
 
-        if ($timesheets->isEmpty()) {
+        if ($timesheets->isEmpty() && $this->expectsPayableDailyTimesheets($preparation, $period, $companyId)) {
             throw ValidationException::withMessages([
                 'preparation' => 'This preparation is marked applied but linked timesheets were not found. Contact support before retrying.',
             ]);
@@ -260,6 +264,39 @@ final class ApplyCrewTimesheetPreparation
             warnings: ['Preparation was already applied. No duplicate timesheets were created.'],
             idempotent: true,
         );
+    }
+
+    /**
+     * An empty Applied preparation with zero payable Daily employees is valid and
+     * must remain idempotent; only expect linked timesheets when payable Daily
+     * employees actually exist in the applied snapshot.
+     */
+    private function expectsPayableDailyTimesheets(
+        CrewTimesheetPreparation $preparation,
+        PayrollPeriod $period,
+        int $companyId,
+    ): bool {
+        $payableEmployeeIds = PayableCrewPreparationLines::payableEmployeeIds($companyId, (int) $preparation->id);
+
+        if ($payableEmployeeIds === []) {
+            return false;
+        }
+
+        $contracts = $this->resolveContract->resolveMany($period, $payableEmployeeIds);
+
+        foreach ($payableEmployeeIds as $employeeId) {
+            $contract = $contracts->get($employeeId);
+
+            if (
+                $contract !== null
+                && $contract->payroll_category === PayrollCategory::Crew
+                && $contract->resolvedSalaryStructure() !== ContractSalaryStructure::Monthly
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -282,16 +319,11 @@ final class ApplyCrewTimesheetPreparation
         $aggregates = [];
 
         foreach ($lines as $line) {
+            if (! PayableCrewPreparationLines::isPayable($line)) {
+                continue;
+            }
+
             $days = (float) $line->days;
-
-            if ($days <= 0) {
-                continue;
-            }
-
-            if ($line->pay_category === null || $line->pay_category === CrewTimesheetPayCategory::Excluded) {
-                continue;
-            }
-
             $employeeId = (int) $line->employee_id;
 
             if (! isset($aggregates[$employeeId])) {

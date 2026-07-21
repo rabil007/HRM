@@ -331,6 +331,20 @@ Blocking: `missing_actual_start`, `missing_actual_end`, `overlapping_phases`, `p
 
 Informational: `timeline_gap`, `monthly_contract_not_supported`, `future_actual_date`, `travel_in_excluded`
 
+## Production hardening (post Phase 1E)
+
+Hardening applied before production use. Manual / Excel and Monthly crew behaviour preserved.
+
+- **Contract resolution** — `ResolveCrewContractForPayrollPeriod` resolves the period-applicable crew contract (overlap by effective/end dates) and is used across preparation, issue detection, allocation, application, upsert, import, generation, readiness, and the source hasher.
+- **Payable predicate** — `CrewTimeline/PayableCrewPreparationLines` is the single payable-line predicate (sign-on standby / onsite / sign-off standby with days > 0) shared by application, readiness, and generation. Excluded, warning-only, and zero-day lines never require a linked timesheet.
+- **Readiness parity** — `CrewOperationsPayrollGenerationGuard::validateReadiness()` is the shared non-mutating validator; the Generate button and backend generation agree and expose `affected_employee_id`.
+- **Source freshness** — the source hash now covers the period-applicable contract (id, category, salary structure, effective dates) and pending movement correction state, so contract/salary-structure/correction/actual-movement/phase changes make a preparation stale.
+- **Query split & timezone** — `CrewTimelinePhaseQuery::issuePhases()` surfaces phases missing `actual_start_at` (blocking `missing_actual_start`) while `overlappingPhases()` stays actual-only; both use company-timezone boundaries compared in UTC.
+- **Empty Applied preparation** — apply is allowed with zero payable Daily employees, marked Applied, idempotent, and does not block generation.
+- **Concurrency** — generation and `UpsertCrewTimesheet` lock the period (and rows) and revalidate status/mode/lock state; generation derives mode from the locked model. Import financial writes use explicit-presence handling to preserve stored amounts.
+- **History** — `CrewTimesheetPreparation` and `CrewTimesheetPreparationLine` use `SoftDeletes`; creation migrations recover missing columns/indexes idempotently.
+- **Excel template** — Daily crew operational cells are locked/protected in crew-operations mode (`From timeline`); Monthly rows keep legacy operational cells; backend validation stays authoritative.
+
 ## Tests
 
 - Phase 1A: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1ATest.php`
@@ -338,6 +352,7 @@ Informational: `timeline_gap`, `monthly_contract_not_supported`, `future_actual_
 - Phase 1C: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1CTest.php`
 - Phase 1D: `tests/Feature/Payroll/CrewTimesheetTimelinePreparationPhase1DTest.php`
 - Phase 1E: `tests/Feature/Payroll/CrewTimesheetModePhase1ETest.php`
+- Hardening: `tests/Feature/Payroll/CrewPayrollHardeningTest.php`, `tests/Unit/Support/Payroll/ResolveCrewContractForPayrollPeriodTest.php`
 - Shared fixtures: `tests/Support/crew-timeline-fixtures.php`
 
 ## Out of scope until later phases

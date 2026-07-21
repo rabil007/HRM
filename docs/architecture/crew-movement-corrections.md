@@ -56,6 +56,10 @@ Then: stale-original conflict check → validate → apply → invariants → pl
 
 Notification failures after commit are reported and never roll back approval.
 
+## Impact on crew payroll timeline freshness
+
+A **pending** movement correction on a phase within a payroll period contributes to the crew timeline source hash. Creating a new pending correction after a preparation is prepared/approved makes that preparation stale, forcing a new prepare/approve cycle before it can be applied to payroll. Actual movement data changes (actual start/end) and applicable-contract changes are likewise part of the hash. See [crew-payroll-timeline-preparation.md](./crew-payroll-timeline-preparation.md).
+
 ## UI entry points
 
 - Assignment show: **Request Correction** (separate from movement actions)

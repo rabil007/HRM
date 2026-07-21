@@ -20,6 +20,7 @@ use App\Support\Payroll\CrewPayrollCalculator;
 use App\Support\Payroll\GeneratePayrollResult;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\PayrollGenerationError;
+use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
 use App\Support\Payroll\ResolveEffectiveContractSalaryComponents;
 use App\Support\Payroll\ResolvePayrollRecordSnapshot;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +34,7 @@ final class GenerateCrewPayroll
         private readonly RecalculateCrewPayroll $recalculateCrewPayroll,
         private readonly ResolveEffectiveContractSalaryComponents $resolveEffectiveComponents,
         private readonly CrewOperationsPayrollGenerationGuard $crewOperationsGuard,
+        private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
     ) {}
 
     public function handle(PayrollPeriod $period, array $excludedEmployeeIds = []): GeneratePayrollResult
@@ -58,11 +60,6 @@ final class GenerateCrewPayroll
 
         $employees = $employeesQuery
             ->with([
-                'currentContract.salaryComponents',
-                'currentContract.salaryRevisions' => fn ($query) => $query
-                    ->with('lines')
-                    ->orderByDesc('effective_from')
-                    ->orderByDesc('version'),
                 'primaryBankAccount',
                 'crewTimesheets' => fn ($query) => $query
                     ->where('period_id', $period->id)
@@ -71,18 +68,23 @@ final class GenerateCrewPayroll
             ->orderBy('employees.name')
             ->get();
 
+        $resolvedContracts = $this->resolveContract->resolveMany(
+            $period,
+            $employees->pluck('id')->map(intval(...))->all(),
+            ['salaryComponents', 'salaryRevisions.lines'],
+        );
+
         $generatedCount = 0;
         $skippedEmployees = [];
         $errors = [];
         $workingDaysInPeriod = $period->calendarDayCount();
-        $usesCrewOperations = $period->crew_timesheet_mode === CrewTimesheetMode::CrewOperations;
 
         DB::transaction(function () use (
             $period,
             $employees,
+            $resolvedContracts,
             $excludedEmployeeIds,
             $workingDaysInPeriod,
-            $usesCrewOperations,
             &$generatedCount,
             &$skippedEmployees,
             &$errors,
@@ -92,6 +94,16 @@ final class GenerateCrewPayroll
                 ->where('company_id', $period->company_id)
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            abort_unless($lockedPeriod->isCrew(), 404);
+
+            if (! $lockedPeriod->canGenerateCrewPayroll()) {
+                throw ValidationException::withMessages([
+                    'period_id' => 'Crew payroll can only be generated for draft or processing periods.',
+                ]);
+            }
+
+            $usesCrewOperations = $lockedPeriod->crew_timesheet_mode === CrewTimesheetMode::CrewOperations;
 
             if ($usesCrewOperations) {
                 $this->crewOperationsGuard->assertReadyForGeneration(
@@ -110,7 +122,7 @@ final class GenerateCrewPayroll
 
             foreach ($employees as $employee) {
                 /** @var Employee $employee */
-                $contract = $employee->currentContract;
+                $contract = $resolvedContracts->get((int) $employee->id);
 
                 if ($contract === null) {
                     $errors[] = PayrollGenerationError::forEmployee(

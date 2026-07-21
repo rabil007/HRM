@@ -22,7 +22,7 @@ final class CrewTimelineFreshnessChecker
         PayrollPeriod $period,
     ): string {
         $effectiveEnd = $this->phaseQuery->effectiveEndDate($period, $preparation->cutoff_date);
-        $phases = $this->phaseQuery->overlappingPhases($period, $effectiveEnd);
+        $phases = $this->phaseQuery->issuePhases($period, $effectiveEnd);
 
         return $this->sourceHasher->hash($period, $preparation->cutoff_date, $phases);
     }

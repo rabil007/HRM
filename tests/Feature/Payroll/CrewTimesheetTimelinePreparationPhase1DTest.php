@@ -308,7 +308,7 @@ test('manual update cannot overwrite applied operational fields but can update f
         ->and($timesheet->remarks)->toBe('Financial update');
 });
 
-test('monthly crew employee is skipped during application', function () {
+test('changing the applicable contract salary structure after approval makes the preparation stale', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     grantApplyPermissions($fixtures['user'], $fixtures['company']);
     ['preparation' => $preparation, 'approver' => $approver] = prepareApprovedTimeline($fixtures);
@@ -317,16 +317,15 @@ test('monthly crew employee is skipped during application', function () {
         ->where('employee_id', $fixtures['employee']->id)
         ->update(['salary_structure' => ContractSalaryStructure::Monthly]);
 
-    $result = app(ApplyCrewTimesheetPreparation::class)->handle(
+    expect(fn () => app(ApplyCrewTimesheetPreparation::class)->handle(
         $fixtures['period'],
         $preparation,
         $approver,
         (int) $fixtures['company']->id,
-    );
+    ))->toThrow(ValidationException::class);
 
-    expect($result->skippedEmployeeCount)->toBe(1)
-        ->and(CrewTimesheet::query()->where('employee_id', $fixtures['employee']->id)->count())->toBe(0)
-        ->and($preparation->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Applied);
+    expect(CrewTimesheet::query()->where('employee_id', $fixtures['employee']->id)->count())->toBe(0)
+        ->and($preparation->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Approved);
 });
 
 test('repeated apply is idempotent', function () {

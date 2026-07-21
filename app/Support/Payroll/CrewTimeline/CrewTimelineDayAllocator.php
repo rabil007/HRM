@@ -8,8 +8,8 @@ use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\PayrollCategory;
 use App\Models\CrewAssignmentPhase;
-use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -19,6 +19,7 @@ final class CrewTimelineDayAllocator
 {
     public function __construct(
         private readonly CrewPhasePayCategoryResolver $categoryResolver,
+        private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
     ) {}
 
     /**
@@ -55,12 +56,7 @@ final class CrewTimelineDayAllocator
             ->unique()
             ->values();
 
-        $employees = Employee::query()
-            ->where('company_id', $companyId)
-            ->whereIn('id', $employeeIds)
-            ->with('currentContract')
-            ->get()
-            ->keyBy('id');
+        $contracts = $this->resolveContract->resolveMany($period, $employeeIds->all());
 
         /** @var array<string, list<array<string, mixed>>> $claimsByDay */
         $claimsByDay = [];
@@ -86,8 +82,7 @@ final class CrewTimelineDayAllocator
                 continue;
             }
 
-            $employee = $employees->get($employeeId);
-            $contract = $employee?->currentContract;
+            $contract = $contracts->get($employeeId);
 
             if (
                 $contract === null

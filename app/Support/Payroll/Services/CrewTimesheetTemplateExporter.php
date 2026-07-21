@@ -2,6 +2,7 @@
 
 namespace App\Support\Payroll\Services;
 
+use App\Enums\ContractSalaryStructure;
 use App\Enums\PayrollCategory;
 use App\Imports\CrewTimesheetsImport;
 use App\Models\Employee;
@@ -9,6 +10,7 @@ use App\Models\PayrollPeriod;
 use App\Models\SalaryInputType;
 use App\Support\Payroll\CrewTimesheetImportSchema;
 use App\Support\Payroll\PayrollEmployeeQuery;
+use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
 use Illuminate\Support\Collection;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
@@ -18,6 +20,7 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Style\Protection;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -25,11 +28,14 @@ final class CrewTimesheetTemplateExporter
 {
     private const INSTRUCTIONS_SHEET_NAME = 'How to fill';
 
+    private const OPERATIONAL_DATE_COLUMNS = ['F', 'G', 'H', 'I'];
+
     /** Excel text format — keeps typed DD-MM-YYYY literal (avoids locale date parsing). */
     public const DATE_FORMAT = NumberFormat::FORMAT_TEXT;
 
     public function __construct(
         private readonly CrewTimesheetImportSchema $schema,
+        private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
     ) {}
 
     /**
@@ -62,7 +68,16 @@ final class CrewTimesheetTemplateExporter
             $sheet->setCellValueByColumnAndRow($columnIndex + 1, 1, $header);
         }
 
+        $usesCrewOperations = $period->usesCrewOperationsTimesheets();
+        $contractsByEmployeeId = $usesCrewOperations
+            ? $this->resolveContract->resolveMany(
+                $period,
+                $employees->map(fn (Employee $employee): int => (int) $employee->id)->all(),
+            )
+            : collect();
+
         $rowNumber = CrewTimesheetsImport::DATA_START_ROW;
+        $dailyLockedRows = [];
 
         foreach ($employees as $employee) {
             /** @var Employee $employee */
@@ -76,6 +91,16 @@ final class CrewTimesheetTemplateExporter
             $sheet->setCellValueByColumnAndRow(3, $rowNumber, $this->divisionName($employee));
             $sheet->setCellValueByColumnAndRow(4, $rowNumber, $this->departmentName($employee));
             $sheet->setCellValueByColumnAndRow(5, $rowNumber, (string) ($employee->position?->title ?? '—'));
+
+            if ($usesCrewOperations) {
+                $structure = $contractsByEmployeeId->get((int) $employee->id)?->resolvedSalaryStructure()
+                    ?? ContractSalaryStructure::Daily;
+
+                if ($structure === ContractSalaryStructure::Daily) {
+                    $dailyLockedRows[] = $rowNumber;
+                }
+            }
+
             $rowNumber++;
         }
 
@@ -90,6 +115,11 @@ final class CrewTimesheetTemplateExporter
             $salaryInputTypes,
         );
         $this->applyDateColumnValidation($sheet, $lastDataRow);
+
+        if ($usesCrewOperations && $dailyLockedRows !== []) {
+            $this->protectDailyOperationalCells($sheet, $dailyLockedRows, $lastColumn, $lastDataRow);
+        }
+
         $this->addInstructionsSheet($spreadsheet, $period, $salaryInputTypes);
 
         $tempPath = tempnam(sys_get_temp_dir(), 'crew-timesheet-template-');
@@ -288,6 +318,51 @@ final class CrewTimesheetTemplateExporter
         $sheet->getStyle("A{$dataStart}:A{$lastDataRow}")
             ->getAlignment()
             ->setHorizontal(Alignment::HORIZONTAL_LEFT);
+    }
+
+    /**
+     * Visibly locks Daily crew operational date cells in Crew Operations mode so
+     * operators cannot type standby/onsite dates that are owned by the Applied
+     * timeline. Backend import validation still rejects operational changes even
+     * when the sheet protection is removed.
+     *
+     * @param  list<int>  $dailyLockedRows
+     */
+    private function protectDailyOperationalCells(
+        Worksheet $sheet,
+        array $dailyLockedRows,
+        string $lastColumn,
+        int $lastDataRow,
+    ): void {
+        $dataStart = CrewTimesheetsImport::DATA_START_ROW;
+
+        $sheet->getStyle("A{$dataStart}:{$lastColumn}{$lastDataRow}")
+            ->getProtection()
+            ->setLocked(Protection::PROTECTION_UNPROTECTED);
+
+        foreach ($dailyLockedRows as $row) {
+            foreach (self::OPERATIONAL_DATE_COLUMNS as $column) {
+                $cell = "{$column}{$row}";
+                $sheet->setCellValueExplicit($cell, 'From timeline', DataType::TYPE_STRING);
+                $sheet->getStyle($cell)->getProtection()->setLocked(Protection::PROTECTION_PROTECTED);
+                $sheet->getStyle($cell)->applyFromArray([
+                    'fill' => [
+                        'fillType' => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => 'E2E8F0'],
+                    ],
+                    'font' => [
+                        'italic' => true,
+                        'color' => ['rgb' => '94A3B8'],
+                    ],
+                ]);
+            }
+        }
+
+        $protection = $sheet->getProtection();
+        $protection->setSheet(true);
+        $protection->setFormatCells(false);
+        $protection->setSort(false);
+        $protection->setAutoFilter(false);
     }
 
     private function applyDateColumnValidation(Worksheet $sheet, int $lastDataRow): void

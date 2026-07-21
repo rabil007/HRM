@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Support\LogOptions;
 
 class CrewTimesheetPreparation extends Model
@@ -17,6 +18,7 @@ class CrewTimesheetPreparation extends Model
     use HasFactory;
 
     use LogsActivityWithCompany;
+    use SoftDeletes;
 
     /**
      * @var list<string>

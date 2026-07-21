@@ -148,6 +148,50 @@ Key files:
 - `resources/js/features/payroll/types.ts`
 - `resources/js/features/payroll/show.tsx`
 
+### Production hardening (post Phase 1E)
+
+Data-integrity and concurrency hardening applied on top of Phases 1A–1E. Manual / Excel mode and Monthly crew behaviour are unchanged.
+
+Payroll-period contract resolution:
+
+- `app/Support/Payroll/ResolveCrewContractForPayrollPeriod.php` resolves the crew contract applicable to the payroll period (company + employee + Crew category + not soft deleted + overlapping the period dates), with a deterministic latest-active fallback for legacy data.
+- Used by preparation, issue detection, day allocation, application, manual/import upserts, generation, readiness, the source hasher, and Daily-vs-Monthly classification, so a historical period never uses an unrelated present-day contract.
+
+Financial import preservation:
+
+- Crew Operations financial imports use explicit-presence handling. A blank field preserves the stored value, an explicit zero clears it, and an explicit amount updates it. Applied operational metadata is never changed by import.
+
+Payable-category filtering:
+
+- `app/Support/Payroll/CrewTimeline/PayableCrewPreparationLines.php` is the single source of truth for payable lines (sign-on standby, onsite, sign-off standby with days > 0). Excluded, warning-only, and zero-day lines never require a linked Crew Operations timesheet, and the same predicate is used by application, readiness, and generation validation.
+
+Readiness / generation parity:
+
+- `CrewOperationsPayrollGenerationGuard::validateReadiness()` is the single non-mutating validator. The Generate Payroll button (`generation_ready` / `generation_blocking_reason`) and backend generation return the same blocking reason and expose `affected_employee_id`.
+
+Source freshness:
+
+- The preparation source hash covers period boundaries, cutoff, phases (code/status/actual dates), the period-applicable contract (id, category, salary structure, effective dates), and pending movement correction state. Contract changes, salary-structure changes, new pending corrections, actual-movement changes, and added/removed phases all make an approved preparation stale.
+
+Timeline queries:
+
+- `CrewTimelinePhaseQuery::issuePhases()` includes phases missing `actual_start_at` (by planned window) so a blocking `missing_actual_start` warning is raised instead of silently dropping the phase; `overlappingPhases()` (payable allocation) still uses actual timestamps only. Both resolve period boundaries in the company timezone and compare in UTC so phases crossing a UTC midnight boundary are not excluded.
+
+Empty Applied preparation:
+
+- An Approved preparation with zero payable Daily employees can be applied, is marked Applied with zero applied employees, remains idempotent on repeated apply, and does not block generation.
+
+Concurrency & history:
+
+- Generation and `UpsertCrewTimesheet` lock the payroll period (and target rows) and revalidate status/mode/lock state after acquiring the lock. Generation derives Manual vs Crew Operations from the locked model.
+- `CrewTimesheetPreparation` and `CrewTimesheetPreparationLine` use `SoftDeletes` so approved/applied history is never hard-deleted; creation migrations recover missing columns and indexes idempotently.
+
+Excel template:
+
+- In Crew Operations mode the Daily operational date cells are locked/protected in the template and pre-filled with `From timeline`; overtime, salary inputs, and remarks stay editable. Monthly rows keep the legacy operational cells. Backend validation stays authoritative. Manual mode template is unchanged.
+
+There is no Applied-preparation replacement or Approved/Paid payroll correction workflow — that remains an optional future phase.
+
 ### Timesheet entry and import
 
 Crew timesheets can be entered from the period board or imported from an XLSX/XLS file.

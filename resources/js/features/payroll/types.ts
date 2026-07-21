@@ -38,6 +38,7 @@ export type GenerationReadiness = {
     blocking_reason: string | null;
     applied_preparation_id: number | null;
     applied_preparation_version: number | null;
+    affected_employee_id: number | null;
 };
 
 export const CREW_TIMESHEET_MODE_OPTIONS: CrewTimesheetModeOption[] = [

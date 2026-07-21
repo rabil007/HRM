@@ -9,8 +9,8 @@ use App\Enums\CrewTimelineWarningCode;
 use App\Enums\PayrollCategory;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewMovementCorrection;
-use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -18,6 +18,10 @@ use Illuminate\Support\Collection;
 
 final class CrewTimelineIssueDetector
 {
+    public function __construct(
+        private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
+    ) {}
+
     /**
      * @param  Collection<int, CrewAssignmentPhase>  $phases
      * @return list<array{
@@ -49,12 +53,7 @@ final class CrewTimelineIssueDetector
             ->unique()
             ->values();
 
-        $employees = Employee::query()
-            ->where('company_id', $companyId)
-            ->whereIn('id', $employeeIds)
-            ->with('currentContract')
-            ->get()
-            ->keyBy('id');
+        $contracts = $this->resolveContract->resolveMany($period, $employeeIds->all());
 
         $pendingPhaseIds = CrewMovementCorrection::query()
             ->where('company_id', $companyId)
@@ -177,8 +176,7 @@ final class CrewTimelineIssueDetector
                 );
             }
 
-            $employee = $employees->get($employeeId);
-            $contract = $employee?->currentContract;
+            $contract = $contracts->get($employeeId);
 
             if ($contract === null || $contract->payroll_category !== PayrollCategory::Crew) {
                 $issues[] = $this->issue(
