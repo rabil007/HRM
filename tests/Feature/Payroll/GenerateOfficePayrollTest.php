@@ -12,6 +12,7 @@ use App\Models\LeaveType;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
+use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('office payroll generation creates records for all office employees with full monthly salary', function () {
@@ -65,6 +66,41 @@ test('office payroll generation creates records for all office employees with fu
     expect($summary['generated_count'])->toBe(2)
         ->and($summary['skipped_count'])->toBe(0)
         ->and($summary['skipped_employees'])->toBe([]);
+});
+
+test('office payroll generation stamps payment date with today and refreshes on regeneration', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-05',
+        'payment_date' => null,
+    ]);
+
+    createOfficeEmployeeWithContract($company, 'OFF-PAY', 10000, 2000, 1000, 500);
+
+    Carbon::setTestNow('2026-07-03 09:00:00');
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]));
+
+    $period->refresh();
+    expect($period->payment_date?->toDateString())->toBe('2026-07-03');
+
+    Carbon::setTestNow('2026-07-08 09:00:00');
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]));
+
+    $period->refresh();
+    expect($period->payment_date?->toDateString())->toBe('2026-07-08');
+
+    Carbon::setTestNow();
 });
 
 test('office payroll generation snapshots contract and bank account linkage', function () {

@@ -186,8 +186,12 @@ final class GenerateOfficePayroll
                 'excluded_employee_ids' => $excludedEmployeeIds,
             ];
 
-            if ($generatedCount > 0 && $period->status === PayrollPeriodStatus::Draft) {
-                $periodUpdates['status'] = PayrollPeriodStatus::Processing;
+            if ($generatedCount > 0) {
+                $periodUpdates['payment_date'] = now()->toDateString();
+
+                if ($period->status === PayrollPeriodStatus::Draft) {
+                    $periodUpdates['status'] = PayrollPeriodStatus::Processing;
+                }
             }
 
             $period->update($periodUpdates);

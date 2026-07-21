@@ -615,7 +615,6 @@ class PayrollController extends Controller
             'name' => $request->validated('name'),
             'start_date' => $request->validated('start_date'),
             'end_date' => $request->validated('end_date'),
-            'payment_date' => $request->validated('payment_date'),
             'notes' => $request->validated('notes'),
             'status' => PayrollPeriodStatus::Draft,
             'created_by' => $request->user()?->id,

@@ -180,8 +180,12 @@ final class GenerateCrewPayroll
                 'excluded_employee_ids' => $excludedEmployeeIds,
             ];
 
-            if ($generatedCount > 0 && $lockedPeriod->status === PayrollPeriodStatus::Draft) {
-                $periodUpdates['status'] = PayrollPeriodStatus::Processing;
+            if ($generatedCount > 0) {
+                $periodUpdates['payment_date'] = now()->toDateString();
+
+                if ($lockedPeriod->status === PayrollPeriodStatus::Draft) {
+                    $periodUpdates['status'] = PayrollPeriodStatus::Processing;
+                }
             }
 
             $lockedPeriod->update($periodUpdates);

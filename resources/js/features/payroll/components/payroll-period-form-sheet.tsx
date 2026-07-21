@@ -192,29 +192,6 @@ export function PayrollPeriodFormSheet({
 
                     <div className="space-y-2">
                         <Label
-                            htmlFor="payment_date"
-                            className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
-                        >
-                            Payment date
-                        </Label>
-                        <Input
-                            id="payment_date"
-                            type="date"
-                            className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
-                            value={form.data.payment_date}
-                            onChange={(e) =>
-                                form.setData('payment_date', e.target.value)
-                            }
-                        />
-                        {form.errors.payment_date ? (
-                            <div className="text-xs font-medium text-destructive">
-                                {form.errors.payment_date}
-                            </div>
-                        ) : null}
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label
                             htmlFor="notes"
                             className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
                         >

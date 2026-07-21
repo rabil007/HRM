@@ -76,7 +76,9 @@ export function PayrollPeriodCard({
                             Payment
                         </p>
                         <p className="mt-1 font-semibold">
-                            {formatDisplayDate(period.payment_date)}
+                            {period.payment_date
+                                ? formatDisplayDate(period.payment_date)
+                                : 'Pending'}
                         </p>
                     </div>
                 </div>

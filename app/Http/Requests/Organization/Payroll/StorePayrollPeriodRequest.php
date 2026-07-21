@@ -41,7 +41,6 @@ class StorePayrollPeriodRequest extends FormRequest
                     ->whereNot('status', PayrollPeriodStatus::Cancelled->value),
             ],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
-            'payment_date' => ['required', 'date'],
             'notes' => ['nullable', 'string'],
         ];
     }

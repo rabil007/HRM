@@ -93,7 +93,6 @@ export function PayrollIndexContent({
         crew_timesheet_mode: 'manual',
         start_date: '',
         end_date: '',
-        payment_date: '',
         notes: '',
     });
 
@@ -312,9 +311,11 @@ export function PayrollIndexContent({
                                         <TableCell
                                             className={dataTableCellClass()}
                                         >
-                                            {formatDisplayDate(
-                                                period.payment_date,
-                                            )}
+                                            {period.payment_date
+                                                ? formatDisplayDate(
+                                                      period.payment_date,
+                                                  )
+                                                : 'Pending'}
                                         </TableCell>
                                         <TableCell
                                             className={cn(

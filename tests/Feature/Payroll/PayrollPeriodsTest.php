@@ -47,7 +47,6 @@ test('authorized users can list and create payroll periods from payroll hub', fu
             'payroll_category' => 'crew',
             'start_date' => '2026-06-01',
             'end_date' => '2026-06-30',
-            'payment_date' => '2026-07-05',
             'notes' => 'Monthly payroll',
         ])
         ->assertRedirect(route('payroll.index'));
@@ -57,6 +56,7 @@ test('authorized users can list and create payroll periods from payroll hub', fu
         'name' => 'June 2026',
         'payroll_category' => 'crew',
         'status' => PayrollPeriodStatus::Draft->value,
+        'payment_date' => null,
     ]);
 });
 
@@ -72,7 +72,6 @@ test('same start date can be used for crew and office pay periods', function () 
             'payroll_category' => 'crew',
             'start_date' => '2026-06-01',
             'end_date' => '2026-06-30',
-            'payment_date' => '2026-07-05',
         ])
         ->assertRedirect();
 
@@ -82,7 +81,6 @@ test('same start date can be used for crew and office pay periods', function () 
             'payroll_category' => 'office',
             'start_date' => '2026-06-01',
             'end_date' => '2026-06-30',
-            'payment_date' => '2026-07-05',
         ])
         ->assertRedirect();
 
@@ -109,7 +107,6 @@ test('new pay period can be created with same start date if previous period was 
             'payroll_category' => 'crew',
             'start_date' => '2026-01-01',
             'end_date' => '2026-01-31',
-            'payment_date' => '2026-02-05',
         ])
         ->assertRedirect();
 

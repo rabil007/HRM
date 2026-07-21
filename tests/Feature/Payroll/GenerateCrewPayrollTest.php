@@ -11,6 +11,7 @@ use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
+use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('crew payroll generation creates records for all active crew employees including those without timesheets', function () {
@@ -78,6 +79,42 @@ test('crew payroll generation creates records for all active crew employees incl
     $summary = session('payroll_generation');
     expect($summary['generated_count'])->toBe(2)
         ->and($summary['skipped_count'])->toBe(0);
+});
+
+test('crew payroll generation stamps payment date with today and refreshes on regeneration', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+        'payment_date' => null,
+    ]);
+
+    createCrewEmployeeWithContract($company, 'CREW-PAY', 150, 50, 75);
+
+    Carbon::setTestNow('2026-07-03 09:00:00');
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]));
+
+    $period->refresh();
+    expect($period->payment_date?->toDateString())->toBe('2026-07-03');
+
+    Carbon::setTestNow('2026-07-08 09:00:00');
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period]));
+
+    $period->refresh();
+    expect($period->payment_date?->toDateString())->toBe('2026-07-08');
+
+    Carbon::setTestNow();
 });
 
 test('crew payroll generation calculates overtime pay from hours and period daily rates', function () {

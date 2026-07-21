@@ -742,7 +742,7 @@ export function PayrollShowContent({
                         ) : null}
                     </span>
                 }
-                description={`${formatDisplayDate(period.start_date)} — ${formatDisplayDate(period.end_date)} · Payment ${formatDisplayDate(period.payment_date)}`}
+                description={`${formatDisplayDate(period.start_date)} — ${formatDisplayDate(period.end_date)} · Payment ${period.payment_date ? formatDisplayDate(period.payment_date) : 'Pending'}`}
                 backHref={payrollIndex.url()}
                 backLabel="Go back"
                 actions={
