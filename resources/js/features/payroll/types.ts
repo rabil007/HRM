@@ -76,6 +76,9 @@ export type PayrollPeriod = {
     supports_timesheets: boolean;
     status: string;
     status_label: string;
+    creation_source: 'manual' | 'automatic';
+    creation_source_label: string;
+    is_automatic: boolean;
     notes: string | null;
     is_editable: boolean;
     can_generate_crew_payroll: boolean;

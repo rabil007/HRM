@@ -34,6 +34,7 @@ import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
+import { PayrollCreationSourceBadge } from './components/payroll-creation-source-badge';
 import { PayrollFiltersSheet } from './components/payroll-filters-sheet';
 import { PayrollPeriodCard } from './components/payroll-period-card';
 import { PayrollPeriodFormSheet } from './components/payroll-period-form-sheet';
@@ -281,8 +282,18 @@ export function PayrollIndexContent({
                                         <TableCell
                                             className={dataTableCellPrimaryClass()}
                                         >
-                                            <div className="font-semibold">
-                                                {period.name}
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold">
+                                                    {period.name}
+                                                </span>
+                                                <PayrollCreationSourceBadge
+                                                    source={
+                                                        period.creation_source
+                                                    }
+                                                    label={
+                                                        period.creation_source_label
+                                                    }
+                                                />
                                             </div>
                                             <div className="text-xs text-muted-foreground">
                                                 {period.employee_count}{' '}

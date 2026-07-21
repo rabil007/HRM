@@ -30,6 +30,11 @@ Schedule::command('hikvision:fetch-todays-access-events')
     ->name('hikvision-evening-access-events')
     ->withoutOverlapping();
 
+Schedule::command('payroll:ensure-future-periods')
+    ->dailyAt('00:45')
+    ->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping();
+
 Schedule::command('contracts:expire')
     ->dailyAt('01:00')
     ->timezone(config('app.timezone', 'UTC'))

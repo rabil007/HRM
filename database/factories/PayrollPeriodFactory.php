@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\CrewTimesheetMode;
 use App\Enums\PayrollCategory;
+use App\Enums\PayrollPeriodCreationSource;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\PayrollPeriod;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -35,11 +36,20 @@ class PayrollPeriodFactory extends Factory
             'payment_date' => null,
             'generated_at' => null,
             'status' => PayrollPeriodStatus::Draft,
+            'creation_source' => PayrollPeriodCreationSource::Manual,
+            'automatic_period_key' => null,
             'notes' => null,
             'created_by' => null,
             'approved_by' => null,
             'approved_at' => null,
         ];
+    }
+
+    public function automatic(): static
+    {
+        return $this->state(fn () => [
+            'creation_source' => PayrollPeriodCreationSource::Automatic,
+        ]);
     }
 
     public function approved(): static

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Payroll;
 
 use App\Enums\CrewTimesheetMode;
 use App\Enums\PayrollCategory;
+use App\Enums\PayrollPeriodCreationSource;
 use App\Enums\PayrollPeriodStatus;
 use App\Enums\SalaryPaymentMethod;
 use App\Http\Controllers\Controller;
@@ -617,6 +618,8 @@ class PayrollController extends Controller
             'end_date' => $request->validated('end_date'),
             'notes' => $request->validated('notes'),
             'status' => PayrollPeriodStatus::Draft,
+            'creation_source' => PayrollPeriodCreationSource::Manual,
+            'automatic_period_key' => null,
             'created_by' => $request->user()?->id,
         ]);
 

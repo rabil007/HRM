@@ -3,6 +3,7 @@
 namespace App\Support\Payroll;
 
 use App\Enums\PayrollCategory;
+use App\Enums\PayrollPeriodCreationSource;
 use App\Models\PayrollPeriod;
 
 final class PayrollPeriodResource
@@ -46,6 +47,9 @@ final class PayrollPeriodResource
             'supports_timesheets' => ($period->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Crew,
             'status' => $period->status?->value,
             'status_label' => $period->status?->label(),
+            'creation_source' => $period->creation_source?->value ?? PayrollPeriodCreationSource::Manual->value,
+            'creation_source_label' => ($period->creation_source ?? PayrollPeriodCreationSource::Manual)->label(),
+            'is_automatic' => $period->isAutomatic(),
             'notes' => $period->notes,
             'excluded_employee_ids' => array_values(array_map(
                 intval(...),

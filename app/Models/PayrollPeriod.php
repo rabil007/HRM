@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CrewTimesheetMode;
 use App\Enums\PayrollCategory;
+use App\Enums\PayrollPeriodCreationSource;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\PayrollPeriodFactory;
@@ -37,6 +38,8 @@ class PayrollPeriod extends Model
                 'payment_date',
                 'generated_at',
                 'status',
+                'creation_source',
+                'automatic_period_key',
                 'notes',
                 'created_by',
                 'approved_by',
@@ -57,6 +60,7 @@ class PayrollPeriod extends Model
             'payroll_category' => PayrollCategory::class,
             'crew_timesheet_mode' => CrewTimesheetMode::class,
             'status' => PayrollPeriodStatus::class,
+            'creation_source' => PayrollPeriodCreationSource::class,
             'approved_at' => 'datetime',
             'excluded_employee_ids' => 'array',
             'payment_proof_paths' => 'array',
@@ -154,6 +158,11 @@ class PayrollPeriod extends Model
             PayrollPeriodStatus::Processing,
             PayrollPeriodStatus::Approved,
         ], true);
+    }
+
+    public function isAutomatic(): bool
+    {
+        return $this->creation_source === PayrollPeriodCreationSource::Automatic;
     }
 
     public function isCrew(): bool

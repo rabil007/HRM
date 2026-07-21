@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import type { PayrollPeriodListItem } from '../types';
 import { getPeriodProgressPercent } from '../types';
 import { PayrollCategoryBadge } from './payroll-category-badge';
+import { PayrollCreationSourceBadge } from './payroll-creation-source-badge';
 import { PayrollPeriodProgress } from './payroll-period-progress';
 import { PayrollPeriodStatusBadge } from './payroll-period-status-badge';
 
@@ -48,6 +49,10 @@ export function PayrollPeriodCard({
                             <PayrollPeriodStatusBadge
                                 status={period.status}
                                 label={period.status_label}
+                            />
+                            <PayrollCreationSourceBadge
+                                source={period.creation_source}
+                                label={period.creation_source_label}
                             />
                         </div>
                         <CardTitle className="line-clamp-2 text-lg font-extrabold tracking-tight">

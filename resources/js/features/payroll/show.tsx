@@ -82,6 +82,7 @@ import { OfficeSalaryInputsSheet } from './components/office-salary-inputs-sheet
 import { PayrollApproveDialog } from './components/payroll-approve-dialog';
 import { PayrollCancelDialog } from './components/payroll-cancel-dialog';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
+import { PayrollCreationSourceBadge } from './components/payroll-creation-source-badge';
 import { PayrollEmployeeCell } from './components/payroll-employee-cell';
 import { PayrollGenerateDialog } from './components/payroll-generate-dialog';
 import { PayrollMarkPaidDialog } from './components/payroll-mark-paid-dialog';
@@ -756,6 +757,10 @@ export function PayrollShowContent({
                                 {period.crew_timesheet_mode_label}
                             </Badge>
                         ) : null}
+                        <PayrollCreationSourceBadge
+                            source={period.creation_source}
+                            label={period.creation_source_label}
+                        />
                     </span>
                 }
                 description={`${formatDisplayDate(period.start_date)} — ${formatDisplayDate(period.end_date)} · Generated ${period.generated_at ? formatDisplayDate(period.generated_at) : 'Not generated'} · Payment ${period.payment_date ? formatDisplayDate(period.payment_date) : 'Pending'}`}

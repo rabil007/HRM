@@ -47,6 +47,24 @@ Mark as Paid (`MarkPayrollPeriodPaid`) accepts an optional `payment_date`; when 
 
 Payment-date analytics in `PayrollOverviewSummary` remain scoped to paid periods, so unpaid periods (with a null `payment_date`) are excluded from paid aggregations.
 
+### Automatic rolling period creation
+
+Every active company always maintains a three-month rolling window of Draft payroll periods: the current month, the next month, and the following month. Both a Crew and an Office period are created for each month.
+
+- `EnsureFuturePayrollPeriods` (`app/Support/Payroll/Actions/`) resolves the company timezone via `CompanyTimezone`, determines the company-local current month, and ensures the automatic Crew and Office periods exist for the window. It returns a result with created/skipped counts, created period IDs, and a month/category summary.
+- The `payroll:ensure-future-periods` command runs the action for every active company (`status = active`, not soft-deleted). It accepts `--company=` to target one company and `--months=` to change the window size (default 3). It continues past per-company failures, logging them with company context.
+- The command is scheduled daily at `00:45` with `withoutOverlapping`. Daily execution self-heals missed runs, picks up newly activated companies, and keeps the third month populated.
+
+Automatic Crew periods are always created with `crew_timesheet_mode = crew_operations`; automatic Office periods have no crew mode. Every automatic period is `draft` with `payment_date = null`, `generated_at = null`, `notes = "Automatically created"`, and `created_by = null`. The automation never creates crew timesheets, timeline preparations, payroll records, salary inputs, approvals, payment dates, or generation timestamps.
+
+Auto-created rows are identified by `creation_source = automatic` and a deterministic `automatic_period_key` (`company:{id}:{category}:{YYYY-MM}`). The key has a unique index, so the automation is idempotent and concurrency-safe: repeated or simultaneous runs create at most one automatic row per company, category, and month.
+
+### Manual duplicates and duplicate-payment risk
+
+Manual period creation is unchanged and always sets `creation_source = manual` with a null `automatic_period_key`. Duplicate or overlapping periods for the same month/date range are intentionally allowed (for example a `Crew Operations` period alongside a `Manual` Crew period when movement data is incomplete). There is no unique constraint on `company_id + payroll_category + start_date + end_date`, and creation is never blocked by an existing automatic period. The payroll hub list, period cards, and show header display an `Automatic` / `Manual` badge so users can distinguish the sources.
+
+Known operational risk: two overlapping periods can pay the same employee twice if both are generated and paid. Cross-period duplicate-payment blocking is out of scope here and will be handled in a later safeguard task.
+
 ## Office payroll
 
 `GenerateOfficePayroll` selects active employees whose current contract is categorized as office payroll. Each employee needs an active basic monthly salary component; housing, transport, and other monthly components are optional.
@@ -429,7 +447,7 @@ There are no `payroll.payslips.view` or `payroll.wps.view` permissions.
 
 ## Tests
 
-Payroll feature coverage is under `tests/Feature/Payroll/`, including period lifecycle, office and crew generation, timesheet imports, recalculation, salary inputs, records, exports, payslips, salary-sheet payslips, WPS, permissions, and activity logging.
+Payroll feature coverage is under `tests/Feature/Payroll/`, including period lifecycle, automatic rolling period creation (`EnsureFuturePayrollPeriodsTest`), office and crew generation, timesheet imports, recalculation, salary inputs, records, exports, payslips, salary-sheet payslips, WPS, permissions, and activity logging.
 
 Calculator and support-level coverage is under `tests/Unit/Support/Payroll/`.
 
