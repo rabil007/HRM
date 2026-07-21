@@ -202,8 +202,7 @@ export default function CrewAssignmentShow({
                                             (phase, index) => {
                                                 const isCurrent =
                                                     assignment.current_phase
-                                                        ?.code ===
-                                                    phase.phase_code;
+                                                        ?.id === phase.id;
 
                                                 return (
                                                     <li

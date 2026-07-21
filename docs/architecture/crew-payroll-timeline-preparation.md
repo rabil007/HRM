@@ -44,7 +44,15 @@ Day priority when categories overlap:
 3. Sign-On Standby
 4. Excluded
 
-The priority winner is assigned the day. A blocking `overlapping_phases` warning is raised only for a genuine overlap — a day that falls *interior* to at least one claiming phase (strictly between its actual start and end). Pure handover days, where contiguous phases only touch at their endpoints (one phase's `actual_end_at` equals the next phase's `actual_start_at`, as recorded by `CrewMovementService`), are not flagged, since day allocation already resolves them correctly by priority.
+The priority winner is assigned the day, so each calendar day always resolves to exactly one pay category.
+
+### Handoffs vs genuine overlaps
+
+Crew movement phases are treated as half-open timestamp intervals `[actual_start_at, actual_end_at)`. `CrewMovementService` records a single `occurred_at` per action, closing the current phase and opening the next at that same instant, so `previous.actual_end_at == next.actual_start_at` is a **valid exact handoff, not an overlap**. Because payroll converts timestamps to inclusive calendar-day ranges, both phases legitimately claim the shared transition date; priority alone decides the winner and no warning is raised.
+
+A blocking `overlapping_phases` warning is raised **only when two claiming phases genuinely overlap in time** — a positive-duration intersection where `left.start < right.end AND right.start < left.end`. This decision is made by `CrewPhaseIntervalOverlapDetector` on absolute source timestamps (so it is timezone-correct and never compares date strings); `CrewTimelineDayAllocator` calls it per multi-claim day. Exact-boundary equality, zero-duration phases, and same-day disjoint intervals (e.g. `08:00–10:00` then `14:00–18:00`) are therefore never flagged. Only genuine overlaps stay blocking (they prevent submission and approval).
+
+No separate phase start/end inputs are required for normal movement actions; explicit actual-date changes continue through the Crew Movement Correction workflow.
 
 ## Active phases
 
@@ -86,6 +94,7 @@ Implemented Support classes under `app/Support/Payroll/CrewTimeline/`:
 | `PrepareCrewTimesheetTimeline` | Orchestrates draft preparation creation |
 | `CrewTimelinePhaseQuery` | Loads overlapping actual phases and effective end |
 | `CrewTimelineDayAllocator` | Allocates one category per calendar day |
+| `CrewPhaseIntervalOverlapDetector` | Positive-duration timestamp overlap check (handoff vs genuine overlap) |
 | `CrewPhasePayCategoryResolver` | Maps phase → pay category and priority |
 | `CrewTimelineSourceHasher` | SHA-256 source fingerprint |
 | `CrewTimelineIssueDetector` | Warning/issue detection |

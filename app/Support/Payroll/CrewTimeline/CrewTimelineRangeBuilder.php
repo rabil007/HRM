@@ -136,7 +136,7 @@ final class CrewTimelineRangeBuilder
             'source_actual_end_at' => $range['source_actual_end_at'],
             'warning_code' => $range['overlapped'] ? CrewTimelineWarningCode::OverlappingPhases : null,
             'remarks' => $range['overlapped']
-                ? 'Multiple phases claimed this date range; higher-priority category was kept.'
+                ? 'Phases genuinely overlap in time on this date range; the higher-priority category was kept. Correct the crew movement timestamps.'
                 : null,
         ];
     }

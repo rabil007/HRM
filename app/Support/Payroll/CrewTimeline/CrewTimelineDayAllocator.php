@@ -20,6 +20,7 @@ final class CrewTimelineDayAllocator
     public function __construct(
         private readonly CrewPhasePayCategoryResolver $categoryResolver,
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
+        private readonly CrewPhaseIntervalOverlapDetector $overlapDetector,
     ) {}
 
     /**
@@ -98,8 +99,10 @@ final class CrewTimelineDayAllocator
                 continue;
             }
 
-            [$from, $to, $spanStart, $spanEnd] = $range;
+            [$from, $to] = $range;
             $category = $this->categoryResolver->resolve($phase->phase_code);
+            $intervalStart = $phase->actual_start_at;
+            $intervalEnd = $phase->actual_end_at ?? $effectiveEnd->endOfDay();
 
             for ($day = $from; $day->lte($to); $day = $day->addDay()) {
                 $key = $employeeId.'|'.$day->toDateString();
@@ -113,7 +116,8 @@ final class CrewTimelineDayAllocator
                     'source_actual_start_at' => $phase->actual_start_at,
                     'source_actual_end_at' => $phase->actual_end_at,
                     'priority' => $this->categoryResolver->priority($category),
-                    'is_interior' => $day->gt($spanStart) && $day->lt($spanEnd),
+                    'interval_start' => $intervalStart,
+                    'interval_end' => $intervalEnd,
                 ];
             }
         }
@@ -133,12 +137,7 @@ final class CrewTimelineDayAllocator
 
             $winner = $claims[0];
 
-            $overlapped = count($claims) > 1
-                && array_reduce(
-                    $claims,
-                    static fn (bool $carry, array $claim): bool => $carry || $claim['is_interior'],
-                    false,
-                );
+            $overlapped = $this->hasGenuineOverlap($claims);
 
             $allocated[] = [
                 'employee_id' => $winner['employee_id'],
@@ -162,7 +161,35 @@ final class CrewTimelineDayAllocator
     }
 
     /**
-     * @return array{0: CarbonImmutable, 1: CarbonImmutable, 2: CarbonImmutable, 3: CarbonImmutable}|null
+     * Genuine overlap only: multiple claims for the same calendar day are not
+     * an overlap when they arise from exact-boundary phase handoffs. A blocking
+     * overlap is reported only when at least one pair of the claiming phases has
+     * a positive-duration timestamp intersection.
+     *
+     * @param  list<array<string, mixed>>  $claims
+     */
+    private function hasGenuineOverlap(array $claims): bool
+    {
+        $count = count($claims);
+
+        for ($i = 0; $i < $count - 1; $i++) {
+            for ($j = $i + 1; $j < $count; $j++) {
+                if ($this->overlapDetector->overlaps(
+                    $claims[$i]['interval_start'],
+                    $claims[$i]['interval_end'],
+                    $claims[$j]['interval_start'],
+                    $claims[$j]['interval_end'],
+                )) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}|null
      */
     private function phaseDateRange(
         CrewAssignmentPhase $phase,
@@ -197,6 +224,6 @@ final class CrewTimelineDayAllocator
             return null;
         }
 
-        return [$from, $to, $start, $end];
+        return [$from, $to];
     }
 }

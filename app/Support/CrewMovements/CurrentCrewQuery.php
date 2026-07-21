@@ -112,6 +112,7 @@ class CurrentCrewQuery
             'vessel',
             'client',
             'currentPhase',
+            'phases',
             'companyVisaType',
             'planningAssignment',
             'company',

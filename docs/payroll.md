@@ -206,6 +206,10 @@ Timeline queries:
 
 - `CrewTimelinePhaseQuery::issuePhases()` includes phases missing `actual_start_at` (by planned window) so a blocking `missing_actual_start` warning is raised instead of silently dropping the phase; `overlappingPhases()` (payable allocation) still uses actual timestamps only. Both resolve period boundaries in the company timezone and compare in UTC so phases crossing a UTC midnight boundary are not excluded.
 
+Overlap detection:
+
+- Movement actions use one `occurred_at`, so a phase ending exactly when the next begins (`actual_end_at == actual_start_at`) is a valid exact handoff. The transition calendar day is still allocated once by category priority (Onsite > Sign-Off Standby > Sign-On Standby > Excluded) and does **not** raise a warning. A blocking `overlapping_phases` warning is raised only for a genuine positive-duration timestamp overlap (`left.start < right.end AND right.start < left.end`), decided by `CrewPhaseIntervalOverlapDetector` on absolute instants. No separate phase start/end inputs are needed for normal movement entry; actual-date changes go through the Crew Movement Correction workflow.
+
 Empty Applied preparation:
 
 - An Approved preparation with zero payable Daily employees can be applied, is marked Applied with zero applied employees, remains idempotent on repeated apply, and does not block generation.

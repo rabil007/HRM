@@ -46,6 +46,7 @@ class CrewAssignmentPresenter
                 'name' => $assignment->companyVisaType->name,
             ] : null,
             'current_phase' => $current ? [
+                'id' => $current->id,
                 'code' => $current->phase_code->value,
                 'label' => $current->phase_code->label(),
                 'status' => $current->status->value,
@@ -134,6 +135,7 @@ class CrewAssignmentPresenter
                 'name' => $assignment->companyVisaType->name,
             ] : null,
             'current_phase' => $current ? [
+                'id' => $current->id,
                 'code' => $current->phase_code->value,
                 'label' => $current->phase_code->label(),
                 'status' => $current->status->value,

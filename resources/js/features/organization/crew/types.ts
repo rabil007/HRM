@@ -105,6 +105,7 @@ export interface CrewAssignmentDetail {
         name: string;
     } | null;
     current_phase: {
+        id: number;
         code: string;
         label: string;
         status: string;
