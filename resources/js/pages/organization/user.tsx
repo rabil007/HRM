@@ -26,6 +26,7 @@ import {
     formatDisplayDate,
     formatDisplayDateTime,
     formatDisplayValue,
+    formatActivityFieldLabel,
 } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -49,9 +50,6 @@ const HIDDEN_ACTIVITY_KEYS = new Set([
     'password',
 ]);
 
-function titleCaseKey(key: string): string {
-    return key.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
-}
 
 function changedKeys(
     oldValues: Record<string, unknown> | null,
@@ -478,7 +476,7 @@ export default function UserDetails({
                                                                             className="inline-flex items-center gap-1 rounded-lg border border-border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground/80 dark:border-white/8 dark:bg-white/[0.04]"
                                                                         >
                                                                             <span className="font-semibold text-foreground/60">
-                                                                                {titleCaseKey(
+                                                                                {formatActivityFieldLabel(
                                                                                     k,
                                                                                 )}
 

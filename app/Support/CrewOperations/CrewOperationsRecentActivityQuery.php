@@ -5,6 +5,7 @@ namespace App\Support\CrewOperations;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\User;
+use App\Support\Activity\ActivityChangePresenter;
 use Spatie\Activitylog\Models\Activity;
 
 final class CrewOperationsRecentActivityQuery
@@ -26,7 +27,7 @@ final class CrewOperationsRecentActivityQuery
             return [];
         }
 
-        return Activity::query()
+        $logs = Activity::query()
             ->where('company_id', $companyId)
             ->whereIn('subject_type', [
                 CrewAssignment::class,
@@ -35,20 +36,16 @@ final class CrewOperationsRecentActivityQuery
             ->with(['causer:id,name,email'])
             ->latest('id')
             ->limit($limit)
-            ->get()
-            ->map(fn (Activity $log) => [
-                'id' => $log->id,
-                'event' => $log->event,
-                'description' => $log->description ?? '',
-                'causer' => $log->causer ? [
-                    'id' => $log->causer->id,
-                    'name' => $log->causer->name,
-                    'email' => $log->causer->email,
-                ] : null,
-                'old_values' => $log->attribute_changes?->get('old'),
-                'new_values' => $log->attribute_changes?->get('attributes'),
-                'created_at' => $log->created_at,
-            ])
+            ->get();
+
+        return ActivityChangePresenter::presentLogs($logs, $companyId)
+            ->map(function (Activity $log): array {
+                $row = ActivityChangePresenter::toRecentActivityArray($log);
+                $row['description'] = $log->description ?? '';
+
+                return $row;
+            })
+            ->values()
             ->all();
     }
 }

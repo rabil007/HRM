@@ -147,3 +147,10 @@ export function formatDisplayValue(value: unknown): string {
         return String(value);
     }
 }
+
+export function formatActivityFieldLabel(key: string): string {
+    return key
+        .replace(/_id$/i, '')
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (m) => m.toUpperCase());
+}

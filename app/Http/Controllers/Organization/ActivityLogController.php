@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
+use App\Support\Activity\ActivityChangePresenter;
 use App\Support\Pagination\ResolvesPerPage;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Spatie\Activitylog\Models\Activity;
@@ -54,38 +54,25 @@ class ActivityLogController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        $logs = $paginator->through(function (Activity $log) {
-            $changes = $log->attribute_changes?->toArray() ?? [];
-            $subject = $log->subject;
-            $subjectLabel = null;
+        ActivityChangePresenter::presentLogs(
+            collect($paginator->items()),
+            $companyId,
+        );
 
-            if ($subject) {
-                $subjectLabel = Arr::first(
-                    [
-                        data_get($subject, 'name'),
-                        data_get($subject, 'email'),
-                        data_get($subject, 'code'),
-                        data_get($subject, 'slug'),
-                    ],
-                    fn ($v) => is_string($v) && $v !== ''
-                );
-            }
+        $logs = $paginator->through(function (Activity $log) {
+            $presented = ActivityChangePresenter::toRecentActivityArray($log);
 
             return [
                 'id' => $log->id,
                 'event' => $log->event,
                 'subject_type' => $log->subject_type,
-                'subject_name' => Str::afterLast($log->subject_type, '\\'),
+                'subject_name' => Str::afterLast((string) $log->subject_type, '\\'),
                 'subject_id' => $log->subject_id,
-                'subject_label' => $subjectLabel ?: null,
+                'subject_label' => ActivityChangePresenter::subjectLabel($log->subject),
                 'description' => $log->description ?: null,
-                'causer' => $log->causer ? [
-                    'id' => $log->causer->id,
-                    'name' => $log->causer->name,
-                    'email' => $log->causer->email,
-                ] : null,
-                'old_values' => $changes['old'] ?? null,
-                'new_values' => $changes['attributes'] ?? null,
+                'causer' => $presented['causer'],
+                'old_values' => $presented['old_values'],
+                'new_values' => $presented['new_values'],
                 'ip' => null,
                 'created_at' => $log->created_at,
             ];

@@ -13,7 +13,7 @@ import type {
     Company,
     Country,
 } from '@/features/organization/branches/types';
-import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
+import { formatDisplayDate, formatDisplayValue, formatActivityFieldLabel } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
 type Branch = {
@@ -52,9 +52,6 @@ const HIDDEN_ACTIVITY_KEYS = new Set([
     'password',
 ]);
 
-function titleCaseKey(key: string): string {
-    return key.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
-}
 
 function changedKeys(
     oldValues: Record<string, unknown> | null,
@@ -394,7 +391,7 @@ export default function BranchDetails({
                                                                             }
                                                                             className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground dark:border-white/10 dark:bg-white/5"
                                                                         >
-                                                                            {titleCaseKey(
+                                                                            {formatActivityFieldLabel(
                                                                                 k,
                                                                             )}
                                                                             :{' '}

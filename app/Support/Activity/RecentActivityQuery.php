@@ -29,27 +29,18 @@ final class RecentActivityQuery
             return [];
         }
 
-        return Activity::query()
+        $logs = Activity::query()
             ->where('company_id', $companyId)
             ->where('subject_type', $subjectType)
             ->where('subject_id', $subjectId)
             ->with(['causer:id,name,email'])
             ->latest('id')
             ->limit($limit)
-            ->get()
-            ->map(fn (Activity $log) => [
-                'id' => $log->id,
-                'event' => $log->event,
-                'description' => $log->description,
-                'causer' => $log->causer ? [
-                    'id' => $log->causer->id,
-                    'name' => $log->causer->name,
-                    'email' => $log->causer->email,
-                ] : null,
-                'old_values' => $log->attribute_changes?->get('old'),
-                'new_values' => $log->attribute_changes?->get('attributes'),
-                'created_at' => $log->created_at,
-            ])
+            ->get();
+
+        return ActivityChangePresenter::presentLogs($logs, $companyId)
+            ->map(fn (Activity $log): array => ActivityChangePresenter::toRecentActivityArray($log))
+            ->values()
             ->all();
     }
 }

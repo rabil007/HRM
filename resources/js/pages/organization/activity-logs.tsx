@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
+import { formatDisplayDate, formatDisplayValue, formatActivityFieldLabel } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -63,10 +63,6 @@ function pickChangedKeys(
     return [...keys]
         .filter((k) => !HIDDEN_KEYS.has(k))
         .sort((a, b) => a.localeCompare(b));
-}
-
-function titleCaseKey(key: string): string {
-    return key.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
 function eventStyle(event: string): {
@@ -521,7 +517,7 @@ export default function ActivityLogs({
                                                                                 }
                                                                                 className="inline-flex items-center rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[9px] whitespace-nowrap text-muted-foreground/50 dark:border-white/5 dark:bg-white/[0.02]"
                                                                             >
-                                                                                {titleCaseKey(
+                                                                                {formatActivityFieldLabel(
                                                                                     k,
                                                                                 )}
                                                                             </span>
@@ -625,7 +621,7 @@ export default function ActivityLogs({
                                                                                     className="transition-colors hover:bg-muted/20 dark:hover:bg-white/[0.01]"
                                                                                 >
                                                                                     <td className="px-4 py-3 font-semibold whitespace-nowrap text-muted-foreground/75">
-                                                                                        {titleCaseKey(
+                                                                                        {formatActivityFieldLabel(
                                                                                             k,
                                                                                         )}
                                                                                     </td>
