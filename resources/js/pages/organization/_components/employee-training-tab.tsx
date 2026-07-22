@@ -270,7 +270,18 @@ export function EmployeeTrainingTab({
                                     employeeRecordsTableRowClass(),
                                     hasEmployeeId && 'cursor-pointer',
                                 )}
-                                onClick={() => {
+                                onClick={(event) => {
+                                    const target = event.target;
+
+                                    if (
+                                        !(target instanceof Element) ||
+                                        target.closest(
+                                            '[data-slot="checkbox"], [role="checkbox"], button, a, [data-row-ignore-click]',
+                                        )
+                                    ) {
+                                        return;
+                                    }
+
                                     if (!hasEmployeeId) {
                                         return;
                                     }
@@ -290,6 +301,13 @@ export function EmployeeTrainingTab({
                                             employeeRecordsTableTdClass(),
                                             'w-10 px-3',
                                         )}
+                                        data-row-ignore-click
+                                        onClick={(event) =>
+                                            event.stopPropagation()
+                                        }
+                                        onPointerDown={(event) =>
+                                            event.stopPropagation()
+                                        }
                                     >
                                         <Checkbox
                                             checked={isTrainingSelected(row.id)}
