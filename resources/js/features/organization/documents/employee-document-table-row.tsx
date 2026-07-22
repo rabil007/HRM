@@ -3,6 +3,7 @@ import {
     dataTableActionsCellClass,
     dataTableBodyRowClass,
     dataTableCellClass,
+    recordsTableTdClass,
 } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -55,12 +56,30 @@ export function EmployeeDocumentTableRow({
                 'cursor-pointer',
                 selected && 'bg-primary/5',
             )}
-            onClick={() => router.visit(viewHref)}
+            onClick={(event) => {
+                const target = event.target;
+
+                if (
+                    !(target instanceof Element) ||
+                    target.closest(
+                        '[data-slot="checkbox"], [role="checkbox"], button, a, [data-row-ignore-click]',
+                    )
+                ) {
+                    return;
+                }
+
+                router.visit(viewHref);
+            }}
         >
             {selectionMode ? (
-                <TableCell
-                    className="w-10 px-3 py-4 align-middle"
+                <td
+                    className={cn(
+                        recordsTableTdClass(),
+                        'w-10 px-3 first:pl-3',
+                    )}
+                    data-row-ignore-click
                     onClick={(event) => event.stopPropagation()}
+                    onPointerDown={(event) => event.stopPropagation()}
                 >
                     <Checkbox
                         checked={selected}
@@ -69,7 +88,7 @@ export function EmployeeDocumentTableRow({
                         }
                         aria-label={`Select ${doc.document_name}`}
                     />
-                </TableCell>
+                </td>
             ) : null}
             <TableCell className="min-w-[240px] px-4 py-4 align-middle">
                 <div className="flex min-w-0 items-center gap-3.5">

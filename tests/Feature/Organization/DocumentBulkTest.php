@@ -183,6 +183,40 @@ test('users with permission can bulk delete selected employee documents', functi
     Storage::disk('public')->assertExists($pathB);
 });
 
+test('bulk delete from employee profile redirects back to profile', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.delete']);
+
+    $path = 'employee-documents/'.$company->id.'/'.$employee->id.'/passport/profile.pdf';
+    Storage::disk('public')->put($path, 'pdf');
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => $path,
+        'original_filename' => 'Profile.pdf',
+        'mime_type' => 'application/pdf',
+        'status' => 'valid',
+    ]);
+
+    $this->from("/organization/employees/{$employee->id}")
+        ->delete(route('organization.documents.employee.files.bulk-destroy', $employee), [
+            'document_ids' => [$document->id],
+        ])
+        ->assertRedirect("/organization/employees/{$employee->id}")
+        ->assertSessionHas('success');
+
+    expect(EmployeeDocument::query()->whereKey($document->id)->exists())->toBeFalse();
+});
+
 test('bulk delete rejects documents from another company', function () {
     Storage::fake('public');
 

@@ -218,7 +218,7 @@ export function EmployeeTrainingTab({
                                 <th
                                     className={cn(
                                         employeeRecordsTableThClass(),
-                                        'w-10 px-3',
+                                        'w-10 px-3 first:pl-3',
                                     )}
                                 >
                                     <Checkbox
@@ -299,7 +299,7 @@ export function EmployeeTrainingTab({
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
-                                            'w-10 px-3',
+                                            'w-10 px-3 first:pl-3',
                                         )}
                                         data-row-ignore-click
                                         onClick={(event) =>

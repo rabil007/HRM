@@ -1,11 +1,13 @@
 import { router, Link } from '@inertiajs/react';
 import { FolderOpen } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
+import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
 import { buildDocumentShowUrl } from '@/features/organization/documents/shared/document-show-url';
 import type {
@@ -13,6 +15,7 @@ import type {
     DocumentProfileItem,
     DocumentTypeOption,
 } from '@/features/organization/documents/shared/types';
+import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { cn } from '@/lib/utils';
 import { EditDocumentDialog } from '@/pages/organization/_components/documents/edit-document-dialog';
 import { ReplaceDocumentDialog } from '@/pages/organization/_components/documents/replace-document-dialog';
@@ -28,7 +31,9 @@ import type {
     EmployeeDetails,
     TemplateFieldConfig,
 } from '@/pages/organization/employee-page.types';
-import { employee as employeeDocumentsBrowse } from '@/routes/organization/documents';
+import documentRoutes, {
+    employee as employeeDocumentsBrowse,
+} from '@/routes/organization/documents';
 
 const DOCUMENTS_RELOAD = {
     preserveScroll: true,
@@ -89,15 +94,54 @@ export function EmployeeDocumentsTab({
 }: EmployeeDocumentsTabProps): ReactElement {
     const employeeId = employee.id;
     const hasEmployeeId = employeeId !== null && employeeId > 0;
+    const selectionMode = can.documents_delete && hasEmployeeId;
     const [uploadOpen, setUploadOpen] = useState(false);
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
     const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
+    const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false);
     const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(
         null,
     );
 
+    const documentIds = useMemo(
+        () => documents.map((doc) => doc.id),
+        [documents],
+    );
+
+    const {
+        selectedIds: selectedDocumentIds,
+        selectedCount: selectedDocumentCount,
+        isSelected: isDocumentSelected,
+        isAllSelected: allDocumentsSelected,
+        isPartiallySelected: documentsPartiallySelected,
+        toggle: toggleDocument,
+        toggleAll: toggleAllDocuments,
+        clear: clearDocumentSelection,
+    } = useBulkSelection(documentIds);
+
     return (
         <TabsContent value="documents" className="mt-6">
+            {selectionMode && documents.length > 0 ? (
+                <DocumentsBulkToolbar
+                    count={selectedDocumentCount}
+                    itemLabel="files"
+                    onClear={clearDocumentSelection}
+                    actions={
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            className="h-8 gap-1.5 text-xs"
+                            disabled={isBulkDeleting}
+                            onClick={() => setBulkDeleteOpen(true)}
+                        >
+                            Delete selected
+                        </Button>
+                    }
+                />
+            ) : null}
+
             <EmployeeRecordsPanel
                 title="Documents"
                 count={documents.length}
@@ -137,6 +181,26 @@ export function EmployeeDocumentsTab({
                 <EmployeeRecordsTable className="min-w-[980px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
+                            {selectionMode ? (
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'w-10 px-3 first:pl-3',
+                                    )}
+                                >
+                                    <Checkbox
+                                        checked={
+                                            allDocumentsSelected
+                                                ? true
+                                                : documentsPartiallySelected
+                                                  ? 'indeterminate'
+                                                  : false
+                                        }
+                                        onCheckedChange={toggleAllDocuments}
+                                        aria-label="Select all documents"
+                                    />
+                                </th>
+                            ) : null}
                             <th
                                 className={cn(
                                     employeeRecordsTableThClass(),
@@ -220,6 +284,11 @@ export function EmployeeDocumentsTab({
                                             ? () => setDeleteDocId(doc.id)
                                             : undefined
                                     }
+                                    selectionMode={selectionMode}
+                                    selected={isDocumentSelected(doc.id)}
+                                    onSelectedChange={() =>
+                                        toggleDocument(doc.id)
+                                    }
                                 />
                             );
                         })}
@@ -273,6 +342,49 @@ export function EmployeeDocumentsTab({
                         {
                             ...DOCUMENTS_RELOAD,
                             onSuccess: () => setDeleteDocId(null),
+                        },
+                    );
+                }}
+            />
+
+            <ConfirmDeleteDocumentDialog
+                open={bulkDeleteOpen}
+                onOpenChange={setBulkDeleteOpen}
+                title="Delete selected documents"
+                description={
+                    <>
+                        Are you sure you want to delete {selectedDocumentCount}{' '}
+                        selected{' '}
+                        {selectedDocumentCount === 1 ? 'document' : 'documents'}
+                        ? This action cannot be undone.
+                    </>
+                }
+                confirmLabel={isBulkDeleting ? 'Deleting…' : 'Delete'}
+                confirmDisabled={isBulkDeleting}
+                onConfirm={() => {
+                    if (
+                        selectedDocumentIds.length === 0 ||
+                        !hasEmployeeId
+                    ) {
+                        return;
+                    }
+
+                    setIsBulkDeleting(true);
+
+                    router.delete(
+                        documentRoutes.employee.files.bulkDestroy.url({
+                            employee: employeeId,
+                        }),
+                        {
+                            data: { document_ids: selectedDocumentIds },
+                            ...DOCUMENTS_RELOAD,
+                            onSuccess: () => {
+                                clearDocumentSelection();
+                                setBulkDeleteOpen(false);
+                            },
+                            onFinish: () => {
+                                setIsBulkDeleting(false);
+                            },
                         },
                     );
                 }}
