@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\ApplyRememberedSessionLifetimeEarly;
 use App\Http\Middleware\ExtendRememberedSessionLifetime;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -31,6 +32,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'webhooks/whatsapp',
             'webhooks/hikvision',
             'integrations/hikvision/webhook/*',
+        ]);
+
+        $middleware->web(prepend: [
+            ApplyRememberedSessionLifetimeEarly::class,
         ]);
 
         $middleware->web(append: [

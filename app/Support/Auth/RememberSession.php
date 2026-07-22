@@ -23,12 +23,17 @@ final class RememberSession
         return (bool) session(self::SESSION_KEY, false);
     }
 
+    public static function extendLifetime(): void
+    {
+        config(['session.lifetime' => self::LIFETIME_MINUTES]);
+    }
+
     public static function applyLifetime(): void
     {
         if (! self::isMarked()) {
             return;
         }
 
-        config(['session.lifetime' => self::LIFETIME_MINUTES]);
+        self::extendLifetime();
     }
 }

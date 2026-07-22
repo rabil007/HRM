@@ -56,15 +56,20 @@ test('without remember cookie user stays guest after session flush', function ()
 test('remembered login extends session lifetime for subsequent requests', function () {
     $user = User::factory()->create();
 
-    $this->post(route('login.store'), [
+    $response = $this->post(route('login.store'), [
         'email' => $user->email,
         'password' => 'password',
         'remember' => '1',
     ]);
 
+    $recallerName = Auth::guard('web')->getRecallerName();
+    $plainCookie = $response->getCookie($recallerName);
+
     config(['session.lifetime' => 120]);
 
-    $this->get(route('dashboard'))->assertOk();
+    $this->withCookie($recallerName, $plainCookie->getValue())
+        ->get(route('dashboard'))
+        ->assertOk();
 
     expect(config('session.lifetime'))->toBe(RememberSession::LIFETIME_MINUTES);
     $this->assertAuthenticatedAs($user);
