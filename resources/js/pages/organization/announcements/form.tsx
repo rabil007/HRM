@@ -14,7 +14,6 @@ import {
     Mail,
     Megaphone,
     MessageCircle,
-    Minus,
     Send,
     Smartphone,
     Trash2,
@@ -39,7 +38,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
 import type {
     AnnouncementCan,
     AnnouncementFormData,
@@ -47,6 +45,7 @@ import type {
     AnnouncementFormPayload,
     RecipientPreview,
 } from '@/features/organization/announcements/types';
+import { cn } from '@/lib/utils';
 
 const CHANNELS = [
     {
@@ -349,13 +348,17 @@ function DepartmentTreePicker({
 
     const getFamilyIds = useCallback(
         (id: number): number[] => {
-            const family = [id];
-            const children = childrenMap.get(id) || [];
-            children.forEach((child) => {
-                family.push(...getFamilyIds(child.id));
-            });
+            const collect = (currentId: number): number[] => {
+                const family = [currentId];
+                const children = childrenMap.get(currentId) || [];
+                children.forEach((child) => {
+                    family.push(...collect(child.id));
+                });
 
-            return family;
+                return family;
+            };
+
+            return collect(id);
         },
         [childrenMap],
     );
@@ -841,6 +844,7 @@ export default function AnnouncementFormPage({
             })
             .finally(() => {
                 http.transform((data) => data);
+
                 if (requestId === previewRequestIdRef.current) {
                     setPreviewLoading(false);
                 }
