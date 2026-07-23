@@ -55,15 +55,28 @@ Every active company always maintains a three-month rolling window of Draft payr
 - The `payroll:ensure-future-periods` command runs the action for every active company (`status = active`, not soft-deleted). It accepts `--company=` to target one company and `--months=` to change the window size (default 3). It continues past per-company failures, logging them with company context.
 - The command is scheduled daily at `00:45` with `withoutOverlapping`. Daily execution self-heals missed runs, picks up newly activated companies, and keeps the third month populated.
 
-Automatic Crew periods are always created with `crew_timesheet_mode = crew_operations`; automatic Office periods have no crew mode. Every automatic period is `draft` with `payment_date = null`, `generated_at = null`, `notes = "Automatically created"`, and `created_by = null`. The automation never creates crew timesheets, timeline preparations, payroll records, salary inputs, approvals, payment dates, or generation timestamps.
+Automatic Crew periods are always created with `crew_timesheet_mode = hybrid` and the display name `{Month} - Crew`. Automatic Office periods have no crew mode. Every automatic period is `draft` with `payment_date = null`, `generated_at = null`, `notes = "Automatically created"`, and `created_by = null`. The automation never creates crew timesheets, timeline preparations, payroll records, salary inputs, approvals, payment dates, or generation timestamps.
 
-Auto-created rows are identified by `creation_source = automatic` and a deterministic `automatic_period_key` (`company:{id}:{category}:{YYYY-MM}`). The key has a unique index, so the automation is idempotent and concurrency-safe: repeated or simultaneous runs create at most one automatic row per company, category, and month.
+Auto-created rows are identified by `creation_source = automatic` and a deterministic `automatic_period_key` (`company:{id}:{category}:{YYYY-MM}`). Regular full-month periods (automatic or user-created) also store `regular_period_key` with the same shape and a unique index, so there is at most one normal monthly period per company, category, and month. The scheduler skips creating an automatic period when any regular period for that month already exists.
 
-### Manual duplicates and duplicate-payment risk
+### Creation source vs timesheet source
 
-Manual period creation is unchanged and always sets `creation_source = manual` with a null `automatic_period_key`. Duplicate or overlapping periods for the same month/date range are intentionally allowed (for example a `Crew Operations` period alongside a `Manual` Crew period when movement data is incomplete). There is no unique constraint on `company_id + payroll_category + start_date + end_date`, and creation is never blocked by an existing automatic period. The payroll hub list, period cards, and show header display an `Automatic` / `Manual` badge so users can distinguish the sources.
+`creation_source` is audit metadata only:
 
-Known operational risk: two overlapping periods can pay the same employee twice if both are generated and paid. Cross-period duplicate-payment blocking is out of scope here and will be handled in a later safeguard task.
+- `automatic` / Created by system
+- `manual` / Created by user
+
+It does not control how timesheets are entered or how payroll is calculated.
+
+### Duplicate normal period prevention
+
+For a regular full-month period (`start_date` = first day of month and `end_date` = last day of the same month), at most one period may exist for:
+
+- company
+- payroll category
+- payroll month
+
+Enforced by unique `regular_period_key` plus create-time validation. Off-cycle or correction date ranges (non full-month) keep a null `regular_period_key` and remain allowed.
 
 ## Office payroll
 
@@ -146,40 +159,60 @@ Permissions:
 
 See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md).
 
-### Dual timesheet mode (Phase 1E)
+### Unified Crew timesheet sources (hybrid)
 
 Each crew pay period stores `crew_timesheet_mode`:
 
 | Mode | Value | Behavior |
 |------|-------|----------|
-| Manual / Excel Timesheet | `manual` | Sign-On/Onsite/Sign-Off entry (daily) or unpaid leave (monthly), Excel import, and manual payroll generation |
-| Crew Operations Timeline | `crew_operations` | Prepare → review → approve → apply timeline; operational days locked after apply |
+| Hybrid (default) | `hybrid` | One Crew period supports mixed employee-level sources. UI label: **Crew Payroll**. |
+| Manual / Excel Timesheet | `manual` | Historical exclusive Manual/Import mode |
+| Crew Operations Timeline | `crew_operations` | Historical exclusive timeline mode |
 
 Office periods keep `crew_timesheet_mode = null`.
 
+Operational source belongs to each employee’s `CrewTimesheet`, not the period:
+
+| Priority | Source | Notes |
+|----------|--------|-------|
+| 1 | Approved Crew Operations | Highest; locks operational fields; replaces Manual/Import operational values automatically |
+| 2 | Excel Import | Fallback when no Applied movement coverage |
+| 3 | Manual Entry | Fallback when no Applied movement coverage |
+
+Rules:
+
+- A movement timeline is optional per employee. Missing assignment/phases/preparation lines do not block payroll by themselves.
+- Import may replace Manual before Crew Operations is applied.
+- Manual/Import must never overwrite Applied Crew Operations operational fields.
+- Applying Approved movement data replaces only operational fields, preserves financial fields, sets `source = crew_operations`, and locks operational fields. No confirmation dialog.
+- Monthly Crew continues to use unpaid leave / monthly contract calculation with no movement requirement.
+
 Creation:
 
-- crew periods require a timesheet source on create (`crew_timesheet_mode`)
-- default is `manual` for new crew periods and migrated legacy crew periods
-- mode can change only while draft and before any timesheets, preparations, or payroll records exist
+- new and automatic Crew periods always use `hybrid`
+- create form no longer asks for Manual vs Crew Operations
+- Draft Crew periods are migrated to `hybrid` when safe; Approved/Paid/Processing historical modes are left unchanged
 
-Generation safeguards for `crew_operations`:
+Generation readiness (hybrid):
 
-- payroll generation requires exactly one Applied Crew Operations preparation
-- the period show page exposes `generation_ready` / `generation_blocking_reason`
-- `CrewPayrollCalculator` uses the same split sign-on/onsite/sign-off structure for Manual, Import, and Applied crew-operations daily timesheets; monthly crew uses `unpaid_leave_days`
+- validated per included employee
+- Daily `crew_operations` rows require Applied linkage, matching hash, and approval metadata
+- Daily Manual/Import rows require a timesheet with that source and no Applied lock conflict
+- missing Daily timesheets return an employee-specific readiness error
+- exclusive historical `crew_operations` periods still require exactly one Applied preparation for the period
 
 Key files:
 
 - `app/Enums/CrewTimesheetMode.php`
 - `app/Support/Payroll/CrewOperationsPayrollGenerationGuard.php`
+- `app/Support/Payroll/RegularPayrollPeriodKey.php`
 - `app/Support/Payroll/Actions/UpdatePayrollPeriodCrewTimesheetMode.php`
 - `resources/js/features/payroll/types.ts`
 - `resources/js/features/payroll/show.tsx`
 
-### Production hardening (post Phase 1E)
+### Production hardening (post Phase 1E / hybrid)
 
-Data-integrity and concurrency hardening applied on top of Phases 1A–1E. Manual / Excel mode and Monthly crew behaviour are unchanged.
+Data-integrity and concurrency hardening applied on top of Phases 1A–1E and the hybrid mixed-source model.
 
 Payroll-period contract resolution:
 
@@ -196,7 +229,7 @@ Payable-category filtering:
 
 Readiness / generation parity:
 
-- `CrewOperationsPayrollGenerationGuard::validateReadiness()` is the single non-mutating validator. The Generate Payroll button (`generation_ready` / `generation_blocking_reason`) and backend generation return the same blocking reason and expose `affected_employee_id`.
+- `CrewOperationsPayrollGenerationGuard::validateReadiness()` is the single non-mutating validator. Hybrid readiness is employee-based; exclusive historical `crew_operations` readiness still requires an Applied preparation for the period. The Generate Payroll button (`generation_ready` / `generation_blocking_reason`) and backend generation return the same blocking reason and expose `affected_employee_id`.
 
 Source freshness:
 
@@ -216,12 +249,12 @@ Empty Applied preparation:
 
 Concurrency & history:
 
-- Generation and `UpsertCrewTimesheet` lock the payroll period (and target rows) and revalidate status/mode/lock state after acquiring the lock. Generation derives Manual vs Crew Operations from the locked model.
+- Generation and `UpsertCrewTimesheet` lock the payroll period (and target rows) and revalidate status/mode/lock state after acquiring the lock.
 - `CrewTimesheetPreparation` and `CrewTimesheetPreparationLine` use `SoftDeletes` so approved/applied history is never hard-deleted; creation migrations recover missing columns and indexes idempotently.
 
 Excel template:
 
-- In Crew Operations mode the Daily operational date cells are locked/protected in the template and pre-filled with `From timeline`; overtime, salary inputs, and remarks stay editable. Monthly rows keep the legacy operational cells. Backend validation stays authoritative. Manual mode template is unchanged.
+- Hybrid periods lock/protect operational cells only for employees with Applied Crew Operations coverage (pre-filled `From Crew Operations`); uncovered Daily employees can enter operational dates; financial fields stay editable. Exclusive historical Crew Operations mode still locks all Daily operational cells. Backend validation stays authoritative. Import preview row modes include `crew_operations_locked`, `import_fallback`, and `monthly_crew`.
 
 There is no Applied-preparation replacement or Approved/Paid payroll correction workflow — that remains an optional future phase.
 

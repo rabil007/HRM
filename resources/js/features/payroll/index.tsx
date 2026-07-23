@@ -91,7 +91,6 @@ export function PayrollIndexContent({
     const form = useForm<PayrollPeriodFormData>({
         name: '',
         payroll_category: 'crew',
-        crew_timesheet_mode: 'manual',
         start_date: '',
         end_date: '',
         notes: '',

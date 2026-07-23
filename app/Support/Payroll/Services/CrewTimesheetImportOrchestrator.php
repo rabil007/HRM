@@ -3,7 +3,6 @@
 namespace App\Support\Payroll\Services;
 
 use App\Enums\ContractSalaryStructure;
-use App\Enums\CrewTimesheetMode;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
 use App\Imports\CrewTimesheetsImport;
@@ -168,7 +167,7 @@ final class CrewTimesheetImportOrchestrator
         $rows = [];
         $errors = [];
         $warnings = [];
-        $isCrewOperationsMode = $period->crew_timesheet_mode === CrewTimesheetMode::CrewOperations;
+        $exclusiveCrewOperations = $period->requiresExclusiveCrewOperationsTimesheets();
 
         foreach ($parsedRows as $parsedRow) {
             $rowNumber = (int) $parsedRow['row'];
@@ -211,14 +210,15 @@ final class CrewTimesheetImportOrchestrator
             $existing = $employee !== null
                 ? $existingTimesheets->get((int) $employee->id)
                 : null;
+            $isLocked = $existing?->isOperationallyLocked() === true;
 
-            $rowMode = 'manual_operational';
-            if ($isCrewOperationsMode && $isDaily) {
-                $rowMode = $existing?->isOperationallyLocked()
-                    ? 'crew_operations_locked'
-                    : 'crew_operations_financial';
-            } elseif ($salaryStructure === ContractSalaryStructure::Monthly) {
-                $rowMode = 'monthly_manual';
+            $rowMode = 'import_fallback';
+            if ($salaryStructure === ContractSalaryStructure::Monthly) {
+                $rowMode = 'monthly_crew';
+            } elseif ($isLocked) {
+                $rowMode = 'crew_operations_locked';
+            } elseif ($exclusiveCrewOperations && $isDaily) {
+                $rowMode = 'crew_operations_financial';
             }
 
             $hasOperationalImport = filled($parsedRow['sign_on_standby_from'])
@@ -228,7 +228,15 @@ final class CrewTimesheetImportOrchestrator
                 || filled($parsedRow['sign_off_standby_from'])
                 || filled($parsedRow['sign_off_standby_to']);
 
-            if ($isCrewOperationsMode && $isDaily && $hasOperationalImport) {
+            $financialOnly = ($exclusiveCrewOperations && $isDaily) || $isLocked;
+
+            if ($isLocked && $hasOperationalImport) {
+                $rowErrors[] = [
+                    'row' => $rowNumber,
+                    'field' => 'sign_on_standby_from',
+                    'message' => 'Operational dates are locked from Applied Crew Operations data and cannot be imported.',
+                ];
+            } elseif ($exclusiveCrewOperations && $isDaily && $hasOperationalImport) {
                 $rowErrors[] = [
                     'row' => $rowNumber,
                     'field' => 'sign_on_standby_from',
@@ -236,11 +244,8 @@ final class CrewTimesheetImportOrchestrator
                 ];
             }
 
-            $timesheetData = $this->buildTimesheetData(
-                $parsedRow,
-                $isCrewOperationsMode && $isDaily,
-            );
-            $validator = Validator::make($timesheetData, $this->timesheetRules($isCrewOperationsMode && $isDaily));
+            $timesheetData = $this->buildTimesheetData($parsedRow, $financialOnly);
+            $validator = Validator::make($timesheetData, $this->timesheetRules($financialOnly));
 
             if ($validator->fails()) {
                 foreach ($validator->errors()->keys() as $field) {

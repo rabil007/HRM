@@ -24,7 +24,7 @@ test('crew payroll generation creates records for all active crew employees incl
         'payroll.crew_timesheets.view',
     ]);
 
-    $period = PayrollPeriod::factory()->for($company)->create([
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create([
         'start_date' => '2026-06-01',
         'end_date' => '2026-06-30',
     ]);
@@ -87,7 +87,7 @@ test('crew payroll generation stamps generated_at and leaves payment date null, 
 
     grantCompanyPermissions($user, $company, ['payroll.periods.update']);
 
-    $period = PayrollPeriod::factory()->for($company)->create([
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create([
         'payroll_category' => PayrollCategory::Crew,
         'start_date' => '2026-06-01',
         'end_date' => '2026-06-30',
@@ -126,7 +126,7 @@ test('crew payroll generation calculates overtime pay from hours and period dail
 
     grantCompanyPermissions($user, $company, ['payroll.periods.update']);
 
-    $period = PayrollPeriod::factory()->for($company)->create([
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create([
         'payroll_category' => PayrollCategory::Crew,
         'start_date' => '2026-06-01',
         'end_date' => '2026-06-30',
@@ -166,7 +166,7 @@ test('crew payroll generation uses a fixed 30 day overtime base even in 31 day m
 
     grantCompanyPermissions($user, $company, ['payroll.periods.update']);
 
-    $period = PayrollPeriod::factory()->for($company)->create([
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create([
         'payroll_category' => PayrollCategory::Crew,
         'start_date' => '2026-07-01',
         'end_date' => '2026-07-31',
@@ -205,7 +205,7 @@ test('crew payroll generation upserts existing payroll records on re-generate', 
 
     grantCompanyPermissions($user, $company, ['payroll.periods.update']);
 
-    $period = PayrollPeriod::factory()->for($company)->create([
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create([
         'status' => PayrollPeriodStatus::Processing,
     ]);
 
@@ -271,7 +271,7 @@ test('crew payroll generation is blocked on approved periods', function () {
 
     grantCompanyPermissions($user, $company, ['payroll.periods.update']);
 
-    $period = PayrollPeriod::factory()->for($company)->approved()->create();
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->approved()->create();
     $employee = createCrewEmployeeWithContract($company, 'CREW-400', 100, 0, 0);
 
     CrewTimesheet::factory()->create([
@@ -295,7 +295,7 @@ test('timesheets cannot be edited after crew payroll generation moves period to 
         'payroll.crew_timesheets.update',
     ]);
 
-    $period = PayrollPeriod::factory()->for($company)->create();
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create();
     $employee = createCrewEmployeeWithContract($company, 'CREW-500', 100, 0, 0);
 
     CrewTimesheet::factory()->create([
@@ -324,7 +324,7 @@ test('payroll show includes payroll records on payroll tab', function () {
 
     grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
 
-    $period = PayrollPeriod::factory()->for($company)->create(['status' => PayrollPeriodStatus::Processing]);
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create(['status' => PayrollPeriodStatus::Processing]);
     $employee = createCrewEmployeeWithContract($company, 'CREW-600', 100, 0, 0);
 
     PayrollRecord::factory()->for($company)->create([
@@ -361,7 +361,7 @@ test('crew payroll generation snapshots contract and bank account linkage', func
 
     grantCompanyPermissions($user, $company, ['payroll.periods.update']);
 
-    $period = PayrollPeriod::factory()->for($company)->create([
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create([
         'status' => PayrollPeriodStatus::Draft,
     ]);
 
@@ -413,7 +413,7 @@ test('crew payroll generation from draft only includes selected employees and mo
 
     grantCompanyPermissions($user, $company, ['payroll.periods.update']);
 
-    $period = PayrollPeriod::factory()->for($company)->create([
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create([
         'status' => PayrollPeriodStatus::Draft,
     ]);
 
@@ -463,7 +463,7 @@ test('crew payroll generation from draft stays draft when all employees are excl
 
     grantCompanyPermissions($user, $company, ['payroll.periods.update']);
 
-    $period = PayrollPeriod::factory()->for($company)->create([
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create([
         'status' => PayrollPeriodStatus::Draft,
     ]);
 
@@ -505,7 +505,7 @@ test('crew payroll generation calculates monthly crew contracts from working and
 
     grantCompanyPermissions($user, $company, ['payroll.periods.update']);
 
-    $period = PayrollPeriod::factory()->for($company)->create([
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create([
         'payroll_category' => PayrollCategory::Crew,
         'start_date' => '2026-06-01',
         'end_date' => '2026-06-30',

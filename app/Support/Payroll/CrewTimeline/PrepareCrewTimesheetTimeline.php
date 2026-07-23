@@ -4,7 +4,6 @@ namespace App\Support\Payroll\CrewTimeline;
 
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewTimelineWarningCode;
-use App\Enums\CrewTimesheetMode;
 use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\PayrollPeriodStatus;
@@ -48,9 +47,9 @@ final class PrepareCrewTimesheetTimeline
             ]);
         }
 
-        if ($period->crew_timesheet_mode !== CrewTimesheetMode::CrewOperations) {
+        if (! $period->usesCrewOperationsTimesheets()) {
             throw ValidationException::withMessages([
-                'payroll_period_id' => 'This pay period uses Manual / Excel Timesheet mode. Change the timesheet source before preparing a Crew Operations timeline.',
+                'payroll_period_id' => 'Crew Operations timeline preparation is not available for this pay period.',
             ]);
         }
 

@@ -5,6 +5,7 @@ namespace App\Support\Payroll\Services;
 use App\Enums\ContractSalaryStructure;
 use App\Enums\PayrollCategory;
 use App\Imports\CrewTimesheetsImport;
+use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\SalaryInputType;
@@ -68,12 +69,21 @@ final class CrewTimesheetTemplateExporter
             $sheet->setCellValueByColumnAndRow($columnIndex + 1, 1, $header);
         }
 
-        $usesCrewOperations = $period->usesCrewOperationsTimesheets();
-        $contractsByEmployeeId = $usesCrewOperations
+        $exclusiveCrewOperations = $period->requiresExclusiveCrewOperationsTimesheets();
+        $mixedSources = $period->usesMixedTimesheetSources();
+        $contractsByEmployeeId = ($exclusiveCrewOperations || $mixedSources)
             ? $this->resolveContract->resolveMany(
                 $period,
                 $employees->map(fn (Employee $employee): int => (int) $employee->id)->all(),
             )
+            : collect();
+        $lockedTimesheets = ($exclusiveCrewOperations || $mixedSources)
+            ? CrewTimesheet::query()
+                ->where('company_id', $companyId)
+                ->where('period_id', $period->id)
+                ->with('preparation')
+                ->get()
+                ->keyBy(fn (CrewTimesheet $timesheet) => (int) $timesheet->employee_id)
             : collect();
 
         $rowNumber = CrewTimesheetsImport::DATA_START_ROW;
@@ -92,12 +102,20 @@ final class CrewTimesheetTemplateExporter
             $sheet->setCellValueByColumnAndRow(4, $rowNumber, $this->departmentName($employee));
             $sheet->setCellValueByColumnAndRow(5, $rowNumber, (string) ($employee->position?->title ?? '—'));
 
-            if ($usesCrewOperations) {
-                $structure = $contractsByEmployeeId->get((int) $employee->id)?->resolvedSalaryStructure()
-                    ?? ContractSalaryStructure::Daily;
+            $structure = $contractsByEmployeeId->get((int) $employee->id)?->resolvedSalaryStructure()
+                ?? ContractSalaryStructure::Daily;
+            $existing = $lockedTimesheets->get((int) $employee->id);
+            $isLocked = $existing?->isOperationallyLocked() === true;
 
-                if ($structure === ContractSalaryStructure::Daily) {
+            if ($structure === ContractSalaryStructure::Daily) {
+                if ($exclusiveCrewOperations || $isLocked) {
                     $dailyLockedRows[] = $rowNumber;
+
+                    if ($isLocked) {
+                        foreach (self::OPERATIONAL_DATE_COLUMNS as $column) {
+                            $sheet->setCellValue("{$column}{$rowNumber}", 'From Crew Operations');
+                        }
+                    }
                 }
             }
 
@@ -116,7 +134,7 @@ final class CrewTimesheetTemplateExporter
         );
         $this->applyDateColumnValidation($sheet, $lastDataRow);
 
-        if ($usesCrewOperations && $dailyLockedRows !== []) {
+        if ($dailyLockedRows !== []) {
             $this->protectDailyOperationalCells($sheet, $dailyLockedRows, $lastColumn, $lastDataRow);
         }
 
@@ -428,11 +446,23 @@ final class CrewTimesheetTemplateExporter
             ['2. Use the header filters (▼) to narrow by Division or Department.'],
         ];
 
-        if ($period->usesCrewOperationsTimesheets()) {
+        if ($period->requiresExclusiveCrewOperationsTimesheets()) {
             $lines = array_merge($lines, [
-                ['3. This period uses Crew Operations Timeline. Leave the yellow Daily operational date columns blank — sign-on standby, onsite, and sign-off standby are filled from the Applied timeline.'],
+                ['3. This period uses exclusive Crew Operations Timeline mode. Leave the yellow Daily operational date columns blank — sign-on standby, onsite, and sign-off standby are filled from the Applied timeline.'],
                 ['4. For Daily crew, enter only Overtime Hours, salary input columns, and optional Remarks.'],
                 ['5. Monthly crew employees may still use leave/standby and onsite columns in this template.'],
+                ['6. Fill the orange Overtime Hours column when the employee worked overtime. Leave blank when there is no OT.'],
+                ['7. Fill green salary input columns for additions (e.g. Bonus, Commission) and red columns for deductions (e.g. Loan, Late). Leave blank when not applicable.'],
+                ['8. Optional Remarks column at the end for notes.'],
+                ['9. Gray columns are pre-filled — do not change Employee No.'],
+                ['10. Type dates as DD-MM-YYYY text (e.g. 01-07-2026 = 1 July 2026). Do not use the date picker — Excel may swap day and month.'],
+                ['11. Save and upload this file back to payroll.'],
+            ]);
+        } elseif ($period->usesMixedTimesheetSources()) {
+            $lines = array_merge($lines, [
+                ['3. This Crew period supports mixed sources. Employees with Applied Crew Operations data show "From Crew Operations" in yellow date columns — leave those locked cells alone.'],
+                ['4. Employees without movement coverage can fill yellow operational date columns (Sign-On Standby, Onsite, Sign-Off Standby).'],
+                ['5. Monthly crew employees use unpaid leave / monthly columns as usual.'],
                 ['6. Fill the orange Overtime Hours column when the employee worked overtime. Leave blank when there is no OT.'],
                 ['7. Fill green salary input columns for additions (e.g. Bonus, Commission) and red columns for deductions (e.g. Loan, Late). Leave blank when not applicable.'],
                 ['8. Optional Remarks column at the end for notes.'],

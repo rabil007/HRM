@@ -6,12 +6,12 @@ const SOURCE_STYLES: Record<
     { label: string; className: string }
 > = {
     automatic: {
-        label: 'Automatic',
+        label: 'Created by system',
         className:
             'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200 hover:bg-emerald-500/15',
     },
     manual: {
-        label: 'Manual',
+        label: 'Created by user',
         className:
             'border-slate-500/25 bg-slate-500/10 text-slate-700 dark:text-slate-200 hover:bg-slate-500/15',
     },

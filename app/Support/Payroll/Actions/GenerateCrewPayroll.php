@@ -3,7 +3,6 @@
 namespace App\Support\Payroll\Actions;
 
 use App\Enums\ContractSalaryStructure;
-use App\Enums\CrewTimesheetMode;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
@@ -103,9 +102,10 @@ final class GenerateCrewPayroll
                 ]);
             }
 
-            $usesCrewOperations = $lockedPeriod->crew_timesheet_mode === CrewTimesheetMode::CrewOperations;
+            $usesExclusiveCrewOperations = $lockedPeriod->requiresExclusiveCrewOperationsTimesheets();
+            $usesHybridTimesheets = $lockedPeriod->usesMixedTimesheetSources();
 
-            if ($usesCrewOperations) {
+            if ($usesExclusiveCrewOperations || $usesHybridTimesheets) {
                 $this->crewOperationsGuard->assertReadyForGeneration(
                     $lockedPeriod,
                     $employees,
@@ -138,7 +138,17 @@ final class GenerateCrewPayroll
                 $timesheet = $employee->crewTimesheets->first();
 
                 if ($timesheet === null) {
-                    if ($usesCrewOperations && $salaryStructure === ContractSalaryStructure::Daily) {
+                    if ($usesExclusiveCrewOperations && $salaryStructure === ContractSalaryStructure::Daily) {
+                        continue;
+                    }
+
+                    if ($usesHybridTimesheets && $salaryStructure === ContractSalaryStructure::Daily) {
+                        $errors[] = PayrollGenerationError::forEmployee(
+                            $employee,
+                            'Daily crew employee is missing a timesheet. Enter Manual or Excel data, or apply Crew Operations movement data.',
+                            'timesheet',
+                        );
+
                         continue;
                     }
 

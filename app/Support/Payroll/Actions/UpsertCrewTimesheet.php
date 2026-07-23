@@ -3,7 +3,6 @@
 namespace App\Support\Payroll\Actions;
 
 use App\Enums\ContractSalaryStructure;
-use App\Enums\CrewTimesheetMode;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
 use App\Models\CrewTimesheet;
@@ -80,7 +79,7 @@ final class UpsertCrewTimesheet
 
             $source = $this->resolveSource($data, $existing);
             $isDaily = $contract->resolvedSalaryStructure() === ContractSalaryStructure::Daily;
-            $isCrewOperationsMode = $period->crew_timesheet_mode === CrewTimesheetMode::CrewOperations;
+            $exclusiveCrewOperations = $period->requiresExclusiveCrewOperationsTimesheets();
 
             if ($existing !== null && $existing->isOperationallyLocked()) {
                 $this->assertNoOperationalMutation($data, $existing);
@@ -97,7 +96,7 @@ final class UpsertCrewTimesheet
                 return $existing->fresh() ?? $existing;
             }
 
-            if ($isCrewOperationsMode && $isDaily) {
+            if ($exclusiveCrewOperations && $isDaily) {
                 if ($this->hasOperationalPayload($data)) {
                     throw ValidationException::withMessages([
                         'sign_on_standby_days' => 'Daily crew operational days come from the Applied Crew Operations timeline and cannot be set manually or via import.',

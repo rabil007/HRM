@@ -30,7 +30,7 @@ test('crew payroll generation uses revised rates from effective date', function 
         'supplementary_allowance' => 40,
     ], '2026-06-01', 'June rates');
 
-    $period = PayrollPeriod::factory()->for($company)->create([
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create([
         'start_date' => '2026-06-01',
         'end_date' => '2026-06-30',
     ]);
@@ -83,7 +83,7 @@ test('crew payroll generation for earlier period keeps prior revision rates', fu
         'supplementary_allowance' => 40,
     ], '2026-06-01', 'June rates');
 
-    $period = PayrollPeriod::factory()->for($company)->create([
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create([
         'start_date' => '2026-05-01',
         'end_date' => '2026-05-31',
     ]);

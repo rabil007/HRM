@@ -78,6 +78,8 @@ final class CrewTimesheetResource
             'period_id' => $periodId,
             'timesheet' => self::toArray($timesheet),
             'is_filled' => $timesheet !== null,
+            'operational_source' => self::operationalSource($timesheet, $salaryStructure),
+            'operational_source_label' => self::operationalSourceLabel($timesheet, $salaryStructure),
             'primary_account' => EmployeePrimaryAccountResource::forEmployee($employee),
             'salary_payment_method' => $paymentMethod->value,
             'salary_payment_method_label' => $paymentMethod->label(),
@@ -86,6 +88,37 @@ final class CrewTimesheetResource
                 ? app(ResolveContractRatesForPeriod::class)->handle($contract, $asOf)
                 : null,
         ];
+    }
+
+    /**
+     * @return 'crew_operations'|'import'|'manual'|'monthly_crew'|'not_entered'
+     */
+    public static function operationalSource(?CrewTimesheet $timesheet, ContractSalaryStructure $salaryStructure): string
+    {
+        if ($salaryStructure === ContractSalaryStructure::Monthly) {
+            return 'monthly_crew';
+        }
+
+        if ($timesheet === null) {
+            return 'not_entered';
+        }
+
+        return match ($timesheet->source?->value) {
+            'crew_operations' => 'crew_operations',
+            'import' => 'import',
+            default => 'manual',
+        };
+    }
+
+    public static function operationalSourceLabel(?CrewTimesheet $timesheet, ContractSalaryStructure $salaryStructure): string
+    {
+        return match (self::operationalSource($timesheet, $salaryStructure)) {
+            'crew_operations' => 'Crew Operations',
+            'import' => 'Excel Import',
+            'manual' => 'Manual',
+            'monthly_crew' => 'Monthly Crew',
+            'not_entered' => 'Not Entered',
+        };
     }
 
     /**

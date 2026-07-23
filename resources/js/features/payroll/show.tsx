@@ -75,6 +75,7 @@ import type { SalaryPaymentMethodValue } from '@/features/organization/employees
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { show as crewTimelineShow } from '@/routes/payroll/crew-timeline';
+import { CrewOperationalSourceBadge } from './components/crew-operational-source-badge';
 import { CrewSalaryStructureToggle } from './components/crew-salary-structure-toggle';
 import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
 import { OfficePayrollRecordsTable } from './components/office-payroll-records-table';
@@ -775,7 +776,8 @@ export function PayrollShowContent({
                             status={period.status}
                             label={period.status_label}
                         />
-                        {period.crew_timesheet_mode_label ? (
+                        {period.crew_timesheet_mode_label &&
+                        period.crew_timesheet_mode !== 'hybrid' ? (
                             <Badge variant="outline">
                                 {period.crew_timesheet_mode_label}
                             </Badge>
@@ -1442,7 +1444,7 @@ export function PayrollShowContent({
                                 {/* Group labels row */}
                                 <tr className="border-b-0">
                                     <th
-                                        colSpan={2}
+                                        colSpan={3}
                                         className="h-7 border-b border-border/30"
                                     />
                                     <th
@@ -1483,6 +1485,7 @@ export function PayrollShowContent({
                                         />
                                     </DataTableHead>
                                     <DataTableHead>Employee</DataTableHead>
+                                    <DataTableHead>Source</DataTableHead>
                                     <DataTableHead>Bank</DataTableHead>
                                     <DataTableHead className="border-l border-primary/10 bg-primary/3 text-right">
                                         Basic
@@ -1602,6 +1605,31 @@ export function PayrollShowContent({
                                                 employee={row.employee}
                                                 isExcluded={isExcluded}
                                             />
+                                            <TableCell
+                                                className={cn(
+                                                    dataTableCellClass(),
+                                                    'align-middle',
+                                                )}
+                                            >
+                                                <CrewOperationalSourceBadge
+                                                    source={
+                                                        row.operational_source ??
+                                                        (isMonthlyCrewRow
+                                                            ? 'monthly_crew'
+                                                            : row.timesheet
+                                                              ? ((row.timesheet
+                                                                    .source as
+                                                                    | 'crew_operations'
+                                                                    | 'import'
+                                                                    | 'manual') ??
+                                                                'manual')
+                                                              : 'not_entered')
+                                                    }
+                                                    label={
+                                                        row.operational_source_label
+                                                    }
+                                                />
+                                            </TableCell>
 
                                             {/* Bank account */}
                                             <PayrollRecordBankAccountCell

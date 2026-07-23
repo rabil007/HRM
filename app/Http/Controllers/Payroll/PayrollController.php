@@ -54,6 +54,7 @@ use App\Support\Payroll\PayrollPeriodResource;
 use App\Support\Payroll\PayrollRecordResource;
 use App\Support\Payroll\PayslipSummary;
 use App\Support\Payroll\ProvisionDefaultSalaryInputTypes;
+use App\Support\Payroll\RegularPayrollPeriodKey;
 use App\Support\Payroll\SalaryInputResource;
 use App\Support\Payroll\Services\CrewPayrollSalarySheetExporter;
 use App\Support\Payroll\Services\CrewTimesheetImportOrchestrator;
@@ -61,6 +62,7 @@ use App\Support\Payroll\Services\CrewTimesheetTemplateExporter;
 use App\Support\Payroll\Services\OfficePayrollSalarySheetExporter;
 use App\Support\Payroll\Wps\WpsExportPreview;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -604,24 +606,46 @@ class PayrollController extends Controller
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         $category = PayrollCategory::from($request->validated('payroll_category'));
-        $mode = $resolveMode->resolveModeForCreate(
+        $mode = $resolveMode->resolveModeForCreate($category);
+        $startDate = $request->validated('start_date');
+        $endDate = $request->validated('end_date');
+        $regularPeriodKey = RegularPayrollPeriodKey::tryFromDates(
+            $companyId,
             $category,
-            $request->validated('crew_timesheet_mode'),
+            $startDate,
+            $endDate,
         );
 
-        PayrollPeriod::query()->create([
-            'company_id' => $companyId,
-            'payroll_category' => $category,
-            'crew_timesheet_mode' => $mode,
-            'name' => $request->validated('name'),
-            'start_date' => $request->validated('start_date'),
-            'end_date' => $request->validated('end_date'),
-            'notes' => $request->validated('notes'),
-            'status' => PayrollPeriodStatus::Draft,
-            'creation_source' => PayrollPeriodCreationSource::Manual,
-            'automatic_period_key' => null,
-            'created_by' => $request->user()?->id,
-        ]);
+        try {
+            PayrollPeriod::query()->create([
+                'company_id' => $companyId,
+                'payroll_category' => $category,
+                'crew_timesheet_mode' => $mode,
+                'name' => $request->validated('name'),
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'notes' => $request->validated('notes'),
+                'status' => PayrollPeriodStatus::Draft,
+                'creation_source' => PayrollPeriodCreationSource::Manual,
+                'automatic_period_key' => null,
+                'regular_period_key' => $regularPeriodKey,
+                'created_by' => $request->user()?->id,
+            ]);
+        } catch (UniqueConstraintViolationException $exception) {
+            if ($regularPeriodKey === null) {
+                throw $exception;
+            }
+
+            $existing = RegularPayrollPeriodKey::findExisting($companyId, $regularPeriodKey);
+
+            throw ValidationException::withMessages([
+                'start_date' => sprintf(
+                    'A regular %s payroll period for this month already exists (%s). Open the existing period instead of creating another.',
+                    $category->label(),
+                    $existing?->name ?? 'existing period',
+                ),
+            ]);
+        }
 
         return redirect()
             ->route('payroll.index')

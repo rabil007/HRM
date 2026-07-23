@@ -4,7 +4,6 @@ namespace App\Support\Payroll;
 
 use App\Enums\ContractSalaryStructure;
 use App\Enums\CrewTimelineWarningCode;
-use App\Enums\CrewTimesheetMode;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
@@ -51,15 +50,126 @@ final class CrewOperationsPayrollGenerationGuard
             abort(404);
         }
 
-        if (! $period->isCrew() || $period->crew_timesheet_mode !== CrewTimesheetMode::CrewOperations) {
+        if (! $period->isCrew()) {
             return $this->result(true);
         }
 
-        $applied = CrewTimesheetPreparation::query()
+        if ($period->requiresExclusiveCrewOperationsTimesheets()) {
+            return $this->validateExclusiveCrewOperationsReadiness($period, $employees, $companyId);
+        }
+
+        if ($period->usesMixedTimesheetSources()) {
+            return $this->validateHybridReadiness($period, $employees, $companyId);
+        }
+
+        return $this->result(true);
+    }
+
+    /**
+     * @param  Collection<int, Employee>  $employees
+     */
+    public function assertReadyForGeneration(
+        PayrollPeriod $period,
+        Collection $employees,
+        int $companyId,
+    ): ?CrewTimesheetPreparation {
+        CrewTimesheetPreparation::query()
             ->where('company_id', $companyId)
             ->where('payroll_period_id', $period->id)
-            ->where('status', CrewTimesheetPreparationStatus::Applied)
+            ->lockForUpdate()
             ->get();
+
+        $readiness = $this->validateReadiness($period, $employees, $companyId);
+
+        if (! $readiness['ready']) {
+            $messages = [
+                'period_id' => $readiness['blocking_reason'] ?? self::MISSING_APPLIED_MESSAGE,
+            ];
+
+            if ($readiness['affected_employee_id'] !== null) {
+                $messages['employee_id'] = $readiness['blocking_reason'];
+            }
+
+            throw ValidationException::withMessages($messages);
+        }
+
+        return $readiness['preparation'];
+    }
+
+    /**
+     * UI-facing readiness. Loads the same crew employee set generation uses so
+     * the Generate button and the backend agree.
+     *
+     * @return array{
+     *     ready: bool,
+     *     blocking_reason: string|null,
+     *     applied_preparation_id: int|null,
+     *     applied_preparation_version: int|null,
+     *     affected_employee_id: int|null
+     * }
+     */
+    public function readiness(PayrollPeriod $period, int $companyId): array
+    {
+        if (! $period->isCrew()) {
+            return [
+                'ready' => true,
+                'blocking_reason' => null,
+                'applied_preparation_id' => null,
+                'applied_preparation_version' => null,
+                'affected_employee_id' => null,
+            ];
+        }
+
+        if (
+            ! $period->requiresExclusiveCrewOperationsTimesheets()
+            && ! $period->usesMixedTimesheetSources()
+        ) {
+            return [
+                'ready' => true,
+                'blocking_reason' => null,
+                'applied_preparation_id' => null,
+                'applied_preparation_version' => null,
+                'affected_employee_id' => null,
+            ];
+        }
+
+        $excludedEmployeeIds = array_values(array_unique(array_map(
+            intval(...),
+            $period->excluded_employee_ids ?? [],
+        )));
+
+        $employeesQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew);
+
+        if ($excludedEmployeeIds !== []) {
+            $employeesQuery->whereNotIn('employees.id', $excludedEmployeeIds);
+        }
+
+        $employees = $employeesQuery->get();
+
+        $readiness = $this->validateReadiness($period, $employees, $companyId);
+
+        unset($readiness['preparation']);
+
+        return $readiness;
+    }
+
+    /**
+     * @param  Collection<int, Employee>  $employees
+     * @return array{
+     *     ready: bool,
+     *     blocking_reason: string|null,
+     *     applied_preparation_id: int|null,
+     *     applied_preparation_version: int|null,
+     *     affected_employee_id: int|null,
+     *     preparation: CrewTimesheetPreparation|null
+     * }
+     */
+    private function validateExclusiveCrewOperationsReadiness(
+        PayrollPeriod $period,
+        Collection $employees,
+        int $companyId,
+    ): array {
+        $applied = $this->appliedPreparations($period, $companyId);
 
         if ($applied->count() === 0) {
             return $this->result(false, self::MISSING_APPLIED_MESSAGE);
@@ -72,21 +182,11 @@ final class CrewOperationsPayrollGenerationGuard
         /** @var CrewTimesheetPreparation $preparation */
         $preparation = $applied->first();
 
-        $hasBlocking = $preparation->lines()
-            ->whereNotNull('warning_code')
-            ->get(['warning_code'])
-            ->contains(function ($line): bool {
-                $code = CrewTimelineWarningCode::tryFrom((string) $line->warning_code);
-
-                return $code !== null && $code->isBlocking();
-            });
-
-        if ($hasBlocking) {
+        if ($this->preparationHasBlockingWarnings($preparation)) {
             return $this->result(false, self::BLOCKING_WARNINGS_MESSAGE, $preparation);
         }
 
         $payableEmployeeIds = PayableCrewPreparationLines::payableEmployeeIds($companyId, (int) $preparation->id);
-
         $contracts = $this->resolveContract->resolveMany(
             $period,
             $employees->pluck('id')->map(intval(...))->all(),
@@ -121,71 +221,101 @@ final class CrewOperationsPayrollGenerationGuard
 
     /**
      * @param  Collection<int, Employee>  $employees
-     */
-    public function assertReadyForGeneration(
-        PayrollPeriod $period,
-        Collection $employees,
-        int $companyId,
-    ): CrewTimesheetPreparation {
-        CrewTimesheetPreparation::query()
-            ->where('company_id', $companyId)
-            ->where('payroll_period_id', $period->id)
-            ->lockForUpdate()
-            ->get();
-
-        $readiness = $this->validateReadiness($period, $employees, $companyId);
-
-        if (! $readiness['ready'] || $readiness['preparation'] === null) {
-            throw ValidationException::withMessages([
-                'period_id' => $readiness['blocking_reason'] ?? self::MISSING_APPLIED_MESSAGE,
-            ]);
-        }
-
-        return $readiness['preparation'];
-    }
-
-    /**
-     * UI-facing readiness. Loads the same crew employee set generation uses so
-     * the Generate button and the backend agree.
-     *
      * @return array{
      *     ready: bool,
      *     blocking_reason: string|null,
      *     applied_preparation_id: int|null,
      *     applied_preparation_version: int|null,
-     *     affected_employee_id: int|null
+     *     affected_employee_id: int|null,
+     *     preparation: CrewTimesheetPreparation|null
      * }
      */
-    public function readiness(PayrollPeriod $period, int $companyId): array
-    {
-        if (! $period->isCrew() || $period->crew_timesheet_mode !== CrewTimesheetMode::CrewOperations) {
-            return [
-                'ready' => true,
-                'blocking_reason' => null,
-                'applied_preparation_id' => null,
-                'applied_preparation_version' => null,
-                'affected_employee_id' => null,
-            ];
+    private function validateHybridReadiness(
+        PayrollPeriod $period,
+        Collection $employees,
+        int $companyId,
+    ): array {
+        $applied = $this->appliedPreparations($period, $companyId);
+
+        if ($applied->count() > 1) {
+            return $this->result(false, self::MULTIPLE_APPLIED_MESSAGE);
         }
 
-        $excludedEmployeeIds = array_values(array_unique(array_map(
-            intval(...),
-            $period->excluded_employee_ids ?? [],
-        )));
+        /** @var CrewTimesheetPreparation|null $preparation */
+        $preparation = $applied->first();
 
-        $employeesQuery = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew);
-
-        if ($excludedEmployeeIds !== []) {
-            $employeesQuery->whereNotIn('employees.id', $excludedEmployeeIds);
+        if ($preparation !== null && $this->preparationHasBlockingWarnings($preparation)) {
+            return $this->result(false, self::BLOCKING_WARNINGS_MESSAGE, $preparation);
         }
 
-        $employees = $employeesQuery->get();
+        $contracts = $this->resolveContract->resolveMany(
+            $period,
+            $employees->pluck('id')->map(intval(...))->all(),
+        );
 
-        $readiness = $this->validateReadiness($period, $employees, $companyId);
+        $timesheets = CrewTimesheet::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $period->id)
+            ->whereIn('employee_id', $employees->pluck('id')->map(intval(...))->all() ?: [0])
+            ->with('preparation')
+            ->get()
+            ->keyBy(fn (CrewTimesheet $timesheet) => (int) $timesheet->employee_id);
 
-        unset($readiness['preparation']);
+        foreach ($employees as $employee) {
+            /** @var Employee $employee */
+            $employeeId = (int) $employee->id;
+            $contract = $contracts->get($employeeId);
 
-        return $readiness;
+            if ($contract === null || $contract->payroll_category !== PayrollCategory::Crew) {
+                continue;
+            }
+
+            $structure = $contract->resolvedSalaryStructure();
+            $timesheet = $timesheets->get($employeeId);
+
+            if ($structure === ContractSalaryStructure::Monthly) {
+                continue;
+            }
+
+            if ($timesheet === null) {
+                return $this->result(
+                    false,
+                    "Daily crew employee {$employee->name} is missing a timesheet. Enter Manual or Excel data, or apply Crew Operations movement data.",
+                    $preparation,
+                    $employeeId,
+                );
+            }
+
+            if ($timesheet->source === CrewTimesheetSource::CrewOperations) {
+                if ($preparation === null) {
+                    return $this->result(
+                        false,
+                        "Daily crew employee {$employee->name} has Crew Operations timesheet data but no Applied timeline was found.",
+                        null,
+                        $employeeId,
+                    );
+                }
+
+                $blockingReason = $this->dailyTimesheetLinkReason($employee, $period, $preparation, $companyId);
+
+                if ($blockingReason !== null) {
+                    return $this->result(false, $blockingReason, $preparation, $employeeId);
+                }
+
+                continue;
+            }
+
+            if (! in_array($timesheet->source, [CrewTimesheetSource::Manual, CrewTimesheetSource::Import], true)) {
+                return $this->result(
+                    false,
+                    "Daily crew employee {$employee->name} timesheet source must be Manual, Import, or Crew Operations.",
+                    $preparation,
+                    $employeeId,
+                );
+            }
+        }
+
+        return $this->result(true, null, $preparation);
     }
 
     private function dailyTimesheetLinkReason(
@@ -221,6 +351,30 @@ final class CrewOperationsPayrollGenerationGuard
         }
 
         return null;
+    }
+
+    /**
+     * @return Collection<int, CrewTimesheetPreparation>
+     */
+    private function appliedPreparations(PayrollPeriod $period, int $companyId): Collection
+    {
+        return CrewTimesheetPreparation::query()
+            ->where('company_id', $companyId)
+            ->where('payroll_period_id', $period->id)
+            ->where('status', CrewTimesheetPreparationStatus::Applied)
+            ->get();
+    }
+
+    private function preparationHasBlockingWarnings(CrewTimesheetPreparation $preparation): bool
+    {
+        return $preparation->lines()
+            ->whereNotNull('warning_code')
+            ->get(['warning_code'])
+            ->contains(function ($line): bool {
+                $code = CrewTimelineWarningCode::tryFrom((string) $line->warning_code);
+
+                return $code !== null && $code->isBlocking();
+            });
     }
 
     /**

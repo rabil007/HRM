@@ -26,12 +26,19 @@ export type PayrollCategoryOption = {
     label: string;
 };
 
-export type CrewTimesheetMode = 'manual' | 'crew_operations';
+export type CrewTimesheetMode = 'manual' | 'crew_operations' | 'hybrid';
 
 export type CrewTimesheetModeOption = {
     value: CrewTimesheetMode;
     label: string;
 };
+
+export type CrewOperationalSource =
+    | 'crew_operations'
+    | 'import'
+    | 'manual'
+    | 'monthly_crew'
+    | 'not_entered';
 
 export type GenerationReadiness = {
     ready: boolean;
@@ -40,11 +47,6 @@ export type GenerationReadiness = {
     applied_preparation_version: number | null;
     affected_employee_id: number | null;
 };
-
-export const CREW_TIMESHEET_MODE_OPTIONS: CrewTimesheetModeOption[] = [
-    { value: 'manual', label: 'Manual / Excel Timesheet' },
-    { value: 'crew_operations', label: 'Crew Operations Timeline' },
-];
 
 export type PayrollPeriodStatus =
     | 'draft'
@@ -70,7 +72,10 @@ export type PayrollPeriod = {
     crew_timesheet_mode: CrewTimesheetMode | null;
     crew_timesheet_mode_label: string | null;
     uses_crew_operations_timesheets: boolean;
+    uses_mixed_timesheet_sources?: boolean;
+    requires_exclusive_crew_operations_timesheets?: boolean;
     uses_manual_timesheets: boolean;
+    allows_fallback_operational_entry?: boolean;
     generation_ready?: boolean;
     generation_blocking_reason?: string | null;
     supports_timesheets: boolean;
@@ -109,7 +114,6 @@ export type PayrollPeriodListItem = PayrollPeriod & {
 export type PayrollPeriodFormData = {
     name: string;
     payroll_category: PayrollCategory;
-    crew_timesheet_mode: CrewTimesheetMode | '';
     start_date: string;
     end_date: string;
     notes: string;
@@ -208,6 +212,8 @@ export type CrewPayrollRow = {
     period_id: number;
     timesheet: CrewTimesheet | null;
     is_filled: boolean;
+    operational_source?: CrewOperationalSource;
+    operational_source_label?: string;
     salary_structure?: 'daily' | 'monthly';
     leave_usage?: OfficeLeaveUsage[];
     total_leave_days?: number;

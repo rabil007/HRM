@@ -16,39 +16,38 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
-test('new crew payroll period defaults to manual timesheet mode and office periods store null mode', function () {
+test('new crew payroll period defaults to hybrid timesheet mode and office periods store null mode', function () {
     ['company' => $company] = makePayrollFixtures();
 
     $period = PayrollPeriod::factory()->for($company)->create();
 
-    expect($period->crew_timesheet_mode)->toBe(CrewTimesheetMode::Manual);
+    expect($period->crew_timesheet_mode)->toBe(CrewTimesheetMode::Hybrid);
 
     $officePeriod = PayrollPeriod::factory()->for($company)->office()->create();
 
     expect($officePeriod->crew_timesheet_mode)->toBeNull();
 });
 
-test('authorized users can store crew periods with crew operations mode', function () {
+test('authorized users can store crew periods without selecting a timesheet mode', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     grantCompanyPermissions($user, $company, ['payroll.periods.create']);
 
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.periods.store'), [
-            'name' => 'July 2026 Crew Ops',
+            'name' => 'July 2026 Crew',
             'payroll_category' => 'crew',
-            'crew_timesheet_mode' => 'crew_operations',
             'start_date' => '2026-07-01',
             'end_date' => '2026-07-31',
-            'payment_date' => '2026-08-05',
         ])
         ->assertRedirect(route('payroll.index'));
 
     $this->assertDatabaseHas('payroll_periods', [
         'company_id' => $company->id,
-        'name' => 'July 2026 Crew Ops',
+        'name' => 'July 2026 Crew',
         'payroll_category' => PayrollCategory::Crew->value,
-        'crew_timesheet_mode' => CrewTimesheetMode::CrewOperations->value,
+        'crew_timesheet_mode' => CrewTimesheetMode::Hybrid->value,
+        'regular_period_key' => 'company:'.$company->id.':crew:2026-07',
     ]);
 });
 
@@ -64,7 +63,6 @@ test('office payroll period store rejects crew timesheet mode', function () {
             'crew_timesheet_mode' => 'manual',
             'start_date' => '2026-07-01',
             'end_date' => '2026-07-31',
-            'payment_date' => '2026-08-05',
         ])
         ->assertSessionHasErrors('crew_timesheet_mode');
 });
@@ -114,8 +112,28 @@ test('prepare is blocked in manual timesheet mode with the expected message', fu
         ->withSession(['current_company_id' => $fixtures['company']->id])
         ->post(route('payroll.crew-timeline.prepare', $fixtures['period']))
         ->assertSessionHasErrors([
-            'payroll_period_id' => 'This pay period uses Manual / Excel Timesheet mode. Change the timesheet source before preparing a Crew Operations timeline.',
+            'payroll_period_id' => 'Crew Operations timeline preparation is not available for this pay period.',
         ]);
+});
+
+test('prepare is allowed in hybrid timesheet mode', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    $fixtures['period']->update(['crew_timesheet_mode' => CrewTimesheetMode::Hybrid]);
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
+        'payroll.crew_timesheets.prepare',
+        'payroll.crew_timesheets.view',
+    ]);
+
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', '2026-07-03 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-04 08:00:00', '2026-07-15 18:00:00');
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('payroll.crew-timeline.prepare', $fixtures['period']))
+        ->assertRedirect();
+
+    expect($fixtures['period']->fresh()->usesCrewOperationsTimesheets())->toBeTrue()
+        ->and($fixtures['period']->fresh()->usesMixedTimesheetSources())->toBeTrue();
 });
 
 test('prepare is allowed in crew operations mode', function () {
@@ -241,7 +259,7 @@ test('payroll show exposes mode, generation readiness, and timeline props for cr
                 'generation_readiness.blocking_reason',
                 CrewOperationsPayrollGenerationGuard::MISSING_APPLIED_MESSAGE,
             )
-            ->has('crew_timesheet_mode_options', 2));
+            ->has('crew_timesheet_mode_options', 3));
 });
 
 test('payroll show hides generation readiness blocking for manual crew periods', function () {

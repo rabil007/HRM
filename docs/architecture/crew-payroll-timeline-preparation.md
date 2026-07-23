@@ -5,14 +5,16 @@ This document describes the crew payroll timeline preparation architecture.
 ## Intended flow
 
 ```text
-Payroll creates Crew Pay Period manually
-    → Prepare from Crew Operations
+System or user creates one normal Crew pay period for the month (hybrid)
+    → optional: Prepare from Crew Operations for employees with usable movements
     → draft versioned preparation + lines/issues
     → crewing review / submit (Phase 1C)
     → crewing approve or return (Phase 1C)
-    → apply approved operational days to CrewTimesheet (Phase 1D)
+    → apply approved operational days to covered CrewTimesheets (Phase 1D)
+      (replaces Manual/Import operational values; preserves financials; locks ops)
+    → uncovered employees keep Manual / Excel entry
     → payroll financial inputs
-    → payroll generation (Phase 1E safeguards)
+    → one payroll generation for the entire Crew period
 ```
 
 ## Source-of-truth rules
@@ -291,12 +293,22 @@ The legacy generic standby columns (`standby_from`, `standby_to`, `standby_days`
 
 ## Phase 1E — dual mode UI, generation guard, calculator split
 
-Phase 1E completes the crew dual-mode rollout:
+Phase 1E originally shipped exclusive period modes (`manual` | `crew_operations`). The current product model extends that with **Hybrid** so one normal Crew period can mix employee-level sources.
 
-- `payroll_periods.crew_timesheet_mode` (`manual` | `crew_operations`)
-- create form timesheet source selector for crew periods
-- period show badge, timeline UI only in crew-operations mode, generation blocking banner
-- operationally locked daily rows display sign-on/sign-off/onsite read-only while overtime/financial fields stay editable
+Current behaviour:
+
+- `payroll_periods.crew_timesheet_mode` (`hybrid` | `manual` | `crew_operations`)
+- new/automatic Crew periods use `hybrid` (UI: Crew Payroll)
+- create form no longer asks for Manual vs Crew Operations
+- timeline prepare/review/approve/apply is available for Hybrid and exclusive Crew Operations periods
+- operational source badge per employee: Crew Operations, Excel Import, Manual, Not Entered, Monthly Crew
+- Applied Crew Operations data automatically replaces Manual/Import operational values and locks them; financial fields are preserved
+- generation readiness is employee-based for Hybrid; exclusive historical Crew Operations still requires an Applied preparation for the period
+- movement timeline is optional per employee and does not block payroll merely by being absent
+- one regular full-month period per company/category/month via `regular_period_key`
+- `creation_source` remains audit metadata only (Created by system / Created by user)
+
+See `docs/payroll.md` for the authoritative hybrid rules.
 - import template instructions differ for crew-operations periods (Daily operational columns left blank)
 - `CrewOperationsPayrollGenerationGuard` blocks crew-operations generation until an Applied preparation exists
 - `CrewPayrollCalculator` uses the same split sign-on/onsite/sign-off structure for all daily sources (Manual, Import, Applied crew-operations); Monthly crew uses `unpaid_leave_days`

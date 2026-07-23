@@ -40,6 +40,7 @@ class PayrollPeriod extends Model
                 'status',
                 'creation_source',
                 'automatic_period_key',
+                'regular_period_key',
                 'notes',
                 'created_by',
                 'approved_by',
@@ -178,18 +179,39 @@ class PayrollPeriod extends Model
     public function usesCrewOperationsTimesheets(): bool
     {
         return $this->isCrew()
-            && $this->crew_timesheet_mode === CrewTimesheetMode::CrewOperations;
+            && $this->crew_timesheet_mode?->supportsCrewOperationsTimeline() === true;
+    }
+
+    public function requiresExclusiveCrewOperationsTimesheets(): bool
+    {
+        return $this->isCrew()
+            && $this->crew_timesheet_mode?->requiresExclusiveCrewOperations() === true;
+    }
+
+    public function usesMixedTimesheetSources(): bool
+    {
+        return $this->isCrew()
+            && $this->crew_timesheet_mode?->usesMixedTimesheetSources() === true;
+    }
+
+    public function allowsFallbackOperationalEntry(): bool
+    {
+        return $this->isCrew()
+            && ($this->crew_timesheet_mode === null
+                || $this->crew_timesheet_mode->allowsFallbackOperationalEntry());
     }
 
     public function usesManualTimesheets(): bool
     {
-        return $this->isCrew()
-            && ($this->crew_timesheet_mode === null
-                || $this->crew_timesheet_mode === CrewTimesheetMode::Manual);
+        return $this->allowsFallbackOperationalEntry();
     }
 
     public function crewTimesheetModeLabel(): ?string
     {
+        if ($this->crew_timesheet_mode === CrewTimesheetMode::Hybrid) {
+            return 'Crew Payroll';
+        }
+
         return $this->crew_timesheet_mode?->label();
     }
 

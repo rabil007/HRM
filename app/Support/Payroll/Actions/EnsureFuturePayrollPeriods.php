@@ -8,6 +8,7 @@ use App\Enums\PayrollPeriodCreationSource;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\Company;
 use App\Models\PayrollPeriod;
+use App\Support\Payroll\RegularPayrollPeriodKey;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -63,18 +64,23 @@ final class EnsureFuturePayrollPeriods
         PayrollCategory $category,
         CarbonImmutable $monthStart,
     ): ?PayrollPeriod {
-        $key = $this->automaticPeriodKey((int) $company->id, $category, $monthStart);
+        $regularKey = RegularPayrollPeriodKey::for((int) $company->id, $category, $monthStart);
+        $automaticKey = $this->automaticPeriodKey((int) $company->id, $category, $monthStart);
 
-        if (PayrollPeriod::query()->where('automatic_period_key', $key)->exists()) {
+        if (PayrollPeriod::query()->where('regular_period_key', $regularKey)->exists()) {
+            return null;
+        }
+
+        if (PayrollPeriod::query()->where('automatic_period_key', $automaticKey)->exists()) {
             return null;
         }
 
         $mode = $category === PayrollCategory::Crew
-            ? CrewTimesheetMode::CrewOperations
+            ? CrewTimesheetMode::Hybrid
             : null;
 
         $name = $category === PayrollCategory::Crew
-            ? sprintf('%s - Crew Operations', $monthStart->format('F Y'))
+            ? sprintf('%s - Crew', $monthStart->format('F Y'))
             : sprintf('%s - Office', $monthStart->format('F Y'));
 
         try {
@@ -89,7 +95,8 @@ final class EnsureFuturePayrollPeriods
                 'payment_date' => null,
                 'generated_at' => null,
                 'creation_source' => PayrollPeriodCreationSource::Automatic,
-                'automatic_period_key' => $key,
+                'automatic_period_key' => $automaticKey,
+                'regular_period_key' => $regularKey,
                 'notes' => 'Automatically created',
                 'created_by' => null,
             ]);

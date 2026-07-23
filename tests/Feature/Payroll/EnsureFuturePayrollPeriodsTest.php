@@ -68,12 +68,13 @@ test('action creates automatic crew and office periods for the rolling window', 
         expect($period->automatic_period_key)->not->toBeNull();
     }
 
-    $crew = $periods->firstWhere('name', 'July 2026 - Crew Operations');
+    $crew = $periods->firstWhere('name', 'July 2026 - Crew');
     expect($crew)->not->toBeNull();
     expect($crew->payroll_category)->toBe(PayrollCategory::Crew);
-    expect($crew->crew_timesheet_mode)->toBe(CrewTimesheetMode::CrewOperations);
+    expect($crew->crew_timesheet_mode)->toBe(CrewTimesheetMode::Hybrid);
     expect($crew->start_date->toDateString())->toBe('2026-07-01');
     expect($crew->end_date->toDateString())->toBe('2026-07-31');
+    expect($crew->regular_period_key)->toBe('company:'.$company->id.':crew:2026-07');
 
     $office = $periods->firstWhere('name', 'July 2026 - Office');
     expect($office)->not->toBeNull();
@@ -81,7 +82,7 @@ test('action creates automatic crew and office periods for the rolling window', 
     expect($office->crew_timesheet_mode)->toBeNull();
 
     $months = $periods->pluck('name')->sort()->values()->all();
-    expect($months)->toContain('August 2026 - Crew Operations');
+    expect($months)->toContain('August 2026 - Crew');
     expect($months)->toContain('September 2026 - Office');
 
     expect(DB::table('crew_timesheets')->count())->toBe(0);
@@ -124,16 +125,14 @@ test('automatic period key enforces database uniqueness', function () {
     ]))->toThrow(UniqueConstraintViolationException::class);
 });
 
-test('existing manual period does not block the automatic period', function () {
+test('existing user-created regular period blocks the automatic period', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-15 09:00:00', 'Asia/Dubai'));
     $company = makeAutomationCompany();
 
-    PayrollPeriod::factory()->for($company)->create([
-        'name' => 'July 2026 - Manual',
+    PayrollPeriod::factory()->for($company)->regularMonth('2026-07')->create([
+        'name' => 'July 2026 - Crew',
         'payroll_category' => PayrollCategory::Crew,
-        'crew_timesheet_mode' => CrewTimesheetMode::Manual,
-        'start_date' => '2026-07-01',
-        'end_date' => '2026-07-31',
+        'crew_timesheet_mode' => CrewTimesheetMode::Hybrid,
         'creation_source' => PayrollPeriodCreationSource::Manual,
     ]);
 
@@ -145,9 +144,9 @@ test('existing manual period does not block the automatic period', function () {
         ->whereDate('start_date', '2026-07-01')
         ->get();
 
-    expect($julyCrew)->toHaveCount(2);
-    expect($julyCrew->where('creation_source', PayrollPeriodCreationSource::Automatic)->count())->toBe(1);
-    expect($julyCrew->where('creation_source', PayrollPeriodCreationSource::Manual)->count())->toBe(1);
+    expect($julyCrew)->toHaveCount(1);
+    expect($julyCrew->first()->creation_source)->toBe(PayrollPeriodCreationSource::Manual);
+    expect($julyCrew->first()->automatic_period_key)->toBeNull();
 });
 
 test('company local month is used at the UTC month boundary', function () {
@@ -300,6 +299,6 @@ test('payroll hub resource exposes creation source', function () {
             ->component('payroll/index')
             ->has('periods', 1)
             ->where('periods.0.creation_source', 'automatic')
-            ->where('periods.0.creation_source_label', 'Automatic')
+            ->where('periods.0.creation_source_label', 'Created by system')
             ->where('periods.0.is_automatic', true));
 });

@@ -85,16 +85,12 @@ final class UpdatePayrollPeriodCrewTimesheetMode
 
     public function resolveModeForCreate(
         PayrollCategory $category,
-        ?string $modeValue,
+        ?string $modeValue = null,
     ): ?CrewTimesheetMode {
         if ($category !== PayrollCategory::Crew) {
             return null;
         }
 
-        if ($modeValue === null || $modeValue === '') {
-            return CrewTimesheetMode::Manual;
-        }
-
-        return CrewTimesheetMode::from($modeValue);
+        return CrewTimesheetMode::Hybrid;
     }
 }

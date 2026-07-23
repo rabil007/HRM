@@ -10,8 +10,8 @@ enum PayrollPeriodCreationSource: string
     public function label(): string
     {
         return match ($this) {
-            self::Manual => 'Manual',
-            self::Automatic => 'Automatic',
+            self::Manual => 'Created by user',
+            self::Automatic => 'Created by system',
         };
     }
 

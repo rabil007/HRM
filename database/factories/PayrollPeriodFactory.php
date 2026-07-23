@@ -7,6 +7,7 @@ use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodCreationSource;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\PayrollPeriod;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -29,7 +30,7 @@ class PayrollPeriodFactory extends Factory
                 throw new \InvalidArgumentException('company_id must be set via for()');
             },
             'payroll_category' => PayrollCategory::Crew,
-            'crew_timesheet_mode' => CrewTimesheetMode::Manual,
+            'crew_timesheet_mode' => CrewTimesheetMode::Hybrid,
             'name' => $start->format('F Y'),
             'start_date' => $start->format('Y-m-d'),
             'end_date' => $end->format('Y-m-d'),
@@ -38,6 +39,7 @@ class PayrollPeriodFactory extends Factory
             'status' => PayrollPeriodStatus::Draft,
             'creation_source' => PayrollPeriodCreationSource::Manual,
             'automatic_period_key' => null,
+            'regular_period_key' => null,
             'notes' => null,
             'created_by' => null,
             'approved_by' => null,
@@ -94,11 +96,53 @@ class PayrollPeriodFactory extends Factory
         ]);
     }
 
+    public function hybridTimesheets(): static
+    {
+        return $this->state(fn () => [
+            'payroll_category' => PayrollCategory::Crew,
+            'crew_timesheet_mode' => CrewTimesheetMode::Hybrid,
+        ]);
+    }
+
     public function manualTimesheets(): static
     {
         return $this->state(fn () => [
             'payroll_category' => PayrollCategory::Crew,
             'crew_timesheet_mode' => CrewTimesheetMode::Manual,
         ]);
+    }
+
+    public function regularMonth(string $yearMonth): static
+    {
+        $start = CarbonImmutable::parse($yearMonth.'-01')->startOfMonth();
+
+        return $this->state(fn () => [
+            'start_date' => $start->toDateString(),
+            'end_date' => $start->endOfMonth()->toDateString(),
+        ])->afterMaking(function (PayrollPeriod $period) use ($start): void {
+            if ($period->company_id === null) {
+                return;
+            }
+
+            $category = $period->payroll_category ?? PayrollCategory::Crew;
+            $categoryValue = $category instanceof PayrollCategory
+                ? $category->value
+                : (string) $category;
+
+            if (! filled($period->name) || $period->name === $start->format('F Y')) {
+                $period->name = $start->format('F Y').(
+                    $categoryValue === PayrollCategory::Office->value ? ' - Office' : ' - Crew'
+                );
+            }
+
+            if (! filled($period->regular_period_key)) {
+                $period->regular_period_key = sprintf(
+                    'company:%d:%s:%s',
+                    (int) $period->company_id,
+                    $categoryValue,
+                    $start->format('Y-m'),
+                );
+            }
+        });
     }
 }
