@@ -55,7 +55,7 @@ class CompanyDocumentSettingController extends Controller
         string $asset,
         StoresCompanyDocumentSetting $store,
     ): RedirectResponse {
-        if (! $request->user()?->can('company.document-settings.update')) {
+        if (! $request->user()?->can('companies.update')) {
             abort(403);
         }
 
@@ -108,7 +108,7 @@ class CompanyDocumentSettingController extends Controller
      */
     public static function salaryCertificateProps(int $companyId, ?User $user): ?array
     {
-        if (! $user?->can('company.document-settings.view')) {
+        if (! $user?->can('companies.view')) {
             return null;
         }
 
@@ -130,7 +130,7 @@ class CompanyDocumentSettingController extends Controller
             'using_legacy_stamp' => $resolved['stamp_source'] === 'legacy',
             'effective_from' => $setting?->effective_from?->toDateString(),
             'effective_to' => $setting?->effective_to?->toDateString(),
-            'can_update' => $user->can('company.document-settings.update'),
+            'can_update' => $user->can('companies.update'),
         ];
     }
 

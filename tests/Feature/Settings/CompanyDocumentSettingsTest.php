@@ -16,15 +16,42 @@ use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Activitylog\Models\Activity;
 
+test('user with companies.view can view company page and document settings', function () {
+    $user = User::factory()->create();
+    $company = createCompanyForSettings('Show Co', 'show-co', 'AED', 'Asia/Dubai');
+    grantCompanyPermissions($user, $company, ['companies.view']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.companies.show', $company))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/company')
+            ->has('document_settings')
+            ->where('document_settings.document_type', CompanyDocumentType::SalaryCertificate)
+            ->where('document_settings.can_update', false),
+        );
+});
+
+test('user without companies.view cannot view the company page', function () {
+    $user = User::factory()->create();
+    $company = createCompanyForSettings('Denied Co', 'denied-co', 'AED', 'Asia/Dubai');
+    grantCompanyPermissions($user, $company, ['companies.update']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.companies.show', $company))
+        ->assertForbidden();
+});
+
 test('authorized user can update company document settings for active company', function () {
     Storage::fake('public');
 
     $user = User::factory()->create();
     $company = createCompanyForSettings('Doc Co A', 'doc-co-a', 'AED', 'Asia/Dubai');
     grantCompanyPermissions($user, $company, [
-        'company.document-settings.view',
-        'company.document-settings.update',
         'companies.view',
+        'companies.update',
     ]);
 
     $this->actingAs($user)
@@ -55,6 +82,71 @@ test('authorized user can update company document settings for active company', 
     expect(Activity::query()->where('description', 'updated company document settings')->exists())->toBeTrue();
 });
 
+test('user without companies.update receives 403 when updating document settings', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $company = createCompanyForSettings('View Only Co', 'view-only-co', 'AED', 'Asia/Dubai');
+    grantCompanyPermissions($user, $company, ['companies.view']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->put(route('organization.companies.document-settings.update', $company), [
+            'document_type' => CompanyDocumentType::SalaryCertificate,
+            'signatory_name' => 'Should Fail',
+        ])
+        ->assertForbidden();
+});
+
+test('user with companies.update can remove a signature or stamp', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $company = createCompanyForSettings('Remove Co', 'remove-co', 'AED', 'Asia/Dubai');
+    grantCompanyPermissions($user, $company, [
+        'companies.view',
+        'companies.update',
+    ]);
+
+    $signature = UploadedFile::fake()->image('sig.png')->store(
+        'company-document-settings/'.$company->id,
+        'public',
+    );
+    $stamp = UploadedFile::fake()->image('stamp.png')->store(
+        'company-document-settings/'.$company->id,
+        'public',
+    );
+
+    CompanyDocumentSetting::query()->create([
+        'company_id' => $company->id,
+        'document_type' => CompanyDocumentType::SalaryCertificate,
+        'signature_path' => $signature,
+        'stamp_path' => $stamp,
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->delete(route('organization.companies.document-settings.asset.destroy', [
+            'company' => $company,
+            'asset' => 'signature',
+        ]), [
+            'document_type' => CompanyDocumentType::SalaryCertificate,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $setting = CompanyDocumentSetting::query()
+        ->where('company_id', $company->id)
+        ->where('document_type', CompanyDocumentType::SalaryCertificate)
+        ->first();
+
+    expect($setting->signature_path)->toBeNull()
+        ->and($setting->stamp_path)->toBe($stamp);
+
+    Storage::disk('public')->assertMissing($signature);
+    Storage::disk('public')->assertExists($stamp);
+});
+
 test('user cannot update document settings for another company', function () {
     Storage::fake('public');
 
@@ -63,10 +155,10 @@ test('user cannot update document settings for another company', function () {
     $companyB = createCompanyForSettings('Doc Co B', 'doc-co-b-x', 'USD', 'UTC');
 
     grantCompanyPermissions($user, $companyA, [
-        'company.document-settings.update',
+        'companies.update',
     ]);
     grantCompanyPermissions($user, $companyB, [
-        'company.document-settings.update',
+        'companies.update',
     ]);
 
     $this->actingAs($user)
@@ -158,7 +250,7 @@ test('failed signature replacement preserves existing company asset', function (
 
     $user = User::factory()->create();
     $company = createCompanyForSettings('Safe Co', 'safe-co', 'AED', 'Asia/Dubai');
-    grantCompanyPermissions($user, $company, ['company.document-settings.update']);
+    grantCompanyPermissions($user, $company, ['companies.update']);
 
     $existing = UploadedFile::fake()->image('existing.png')->store(
         'company-document-settings/'.$company->id,
@@ -187,23 +279,12 @@ test('failed signature replacement preserves existing company asset', function (
     Storage::disk('public')->assertExists($existing);
 });
 
-test('company show returns document settings only with view permission', function () {
+test('company show with companies.update exposes can_update on document settings', function () {
     $user = User::factory()->create();
-    $company = createCompanyForSettings('Show Co', 'show-co', 'AED', 'Asia/Dubai');
-    grantCompanyPermissions($user, $company, ['companies.view']);
-
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->get(route('organization.companies.show', $company))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/company')
-            ->where('document_settings', null),
-        );
-
+    $company = createCompanyForSettings('Edit Co', 'edit-co', 'AED', 'Asia/Dubai');
     grantCompanyPermissions($user, $company, [
         'companies.view',
-        'company.document-settings.view',
+        'companies.update',
     ]);
 
     $this->actingAs($user)
@@ -213,7 +294,7 @@ test('company show returns document settings only with view permission', functio
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/company')
             ->has('document_settings')
-            ->where('document_settings.document_type', CompanyDocumentType::SalaryCertificate),
+            ->where('document_settings.can_update', true),
         );
 });
 

@@ -66,7 +66,6 @@ test('company admin without platform permission cannot update global settings', 
     setupCompanyWithApplicationSettingsPermissions($user, [
         'companies.view',
         'companies.update',
-        'company.settings.update',
     ]);
 
     $this->actingAs($user)

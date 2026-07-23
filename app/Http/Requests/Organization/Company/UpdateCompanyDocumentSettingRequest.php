@@ -11,7 +11,7 @@ class UpdateCompanyDocumentSettingRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user()?->can('company.document-settings.update');
+        return (bool) $this->user()?->can('companies.update');
     }
 
     /** @return array<string, mixed> */

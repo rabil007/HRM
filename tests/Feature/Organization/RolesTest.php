@@ -90,6 +90,63 @@ test('authenticated users can view a role details page', function () {
     $this->get("/organization/roles/{$roleId}")->assertOk();
 });
 
+test('role permission assignment accepts companies permissions without obsolete company settings permissions', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    Permission::findOrCreate('companies.view', 'web');
+    Permission::findOrCreate('companies.update', 'web');
+    Permission::findOrCreate('company_documents.view', 'web');
+
+    grantCompanyPermissions($user, $company, ['roles.create', 'roles.view']);
+
+    $this->post('/organization/roles', [
+        'name' => 'Company Admin',
+        'permissions' => [
+            'companies.view',
+            'companies.update',
+            'company_documents.view',
+        ],
+    ])->assertRedirect();
+
+    $role = Role::query()
+        ->where('company_id', $company->id)
+        ->where('name', 'Company Admin')
+        ->first();
+
+    expect($role)->not->toBeNull();
+    expect($role->permissions->pluck('name')->sort()->values()->all())->toBe([
+        'companies.update',
+        'companies.view',
+        'company_documents.view',
+    ]);
+});
+
 test('authenticated users can create, update, and delete a role', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
