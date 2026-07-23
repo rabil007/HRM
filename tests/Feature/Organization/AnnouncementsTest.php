@@ -209,3 +209,42 @@ test('preview recipients returns channel availability counts', function () {
         ->assertJsonPath('missing_email', 1)
         ->assertJsonPath('missing_phone', 1);
 });
+
+test('selecting every employee as specific audience resolves as all employees', function () {
+    ['user' => $user, 'company' => $company] = makeAnnouncementFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, announcementPermissions());
+
+    $employees = Employee::factory()->forCompany($company)->count(3)->create([
+        'status' => 'active',
+        'work_email' => 'worker@example.test',
+    ]);
+
+    $this->postJson('/organization/announcements/preview-recipients', [
+        'channels' => ['email'],
+        'audiences' => $employees->map(fn ($employee) => [
+            'type' => 'employee',
+            'id' => $employee->id,
+        ])->values()->all(),
+    ])->assertOk()
+        ->assertJsonPath('selected_employees', 3);
+
+    $this->post('/organization/announcements', [
+        'title' => 'Everyone',
+        'body_html' => '<p>All hands</p>',
+        'category' => 'general',
+        'priority' => 'normal',
+        'channels' => ['email'],
+        'audiences' => $employees->map(fn ($employee) => [
+            'type' => 'employee',
+            'id' => $employee->id,
+        ])->values()->all(),
+        'publish_mode' => 'draft',
+    ])->assertRedirect();
+
+    $announcement = Announcement::query()->where('company_id', $company->id)->first();
+
+    expect($announcement)->not->toBeNull();
+    expect($announcement->audiences)->toHaveCount(1)
+        ->and($announcement->audiences->first()->audience_type->value)->toBe('all_employees');
+});

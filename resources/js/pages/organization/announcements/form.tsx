@@ -305,6 +305,8 @@ function DepartmentTreeNode({
     );
 }
 
+const MAX_VISIBLE_AUDIENCE_CHIPS = 8;
+
 function DepartmentTreePicker({
     items,
     selectedIds,
@@ -360,6 +362,15 @@ function DepartmentTreePicker({
 
     const allSelected =
         items.length > 0 && items.every((item) => selectedIds.includes(item.id));
+    const selectedItems = items.filter((item) =>
+        selectedIds.includes(item.id),
+    );
+    const visibleSelectedItems = allSelected
+        ? []
+        : selectedItems.slice(0, MAX_VISIBLE_AUDIENCE_CHIPS);
+    const hiddenSelectedCount = allSelected
+        ? 0
+        : Math.max(0, selectedItems.length - visibleSelectedItems.length);
 
     const toggleSelectAll = () => {
         const allIds = items.map((item) => item.id);
@@ -368,33 +379,44 @@ function DepartmentTreePicker({
 
     return (
         <div className="space-y-3">
-            {/* Selected chips */}
             {selectedIds.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                    {items
-                        .filter((item) => selectedIds.includes(item.id))
-                        .map((item) => (
-                            <span
-                                key={item.id}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/8 px-3 py-1 text-xs font-medium text-blue-600 dark:text-blue-400"
-                            >
-                                <Building2 className="size-3 opacity-70" />
-                                {item.name}
-                                <button
-                                    type="button"
-                                    className="ml-0.5 rounded-full opacity-60 transition-opacity hover:opacity-100"
-                                    onClick={() =>
-                                        onToggleBatch(
-                                            'department',
-                                            [item.id],
-                                            false,
-                                        )
-                                    }
+                    {allSelected ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/8 px-3 py-1 text-xs font-medium text-blue-600 dark:text-blue-400">
+                            <Building2 className="size-3 opacity-70" />
+                            All {items.length} departments selected
+                        </span>
+                    ) : (
+                        <>
+                            {visibleSelectedItems.map((item) => (
+                                <span
+                                    key={item.id}
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/8 px-3 py-1 text-xs font-medium text-blue-600 dark:text-blue-400"
                                 >
-                                    <X className="size-3" />
-                                </button>
-                            </span>
-                        ))}
+                                    <Building2 className="size-3 opacity-70" />
+                                    {item.name}
+                                    <button
+                                        type="button"
+                                        className="ml-0.5 rounded-full opacity-60 transition-opacity hover:opacity-100"
+                                        onClick={() =>
+                                            onToggleBatch(
+                                                'department',
+                                                [item.id],
+                                                false,
+                                            )
+                                        }
+                                    >
+                                        <X className="size-3" />
+                                    </button>
+                                </span>
+                            ))}
+                            {hiddenSelectedCount > 0 ? (
+                                <span className="inline-flex items-center rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
+                                    +{hiddenSelectedCount} more
+                                </span>
+                            ) : null}
+                        </>
+                    )}
                     <button
                         type="button"
                         className="text-xs text-muted-foreground hover:text-destructive"
@@ -480,12 +502,14 @@ function AudiencePicker({
     selectedIds,
     onToggleBatch,
     onClear,
+    onSelectAll,
 }: {
     type: string;
     items: { id: number; name: string; employee_no?: string | null }[];
     selectedIds: number[];
     onToggleBatch: (type: string, ids: number[], checked: boolean) => void;
     onClear: () => void;
+    onSelectAll?: () => void;
 }) {
     const [search, setSearch] = useState('');
     const [open, setOpen] = useState(true);
@@ -493,41 +517,67 @@ function AudiencePicker({
         item.name.toLowerCase().includes(search.toLowerCase()),
     );
     const allSelected = items.length > 0 && selectedIds.length === items.length;
+    const selectedItems = items.filter((item) => selectedIds.includes(item.id));
+    const visibleSelectedItems = allSelected
+        ? []
+        : selectedItems.slice(0, MAX_VISIBLE_AUDIENCE_CHIPS);
+    const hiddenSelectedCount = allSelected
+        ? 0
+        : Math.max(0, selectedItems.length - visibleSelectedItems.length);
 
     const toggleAll = () => {
-        const allIds = items.map((item) => item.id);
-        onToggleBatch(type, allIds, !allSelected);
+        if (!allSelected && onSelectAll) {
+            onSelectAll();
+
+            return;
+        }
+
+        onToggleBatch(
+            type,
+            items.map((item) => item.id),
+            !allSelected,
+        );
     };
 
     return (
         <div className="space-y-3">
-            {/* Selected chips */}
             {selectedIds.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                    {items
-                        .filter((item) => selectedIds.includes(item.id))
-                        .map((item) => (
-                            <span
-                                key={item.id}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/8 px-3 py-1 text-xs font-medium text-primary"
-                            >
-                                {item.name}
-                                {item.employee_no ? (
-                                    <span className="opacity-60">
-                                        #{item.employee_no}
-                                    </span>
-                                ) : null}
-                                <button
-                                    type="button"
-                                    className="ml-0.5 rounded-full opacity-60 transition-opacity hover:opacity-100"
-                                    onClick={() =>
-                                        onToggleBatch(type, [item.id], false)
-                                    }
+                    {allSelected ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/8 px-3 py-1 text-xs font-medium text-primary">
+                            All {items.length} selected
+                        </span>
+                    ) : (
+                        <>
+                            {visibleSelectedItems.map((item) => (
+                                <span
+                                    key={item.id}
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/8 px-3 py-1 text-xs font-medium text-primary"
                                 >
-                                    <X className="size-3" />
-                                </button>
-                            </span>
-                        ))}
+                                    {item.name}
+                                    {item.employee_no ? (
+                                        <span className="opacity-60">
+                                            #{item.employee_no}
+                                        </span>
+                                    ) : null}
+                                    <button
+                                        type="button"
+                                        className="ml-0.5 rounded-full opacity-60 transition-opacity hover:opacity-100"
+                                        onClick={() =>
+                                            onToggleBatch(type, [item.id], false)
+                                        }
+                                    >
+                                        <X className="size-3" />
+                                    </button>
+                                </span>
+                            ))}
+                            {hiddenSelectedCount > 0 ? (
+                                <span className="inline-flex items-center rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
+                                    +{hiddenSelectedCount} more
+                                </span>
+                            ) : null}
+                        </>
+                    )}
                     <button
                         type="button"
                         className="text-xs text-muted-foreground hover:text-destructive"
@@ -718,6 +768,19 @@ export default function AnnouncementFormPage({
             idsToToggle.forEach((id) => currentTypeIds.delete(id));
         }
 
+        if (
+            type === 'employee' &&
+            checked &&
+            options.employees.length > 0 &&
+            currentTypeIds.size === options.employees.length &&
+            options.employees.every((employee) => currentTypeIds.has(employee.id))
+        ) {
+            setActiveAudienceType('all_employees');
+            form.setData('audiences', [{ type: 'all_employees', id: null }]);
+
+            return;
+        }
+
         const newTypeAudiences = Array.from(currentTypeIds).map((id) => ({
             type,
             id,
@@ -726,14 +789,62 @@ export default function AnnouncementFormPage({
         form.setData('audiences', [...otherAudiences, ...newTypeAudiences]);
     };
 
+    const audiencesForRequest = (
+        audiences: { type: string; id: number | null }[],
+    ) => {
+        if (audiences.some((audience) => audience.type === 'all_employees')) {
+            return [{ type: 'all_employees', id: null }];
+        }
+
+        const employeeIds = audiences
+            .filter((audience) => audience.type === 'employee')
+            .map((audience) => audience.id)
+            .filter((id): id is number => id !== null);
+        const otherAudiences = audiences.filter(
+            (audience) => audience.type !== 'employee',
+        );
+
+        if (
+            otherAudiences.length === 0 &&
+            options.employees.length > 0 &&
+            employeeIds.length === options.employees.length &&
+            options.employees.every((employee) => employeeIds.includes(employee.id))
+        ) {
+            return [{ type: 'all_employees', id: null }];
+        }
+
+        return audiences;
+    };
+
+    const previewRequestIdRef = useRef(0);
+
     const loadPreview = (channels: string[], audiences: { type: string; id: number | null }[]) => {
+        const requestId = ++previewRequestIdRef.current;
+        const requestAudiences = audiencesForRequest(audiences);
+
+        if (requestAudiences.length === 0) {
+            setPreview(null);
+            setPreviewLoading(false);
+
+            return;
+        }
+
         setPreviewLoading(true);
-        http.setData({ channels, audiences });
+        http.transform(() => ({ channels, audiences: requestAudiences }));
         http.post('/organization/announcements/preview-recipients')
             .then((data) => {
+                if (requestId !== previewRequestIdRef.current) {
+                    return;
+                }
+
                 setPreview(data as RecipientPreview);
             })
-            .finally(() => setPreviewLoading(false));
+            .finally(() => {
+                http.transform((data) => data);
+                if (requestId === previewRequestIdRef.current) {
+                    setPreviewLoading(false);
+                }
+            });
     };
 
     // Auto-refresh preview whenever channels or audiences change (debounced 500ms)
@@ -755,7 +866,11 @@ export default function AnnouncementFormPage({
     }, [form.data.channels, form.data.audiences]);
 
     const submit = (mode: AnnouncementFormData['publish_mode']) => {
-        const payload = { ...form.data, publish_mode: mode };
+        const payload = {
+            ...form.data,
+            audiences: audiencesForRequest(form.data.audiences),
+            publish_mode: mode,
+        };
 
         if (isEdit && announcement) {
             router.put(
@@ -1040,6 +1155,14 @@ export default function AnnouncementFormPage({
                                     onClear={() =>
                                         clearAudienceType(activeAudienceType)
                                     }
+                                    onSelectAll={
+                                        activeAudienceType === 'employee'
+                                            ? () =>
+                                                  selectAudienceType(
+                                                      'all_employees',
+                                                  )
+                                            : undefined
+                                    }
                                 />
                             ) : null}
 
@@ -1209,7 +1332,6 @@ export default function AnnouncementFormPage({
                                 <InputError message={form.errors.scheduled_at} />
                             </div>
 
-                            {/* Live recipient preview — always visible, auto-refreshes */}
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
                                     <p className="text-sm font-medium">Recipient preview</p>
@@ -1222,62 +1344,27 @@ export default function AnnouncementFormPage({
                                         <span className="text-xs text-muted-foreground">Live</span>
                                     )}
                                 </div>
-                                <div className="grid grid-cols-2 gap-3 rounded-xl border border-border/70 bg-muted/20 p-4 text-sm sm:grid-cols-3">
-                                    {previewLoading && !preview
-                                        ? Array.from({ length: 6 }).map((_, i) => (
-                                              <div key={i} className="space-y-1.5">
-                                                  <div className="h-3 w-20 animate-pulse rounded bg-muted" />
-                                                  <div className="h-6 w-10 animate-pulse rounded bg-muted" />
-                                              </div>
-                                          ))
-                                        : ([
-                                              {
-                                                  label: 'Selected employees',
-                                                  value: preview?.selected_employees ?? 0,
-                                              },
-                                              {
-                                                  label: 'In-app available',
-                                                  value: preview?.in_app_available ?? 0,
-                                              },
-                                              {
-                                                  label: 'Email available',
-                                                  value: preview?.email_available ?? 0,
-                                              },
-                                              {
-                                                  label: 'WhatsApp available',
-                                                  value: preview?.whatsapp_available ?? 0,
-                                              },
-                                              {
-                                                  label: 'Missing email',
-                                                  value: preview?.missing_email ?? 0,
-                                                  warn: (preview?.missing_email ?? 0) > 0,
-                                              },
-                                              {
-                                                  label: 'Missing phone',
-                                                  value: preview?.missing_phone ?? 0,
-                                                  warn: (preview?.missing_phone ?? 0) > 0,
-                                              },
-                                          ].map(({ label, value, warn }) => (
-                                              <div
-                                                  key={label}
-                                                  className={cn(
-                                                      'transition-opacity',
-                                                      previewLoading ? 'opacity-50' : 'opacity-100',
-                                                  )}
-                                              >
-                                                  <div className="text-xs text-muted-foreground">
-                                                      {label}
-                                                  </div>
-                                                  <div
-                                                      className={cn(
-                                                          'mt-0.5 text-lg font-bold',
-                                                          warn ? 'text-warning' : '',
-                                                      )}
-                                                  >
-                                                      {value}
-                                                  </div>
-                                              </div>
-                                          )))}
+                                <div
+                                    className={cn(
+                                        'rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-sm transition-opacity',
+                                        previewLoading ? 'opacity-50' : 'opacity-100',
+                                    )}
+                                >
+                                    {previewLoading && !preview ? (
+                                        <div className="space-y-1.5">
+                                            <div className="h-3 w-28 animate-pulse rounded bg-muted" />
+                                            <div className="h-6 w-12 animate-pulse rounded bg-muted" />
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="text-xs text-muted-foreground">
+                                                Selected employees
+                                            </div>
+                                            <div className="mt-0.5 text-lg font-bold">
+                                                {preview?.selected_employees ?? 0}
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 

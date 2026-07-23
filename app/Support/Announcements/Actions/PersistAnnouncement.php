@@ -35,6 +35,7 @@ final class PersistAnnouncement
     public function create(int $companyId, User $user, array $data): Announcement
     {
         $this->resolveAudience->assertAudiencesBelongToCompany($companyId, $data['audiences']);
+        $data['audiences'] = $this->resolveAudience->normalizeAudiences($companyId, $data['audiences']);
 
         return DB::transaction(function () use ($companyId, $user, $data): Announcement {
             $status = $this->statusForPublishMode($data['publish_mode']);
@@ -80,6 +81,7 @@ final class PersistAnnouncement
         }
 
         $this->resolveAudience->assertAudiencesBelongToCompany((int) $announcement->company_id, $data['audiences']);
+        $data['audiences'] = $this->resolveAudience->normalizeAudiences((int) $announcement->company_id, $data['audiences']);
 
         return DB::transaction(function () use ($announcement, $data): Announcement {
             $status = $this->statusForPublishMode($data['publish_mode']);

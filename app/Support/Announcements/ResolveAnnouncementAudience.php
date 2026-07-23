@@ -20,6 +20,8 @@ final class ResolveAnnouncementAudience
     {
         $this->assertAudiencesBelongToCompany($companyId, $audiences);
 
+        $audiences = $this->normalizeAudiences($companyId, $audiences);
+
         $query = Employee::query()
             ->where('company_id', $companyId)
             ->where('status', 'active')
@@ -120,6 +122,48 @@ final class ResolveAnnouncementAudience
 
     /**
      * @param  list<array{type: string, id?: int|null}>  $audiences
+     * @return list<array{type: string, id?: int|null}>
+     */
+    public function normalizeAudiences(int $companyId, array $audiences): array
+    {
+        if (collect($audiences)->contains(
+            fn (array $audience): bool => ($audience['type'] ?? '') === AnnouncementAudienceType::AllEmployees->value
+        )) {
+            return [[
+                'type' => AnnouncementAudienceType::AllEmployees->value,
+                'id' => null,
+            ]];
+        }
+
+        $employeeIds = $this->idsForType($audiences, AnnouncementAudienceType::Employee);
+        $hasOtherAudienceTypes = collect($audiences)->contains(
+            fn (array $audience): bool => ($audience['type'] ?? '') !== AnnouncementAudienceType::Employee->value
+        );
+
+        if ($hasOtherAudienceTypes || $employeeIds === []) {
+            return $audiences;
+        }
+
+        $activeEmployeeIds = Employee::query()
+            ->where('company_id', $companyId)
+            ->where('status', 'active')
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        if ($activeEmployeeIds !== [] && $employeeIds === $activeEmployeeIds) {
+            return [[
+                'type' => AnnouncementAudienceType::AllEmployees->value,
+                'id' => null,
+            ]];
+        }
+
+        return $audiences;
+    }
+
+    /**
+     * @param  list<array{type: string, id?: int|null}>  $audiences
      * @return list<int>
      */
     private function idsForType(array $audiences, AnnouncementAudienceType $type): array
@@ -129,6 +173,7 @@ final class ResolveAnnouncementAudience
             ->map(fn (array $audience): int => (int) ($audience['id'] ?? 0))
             ->filter(fn (int $id): bool => $id > 0)
             ->unique()
+            ->sort()
             ->values()
             ->all();
     }
