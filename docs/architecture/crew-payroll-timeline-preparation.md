@@ -303,7 +303,9 @@ Current behaviour:
 - timeline prepare/review/approve/apply is available for Hybrid and exclusive Crew Operations periods
 - operational source badge per employee: Crew Operations, Excel Import, Manual, Not Entered, Monthly Crew
 - Applied Crew Operations data automatically replaces Manual/Import operational values and locks them; financial fields are preserved
-- generation readiness is employee-based for Hybrid; exclusive historical Crew Operations still requires an Applied preparation for the period
+- generation readiness uses `BuildCrewPayrollGenerationPreview`: missing/unapproved timesheets are skipped warnings; invalid approved data and broken Crew Operations linkage are blocking
+- exclusive historical Crew Operations still requires an Applied preparation for the period
+- Manual/Import timesheets use additive draft/submitted/approved/returned approval; Applied Crew Operations counts as approved
 - movement timeline is optional per employee and does not block payroll merely by being absent
 - one regular full-month period per company/category/month via `regular_period_key`
 - `creation_source` remains audit metadata only (Created by system / Created by user)
@@ -355,7 +357,7 @@ Hardening applied before production use. Manual / Excel and Monthly crew behavio
 
 - **Contract resolution** — `ResolveCrewContractForPayrollPeriod` resolves the period-applicable crew contract (overlap by effective/end dates) and is used across preparation, issue detection, allocation, application, upsert, import, generation, readiness, and the source hasher.
 - **Payable predicate** — `CrewTimeline/PayableCrewPreparationLines` is the single payable-line predicate (sign-on standby / onsite / sign-off standby with days > 0) shared by application, readiness, and generation. Excluded, warning-only, and zero-day lines never require a linked timesheet.
-- **Readiness parity** — `CrewOperationsPayrollGenerationGuard::validateReadiness()` is the shared non-mutating validator; the Generate button and backend generation agree and expose `affected_employee_id`.
+- **Readiness parity** — `BuildCrewPayrollGenerationPreview` drives hybrid/manual generation preview and skip/block classification; exclusive Crew Operations still uses Applied preparation checks. Generate confirmation recomputes under lock and generates only Ready employees.
 - **Source freshness** — the source hash now covers the period-applicable contract (id, category, salary structure, effective dates) and pending movement correction state, so contract/salary-structure/correction/actual-movement/phase changes make a preparation stale.
 - **Query split & timezone** — `CrewTimelinePhaseQuery::issuePhases()` surfaces phases missing `actual_start_at` (blocking `missing_actual_start`) while `overlappingPhases()` stays actual-only; both use company-timezone boundaries compared in UTC.
 - **Empty Applied preparation** — apply is allowed with zero payable Daily employees, marked Applied, idempotent, and does not block generation.

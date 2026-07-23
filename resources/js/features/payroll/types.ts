@@ -17,6 +17,7 @@ export type PayrollShowFilters = {
     company_visa_type_id: string;
     employee_group: PayrollBoardEmployeeGroup;
     crew_salary_structure: CrewSalaryStructureView;
+    crew_timesheet_filter?: string;
 };
 
 export type PayrollCategory = 'office' | 'crew';
@@ -40,13 +41,32 @@ export type CrewOperationalSource =
     | 'monthly_crew'
     | 'not_entered';
 
-export type GenerationReadiness = {
+export type CrewPayrollGenerationPreview = {
     ready: boolean;
-    blocking_reason: string | null;
+    can_generate: boolean;
+    ready_employee_ids: number[];
+    ready_count: number;
+    missing_timesheet_employee_ids: number[];
+    missing_timesheet_count: number;
+    awaiting_approval_employee_ids: number[];
+    awaiting_approval_count: number;
+    excluded_employee_ids: number[];
+    excluded_count: number;
+    blocking_issues: Array<{
+        employee_id: number | null;
+        employee_name: string | null;
+        code: string;
+        message: string;
+    }>;
+    blocking_count: number;
     applied_preparation_id: number | null;
     applied_preparation_version: number | null;
+    period_blocking_reason: string | null;
+    blocking_reason: string | null;
     affected_employee_id: number | null;
 };
+
+export type GenerationReadiness = CrewPayrollGenerationPreview;
 
 export type PayrollPeriodStatus =
     | 'draft'
@@ -77,7 +97,9 @@ export type PayrollPeriod = {
     uses_manual_timesheets: boolean;
     allows_fallback_operational_entry?: boolean;
     generation_ready?: boolean;
+    generation_can_confirm?: boolean;
     generation_blocking_reason?: string | null;
+    generation_preview?: CrewPayrollGenerationPreview | null;
     supports_timesheets: boolean;
     status: string;
     status_label: string;
@@ -161,11 +183,18 @@ export type CrewTimesheet = {
     remarks: string | null;
     source: string | null;
     source_label: string | null;
+    approval_status?: string | null;
+    approval_status_label?: string | null;
+    return_reason?: string | null;
+    submitted_at?: string | null;
+    approved_at?: string | null;
+    returned_at?: string | null;
     crew_timesheet_preparation_id: number | null;
     operational_approved_by: number | null;
     operational_approved_at: string | null;
     movement_source_hash: string | null;
     is_operationally_locked: boolean;
+    is_payroll_approved?: boolean;
     preparation_status: string | null;
     preparation_version: number | null;
 };
@@ -214,6 +243,8 @@ export type CrewPayrollRow = {
     is_filled: boolean;
     operational_source?: CrewOperationalSource;
     operational_source_label?: string;
+    approval_status?: string;
+    approval_status_label?: string;
     salary_structure?: 'daily' | 'monthly';
     leave_usage?: OfficeLeaveUsage[];
     total_leave_days?: number;
@@ -275,6 +306,9 @@ export function buildCrewTimesheetDraft(
 export type CrewPayrollPermissions = {
     create: boolean;
     update: boolean;
+    submit_timesheet: boolean;
+    approve_timesheet: boolean;
+    return_timesheet: boolean;
     import_timesheets: boolean;
     prepare_timeline: boolean;
     view_timeline: boolean;

@@ -3,6 +3,7 @@
 namespace App\Support\Payroll\CrewTimeline\Actions;
 
 use App\Enums\ContractSalaryStructure;
+use App\Enums\CrewTimesheetApprovalStatus;
 use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\CrewTimesheetSource;
@@ -437,9 +438,17 @@ final class ApplyCrewTimesheetPreparation
             'sign_off_standby_to' => $hasSignOff ? $aggregate['sign_off_standby_to'] : null,
             'sign_off_standby_days' => $signOffDays,
             'source' => CrewTimesheetSource::CrewOperations,
+            'approval_status' => CrewTimesheetApprovalStatus::Approved,
             'crew_timesheet_preparation_id' => $preparation->id,
             'operational_approved_by' => $preparation->approved_by,
             'operational_approved_at' => $preparation->approved_at,
+            'approved_by' => $preparation->approved_by,
+            'approved_at' => $preparation->approved_at,
+            'submitted_by' => null,
+            'submitted_at' => null,
+            'returned_by' => null,
+            'returned_at' => null,
+            'return_reason' => null,
             'movement_source_hash' => $preparation->source_hash,
         ];
     }

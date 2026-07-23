@@ -47,9 +47,9 @@ Crew timesheet timeline workflow permissions (Phase 1C–1D):
 |------------|------------|
 | `payroll.crew_timesheets.view` | View timeline preparation review page |
 | `payroll.crew_timesheets.prepare` | Create a new draft preparation version |
-| `payroll.crew_timesheets.submit` | Submit latest draft for crewing approval |
-| `payroll.crew_timesheets.approve` | Approve a submitted preparation |
-| `payroll.crew_timesheets.return` | Return a submitted preparation with notes |
+| `payroll.crew_timesheets.submit` | Submit latest draft timeline preparation, or submit a Manual/Import timesheet for approval |
+| `payroll.crew_timesheets.approve` | Approve a submitted preparation, or approve a submitted Manual/Import timesheet |
+| `payroll.crew_timesheets.return` | Return a submitted preparation or Manual/Import timesheet with notes |
 | `payroll.crew_timesheets.apply_approved` | Apply an approved preparation to crew timesheets |
 
 ## Employee and document details

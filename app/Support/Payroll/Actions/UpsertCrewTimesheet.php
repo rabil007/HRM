@@ -3,6 +3,7 @@
 namespace App\Support\Payroll\Actions;
 
 use App\Enums\ContractSalaryStructure;
+use App\Enums\CrewTimesheetApprovalStatus;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
 use App\Models\CrewTimesheet;
@@ -118,8 +119,40 @@ final class UpsertCrewTimesheet
                         'source' => $source === CrewTimesheetSource::Import
                             ? CrewTimesheetSource::Import
                             : CrewTimesheetSource::Manual,
+                        'approval_status' => $existing?->approval_status ?? CrewTimesheetApprovalStatus::Draft,
                     ],
                 );
+            }
+
+            $operationalChanged = $existing === null || $this->operationalValuesChanged($data, $existing);
+            $financialChanged = $existing !== null && $this->financialValuesChanged($data, $existing);
+            $attributes = [
+                'sign_on_standby_from' => $data['sign_on_standby_from'] ?? null,
+                'sign_on_standby_to' => $data['sign_on_standby_to'] ?? null,
+                'sign_on_standby_days' => $data['sign_on_standby_days'] ?? null,
+                'onsite_from' => $data['onsite_from'] ?? null,
+                'onsite_to' => $data['onsite_to'] ?? null,
+                'onsite_days' => $data['onsite_days'] ?? null,
+                'sign_off_standby_from' => $data['sign_off_standby_from'] ?? null,
+                'sign_off_standby_to' => $data['sign_off_standby_to'] ?? null,
+                'sign_off_standby_days' => $data['sign_off_standby_days'] ?? null,
+                'unpaid_leave_days' => $data['unpaid_leave_days'] ?? null,
+                'overtime_hours' => $this->financialValue($data, $existing, 'overtime_hours', 0),
+                'additional_amount' => $this->financialValue($data, $existing, 'additional_amount', 0),
+                'deduction_amount' => $this->financialValue($data, $existing, 'deduction_amount', 0),
+                'remarks' => $this->financialValue($data, $existing, 'remarks', null),
+                'source' => $source,
+            ];
+
+            if ($operationalChanged || $financialChanged) {
+                $attributes['approval_status'] = CrewTimesheetApprovalStatus::Draft;
+                $attributes['submitted_by'] = null;
+                $attributes['submitted_at'] = null;
+                $attributes['approved_by'] = null;
+                $attributes['approved_at'] = null;
+                $attributes['returned_by'] = null;
+                $attributes['returned_at'] = null;
+                $attributes['return_reason'] = null;
             }
 
             return CrewTimesheet::query()->updateOrCreate(
@@ -128,23 +161,7 @@ final class UpsertCrewTimesheet
                     'employee_id' => $employee->id,
                     'period_id' => $period->id,
                 ],
-                [
-                    'sign_on_standby_from' => $data['sign_on_standby_from'] ?? null,
-                    'sign_on_standby_to' => $data['sign_on_standby_to'] ?? null,
-                    'sign_on_standby_days' => $data['sign_on_standby_days'] ?? null,
-                    'onsite_from' => $data['onsite_from'] ?? null,
-                    'onsite_to' => $data['onsite_to'] ?? null,
-                    'onsite_days' => $data['onsite_days'] ?? null,
-                    'sign_off_standby_from' => $data['sign_off_standby_from'] ?? null,
-                    'sign_off_standby_to' => $data['sign_off_standby_to'] ?? null,
-                    'sign_off_standby_days' => $data['sign_off_standby_days'] ?? null,
-                    'unpaid_leave_days' => $data['unpaid_leave_days'] ?? null,
-                    'overtime_hours' => $this->financialValue($data, $existing, 'overtime_hours', 0),
-                    'additional_amount' => $this->financialValue($data, $existing, 'additional_amount', 0),
-                    'deduction_amount' => $this->financialValue($data, $existing, 'deduction_amount', 0),
-                    'remarks' => $this->financialValue($data, $existing, 'remarks', null),
-                    'source' => $source,
-                ],
+                $attributes,
             );
         });
     }
@@ -219,6 +236,64 @@ final class UpsertCrewTimesheet
             }
 
             return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function operationalValuesChanged(array $data, CrewTimesheet $existing): bool
+    {
+        foreach ([
+            'sign_on_standby_from',
+            'sign_on_standby_to',
+            'sign_on_standby_days',
+            'onsite_from',
+            'onsite_to',
+            'onsite_days',
+            'sign_off_standby_from',
+            'sign_off_standby_to',
+            'sign_off_standby_days',
+            'unpaid_leave_days',
+        ] as $key) {
+            if (! array_key_exists($key, $data)) {
+                continue;
+            }
+
+            $incoming = $data[$key];
+            $current = $existing->getAttribute($key);
+
+            if ($current instanceof CarbonInterface) {
+                $current = $current->toDateString();
+            }
+
+            if ($incoming instanceof CarbonInterface) {
+                $incoming = $incoming->toDateString();
+            }
+
+            if ((string) ($incoming ?? '') !== (string) ($current ?? '')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function financialValuesChanged(array $data, CrewTimesheet $existing): bool
+    {
+        foreach (['overtime_hours', 'additional_amount', 'deduction_amount'] as $key) {
+            if (! array_key_exists($key, $data) || $data[$key] === null) {
+                continue;
+            }
+
+            if ((string) $data[$key] !== (string) ($existing->getAttribute($key) ?? 0)) {
+                return true;
+            }
         }
 
         return false;

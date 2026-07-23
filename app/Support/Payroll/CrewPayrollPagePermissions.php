@@ -24,6 +24,9 @@ final class CrewPayrollPagePermissions
         return [
             'create' => $user?->can('payroll.crew_timesheets.create') ?? false,
             'update' => $user?->can('payroll.crew_timesheets.update') ?? false,
+            'submit_timesheet' => $user?->can('payroll.crew_timesheets.submit') ?? false,
+            'approve_timesheet' => $user?->can('payroll.crew_timesheets.approve') ?? false,
+            'return_timesheet' => $user?->can('payroll.crew_timesheets.return') ?? false,
             'generate_payroll' => $user?->can('payroll.periods.update') ?? false,
             'revert_to_draft' => $user?->can('payroll.periods.revert_to_draft') ?? false,
             'revert_to_approved' => $user?->can('payroll.periods.revert_to_approved') ?? false,

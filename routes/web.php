@@ -111,6 +111,8 @@ use App\Http\Controllers\Organization\UserController;
 use App\Http\Controllers\Organization\VesselManningController;
 use App\Http\Controllers\Payroll\ApplyCrewTimesheetPreparationController;
 use App\Http\Controllers\Payroll\ApproveCrewTimesheetPreparationController;
+use App\Http\Controllers\Payroll\CrewPayrollGenerationPreviewController;
+use App\Http\Controllers\Payroll\CrewTimesheetApprovalController;
 use App\Http\Controllers\Payroll\CrewTimesheetPreparationShowController;
 use App\Http\Controllers\Payroll\PayrollController;
 use App\Http\Controllers\Payroll\PayrollOverviewController;
@@ -339,6 +341,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('payroll/{payrollPeriod}/timesheets/import/template', [PayrollController::class, 'importTemplate'])->name('payroll.timesheets.import.template');
     Route::post('payroll/{payrollPeriod}/timesheets/import/preview', [PayrollController::class, 'importPreview'])->name('payroll.timesheets.import.preview');
     Route::post('payroll/{payrollPeriod}/timesheets/import', [PayrollController::class, 'importTimesheets'])->name('payroll.timesheets.import');
+    Route::post('payroll/{payrollPeriod}/timesheets/{timesheet}/submit', [CrewTimesheetApprovalController::class, 'submit'])
+        ->middleware('can:payroll.crew_timesheets.submit')
+        ->name('payroll.timesheets.submit');
+    Route::post('payroll/{payrollPeriod}/timesheets/{timesheet}/approve', [CrewTimesheetApprovalController::class, 'approve'])
+        ->middleware('can:payroll.crew_timesheets.approve')
+        ->name('payroll.timesheets.approve');
+    Route::post('payroll/{payrollPeriod}/timesheets/{timesheet}/return', [CrewTimesheetApprovalController::class, 'return'])
+        ->middleware('can:payroll.crew_timesheets.return')
+        ->name('payroll.timesheets.return');
+    Route::post('payroll/{payrollPeriod}/generation-preview', CrewPayrollGenerationPreviewController::class)
+        ->middleware('can:payroll.periods.update')
+        ->name('payroll.generation-preview');
     Route::post('payroll/{payrollPeriod}/crew-timeline/prepare', PrepareCrewTimesheetTimelineController::class)
         ->middleware('can:payroll.crew_timesheets.prepare')
         ->name('payroll.crew-timeline.prepare');

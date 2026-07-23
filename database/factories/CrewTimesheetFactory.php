@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Enums\CrewTimesheetApprovalStatus;
+use App\Enums\CrewTimesheetSource;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -32,6 +34,8 @@ class CrewTimesheetFactory extends Factory
             'additional_amount' => 0,
             'deduction_amount' => 0,
             'remarks' => null,
+            'source' => CrewTimesheetSource::Manual,
+            'approval_status' => CrewTimesheetApprovalStatus::Approved,
         ];
     }
 
@@ -42,6 +46,20 @@ class CrewTimesheetFactory extends Factory
             'onsite_days' => 0,
             'sign_off_standby_days' => 0,
             'unpaid_leave_days' => 0,
+        ]);
+    }
+
+    public function draft(): static
+    {
+        return $this->state(fn () => [
+            'approval_status' => CrewTimesheetApprovalStatus::Draft,
+        ]);
+    }
+
+    public function submitted(): static
+    {
+        return $this->state(fn () => [
+            'approval_status' => CrewTimesheetApprovalStatus::Submitted,
         ]);
     }
 }

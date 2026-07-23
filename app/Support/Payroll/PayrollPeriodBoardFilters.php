@@ -2,6 +2,7 @@
 
 namespace App\Support\Payroll;
 
+use App\Enums\CrewTimesheetBoardFilter;
 use App\Enums\PayrollBoardEmployeeGroup;
 use Illuminate\Http\Request;
 
@@ -13,6 +14,7 @@ final class PayrollPeriodBoardFilters
         public readonly string $companyVisaTypeId = '',
         public readonly PayrollBoardEmployeeGroup $employeeGroup = PayrollBoardEmployeeGroup::Total,
         public readonly string $crewSalaryStructure = 'daily',
+        public readonly ?CrewTimesheetBoardFilter $crewTimesheetFilter = null,
     ) {}
 
     public static function fromRequest(Request $request): self
@@ -27,6 +29,7 @@ final class PayrollPeriodBoardFilters
             companyVisaTypeId: trim((string) $request->query('company_visa_type_id', '')),
             employeeGroup: PayrollBoardEmployeeGroup::fromQuery($request->query('employee_group')),
             crewSalaryStructure: $crewSalaryStructure,
+            crewTimesheetFilter: CrewTimesheetBoardFilter::tryFromQuery($request->query('crew_timesheet_filter')),
         );
     }
 

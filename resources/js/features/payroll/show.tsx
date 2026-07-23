@@ -26,6 +26,11 @@ import React, {
     useState,
 } from 'react';
 import {
+    approve as approveTimesheet,
+    returnMethod as returnTimesheet,
+    submit as submitTimesheet,
+} from '@/actions/App/Http/Controllers/Payroll/CrewTimesheetApprovalController';
+import {
     approve,
     cancel,
     destroyPayrollRecord,
@@ -77,6 +82,7 @@ import { cn } from '@/lib/utils';
 import { show as crewTimelineShow } from '@/routes/payroll/crew-timeline';
 import { CrewOperationalSourceBadge } from './components/crew-operational-source-badge';
 import { CrewSalaryStructureToggle } from './components/crew-salary-structure-toggle';
+import { CrewTimesheetApprovalBadge } from './components/crew-timesheet-approval-badge';
 import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
 import { OfficePayrollRecordsTable } from './components/office-payroll-records-table';
 import { OfficeSalaryInputsSheet } from './components/office-salary-inputs-sheet';
@@ -666,14 +672,25 @@ export function PayrollShowContent({
 
     const isGenerationBlocked =
         period.supports_timesheets &&
-        period.generation_ready === false &&
+        Boolean(period.generation_blocking_reason) &&
         permissions.generate_payroll &&
         period.can_generate_crew_payroll;
 
     const generationBlockingReason =
         period.generation_blocking_reason ??
+        generation_readiness?.period_blocking_reason ??
         generation_readiness?.blocking_reason ??
         'Apply the approved Crew Operations timeline before generating payroll.';
+
+    const coveragePreview = generation_readiness ?? period.generation_preview;
+    const coverageSummaryParts = [
+        coveragePreview && coveragePreview.missing_timesheet_count > 0
+            ? `${coveragePreview.missing_timesheet_count} employees have no timesheet and will be skipped when payroll is generated`
+            : null,
+        coveragePreview && coveragePreview.awaiting_approval_count > 0
+            ? `${coveragePreview.awaiting_approval_count} employees are awaiting approval and will be skipped`
+            : null,
+    ].filter(Boolean) as string[];
 
     const showTimelineCard =
         period.supports_timesheets &&
@@ -1094,6 +1111,30 @@ export function PayrollShowContent({
                 </Card>
             ) : null}
 
+            {!isGenerationBlocked &&
+            period.supports_timesheets &&
+            coverageSummaryParts.length > 0 &&
+            period.can_generate_crew_payroll ? (
+                <Card className="glass-card border-amber-500/20 bg-amber-500/5">
+                    <CardContent className="flex items-start gap-3 p-5">
+                        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                        <div className="space-y-1">
+                            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                                Timesheet coverage
+                            </p>
+                            {coverageSummaryParts.map((part) => (
+                                <p
+                                    key={part}
+                                    className="text-sm text-amber-800/90 dark:text-amber-200/90"
+                                >
+                                    {part}.
+                                </p>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            ) : null}
+
             {/* ── Section 1: Employees / Timesheets ──────── */}
             {period.status === 'draft' && (
                 <section className="space-y-4">
@@ -1240,12 +1281,16 @@ export function PayrollShowContent({
                 open={isFiltersOpen}
                 onOpenChange={setIsFiltersOpen}
                 companyVisaTypes={company_visa_types}
+                supportsTimesheets={period.supports_timesheets}
                 value={{
                     company_visa_type_id: payrollFilters.company_visa_type_id,
+                    crew_timesheet_filter:
+                        payrollFilters.crew_timesheet_filter ?? '',
                 }}
                 onChange={(next) => {
                     list.applyFilters({
                         company_visa_type_id: next.company_visa_type_id,
+                        crew_timesheet_filter: next.crew_timesheet_filter,
                         page: null,
                         records_page: null,
                         monthly_records_page: null,
@@ -1254,6 +1299,7 @@ export function PayrollShowContent({
                 onReset={() => {
                     list.applyFilters({
                         company_visa_type_id: '',
+                        crew_timesheet_filter: '',
                         page: null,
                         records_page: null,
                         monthly_records_page: null,
@@ -1267,8 +1313,10 @@ export function PayrollShowContent({
                 onConfirm={handleGeneratePayroll}
                 processing={isGenerating}
                 payrollCategory={period.payroll_category}
+                periodId={period.id}
                 hasExistingRecords={hasPayrollRecords}
                 excludedCount={excludedIds.size}
+                excludedEmployeeIds={Array.from(excludedIds)}
             />
 
             <PayrollRevertToDraftDialog
@@ -1486,6 +1534,7 @@ export function PayrollShowContent({
                                     </DataTableHead>
                                     <DataTableHead>Employee</DataTableHead>
                                     <DataTableHead>Source</DataTableHead>
+                                    <DataTableHead>Approval</DataTableHead>
                                     <DataTableHead>Bank</DataTableHead>
                                     <DataTableHead className="border-l border-primary/10 bg-primary/3 text-right">
                                         Basic
@@ -1629,6 +1678,140 @@ export function PayrollShowContent({
                                                         row.operational_source_label
                                                     }
                                                 />
+                                            </TableCell>
+                                            <TableCell
+                                                className={cn(
+                                                    dataTableCellClass(),
+                                                    'align-middle',
+                                                )}
+                                            >
+                                                <div className="flex flex-col items-start gap-1.5">
+                                                    <CrewTimesheetApprovalBadge
+                                                        status={
+                                                            row.approval_status
+                                                        }
+                                                        label={
+                                                            row.approval_status_label
+                                                        }
+                                                    />
+                                                    {row.timesheet &&
+                                                    period.status === 'draft' &&
+                                                    row.timesheet.source !==
+                                                        'crew_operations' ? (
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {(row.timesheet
+                                                                .approval_status ===
+                                                                'draft' ||
+                                                                row.timesheet
+                                                                    .approval_status ===
+                                                                    'returned') &&
+                                                            permissions.submit_timesheet ? (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-7 px-2 text-[11px]"
+                                                                    onClick={() =>
+                                                                        router.post(
+                                                                            submitTimesheet.url(
+                                                                                {
+                                                                                    payrollPeriod:
+                                                                                        period.id,
+                                                                                    timesheet:
+                                                                                        row
+                                                                                            .timesheet!
+                                                                                            .id,
+                                                                                },
+                                                                            ),
+                                                                            {},
+                                                                            {
+                                                                                preserveScroll: true,
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Submit
+                                                                </Button>
+                                                            ) : null}
+                                                            {row.timesheet
+                                                                .approval_status ===
+                                                                'submitted' &&
+                                                            permissions.approve_timesheet ? (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-7 px-2 text-[11px]"
+                                                                    onClick={() =>
+                                                                        router.post(
+                                                                            approveTimesheet.url(
+                                                                                {
+                                                                                    payrollPeriod:
+                                                                                        period.id,
+                                                                                    timesheet:
+                                                                                        row
+                                                                                            .timesheet!
+                                                                                            .id,
+                                                                                },
+                                                                            ),
+                                                                            {},
+                                                                            {
+                                                                                preserveScroll: true,
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Approve
+                                                                </Button>
+                                                            ) : null}
+                                                            {row.timesheet
+                                                                .approval_status ===
+                                                                'submitted' &&
+                                                            permissions.return_timesheet ? (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-7 px-2 text-[11px]"
+                                                                    onClick={() => {
+                                                                        const reason =
+                                                                            window.prompt(
+                                                                                'Return reason',
+                                                                            );
+
+                                                                        if (
+                                                                            !reason?.trim()
+                                                                        ) {
+                                                                            return;
+                                                                        }
+
+                                                                        router.post(
+                                                                            returnTimesheet.url(
+                                                                                {
+                                                                                    payrollPeriod:
+                                                                                        period.id,
+                                                                                    timesheet:
+                                                                                        row
+                                                                                            .timesheet!
+                                                                                            .id,
+                                                                                },
+                                                                            ),
+                                                                            {
+                                                                                return_reason:
+                                                                                    reason.trim(),
+                                                                            },
+                                                                            {
+                                                                                preserveScroll: true,
+                                                                            },
+                                                                        );
+                                                                    }}
+                                                                >
+                                                                    Return
+                                                                </Button>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : null}
+                                                </div>
                                             </TableCell>
 
                                             {/* Bank account */}

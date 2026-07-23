@@ -14,7 +14,7 @@ use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 
-test('crew payroll generation creates records for all active crew employees including those without timesheets', function () {
+test('crew payroll generation creates records for ready employees and skips daily employees without timesheets', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
@@ -63,22 +63,17 @@ test('crew payroll generation creates records for all active crew employees incl
         ->and($record->net_salary)->toBe('3925.00')
         ->and($record->calculation_breakdown['lines']['total_standby_pay'])->toEqual(1125);
 
-    expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(2);
+    expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(1);
 
-    $zeroWorkRecord = PayrollRecord::query()
+    expect(PayrollRecord::query()
         ->where('period_id', $period->id)
         ->where('employee_id', $crewWithoutTimesheet->id)
-        ->first();
-
-    expect($zeroWorkRecord)->not->toBeNull()
-        ->and($zeroWorkRecord->gross_salary)->toBe('0.00')
-        ->and($zeroWorkRecord->net_salary)->toBe('0.00')
-        ->and($zeroWorkRecord->present_days)->toBe(0)
-        ->and((float) $zeroWorkRecord->leave_days)->toBe(30.0);
+        ->exists())->toBeFalse();
 
     $summary = session('payroll_generation');
-    expect($summary['generated_count'])->toBe(2)
-        ->and($summary['skipped_count'])->toBe(0);
+    expect($summary['generated_count'])->toBe(1)
+        ->and($summary['skipped_missing_timesheet_count'])->toBe(1)
+        ->and($summary['skipped_count'])->toBe(1);
 });
 
 test('crew payroll generation stamps generated_at and leaves payment date null, refreshing on regeneration', function () {
@@ -95,7 +90,15 @@ test('crew payroll generation stamps generated_at and leaves payment date null, 
         'generated_at' => null,
     ]);
 
-    createCrewEmployeeWithContract($company, 'CREW-PAY', 150, 50, 75);
+    $employee = createCrewEmployeeWithContract($company, 'CREW-PAY', 150, 50, 75);
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'onsite_days' => 10,
+        'onsite_from' => '2026-06-01',
+        'onsite_to' => '2026-06-10',
+    ]);
 
     Carbon::setTestNow('2026-07-03 09:00:00');
 
@@ -490,12 +493,11 @@ test('crew payroll generation from draft stays draft when all employees are excl
         ->post(route('payroll.generate', $period), [
             'excluded_employee_ids' => [$firstEmployee->id, $secondEmployee->id],
         ])
-        ->assertRedirect();
+        ->assertSessionHasErrors('period_id');
 
     $period->refresh();
 
     expect($period->status)->toBe(PayrollPeriodStatus::Draft)
-        ->and($period->excluded_employee_ids)->toBe([$firstEmployee->id, $secondEmployee->id])
         ->and(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0);
 });
 

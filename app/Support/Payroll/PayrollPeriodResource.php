@@ -60,10 +60,14 @@ final class PayrollPeriodResource
             )),
             'is_editable' => $period->isEditable(),
             'can_generate_crew_payroll' => $period->canGenerateCrewPayroll(),
-            'can_generate_payroll' => $period->canGeneratePayroll()
-                && ($generationReadiness === null || $generationReadiness['ready']),
+            'can_generate_payroll' => $period->canGeneratePayroll(),
             'generation_ready' => $generationReadiness['ready'] ?? true,
-            'generation_blocking_reason' => $generationReadiness['blocking_reason'] ?? null,
+            'generation_can_confirm' => $generationReadiness['can_generate'] ?? true,
+            'generation_blocking_reason' => $generationReadiness['period_blocking_reason']
+                ?? (($generationReadiness['blocking_count'] ?? 0) > 0
+                    ? ($generationReadiness['blocking_reason'] ?? null)
+                    : null),
+            'generation_preview' => $generationReadiness,
             'can_revert_to_draft' => $period->canRevertToDraft(),
             'can_revert_to_approved' => $period->canRevertToApproved(),
             'can_revert_to_processing' => $period->canRevertToProcessing(),

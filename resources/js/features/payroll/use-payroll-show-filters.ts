@@ -79,6 +79,8 @@ export function usePayrollShowFilters({
                 ? {
                       crew_salary_structure:
                           payrollFilters.crew_salary_structure,
+                      crew_timesheet_filter:
+                          payrollFilters.crew_timesheet_filter || undefined,
                   }
                 : {}),
             search: initialSearch || undefined,
@@ -89,6 +91,7 @@ export function usePayrollShowFilters({
             pagination.per_page,
             payrollFilters.company_visa_type_id,
             payrollFilters.crew_salary_structure,
+            payrollFilters.crew_timesheet_filter,
             payrollFilters.department_id,
             payrollFilters.employee_group,
             payrollFilters.position_id,

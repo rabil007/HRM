@@ -12,6 +12,7 @@ use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Support\Payroll\BuildCrewPayrollGenerationPreview;
 use App\Support\Payroll\CrewMonthlyPayrollCalculator;
 use App\Support\Payroll\CrewOperationsPayrollGenerationGuard;
 use App\Support\Payroll\CrewOvertimeMonthlySalary;
@@ -34,6 +35,7 @@ final class GenerateCrewPayroll
         private readonly ResolveEffectiveContractSalaryComponents $resolveEffectiveComponents,
         private readonly CrewOperationsPayrollGenerationGuard $crewOperationsGuard,
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
+        private readonly BuildCrewPayrollGenerationPreview $buildPreview,
     ) {}
 
     public function handle(PayrollPeriod $period, array $excludedEmployeeIds = []): GeneratePayrollResult
@@ -51,42 +53,24 @@ final class GenerateCrewPayroll
             array_merge($period->excluded_employee_ids ?? [], $excludedEmployeeIds),
         )));
 
-        $employeesQuery = PayrollEmployeeQuery::activeQuery($period->company_id, PayrollCategory::Crew);
-
-        if ($excludedEmployeeIds !== []) {
-            $employeesQuery->whereNotIn('employees.id', $excludedEmployeeIds);
-        }
-
-        $employees = $employeesQuery
-            ->with([
-                'primaryBankAccount',
-                'crewTimesheets' => fn ($query) => $query
-                    ->where('period_id', $period->id)
-                    ->with('preparation'),
-            ])
-            ->orderBy('employees.name')
-            ->get();
-
-        $resolvedContracts = $this->resolveContract->resolveMany(
-            $period,
-            $employees->pluck('id')->map(intval(...))->all(),
-            ['salaryComponents', 'salaryRevisions.lines'],
-        );
-
         $generatedCount = 0;
         $skippedEmployees = [];
         $errors = [];
+        $skippedMissing = 0;
+        $skippedAwaiting = 0;
+        $previewArray = null;
         $workingDaysInPeriod = $period->calendarDayCount();
 
         DB::transaction(function () use (
             $period,
-            $employees,
-            $resolvedContracts,
             $excludedEmployeeIds,
             $workingDaysInPeriod,
             &$generatedCount,
             &$skippedEmployees,
             &$errors,
+            &$skippedMissing,
+            &$skippedAwaiting,
+            &$previewArray,
         ): void {
             $lockedPeriod = PayrollPeriod::query()
                 ->whereKey($period->id)
@@ -102,15 +86,59 @@ final class GenerateCrewPayroll
                 ]);
             }
 
-            $usesExclusiveCrewOperations = $lockedPeriod->requiresExclusiveCrewOperationsTimesheets();
-            $usesHybridTimesheets = $lockedPeriod->usesMixedTimesheetSources();
+            $preview = $this->buildPreview->handle(
+                $lockedPeriod,
+                (int) $lockedPeriod->company_id,
+                $excludedEmployeeIds,
+            );
+            $previewArray = $preview->toArray();
 
-            if ($usesExclusiveCrewOperations || $usesHybridTimesheets) {
+            if ($preview->blockingCount > 0) {
+                throw ValidationException::withMessages([
+                    'period_id' => $preview->blockingIssues[0]['message']
+                        ?? 'Payroll generation is blocked by invalid approved timesheet data.',
+                ]);
+            }
+
+            if ($preview->readyCount === 0) {
+                throw ValidationException::withMessages([
+                    'period_id' => 'No employees are ready for payroll.',
+                ]);
+            }
+
+            if ($lockedPeriod->requiresExclusiveCrewOperationsTimesheets()) {
+                $employees = PayrollEmployeeQuery::activeQuery(
+                    (int) $lockedPeriod->company_id,
+                    PayrollCategory::Crew,
+                )->whereIn('employees.id', $preview->readyEmployeeIds)->get();
+
                 $this->crewOperationsGuard->assertReadyForGeneration(
                     $lockedPeriod,
                     $employees,
                     (int) $lockedPeriod->company_id,
                 );
+            }
+
+            $readyIds = $preview->readyEmployeeIds;
+            $skippedMissing = $preview->missingTimesheetCount;
+            $skippedAwaiting = $preview->awaitingApprovalCount;
+
+            foreach ($preview->missingTimesheetEmployeeIds as $employeeId) {
+                $skippedEmployees[] = [
+                    'id' => $employeeId,
+                    'name' => '',
+                    'employee_no' => null,
+                    'reason' => 'missing_timesheet',
+                ];
+            }
+
+            foreach ($preview->awaitingApprovalEmployeeIds as $employeeId) {
+                $skippedEmployees[] = [
+                    'id' => $employeeId,
+                    'name' => '',
+                    'employee_no' => null,
+                    'reason' => 'awaiting_approval',
+                ];
             }
 
             if ($excludedEmployeeIds !== []) {
@@ -119,6 +147,39 @@ final class GenerateCrewPayroll
                     ->whereIn('employee_id', $excludedEmployeeIds)
                     ->forceDelete();
             }
+
+            $notReadyIds = array_values(array_unique(array_merge(
+                $preview->missingTimesheetEmployeeIds,
+                $preview->awaitingApprovalEmployeeIds,
+                $excludedEmployeeIds,
+            )));
+
+            if ($notReadyIds !== []) {
+                PayrollRecord::query()
+                    ->where('period_id', $lockedPeriod->id)
+                    ->whereIn('employee_id', $notReadyIds)
+                    ->forceDelete();
+            }
+
+            $employees = PayrollEmployeeQuery::activeQuery(
+                (int) $lockedPeriod->company_id,
+                PayrollCategory::Crew,
+            )
+                ->whereIn('employees.id', $readyIds !== [] ? $readyIds : [0])
+                ->with([
+                    'primaryBankAccount',
+                    'crewTimesheets' => fn ($query) => $query
+                        ->where('period_id', $lockedPeriod->id)
+                        ->with('preparation'),
+                ])
+                ->orderBy('employees.name')
+                ->get();
+
+            $resolvedContracts = $this->resolveContract->resolveMany(
+                $lockedPeriod,
+                $employees->pluck('id')->map(intval(...))->all(),
+                ['salaryComponents', 'salaryRevisions.lines'],
+            );
 
             foreach ($employees as $employee) {
                 /** @var Employee $employee */
@@ -138,30 +199,17 @@ final class GenerateCrewPayroll
                 $timesheet = $employee->crewTimesheets->first();
 
                 if ($timesheet === null) {
-                    if ($usesExclusiveCrewOperations && $salaryStructure === ContractSalaryStructure::Daily) {
+                    if ($salaryStructure === ContractSalaryStructure::Monthly) {
+                        $timesheet = new CrewTimesheet([
+                            'unpaid_leave_days' => 0,
+                            'overtime_hours' => 0,
+                            'additional_amount' => 0,
+                            'deduction_amount' => 0,
+                            'source' => CrewTimesheetSource::Manual,
+                        ]);
+                    } else {
                         continue;
                     }
-
-                    if ($usesHybridTimesheets && $salaryStructure === ContractSalaryStructure::Daily) {
-                        $errors[] = PayrollGenerationError::forEmployee(
-                            $employee,
-                            'Daily crew employee is missing a timesheet. Enter Manual or Excel data, or apply Crew Operations movement data.',
-                            'timesheet',
-                        );
-
-                        continue;
-                    }
-
-                    $timesheet = new CrewTimesheet([
-                        'sign_on_standby_days' => 0,
-                        'onsite_days' => 0,
-                        'sign_off_standby_days' => 0,
-                        'unpaid_leave_days' => 0,
-                        'overtime_hours' => 0,
-                        'additional_amount' => 0,
-                        'deduction_amount' => 0,
-                        'source' => CrewTimesheetSource::Manual,
-                    ]);
                 }
 
                 try {
@@ -205,11 +253,45 @@ final class GenerateCrewPayroll
             }
         });
 
+        $employeeNames = Employee::query()
+            ->where('company_id', $period->company_id)
+            ->whereIn('id', array_column($skippedEmployees, 'id') ?: [0])
+            ->get(['id', 'name', 'employee_no'])
+            ->keyBy('id');
+
+        $skippedEmployees = array_map(function (array $row) use ($employeeNames): array {
+            $employee = $employeeNames->get($row['id']);
+
+            return [
+                'id' => $row['id'],
+                'name' => $employee?->name ?? $row['name'],
+                'employee_no' => $employee?->employee_no,
+                'reason' => $row['reason'] ?? 'skipped',
+            ];
+        }, $skippedEmployees);
+
+        activity()
+            ->performedOn($period)
+            ->withProperties([
+                'event' => 'crew_payroll_generated',
+                'company_id' => $period->company_id,
+                'payroll_period_id' => $period->id,
+                'generated_count' => $generatedCount,
+                'skipped_missing_timesheet_count' => $skippedMissing,
+                'skipped_awaiting_approval_count' => $skippedAwaiting,
+                'skipped_excluded_count' => count($excludedEmployeeIds),
+            ])
+            ->log('Crew payroll generated');
+
         return new GeneratePayrollResult(
             generatedCount: $generatedCount,
-            skippedCount: count($skippedEmployees),
+            skippedCount: count($skippedEmployees) + count($excludedEmployeeIds),
             skippedEmployees: $skippedEmployees,
             errors: $errors,
+            skippedMissingTimesheetCount: $skippedMissing,
+            skippedAwaitingApprovalCount: $skippedAwaiting,
+            skippedExcludedCount: count($excludedEmployeeIds),
+            preview: $previewArray,
         );
     }
 

@@ -340,6 +340,7 @@ class PayrollController extends Controller
                 'company_visa_type_id' => $boardFilters->companyVisaTypeId,
                 'employee_group' => $boardFilters->employeeGroup->value,
                 'crew_salary_structure' => $crewSalaryStructure,
+                'crew_timesheet_filter' => $boardFilters->crewTimesheetFilter?->value ?? '',
             ],
             'company_visa_types' => CompanyVisaType::query()
                 ->where('is_active', true)
@@ -789,12 +790,29 @@ class PayrollController extends Controller
             );
 
         $message = $result->generatedCount > 0
-            ? "Generated payroll for {$result->generatedCount} employee(s)."
+            ? "Payroll generated for {$result->generatedCount} employee(s)."
             : 'No payroll records were generated.';
 
-        if ($result->skippedCount > 0) {
-            $skipReason = $payrollPeriod->isCrew() ? 'no timesheet' : 'no attendance';
-            $message .= " {$result->skippedCount} employee(s) skipped ({$skipReason}).";
+        if ($payrollPeriod->isCrew()) {
+            $skipParts = [];
+
+            if ($result->skippedMissingTimesheetCount > 0) {
+                $skipParts[] = "{$result->skippedMissingTimesheetCount} without timesheets";
+            }
+
+            if ($result->skippedAwaitingApprovalCount > 0) {
+                $skipParts[] = "{$result->skippedAwaitingApprovalCount} awaiting approval";
+            }
+
+            if ($result->skippedExcludedCount > 0) {
+                $skipParts[] = "{$result->skippedExcludedCount} explicitly excluded";
+            }
+
+            if ($skipParts !== []) {
+                $message .= ' Skipped: '.implode('; ', $skipParts).'.';
+            }
+        } elseif ($result->skippedCount > 0) {
+            $message .= " {$result->skippedCount} employee(s) skipped (no attendance).";
         }
 
         return redirect()

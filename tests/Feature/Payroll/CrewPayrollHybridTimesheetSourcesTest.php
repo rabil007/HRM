@@ -280,7 +280,7 @@ test('hybrid generation does not require applied timeline when all employees use
         ->assertSessionHas('success');
 });
 
-test('hybrid generation returns employee-specific error for missing daily timesheet', function () {
+test('hybrid generation skips missing daily timesheet without blocking readiness', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     grantCompanyPermissions($user, $company, [
         'payroll.periods.view',
@@ -295,10 +295,11 @@ test('hybrid generation returns employee-specific error for missing daily timesh
 
     $readiness = app(CrewOperationsPayrollGenerationGuard::class)->readiness($period, (int) $company->id);
 
-    expect($readiness['ready'])->toBeFalse()
-        ->and($readiness['affected_employee_id'])->toBe($employee->id)
-        ->and($readiness['blocking_reason'])->toContain($employee->name)
-        ->and($readiness['blocking_reason'])->toContain('missing a timesheet');
+    expect($readiness['ready'])->toBeTrue()
+        ->and($readiness['can_generate'])->toBeFalse()
+        ->and($readiness['missing_timesheet_count'])->toBe(1)
+        ->and($readiness['missing_timesheet_employee_ids'])->toContain($employee->id)
+        ->and($readiness['blocking_count'])->toBe(0);
 
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])

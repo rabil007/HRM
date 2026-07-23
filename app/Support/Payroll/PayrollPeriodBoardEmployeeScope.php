@@ -2,6 +2,10 @@
 
 namespace App\Support\Payroll;
 
+use App\Enums\ContractSalaryStructure;
+use App\Enums\CrewTimesheetApprovalStatus;
+use App\Enums\CrewTimesheetBoardFilter;
+use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollBoardEmployeeGroup;
 use App\Enums\PayrollCategory;
 use App\Enums\SalaryPaymentMethod;
@@ -42,6 +46,7 @@ final class PayrollPeriodBoardEmployeeScope
 
         if ($payrollCategory === PayrollCategory::Crew) {
             self::applyCrewSalaryStructureFilter($query, $filters->crewSalaryStructure);
+            self::applyCrewTimesheetFilter($query, $period, $filters->crewTimesheetFilter);
         }
     }
 
@@ -128,5 +133,102 @@ final class PayrollPeriodBoardEmployeeScope
         $query->whereHas('currentContract', function (Builder $contractQuery) use ($crewSalaryStructure): void {
             ContractSalaryStructureFilter::apply($contractQuery, $crewSalaryStructure);
         });
+    }
+
+    /**
+     * @param  Builder<Employee>  $query
+     */
+    private static function applyCrewTimesheetFilter(
+        Builder $query,
+        PayrollPeriod $period,
+        ?CrewTimesheetBoardFilter $filter,
+    ): void {
+        if ($filter === null) {
+            return;
+        }
+
+        match ($filter) {
+            CrewTimesheetBoardFilter::MissingTimesheet => $query
+                ->whereDoesntHave(
+                    'crewTimesheets',
+                    fn (Builder $timesheetQuery) => $timesheetQuery->where('period_id', $period->id),
+                )
+                ->whereHas('currentContract', function (Builder $contractQuery): void {
+                    $contractQuery->where(function (Builder $structureQuery): void {
+                        $structureQuery
+                            ->where('salary_structure', ContractSalaryStructure::Daily->value)
+                            ->orWhereNull('salary_structure');
+                    });
+                }),
+            CrewTimesheetBoardFilter::AwaitingApproval => $query->whereHas(
+                'crewTimesheets',
+                fn (Builder $timesheetQuery) => $timesheetQuery
+                    ->where('period_id', $period->id)
+                    ->whereIn('source', [
+                        CrewTimesheetSource::Manual->value,
+                        CrewTimesheetSource::Import->value,
+                    ])
+                    ->whereIn('approval_status', [
+                        CrewTimesheetApprovalStatus::Draft->value,
+                        CrewTimesheetApprovalStatus::Submitted->value,
+                        CrewTimesheetApprovalStatus::Returned->value,
+                    ]),
+            ),
+            CrewTimesheetBoardFilter::Returned => $query->whereHas(
+                'crewTimesheets',
+                fn (Builder $timesheetQuery) => $timesheetQuery
+                    ->where('period_id', $period->id)
+                    ->where('approval_status', CrewTimesheetApprovalStatus::Returned->value),
+            ),
+            CrewTimesheetBoardFilter::CrewOperations => $query->whereHas(
+                'crewTimesheets',
+                fn (Builder $timesheetQuery) => $timesheetQuery
+                    ->where('period_id', $period->id)
+                    ->where('source', CrewTimesheetSource::CrewOperations->value),
+            ),
+            CrewTimesheetBoardFilter::Manual => $query->whereHas(
+                'crewTimesheets',
+                fn (Builder $timesheetQuery) => $timesheetQuery
+                    ->where('period_id', $period->id)
+                    ->where('source', CrewTimesheetSource::Manual->value),
+            ),
+            CrewTimesheetBoardFilter::Import => $query->whereHas(
+                'crewTimesheets',
+                fn (Builder $timesheetQuery) => $timesheetQuery
+                    ->where('period_id', $period->id)
+                    ->where('source', CrewTimesheetSource::Import->value),
+            ),
+            CrewTimesheetBoardFilter::Ready => $query->where(function (Builder $readyQuery) use ($period): void {
+                $readyQuery
+                    ->whereHas(
+                        'crewTimesheets',
+                        fn (Builder $timesheetQuery) => $timesheetQuery
+                            ->where('period_id', $period->id)
+                            ->where(function (Builder $approvedQuery): void {
+                                $approvedQuery
+                                    ->where('source', CrewTimesheetSource::CrewOperations->value)
+                                    ->orWhere('approval_status', CrewTimesheetApprovalStatus::Approved->value);
+                            }),
+                    )
+                    ->orWhere(function (Builder $monthlyQuery) use ($period): void {
+                        $monthlyQuery
+                            ->whereHas('currentContract', fn (Builder $contractQuery) => $contractQuery
+                                ->where('salary_structure', ContractSalaryStructure::Monthly->value))
+                            ->where(function (Builder $monthlyTimesheetQuery) use ($period): void {
+                                $monthlyTimesheetQuery
+                                    ->whereDoesntHave(
+                                        'crewTimesheets',
+                                        fn (Builder $timesheetQuery) => $timesheetQuery->where('period_id', $period->id),
+                                    )
+                                    ->orWhereHas(
+                                        'crewTimesheets',
+                                        fn (Builder $timesheetQuery) => $timesheetQuery
+                                            ->where('period_id', $period->id)
+                                            ->where('approval_status', CrewTimesheetApprovalStatus::Approved->value),
+                                    );
+                            });
+                    });
+            }),
+        };
     }
 }

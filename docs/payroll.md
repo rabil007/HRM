@@ -193,22 +193,38 @@ Creation:
 - create form no longer asks for Manual vs Crew Operations
 - Draft Crew periods are migrated to `hybrid` when safe; Approved/Paid/Processing historical modes are left unchanged
 
-Generation readiness (hybrid):
+Generation readiness (hybrid / manual):
 
-- validated per included employee
-- Daily `crew_operations` rows require Applied linkage, matching hash, and approval metadata
-- Daily Manual/Import rows require a timesheet with that source and no Applied lock conflict
-- missing Daily timesheets return an employee-specific readiness error
-- exclusive historical `crew_operations` periods still require exactly one Applied preparation for the period
+- `BuildCrewPayrollGenerationPreview` classifies every included employee as Ready, Missing timesheet, Awaiting approval, Excluded, or Blocking
+- Missing Daily timesheets and unapproved Manual/Import timesheets are **skipped warnings**, not period blockers
+- Applied Crew Operations rows count as approved (no second Manual/Import-style approval)
+- Invalid approved timesheets and broken Crew Operations linkage are **blocking**
+- Clicking Generate opens a server-backed preview; confirmation recomputes under the period lock and generates only Ready employees
+- No movement timeline is required for every employee; Monthly Crew follows existing monthly rules without a timesheet
+- Exclusive historical `crew_operations` periods still require exactly one Applied preparation for the period
+
+Manual/Import timesheet approval:
+
+- Additive `approval_status` on `crew_timesheets`: draft → submitted → approved / returned
+- Reuses `payroll.crew_timesheets.submit|approve|return`
+- Operational (and net-affecting financial) edits on Manual/Import reset approval to draft
+- Financial-only updates on locked Crew Operations rows preserve operational values and Applied approval
 
 Key files:
 
 - `app/Enums/CrewTimesheetMode.php`
+- `app/Enums/CrewTimesheetApprovalStatus.php`
+- `app/Support/Payroll/BuildCrewPayrollGenerationPreview.php`
+- `app/Support/Payroll/CrewPayrollGenerationPreview.php`
 - `app/Support/Payroll/CrewOperationsPayrollGenerationGuard.php`
 - `app/Support/Payroll/RegularPayrollPeriodKey.php`
 - `app/Support/Payroll/Actions/UpdatePayrollPeriodCrewTimesheetMode.php`
+- `app/Support/Payroll/Actions/SubmitCrewTimesheetApproval.php`
+- `app/Support/Payroll/Actions/ApproveCrewTimesheetApproval.php`
+- `app/Support/Payroll/Actions/ReturnCrewTimesheetApproval.php`
 - `resources/js/features/payroll/types.ts`
 - `resources/js/features/payroll/show.tsx`
+- `resources/js/features/payroll/components/payroll-generate-dialog.tsx`
 
 ### Production hardening (post Phase 1E / hybrid)
 
@@ -229,7 +245,10 @@ Payable-category filtering:
 
 Readiness / generation parity:
 
-- `CrewOperationsPayrollGenerationGuard::validateReadiness()` is the single non-mutating validator. Hybrid readiness is employee-based; exclusive historical `crew_operations` readiness still requires an Applied preparation for the period. The Generate Payroll button (`generation_ready` / `generation_blocking_reason`) and backend generation return the same blocking reason and expose `affected_employee_id`.
+- `BuildCrewPayrollGenerationPreview` is the structured hybrid/manual generation preview (Ready / missing / awaiting approval / excluded / blocking). `CrewOperationsPayrollGenerationGuard::readiness()` returns that preview for the UI.
+- Exclusive historical `crew_operations` still uses period-level Applied preparation checks.
+- The Generate Payroll button stays available when the period status permits generation; missing or unapproved timesheets do not disable it. Period-level blockers (for example missing Applied preparation on exclusive Crew Operations) still surface as blocking reasons.
+- Confirmation always recomputes the preview under `lockForUpdate()` and generates only Ready employees.
 
 Source freshness:
 

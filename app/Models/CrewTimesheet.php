@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CrewTimesheetApprovalStatus;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\CrewTimesheetSource;
 use App\Models\Concerns\LogsActivityWithCompany;
@@ -45,6 +46,14 @@ class CrewTimesheet extends Model
                 'deduction_amount',
                 'remarks',
                 'source',
+                'approval_status',
+                'submitted_by',
+                'submitted_at',
+                'approved_by',
+                'approved_at',
+                'returned_by',
+                'returned_at',
+                'return_reason',
                 'crew_timesheet_preparation_id',
                 'operational_approved_by',
                 'operational_approved_at',
@@ -71,6 +80,13 @@ class CrewTimesheet extends Model
             'additional_amount' => 'decimal:2',
             'deduction_amount' => 'decimal:2',
             'source' => CrewTimesheetSource::class,
+            'approval_status' => CrewTimesheetApprovalStatus::class,
+            'submitted_by' => 'integer',
+            'submitted_at' => 'datetime',
+            'approved_by' => 'integer',
+            'approved_at' => 'datetime',
+            'returned_by' => 'integer',
+            'returned_at' => 'datetime',
             'crew_timesheet_preparation_id' => 'integer',
             'operational_approved_by' => 'integer',
             'operational_approved_at' => 'datetime',
@@ -102,6 +118,21 @@ class CrewTimesheet extends Model
         return $this->belongsTo(User::class, 'operational_approved_by');
     }
 
+    public function submittedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'submitted_by');
+    }
+
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function returnedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'returned_by');
+    }
+
     public function isOperationallyLocked(): bool
     {
         if ($this->source !== CrewTimesheetSource::CrewOperations) {
@@ -111,5 +142,29 @@ class CrewTimesheet extends Model
         $this->loadMissing('preparation');
 
         return $this->preparation?->status === CrewTimesheetPreparationStatus::Applied;
+    }
+
+    public function isPayrollApproved(): bool
+    {
+        if ($this->isOperationallyLocked()) {
+            return true;
+        }
+
+        return ($this->approval_status ?? CrewTimesheetApprovalStatus::Draft)
+            === CrewTimesheetApprovalStatus::Approved;
+    }
+
+    public function resetApprovalToDraft(): void
+    {
+        $this->fill([
+            'approval_status' => CrewTimesheetApprovalStatus::Draft,
+            'submitted_by' => null,
+            'submitted_at' => null,
+            'approved_by' => null,
+            'approved_at' => null,
+            'returned_by' => null,
+            'returned_at' => null,
+            'return_reason' => null,
+        ]);
     }
 }
