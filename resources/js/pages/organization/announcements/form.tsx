@@ -5,12 +5,16 @@ import {
     CalendarClock,
     CheckCircle2,
     ChevronDown,
+    ChevronRight,
     FileText,
+    Folder,
+    FolderOpen,
     GitBranch,
     Globe,
     Mail,
     Megaphone,
     MessageCircle,
+    Minus,
     Send,
     Smartphone,
     Trash2,
@@ -19,7 +23,7 @@ import {
     Users,
     X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import InputError from '@/components/input-error';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
@@ -143,17 +147,345 @@ const AUDIENCE_TYPES = [
     },
 ] as const;
 
+type DepartmentItem = {
+    id: number;
+    name: string;
+    parent_id?: number | null;
+};
+
+function DepartmentTreeNode({
+    item,
+    childrenMap,
+    getFamilyIds,
+    selectedIds,
+    onToggleBatch,
+    search,
+    depth = 0,
+}: {
+    item: DepartmentItem;
+    childrenMap: Map<number, DepartmentItem[]>;
+    getFamilyIds: (id: number) => number[];
+    selectedIds: number[];
+    onToggleBatch: (type: string, ids: number[], checked: boolean) => void;
+    search: string;
+    depth?: number;
+}) {
+    const children = childrenMap.get(item.id) || [];
+    const hasChildren = children.length > 0;
+    const [expanded, setExpanded] = useState(true);
+
+    const familyIds = useMemo(
+        () => getFamilyIds(item.id),
+        [getFamilyIds, item.id],
+    );
+    const selectedFamilyCount = useMemo(
+        () => familyIds.filter((id) => selectedIds.includes(id)).length,
+        [familyIds, selectedIds],
+    );
+
+    const isFullySelected =
+        familyIds.length > 0 && selectedFamilyCount === familyIds.length;
+    const isPartiallySelected =
+        selectedFamilyCount > 0 && !isFullySelected;
+    const isSelfSelected = selectedIds.includes(item.id);
+
+    // Search filter logic
+    const matchesSearch = item.name
+        .toLowerCase()
+        .includes(search.toLowerCase());
+    const hasMatchingDescendant = useMemo(() => {
+        if (!search) {
+            return false;
+        }
+
+        const checkMatch = (id: number): boolean => {
+            const childs = childrenMap.get(id) || [];
+
+            return childs.some(
+                (c) =>
+                    c.name.toLowerCase().includes(search.toLowerCase()) ||
+                    checkMatch(c.id),
+            );
+        };
+
+        return checkMatch(item.id);
+    }, [childrenMap, item.id, search]);
+
+    if (search && !matchesSearch && !hasMatchingDescendant) {
+        return null;
+    }
+
+    const handleToggle = () => {
+        if (hasChildren) {
+            // Clicking parent toggles all children in family
+            onToggleBatch('department', familyIds, !isFullySelected);
+        } else {
+            onToggleBatch('department', [item.id], !isSelfSelected);
+        }
+    };
+
+    return (
+        <div className="space-y-1">
+            <div
+                className={cn(
+                    'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-muted/50',
+                    isFullySelected && 'bg-primary/5 font-medium text-foreground',
+                    isPartiallySelected && 'bg-primary/5 text-foreground',
+                )}
+                style={{ paddingLeft: `${depth * 1.25 + 0.625}rem` }}
+            >
+                {hasChildren ? (
+                    <button
+                        type="button"
+                        onClick={() => setExpanded(!expanded)}
+                        className="flex size-5 shrink-0 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                        {expanded ? (
+                            <ChevronDown className="size-3.5" />
+                        ) : (
+                            <ChevronRight className="size-3.5" />
+                        )}
+                    </button>
+                ) : (
+                    <span className="size-5 shrink-0" />
+                )}
+
+                <Checkbox
+                    checked={
+                        isFullySelected
+                            ? true
+                            : isPartiallySelected
+                              ? 'indeterminate'
+                              : false
+                    }
+                    onCheckedChange={handleToggle}
+                />
+
+                <div
+                    className="flex flex-1 cursor-pointer items-center gap-2 min-w-0 select-none"
+                    onClick={handleToggle}
+                >
+                    {hasChildren ? (
+                        expanded ? (
+                            <FolderOpen className="size-4 shrink-0 text-blue-500" />
+                        ) : (
+                            <Folder className="size-4 shrink-0 text-blue-500" />
+                        )
+                    ) : null}
+                    <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                </div>
+
+                {hasChildren ? (
+                    <span className="shrink-0 font-mono text-[11px] font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
+                        {selectedFamilyCount > 0
+                            ? `${selectedFamilyCount}/${familyIds.length}`
+                            : `${children.length} sub-dept${children.length !== 1 ? 's' : ''}`}
+                    </span>
+                ) : isSelfSelected ? (
+                    <CheckCircle2 className="size-3.5 shrink-0 text-primary" />
+                ) : null}
+            </div>
+
+            {hasChildren && (expanded || search) ? (
+                <div className="relative ml-4 border-l border-border/40 pl-1">
+                    {children.map((child) => (
+                        <DepartmentTreeNode
+                            key={child.id}
+                            item={child}
+                            childrenMap={childrenMap}
+                            getFamilyIds={getFamilyIds}
+                            selectedIds={selectedIds}
+                            onToggleBatch={onToggleBatch}
+                            search={search}
+                            depth={depth + 1}
+                        />
+                    ))}
+                </div>
+            ) : null}
+        </div>
+    );
+}
+
+function DepartmentTreePicker({
+    items,
+    selectedIds,
+    onToggleBatch,
+    onClear,
+}: {
+    items: DepartmentItem[];
+    selectedIds: number[];
+    onToggleBatch: (type: string, ids: number[], checked: boolean) => void;
+    onClear: () => void;
+}) {
+    const [search, setSearch] = useState('');
+    const [open, setOpen] = useState(true);
+
+    const childrenMap = useMemo(() => {
+        const map = new Map<number, DepartmentItem[]>();
+        items.forEach((item) => {
+            if (item.parent_id) {
+                const list = map.get(item.parent_id) || [];
+                list.push(item);
+                map.set(item.parent_id, list);
+            }
+        });
+
+        return map;
+    }, [items]);
+
+    const itemIdsSet = useMemo(
+        () => new Set(items.map((i) => i.id)),
+        [items],
+    );
+
+    const rootItems = useMemo(
+        () =>
+            items.filter(
+                (item) => !item.parent_id || !itemIdsSet.has(item.parent_id),
+            ),
+        [items, itemIdsSet],
+    );
+
+    const getFamilyIds = useCallback(
+        (id: number): number[] => {
+            const family = [id];
+            const children = childrenMap.get(id) || [];
+            children.forEach((child) => {
+                family.push(...getFamilyIds(child.id));
+            });
+
+            return family;
+        },
+        [childrenMap],
+    );
+
+    const allSelected =
+        items.length > 0 && items.every((item) => selectedIds.includes(item.id));
+
+    const toggleSelectAll = () => {
+        const allIds = items.map((item) => item.id);
+        onToggleBatch('department', allIds, !allSelected);
+    };
+
+    return (
+        <div className="space-y-3">
+            {/* Selected chips */}
+            {selectedIds.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                    {items
+                        .filter((item) => selectedIds.includes(item.id))
+                        .map((item) => (
+                            <span
+                                key={item.id}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/8 px-3 py-1 text-xs font-medium text-blue-600 dark:text-blue-400"
+                            >
+                                <Building2 className="size-3 opacity-70" />
+                                {item.name}
+                                <button
+                                    type="button"
+                                    className="ml-0.5 rounded-full opacity-60 transition-opacity hover:opacity-100"
+                                    onClick={() =>
+                                        onToggleBatch(
+                                            'department',
+                                            [item.id],
+                                            false,
+                                        )
+                                    }
+                                >
+                                    <X className="size-3" />
+                                </button>
+                            </span>
+                        ))}
+                    <button
+                        type="button"
+                        className="text-xs text-muted-foreground hover:text-destructive"
+                        onClick={onClear}
+                    >
+                        Clear all
+                    </button>
+                </div>
+            ) : null}
+
+            {/* Tree Container */}
+            <div className="rounded-xl border border-border/70 bg-muted/10">
+                <button
+                    type="button"
+                    className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium"
+                    onClick={() => setOpen((o) => !o)}
+                >
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                        <Building2 className="size-4 text-blue-500" />
+                        {selectedIds.length === 0
+                            ? `Select from ${items.length} departments (tree view)`
+                            : `${selectedIds.length} of ${items.length} departments selected`}
+                    </span>
+                    <ChevronDown
+                        className={cn(
+                            'size-4 text-muted-foreground transition-transform',
+                            open && 'rotate-180',
+                        )}
+                    />
+                </button>
+
+                {open ? (
+                    <div className="border-t border-border/60 px-3 pb-3">
+                        {/* Search + Select All bar */}
+                        <div className="flex items-center gap-2 py-2">
+                            {items.length > 5 ? (
+                                <Input
+                                    placeholder="Search departments…"
+                                    value={search}
+                                    onChange={(e) =>
+                                        setSearch(e.target.value)
+                                    }
+                                    className="h-8 flex-1 text-xs"
+                                />
+                            ) : null}
+                            <button
+                                type="button"
+                                className="ml-auto shrink-0 text-xs font-semibold text-primary hover:underline"
+                                onClick={toggleSelectAll}
+                            >
+                                {allSelected ? 'Deselect all' : 'Select all'}
+                            </button>
+                        </div>
+
+                        <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                            {rootItems.length === 0 ? (
+                                <p className="py-4 text-center text-xs text-muted-foreground">
+                                    No departments available
+                                </p>
+                            ) : null}
+                            {rootItems.map((root) => (
+                                <DepartmentTreeNode
+                                    key={root.id}
+                                    item={root}
+                                    childrenMap={childrenMap}
+                                    getFamilyIds={getFamilyIds}
+                                    selectedIds={selectedIds}
+                                    onToggleBatch={onToggleBatch}
+                                    search={search}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                ) : null}
+            </div>
+        </div>
+    );
+}
+
 function AudiencePicker({
     type,
     items,
     selectedIds,
-    onToggle,
+    onToggleBatch,
     onClear,
 }: {
     type: string;
     items: { id: number; name: string; employee_no?: string | null }[];
     selectedIds: number[];
-    onToggle: (type: string, id: number, checked: boolean) => void;
+    onToggleBatch: (type: string, ids: number[], checked: boolean) => void;
     onClear: () => void;
 }) {
     const [search, setSearch] = useState('');
@@ -164,15 +496,8 @@ function AudiencePicker({
     const allSelected = items.length > 0 && selectedIds.length === items.length;
 
     const toggleAll = () => {
-        if (allSelected) {
-            items.forEach((item) => onToggle(type, item.id, false));
-        } else {
-            items.forEach((item) => {
-                if (!selectedIds.includes(item.id)) {
-                    onToggle(type, item.id, true);
-                }
-            });
-        }
+        const allIds = items.map((item) => item.id);
+        onToggleBatch(type, allIds, !allSelected);
     };
 
     return (
@@ -197,7 +522,7 @@ function AudiencePicker({
                                     type="button"
                                     className="ml-0.5 rounded-full opacity-60 transition-opacity hover:opacity-100"
                                     onClick={() =>
-                                        onToggle(type, item.id, false)
+                                        onToggleBatch(type, [item.id], false)
                                     }
                                 >
                                     <X className="size-3" />
@@ -250,7 +575,7 @@ function AudiencePicker({
                             ) : null}
                             <button
                                 type="button"
-                                className="ml-auto shrink-0 text-xs text-primary hover:underline"
+                                className="ml-auto shrink-0 text-xs font-semibold text-primary hover:underline"
                                 onClick={toggleAll}
                             >
                                 {allSelected ? 'Deselect all' : 'Select all'}
@@ -280,9 +605,9 @@ function AudiencePicker({
                                         <Checkbox
                                             checked={isChecked}
                                             onCheckedChange={(checked) =>
-                                                onToggle(
+                                                onToggleBatch(
                                                     type,
-                                                    item.id,
+                                                    [item.id],
                                                     Boolean(checked),
                                                 )
                                             }
@@ -377,12 +702,31 @@ export default function AnnouncementFormPage({
         );
     };
 
-    const toggleAudienceId = (type: string, id: number, checked: boolean) => {
-        const current = form.data.audiences.filter((a) => a.type === type);
-        const next = checked
-            ? [...current, { type, id }]
-            : current.filter((a) => a.id !== id);
-        form.setData('audiences', next);
+    const toggleAudienceBatch = (
+        type: string,
+        idsToToggle: number[],
+        checked: boolean,
+    ) => {
+        const otherAudiences = form.data.audiences.filter((a) => a.type !== type);
+        const currentTypeIds = new Set(
+            form.data.audiences
+                .filter((a) => a.type === type)
+                .map((a) => a.id)
+                .filter((id): id is number => id !== null),
+        );
+
+        if (checked) {
+            idsToToggle.forEach((id) => currentTypeIds.add(id));
+        } else {
+            idsToToggle.forEach((id) => currentTypeIds.delete(id));
+        }
+
+        const newTypeAudiences = Array.from(currentTypeIds).map((id) => ({
+            type,
+            id,
+        }));
+
+        form.setData('audiences', [...otherAudiences, ...newTypeAudiences]);
     };
 
     const loadPreview = (channels: string[], audiences: { type: string; id: number | null }[]) => {
@@ -695,8 +1039,17 @@ export default function AnnouncementFormPage({
                             ) : null}
 
                             {/* Sub-picker for non-all modes */}
-                            {activeAudienceType !== 'all_employees' &&
-                            audienceOptions[activeAudienceType] ? (
+                            {activeAudienceType === 'department' ? (
+                                <DepartmentTreePicker
+                                    items={options.departments}
+                                    selectedIds={selectedIds('department')}
+                                    onToggleBatch={toggleAudienceBatch}
+                                    onClear={() =>
+                                        clearAudienceType('department')
+                                    }
+                                />
+                            ) : activeAudienceType !== 'all_employees' &&
+                              audienceOptions[activeAudienceType] ? (
                                 <AudiencePicker
                                     type={activeAudienceType}
                                     items={
@@ -705,7 +1058,7 @@ export default function AnnouncementFormPage({
                                     selectedIds={selectedIds(
                                         activeAudienceType,
                                     )}
-                                    onToggle={toggleAudienceId}
+                                    onToggleBatch={toggleAudienceBatch}
                                     onClear={() =>
                                         clearAudienceType(activeAudienceType)
                                     }

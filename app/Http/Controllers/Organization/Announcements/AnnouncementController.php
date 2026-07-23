@@ -215,7 +215,7 @@ class AnnouncementController extends Controller
                 ->where('company_id', $companyId)
                 ->where('status', 'active')
                 ->orderBy('name')
-                ->get(['id', 'name']),
+                ->get(['id', 'name', 'parent_id']),
             'positions' => Position::query()
                 ->where('company_id', $companyId)
                 ->where('status', 'active')
