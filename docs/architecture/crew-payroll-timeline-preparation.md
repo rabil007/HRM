@@ -303,9 +303,11 @@ Current behaviour:
 - timeline prepare/review/approve/apply is available for Hybrid and exclusive Crew Operations periods
 - operational source badge per employee: Crew Operations, Excel Import, Manual, Not Entered, Monthly Crew
 - Applied Crew Operations data automatically replaces Manual/Import operational values and locks them; financial fields are preserved
-- generation readiness uses `BuildCrewPayrollGenerationPreview`: missing/unapproved timesheets are skipped warnings; invalid approved data and broken Crew Operations linkage are blocking
-- exclusive historical Crew Operations still requires an Applied preparation for the period
+- generation readiness uses a lightweight coverage summary on the period show page; full integrity preview runs on Generate click and again under lock on confirm
+- public preview payloads omit bulk employee ID arrays
+- draft skipped payroll rows are soft-deleted; approved/paid history is never hard-deleted by regeneration
 - Manual/Import timesheets use additive draft/submitted/approved/returned approval; Applied Crew Operations counts as approved
+- performance indexes support timesheet filter, recalc, and applied-preparation lookups
 - movement timeline is optional per employee and does not block payroll merely by being absent
 - one regular full-month period per company/category/month via `regular_period_key`
 - `creation_source` remains audit metadata only (Created by system / Created by user)

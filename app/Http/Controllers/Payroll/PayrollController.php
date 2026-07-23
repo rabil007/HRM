@@ -39,7 +39,7 @@ use App\Support\Payroll\Actions\RevertPayrollPeriodToDraft;
 use App\Support\Payroll\Actions\RevertPayrollPeriodToProcessing;
 use App\Support\Payroll\Actions\UpdatePayrollPeriodCrewTimesheetMode;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
-use App\Support\Payroll\CrewOperationsPayrollGenerationGuard;
+use App\Support\Payroll\BuildCrewPayrollCoverageSummary;
 use App\Support\Payroll\CrewPayrollPagePermissions;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewQuery;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationSummaryResource;
@@ -157,7 +157,7 @@ class PayrollController extends Controller
         ProvisionDefaultSalaryInputTypes $provisionDefaultSalaryInputTypes,
         CrewTimesheetPreparationReviewQuery $crewTimelineReviewQuery,
         CrewTimesheetPreparationSummaryResource $crewTimelineSummaryResource,
-        CrewOperationsPayrollGenerationGuard $crewOperationsGenerationGuard,
+        BuildCrewPayrollCoverageSummary $buildCrewPayrollCoverageSummary,
     ): InertiaResponse|RedirectResponse {
         $this->authorizePayrollShow($request);
 
@@ -302,8 +302,12 @@ class PayrollController extends Controller
 
         $provisionDefaultSalaryInputTypes->handle($companyId);
 
+        $generationSummary = $payrollPeriod->isCrew()
+            ? $buildCrewPayrollCoverageSummary->handle($payrollPeriod, $companyId)
+            : null;
+
         return Inertia::render('payroll/show', [
-            'period' => PayrollPeriodResource::toArray($payrollPeriod),
+            'period' => PayrollPeriodResource::toArray($payrollPeriod, $generationSummary),
             'leave_types' => $leaveTypes,
             'rows' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
@@ -400,9 +404,7 @@ class PayrollController extends Controller
                     $payrollPeriod,
                 )
                 : null,
-            'generation_readiness' => $payrollPeriod->isCrew()
-                ? $crewOperationsGenerationGuard->readiness($payrollPeriod, $companyId)
-                : null,
+            'generation_readiness' => $generationSummary,
             'crew_timesheet_mode_options' => collect(CrewTimesheetMode::cases())
                 ->map(fn (CrewTimesheetMode $mode) => [
                     'value' => $mode->value,

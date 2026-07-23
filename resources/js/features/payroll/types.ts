@@ -44,13 +44,13 @@ export type CrewOperationalSource =
 export type CrewPayrollGenerationPreview = {
     ready: boolean;
     can_generate: boolean;
-    ready_employee_ids: number[];
+    ready_employee_ids?: number[];
     ready_count: number;
-    missing_timesheet_employee_ids: number[];
+    missing_timesheet_employee_ids?: number[];
     missing_timesheet_count: number;
-    awaiting_approval_employee_ids: number[];
+    awaiting_approval_employee_ids?: number[];
     awaiting_approval_count: number;
-    excluded_employee_ids: number[];
+    excluded_employee_ids?: number[];
     excluded_count: number;
     blocking_issues: Array<{
         employee_id: number | null;

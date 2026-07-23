@@ -306,5 +306,6 @@ test('generation preview endpoint returns structured preview', function () {
         ->assertJsonPath('missing_timesheet_count', 1)
         ->assertJsonPath('ready_count', 0)
         ->assertJsonPath('blocking_count', 0)
-        ->assertJsonPath('can_generate', false);
+        ->assertJsonPath('can_generate', false)
+        ->assertJsonMissingPath('ready_employee_ids');
 });

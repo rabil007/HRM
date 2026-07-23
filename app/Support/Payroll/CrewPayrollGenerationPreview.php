@@ -32,20 +32,16 @@ final class CrewPayrollGenerationPreview
     /**
      * @return array<string, mixed>
      */
-    public function toArray(): array
+    public function toArray(bool $includeEmployeeIds = true): array
     {
-        return [
+        $payload = [
             'ready' => $this->ready,
             'can_generate' => $this->canGenerate,
-            'ready_employee_ids' => $this->readyEmployeeIds,
             'ready_count' => $this->readyCount,
-            'missing_timesheet_employee_ids' => $this->missingTimesheetEmployeeIds,
             'missing_timesheet_count' => $this->missingTimesheetCount,
-            'awaiting_approval_employee_ids' => $this->awaitingApprovalEmployeeIds,
             'awaiting_approval_count' => $this->awaitingApprovalCount,
-            'excluded_employee_ids' => $this->excludedEmployeeIds,
             'excluded_count' => $this->excludedCount,
-            'blocking_issues' => $this->blockingIssues,
+            'blocking_issues' => array_slice($this->blockingIssues, 0, 25),
             'blocking_count' => $this->blockingCount,
             'applied_preparation_id' => $this->appliedPreparationId,
             'applied_preparation_version' => $this->appliedPreparationVersion,
@@ -54,5 +50,22 @@ final class CrewPayrollGenerationPreview
                 ?? ($this->blockingIssues[0]['message'] ?? null),
             'affected_employee_id' => $this->blockingIssues[0]['employee_id'] ?? null,
         ];
+
+        if ($includeEmployeeIds) {
+            $payload['ready_employee_ids'] = $this->readyEmployeeIds;
+            $payload['missing_timesheet_employee_ids'] = $this->missingTimesheetEmployeeIds;
+            $payload['awaiting_approval_employee_ids'] = $this->awaitingApprovalEmployeeIds;
+            $payload['excluded_employee_ids'] = $this->excludedEmployeeIds;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toPublicArray(): array
+    {
+        return $this->toArray(includeEmployeeIds: false);
     }
 }

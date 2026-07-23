@@ -8,7 +8,10 @@ use App\Models\PayrollPeriod;
 
 final class PayrollPeriodResource
 {
-    public static function toArray(PayrollPeriod $period): array
+    /**
+     * @param  array<string, mixed>|null  $generationSummary
+     */
+    public static function toArray(PayrollPeriod $period, ?array $generationSummary = null): array
     {
         $paths = $period->payment_proof_paths ?? [];
         if (empty($paths) && filled($period->payment_proof_path)) {
@@ -24,12 +27,12 @@ final class PayrollPeriodResource
             ];
         }
 
-        $generationReadiness = $period->isCrew()
-            ? app(CrewOperationsPayrollGenerationGuard::class)->readiness(
+        if ($generationSummary === null && $period->isCrew()) {
+            $generationSummary = app(BuildCrewPayrollCoverageSummary::class)->handle(
                 $period,
                 (int) $period->company_id,
-            )
-            : null;
+            );
+        }
 
         return [
             'id' => $period->id,
@@ -61,13 +64,13 @@ final class PayrollPeriodResource
             'is_editable' => $period->isEditable(),
             'can_generate_crew_payroll' => $period->canGenerateCrewPayroll(),
             'can_generate_payroll' => $period->canGeneratePayroll(),
-            'generation_ready' => $generationReadiness['ready'] ?? true,
-            'generation_can_confirm' => $generationReadiness['can_generate'] ?? true,
-            'generation_blocking_reason' => $generationReadiness['period_blocking_reason']
-                ?? (($generationReadiness['blocking_count'] ?? 0) > 0
-                    ? ($generationReadiness['blocking_reason'] ?? null)
+            'generation_ready' => $generationSummary['ready'] ?? true,
+            'generation_can_confirm' => $generationSummary['can_generate'] ?? true,
+            'generation_blocking_reason' => $generationSummary['period_blocking_reason']
+                ?? (($generationSummary['blocking_count'] ?? 0) > 0
+                    ? ($generationSummary['blocking_reason'] ?? null)
                     : null),
-            'generation_preview' => $generationReadiness,
+            'generation_preview' => $generationSummary,
             'can_revert_to_draft' => $period->canRevertToDraft(),
             'can_revert_to_approved' => $period->canRevertToApproved(),
             'can_revert_to_processing' => $period->canRevertToProcessing(),

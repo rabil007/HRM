@@ -189,7 +189,7 @@ final class ApplyCrewTimesheetPreparation
                         'employee_id' => $employeeId,
                         'action' => 'updated',
                         'previous' => $previousOperational,
-                        'next' => $this->operationalSnapshot($existing->fresh() ?? $existing),
+                        'next' => $this->operationalSnapshot($existing),
                         'preserved_financial' => $preservedFinancial,
                     ];
                 }

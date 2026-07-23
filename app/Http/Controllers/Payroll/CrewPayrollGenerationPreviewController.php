@@ -29,21 +29,6 @@ class CrewPayrollGenerationPreviewController extends Controller
 
         $preview = $buildPreview->handle($payrollPeriod, $companyId, $excluded);
 
-        activity()
-            ->performedOn($payrollPeriod)
-            ->causedBy($request->user())
-            ->withProperties([
-                'event' => 'crew_payroll_generation_preview',
-                'company_id' => $companyId,
-                'payroll_period_id' => $payrollPeriod->id,
-                'ready_count' => $preview->readyCount,
-                'missing_timesheet_count' => $preview->missingTimesheetCount,
-                'awaiting_approval_count' => $preview->awaitingApprovalCount,
-                'excluded_count' => $preview->excludedCount,
-                'blocking_count' => $preview->blockingCount,
-            ])
-            ->log('Crew payroll generation preview viewed');
-
-        return response()->json($preview->toArray());
+        return response()->json($preview->toPublicArray());
     }
 }

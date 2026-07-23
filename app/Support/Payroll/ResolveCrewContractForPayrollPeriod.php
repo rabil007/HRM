@@ -56,8 +56,11 @@ final class ResolveCrewContractForPayrollPeriod
             ->when($with !== [], fn ($query) => $query->with($with))
             ->get();
 
-        return collect($employeeIds)->mapWithKeys(function (int $employeeId) use ($contracts, $periodStart, $periodEnd): array {
-            $forEmployee = $contracts->where('employee_id', $employeeId);
+        /** @var Collection<int, Collection<int, EmployeeContract>> $byEmployee */
+        $byEmployee = $contracts->groupBy(fn (EmployeeContract $contract): int => (int) $contract->employee_id);
+
+        return collect($employeeIds)->mapWithKeys(function (int $employeeId) use ($byEmployee, $periodStart, $periodEnd): array {
+            $forEmployee = $byEmployee->get($employeeId, collect());
 
             $overlapping = $forEmployee
                 ->filter(fn (EmployeeContract $contract): bool => $this->overlapsPeriod($contract, $periodStart, $periodEnd))

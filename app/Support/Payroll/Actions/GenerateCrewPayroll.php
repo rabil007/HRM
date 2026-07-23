@@ -12,9 +12,9 @@ use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Models\SalaryInput;
 use App\Support\Payroll\BuildCrewPayrollGenerationPreview;
 use App\Support\Payroll\CrewMonthlyPayrollCalculator;
-use App\Support\Payroll\CrewOperationsPayrollGenerationGuard;
 use App\Support\Payroll\CrewOvertimeMonthlySalary;
 use App\Support\Payroll\CrewPayrollCalculator;
 use App\Support\Payroll\GeneratePayrollResult;
@@ -33,7 +33,6 @@ final class GenerateCrewPayroll
         private readonly CrewMonthlyPayrollCalculator $monthlyCalculator,
         private readonly RecalculateCrewPayroll $recalculateCrewPayroll,
         private readonly ResolveEffectiveContractSalaryComponents $resolveEffectiveComponents,
-        private readonly CrewOperationsPayrollGenerationGuard $crewOperationsGuard,
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
         private readonly BuildCrewPayrollGenerationPreview $buildPreview,
     ) {}
@@ -106,19 +105,6 @@ final class GenerateCrewPayroll
                 ]);
             }
 
-            if ($lockedPeriod->requiresExclusiveCrewOperationsTimesheets()) {
-                $employees = PayrollEmployeeQuery::activeQuery(
-                    (int) $lockedPeriod->company_id,
-                    PayrollCategory::Crew,
-                )->whereIn('employees.id', $preview->readyEmployeeIds)->get();
-
-                $this->crewOperationsGuard->assertReadyForGeneration(
-                    $lockedPeriod,
-                    $employees,
-                    (int) $lockedPeriod->company_id,
-                );
-            }
-
             $readyIds = $preview->readyEmployeeIds;
             $skippedMissing = $preview->missingTimesheetCount;
             $skippedAwaiting = $preview->awaitingApprovalCount;
@@ -141,25 +127,20 @@ final class GenerateCrewPayroll
                 ];
             }
 
-            if ($excludedEmployeeIds !== []) {
-                PayrollRecord::query()
-                    ->where('period_id', $lockedPeriod->id)
-                    ->whereIn('employee_id', $excludedEmployeeIds)
-                    ->forceDelete();
-            }
-
             $notReadyIds = array_values(array_unique(array_merge(
                 $preview->missingTimesheetEmployeeIds,
                 $preview->awaitingApprovalEmployeeIds,
                 $excludedEmployeeIds,
             )));
 
-            if ($notReadyIds !== []) {
-                PayrollRecord::query()
-                    ->where('period_id', $lockedPeriod->id)
-                    ->whereIn('employee_id', $notReadyIds)
-                    ->forceDelete();
-            }
+            $this->softDeleteDraftRecordsForEmployees($lockedPeriod, $notReadyIds);
+
+            $existingRecords = PayrollRecord::withTrashed()
+                ->where('company_id', $lockedPeriod->company_id)
+                ->where('period_id', $lockedPeriod->id)
+                ->whereIn('employee_id', $readyIds !== [] ? $readyIds : [0])
+                ->get()
+                ->keyBy(fn (PayrollRecord $record) => (int) $record->employee_id);
 
             $employees = PayrollEmployeeQuery::activeQuery(
                 (int) $lockedPeriod->company_id,
@@ -222,14 +203,23 @@ final class GenerateCrewPayroll
                     continue;
                 }
 
-                PayrollRecord::query()->updateOrCreate(
-                    [
+                $existing = $existingRecords->get((int) $employee->id);
+
+                if ($existing !== null) {
+                    if ($existing->trashed()) {
+                        $existing->restore();
+                    }
+
+                    $existing->fill($recordAttributes);
+                    $existing->save();
+                } else {
+                    PayrollRecord::query()->create([
                         'company_id' => $lockedPeriod->company_id,
                         'employee_id' => $employee->id,
                         'period_id' => $lockedPeriod->id,
-                    ],
-                    $recordAttributes,
-                );
+                        ...$recordAttributes,
+                    ]);
+                }
 
                 $generatedCount++;
             }
@@ -248,7 +238,7 @@ final class GenerateCrewPayroll
 
             $lockedPeriod->update($periodUpdates);
 
-            if ($generatedCount > 0) {
+            if ($generatedCount > 0 && $this->periodHasSalaryInputs($lockedPeriod, $readyIds)) {
                 $this->recalculateCrewPayroll->handle($lockedPeriod->fresh());
             }
         });
@@ -293,6 +283,42 @@ final class GenerateCrewPayroll
             skippedExcludedCount: count($excludedEmployeeIds),
             preview: $previewArray,
         );
+    }
+
+    /**
+     * Soft-delete draft payroll rows for skipped employees. Never touches
+     * approved/paid records or finalized periods.
+     *
+     * @param  list<int>  $employeeIds
+     */
+    private function softDeleteDraftRecordsForEmployees(PayrollPeriod $period, array $employeeIds): void
+    {
+        if ($employeeIds === [] || ! $period->canGenerateCrewPayroll()) {
+            return;
+        }
+
+        PayrollRecord::query()
+            ->where('company_id', $period->company_id)
+            ->where('period_id', $period->id)
+            ->whereIn('employee_id', $employeeIds)
+            ->where('status', 'draft')
+            ->delete();
+    }
+
+    /**
+     * @param  list<int>  $employeeIds
+     */
+    private function periodHasSalaryInputs(PayrollPeriod $period, array $employeeIds): bool
+    {
+        if ($employeeIds === []) {
+            return false;
+        }
+
+        return SalaryInput::query()
+            ->where('company_id', $period->company_id)
+            ->where('period_id', $period->id)
+            ->whereIn('employee_id', $employeeIds)
+            ->exists();
     }
 
     /**

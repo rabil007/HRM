@@ -169,10 +169,19 @@ final class CrewOperationsPayrollGenerationGuard
         }
 
         $payableEmployeeIds = PayableCrewPreparationLines::payableEmployeeIds($companyId, (int) $preparation->id);
+        $employeeIds = $employees->pluck('id')->map(intval(...))->all();
         $contracts = $this->resolveContract->resolveMany(
             $period,
-            $employees->pluck('id')->map(intval(...))->all(),
+            $employeeIds,
         );
+
+        $timesheets = CrewTimesheet::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $period->id)
+            ->whereIn('employee_id', $employeeIds !== [] ? $employeeIds : [0])
+            ->with('preparation')
+            ->get()
+            ->keyBy(fn (CrewTimesheet $timesheet) => (int) $timesheet->employee_id);
 
         foreach ($employees as $employee) {
             /** @var Employee $employee */
@@ -191,7 +200,13 @@ final class CrewOperationsPayrollGenerationGuard
                 continue;
             }
 
-            $blockingReason = $this->dailyTimesheetLinkReason($employee, $period, $preparation, $companyId);
+            $blockingReason = $this->dailyTimesheetLinkReason(
+                $employee,
+                $period,
+                $preparation,
+                $companyId,
+                $timesheets->get((int) $employee->id),
+            );
 
             if ($blockingReason !== null) {
                 return $this->result(false, $blockingReason, $preparation, (int) $employee->id);

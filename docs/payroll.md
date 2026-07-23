@@ -245,10 +245,11 @@ Payable-category filtering:
 
 Readiness / generation parity:
 
-- `BuildCrewPayrollGenerationPreview` is the structured hybrid/manual generation preview (Ready / missing / awaiting approval / excluded / blocking). `CrewOperationsPayrollGenerationGuard::readiness()` returns that preview for the UI.
+- Show-page coverage uses `BuildCrewPayrollCoverageSummary` once (counts + period-level blockers). Full integrity classification runs on Generate click via `BuildCrewPayrollGenerationPreview` and again under lock on confirm.
+- Public preview JSON returns counts and capped blocking issues only; Ready employee IDs stay server-side.
 - Exclusive historical `crew_operations` still uses period-level Applied preparation checks.
-- The Generate Payroll button stays available when the period status permits generation; missing or unapproved timesheets do not disable it. Period-level blockers (for example missing Applied preparation on exclusive Crew Operations) still surface as blocking reasons.
-- Confirmation always recomputes the preview under `lockForUpdate()` and generates only Ready employees.
+- Confirmation soft-deletes draft skipped records (never approved/paid), loads existing payroll rows once, and skips full-period salary-input recalculation when no inputs exist.
+- Indexed lookups: `crew_timesheets (company_id, period_id, approval_status)`, `payroll_records (company_id, period_id, payroll_category)`, `crew_timesheet_preparations (company_id, payroll_period_id, status)`.
 
 Source freshness:
 
