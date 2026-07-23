@@ -110,7 +110,6 @@ test('authorized users can create a draft announcement', function () {
         'priority' => 'high',
         'channels' => ['in_app', 'email'],
         'audiences' => [['type' => 'all_employees', 'id' => null]],
-        'requires_acknowledgement' => true,
         'publish_mode' => 'draft',
     ])->assertRedirect();
 
@@ -118,8 +117,7 @@ test('authorized users can create a draft announcement', function () {
 
     expect($announcement)->not->toBeNull()
         ->and($announcement->status)->toBe(AnnouncementStatus::Draft)
-        ->and($announcement->title)->toBe('Safety briefing')
-        ->and($announcement->requires_acknowledgement)->toBeTrue();
+        ->and($announcement->title)->toBe('Safety briefing');
 });
 
 test('draft announcements can be deleted and published ones cannot', function () {

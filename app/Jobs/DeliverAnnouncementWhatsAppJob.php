@@ -8,7 +8,6 @@ use App\Models\AnnouncementDelivery;
 use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\Actions\RefreshAnnouncementDeliveryStatus;
-use App\Support\Announcements\BuildAnnouncementPublicLinks;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -31,7 +30,6 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
 
     public function handle(
         WhatsAppService $whatsApp,
-        BuildAnnouncementPublicLinks $publicLinks,
         RefreshAnnouncementDeliveryStatus $refreshStatus,
     ): void {
         $delivery = AnnouncementDelivery::query()
@@ -90,7 +88,6 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $viewUrl = $publicLinks->viewUrl($recipient);
         $companyName = (string) ($announcement->company?->name ?? config('app.name'));
         $shortBody = str($announcement->body_html)->stripTags()->limit(200)->toString();
 
@@ -102,7 +99,6 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
                     ['type' => 'text', 'text' => (string) $announcement->title],
                     ['type' => 'text', 'text' => $shortBody !== '' ? $shortBody : (string) $announcement->title],
                     ['type' => 'text', 'text' => $announcement->priority->label()],
-                    ['type' => 'text', 'text' => $viewUrl],
                 ],
             ],
         ];

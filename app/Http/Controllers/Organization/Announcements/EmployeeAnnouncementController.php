@@ -8,7 +8,6 @@ use App\Enums\AnnouncementStatus;
 use App\Http\Controllers\Controller;
 use App\Models\AnnouncementRecipient;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -53,42 +52,13 @@ class EmployeeAnnouncementController extends Controller
                 'priority' => $announcement->priority->label(),
                 'category' => $announcement->category->label(),
                 'published_at' => $announcement->published_at?->toIso8601String(),
-                'requires_acknowledgement' => (bool) $announcement->requires_acknowledgement,
-                'acknowledged_at' => $recipient->acknowledged_at?->toIso8601String(),
                 'attachments' => $announcement->attachments->map(fn ($attachment): array => [
                     'id' => $attachment->id,
                     'original_name' => $attachment->original_name,
                 ])->values()->all(),
             ],
             'recipient_id' => $recipient->id,
-            'can_acknowledge' => $announcement->requires_acknowledgement && $recipient->acknowledged_at === null,
         ]);
-    }
-
-    public function acknowledge(Request $request, AnnouncementRecipient $recipient): RedirectResponse
-    {
-        $user = $request->user();
-        abort_unless($user !== null && (int) $recipient->user_id === (int) $user->id, 404);
-
-        $companyId = (int) $request->attributes->get('current_company_id');
-        abort_unless((int) $recipient->company_id === $companyId, 404);
-
-        $announcement = $recipient->announcement;
-        abort_unless($announcement !== null && $announcement->requires_acknowledgement, 404);
-
-        if ($recipient->acknowledged_at === null) {
-            $recipient->update(['acknowledged_at' => now()]);
-
-            activity()
-                ->useLog('announcements')
-                ->event('acknowledged')
-                ->causedBy($user)
-                ->performedOn($announcement)
-                ->tap(fn ($activity) => $activity->company_id = $companyId)
-                ->log('Announcement acknowledged');
-        }
-
-        return back()->with('success', 'Announcement acknowledged.');
     }
 
     public function feed(Request $request): JsonResponse

@@ -51,7 +51,6 @@ final class AnnouncementResource
             ...self::toListArray($announcement),
             'body_html' => $announcement->body_html,
             'expires_at' => $announcement->expires_at?->toIso8601String(),
-            'requires_acknowledgement' => (bool) $announcement->requires_acknowledgement,
             'published_by' => $announcement->publisher?->name,
             'audiences' => $announcement->audiences->map(fn (AnnouncementAudience $audience): array => [
                 'type' => $audience->audience_type->value,
@@ -72,7 +71,6 @@ final class AnnouncementResource
                 'email' => $recipient->deliveries->first(fn ($d) => $d->channel->value === 'email')?->status->value,
                 'whatsapp' => $recipient->deliveries->first(fn ($d) => $d->channel->value === 'whatsapp')?->status->value,
                 'read_at' => $recipient->read_at?->toIso8601String(),
-                'acknowledged_at' => $recipient->acknowledged_at?->toIso8601String(),
             ])->values()->all(),
         ];
     }
@@ -94,7 +92,6 @@ final class AnnouncementResource
             'channels' => $announcement->channels ?? [],
             'expires_at' => $announcement->expires_at?->format('Y-m-d\TH:i'),
             'scheduled_at' => $announcement->scheduled_at?->format('Y-m-d\TH:i'),
-            'requires_acknowledgement' => (bool) $announcement->requires_acknowledgement,
             'audiences' => $announcement->audiences->map(fn (AnnouncementAudience $audience): array => [
                 'type' => $audience->audience_type->value,
                 'id' => $audience->audience_id,

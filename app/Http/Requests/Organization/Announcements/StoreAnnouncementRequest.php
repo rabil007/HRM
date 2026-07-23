@@ -34,7 +34,6 @@ class StoreAnnouncementRequest extends FormRequest
             'audiences.*.type' => ['required', Rule::in(AnnouncementAudienceType::values())],
             'audiences.*.id' => ['nullable', 'integer'],
             'expires_at' => ['nullable', 'date'],
-            'requires_acknowledgement' => ['sometimes', 'boolean'],
             'publish_mode' => ['required', Rule::in(['draft', 'schedule', 'send_now'])],
             'scheduled_at' => ['nullable', 'required_if:publish_mode,schedule', 'date', 'after:now'],
         ];

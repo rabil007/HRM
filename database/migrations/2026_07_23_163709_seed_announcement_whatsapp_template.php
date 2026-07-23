@@ -22,7 +22,7 @@ return new class extends Migration
             'meta_name' => 'announcement',
             'meta_language' => 'en',
             'header_type' => 'none',
-            'body_preview' => '{{company}} — {{title}}: {{message}}. Priority: {{priority}}. View: {{url}}',
+            'body_preview' => '{{company}} — {{title}}: {{message}}. Priority: {{priority}}.',
             'is_default' => false,
             'enabled' => true,
             'sort_order' => 50,

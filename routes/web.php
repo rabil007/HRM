@@ -179,10 +179,6 @@ Route::middleware(['signed', 'throttle:30,1'])->prefix('esign')->group(function 
 });
 
 Route::middleware(['throttle:60,1'])->prefix('announcements/public')->group(function () {
-    Route::get('{token}', [PublicAnnouncementController::class, 'show'])
-        ->name('public.announcements.show');
-    Route::match(['get', 'post'], '{token}/acknowledge', [PublicAnnouncementController::class, 'acknowledge'])
-        ->name('public.announcements.acknowledge');
     Route::get('{token}/attachments/{attachment}', [PublicAnnouncementController::class, 'downloadAttachment'])
         ->name('public.announcements.attachments.download');
 });
@@ -267,8 +263,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('organization.announcements.inbox.feed');
     Route::get('organization/announcements/inbox/{recipient}', [EmployeeAnnouncementController::class, 'show'])
         ->name('organization.announcements.inbox.show');
-    Route::post('organization/announcements/inbox/{recipient}/acknowledge', [EmployeeAnnouncementController::class, 'acknowledge'])
-        ->name('organization.announcements.inbox.acknowledge');
     Route::post('organization/announcements/inbox/{recipient}/read', [EmployeeAnnouncementController::class, 'markRead'])
         ->name('organization.announcements.inbox.read');
     Route::get('organization/announcements/{announcement}', [AnnouncementController::class, 'show'])

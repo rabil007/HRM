@@ -17,8 +17,7 @@ final class AnnouncementDeliverySummary
      *     email_sent: int,
      *     whatsapp_sent: int,
      *     failed: int,
-     *     skipped: int,
-     *     acknowledged: int
+     *     skipped: int
      * }
      */
     public static function for(Announcement $announcement): array
@@ -53,10 +52,6 @@ final class AnnouncementDeliverySummary
                 ->count(),
             'failed' => $deliveries->where('status', AnnouncementDeliveryStatus::Failed)->count(),
             'skipped' => $deliveries->where('status', AnnouncementDeliveryStatus::Skipped)->count(),
-            'acknowledged' => AnnouncementRecipient::query()
-                ->where('announcement_id', $announcement->id)
-                ->whereNotNull('acknowledged_at')
-                ->count(),
         ];
     }
 }

@@ -28,7 +28,6 @@ final class PersistAnnouncement
      *     channels: list<string>,
      *     audiences: list<array{type: string, id?: int|null}>,
      *     expires_at?: string|null,
-     *     requires_acknowledgement?: bool,
      *     publish_mode: string,
      *     scheduled_at?: string|null
      * }  $data
@@ -50,7 +49,6 @@ final class PersistAnnouncement
                 'channels' => array_values($data['channels']),
                 'scheduled_at' => $status === AnnouncementStatus::Scheduled ? $data['scheduled_at'] : null,
                 'expires_at' => $data['expires_at'] ?? null,
-                'requires_acknowledgement' => (bool) ($data['requires_acknowledgement'] ?? false),
                 'created_by' => $user->id,
             ]);
 
@@ -69,7 +67,6 @@ final class PersistAnnouncement
      *     channels: list<string>,
      *     audiences: list<array{type: string, id?: int|null}>,
      *     expires_at?: string|null,
-     *     requires_acknowledgement?: bool,
      *     publish_mode: string,
      *     scheduled_at?: string|null
      * }  $data
@@ -98,7 +95,6 @@ final class PersistAnnouncement
                 'channels' => array_values($data['channels']),
                 'scheduled_at' => $status === AnnouncementStatus::Scheduled ? $data['scheduled_at'] : null,
                 'expires_at' => $data['expires_at'] ?? null,
-                'requires_acknowledgement' => (bool) ($data['requires_acknowledgement'] ?? false),
             ]);
 
             AnnouncementAudience::query()

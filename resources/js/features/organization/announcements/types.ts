@@ -42,7 +42,6 @@ export type AnnouncementFormData = {
     channels: string[];
     audiences: { type: string; id: number | null }[];
     expires_at: string;
-    requires_acknowledgement: boolean;
     publish_mode: 'draft' | 'schedule' | 'send_now';
     scheduled_at: string;
 };
@@ -57,7 +56,6 @@ export type AnnouncementFormPayload = {
     channels: string[];
     expires_at: string | null;
     scheduled_at: string | null;
-    requires_acknowledgement: boolean;
     audiences: { type: string; id: number | null }[];
     attachments: {
         id: number;
@@ -70,7 +68,6 @@ export type AnnouncementFormPayload = {
 export type AnnouncementShow = AnnouncementListItem & {
     body_html: string;
     expires_at: string | null;
-    requires_acknowledgement: boolean;
     published_by: string | null;
     audiences: { type: string; id: number | null }[];
     attachments: {
@@ -86,7 +83,6 @@ export type AnnouncementShow = AnnouncementListItem & {
         whatsapp_sent: number;
         failed: number;
         skipped: number;
-        acknowledged: number;
     };
     recipients: {
         id: number;
@@ -96,7 +92,6 @@ export type AnnouncementShow = AnnouncementListItem & {
         email: string | null;
         whatsapp: string | null;
         read_at: string | null;
-        acknowledged_at: string | null;
     }[];
 };
 

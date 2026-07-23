@@ -15,11 +15,6 @@ final class BuildAnnouncementEmailContent
      */
     public function handle(Announcement $announcement, AnnouncementRecipient $recipient): array
     {
-        $viewUrl = $this->publicLinks->viewUrl($recipient);
-        $acknowledgeUrl = $announcement->requires_acknowledgement
-            ? $this->publicLinks->acknowledgeUrl($recipient)
-            : null;
-
         $attachmentLinks = $announcement->attachments->map(fn ($attachment): array => [
             'name' => $attachment->original_name,
             'url' => $this->publicLinks->attachmentUrl($recipient, $attachment),
@@ -31,8 +26,6 @@ final class BuildAnnouncementEmailContent
             'priority' => $announcement->priority->label(),
             'publishedAt' => $announcement->published_at?->format('d M Y H:i') ?? now()->format('d M Y H:i'),
             'companyName' => (string) ($announcement->company?->name ?? config('app.name')),
-            'viewUrl' => $viewUrl,
-            'acknowledgeUrl' => $acknowledgeUrl,
             'attachmentLinks' => $attachmentLinks,
         ])->render();
 

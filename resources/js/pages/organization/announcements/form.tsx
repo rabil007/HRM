@@ -38,7 +38,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import type {
@@ -669,8 +668,6 @@ export default function AnnouncementFormPage({
             ? announcement.audiences
             : [{ type: 'all_employees', id: null }],
         expires_at: announcement?.expires_at ?? '',
-        requires_acknowledgement:
-            announcement?.requires_acknowledgement ?? false,
         publish_mode:
             announcement?.status === 'scheduled' ? 'schedule' : 'draft',
         scheduled_at: announcement?.scheduled_at ?? '',
@@ -911,25 +908,6 @@ export default function AnnouncementFormPage({
                                         }
                                     />
                                 </div>
-                            </div>
-                            <div className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
-                                <div>
-                                    <p className="text-sm font-medium">
-                                        Require acknowledgement
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        Employees must confirm they have read this
-                                    </p>
-                                </div>
-                                <Switch
-                                    checked={form.data.requires_acknowledgement}
-                                    onCheckedChange={(checked) =>
-                                        form.setData(
-                                            'requires_acknowledgement',
-                                            checked,
-                                        )
-                                    }
-                                />
                             </div>
                         </div>
                     </SectionCard>

@@ -36,23 +36,6 @@
                     @endforeach
                 </ul>
             @endif
-
-            <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:28px;">
-                <tr>
-                    <td style="border-radius:8px;background-color:#18181b;">
-                        <a href="{{ $viewUrl }}" style="display:inline-block;padding:12px 18px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;">
-                            View announcement
-                        </a>
-                    </td>
-                </tr>
-            </table>
-
-            @if (filled($acknowledgeUrl))
-                <p style="margin:16px 0 0;font-size:14px;line-height:1.6;color:#3f3f46;">
-                    This announcement requires acknowledgement.
-                    <a href="{{ $acknowledgeUrl }}" style="color:#2563eb;text-decoration:underline;">Acknowledge now</a>
-                </p>
-            @endif
         </td>
     </tr>
 @endsection

@@ -46,7 +46,6 @@ class Announcement extends Model
                 'scheduled_at',
                 'published_at',
                 'expires_at',
-                'requires_acknowledgement',
             ])
             ->logOnlyDirty();
     }

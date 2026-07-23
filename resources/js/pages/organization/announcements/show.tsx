@@ -280,15 +280,6 @@ export default function AnnouncementShowPage({
                                             Icon: MessageCircle,
                                         },
                                         {
-                                            label: 'Acknowledged',
-                                            value: announcement.delivery_summary
-                                                .acknowledged,
-                                            Icon: CheckCircle2,
-                                            colorClass: announcement.delivery_summary.acknowledged > 0
-                                                ? 'text-success'
-                                                : 'text-muted-foreground',
-                                        },
-                                        {
                                             label: 'Failed',
                                             value: announcement.delivery_summary
                                                 .failed,
@@ -296,6 +287,12 @@ export default function AnnouncementShowPage({
                                             colorClass: announcement.delivery_summary.failed > 0
                                                 ? 'text-destructive'
                                                 : 'text-muted-foreground',
+                                        },
+                                        {
+                                            label: 'Skipped',
+                                            value: announcement.delivery_summary
+                                                .skipped,
+                                            Icon: Clock3,
                                         },
                                     ] satisfies DeliveryStat[]
                                 ).map((stat) => (
@@ -388,7 +385,6 @@ export default function AnnouncementShowPage({
                                             </div>
                                         </TableHead>
                                         <TableHead>Read</TableHead>
-                                        <TableHead>Acknowledged</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -412,11 +408,6 @@ export default function AnnouncementShowPage({
                                                 </TableCell>
                                                 <TableCell>
                                                     <RecipientStatusCell value={recipient.read_at} />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <RecipientStatusCell
-                                                        value={recipient.acknowledged_at}
-                                                    />
                                                 </TableCell>
                                             </TableRow>
                                         ),

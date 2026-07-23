@@ -22,7 +22,6 @@ use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\Actions\RefreshAnnouncementDeliveryStatus;
 use App\Support\Announcements\BuildAnnouncementEmailContent;
-use App\Support\Announcements\BuildAnnouncementPublicLinks;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
@@ -205,7 +204,6 @@ test('email is queued individually and whatsapp failure does not block email', f
 
     (new DeliverAnnouncementWhatsAppJob($whatsappDelivery->id))->handle(
         app(WhatsAppService::class),
-        app(BuildAnnouncementPublicLinks::class),
         app(RefreshAnnouncementDeliveryStatus::class),
     );
 
@@ -294,24 +292,23 @@ test('failed deliveries can be retried', function () {
     Queue::assertPushed(DeliverAnnouncementEmailJob::class);
 });
 
-test('employees can acknowledge announcements via public token', function () {
+test('public announcement view and acknowledge routes are removed', function () {
     ['company' => $company] = makePublishAnnouncementFixtures();
 
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
 
     $announcement = Announcement::query()->create([
         'company_id' => $company->id,
-        'title' => 'Ack required',
-        'body_html' => '<p>Please acknowledge</p>',
+        'title' => 'No public view',
+        'body_html' => '<p>Content stays in channels</p>',
         'category' => 'hr',
         'priority' => 'urgent',
         'status' => AnnouncementStatus::Published,
         'channels' => ['email'],
-        'requires_acknowledgement' => true,
         'published_at' => now(),
     ]);
 
-    $recipient = AnnouncementRecipient::query()->create([
+    AnnouncementRecipient::query()->create([
         'company_id' => $company->id,
         'announcement_id' => $announcement->id,
         'employee_id' => $employee->id,
@@ -321,16 +318,10 @@ test('employees can acknowledge announcements via public token', function () {
     ]);
 
     $this->get('/announcements/public/'.str_repeat('c', 48))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('public/announcements/show')
-            ->where('can_acknowledge', true)
-        );
+        ->assertNotFound();
 
     $this->post('/announcements/public/'.str_repeat('c', 48).'/acknowledge')
-        ->assertRedirect();
-
-    expect($recipient->fresh()->acknowledged_at)->not->toBeNull();
+        ->assertNotFound();
 });
 
 test('inbox feed only includes announcements for the linked user', function () {
