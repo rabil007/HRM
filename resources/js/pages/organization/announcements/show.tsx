@@ -1,7 +1,22 @@
 import { Head, Link, router } from '@inertiajs/react';
+import {
+    CheckCircle2,
+    Clock3,
+    Download,
+    FileText,
+    Mail,
+    MessageCircle,
+    Send,
+    Smartphone,
+    Users,
+    XCircle,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,
     TableBody,
@@ -10,10 +25,73 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import type {
     AnnouncementCan,
     AnnouncementShow,
 } from '@/features/organization/announcements/types';
+
+const statusVariant = (
+    status: string,
+): 'success' | 'info' | 'destructive' | 'secondary' => {
+    if (status === 'published') {
+return 'success';
+}
+
+    if (status === 'scheduled') {
+return 'info';
+}
+
+    if (status === 'cancelled' || status === 'failed') {
+return 'destructive';
+}
+
+    return 'secondary';
+};
+
+type DeliveryStat = {
+    label: string;
+    value: number;
+    Icon: LucideIcon;
+    colorClass?: string;
+};
+
+function DeliveryStatCard({
+    label,
+    value,
+    Icon,
+    colorClass = 'text-muted-foreground',
+}: DeliveryStat) {
+    return (
+        <div className="flex flex-col gap-2 rounded-xl border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/40">
+            <div className={cn('flex items-center justify-between', colorClass)}>
+                <Icon className="size-4" />
+                <span className="text-xl font-bold tracking-tight text-foreground">
+                    {value}
+                </span>
+            </div>
+            <div className="text-xs text-muted-foreground">{label}</div>
+        </div>
+    );
+}
+
+function RecipientStatusCell({ value }: { value: string | null }) {
+    if (!value) {
+        return (
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground/50">
+                <span className="size-1.5 rounded-full bg-muted-foreground/30" />
+                —
+            </span>
+        );
+    }
+
+    return (
+        <span className="inline-flex items-center gap-1.5 text-xs text-success">
+            <CheckCircle2 className="size-3.5" />
+            {value}
+        </span>
+    );
+}
 
 export default function AnnouncementShowPage({
     announcement,
@@ -28,7 +106,23 @@ export default function AnnouncementShowPage({
             <Main>
                 <DetailsHeader
                     title={announcement.title}
-                    description={`${announcement.status_label} · ${announcement.priority_label}`}
+                    description={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant={statusVariant(announcement.status)}>
+                                {announcement.status_label}
+                            </Badge>
+                            <Badge
+                                variant={
+                                    announcement.priority === 'high' ||
+                                    announcement.priority === 'urgent'
+                                        ? 'warning'
+                                        : 'outline'
+                                }
+                            >
+                                {announcement.priority_label} priority
+                            </Badge>
+                        </div>
+                    }
                     backHref="/organization/announcements"
                     backLabel="Announcements"
                     actions={
@@ -99,171 +193,238 @@ export default function AnnouncementShowPage({
                     }
                 />
 
-                <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                    <section className="space-y-3 rounded-xl border p-6">
-                        <h2 className="text-lg font-semibold">Overview</h2>
-                        <dl className="space-y-2 text-sm">
-                            <div>
-                                <dt className="text-muted-foreground">
-                                    Category
-                                </dt>
-                                <dd>{announcement.category_label}</dd>
-                            </div>
-                            <div>
-                                <dt className="text-muted-foreground">
-                                    Priority
-                                </dt>
-                                <dd>{announcement.priority_label}</dd>
-                            </div>
-                            <div>
-                                <dt className="text-muted-foreground">Status</dt>
-                                <dd>{announcement.status_label}</dd>
-                            </div>
-                            <div>
-                                <dt className="text-muted-foreground">
-                                    Audience
-                                </dt>
-                                <dd>{announcement.audience_summary}</dd>
-                            </div>
-                            <div>
-                                <dt className="text-muted-foreground">
-                                    Channels
-                                </dt>
-                                <dd>{announcement.channels.join(', ')}</dd>
-                            </div>
-                            <div>
-                                <dt className="text-muted-foreground">
-                                    Created by
-                                </dt>
-                                <dd>{announcement.created_by ?? '—'}</dd>
-                            </div>
-                            <div>
-                                <dt className="text-muted-foreground">
-                                    Published by
-                                </dt>
-                                <dd>{announcement.published_by ?? '—'}</dd>
-                            </div>
-                            <div>
-                                <dt className="text-muted-foreground">
-                                    Published / scheduled
-                                </dt>
-                                <dd>
-                                    {announcement.published_at ??
-                                        announcement.scheduled_at ??
-                                        '—'}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-muted-foreground">
-                                    Expiry
-                                </dt>
-                                <dd>{announcement.expires_at ?? '—'}</dd>
-                            </div>
-                        </dl>
-                        <div
-                            className="prose prose-sm max-w-none dark:prose-invert"
-                            dangerouslySetInnerHTML={{
-                                __html: announcement.body_html,
-                            }}
-                        />
-                        {announcement.attachments.length > 0 ? (
-                            <ul className="space-y-1 text-sm">
-                                {announcement.attachments.map((attachment) => (
-                                    <li key={attachment.id}>
-                                        {can.download_attachments ? (
-                                            <a
-                                                className="text-primary underline"
-                                                href={`/organization/announcements/${announcement.id}/attachments/${attachment.id}/download`}
-                                            >
-                                                {attachment.original_name}
-                                            </a>
-                                        ) : (
-                                            attachment.original_name
+                <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.6fr)]">
+                    {/* Message card */}
+                    <Card className="overflow-hidden glass-card">
+                        <CardHeader className="border-b border-border/60 bg-muted/20">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <FileText className="size-4 text-primary" /> Message
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-6 pt-6">
+                            <div
+                                className="prose prose-sm dark:prose-invert max-w-none leading-7"
+                                dangerouslySetInnerHTML={{
+                                    __html: announcement.body_html,
+                                }}
+                            />
+                            {announcement.attachments.length > 0 ? (
+                                <div className="border-t border-border/60 pt-5">
+                                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                                        <Download className="size-3.5 text-muted-foreground" />
+                                        Attachments ({announcement.attachments.length})
+                                    </h3>
+                                    <ul className="grid gap-2 sm:grid-cols-2">
+                                        {announcement.attachments.map(
+                                            (attachment) => (
+                                                <li
+                                                    key={attachment.id}
+                                                    className="flex items-center gap-2 rounded-lg border border-border/70 bg-muted/30 px-3 py-2.5 text-sm transition-colors hover:bg-muted/60"
+                                                >
+                                                    <FileText className="size-4 shrink-0 text-muted-foreground" />
+                                                    <span className="min-w-0 truncate">
+                                                        {can.download_attachments ? (
+                                                            <a
+                                                                className="text-primary hover:underline"
+                                                                href={`/organization/announcements/${announcement.id}/attachments/${attachment.id}/download`}
+                                                            >
+                                                                {attachment.original_name}
+                                                            </a>
+                                                        ) : (
+                                                            attachment.original_name
+                                                        )}
+                                                    </span>
+                                                </li>
+                                            ),
                                         )}
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : null}
-                    </section>
+                                    </ul>
+                                </div>
+                            ) : null}
+                        </CardContent>
+                    </Card>
 
-                    <section className="space-y-3 rounded-xl border p-6">
-                        <h2 className="text-lg font-semibold">
-                            Recipient status
-                        </h2>
-                        <div className="space-y-1 text-sm leading-7">
-                            <div>
-                                Total recipients:{' '}
-                                {announcement.delivery_summary.total_recipients}
-                            </div>
-                            <div>
-                                In-app sent:{' '}
-                                {announcement.delivery_summary.in_app_sent}
-                            </div>
-                            <div>
-                                Email sent:{' '}
-                                {announcement.delivery_summary.email_sent}
-                            </div>
-                            <div>
-                                WhatsApp sent:{' '}
-                                {announcement.delivery_summary.whatsapp_sent}
-                            </div>
-                            <div>
-                                Failed: {announcement.delivery_summary.failed}
-                            </div>
-                            <div>
-                                Skipped: {announcement.delivery_summary.skipped}
-                            </div>
-                            <div>
-                                Acknowledged:{' '}
-                                {announcement.delivery_summary.acknowledged}
-                            </div>
-                        </div>
-                    </section>
+                    {/* Right sidebar */}
+                    <div className="space-y-6">
+                        {/* Delivery summary */}
+                        <Card className="glass-card">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <Send className="size-4 text-primary" /> Delivery summary
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="grid grid-cols-2 gap-3">
+                                {(
+                                    [
+                                        {
+                                            label: 'Recipients',
+                                            value: announcement.delivery_summary
+                                                .total_recipients,
+                                            Icon: Users,
+                                        },
+                                        {
+                                            label: 'In-app',
+                                            value: announcement.delivery_summary
+                                                .in_app_sent,
+                                            Icon: Smartphone,
+                                        },
+                                        {
+                                            label: 'Email',
+                                            value: announcement.delivery_summary
+                                                .email_sent,
+                                            Icon: Mail,
+                                        },
+                                        {
+                                            label: 'WhatsApp',
+                                            value: announcement.delivery_summary
+                                                .whatsapp_sent,
+                                            Icon: MessageCircle,
+                                        },
+                                        {
+                                            label: 'Acknowledged',
+                                            value: announcement.delivery_summary
+                                                .acknowledged,
+                                            Icon: CheckCircle2,
+                                            colorClass: announcement.delivery_summary.acknowledged > 0
+                                                ? 'text-success'
+                                                : 'text-muted-foreground',
+                                        },
+                                        {
+                                            label: 'Failed',
+                                            value: announcement.delivery_summary
+                                                .failed,
+                                            Icon: XCircle,
+                                            colorClass: announcement.delivery_summary.failed > 0
+                                                ? 'text-destructive'
+                                                : 'text-muted-foreground',
+                                        },
+                                    ] satisfies DeliveryStat[]
+                                ).map((stat) => (
+                                    <DeliveryStatCard key={stat.label} {...stat} />
+                                ))}
+                            </CardContent>
+                        </Card>
+
+                        {/* Details */}
+                        <Card className="glass-card">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <Clock3 className="size-4 text-primary" /> Details
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <dl className="grid gap-0 divide-y divide-border/50 text-sm">
+                                    {[
+                                        {
+                                            label: 'Category',
+                                            value: announcement.category_label,
+                                        },
+                                        {
+                                            label: 'Audience',
+                                            value: announcement.audience_summary,
+                                        },
+                                        {
+                                            label: 'Channels',
+                                            value: announcement.channels
+                                                .map((c) => c.replace('_', ' '))
+                                                .join(', '),
+                                        },
+                                        {
+                                            label: 'Created by',
+                                            value: announcement.created_by ?? '—',
+                                        },
+                                        {
+                                            label: 'Published / scheduled',
+                                            value:
+                                                announcement.published_at ??
+                                                announcement.scheduled_at ??
+                                                '—',
+                                        },
+                                        {
+                                            label: 'Expiry',
+                                            value: announcement.expires_at ?? 'No expiry',
+                                        },
+                                    ].map(({ label, value }) => (
+                                        <div key={label} className="grid grid-cols-2 gap-2 py-3 first:pt-0 last:pb-0">
+                                            <dt className="text-muted-foreground">{label}</dt>
+                                            <dd className="font-medium capitalize">{value}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
 
+                {/* Recipient activity table */}
                 {announcement.recipients.length > 0 ? (
-                    <section className="mt-6 rounded-xl border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Employee</TableHead>
-                                    <TableHead>Department</TableHead>
-                                    <TableHead>In-app</TableHead>
-                                    <TableHead>Email</TableHead>
-                                    <TableHead>WhatsApp</TableHead>
-                                    <TableHead>Read</TableHead>
-                                    <TableHead>Acknowledged</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {announcement.recipients.map((recipient) => (
-                                    <TableRow key={recipient.id}>
-                                        <TableCell>
-                                            {recipient.employee_name}
-                                        </TableCell>
-                                        <TableCell>
-                                            {recipient.department ?? '—'}
-                                        </TableCell>
-                                        <TableCell>
-                                            {recipient.in_app ?? '—'}
-                                        </TableCell>
-                                        <TableCell>
-                                            {recipient.email ?? '—'}
-                                        </TableCell>
-                                        <TableCell>
-                                            {recipient.whatsapp ?? '—'}
-                                        </TableCell>
-                                        <TableCell>
-                                            {recipient.read_at ?? '—'}
-                                        </TableCell>
-                                        <TableCell>
-                                            {recipient.acknowledged_at ?? '—'}
-                                        </TableCell>
+                    <Card className="mt-6 overflow-hidden glass-card">
+                        <CardHeader className="border-b border-border/60">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <Users className="size-4 text-primary" /> Recipient activity
+                                <Badge variant="secondary" className="ml-auto font-mono text-xs">
+                                    {announcement.recipients.length}
+                                </Badge>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="overflow-x-auto p-0">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Employee</TableHead>
+                                        <TableHead>Department</TableHead>
+                                        <TableHead>
+                                            <div className="flex items-center gap-1.5">
+                                                <Smartphone className="size-3.5" /> In-app
+                                            </div>
+                                        </TableHead>
+                                        <TableHead>
+                                            <div className="flex items-center gap-1.5">
+                                                <Mail className="size-3.5" /> Email
+                                            </div>
+                                        </TableHead>
+                                        <TableHead>
+                                            <div className="flex items-center gap-1.5">
+                                                <MessageCircle className="size-3.5" /> WhatsApp
+                                            </div>
+                                        </TableHead>
+                                        <TableHead>Read</TableHead>
+                                        <TableHead>Acknowledged</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </section>
+                                </TableHeader>
+                                <TableBody>
+                                    {announcement.recipients.map(
+                                        (recipient) => (
+                                            <TableRow key={recipient.id}>
+                                                <TableCell className="font-medium">
+                                                    {recipient.employee_name}
+                                                </TableCell>
+                                                <TableCell className="text-muted-foreground">
+                                                    {recipient.department ?? '—'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <RecipientStatusCell value={recipient.in_app} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <RecipientStatusCell value={recipient.email} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <RecipientStatusCell value={recipient.whatsapp} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <RecipientStatusCell value={recipient.read_at} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <RecipientStatusCell
+                                                        value={recipient.acknowledged_at}
+                                                    />
+                                                </TableCell>
+                                            </TableRow>
+                                        ),
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
                 ) : null}
             </Main>
         </>

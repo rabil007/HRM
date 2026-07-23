@@ -181,7 +181,7 @@ Route::middleware(['signed', 'throttle:30,1'])->prefix('esign')->group(function 
 Route::middleware(['throttle:60,1'])->prefix('announcements/public')->group(function () {
     Route::get('{token}', [PublicAnnouncementController::class, 'show'])
         ->name('public.announcements.show');
-    Route::post('{token}/acknowledge', [PublicAnnouncementController::class, 'acknowledge'])
+    Route::match(['get', 'post'], '{token}/acknowledge', [PublicAnnouncementController::class, 'acknowledge'])
         ->name('public.announcements.acknowledge');
     Route::get('{token}/attachments/{attachment}', [PublicAnnouncementController::class, 'downloadAttachment'])
         ->name('public.announcements.attachments.download');
