@@ -19,14 +19,14 @@ import {
  * to reload so they get the latest version of the app.
  */
 function PwaUpdatePrompt() {
-    useRegisterSW({
-        onNeedRefresh(updateSW) {
+    const { updateServiceWorker } = useRegisterSW({
+        onNeedRefresh() {
             toast('A new version is available', {
                 description: 'Reload to get the latest updates.',
                 duration: Infinity,
                 action: {
                     label: 'Reload',
-                    onClick: () => updateSW(true),
+                    onClick: () => updateServiceWorker(true),
                 },
             });
         },

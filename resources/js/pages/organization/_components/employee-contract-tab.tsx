@@ -451,7 +451,7 @@ export function EmployeeContractTab({
         setDialogOpen(true);
     };
 
-    const openEditDialog = (row: EmployeeContractDetails) => {
+    const openEditDialog = useCallback((row: EmployeeContractDetails) => {
         contractForm.clearErrors();
         setMissingRequiredFields(new Set());
         contractForm.setData({
@@ -495,7 +495,7 @@ export function EmployeeContractTab({
         });
         setEditingContract(row);
         setDialogOpen(true);
-    };
+    }, [contractForm]);
 
     const didOpenInitialEdit = useRef(false);
 
