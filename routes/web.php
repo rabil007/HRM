@@ -12,6 +12,13 @@ use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
 use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\JobRunController;
 use App\Http\Controllers\Organization\ActivityLogController;
+use App\Http\Controllers\Organization\Announcements\AnnouncementAttachmentController;
+use App\Http\Controllers\Organization\Announcements\AnnouncementController;
+use App\Http\Controllers\Organization\Announcements\CancelAnnouncementController;
+use App\Http\Controllers\Organization\Announcements\EmployeeAnnouncementController;
+use App\Http\Controllers\Organization\Announcements\PreviewAnnouncementRecipientsController;
+use App\Http\Controllers\Organization\Announcements\PublishAnnouncementController;
+use App\Http\Controllers\Organization\Announcements\RetryAnnouncementDeliveriesController;
 use App\Http\Controllers\Organization\BankAccountsExportController;
 use App\Http\Controllers\Organization\BankAccountsImportController;
 use App\Http\Controllers\Organization\BankAccountsIndexController;
@@ -133,6 +140,7 @@ use App\Http\Controllers\Public\DocumentShare\PreviewSharedDocumentController;
 use App\Http\Controllers\Public\DocumentShare\ShowDocumentShareController;
 use App\Http\Controllers\Public\DocumentShare\UnlockDocumentShareController;
 use App\Http\Controllers\Public\DocumentShare\UploadSharedDocumentController;
+use App\Http\Controllers\Public\PublicAnnouncementController;
 use App\Http\Controllers\Webhooks\HikvisionWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use App\Models\PayrollPeriod;
@@ -168,6 +176,15 @@ Route::middleware(['signed', 'throttle:30,1'])->prefix('esign')->group(function 
         ->name('public.esign.submit');
     Route::get('{token}/download', DownloadDocumentEsignController::class)
         ->name('public.esign.download');
+});
+
+Route::middleware(['throttle:60,1'])->prefix('announcements/public')->group(function () {
+    Route::get('{token}', [PublicAnnouncementController::class, 'show'])
+        ->name('public.announcements.show');
+    Route::post('{token}/acknowledge', [PublicAnnouncementController::class, 'acknowledge'])
+        ->name('public.announcements.acknowledge');
+    Route::get('{token}/attachments/{attachment}', [PublicAnnouncementController::class, 'downloadAttachment'])
+        ->name('public.announcements.attachments.download');
 });
 
 Route::match(['get', 'post'], 'whatsapp/webhook', WhatsAppWebhookController::class)
@@ -233,6 +250,57 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/branches/{branch}', [BranchController::class, 'update'])->middleware('can:branches.update')->name('organization.branches.update');
     Route::put('organization/branches/{branch}/status', [BranchController::class, 'updateStatus'])->middleware('can:branches.update')->name('organization.branches.status');
     Route::delete('organization/branches/{branch}', [BranchController::class, 'destroy'])->middleware('can:branches.delete')->name('organization.branches.destroy');
+
+    Route::get('organization/announcements', [AnnouncementController::class, 'index'])
+        ->middleware('can:announcements.view')
+        ->name('organization.announcements.index');
+    Route::get('organization/announcements/create', [AnnouncementController::class, 'create'])
+        ->middleware('can:announcements.create')
+        ->name('organization.announcements.create');
+    Route::post('organization/announcements', [AnnouncementController::class, 'store'])
+        ->middleware('can:announcements.create')
+        ->name('organization.announcements.store');
+    Route::post('organization/announcements/preview-recipients', PreviewAnnouncementRecipientsController::class)
+        ->middleware('can:announcements.create')
+        ->name('organization.announcements.preview-recipients');
+    Route::get('organization/announcements/inbox/feed', [EmployeeAnnouncementController::class, 'feed'])
+        ->name('organization.announcements.inbox.feed');
+    Route::get('organization/announcements/inbox/{recipient}', [EmployeeAnnouncementController::class, 'show'])
+        ->name('organization.announcements.inbox.show');
+    Route::post('organization/announcements/inbox/{recipient}/acknowledge', [EmployeeAnnouncementController::class, 'acknowledge'])
+        ->name('organization.announcements.inbox.acknowledge');
+    Route::post('organization/announcements/inbox/{recipient}/read', [EmployeeAnnouncementController::class, 'markRead'])
+        ->name('organization.announcements.inbox.read');
+    Route::get('organization/announcements/{announcement}', [AnnouncementController::class, 'show'])
+        ->middleware('can:announcements.view')
+        ->name('organization.announcements.show');
+    Route::get('organization/announcements/{announcement}/edit', [AnnouncementController::class, 'edit'])
+        ->middleware('can:announcements.update')
+        ->name('organization.announcements.edit');
+    Route::put('organization/announcements/{announcement}', [AnnouncementController::class, 'update'])
+        ->middleware('can:announcements.update')
+        ->name('organization.announcements.update');
+    Route::delete('organization/announcements/{announcement}', [AnnouncementController::class, 'destroy'])
+        ->middleware('can:announcements.update')
+        ->name('organization.announcements.destroy');
+    Route::post('organization/announcements/{announcement}/publish', PublishAnnouncementController::class)
+        ->middleware('can:announcements.publish')
+        ->name('organization.announcements.publish');
+    Route::post('organization/announcements/{announcement}/cancel', CancelAnnouncementController::class)
+        ->middleware('can:announcements.cancel')
+        ->name('organization.announcements.cancel');
+    Route::post('organization/announcements/{announcement}/retry', RetryAnnouncementDeliveriesController::class)
+        ->middleware('can:announcements.retry')
+        ->name('organization.announcements.retry');
+    Route::post('organization/announcements/{announcement}/attachments', [AnnouncementAttachmentController::class, 'store'])
+        ->middleware('can:announcements.update')
+        ->name('organization.announcements.attachments.store');
+    Route::delete('organization/announcements/{announcement}/attachments/{attachment}', [AnnouncementAttachmentController::class, 'destroy'])
+        ->middleware('can:announcements.update')
+        ->name('organization.announcements.attachments.destroy');
+    Route::get('organization/announcements/{announcement}/attachments/{attachment}/download', [AnnouncementAttachmentController::class, 'download'])
+        ->middleware('can:announcements.download_attachments')
+        ->name('organization.announcements.attachments.download');
 
     Route::get('organization/departments', [DepartmentController::class, 'index'])->middleware('can:departments.view')->name('organization.departments');
     Route::get('organization/departments/export', [DepartmentController::class, 'export'])->middleware('can:departments.export')->name('organization.departments.export');

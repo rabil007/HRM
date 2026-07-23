@@ -7,6 +7,7 @@ import {
     Landmark,
     Layers,
     MapPin,
+    Megaphone,
     Users,
     Wallet,
     Settings,
@@ -78,6 +79,11 @@ const baseSidebarData: SidebarData = {
                     title: 'Branches',
                     url: '/organization/branches',
                     icon: MapPin,
+                },
+                {
+                    title: 'Announcements',
+                    url: '/organization/announcements',
+                    icon: Megaphone,
                 },
                 {
                     title: 'Departments',
@@ -331,6 +337,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 : null;
                         case '/organization/branches':
                             return has(permissions, 'branches.view')
+                                ? item
+                                : null;
+                        case '/organization/announcements':
+                            return has(permissions, 'announcements.view')
                                 ? item
                                 : null;
                         case '/organization/departments':

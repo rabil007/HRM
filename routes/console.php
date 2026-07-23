@@ -35,6 +35,11 @@ Schedule::command('payroll:ensure-future-periods')
     ->timezone(config('app.timezone', 'UTC'))
     ->withoutOverlapping();
 
+Schedule::command('announcements:publish-scheduled')
+    ->everyMinute()
+    ->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping();
+
 Schedule::command('contracts:expire')
     ->dailyAt('01:00')
     ->timezone(config('app.timezone', 'UTC'))

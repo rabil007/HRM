@@ -159,6 +159,14 @@ class PermissionsSeeder extends Seeder
             'branches.delete',
             'branches.export',
 
+            'announcements.view',
+            'announcements.create',
+            'announcements.update',
+            'announcements.publish',
+            'announcements.cancel',
+            'announcements.retry',
+            'announcements.download_attachments',
+
             'departments.view',
             'departments.create',
             'departments.update',

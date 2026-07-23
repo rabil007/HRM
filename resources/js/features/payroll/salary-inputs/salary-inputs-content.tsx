@@ -30,6 +30,7 @@ import {
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { index as salaryInputsIndex } from '@/routes/payroll/salary-inputs';
 import type { PaginationMeta } from '@/types/pagination';
 import { SalaryInputTypeDeleteDialog } from './components/salary-input-type-delete-dialog';
 import { SalaryInputTypeFormSheet } from './components/salary-input-type-form-sheet';
@@ -49,7 +50,7 @@ export function SalaryInputsContent({
     search: string;
 }) {
     const list = useServerPaginationFilters({
-        url: '/payroll/salary-inputs',
+        url: salaryInputsIndex.url(),
         search: initialSearch,
         filters: {},
         pagination,

@@ -518,7 +518,7 @@ export function EmployeeContractTab({
 
         didOpenInitialEdit.current = true;
         openEditDialog(row);
-    }, [initialEditContractId, canUpdate, contracts]);
+    }, [initialEditContractId, canUpdate, contracts, openEditDialog]);
 
     const submitContract = async () => {
         let resolvedEmployeeId: number;
