@@ -283,7 +283,9 @@ final class CrewOperationsPayrollGenerationGuard
                 );
             }
 
-            if ($timesheet->source === CrewTimesheetSource::CrewOperations) {
+            $source = $timesheet->resolvedSource();
+
+            if ($source === CrewTimesheetSource::CrewOperations) {
                 if ($preparation === null) {
                     return $this->result(
                         false,
@@ -302,7 +304,7 @@ final class CrewOperationsPayrollGenerationGuard
                 continue;
             }
 
-            if (! in_array($timesheet->source, [CrewTimesheetSource::Manual, CrewTimesheetSource::Import], true)) {
+            if (! in_array($source, [CrewTimesheetSource::Manual, CrewTimesheetSource::Import], true)) {
                 return $this->result(
                     false,
                     "Daily crew employee {$employee->name} timesheet source must be Manual, Import, or Crew Operations.",
@@ -344,7 +346,7 @@ final class CrewOperationsPayrollGenerationGuard
             return "Daily crew employee {$employee->name} is missing a Crew Operations timesheet linked to the Applied timeline.";
         }
 
-        if ($timesheet->source !== CrewTimesheetSource::CrewOperations) {
+        if ($timesheet->resolvedSource() !== CrewTimesheetSource::CrewOperations) {
             return "Daily crew employee {$employee->name} timesheet source must be Crew Operations.";
         }
 

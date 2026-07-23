@@ -1,9 +1,12 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { Bell, Megaphone, Plus, Search, Send, Users } from 'lucide-react';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
+import { OrganizationDataTable, DataTableHead, DataTableHeaderRow, dataTableActionsCellClass, dataTableBodyRowClass, dataTableCellClass, dataTableCellPrimaryClass } from '@/components/data-table';
+import { EmptyState } from '@/components/empty-state';
+import { Badge, type badgeVariants } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -21,6 +24,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
+import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 import type { AnnouncementCan, AnnouncementListItem } from './types';
 
@@ -50,6 +54,22 @@ export function AnnouncementsIndexContent({
         pagination,
     });
 
+    const activeFilters = Object.values(initialFilters).filter(Boolean).length;
+
+    const statusVariant = (status: string): Parameters<typeof badgeVariants>[0]['variant'] => {
+        if (status === 'published') return 'success';
+        if (status === 'scheduled') return 'info';
+        if (status === 'cancelled' || status === 'failed') return 'destructive';
+
+        return 'secondary';
+    };
+
+    const priorityVariant = (priority: string): Parameters<typeof badgeVariants>[0]['variant'] => {
+        if (priority === 'urgent' || priority === 'high') return 'warning';
+
+        return 'outline';
+    };
+
     return (
         <>
             <Head title="Announcements" />
@@ -57,6 +77,7 @@ export function AnnouncementsIndexContent({
                 <PageHeader
                     title="Announcements"
                     description="Send company-wide messages via in-app, email, and WhatsApp."
+                    kicker="Communications"
                     right={
                         can.create ? (
                             <Button asChild>
@@ -69,11 +90,12 @@ export function AnnouncementsIndexContent({
                     }
                 />
 
-                <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="mb-6 rounded-2xl border border-border/70 bg-card/60 p-3 shadow-sm backdrop-blur-xl">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                     <SearchBar
                         value={list.searchInput}
                         onChange={list.onSearchChange}
-                        placeholder="Search announcements..."
+                        placeholder="Search by title or audience..."
                         className="mb-0 flex-1"
                     />
                     <div className="flex flex-wrap gap-2">
@@ -154,61 +176,75 @@ export function AnnouncementsIndexContent({
                             </SelectContent>
                         </Select>
                     </div>
+                    </div>
+                    {activeFilters > 0 ? (
+                        <div className="mt-3 flex items-center gap-2 px-2 text-xs text-muted-foreground">
+                            <Search className="size-3.5" />
+                            {activeFilters} active filter{activeFilters === 1 ? '' : 's'}
+                        </div>
+                    ) : null}
                 </div>
 
-                <div className="rounded-xl border">
+                <OrganizationDataTable minWidth="min-w-[1080px]">
                     <Table>
                         <TableHeader>
-                            <TableRow>
-                                <TableHead>Title</TableHead>
-                                <TableHead>Audience</TableHead>
-                                <TableHead>Channels</TableHead>
-                                <TableHead>Priority</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Scheduled/Published</TableHead>
-                                <TableHead>Created By</TableHead>
-                                <TableHead className="text-right">
+                            <DataTableHeaderRow>
+                                <DataTableHead>Announcement</DataTableHead>
+                                <DataTableHead>Audience</DataTableHead>
+                                <DataTableHead>Channels</DataTableHead>
+                                <DataTableHead>Priority</DataTableHead>
+                                <DataTableHead>Status</DataTableHead>
+                                <DataTableHead>Timing</DataTableHead>
+                                <DataTableHead>Created by</DataTableHead>
+                                <DataTableHead className="text-right">
                                     Actions
-                                </TableHead>
-                            </TableRow>
+                                </DataTableHead>
+                            </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>
-                            {announcements.length === 0 ? (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={8}
-                                        className="py-10 text-center text-muted-foreground"
-                                    >
-                                        No announcements found.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
+                            {announcements.length > 0 ? (
                                 announcements.map((item) => (
-                                    <TableRow key={item.id}>
-                                        <TableCell className="font-medium">
-                                            {item.title}
+                                    <TableRow key={item.id} className={dataTableBodyRowClass()}>
+                                        <TableCell className={dataTableCellPrimaryClass()}>
+                                            <div className="flex items-start gap-3">
+                                                <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                                    <Megaphone className="size-4" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <Link className="line-clamp-2 hover:text-primary" href={`/organization/announcements/${item.id}`}>
+                                                        {item.title}
+                                                    </Link>
+                                                    <span className="text-xs font-normal text-muted-foreground">{item.category_label}</span>
+                                                </div>
+                                            </div>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className={dataTableCellClass()}>
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <Users className="size-3.5 text-muted-foreground" />
                                             {item.audience_summary}
+                                            </div>
                                         </TableCell>
-                                        <TableCell>
-                                            {item.channels.join(', ')}
+                                        <TableCell className={dataTableCellClass()}>
+                                            <div className="flex flex-wrap gap-1">
+                                                {item.channels.map((channel) => <Badge key={channel} variant="outline" className="capitalize">{channel.replace('_', ' ')}</Badge>)}
+                                            </div>
                                         </TableCell>
-                                        <TableCell>
-                                            {item.priority_label}
+                                        <TableCell className={dataTableCellClass()}>
+                                            <Badge variant={priorityVariant(item.priority)}>{item.priority_label}</Badge>
                                         </TableCell>
-                                        <TableCell>
-                                            {item.status_label}
+                                        <TableCell className={dataTableCellClass()}>
+                                            <Badge variant={statusVariant(item.status)}>{item.status_label}</Badge>
                                         </TableCell>
-                                        <TableCell>
-                                            {item.published_at ??
-                                                item.scheduled_at ??
-                                                '—'}
+                                        <TableCell className={cn(dataTableCellClass(), 'whitespace-nowrap')}>
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <Bell className="size-3.5 text-muted-foreground" />
+                                                {item.published_at ?? item.scheduled_at ?? 'Not scheduled'}
+                                            </div>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className={dataTableCellClass()}>
                                             {item.created_by ?? '—'}
                                         </TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell className={dataTableActionsCellClass()}>
                                             <div className="flex justify-end gap-2">
                                                 <Button
                                                     variant="outline"
@@ -218,7 +254,7 @@ export function AnnouncementsIndexContent({
                                                     <Link
                                                         href={`/organization/announcements/${item.id}`}
                                                     >
-                                                        View
+                                                    Open
                                                     </Link>
                                                 </Button>
                                                 {can.update &&
@@ -258,10 +294,19 @@ export function AnnouncementsIndexContent({
                                         </TableCell>
                                     </TableRow>
                                 ))
-                            )}
+                            ) : null}
                         </TableBody>
                     </Table>
-                </div>
+                </OrganizationDataTable>
+
+                {announcements.length === 0 ? (
+                    <EmptyState
+                        icon={<Send className="mx-auto mb-3 size-8 text-muted-foreground" />}
+                        title={activeFilters > 0 ? 'No matching announcements' : 'No announcements yet'}
+                        description={activeFilters > 0 ? 'Try adjusting your search or filters.' : 'Create your first announcement to keep employees informed.'}
+                        action={can.create ? <Button asChild><Link href="/organization/announcements/create"><Plus className="size-4" /> Create announcement</Link></Button> : null}
+                    />
+                ) : null}
 
                 <div className="mt-4">
                     <Pagination {...list.paginationProps} />

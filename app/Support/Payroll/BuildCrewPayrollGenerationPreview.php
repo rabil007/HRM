@@ -194,7 +194,9 @@ final class BuildCrewPayrollGenerationPreview
                     continue;
                 }
 
-                if ($timesheet->source === CrewTimesheetSource::CrewOperations) {
+                $monthlySource = $timesheet->resolvedSource();
+
+                if ($monthlySource === CrewTimesheetSource::CrewOperations) {
                     $blockingIssues[] = [
                         'employee_id' => $employeeId,
                         'employee_name' => $employee->name,
@@ -222,7 +224,9 @@ final class BuildCrewPayrollGenerationPreview
                 continue;
             }
 
-            if ($timesheet->source === CrewTimesheetSource::CrewOperations) {
+            $source = $timesheet->resolvedSource();
+
+            if ($source === CrewTimesheetSource::CrewOperations) {
                 $linkReason = $this->legacyGuard->dailyTimesheetLinkReason(
                     $employee,
                     $period,
@@ -260,7 +264,10 @@ final class BuildCrewPayrollGenerationPreview
                 continue;
             }
 
-            if (! in_array($timesheet->source, [CrewTimesheetSource::Manual, CrewTimesheetSource::Import], true)) {
+            if (! in_array($source, [CrewTimesheetSource::Manual, CrewTimesheetSource::Import], true)) {
+                // #region agent log
+                file_put_contents(base_path('.cursor/debug-7d7dd1.log'), json_encode(['sessionId' => '7d7dd1', 'hypothesisId' => 'B', 'location' => 'BuildCrewPayrollGenerationPreview.php:invalid_timesheet_source', 'message' => 'invalid timesheet source branch', 'data' => ['employee_id' => $employeeId, 'timesheet_id' => $timesheet->id, 'source_value' => $timesheet->source instanceof CrewTimesheetSource ? $timesheet->source->value : $timesheet->source, 'resolved_source' => $source->value, 'source_is_null' => $timesheet->source === null, 'approval' => $timesheet->approval_status?->value, 'runId' => 'post-fix'], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND);
+                // #endregion
                 $blockingIssues[] = [
                     'employee_id' => $employeeId,
                     'employee_name' => $employee->name,
@@ -302,6 +309,10 @@ final class BuildCrewPayrollGenerationPreview
         }
 
         $ready = $blockingCount === 0;
+
+        // #region agent log
+        file_put_contents(base_path('.cursor/debug-7d7dd1.log'), json_encode(['sessionId' => '7d7dd1', 'hypothesisId' => 'A', 'location' => 'BuildCrewPayrollGenerationPreview.php:preview_result', 'message' => 'hybrid/manual preview result', 'data' => ['period_id' => $period->id, 'ready_count' => $readyCount, 'blocking_count' => $blockingCount, 'can_generate' => $ready && $readyCount > 0, 'blocking_codes' => array_column($blockingIssues, 'code'), 'runId' => 'post-fix'], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND);
+        // #endregion
 
         return new CrewPayrollGenerationPreview(
             ready: $ready,

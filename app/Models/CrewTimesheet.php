@@ -133,9 +133,14 @@ class CrewTimesheet extends Model
         return $this->belongsTo(User::class, 'returned_by');
     }
 
+    public function resolvedSource(): CrewTimesheetSource
+    {
+        return $this->source ?? CrewTimesheetSource::Manual;
+    }
+
     public function isOperationallyLocked(): bool
     {
-        if ($this->source !== CrewTimesheetSource::CrewOperations) {
+        if ($this->resolvedSource() !== CrewTimesheetSource::CrewOperations) {
             return false;
         }
 

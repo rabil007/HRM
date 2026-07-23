@@ -61,6 +61,9 @@ export function PayrollGenerateDialog({
         http.post(CrewPayrollGenerationPreviewController.url(periodId))
             .then((res) => {
                 if (!cancelled) {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7d7dd1'},body:JSON.stringify({sessionId:'7d7dd1',runId:'post-fix',hypothesisId:'A',location:'payroll-generate-dialog.tsx:preview',message:'crew generation preview loaded',data:{periodId,blocking_count:res.blocking_count,ready_count:res.ready_count,canConfirm:res.blocking_count===0&&res.ready_count>0,blocking_codes:(res.blocking_issues||[]).map((i:{code:string})=>i.code)},timestamp:Date.now()})}).catch(()=>{});
+                    // #endregion
                     setPreview(res);
                 }
             })
