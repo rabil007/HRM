@@ -10,12 +10,7 @@ class UpdateApplicationGeneralRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $user = $this->user();
-
-        return (bool) (
-            $user?->can('platform.settings.update')
-            || $user?->can('settings.application.update')
-        );
+        return (bool) $this->user()?->can('settings.application.update');
     }
 
     /** @return array<string, mixed> */

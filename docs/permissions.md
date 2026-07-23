@@ -36,7 +36,7 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 | Payroll | `payroll.overview.view`, `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, `payroll.payslips.*`, `payroll.wps.export` |
 | Hikvision | `hikvision.persons.*`, `hikvision.devices.*`, `hikvision.events.*`, `hikvision.webhook.manage` |
 | Employee profile templates | `employee_profile_templates.view|create|update|delete` |
-| Settings | `settings.security.*`, `settings.appearance.view`, `settings.application.*`, `platform.settings.*`, `company.settings.*`, `company.document-settings.*`, integration/template permissions, and `settings.master-data.{resource}.*` |
+| Settings | `settings.security.*`, `settings.appearance.view`, `settings.application.*`, integration/template permissions, and `settings.master-data.{resource}.*` |
 | Audit | `audit.view` |
 
 The `*` notation above is descriptive only; permissions are seeded as explicit strings, not wildcard grants.
@@ -92,16 +92,18 @@ Automatic Spatie activity logging now covers a broad set of organization, master
 
 ## Settings and integrations
 
-Platform (application) settings use `settings.application.view|update` and the newer `platform.settings.view|update` aliases. Existing administrators receive the platform permissions through a migration that copies grants from `settings.application.*`.
-
-Company identity and regional values are managed on the Company record under **Organization → Companies**, gated by `companies.*` and `company.settings.view|update`.
-
-Company document signing assets (salary certificate signature/stamp/signatory) use:
+Application Settings (platform-wide identity, branding, SMTP, and global e-signature placement) use:
 
 | Permission | Scope |
 |------------|-------|
-| `company.document-settings.view` | View salary certificate settings on the company show page |
-| `company.document-settings.update` | Update company document settings for the **active** company only |
+| `settings.application.view` | View Application Settings for the entire OMS-HRM installation |
+| `settings.application.update` | Update Application Settings for the entire OMS-HRM installation |
+
+These permissions are global across the OMS-HRM installation. They are not company-scoped and must not be replaced with `companies.*`. The former `platform.settings.view` and `platform.settings.update` aliases have been removed as a duplicate permission family; grants were migrated onto `settings.application.*`.
+
+Company identity and regional values are managed on the Company record under **Organization → Companies**, gated by `companies.view` and `companies.update`.
+
+Company document signing assets (salary certificate signature/stamp/signatory) also use `companies.view` / `companies.update` on the company show page for the **active** company only.
 
 Trusted tenant context is always `current_company_id` from middleware/session. Client-supplied `company_id` cannot authorize cross-company updates.
 

@@ -21,8 +21,6 @@ class PermissionsSeeder extends Seeder
             'settings.appearance.view',
             'settings.application.view',
             'settings.application.update',
-            'platform.settings.view',
-            'platform.settings.update',
             'bulk_documents.view',
             'bulk_documents.generate',
             'bulk_documents.delete',

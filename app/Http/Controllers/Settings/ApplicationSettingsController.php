@@ -31,10 +31,10 @@ class ApplicationSettingsController extends Controller
     public function edit(): Response
     {
         $user = request()->user();
-        $canPlatformView = $user?->can('platform.settings.view') || $user?->can('settings.application.view');
-        $canWhatsAppView = $user?->can('settings.integrations.whatsapp.view');
+        $canApplicationView = (bool) $user?->can('settings.application.view');
+        $canWhatsAppView = (bool) $user?->can('settings.integrations.whatsapp.view');
 
-        if (! $canPlatformView && ! $canWhatsAppView) {
+        if (! $canApplicationView && ! $canWhatsAppView) {
             abort(403);
         }
 
@@ -49,16 +49,13 @@ class ApplicationSettingsController extends Controller
             'whatsapp' => null,
             'esign_placement' => null,
             'can' => [
-                'platform_view' => (bool) $canPlatformView,
-                'platform_update' => (bool) (
-                    $user?->can('platform.settings.update')
-                    || $user?->can('settings.application.update')
-                ),
-                'whatsapp_view' => (bool) $canWhatsAppView,
+                'platform_view' => $canApplicationView,
+                'platform_update' => (bool) $user?->can('settings.application.update'),
+                'whatsapp_view' => $canWhatsAppView,
             ],
         ];
 
-        if ($canPlatformView) {
+        if ($canApplicationView) {
             $props['general'] = [
                 'app_name' => $this->settings->get(SettingKey::AppName),
                 'support_email' => $this->settings->get(SettingKey::SupportEmail, ''),

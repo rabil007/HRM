@@ -17,8 +17,6 @@ test('platform admin can update platform general settings without company fields
     setupCompanyWithApplicationSettingsPermissions($user, [
         'settings.application.view',
         'settings.application.update',
-        'platform.settings.view',
-        'platform.settings.update',
     ]);
 
     $this->actingAs($user)

@@ -11,7 +11,7 @@ class TestApplicationMailRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user();
+        return (bool) $this->user()?->can('settings.application.update');
     }
 
     /** @return array<string, mixed> */

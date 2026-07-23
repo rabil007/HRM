@@ -267,10 +267,7 @@ export default function ApplicationSettings({
 
     const canUpdateApplication = can.platform_update;
 
-    const canViewPlatform =
-        can.platform_view ||
-        permissions.includes('settings.application.view') ||
-        permissions.includes('platform.settings.view');
+    const canViewPlatform = can.platform_view;
 
     const navItems = useMemo(
         () =>
