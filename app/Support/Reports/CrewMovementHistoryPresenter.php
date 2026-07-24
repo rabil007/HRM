@@ -42,6 +42,11 @@ final class CrewMovementHistoryPresenter
 
         $onVessel = $summaries[CrewPhaseCode::OnVessel->value];
         $training = $summaries[CrewPhaseCode::Training->value];
+        $payrollDays = CrewMovementHistoryPayrollDays::summarize(
+            $phases,
+            $timezone,
+            $today,
+        );
         $approvedCorrections = $assignment->relationLoaded('corrections')
             ? $assignment->corrections->where('status', CrewMovementCorrectionStatus::Approved)
             : collect();
@@ -99,6 +104,7 @@ final class CrewMovementHistoryPresenter
             'assignment_closed' => self::date($assignment->closed_at, $timezone),
             'total_assignment_days' => $assignmentDays,
             'total_assignment_days_label' => CrewMovementHistoryDuration::label($assignmentDays),
+            'payroll_days' => $payrollDays,
             'remarks' => $assignment->remarks,
             'needs_attention' => $warnings !== [],
             'warnings' => collect($warnings)->pluck('label')->values()->all(),

@@ -1,4 +1,12 @@
-import { Download, Filter, Loader2, X } from 'lucide-react';
+import {
+    ChevronDown,
+    Download,
+    FileSpreadsheet,
+    FileText,
+    Filter,
+    Loader2,
+    X,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
@@ -6,6 +14,13 @@ import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { formatDisplayDate } from '@/lib/format-date';
 import { exportMethod } from '@/routes/organization/reports/crew-movement-history';
 import { CrewMovementHistoryFiltersSheet } from './filters-sheet';
 import { CrewMovementHistoryReportTable } from './report-table';
@@ -18,10 +33,103 @@ import { useCrewMovementHistoryFilters } from './use-crew-movement-history-filte
 
 const CHIP_EXCLUDED = new Set(['search', 'sort', 'direction']);
 
-function label(value: string): string {
+const FILTER_LABELS: Partial<Record<keyof CrewMovementHistoryFilters, string>> =
+    {
+        status: 'Status',
+        current_phase: 'Current phase',
+        vessel_id: 'Vessel',
+        rank_id: 'Rank',
+        client_id: 'Client',
+        visa_type_id: 'Sponsor / visa',
+        source: 'Source',
+        needs_attention: 'Needs attention',
+        planned_join_from: 'Planned join from',
+        planned_join_to: 'Planned join to',
+        actual_join_from: 'Actual join from',
+        actual_join_to: 'Actual join to',
+        actual_disembarkation_from: 'Disembarkation from',
+        actual_disembarkation_to: 'Disembarkation to',
+        assignment_started_from: 'Assignment started from',
+        assignment_started_to: 'Assignment started to',
+        assignment_closed_from: 'Assignment closed from',
+        assignment_closed_to: 'Assignment closed to',
+        has_approved_corrections: 'Approved corrections',
+        has_pending_corrections: 'Pending corrections',
+    };
+
+function humanize(value: string): string {
     return value
         .replaceAll('_', ' ')
-        .replace(/\b\w/g, (char) => char.toUpperCase());
+        .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function chipValueLabel(
+    key: keyof CrewMovementHistoryFilters,
+    value: string,
+    options: CrewMovementHistoryProps['filter_options'],
+): string {
+    const selectOptions = (() => {
+        if (key === 'status') {
+            return options.statuses;
+        }
+
+        if (key === 'current_phase') {
+            return options.phases;
+        }
+
+        if (key === 'source') {
+            return options.sources;
+        }
+
+        if (key === 'vessel_id') {
+            return options.vessels.map((option) => ({
+                value: String(option.id),
+                label: option.name,
+            }));
+        }
+
+        if (key === 'rank_id') {
+            return options.ranks.map((option) => ({
+                value: String(option.id),
+                label: option.name,
+            }));
+        }
+
+        if (key === 'client_id') {
+            return options.clients.map((option) => ({
+                value: String(option.id),
+                label: option.name,
+            }));
+        }
+
+        if (key === 'visa_type_id') {
+            return options.visa_types.map((option) => ({
+                value: String(option.id),
+                label: option.name,
+            }));
+        }
+
+        return [];
+    })();
+    const selected = selectOptions.find((option) => option.value === value);
+
+    if (selected) {
+        return selected.label;
+    }
+
+    if (key.endsWith('_from') || key.endsWith('_to')) {
+        return formatDisplayDate(value);
+    }
+
+    if (
+        key === 'needs_attention' ||
+        key === 'has_approved_corrections' ||
+        key === 'has_pending_corrections'
+    ) {
+        return value === '1' ? 'Yes' : humanize(value);
+    }
+
+    return humanize(value);
 }
 
 export function CrewMovementHistoryContent(props: CrewMovementHistoryProps) {
@@ -61,23 +169,32 @@ export function CrewMovementHistoryContent(props: CrewMovementHistoryProps) {
             <PageHeader
                 kicker="Reports"
                 title="Crew Movement History"
-                description="One-row overview of every crew assignment, including planned and actual movement dates."
+                description="Scan assignment status and key dates, then open any record for its complete movement timeline and audit details."
                 right={
                     can.export ? (
-                        <>
-                            <Button variant="outline" asChild>
-                                <a href={exportUrl('xlsx')}>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline">
                                     <Download className="mr-2 size-4" />
-                                    Export Excel
-                                </a>
-                            </Button>
-                            <Button variant="outline" asChild>
-                                <a href={exportUrl('csv')}>
-                                    <Download className="mr-2 size-4" />
-                                    Export CSV
-                                </a>
-                            </Button>
-                        </>
+                                    Export report
+                                    <ChevronDown className="ml-2 size-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem asChild>
+                                    <a href={exportUrl('xlsx')}>
+                                        <FileSpreadsheet className="size-4" />
+                                        Excel workbook
+                                    </a>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <a href={exportUrl('csv')}>
+                                        <FileText className="size-4" />
+                                        CSV file
+                                    </a>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     ) : null
                 }
             />
@@ -117,7 +234,7 @@ export function CrewMovementHistoryContent(props: CrewMovementHistoryProps) {
                                     variant="ghost"
                                     onClick={controls.clear}
                                 >
-                                    Clear Filters
+                                    Clear filters
                                 </Button>
                             ) : null}
                         </div>
@@ -135,9 +252,18 @@ export function CrewMovementHistoryContent(props: CrewMovementHistoryProps) {
                                         [key]: '',
                                     } as Partial<CrewMovementHistoryFilters>)
                                 }
-                                className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-2.5 py-1 text-xs"
+                                className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-2.5 py-1 text-xs transition-colors hover:border-primary/40 hover:bg-primary/5"
+                                aria-label={`Remove ${FILTER_LABELS[key as keyof CrewMovementHistoryFilters] ?? humanize(key)} filter`}
                             >
-                                {label(key)}: {label(value)}
+                                {FILTER_LABELS[
+                                    key as keyof CrewMovementHistoryFilters
+                                ] ?? humanize(key)}
+                                :{' '}
+                                {chipValueLabel(
+                                    key as keyof CrewMovementHistoryFilters,
+                                    value,
+                                    options,
+                                )}
                                 <X className="size-3" />
                             </button>
                         ))}
@@ -154,6 +280,7 @@ export function CrewMovementHistoryContent(props: CrewMovementHistoryProps) {
                 ) : (
                     <CrewMovementHistoryReportTable
                         rows={assignments}
+                        total={pagination.total}
                         filters={filters}
                         onSort={controls.sort}
                     />

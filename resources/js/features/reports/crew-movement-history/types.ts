@@ -30,6 +30,17 @@ export type FlattenedPhaseSummary = PhaseSummary & {
     to: string | null;
 };
 
+export type PayrollDayPeriod = {
+    from: string;
+    to: string;
+    days: number;
+};
+
+export type PayrollDaySummary = {
+    periods: PayrollDayPeriod[];
+    total_days: number;
+};
+
 export type CrewMovementHistoryRow = {
     id: number;
     assignment_no: string;
@@ -71,6 +82,12 @@ export type CrewMovementHistoryRow = {
     assignment_closed: string | null;
     total_assignment_days: number | null;
     total_assignment_days_label: string;
+    payroll_days: {
+        sign_on_standby: PayrollDaySummary;
+        onsite: PayrollDaySummary;
+        sign_off_standby: PayrollDaySummary;
+        total_days: number;
+    };
     remarks: string | null;
     needs_attention: boolean;
     warnings: string[];

@@ -99,12 +99,74 @@ test('report exposes repeated phases and authoritative p4 dates in one row', fun
         ->get(route('organization.reports.crew-movement-history.index', ['search' => 'CA-REPEATED-001']))
         ->assertInertia(fn (Assert $page) => $page
             ->has('assignments', 1)
+            ->has('assignments.0', fn (Assert $row) => $row
+                ->hasAll([
+                    'id',
+                    'assignment_no',
+                    'employee.id',
+                    'employee.employee_no',
+                    'employee.name',
+                    'rank',
+                    'vessel',
+                    'client',
+                    'visa_type',
+                    'status',
+                    'status_label',
+                    'current_phase.code',
+                    'current_phase.label',
+                    'current_phase.status',
+                    'source',
+                    'source_label',
+                    'planned_travel_in',
+                    'planned_join',
+                    'planned_signoff',
+                    'planned_travel_home',
+                    'pre_mobilisation.periods',
+                    'travel_in.periods',
+                    'join_standby.periods',
+                    'join_standby.total_days',
+                    'join_standby.total_days_label',
+                    'training.periods',
+                    'training.details',
+                    'ready_to_join.periods',
+                    'on_vessel.periods',
+                    'on_vessel.actual_join',
+                    'on_vessel.actual_disembarkation',
+                    'demob_standby.periods',
+                    'demob_standby.total_days',
+                    'demob_standby.total_days_label',
+                    'home_redeploy.periods',
+                    'assignment_started',
+                    'assignment_closed',
+                    'total_assignment_days',
+                    'total_assignment_days_label',
+                    'payroll_days.sign_on_standby.periods',
+                    'payroll_days.sign_on_standby.total_days',
+                    'payroll_days.onsite.periods',
+                    'payroll_days.onsite.total_days',
+                    'payroll_days.sign_off_standby.periods',
+                    'payroll_days.sign_off_standby.total_days',
+                    'payroll_days.total_days',
+                    'remarks',
+                    'needs_attention',
+                    'warnings',
+                    'has_corrections',
+                    'correction_count',
+                    'last_corrected_at',
+                    'has_pending_corrections',
+                    'company_timezone',
+                ])
+                ->etc())
             ->has('assignments.0.join_standby.periods', 2)
             ->has('assignments.0.training.periods', 2)
             ->where('assignments.0.training.details.0', 'ABC — BOSIET')
             ->where('assignments.0.training.details.1', 'XYZ — Refresher')
             ->where('assignments.0.on_vessel.actual_join', '2026-07-24')
             ->where('assignments.0.on_vessel.actual_disembarkation', null)
+            ->where('assignments.0.payroll_days.sign_on_standby.total_days', 9)
+            ->where('assignments.0.payroll_days.onsite.total_days', 2)
+            ->where('assignments.0.payroll_days.sign_off_standby.total_days', 0)
+            ->where('assignments.0.payroll_days.total_days', 11)
             ->where('assignments.0.planned_signoff', '2026-09-01'));
 
     CarbonImmutable::setTestNow();

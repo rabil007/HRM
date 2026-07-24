@@ -77,9 +77,64 @@ test('it preserves repeated phases and calculates elapsed whole days in company 
         ->and($row['on_vessel']['actual_join'])->toBe('2026-07-24')
         ->and($row['on_vessel']['actual_disembarkation'])->toBeNull()
         ->and($row['on_vessel']['total_days'])->toBe(1)
+        ->and($row['payroll_days']['sign_on_standby']['periods'])->toBe([
+            [
+                'from' => '2026-07-15',
+                'to' => '2026-07-23',
+                'days' => 9,
+            ],
+        ])
+        ->and($row['payroll_days']['sign_on_standby']['total_days'])->toBe(9)
+        ->and($row['payroll_days']['onsite']['periods'])->toBe([
+            [
+                'from' => '2026-07-24',
+                'to' => '2026-07-25',
+                'days' => 2,
+            ],
+        ])
+        ->and($row['payroll_days']['onsite']['total_days'])->toBe(2)
+        ->and($row['payroll_days']['sign_off_standby']['total_days'])->toBe(0)
+        ->and($row['payroll_days']['total_days'])->toBe(11)
         ->and($row['planned_signoff'])->toBe('2026-08-31');
 
     CarbonImmutable::setTestNow();
+});
+
+test('same date activity counts as one payroll calendar day', function () {
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->create();
+
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-07-25 08:00:00',
+        'actual_end_at' => '2026-07-25 18:00:00',
+    ]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh([
+            'company',
+            'employee',
+            'rank',
+            'vessel',
+            'client',
+            'companyVisaType',
+            'currentPhase',
+            'phases',
+        ]),
+    );
+
+    expect($row['join_standby']['total_days'])->toBe(0)
+        ->and($row['payroll_days']['sign_on_standby']['periods'])->toBe([
+            [
+                'from' => '2026-07-25',
+                'to' => '2026-07-25',
+                'days' => 1,
+            ],
+        ])
+        ->and($row['payroll_days']['sign_on_standby']['total_days'])->toBe(1)
+        ->and($row['payroll_days']['total_days'])->toBe(1);
 });
 
 test('it maps every lifecycle phase and keeps planned and actual dates separate', function () {
@@ -139,7 +194,11 @@ test('it maps every lifecycle phase and keeps planned and actual dates separate'
         ->and($row['demob_standby']['total_days'])->toBe(2)
         ->and($row['home_redeploy']['total_days'])->toBe(3)
         ->and($row['assignment_closed'])->toBe('2026-02-15')
-        ->and($row['total_assignment_days'])->toBe(45);
+        ->and($row['total_assignment_days'])->toBe(45)
+        ->and($row['payroll_days']['sign_on_standby']['total_days'])->toBe(6)
+        ->and($row['payroll_days']['onsite']['total_days'])->toBe(32)
+        ->and($row['payroll_days']['sign_off_standby']['total_days'])->toBe(2)
+        ->and($row['payroll_days']['total_days'])->toBe(40);
 });
 
 test('planned only phases do not report actual duration', function () {

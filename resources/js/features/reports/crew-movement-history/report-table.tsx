@@ -1,14 +1,24 @@
 import { Link } from '@inertiajs/react';
 import {
+    AlertTriangle,
     ArrowDown,
     ArrowUp,
+    CheckCircle2,
+    ChevronDown,
+    ChevronRight,
     ChevronsUpDown,
+    Clock3,
+    ExternalLink,
+    History,
     MoreHorizontal,
+    Route,
+    Ship,
 } from 'lucide-react';
+import { Fragment, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-    OrganizationDataTable,
     DataTableHead,
+    OrganizationDataTable,
     dataTableBodyRowClass,
     dataTableCellClass,
 } from '@/components/data-table';
@@ -33,30 +43,65 @@ import { show as showEmployee } from '@/routes/organization/employees';
 import type {
     CrewMovementHistoryFilters,
     CrewMovementHistoryRow,
+    PayrollDaySummary,
     PhasePeriod,
     PhaseSummary,
 } from './types';
 
-const COL = {
-    assignment: 'w-[148px] min-w-[148px] max-w-[148px]',
-    employeeName: 'w-[240px] min-w-[240px] max-w-[240px]',
-    rank: 'w-[140px] min-w-[140px]',
-    vessel: 'w-[160px] min-w-[160px]',
-    client: 'w-[150px] min-w-[150px]',
-    visa: 'w-[160px] min-w-[160px]',
-    phase: 'w-[140px] min-w-[140px]',
-    date: 'w-[120px] min-w-[120px]',
-    days: 'w-[100px] min-w-[100px]',
-    periods: 'w-[200px] min-w-[200px]',
-    details: 'w-[200px] min-w-[200px]',
-    remarks: 'w-[220px] min-w-[220px]',
+const COLUMN_COUNT = 8;
+
+const columns = {
+    assignment: 'w-[270px] min-w-[270px]',
+    vessel: 'w-[210px] min-w-[210px]',
+    status: 'w-[180px] min-w-[180px]',
+    planned: 'w-[235px] min-w-[235px]',
+    actual: 'w-[235px] min-w-[235px]',
+    duration: 'w-[270px] min-w-[270px]',
     attention: 'w-[170px] min-w-[170px]',
-    actions: 'w-[72px] min-w-[72px]',
+    actions: 'w-[68px] min-w-[68px]',
 } as const;
 
-const stickyHead = 'sticky top-8 z-30 border-r border-border/70 bg-background';
-const stickyCell =
-    'sticky z-10 border-r border-border/70 bg-background group-hover:bg-muted';
+type PhaseRecord = {
+    code: string;
+    label: string;
+    summary: PhaseSummary;
+    details?: string[];
+};
+
+function humanize(value: string): string {
+    return value
+        .replaceAll('_', ' ')
+        .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function statusVariant(status: string) {
+    if (status === 'active') {
+        return 'success' as const;
+    }
+
+    if (status === 'cancelled') {
+        return 'destructive' as const;
+    }
+
+    if (status === 'draft') {
+        return 'secondary' as const;
+    }
+
+    return 'outline' as const;
+}
+
+function phaseStatusVariant(status: string) {
+    if (status === 'active') {
+        return 'success' as const;
+    }
+
+    if (status === 'completed') {
+        return 'secondary' as const;
+    }
+
+    return 'outline' as const;
+}
+
 function SortHead({
     column,
     label,
@@ -90,7 +135,7 @@ function SortHead({
             <button
                 type="button"
                 onClick={() => onSort(column)}
-                className="inline-flex max-w-full items-center gap-1 truncate"
+                className="inline-flex max-w-full items-center gap-1.5 transition-colors hover:text-primary"
             >
                 <span className="truncate">{label}</span>
                 <Icon className="size-3.5 shrink-0" aria-hidden />
@@ -99,708 +144,836 @@ function SortHead({
     );
 }
 
-function Periods({ summary }: { summary: PhaseSummary }) {
-    if (summary.periods.length === 0) {
-        return <span className="text-muted-foreground">Not recorded</span>;
-    }
-
-    const text = summary.periods
-        .map(
-            (period) =>
-                `${formatDisplayDate(period.start)} → ${
-                    period.status === 'active'
-                        ? 'Ongoing'
-                        : formatDisplayDate(period.end)
-                }`,
-        )
-        .join('\n');
-
-    return (
-        <div className="space-y-1 whitespace-normal" title={text}>
-            {summary.periods.slice(0, 2).map((period) => (
-                <Period key={period.sequence} period={period} />
-            ))}
-            {summary.periods.length > 2 ? (
-                <span className="text-xs text-muted-foreground">
-                    +{summary.periods.length - 2} more
-                </span>
-            ) : null}
-        </div>
-    );
-}
-
-function Period({ period }: { period: PhasePeriod }) {
-    return (
-        <div className="text-xs leading-snug">
-            {formatDisplayDate(period.start)} →{' '}
-            {period.status === 'active'
-                ? 'Ongoing'
-                : formatDisplayDate(period.end)}
-        </div>
-    );
-}
-
-function DateCell({
-    value,
-    ongoing = false,
-}: {
-    value: string | null;
-    ongoing?: boolean;
-}) {
-    return ongoing ? 'Ongoing' : formatDisplayDate(value);
-}
-
 function Cell({
     children,
     className,
-    title,
 }: {
     children: ReactNode;
     className?: string;
-    title?: string;
 }) {
     return (
         <TableCell
             className={cn(
                 dataTableCellClass(),
-                'align-top whitespace-nowrap',
+                'align-top whitespace-normal',
                 className,
             )}
-            title={title}
         >
             {children}
         </TableCell>
     );
 }
 
-function Truncate({
-    children,
-    title,
+function DatePair({
+    label,
+    value,
+    ongoing = false,
 }: {
-    children: ReactNode;
-    title?: string | null;
+    label: string;
+    value: string | null;
+    ongoing?: boolean;
 }) {
     return (
-        <span className="block truncate" title={title ?? undefined}>
-            {children}
-        </span>
+        <div className="grid grid-cols-[72px_1fr] gap-2 text-xs leading-5">
+            <span className="text-muted-foreground">{label}</span>
+            <span className="font-medium text-foreground tabular-nums">
+                {ongoing ? 'Ongoing' : formatDisplayDate(value)}
+            </span>
+        </div>
     );
 }
 
-const groupClass =
-    'sticky top-0 z-20 h-8 border-r bg-muted/95 text-center text-[10px] font-bold tracking-wider uppercase backdrop-blur';
-const headerClass = 'sticky top-8 z-20 bg-background/95 backdrop-blur';
+function numericDaysLabel(days: number | null): string {
+    if (days === null) {
+        return '—';
+    }
+
+    return `${days} ${days === 1 ? 'day' : 'days'}`;
+}
+
+function PayrollDuration({
+    label,
+    summary,
+}: {
+    label: string;
+    summary: PayrollDaySummary;
+}) {
+    const firstPeriod = summary.periods[0];
+    const lastPeriod = summary.periods.at(-1);
+    const dateRange =
+        firstPeriod && lastPeriod
+            ? `${formatDisplayDate(firstPeriod.from)} → ${formatDisplayDate(lastPeriod.to)}`
+            : '—';
+    const periodsLabel =
+        summary.periods.length > 1
+            ? ` · ${summary.periods.length} periods`
+            : '';
+    const fullPeriods = summary.periods
+        .map(
+            (period) =>
+                `${formatDisplayDate(period.from)} → ${formatDisplayDate(period.to)} (${numericDaysLabel(period.days)})`,
+        )
+        .join('; ');
+
+    return (
+        <div className="border-t border-border/50 pt-1.5">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="mt-0.5 flex items-baseline justify-between gap-2">
+                <span
+                    className="font-mono text-[10px] tabular-nums"
+                    title={fullPeriods || undefined}
+                >
+                    {dateRange}
+                    {periodsLabel}
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums">
+                    {numericDaysLabel(summary.total_days)}
+                </span>
+            </dd>
+        </div>
+    );
+}
+
+function DetailField({
+    label,
+    value,
+    mono = false,
+}: {
+    label: string;
+    value: ReactNode;
+    mono?: boolean;
+}) {
+    return (
+        <div className="min-w-0">
+            <dt className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                {label}
+            </dt>
+            <dd
+                className={cn(
+                    'mt-1 text-sm font-medium break-words text-foreground',
+                    mono && 'font-mono text-xs',
+                )}
+            >
+                {value ?? '—'}
+            </dd>
+        </div>
+    );
+}
+
+function PeriodLine({ period }: { period: PhasePeriod }) {
+    const ongoing = period.status === 'active';
+
+    return (
+        <div className="grid gap-2 rounded-lg border border-border/60 bg-background/70 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="font-mono text-[10px] text-muted-foreground">
+                    #{period.sequence}
+                </span>
+                <span className="text-sm font-medium tabular-nums">
+                    {formatDisplayDate(period.start)}
+                    <span className="px-1.5 text-muted-foreground">→</span>
+                    {ongoing ? 'Ongoing' : formatDisplayDate(period.end)}
+                </span>
+                <Badge variant={phaseStatusVariant(period.status)}>
+                    {humanize(period.status)}
+                </Badge>
+            </div>
+            <span className="text-xs font-semibold text-muted-foreground tabular-nums">
+                {numericDaysLabel(period.days)}
+            </span>
+        </div>
+    );
+}
+
+function PhaseDetail({ phase }: { phase: PhaseRecord }) {
+    return (
+        <section
+            className="grid gap-3 rounded-xl border border-border/70 bg-muted/15 p-3.5 lg:grid-cols-[180px_minmax(0,1fr)]"
+            aria-label={`${phase.code} ${phase.label}`}
+        >
+            <div>
+                <div className="flex items-center gap-2">
+                    <Badge variant="outline">{phase.code}</Badge>
+                    <h4 className="text-sm font-semibold">{phase.label}</h4>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                    Elapsed time
+                </p>
+                <p className="mt-0.5 text-sm font-semibold tabular-nums">
+                    {numericDaysLabel(phase.summary.total_days)}
+                </p>
+            </div>
+            <div className="space-y-2">
+                {phase.summary.periods.length ? (
+                    phase.summary.periods.map((period) => (
+                        <PeriodLine key={period.sequence} period={period} />
+                    ))
+                ) : (
+                    <div className="rounded-lg border border-dashed border-border/70 px-3 py-2 text-xs text-muted-foreground">
+                        No movement recorded for this phase.
+                    </div>
+                )}
+                {phase.details?.length ? (
+                    <div className="rounded-lg border border-info/25 bg-info/5 px-3 py-2">
+                        <p className="text-[10px] font-semibold tracking-wider text-info uppercase">
+                            Training provider / course
+                        </p>
+                        <ul className="mt-1 space-y-1 text-xs">
+                            {phase.details.map((detail, index) => (
+                                <li key={`${detail}-${index}`}>{detail}</li>
+                            ))}
+                        </ul>
+                    </div>
+                ) : null}
+            </div>
+        </section>
+    );
+}
+
+function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
+    const phases: PhaseRecord[] = [
+        {
+            code: 'P0',
+            label: 'Pre-Mobilisation',
+            summary: row.pre_mobilisation,
+        },
+        { code: 'P1', label: 'Travel In', summary: row.travel_in },
+        { code: 'P2A', label: 'Join Standby', summary: row.join_standby },
+        {
+            code: 'P2B',
+            label: 'Training',
+            summary: row.training,
+            details: row.training.details,
+        },
+        { code: 'P3', label: 'Ready to Join', summary: row.ready_to_join },
+        { code: 'P4', label: 'On Vessel', summary: row.on_vessel },
+        { code: 'P5', label: 'Demob Standby', summary: row.demob_standby },
+        {
+            code: 'P6',
+            label: 'Home / Redeployment',
+            summary: row.home_redeploy,
+        },
+    ];
+
+    return (
+        <div
+            id={`assignment-details-${row.id}`}
+            className="space-y-5 border-t border-primary/15 bg-muted/20 px-4 py-5 sm:px-6"
+        >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p className="text-xs font-semibold tracking-wider text-primary uppercase">
+                        Full assignment record
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        All reference data and recorded phase periods for{' '}
+                        {row.assignment_no}.
+                    </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={showAssignment.url(row.id)}>
+                            View assignment
+                            <ExternalLink className="ml-2 size-3.5" />
+                        </Link>
+                    </Button>
+                    {row.employee.id ? (
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={showEmployee.url(row.employee.id)}>
+                                View employee
+                                <ExternalLink className="ml-2 size-3.5" />
+                            </Link>
+                        </Button>
+                    ) : null}
+                </div>
+            </div>
+
+            <section className="rounded-xl border border-border/70 bg-background/75 p-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                    <Ship className="size-4 text-primary" />
+                    Assignment & crew
+                </h3>
+                <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <DetailField
+                        label="Assignment number"
+                        value={row.assignment_no}
+                        mono
+                    />
+                    <DetailField label="Record ID" value={row.id} mono />
+                    <DetailField
+                        label="Employee"
+                        value={row.employee.name ?? '—'}
+                    />
+                    <DetailField
+                        label="Employee number"
+                        value={row.employee.employee_no ?? '—'}
+                        mono
+                    />
+                    <DetailField
+                        label="Employee record ID"
+                        value={row.employee.id ?? '—'}
+                        mono
+                    />
+                    <DetailField label="Rank" value={row.rank?.name ?? '—'} />
+                    <DetailField
+                        label="Vessel"
+                        value={row.vessel?.name ?? '—'}
+                    />
+                    <DetailField
+                        label="Client"
+                        value={row.client?.name ?? '—'}
+                    />
+                    <DetailField
+                        label="Sponsor / visa type"
+                        value={row.visa_type?.name ?? '—'}
+                    />
+                    <DetailField
+                        label="Status"
+                        value={
+                            <Badge variant={statusVariant(row.status)}>
+                                {row.status_label}
+                            </Badge>
+                        }
+                    />
+                    <DetailField
+                        label="Current phase"
+                        value={
+                            row.current_phase
+                                ? `${row.current_phase.code.toUpperCase()} · ${row.current_phase.label} (${humanize(row.current_phase.status)})`
+                                : '—'
+                        }
+                    />
+                    <DetailField
+                        label="Created from"
+                        value={
+                            row.source
+                                ? `${row.source_label} (${row.source})`
+                                : row.source_label
+                        }
+                    />
+                    <DetailField
+                        label="Report timezone"
+                        value={row.company_timezone}
+                        mono
+                    />
+                </dl>
+            </section>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+                <section className="rounded-xl border border-border/70 bg-background/75 p-4">
+                    <h3 className="flex items-center gap-2 text-sm font-semibold">
+                        <Route className="size-4 text-primary" />
+                        Planned movement
+                    </h3>
+                    <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                        <DetailField
+                            label="Planned travel in"
+                            value={formatDisplayDate(row.planned_travel_in)}
+                        />
+                        <DetailField
+                            label="Planned join"
+                            value={formatDisplayDate(row.planned_join)}
+                        />
+                        <DetailField
+                            label="Planned sign-off"
+                            value={formatDisplayDate(row.planned_signoff)}
+                        />
+                        <DetailField
+                            label="Planned travel home"
+                            value={formatDisplayDate(row.planned_travel_home)}
+                        />
+                    </dl>
+                </section>
+
+                <section className="rounded-xl border border-border/70 bg-background/75 p-4">
+                    <h3 className="flex items-center gap-2 text-sm font-semibold">
+                        <Clock3 className="size-4 text-primary" />
+                        Actual movement & completion
+                    </h3>
+                    <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                        <DetailField
+                            label="Actual vessel join"
+                            value={formatDisplayDate(row.on_vessel.actual_join)}
+                        />
+                        <DetailField
+                            label="Actual disembarkation"
+                            value={
+                                row.on_vessel.periods.some(
+                                    (period) => period.status === 'active',
+                                )
+                                    ? 'Ongoing'
+                                    : formatDisplayDate(
+                                          row.on_vessel.actual_disembarkation,
+                                      )
+                            }
+                        />
+                        <DetailField
+                            label="Assignment started"
+                            value={formatDisplayDate(row.assignment_started)}
+                        />
+                        <DetailField
+                            label="Assignment closed"
+                            value={
+                                row.status === 'active'
+                                    ? 'Ongoing'
+                                    : formatDisplayDate(row.assignment_closed)
+                            }
+                        />
+                        <DetailField
+                            label="On-vessel elapsed days"
+                            value={numericDaysLabel(row.on_vessel.total_days)}
+                        />
+                        <DetailField
+                            label="Total assignment elapsed days"
+                            value={numericDaysLabel(row.total_assignment_days)}
+                        />
+                    </dl>
+                </section>
+            </div>
+
+            <section>
+                <div className="mb-3">
+                    <h3 className="flex items-center gap-2 text-sm font-semibold">
+                        <History className="size-4 text-primary" />
+                        Complete phase timeline
+                    </h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                        Every recorded period is shown in sequence. Repeated
+                        standby or training periods remain separate.
+                    </p>
+                </div>
+                <div className="space-y-3">
+                    {phases.map((phase) => (
+                        <PhaseDetail key={phase.code} phase={phase} />
+                    ))}
+                </div>
+            </section>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+                <section className="rounded-xl border border-border/70 bg-background/75 p-4">
+                    <h3 className="text-sm font-semibold">
+                        Corrections & audit
+                    </h3>
+                    <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                        <DetailField
+                            label="Approved corrections"
+                            value={row.correction_count}
+                        />
+                        <DetailField
+                            label="Last approved correction"
+                            value={formatDisplayDate(row.last_corrected_at)}
+                        />
+                        <DetailField
+                            label="Pending correction"
+                            value={
+                                row.has_pending_corrections ? (
+                                    <Badge variant="warning">
+                                        Pending review
+                                    </Badge>
+                                ) : (
+                                    'No'
+                                )
+                            }
+                        />
+                        <DetailField
+                            label="Has approved correction"
+                            value={row.has_corrections ? 'Yes' : 'No'}
+                        />
+                    </dl>
+                </section>
+
+                <section className="rounded-xl border border-border/70 bg-background/75 p-4">
+                    <h3 className="text-sm font-semibold">
+                        Remarks & attention
+                    </h3>
+                    <div className="mt-4 space-y-4">
+                        <div>
+                            <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                Remarks
+                            </p>
+                            <p className="mt-1 text-sm whitespace-pre-wrap">
+                                {row.remarks ?? '—'}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                                Attention warnings
+                            </p>
+                            {row.warnings.length ? (
+                                <ul className="mt-2 space-y-2">
+                                    {row.warnings.map((warning, index) => (
+                                        <li
+                                            key={`${warning}-${index}`}
+                                            className="flex items-start gap-2 rounded-lg border border-warning/25 bg-warning/5 px-3 py-2 text-sm"
+                                        >
+                                            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
+                                            <span>{warning}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                                    <CheckCircle2 className="size-4 text-success" />
+                                    No attention warnings
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    );
+}
 
 export function CrewMovementHistoryReportTable({
     rows,
+    total,
     filters,
     onSort,
 }: {
     rows: CrewMovementHistoryRow[];
+    total: number;
     filters: CrewMovementHistoryFilters;
     onSort: (column: string) => void;
 }) {
+    const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+    const allExpanded = rows.every((row) => expandedRows.has(row.id));
+
+    const toggleRow = (id: number): void => {
+        setExpandedRows((current) => {
+            const next = new Set(current);
+
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+
+            return next;
+        });
+    };
+
+    const toggleAll = (): void => {
+        setExpandedRows(
+            allExpanded ? new Set() : new Set(rows.map((row) => row.id)),
+        );
+    };
+
     return (
         <OrganizationDataTable
-            minWidth="min-w-[5960px]"
+            minWidth="min-w-[1618px]"
             compact
             tableClassName="table-fixed"
+            header={
+                <>
+                    <div>
+                        <p className="text-sm font-semibold">
+                            {total.toLocaleString()}{' '}
+                            {total === 1 ? 'assignment' : 'assignments'} found
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                            Showing {rows.length} on this page. Open a record to
+                            see every report field and phase period.
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            Calendar-day preview uses inclusive dates and counts
+                            a shared phase handover date once. Final payroll
+                            also depends on contract and payroll-period
+                            eligibility.
+                        </p>
+                    </div>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleAll}
+                    >
+                        {allExpanded ? 'Collapse all' : 'Expand all records'}
+                    </Button>
+                </>
+            }
         >
             <TableHeader>
                 <TableRow>
-                    <DataTableHead colSpan={7} className={groupClass}>
-                        Identity
-                    </DataTableHead>
-                    <DataTableHead colSpan={4} className={groupClass}>
-                        Planning
-                    </DataTableHead>
-                    <DataTableHead colSpan={3} className={groupClass}>
-                        Pre-Mobilisation
-                    </DataTableHead>
-                    <DataTableHead colSpan={3} className={groupClass}>
-                        Travel In
-                    </DataTableHead>
-                    <DataTableHead colSpan={2} className={groupClass}>
-                        Join Standby
-                    </DataTableHead>
-                    <DataTableHead colSpan={3} className={groupClass}>
-                        Training
-                    </DataTableHead>
-                    <DataTableHead colSpan={4} className={groupClass}>
-                        Ready
-                    </DataTableHead>
-                    <DataTableHead colSpan={4} className={groupClass}>
-                        On Vessel
-                    </DataTableHead>
-                    <DataTableHead colSpan={4} className={groupClass}>
-                        Demob Standby
-                    </DataTableHead>
-                    <DataTableHead colSpan={4} className={groupClass}>
-                        Home / Redeploy
-                    </DataTableHead>
-                    <DataTableHead colSpan={5} className={groupClass}>
-                        Completion
-                    </DataTableHead>
-                    <DataTableHead
-                        rowSpan={2}
-                        className={cn(groupClass, COL.actions, 'align-middle')}
-                    >
-                        Actions
-                    </DataTableHead>
-                </TableRow>
-                <TableRow>
                     <SortHead
                         column="assignment_no"
-                        label="Assignment No"
+                        label="Assignment & crew"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(stickyHead, COL.assignment, 'left-0')}
-                    />
-                    <SortHead
-                        column="employee_name"
-                        label="Employee"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(
-                            stickyHead,
-                            COL.employeeName,
-                            'left-[148px]',
-                        )}
-                    />
-                    <SortHead
-                        column="rank"
-                        label="Rank"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.rank)}
+                        className={columns.assignment}
                     />
                     <SortHead
                         column="vessel"
-                        label="Vessel"
+                        label="Vessel & rank"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, COL.vessel)}
+                        className={columns.vessel}
                     />
                     <SortHead
-                        column="client"
-                        label="Client"
+                        label="Status & phase"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, COL.client)}
+                        className={columns.status}
                     />
                     <SortHead
-                        label="Sponsor / Visa Type"
+                        column="planned_join"
+                        label="Planned movement"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, COL.visa)}
+                        className={columns.planned}
                     />
                     <SortHead
-                        label="Current Phase"
+                        label="Actual vessel period"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, COL.phase)}
-                    />
-                    {[
-                        'Planned Travel In',
-                        'Planned Join',
-                        'Planned Sign-Off',
-                        'Planned Travel Home',
-                    ].map((label) => (
-                        <SortHead
-                            key={label}
-                            column={
-                                label === 'Planned Join'
-                                    ? 'planned_join'
-                                    : label === 'Planned Sign-Off'
-                                      ? 'planned_signoff'
-                                      : undefined
-                            }
-                            label={label}
-                            filters={filters}
-                            onSort={onSort}
-                            className={cn(headerClass, COL.date)}
-                        />
-                    ))}
-                    {['From', 'To', 'Days', 'From', 'Arrival Date', 'Days'].map(
-                        (label, index) => (
-                            <SortHead
-                                key={`${label}-${index}`}
-                                label={label}
-                                filters={filters}
-                                onSort={onSort}
-                                className={cn(
-                                    headerClass,
-                                    label === 'Days' ? COL.days : COL.date,
-                                )}
-                            />
-                        ),
-                    )}
-                    <SortHead
-                        label="Periods"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.periods)}
+                        className={columns.actual}
                     />
                     <SortHead
-                        label="Total Days"
+                        label="Payroll calendar-day preview"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, COL.days)}
+                        className={columns.duration}
                     />
                     <SortHead
-                        label="Periods"
+                        label="Attention & changes"
                         filters={filters}
                         onSort={onSort}
-                        className={cn(headerClass, COL.periods)}
+                        className={columns.attention}
                     />
-                    <SortHead
-                        label="Total Days"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.days)}
-                    />
-                    <SortHead
-                        label="Provider / Course"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.details)}
-                    />
-                    <SortHead
-                        label="Periods"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.periods)}
-                    />
-                    <SortHead
-                        label="From"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.date)}
-                    />
-                    <SortHead
-                        label="To"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.date)}
-                    />
-                    <SortHead
-                        label="Days"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.days)}
-                    />
-                    <SortHead
-                        label="On-Vessel Periods"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.periods)}
-                    />
-                    <SortHead
-                        label="Actual Join"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.date)}
-                    />
-                    <SortHead
-                        label="Actual Disembarkation"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.date)}
-                    />
-                    <SortHead
-                        label="Vessel Days"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.days)}
-                    />
-                    {[
-                        'Periods',
-                        'From',
-                        'To',
-                        'Days',
-                        'Periods',
-                        'From',
-                        'To',
-                        'Days',
-                    ].map((label, index) => (
-                        <SortHead
-                            key={`${label}-${index}`}
-                            label={label}
-                            filters={filters}
-                            onSort={onSort}
-                            className={cn(
-                                headerClass,
-                                label === 'Periods'
-                                    ? COL.periods
-                                    : label === 'Days'
-                                      ? COL.days
-                                      : COL.date,
-                            )}
-                        />
-                    ))}
-                    <SortHead
-                        column="started_at"
-                        label="Assignment Started"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.date)}
-                    />
-                    <SortHead
-                        column="closed_at"
-                        label="Assignment Closed"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.date)}
-                    />
-                    <SortHead
-                        label="Total Days"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.days)}
-                    />
-                    <SortHead
-                        label="Remarks"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.remarks)}
-                    />
-                    <SortHead
-                        label="Needs Attention"
-                        filters={filters}
-                        onSort={onSort}
-                        className={cn(headerClass, COL.attention)}
-                    />
+                    <DataTableHead className={columns.actions}>
+                        <span className="sr-only">Actions</span>
+                    </DataTableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {rows.map((row) => {
-                    const p0Ongoing = row.pre_mobilisation.periods.some(
-                        (period) => period.status === 'active',
-                    );
-                    const p1Ongoing = row.travel_in.periods.some(
-                        (period) => period.status === 'active',
-                    );
-                    const readyOngoing = row.ready_to_join.periods.some(
-                        (period) => period.status === 'active',
-                    );
+                    const expanded = expandedRows.has(row.id);
                     const vesselOngoing = row.on_vessel.periods.some(
-                        (period) => period.status === 'active',
-                    );
-                    const demobOngoing = row.demob_standby.periods.some(
-                        (period) => period.status === 'active',
-                    );
-                    const homeOngoing = row.home_redeploy.periods.some(
                         (period) => period.status === 'active',
                     );
 
                     return (
-                        <TableRow
-                            key={row.id}
-                            className={cn(
-                                dataTableBodyRowClass(false),
-                                'group',
-                            )}
-                        >
-                            <Cell
+                        <Fragment key={row.id}>
+                            <TableRow
                                 className={cn(
-                                    stickyCell,
-                                    COL.assignment,
-                                    'left-0 font-semibold',
+                                    dataTableBodyRowClass(),
+                                    expanded && 'bg-primary/[0.035]',
                                 )}
+                                aria-expanded={expanded}
                             >
-                                <Truncate title={row.assignment_no}>
-                                    <Link
-                                        href={showAssignment.url(row.id)}
-                                        className="text-primary hover:underline"
-                                    >
-                                        {row.assignment_no}
-                                    </Link>
-                                </Truncate>
-                            </Cell>
-                            <Cell
-                                className={cn(
-                                    stickyCell,
-                                    COL.employeeName,
-                                    'left-[148px]',
-                                )}
-                            >
-                                <div
-                                    className="min-w-0 space-y-1.5"
-                                    title={
-                                        [
-                                            row.employee.name,
-                                            row.employee.employee_no,
-                                            row.status_label,
-                                        ]
-                                            .filter(Boolean)
-                                            .join(' · ') || undefined
-                                    }
-                                >
-                                    <div className="min-w-0">
-                                        <p className="truncate font-medium text-foreground">
-                                            {row.employee.name ?? '—'}
-                                        </p>
-                                        {row.employee.employee_no ? (
-                                            <p className="truncate font-mono text-[11px] text-muted-foreground/75">
-                                                {row.employee.employee_no}
-                                            </p>
-                                        ) : null}
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-1.5">
-                                        <Badge
-                                            variant={
-                                                row.status === 'active'
-                                                    ? 'success'
-                                                    : row.status === 'draft'
-                                                      ? 'secondary'
-                                                      : row.status ===
-                                                          'cancelled'
-                                                        ? 'destructive'
-                                                        : 'outline'
-                                            }
-                                        >
-                                            {row.status_label}
-                                        </Badge>
-                                        {row.has_pending_corrections ? (
-                                            <Badge
-                                                variant="warning"
-                                                title="Correction pending review"
-                                            >
-                                                Pending Correction
-                                            </Badge>
-                                        ) : row.has_corrections ? (
-                                            <Badge
-                                                variant="secondary"
-                                                title={
-                                                    row.last_corrected_at
-                                                        ? `${row.correction_count} correction(s) · last on ${formatDisplayDate(row.last_corrected_at)}`
-                                                        : `${row.correction_count} correction(s)`
-                                                }
-                                            >
-                                                Corrected
-                                            </Badge>
-                                        ) : null}
-                                    </div>
-                                </div>
-                            </Cell>
-                            <Cell className={COL.rank}>
-                                <Truncate title={row.rank?.name}>
-                                    {row.rank?.name ?? '—'}
-                                </Truncate>
-                            </Cell>
-                            <Cell className={COL.vessel}>
-                                <Truncate title={row.vessel?.name}>
-                                    {row.vessel?.name ?? '—'}
-                                </Truncate>
-                            </Cell>
-                            <Cell className={COL.client}>
-                                <Truncate title={row.client?.name}>
-                                    {row.client?.name ?? '—'}
-                                </Truncate>
-                            </Cell>
-                            <Cell className={COL.visa}>
-                                <Truncate title={row.visa_type?.name}>
-                                    {row.visa_type?.name ?? '—'}
-                                </Truncate>
-                            </Cell>
-                            <Cell className={COL.phase}>
-                                <Truncate title={row.current_phase?.label}>
-                                    {row.current_phase?.label ?? '—'}
-                                </Truncate>
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell value={row.planned_travel_in} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell value={row.planned_join} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell value={row.planned_signoff} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell value={row.planned_travel_home} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell value={row.pre_mobilisation.from} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell
-                                    value={row.pre_mobilisation.to}
-                                    ongoing={p0Ongoing}
-                                />
-                            </Cell>
-                            <Cell className={COL.days}>
-                                {row.pre_mobilisation.total_days_label}
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell value={row.travel_in.from} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell
-                                    value={row.travel_in.to}
-                                    ongoing={p1Ongoing}
-                                />
-                            </Cell>
-                            <Cell className={COL.days}>
-                                {row.travel_in.total_days_label}
-                            </Cell>
-                            <Cell
-                                className={cn(COL.periods, 'whitespace-normal')}
-                            >
-                                <Periods summary={row.join_standby} />
-                            </Cell>
-                            <Cell className={COL.days}>
-                                {row.join_standby.total_days_label}
-                            </Cell>
-                            <Cell
-                                className={cn(COL.periods, 'whitespace-normal')}
-                            >
-                                <Periods summary={row.training} />
-                            </Cell>
-                            <Cell className={COL.days}>
-                                {row.training.total_days_label}
-                            </Cell>
-                            <Cell
-                                className={cn(COL.details, 'whitespace-normal')}
-                                title={row.training.details.join('\n')}
-                            >
-                                {row.training.details.length
-                                    ? row.training.details.join('; ')
-                                    : '—'}
-                            </Cell>
-                            <Cell
-                                className={cn(COL.periods, 'whitespace-normal')}
-                            >
-                                <Periods summary={row.ready_to_join} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell value={row.ready_to_join.from} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell
-                                    value={row.ready_to_join.to}
-                                    ongoing={readyOngoing}
-                                />
-                            </Cell>
-                            <Cell className={COL.days}>
-                                {row.ready_to_join.total_days_label}
-                            </Cell>
-                            <Cell
-                                className={cn(COL.periods, 'whitespace-normal')}
-                            >
-                                <Periods summary={row.on_vessel} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell value={row.on_vessel.actual_join} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell
-                                    value={row.on_vessel.actual_disembarkation}
-                                    ongoing={vesselOngoing}
-                                />
-                            </Cell>
-                            <Cell className={COL.days}>
-                                {row.on_vessel.total_days_label}
-                            </Cell>
-                            <Cell
-                                className={cn(COL.periods, 'whitespace-normal')}
-                            >
-                                <Periods summary={row.demob_standby} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell value={row.demob_standby.from} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell
-                                    value={row.demob_standby.to}
-                                    ongoing={demobOngoing}
-                                />
-                            </Cell>
-                            <Cell className={COL.days}>
-                                {row.demob_standby.total_days_label}
-                            </Cell>
-                            <Cell
-                                className={cn(COL.periods, 'whitespace-normal')}
-                            >
-                                <Periods summary={row.home_redeploy} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell value={row.home_redeploy.from} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell
-                                    value={row.home_redeploy.to}
-                                    ongoing={homeOngoing}
-                                />
-                            </Cell>
-                            <Cell className={COL.days}>
-                                {row.home_redeploy.total_days_label}
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell value={row.assignment_started} />
-                            </Cell>
-                            <Cell className={COL.date}>
-                                <DateCell
-                                    value={row.assignment_closed}
-                                    ongoing={row.status === 'active'}
-                                />
-                            </Cell>
-                            <Cell className={COL.days}>
-                                {row.total_assignment_days_label}
-                            </Cell>
-                            <Cell
-                                className={cn(COL.remarks, 'whitespace-normal')}
-                                title={row.remarks ?? undefined}
-                            >
-                                {row.remarks ?? '—'}
-                            </Cell>
-                            <Cell
-                                className={cn(
-                                    COL.attention,
-                                    'whitespace-normal',
-                                )}
-                                title={row.warnings.join('\n')}
-                            >
-                                {row.needs_attention
-                                    ? row.warnings.join(', ')
-                                    : 'No'}
-                            </Cell>
-                            <Cell className={COL.actions}>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
+                                <Cell className={columns.assignment}>
+                                    <div className="flex items-start gap-2">
                                         <Button
+                                            type="button"
                                             variant="ghost"
                                             size="icon"
-                                            aria-label={`Actions for ${row.assignment_no}`}
+                                            className="-ml-1 size-8 shrink-0"
+                                            onClick={() => toggleRow(row.id)}
+                                            aria-expanded={expanded}
+                                            aria-controls={`assignment-details-${row.id}`}
+                                            aria-label={`${expanded ? 'Collapse' : 'Open'} full record for ${row.assignment_no}`}
                                         >
-                                            <MoreHorizontal className="size-4" />
+                                            {expanded ? (
+                                                <ChevronDown className="size-4" />
+                                            ) : (
+                                                <ChevronRight className="size-4" />
+                                            )}
                                         </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem asChild>
+                                        <div className="min-w-0">
                                             <Link
                                                 href={showAssignment.url(
                                                     row.id,
                                                 )}
+                                                className="font-mono text-xs font-semibold text-primary hover:underline"
                                             >
-                                                View Assignment
+                                                {row.assignment_no}
                                             </Link>
-                                        </DropdownMenuItem>
-                                        {row.employee.id ? (
+                                            <p className="mt-1 truncate font-semibold text-foreground">
+                                                {row.employee.name ?? '—'}
+                                            </p>
+                                            <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                                                {row.employee.employee_no ??
+                                                    'No employee number'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </Cell>
+                                <Cell className={columns.vessel}>
+                                    <p className="truncate font-semibold">
+                                        {row.vessel?.name ?? 'No vessel'}
+                                    </p>
+                                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                                        {row.rank?.name ?? 'No rank'}
+                                    </p>
+                                    <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                                        {row.client?.name ?? 'No client'}
+                                    </p>
+                                </Cell>
+                                <Cell className={columns.status}>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        <Badge
+                                            variant={statusVariant(row.status)}
+                                        >
+                                            {row.status_label}
+                                        </Badge>
+                                        {row.current_phase ? (
+                                            <Badge variant="outline">
+                                                {row.current_phase.code.toUpperCase()}
+                                            </Badge>
+                                        ) : null}
+                                    </div>
+                                    <p className="mt-2 truncate text-xs text-muted-foreground">
+                                        {row.current_phase?.label ??
+                                            'No current phase'}
+                                    </p>
+                                </Cell>
+                                <Cell className={columns.planned}>
+                                    <DatePair
+                                        label="Join"
+                                        value={row.planned_join}
+                                    />
+                                    <DatePair
+                                        label="Sign-off"
+                                        value={row.planned_signoff}
+                                    />
+                                    <DatePair
+                                        label="Home"
+                                        value={row.planned_travel_home}
+                                    />
+                                </Cell>
+                                <Cell className={columns.actual}>
+                                    <DatePair
+                                        label="Joined"
+                                        value={row.on_vessel.actual_join}
+                                    />
+                                    <DatePair
+                                        label="Left"
+                                        value={
+                                            row.on_vessel.actual_disembarkation
+                                        }
+                                        ongoing={vesselOngoing}
+                                    />
+                                </Cell>
+                                <Cell className={columns.duration}>
+                                    <dl className="space-y-1.5 text-xs">
+                                        <div className="flex items-baseline justify-between gap-2">
+                                            <dt className="font-medium text-foreground">
+                                                Calendar-day total
+                                            </dt>
+                                            <dd className="font-bold tabular-nums">
+                                                {numericDaysLabel(
+                                                    row.payroll_days.total_days,
+                                                )}
+                                            </dd>
+                                        </div>
+                                        <PayrollDuration
+                                            label="Sign-on standby"
+                                            summary={
+                                                row.payroll_days.sign_on_standby
+                                            }
+                                        />
+                                        <PayrollDuration
+                                            label="On vessel"
+                                            summary={row.payroll_days.onsite}
+                                        />
+                                        <PayrollDuration
+                                            label="Sign-off standby"
+                                            summary={
+                                                row.payroll_days
+                                                    .sign_off_standby
+                                            }
+                                        />
+                                    </dl>
+                                </Cell>
+                                <Cell className={columns.attention}>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {row.needs_attention ? (
+                                            <Badge variant="warning">
+                                                <AlertTriangle />
+                                                {row.warnings.length}{' '}
+                                                {row.warnings.length === 1
+                                                    ? 'warning'
+                                                    : 'warnings'}
+                                            </Badge>
+                                        ) : (
+                                            <Badge variant="success">
+                                                <CheckCircle2 />
+                                                Clear
+                                            </Badge>
+                                        )}
+                                        {row.has_pending_corrections ? (
+                                            <Badge variant="warning">
+                                                Pending correction
+                                            </Badge>
+                                        ) : row.has_corrections ? (
+                                            <Badge variant="secondary">
+                                                {row.correction_count}{' '}
+                                                {row.correction_count === 1
+                                                    ? 'correction'
+                                                    : 'corrections'}
+                                            </Badge>
+                                        ) : null}
+                                    </div>
+                                    <p className="mt-2 truncate text-[11px] text-muted-foreground">
+                                        Source: {row.source_label}
+                                    </p>
+                                </Cell>
+                                <Cell className={columns.actions}>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                aria-label={`Actions for ${row.assignment_no}`}
+                                            >
+                                                <MoreHorizontal className="size-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem
+                                                onSelect={() =>
+                                                    toggleRow(row.id)
+                                                }
+                                            >
+                                                {expanded
+                                                    ? 'Collapse record'
+                                                    : 'Open full record'}
+                                            </DropdownMenuItem>
                                             <DropdownMenuItem asChild>
                                                 <Link
-                                                    href={showEmployee.url(
-                                                        row.employee.id,
+                                                    href={showAssignment.url(
+                                                        row.id,
                                                     )}
                                                 >
-                                                    View Employee
+                                                    View assignment
                                                 </Link>
                                             </DropdownMenuItem>
-                                        ) : null}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </Cell>
-                        </TableRow>
+                                            {row.employee.id ? (
+                                                <DropdownMenuItem asChild>
+                                                    <Link
+                                                        href={showEmployee.url(
+                                                            row.employee.id,
+                                                        )}
+                                                    >
+                                                        View employee
+                                                    </Link>
+                                                </DropdownMenuItem>
+                                            ) : null}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </Cell>
+                            </TableRow>
+                            {expanded ? (
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell
+                                        colSpan={COLUMN_COUNT}
+                                        className="p-0 whitespace-normal"
+                                    >
+                                        <FullAssignmentRecord row={row} />
+                                    </TableCell>
+                                </TableRow>
+                            ) : null}
+                        </Fragment>
                     );
                 })}
             </TableBody>
