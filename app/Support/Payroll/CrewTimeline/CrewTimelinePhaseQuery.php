@@ -98,29 +98,14 @@ final class CrewTimelinePhaseQuery
     ): CarbonImmutable {
         $timezone = CompanyTimezone::forCompanyId((int) $period->company_id);
         $periodEnd = CarbonImmutable::parse($period->end_date->toDateString(), $timezone)->startOfDay();
-        $today = CarbonImmutable::now($timezone)->startOfDay();
 
-        $candidates = [$periodEnd, $today];
-
-        if ($cutoffDate !== null) {
-            $candidates[] = CarbonImmutable::parse($cutoffDate->toDateString(), $timezone)->startOfDay();
+        if ($cutoffDate === null) {
+            return $periodEnd;
         }
 
-        $earliest = $candidates[0];
+        $cutoff = CarbonImmutable::parse($cutoffDate->toDateString(), $timezone)->startOfDay();
 
-        foreach ($candidates as $candidate) {
-            if ($candidate->lt($earliest)) {
-                $earliest = $candidate;
-            }
-        }
-
-        $periodStart = CarbonImmutable::parse($period->start_date->toDateString(), $timezone)->startOfDay();
-
-        if ($earliest->lt($periodStart)) {
-            return $periodStart;
-        }
-
-        return $earliest;
+        return $cutoff->lt($periodEnd) ? $cutoff : $periodEnd;
     }
 
     /**

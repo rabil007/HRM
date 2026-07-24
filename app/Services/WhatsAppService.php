@@ -198,6 +198,29 @@ class WhatsAppService
         $result['normalized_phone'] = $this->normalizePhone($phone);
         $result['delivery_note'] = 'Template messages can be delivered outside the 24-hour session window.';
 
+        // #region agent log
+        $metaData = is_array($result['data'] ?? null) ? $result['data'] : [];
+        $contactWaId = is_string($metaData['contacts'][0]['wa_id'] ?? null) ? (string) $metaData['contacts'][0]['wa_id'] : null;
+        $messageStatus = is_string($metaData['messages'][0]['message_status'] ?? null) ? (string) $metaData['messages'][0]['message_status'] : null;
+        $bodyTexts = [];
+        foreach ($components as $component) {
+            if (($component['type'] ?? null) === 'body' && is_array($component['parameters'] ?? null)) {
+                foreach ($component['parameters'] as $parameter) {
+                    $text = (string) ($parameter['text'] ?? '');
+                    $bodyTexts[] = [
+                        'len' => strlen($text),
+                        'has_em_dash' => str_contains($text, '—') || str_contains($text, '–'),
+                        'has_http' => str_contains($text, 'http://') || str_contains($text, 'https://'),
+                        'has_non_ascii' => preg_match('/[^\x20-\x7E]/', $text) === 1,
+                        'scheme' => parse_url($text, PHP_URL_SCHEME),
+                        'host' => parse_url($text, PHP_URL_HOST),
+                    ];
+                }
+            }
+        }
+        file_put_contents('/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-17d3aa.log', json_encode(['sessionId' => '17d3aa', 'runId' => 'wa-ab-1', 'hypothesisId' => 'F,G,H', 'location' => 'WhatsAppService.php:sendTemplate-result', 'message' => 'meta template api response', 'data' => ['success' => (bool) ($result['success'] ?? false), 'http_status' => $result['http_status'] ?? null, 'api_message' => $result['message'] ?? null, 'has_message_id' => filled($result['message_id'] ?? null), 'message_id_prefix' => is_string($result['message_id'] ?? null) ? substr((string) $result['message_id'], 0, 12) : null, 'template_name' => $templateName, 'language_code' => $languageCode, 'component_count' => count($components), 'normalized_phone_last4' => substr((string) ($result['normalized_phone'] ?? ''), -4), 'contact_wa_id_last4' => $contactWaId !== null ? substr($contactWaId, -4) : null, 'message_status' => $messageStatus, 'body_param_meta' => $bodyTexts, 'meta_error_code' => $response->json('error.code'), 'meta_error_subcode' => $response->json('error.error_subcode'), 'meta_error_details' => $response->json('error.error_data.details')], 'timestamp' => (int) round(microtime(true) * 1000)], JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND);
+        // #endregion
+
         return $result;
     }
 

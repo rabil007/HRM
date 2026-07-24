@@ -13,7 +13,6 @@ use App\Models\PayrollPeriod;
 use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
-use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 final class CrewTimelineIssueDetector
@@ -38,7 +37,6 @@ final class CrewTimelineIssueDetector
     public function detect(
         PayrollPeriod $period,
         Collection $phases,
-        CarbonInterface $effectiveEnd,
         int $companyId,
     ): array {
         $issues = [];
@@ -136,17 +134,26 @@ final class CrewTimelineIssueDetector
                 $phase->actual_start_at->timezone($timezone)->toDateString(),
                 $timezone,
             )->startOfDay();
+            $actualEndLocal = $phase->actual_end_at !== null
+                ? CarbonImmutable::parse(
+                    $phase->actual_end_at->timezone($timezone)->toDateString(),
+                    $timezone,
+                )->startOfDay()
+                : null;
+            $futureActualDate = $actualStartLocal->gt($today)
+                ? $actualStartLocal
+                : ($actualEndLocal?->gt($today) ? $actualEndLocal : null);
 
-            if ($actualStartLocal->gt($today) || $actualStartLocal->gt($effectiveEnd)) {
+            if ($futureActualDate !== null) {
                 $issues[] = $this->issue(
                     $employeeId,
                     (int) $phase->crew_assignment_id,
                     (int) $phase->id,
                     $phase->phase_code,
                     CrewTimelineWarningCode::FutureActualDate,
-                    'Phase actual start is in the future and will not generate payable days.',
-                    $actualStartLocal->toDateString(),
-                    $actualStartLocal->toDateString(),
+                    'Phase has an actual start or end date in the future. Verify the recorded dates before applying payroll.',
+                    $futureActualDate->toDateString(),
+                    $futureActualDate->toDateString(),
                 );
             }
 

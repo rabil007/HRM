@@ -151,6 +151,98 @@ test('prepare clips cross month phases to the payroll period', function () {
     CarbonImmutable::setTestNow();
 });
 
+test('prepare allocates a recorded assignment across each overlapping payroll period', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-24 12:00:00', 'Asia/Dubai'));
+
+    $fixtures = makeDailyCrewTimelineFixtures();
+
+    $augustPeriod = PayrollPeriod::factory()
+        ->for($fixtures['company'])
+        ->crewOperations()
+        ->create([
+            'status' => PayrollPeriodStatus::Draft,
+            'payroll_category' => PayrollCategory::Crew,
+            'start_date' => '2026-08-01',
+            'end_date' => '2026-08-31',
+            'payment_date' => '2026-08-31',
+        ]);
+
+    $septemberPeriod = PayrollPeriod::factory()
+        ->for($fixtures['company'])
+        ->crewOperations()
+        ->create([
+            'status' => PayrollPeriodStatus::Draft,
+            'payroll_category' => PayrollCategory::Crew,
+            'start_date' => '2026-09-01',
+            'end_date' => '2026-09-30',
+            'payment_date' => '2026-09-30',
+        ]);
+
+    addTimelinePhase(
+        $fixtures['assignment'],
+        CrewPhaseCode::ReadyToJoin,
+        1,
+        '2026-07-25 08:00:00',
+        '2026-07-31 14:00:00',
+    );
+    addTimelinePhase(
+        $fixtures['assignment'],
+        CrewPhaseCode::OnVessel,
+        2,
+        '2026-07-31 14:00:00',
+        '2026-09-01 14:00:00',
+    );
+    addTimelinePhase(
+        $fixtures['assignment'],
+        CrewPhaseCode::HomeRedeploy,
+        3,
+        '2026-09-01 14:00:00',
+        '2026-09-02 14:00:00',
+    );
+
+    $preparations = collect([
+        app(PrepareCrewTimesheetTimeline::class)->handle(
+            $fixtures['period'],
+            (int) $fixtures['company']->id,
+            (int) $fixtures['user']->id,
+        ),
+        app(PrepareCrewTimesheetTimeline::class)->handle(
+            $augustPeriod,
+            (int) $fixtures['company']->id,
+            (int) $fixtures['user']->id,
+        ),
+        app(PrepareCrewTimesheetTimeline::class)->handle(
+            $septemberPeriod,
+            (int) $fixtures['company']->id,
+            (int) $fixtures['user']->id,
+        ),
+    ]);
+
+    $payableDays = $preparations->map(function (CrewTimesheetPreparation $preparation): array {
+        $lines = CrewTimesheetPreparationLine::query()
+            ->where('crew_timesheet_preparation_id', $preparation->id)
+            ->where('days', '>', 0)
+            ->get();
+
+        return [
+            'sign_on_standby' => (float) $lines
+                ->where('pay_category', CrewTimesheetPayCategory::SignOnStandby)
+                ->sum('days'),
+            'onsite' => (float) $lines
+                ->where('pay_category', CrewTimesheetPayCategory::Onsite)
+                ->sum('days'),
+        ];
+    })->all();
+
+    expect($payableDays)->toBe([
+        ['sign_on_standby' => 6.0, 'onsite' => 1.0],
+        ['sign_on_standby' => 0.0, 'onsite' => 31.0],
+        ['sign_on_standby' => 0.0, 'onsite' => 1.0],
+    ]);
+
+    CarbonImmutable::setTestNow();
+});
+
 test('prepare uses effective end for active p4 with null end date', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-15 12:00:00', 'Asia/Dubai'));
 
@@ -183,7 +275,7 @@ test('prepare uses effective end for active p4 with null end date', function () 
     CarbonImmutable::setTestNow();
 });
 
-test('prepare excludes future payable days', function () {
+test('prepare includes recorded actual days through the period end and warns about future dates', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-10 12:00:00', 'Asia/Dubai'));
 
     $fixtures = makeDailyCrewTimelineFixtures();
@@ -208,7 +300,13 @@ test('prepare excludes future payable days', function () {
         ->where('days', '>', 0)
         ->firstOrFail();
 
-    expect($onsite->to_date->toDateString())->toBe('2026-07-10');
+    expect($onsite->to_date->toDateString())->toBe('2026-07-31')
+        ->and(
+            CrewTimesheetPreparationLine::query()
+                ->where('crew_timesheet_preparation_id', $preparation->id)
+                ->where('warning_code', CrewTimelineWarningCode::FutureActualDate->value)
+                ->exists()
+        )->toBeTrue();
 
     CarbonImmutable::setTestNow();
 });

@@ -47,6 +47,10 @@ class WhatsAppWebhookController extends Controller
     {
         $entries = $request->input('entry', []);
 
+        // #region agent log
+        file_put_contents('/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-17d3aa.log', json_encode(['sessionId' => '17d3aa', 'runId' => 'wa-resend-2', 'hypothesisId' => 'B', 'location' => 'WhatsAppWebhookController.php:processStatuses', 'message' => 'webhook statuses received', 'data' => ['entry_count' => is_array($entries) ? count($entries) : 0, 'has_statuses' => is_array($entries) && collect($entries)->contains(fn ($e) => is_array($e['changes'][0]['value']['statuses'] ?? null))], 'timestamp' => (int) round(microtime(true) * 1000)], JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND);
+        // #endregion
+
         if (! is_array($entries)) {
             return;
         }
@@ -92,6 +96,10 @@ class WhatsAppWebhookController extends Controller
             ->where('provider_reference', $messageId)
             ->with('recipient.announcement')
             ->first();
+
+        // #region agent log
+        file_put_contents('/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-17d3aa.log', json_encode(['sessionId' => '17d3aa', 'runId' => 'wa-resend-2', 'hypothesisId' => 'B', 'location' => 'WhatsAppWebhookController.php:applyStatus', 'message' => 'provider status update', 'data' => ['status' => $status, 'message_id_prefix' => substr($messageId, 0, 12), 'delivery_found' => $delivery !== null, 'delivery_id' => $delivery?->id, 'errors' => $statusPayload['errors'][0]['message'] ?? ($statusPayload['errors'][0]['title'] ?? null)], 'timestamp' => (int) round(microtime(true) * 1000)], JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND);
+        // #endregion
 
         if ($delivery === null) {
             return;
