@@ -36,6 +36,12 @@ test('human label handles today and tomorrow', function () {
     expect(DocumentExpiry::humanLabel('2026-05-19'))->toBe('Expired yesterday');
 });
 
+test('today falls in the seven day status window while keeping a precise label', function () {
+    expect(DocumentExpiry::remainingDays('2026-05-20'))->toBe(0);
+    expect(DocumentExpiry::resolve('2026-05-20'))->toBe(DocumentExpiryStatus::Expiring7);
+    expect(DocumentExpiry::humanLabel('2026-05-20'))->toBe('Expires today');
+});
+
 test('isValidFilter accepts known filters', function () {
     expect(DocumentExpiry::isValidFilter('all'))->toBeTrue();
     expect(DocumentExpiry::isValidFilter('expired'))->toBeTrue();

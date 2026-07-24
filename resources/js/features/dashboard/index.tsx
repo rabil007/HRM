@@ -388,7 +388,7 @@ export function DashboardContent({
                     href={documents.url({ query: { expiry: 'expired' } })}
                 />
                 <MetricCard
-                    title="Expiring in 7 Days"
+                    title="Within 7 Days"
                     value={documentCompliance.expiring_7.toLocaleString()}
                     hint="Urgent renewals needed"
                     icon={Clock}
