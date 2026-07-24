@@ -14,6 +14,7 @@ import {
 import type { ContractListItem } from '@/features/organization/contracts/types';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
+import { RecordSelectionCell } from '@/features/organization/shared/record-selection-checkbox';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -92,11 +93,15 @@ export function ContractsTableRow({
     showHref,
     showOfficeColumns,
     showCrewColumns,
+    selected = false,
+    onToggleSelection,
 }: {
     contract: ContractListItem;
     showHref: string;
     showOfficeColumns: boolean;
     showCrewColumns: boolean;
+    selected?: boolean;
+    onToggleSelection?: () => void;
 }) {
     const lifecycle = deriveLifecycle(contract.end_date);
     const rowAccent = lifecycle ? LIFECYCLE_ROW_ACCENT[lifecycle] : '';
@@ -110,6 +115,11 @@ export function ContractsTableRow({
             )}
             onClick={() => router.visit(showHref)}
         >
+            <RecordSelectionCell
+                checked={selected}
+                onToggle={() => onToggleSelection?.()}
+                label={`Select contract for ${contract.employee_name}`}
+            />
             <TableCell
                 className={cn(dataTableCellPrimaryClass(), 'min-w-[200px]')}
             >

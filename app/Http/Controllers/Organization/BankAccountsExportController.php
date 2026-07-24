@@ -6,6 +6,7 @@ use App\Exports\BankAccountsExport;
 use App\Http\Controllers\Controller;
 use App\Support\BankAccounts\BankAccountDirectoryFilters;
 use App\Support\BankAccounts\BankAccountDirectoryQuery;
+use App\Support\Organization\SelectedRecordIds;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Excel as ExcelWriter;
@@ -20,6 +21,11 @@ class BankAccountsExportController extends Controller
         $filters = BankAccountDirectoryFilters::fromRequest($request);
 
         $query = (new BankAccountDirectoryQuery($companyId, $filters))->exportQuery();
+        $selectedIds = SelectedRecordIds::fromRequest($request);
+
+        if ($selectedIds !== []) {
+            $query->whereKey($selectedIds);
+        }
 
         $export = new BankAccountsExport($query);
 

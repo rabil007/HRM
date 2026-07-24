@@ -4,6 +4,8 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
@@ -15,16 +17,28 @@ export function ExportMenu({
     buttonVariant = 'outline',
     buttonClassName,
     align = 'end',
+    selectedCount = 0,
+    getSelectedUrl,
 }: {
     getUrl: (format: ExportFormat) => string;
     label?: string;
     buttonVariant?: React.ComponentProps<typeof Button>['variant'];
     buttonClassName?: string;
     align?: 'start' | 'center' | 'end';
+    selectedCount?: number;
+    getSelectedUrl?: (format: ExportFormat) => string;
 }) {
     const go = (format: ExportFormat) => {
         window.location.href = getUrl(format);
     };
+
+    const goSelected = (format: ExportFormat) => {
+        if (getSelectedUrl) {
+            window.location.href = getSelectedUrl(format);
+        }
+    };
+
+    const hasSelectedExport = selectedCount > 0 && getSelectedUrl !== undefined;
 
     return (
         <DropdownMenu>
@@ -35,6 +49,11 @@ export function ExportMenu({
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align={align} className="w-44">
+                {hasSelectedExport ? (
+                    <DropdownMenuLabel className="text-xs text-muted-foreground">
+                        All filtered records
+                    </DropdownMenuLabel>
+                ) : null}
                 <DropdownMenuItem onClick={() => go('csv')}>
                     CSV
                 </DropdownMenuItem>
@@ -44,6 +63,23 @@ export function ExportMenu({
                 <DropdownMenuItem onClick={() => go('pdf')}>
                     PDF
                 </DropdownMenuItem>
+                {hasSelectedExport ? (
+                    <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="text-xs text-muted-foreground">
+                            {selectedCount} selected
+                        </DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => goSelected('csv')}>
+                            CSV
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => goSelected('xlsx')}>
+                            Excel
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => goSelected('pdf')}>
+                            PDF
+                        </DropdownMenuItem>
+                    </>
+                ) : null}
             </DropdownMenuContent>
         </DropdownMenu>
     );

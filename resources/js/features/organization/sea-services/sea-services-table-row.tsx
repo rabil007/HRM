@@ -9,6 +9,7 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { SeaServiceListRowActions } from '@/features/organization/sea-services/sea-service-list-row-actions';
 import type { SeaServiceListItem } from '@/features/organization/sea-services/types';
+import { RecordSelectionCell } from '@/features/organization/shared/record-selection-checkbox';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +19,8 @@ export function SeaServicesTableRow({
     browseHref,
     canUpdate = false,
     canDelete = false,
+    selected = false,
+    onToggleSelection,
     onEdit,
     onDelete,
 }: {
@@ -26,6 +29,8 @@ export function SeaServicesTableRow({
     browseHref: string;
     canUpdate?: boolean;
     canDelete?: boolean;
+    selected?: boolean;
+    onToggleSelection?: () => void;
     onEdit?: (seaService: SeaServiceListItem) => void;
     onDelete?: (seaService: SeaServiceListItem) => void;
 }) {
@@ -34,6 +39,11 @@ export function SeaServicesTableRow({
             className={cn(dataTableBodyRowClass(false), 'cursor-pointer')}
             onClick={() => router.visit(viewHref)}
         >
+            <RecordSelectionCell
+                checked={selected}
+                onToggle={() => onToggleSelection?.()}
+                label={`Select sea service for ${seaService.employee_name}`}
+            />
             <TableCell
                 className={cn(dataTableCellPrimaryClass(), 'min-w-[180px]')}
             >

@@ -7,6 +7,7 @@ import {
 } from '@/components/data-table';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
+import { RecordSelectionCell } from '@/features/organization/shared/record-selection-checkbox';
 import { trainingExpiryRemainingClass } from '@/features/organization/training/training-expiry';
 import { TrainingExpiryBadge } from '@/features/organization/training/training-expiry-badge';
 import { TrainingListRowActions } from '@/features/organization/training/training-list-row-actions';
@@ -20,6 +21,8 @@ export function TrainingTableRow({
     browseHref,
     canUpdate = false,
     canDelete = false,
+    selected = false,
+    onToggleSelection,
     onEdit,
     onReplace,
     onDelete,
@@ -29,6 +32,8 @@ export function TrainingTableRow({
     browseHref: string;
     canUpdate?: boolean;
     canDelete?: boolean;
+    selected?: boolean;
+    onToggleSelection?: () => void;
     onEdit?: (training: TrainingListItem) => void;
     onReplace?: (training: TrainingListItem) => void;
     onDelete?: (training: TrainingListItem) => void;
@@ -38,6 +43,11 @@ export function TrainingTableRow({
             className={cn(dataTableBodyRowClass(false), 'cursor-pointer')}
             onClick={() => router.visit(viewHref)}
         >
+            <RecordSelectionCell
+                checked={selected}
+                onToggle={() => onToggleSelection?.()}
+                label={`Select training for ${training.employee_name}`}
+            />
             <TableCell
                 className={cn(dataTableCellPrimaryClass(), 'min-w-[180px]')}
             >

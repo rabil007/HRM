@@ -139,3 +139,35 @@ test('sea services export respects active filter parameter', function () {
         'active' => '1',
     ]))->assertOk();
 });
+
+test('sea services export can be limited to selected record ids', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    [
+        'company' => $company,
+        'branch' => $branch,
+        'seaService' => $seaService,
+    ] = makeSeaServicesExportFixtures();
+
+    $excludedEmployee = Employee::factory()
+        ->forCompany($company)
+        ->inBranch($branch)
+        ->create([
+            'employee_no' => 'SSE-EXCLUDED',
+            'name' => 'Excluded Sea Service Employee',
+        ]);
+
+    EmployeeSeaService::factory()->forEmployee($excludedEmployee)->create();
+
+    grantCompanyPermissions($user, $company, ['sea_services.view']);
+
+    $content = $this->get(route('organization.sea-services.export', [
+        'format' => 'csv',
+        'ids' => (string) $seaService->id,
+    ]))->streamedContent();
+
+    expect($content)
+        ->toContain('Export Seafarer')
+        ->not->toContain('Excluded Sea Service Employee');
+});

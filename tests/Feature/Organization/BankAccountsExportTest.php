@@ -116,3 +116,41 @@ test('export respects primary filter parameter', function () {
     $this->get(route('organization.bank-accounts.export', ['format' => 'csv', 'is_primary' => 'secondary']))
         ->assertOk();
 });
+
+test('bank accounts export can be limited to selected record ids', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    [
+        'company' => $company,
+        'branch' => $branch,
+        'bankAccount' => $bankAccount,
+    ] = makeBankAccountExportFixtures();
+
+    $excludedEmployee = Employee::factory()
+        ->forCompany($company)
+        ->inBranch($branch)
+        ->create([
+            'employee_no' => 'EXP-EXCLUDED',
+            'name' => 'Excluded Bank Account Employee',
+        ]);
+
+    EmployeeBankAccount::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $excludedEmployee->id,
+        'iban' => 'AE999999999999',
+        'account_name' => 'Excluded Bank Account Employee',
+        'is_primary' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['bank_accounts.view']);
+
+    $content = $this->get(route('organization.bank-accounts.export', [
+        'format' => 'csv',
+        'ids' => (string) $bankAccount->id,
+    ]))->streamedContent();
+
+    expect($content)
+        ->toContain('Export Employee')
+        ->not->toContain('Excluded Bank Account Employee');
+});

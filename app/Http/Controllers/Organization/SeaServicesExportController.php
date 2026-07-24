@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Organization;
 
 use App\Exports\SeaServicesExport;
 use App\Http\Controllers\Controller;
+use App\Support\Organization\SelectedRecordIds;
 use App\Support\SeaServices\SeaServiceDirectoryFilters;
 use App\Support\SeaServices\SeaServiceDirectoryQuery;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -20,6 +21,11 @@ class SeaServicesExportController extends Controller
         $filters = SeaServiceDirectoryFilters::fromRequest($request);
 
         $query = (new SeaServiceDirectoryQuery($companyId, $filters))->exportQuery();
+        $selectedIds = SelectedRecordIds::fromRequest($request);
+
+        if ($selectedIds !== []) {
+            $query->whereKey($selectedIds);
+        }
 
         $export = new SeaServicesExport($query);
 

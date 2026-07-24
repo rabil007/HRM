@@ -6,6 +6,7 @@ use App\Exports\TrainingsExport;
 use App\Http\Controllers\Controller;
 use App\Support\EmployeeTrainings\TrainingDirectoryFilters;
 use App\Support\EmployeeTrainings\TrainingDirectoryQuery;
+use App\Support\Organization\SelectedRecordIds;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Excel as ExcelWriter;
@@ -20,6 +21,11 @@ class TrainingsExportController extends Controller
         $filters = TrainingDirectoryFilters::fromRequest($request);
 
         $query = (new TrainingDirectoryQuery($companyId, $filters))->exportQuery();
+        $selectedIds = SelectedRecordIds::fromRequest($request);
+
+        if ($selectedIds !== []) {
+            $query->whereKey($selectedIds);
+        }
 
         $export = new TrainingsExport($query);
 

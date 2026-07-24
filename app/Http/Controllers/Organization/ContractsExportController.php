@@ -6,6 +6,7 @@ use App\Exports\ContractsExport;
 use App\Http\Controllers\Controller;
 use App\Support\Contracts\ContractDirectoryFilters;
 use App\Support\Contracts\ContractDirectoryQuery;
+use App\Support\Organization\SelectedRecordIds;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Excel as ExcelWriter;
@@ -20,6 +21,11 @@ class ContractsExportController extends Controller
         $filters = ContractDirectoryFilters::fromRequest($request);
 
         $query = (new ContractDirectoryQuery($companyId, $filters))->exportQuery();
+        $selectedIds = SelectedRecordIds::fromRequest($request);
+
+        if ($selectedIds !== []) {
+            $query->whereKey($selectedIds);
+        }
 
         $export = new ContractsExport($query, $filters->payrollCategory);
 

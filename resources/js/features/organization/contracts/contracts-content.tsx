@@ -1,5 +1,6 @@
 import { Loader2, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import * as OrganizationBulkRecordController from '@/actions/App/Http/Controllers/Organization/OrganizationBulkRecordController';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -21,7 +22,10 @@ import { ContractsSummaryCards } from '@/features/organization/contracts/contrac
 import { ContractsTableRow } from '@/features/organization/contracts/contracts-table-row';
 import type { ContractsIndexProps } from '@/features/organization/contracts/types';
 import { useContractsIndexFilters } from '@/features/organization/contracts/use-contracts-index-filters';
+import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
+import { OrganizationRecordBulkActions } from '@/features/organization/shared/organization-record-bulk-actions';
+import { RecordSelectionHead } from '@/features/organization/shared/record-selection-checkbox';
 import { cn } from '@/lib/utils';
 import { contracts } from '@/routes/organization';
 import { exportMethod as exportContracts } from '@/routes/organization/contracts';
@@ -50,6 +54,7 @@ export function ContractsContent({
     can,
 }: ContractsIndexProps) {
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+    const selection = useBulkSelection(contractRows.map((row) => row.id));
     const activePayrollCategory =
         initialPayrollCategory === 'office' ? 'office' : 'crew';
     const activeSalaryStructure =
@@ -78,7 +83,10 @@ export function ContractsContent({
         perPage: pagination.per_page,
     });
 
-    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
+    const getExportUrl = (
+        format: 'csv' | 'xlsx' | 'pdf',
+        selectedIds: number[] = [],
+    ) => {
         return exportContracts.url({
             query: {
                 search: initialSearch || undefined,
@@ -92,6 +100,7 @@ export function ContractsContent({
                         : undefined,
                 branch_id: initialBranchId || undefined,
                 department_id: initialDepartmentId || undefined,
+                ids: selectedIds.length > 0 ? selectedIds.join(',') : undefined,
                 format,
             },
         });
@@ -102,10 +111,10 @@ export function ContractsContent({
 
     const minWidth = useMemo(() => {
         if (showCrewColumns) {
-            return 'min-w-[1460px]';
+            return 'min-w-[1510px]';
         }
 
-        return 'min-w-[1920px]';
+        return 'min-w-[1970px]';
     }, [showCrewColumns]);
 
     const backContext = useMemo(
@@ -166,7 +175,13 @@ export function ContractsContent({
                                 Import
                             </Button>
                         ) : null}
-                        <ExportMenu getUrl={getExportUrl} />
+                        <ExportMenu
+                            getUrl={getExportUrl}
+                            selectedCount={selection.selectedIds.length}
+                            getSelectedUrl={(format) =>
+                                getExportUrl(format, selection.selectedIds)
+                            }
+                        />
                     </div>
                 }
             />
@@ -276,9 +291,24 @@ export function ContractsContent({
                 />
             ) : (
                 <div className="space-y-4">
+                    <OrganizationRecordBulkActions
+                        selectedIds={selection.selectedIds}
+                        itemLabel="contracts"
+                        deleteUrl={OrganizationBulkRecordController.destroyContracts.url()}
+                        canDelete={can.delete}
+                        onClear={selection.clear}
+                        reloadOnly={['contracts', 'summary', 'pagination']}
+                    />
                     <OrganizationDataTable minWidth={minWidth} compact>
                         <TableHeader>
                             <DataTableHeaderRow>
+                                <RecordSelectionHead
+                                    checked={selection.isAllSelected}
+                                    indeterminate={
+                                        selection.isPartiallySelected
+                                    }
+                                    onToggle={selection.toggleAll}
+                                />
                                 <DataTableHead>Employee</DataTableHead>
                                 <DataTableHead className="text-right">
                                     Basic rate
@@ -329,6 +359,10 @@ export function ContractsContent({
                                     )}
                                     showOfficeColumns={showOfficeColumns}
                                     showCrewColumns={showCrewColumns}
+                                    selected={selection.isSelected(contract.id)}
+                                    onToggleSelection={() =>
+                                        selection.toggle(contract.id)
+                                    }
                                 />
                             ))}
                         </TableBody>

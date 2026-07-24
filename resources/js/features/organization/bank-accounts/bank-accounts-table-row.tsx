@@ -10,15 +10,20 @@ import type { BankAccountListItem } from '@/features/organization/bank-accounts/
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { cashPaymentBadgeLabel } from '@/features/organization/employees/salary-payment-method';
+import { RecordSelectionCell } from '@/features/organization/shared/record-selection-checkbox';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
 export function BankAccountsTableRow({
     bankAccount,
     browseHref,
+    selected = false,
+    onToggleSelection,
 }: {
     bankAccount: BankAccountListItem;
     browseHref: string;
+    selected?: boolean;
+    onToggleSelection?: () => void;
 }) {
     const cashBadge = bankAccount.salary_payment_method
         ? cashPaymentBadgeLabel(bankAccount.salary_payment_method)
@@ -29,6 +34,11 @@ export function BankAccountsTableRow({
             className={cn(dataTableBodyRowClass(false), 'cursor-pointer')}
             onClick={() => router.visit(browseHref)}
         >
+            <RecordSelectionCell
+                checked={selected}
+                onToggle={() => onToggleSelection?.()}
+                label={`Select bank account for ${bankAccount.employee_name}`}
+            />
             <TableCell
                 className={cn(dataTableCellPrimaryClass(), 'min-w-[180px]')}
             >

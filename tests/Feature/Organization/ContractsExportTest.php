@@ -101,6 +101,49 @@ test('authenticated users with permission can export contracts as csv, excel, an
     $this->get(route('organization.contracts.export', ['format' => 'pdf']))->assertOk();
 });
 
+test('contracts export can be limited to selected record ids', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    [
+        'company' => $company,
+        'branch' => $branch,
+        'officeDepartment' => $officeDepartment,
+        'contract' => $contract,
+    ] = makeContractExportFixtures();
+
+    $excludedEmployee = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'department_id' => $officeDepartment->id,
+        'employee_no' => 'CEXP-EXCLUDED',
+        'name' => 'Excluded Contract Employee',
+        'status' => 'active',
+    ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $excludedEmployee->id,
+        'payroll_category' => PayrollCategory::Office->value,
+        'start_date' => now()->subMonths(6)->toDateString(),
+        'end_date' => now()->addMonths(6)->toDateString(),
+        'status' => 'active',
+        'basic_salary' => 4500,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['contracts.view']);
+
+    $content = $this->get(route('organization.contracts.export', [
+        'format' => 'csv',
+        'ids' => (string) $contract->id,
+        'payroll_category' => PayrollCategory::Office->value,
+    ]))->streamedContent();
+
+    expect($content)
+        ->toContain('Contract Export Employee')
+        ->not->toContain('Excluded Contract Employee');
+});
+
 test('export respects status filter parameter', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

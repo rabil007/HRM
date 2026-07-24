@@ -104,6 +104,7 @@ use App\Http\Controllers\Organization\EmployeeTrainingShowController;
 use App\Http\Controllers\Organization\EmployeeUserController;
 use App\Http\Controllers\Organization\EmployeeVaccinationController;
 use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
+use App\Http\Controllers\Organization\OrganizationBulkRecordController;
 use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\RoleController;
 use App\Http\Controllers\Organization\SeaServicesExportController;
@@ -577,6 +578,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('organization/contracts/import', [ContractsImportController::class, 'import'])
             ->middleware('can:contracts.import')
             ->name('organization.contracts.import');
+        Route::delete('organization/contracts/bulk', [OrganizationBulkRecordController::class, 'destroyContracts'])
+            ->middleware('can:contracts.delete')
+            ->name('organization.contracts.bulk-destroy');
         Route::get('organization/contracts/{employeeContract}', ContractShowController::class)->name('organization.contracts.show');
     });
 
@@ -594,6 +598,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('organization/bank-accounts/import', [BankAccountsImportController::class, 'import'])
             ->middleware('can:bank_accounts.import')
             ->name('organization.bank-accounts.import');
+        Route::delete('organization/bank-accounts/bulk', [OrganizationBulkRecordController::class, 'destroyBankAccounts'])
+            ->middleware('can:bank_accounts.delete')
+            ->name('organization.bank-accounts.bulk-destroy');
     });
 
     Route::middleware('can:training.view')->group(function () {
@@ -609,6 +616,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('organization/training/import', [TrainingsImportController::class, 'import'])
             ->middleware('can:training.import')
             ->name('organization.training.import');
+        Route::delete('organization/training/bulk', [OrganizationBulkRecordController::class, 'destroyTrainings'])
+            ->middleware('can:training.delete')
+            ->name('organization.training.bulk-destroy');
     });
 
     Route::middleware('can:sea_services.view')->group(function () {
@@ -624,6 +634,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('organization/sea-services/import', [SeaServicesImportController::class, 'import'])
             ->middleware('can:sea_services.import')
             ->name('organization.sea-services.import');
+        Route::delete('organization/sea-services/bulk', [OrganizationBulkRecordController::class, 'destroySeaServices'])
+            ->middleware('can:sea_services.delete')
+            ->name('organization.sea-services.bulk-destroy');
         Route::get('organization/sea-services/{seaService}', SeaServiceShowController::class)->name('organization.sea-services.show');
     });
 

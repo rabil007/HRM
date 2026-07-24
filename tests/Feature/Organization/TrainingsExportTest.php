@@ -124,3 +124,35 @@ test('training export respects course filter parameter', function () {
         'course_id' => $course->id,
     ]))->assertOk();
 });
+
+test('training export can be limited to selected record ids', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    [
+        'company' => $company,
+        'branch' => $branch,
+        'training' => $training,
+    ] = makeTrainingExportFixtures();
+
+    $excludedEmployee = Employee::factory()
+        ->forCompany($company)
+        ->inBranch($branch)
+        ->create([
+            'employee_no' => 'TEX-EXCLUDED',
+            'name' => 'Excluded Training Employee',
+        ]);
+
+    EmployeeTraining::factory()->forEmployee($excludedEmployee)->create();
+
+    grantCompanyPermissions($user, $company, ['training.view']);
+
+    $content = $this->get(route('organization.training.export', [
+        'format' => 'csv',
+        'ids' => (string) $training->id,
+    ]))->streamedContent();
+
+    expect($content)
+        ->toContain('Training Export Employee')
+        ->not->toContain('Excluded Training Employee');
+});

@@ -1,5 +1,6 @@
 import { Loader2, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import * as OrganizationBulkRecordController from '@/actions/App/Http/Controllers/Organization/OrganizationBulkRecordController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
     OrganizationDataTable,
@@ -20,7 +21,10 @@ import { BankAccountsTableRow } from '@/features/organization/bank-accounts/bank
 import { buildBankAccountEmployeeUrl } from '@/features/organization/bank-accounts/build-bank-account-employee-url';
 import type { BankAccountsIndexProps } from '@/features/organization/bank-accounts/types';
 import { useBankAccountsIndexFilters } from '@/features/organization/bank-accounts/use-bank-accounts-index-filters';
+import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
+import { OrganizationRecordBulkActions } from '@/features/organization/shared/organization-record-bulk-actions';
+import { RecordSelectionHead } from '@/features/organization/shared/record-selection-checkbox';
 import { bankAccounts } from '@/routes/organization';
 import { exportMethod as exportBankAccounts } from '@/routes/organization/bank-accounts';
 
@@ -40,6 +44,7 @@ export function BankAccountsContent({
     can,
 }: BankAccountsIndexProps) {
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+    const selection = useBulkSelection(bankAccountRows.map((row) => row.id));
     const {
         searchInput,
         isSearching,
@@ -81,7 +86,10 @@ export function BankAccountsContent({
         ],
     );
 
-    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
+    const getExportUrl = (
+        format: 'csv' | 'xlsx' | 'pdf',
+        selectedIds: number[] = [],
+    ) => {
         return exportBankAccounts.url({
             query: {
                 search: initialSearch || undefined,
@@ -90,6 +98,7 @@ export function BankAccountsContent({
                 payment_method: initialPaymentMethod || undefined,
                 branch_id: initialBranchId || undefined,
                 department_id: initialDepartmentId || undefined,
+                ids: selectedIds.length > 0 ? selectedIds.join(',') : undefined,
                 format,
             },
         });
@@ -111,7 +120,13 @@ export function BankAccountsContent({
                                 Import
                             </Button>
                         ) : null}
-                        <ExportMenu getUrl={getExportUrl} />
+                        <ExportMenu
+                            getUrl={getExportUrl}
+                            selectedCount={selection.selectedIds.length}
+                            getSelectedUrl={(format) =>
+                                getExportUrl(format, selection.selectedIds)
+                            }
+                        />
                     </div>
                 }
             />
@@ -179,12 +194,27 @@ export function BankAccountsContent({
                 />
             ) : (
                 <>
+                    <OrganizationRecordBulkActions
+                        selectedIds={selection.selectedIds}
+                        itemLabel="bank accounts"
+                        deleteUrl={OrganizationBulkRecordController.destroyBankAccounts.url()}
+                        canDelete={can.delete}
+                        onClear={selection.clear}
+                        reloadOnly={['bank_accounts', 'summary', 'pagination']}
+                    />
                     <OrganizationDataTable
-                        minWidth="min-w-[1240px]"
+                        minWidth="min-w-[1290px]"
                         tableClassName="table-fixed"
                     >
                         <TableHeader>
                             <DataTableHeaderRow>
+                                <RecordSelectionHead
+                                    checked={selection.isAllSelected}
+                                    indeterminate={
+                                        selection.isPartiallySelected
+                                    }
+                                    onToggle={selection.toggleAll}
+                                />
                                 <DataTableHead className="w-[240px]">
                                     Employee
                                 </DataTableHead>
@@ -220,6 +250,10 @@ export function BankAccountsContent({
                                         row.employee_id,
                                         backContext,
                                     )}
+                                    selected={selection.isSelected(row.id)}
+                                    onToggleSelection={() =>
+                                        selection.toggle(row.id)
+                                    }
                                 />
                             ))}
                         </TableBody>

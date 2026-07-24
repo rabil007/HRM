@@ -1,5 +1,6 @@
 import { Filter, Loader2, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import * as OrganizationBulkRecordController from '@/actions/App/Http/Controllers/Organization/OrganizationBulkRecordController';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -13,6 +14,7 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
+import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import { buildSeaServiceEmployeeUrl } from '@/features/organization/sea-services/build-sea-service-employee-url';
 import { SeaServicesFiltersSheet } from '@/features/organization/sea-services/components/sea-services-filters-sheet';
@@ -28,6 +30,8 @@ import type {
 } from '@/features/organization/sea-services/types';
 import { useSeaServicesIndexFilters } from '@/features/organization/sea-services/use-sea-services-index-filters';
 import type { SeaServiceSummaryFilter } from '@/features/organization/sea-services/use-sea-services-index-filters';
+import { OrganizationRecordBulkActions } from '@/features/organization/shared/organization-record-bulk-actions';
+import { RecordSelectionHead } from '@/features/organization/shared/record-selection-checkbox';
 import { seaServices } from '@/routes/organization';
 import { exportMethod as exportSeaServices } from '@/routes/organization/sea-services';
 
@@ -63,6 +67,7 @@ export function SeaServicesContent({
     >(null);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+    const selection = useBulkSelection(seaServiceRows.map((row) => row.id));
 
     const sheetFilters: SeaServiceSheetFilters = {
         vessel_id: initialVesselId,
@@ -148,7 +153,10 @@ export function SeaServicesContent({
         setDeleteSeaServiceId(row.id);
     };
 
-    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
+    const getExportUrl = (
+        format: 'csv' | 'xlsx' | 'pdf',
+        selectedIds: number[] = [],
+    ) => {
         return exportSeaServices.url({
             query: {
                 search: initialSearch || undefined,
@@ -161,6 +169,7 @@ export function SeaServicesContent({
                 end_date: initialEndDate || undefined,
                 branch_id: initialBranchId || undefined,
                 department_id: initialDepartmentId || undefined,
+                ids: selectedIds.length > 0 ? selectedIds.join(',') : undefined,
                 format,
             },
         });
@@ -182,7 +191,13 @@ export function SeaServicesContent({
                                 Import
                             </Button>
                         ) : null}
-                        <ExportMenu getUrl={getExportUrl} />
+                        <ExportMenu
+                            getUrl={getExportUrl}
+                            selectedCount={selection.selectedIds.length}
+                            getSelectedUrl={(format) =>
+                                getExportUrl(format, selection.selectedIds)
+                            }
+                        />
                     </div>
                 }
             />
@@ -243,12 +258,27 @@ export function SeaServicesContent({
                 />
             ) : (
                 <>
+                    <OrganizationRecordBulkActions
+                        selectedIds={selection.selectedIds}
+                        itemLabel="sea services"
+                        deleteUrl={OrganizationBulkRecordController.destroySeaServices.url()}
+                        canDelete={can.delete}
+                        onClear={selection.clear}
+                        reloadOnly={['sea_services', 'summary', 'pagination']}
+                    />
                     <OrganizationDataTable
-                        minWidth="min-w-[1210px]"
+                        minWidth="min-w-[1260px]"
                         tableClassName="table-fixed"
                     >
                         <TableHeader>
                             <DataTableHeaderRow>
+                                <RecordSelectionHead
+                                    checked={selection.isAllSelected}
+                                    indeterminate={
+                                        selection.isPartiallySelected
+                                    }
+                                    onToggle={selection.toggleAll}
+                                />
                                 <DataTableHead className="w-[240px]">
                                     Employee
                                 </DataTableHead>
@@ -290,6 +320,10 @@ export function SeaServicesContent({
                                     )}
                                     canUpdate={can.update}
                                     canDelete={can.delete}
+                                    selected={selection.isSelected(row.id)}
+                                    onToggleSelection={() =>
+                                        selection.toggle(row.id)
+                                    }
                                     onEdit={handleEdit}
                                     onDelete={handleDelete}
                                 />

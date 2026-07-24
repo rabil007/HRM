@@ -1,5 +1,6 @@
 import { Filter, Loader2, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import * as OrganizationBulkRecordController from '@/actions/App/Http/Controllers/Organization/OrganizationBulkRecordController';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -13,7 +14,10 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
+import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
+import { OrganizationRecordBulkActions } from '@/features/organization/shared/organization-record-bulk-actions';
+import { RecordSelectionHead } from '@/features/organization/shared/record-selection-checkbox';
 import { buildTrainingEmployeeUrl } from '@/features/organization/training/build-training-employee-url';
 import { TrainingFiltersSheet } from '@/features/organization/training/components/training-filters-sheet';
 import type { TrainingSheetFilters } from '@/features/organization/training/components/training-filters-sheet';
@@ -76,6 +80,7 @@ export function TrainingContent({
     >(null);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+    const selection = useBulkSelection(trainingRows.map((row) => row.id));
 
     const sheetFilters: TrainingSheetFilters = {
         course_id: initialCourseId,
@@ -157,7 +162,10 @@ export function TrainingContent({
         setDeleteTrainingId(row.id);
     };
 
-    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
+    const getExportUrl = (
+        format: 'csv' | 'xlsx' | 'pdf',
+        selectedIds: number[] = [],
+    ) => {
         return exportTrainings.url({
             query: {
                 search: initialSearch || undefined,
@@ -168,6 +176,7 @@ export function TrainingContent({
                 country_id: initialCountryId || undefined,
                 branch_id: initialBranchId || undefined,
                 department_id: initialDepartmentId || undefined,
+                ids: selectedIds.length > 0 ? selectedIds.join(',') : undefined,
                 format,
             },
         });
@@ -189,7 +198,13 @@ export function TrainingContent({
                                 Import
                             </Button>
                         ) : null}
-                        <ExportMenu getUrl={getExportUrl} />
+                        <ExportMenu
+                            getUrl={getExportUrl}
+                            selectedCount={selection.selectedIds.length}
+                            getSelectedUrl={(format) =>
+                                getExportUrl(format, selection.selectedIds)
+                            }
+                        />
                     </div>
                 }
             />
@@ -250,12 +265,27 @@ export function TrainingContent({
                 />
             ) : (
                 <>
+                    <OrganizationRecordBulkActions
+                        selectedIds={selection.selectedIds}
+                        itemLabel="training records"
+                        deleteUrl={OrganizationBulkRecordController.destroyTrainings.url()}
+                        canDelete={can.delete}
+                        onClear={selection.clear}
+                        reloadOnly={['trainings', 'summary', 'pagination']}
+                    />
                     <OrganizationDataTable
-                        minWidth="min-w-[1220px]"
+                        minWidth="min-w-[1270px]"
                         tableClassName="table-fixed"
                     >
                         <TableHeader>
                             <DataTableHeaderRow>
+                                <RecordSelectionHead
+                                    checked={selection.isAllSelected}
+                                    indeterminate={
+                                        selection.isPartiallySelected
+                                    }
+                                    onToggle={selection.toggleAll}
+                                />
                                 <DataTableHead className="w-[240px]">
                                     Employee
                                 </DataTableHead>
@@ -295,6 +325,10 @@ export function TrainingContent({
                                     )}
                                     canUpdate={can.update}
                                     canDelete={can.delete}
+                                    selected={selection.isSelected(row.id)}
+                                    onToggleSelection={() =>
+                                        selection.toggle(row.id)
+                                    }
                                     onEdit={handleEdit}
                                     onReplace={handleReplace}
                                     onDelete={handleDelete}
