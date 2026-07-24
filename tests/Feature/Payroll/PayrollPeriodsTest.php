@@ -139,6 +139,31 @@ test('payroll hub can filter periods by payroll category', function () {
             ->where('filters.date_to', ''));
 });
 
+test('payroll hub paginates periods and respects the selected page size', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+
+    PayrollPeriod::factory()->for($company)->count(16)->create();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.index', [
+            'page' => 2,
+            'per_page' => 10,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/index')
+            ->has('periods', 6)
+            ->where('pagination.current_page', 2)
+            ->where('pagination.last_page', 2)
+            ->where('pagination.per_page', 10)
+            ->where('pagination.from', 11)
+            ->where('pagination.to', 16)
+            ->where('pagination.total', 16));
+});
+
 test('payroll hub can filter periods by overlapping period dates', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);

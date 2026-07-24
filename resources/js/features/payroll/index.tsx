@@ -228,15 +228,7 @@ export function PayrollIndexContent({
                         ))}
                     </div>
 
-                    <Pagination
-                        currentPage={pagination.current_page}
-                        lastPage={pagination.last_page}
-                        perPage={pagination.per_page}
-                        total={pagination.total}
-                        from={pagination.from}
-                        to={pagination.to}
-                        onPageChange={list.goToPage}
-                    />
+                    <Pagination {...list.paginationProps} label="pay runs" />
                 </>
             ) : (
                 <>
@@ -392,15 +384,7 @@ export function PayrollIndexContent({
                         </TableBody>
                     </OrganizationDataTable>
 
-                    <Pagination
-                        currentPage={pagination.current_page}
-                        lastPage={pagination.last_page}
-                        perPage={pagination.per_page}
-                        total={pagination.total}
-                        from={pagination.from}
-                        to={pagination.to}
-                        onPageChange={list.goToPage}
-                    />
+                    <Pagination {...list.paginationProps} label="pay runs" />
                 </>
             )}
 
