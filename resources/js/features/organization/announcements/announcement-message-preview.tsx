@@ -1,4 +1,3 @@
-import { useMemo, useState } from 'react';
 import {
     Bell,
     Download,
@@ -7,6 +6,7 @@ import {
     MessageCircle,
     Smartphone,
 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { AnnouncementChannelPreviews } from '@/features/organization/announcements/types';
@@ -88,7 +88,9 @@ function EmailPreview({
                 <div className="space-y-1.5 border-b border-border/60 bg-card px-4 py-3">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Mail className="size-3.5 shrink-0" />
-                        <span className="truncate">To: employee@company.com</span>
+                        <span className="truncate">
+                            To: employee@company.com
+                        </span>
                     </div>
                     <p className="truncate text-sm font-semibold text-foreground">
                         {preview.subject}
@@ -152,8 +154,9 @@ export function AnnouncementMessagePreview({
         defaultChannel(previews),
     );
 
-    const channel =
-        availableChannels.includes(active) ? active : availableChannels[0];
+    const channel = availableChannels.includes(active)
+        ? active
+        : availableChannels[0];
 
     if (availableChannels.length === 0) {
         return (

@@ -3,11 +3,11 @@
 namespace App\Jobs;
 
 use App\Enums\AnnouncementDeliveryStatus;
-use App\Enums\WhatsAppTemplateCategory;
 use App\Models\AnnouncementDelivery;
 use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\Actions\RefreshAnnouncementDeliveryStatus;
+use App\Support\Announcements\BuildAnnouncementPublicLinks;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -31,6 +31,7 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
     public function handle(
         WhatsAppService $whatsApp,
         RefreshAnnouncementDeliveryStatus $refreshStatus,
+        BuildAnnouncementPublicLinks $publicLinks,
     ): void {
         $delivery = AnnouncementDelivery::query()
             ->with(['recipient.announcement.company', 'recipient.announcement.attachments'])
@@ -68,13 +69,7 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
         $template = WhatsAppTemplate::query()
             ->where('slug', 'announcement')
             ->where('enabled', true)
-            ->first()
-            ?? WhatsAppTemplate::query()
-                ->enabled()
-                ->forCategory(WhatsAppTemplateCategory::General)
-                ->orderByDesc('is_default')
-                ->orderBy('sort_order')
-                ->first();
+            ->first();
 
         if ($template === null) {
             $delivery->update([
@@ -90,6 +85,7 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
 
         $companyName = (string) ($announcement->company?->name ?? config('app.name'));
         $shortBody = str($announcement->body_html)->stripTags()->limit(200)->toString();
+        $shortSummary = $shortBody !== '' ? $shortBody : (string) $announcement->title;
 
         $components = [
             [
@@ -97,8 +93,9 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
                 'parameters' => [
                     ['type' => 'text', 'text' => $companyName],
                     ['type' => 'text', 'text' => (string) $announcement->title],
-                    ['type' => 'text', 'text' => $shortBody !== '' ? $shortBody : (string) $announcement->title],
+                    ['type' => 'text', 'text' => $shortSummary],
                     ['type' => 'text', 'text' => $announcement->priority->label()],
+                    ['type' => 'text', 'text' => $publicLinks->showUrl($recipient)],
                 ],
             ],
         ];

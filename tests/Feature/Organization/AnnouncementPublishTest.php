@@ -22,6 +22,7 @@ use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\Actions\RefreshAnnouncementDeliveryStatus;
 use App\Support\Announcements\BuildAnnouncementEmailContent;
+use App\Support\Announcements\BuildAnnouncementPublicLinks;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
@@ -205,6 +206,7 @@ test('email is queued individually and whatsapp failure does not block email', f
     (new DeliverAnnouncementWhatsAppJob($whatsappDelivery->id))->handle(
         app(WhatsAppService::class),
         app(RefreshAnnouncementDeliveryStatus::class),
+        app(BuildAnnouncementPublicLinks::class),
     );
 
     Mail::assertSent(AnnouncementMail::class, function (AnnouncementMail $mail) {
@@ -292,20 +294,21 @@ test('failed deliveries can be retried', function () {
     Queue::assertPushed(DeliverAnnouncementEmailJob::class);
 });
 
-test('public announcement view and acknowledge routes are removed', function () {
+test('public announcement view and acknowledge routes are available for recipients', function () {
     ['company' => $company] = makePublishAnnouncementFixtures();
 
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
 
     $announcement = Announcement::query()->create([
         'company_id' => $company->id,
-        'title' => 'No public view',
-        'body_html' => '<p>Content stays in channels</p>',
+        'title' => 'Public view',
+        'body_html' => '<p>Secure content</p>',
         'category' => 'hr',
         'priority' => 'urgent',
         'status' => AnnouncementStatus::Published,
         'channels' => ['email'],
         'published_at' => now(),
+        'requires_acknowledgement' => true,
     ]);
 
     AnnouncementRecipient::query()->create([
@@ -318,10 +321,17 @@ test('public announcement view and acknowledge routes are removed', function () 
     ]);
 
     $this->get('/announcements/public/'.str_repeat('c', 48))
-        ->assertNotFound();
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('public/announcements/show')
+            ->where('announcement.title', 'Public view')
+            ->where('announcement.requires_acknowledgement', true)
+            ->missing('announcement.email')
+            ->missing('employee_name')
+        );
 
     $this->post('/announcements/public/'.str_repeat('c', 48).'/acknowledge')
-        ->assertNotFound();
+        ->assertRedirect('/announcements/public/'.str_repeat('c', 48));
 });
 
 test('inbox feed only includes announcements for the linked user', function () {

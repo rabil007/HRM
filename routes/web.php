@@ -144,6 +144,7 @@ use App\Http\Controllers\Public\DocumentShare\UploadSharedDocumentController;
 use App\Http\Controllers\Public\PublicAnnouncementController;
 use App\Http\Controllers\Webhooks\HikvisionWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
+use App\Http\Middleware\DenyFraming;
 use App\Models\PayrollPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -179,7 +180,12 @@ Route::middleware(['signed', 'throttle:30,1'])->prefix('esign')->group(function 
         ->name('public.esign.download');
 });
 
-Route::middleware(['throttle:60,1'])->prefix('announcements/public')->group(function () {
+Route::middleware(['throttle:60,1', DenyFraming::class])->prefix('announcements/public')->group(function () {
+    Route::get('{token}', [PublicAnnouncementController::class, 'show'])
+        ->name('public.announcements.show');
+    Route::post('{token}/acknowledge', [PublicAnnouncementController::class, 'acknowledge'])
+        ->middleware('throttle:20,1')
+        ->name('public.announcements.acknowledge');
     Route::get('{token}/attachments/{attachment}', [PublicAnnouncementController::class, 'downloadAttachment'])
         ->name('public.announcements.attachments.download');
 });

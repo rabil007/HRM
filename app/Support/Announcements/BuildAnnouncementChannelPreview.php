@@ -68,14 +68,37 @@ final class BuildAnnouncementChannelPreview
         $shortBody = Str::of($announcement->body_html)->stripTags()->limit(200)->toString();
         $message = $shortBody !== '' ? $shortBody : $announcement->title;
         $priority = $announcement->priority->label();
+        $sampleUrl = rtrim((string) config('app.url'), '/').'/announcements/public/preview-token';
 
         $bodyText = filled($template?->body_preview)
             ? str_replace(
-                ['{{company}}', '{{title}}', '{{message}}', '{{priority}}', '{{1}}', '{{2}}', '{{3}}', '{{4}}'],
-                [$companyName, $announcement->title, $message, $priority, $companyName, $announcement->title, $message, $priority],
+                [
+                    '{{company}}',
+                    '{{title}}',
+                    '{{message}}',
+                    '{{priority}}',
+                    '{{url}}',
+                    '{{1}}',
+                    '{{2}}',
+                    '{{3}}',
+                    '{{4}}',
+                    '{{5}}',
+                ],
+                [
+                    $companyName,
+                    $announcement->title,
+                    $message,
+                    $priority,
+                    $sampleUrl,
+                    $companyName,
+                    $announcement->title,
+                    $message,
+                    $priority,
+                    $sampleUrl,
+                ],
                 (string) $template->body_preview,
             )
-            : "{$companyName} — {$announcement->title}: {$message}. Priority: {$priority}.";
+            : "{$companyName} — {$announcement->title}: {$message}. Priority: {$priority}. Open: {$sampleUrl}";
 
         return [
             'template_name' => (string) ($template?->meta_name ?? 'announcement'),

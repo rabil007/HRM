@@ -25,26 +25,26 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { AnnouncementMessagePreview } from '@/features/organization/announcements/announcement-message-preview';
-import { cn } from '@/lib/utils';
 import type {
     AnnouncementCan,
     AnnouncementShow,
 } from '@/features/organization/announcements/types';
+import { cn } from '@/lib/utils';
 
 const statusVariant = (
     status: string,
 ): 'success' | 'info' | 'destructive' | 'secondary' => {
     if (status === 'published') {
-return 'success';
-}
+        return 'success';
+    }
 
     if (status === 'scheduled') {
-return 'info';
-}
+        return 'info';
+    }
 
     if (status === 'cancelled' || status === 'failed') {
-return 'destructive';
-}
+        return 'destructive';
+    }
 
     return 'secondary';
 };
@@ -64,7 +64,9 @@ function DeliveryStatCard({
 }: DeliveryStat) {
     return (
         <div className="flex flex-col gap-2 rounded-xl border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/40">
-            <div className={cn('flex items-center justify-between', colorClass)}>
+            <div
+                className={cn('flex items-center justify-between', colorClass)}
+            >
                 <Icon className="size-4" />
                 <span className="text-xl font-bold tracking-tight text-foreground">
                     {value}
@@ -197,14 +199,17 @@ export default function AnnouncementShowPage({
                     <Card className="overflow-hidden glass-card">
                         <CardHeader className="border-b border-border/60 bg-muted/20">
                             <CardTitle className="flex items-center gap-2 text-base">
-                                <FileText className="size-4 text-primary" /> Message preview
+                                <FileText className="size-4 text-primary" />{' '}
+                                Message preview
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="pt-6">
                             <AnnouncementMessagePreview
                                 previews={announcement.channel_previews}
                                 attachments={announcement.attachments}
-                                canDownloadAttachments={can.download_attachments}
+                                canDownloadAttachments={
+                                    can.download_attachments
+                                }
                                 announcementId={announcement.id}
                             />
                         </CardContent>
@@ -216,7 +221,8 @@ export default function AnnouncementShowPage({
                         <Card className="glass-card">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2 text-base">
-                                    <Send className="size-4 text-primary" /> Delivery summary
+                                    <Send className="size-4 text-primary" />{' '}
+                                    Delivery summary
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="grid grid-cols-2 gap-3">
@@ -251,9 +257,11 @@ export default function AnnouncementShowPage({
                                             value: announcement.delivery_summary
                                                 .failed,
                                             Icon: XCircle,
-                                            colorClass: announcement.delivery_summary.failed > 0
-                                                ? 'text-destructive'
-                                                : 'text-muted-foreground',
+                                            colorClass:
+                                                announcement.delivery_summary
+                                                    .failed > 0
+                                                    ? 'text-destructive'
+                                                    : 'text-muted-foreground',
                                         },
                                         {
                                             label: 'Skipped',
@@ -263,7 +271,10 @@ export default function AnnouncementShowPage({
                                         },
                                     ] satisfies DeliveryStat[]
                                 ).map((stat) => (
-                                    <DeliveryStatCard key={stat.label} {...stat} />
+                                    <DeliveryStatCard
+                                        key={stat.label}
+                                        {...stat}
+                                    />
                                 ))}
                             </CardContent>
                         </Card>
@@ -272,7 +283,8 @@ export default function AnnouncementShowPage({
                         <Card className="glass-card">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2 text-base">
-                                    <Clock3 className="size-4 text-primary" /> Details
+                                    <Clock3 className="size-4 text-primary" />{' '}
+                                    Details
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -294,7 +306,8 @@ export default function AnnouncementShowPage({
                                         },
                                         {
                                             label: 'Created by',
-                                            value: announcement.created_by ?? '—',
+                                            value:
+                                                announcement.created_by ?? '—',
                                         },
                                         {
                                             label: 'Published / scheduled',
@@ -305,12 +318,21 @@ export default function AnnouncementShowPage({
                                         },
                                         {
                                             label: 'Expiry',
-                                            value: announcement.expires_at ?? 'No expiry',
+                                            value:
+                                                announcement.expires_at ??
+                                                'No expiry',
                                         },
                                     ].map(({ label, value }) => (
-                                        <div key={label} className="grid grid-cols-2 gap-2 py-3 first:pt-0 last:pb-0">
-                                            <dt className="text-muted-foreground">{label}</dt>
-                                            <dd className="font-medium capitalize">{value}</dd>
+                                        <div
+                                            key={label}
+                                            className="grid grid-cols-2 gap-2 py-3 first:pt-0 last:pb-0"
+                                        >
+                                            <dt className="text-muted-foreground">
+                                                {label}
+                                            </dt>
+                                            <dd className="font-medium capitalize">
+                                                {value}
+                                            </dd>
                                         </div>
                                     ))}
                                 </dl>
@@ -324,8 +346,12 @@ export default function AnnouncementShowPage({
                     <Card className="mt-6 overflow-hidden glass-card">
                         <CardHeader className="border-b border-border/60">
                             <CardTitle className="flex items-center gap-2 text-base">
-                                <Users className="size-4 text-primary" /> Recipient activity
-                                <Badge variant="secondary" className="ml-auto font-mono text-xs">
+                                <Users className="size-4 text-primary" />{' '}
+                                Recipient activity
+                                <Badge
+                                    variant="secondary"
+                                    className="ml-auto font-mono text-xs"
+                                >
                                     {announcement.recipients.length}
                                 </Badge>
                             </CardTitle>
@@ -338,17 +364,20 @@ export default function AnnouncementShowPage({
                                         <TableHead>Department</TableHead>
                                         <TableHead>
                                             <div className="flex items-center gap-1.5">
-                                                <Smartphone className="size-3.5" /> In-app
+                                                <Smartphone className="size-3.5" />{' '}
+                                                In-app
                                             </div>
                                         </TableHead>
                                         <TableHead>
                                             <div className="flex items-center gap-1.5">
-                                                <Mail className="size-3.5" /> Email
+                                                <Mail className="size-3.5" />{' '}
+                                                Email
                                             </div>
                                         </TableHead>
                                         <TableHead>
                                             <div className="flex items-center gap-1.5">
-                                                <MessageCircle className="size-3.5" /> WhatsApp
+                                                <MessageCircle className="size-3.5" />{' '}
+                                                WhatsApp
                                             </div>
                                         </TableHead>
                                         <TableHead>Read</TableHead>
@@ -362,19 +391,32 @@ export default function AnnouncementShowPage({
                                                     {recipient.employee_name}
                                                 </TableCell>
                                                 <TableCell className="text-muted-foreground">
-                                                    {recipient.department ?? '—'}
+                                                    {recipient.department ??
+                                                        '—'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <RecipientStatusCell value={recipient.in_app} />
+                                                    <RecipientStatusCell
+                                                        value={recipient.in_app}
+                                                    />
                                                 </TableCell>
                                                 <TableCell>
-                                                    <RecipientStatusCell value={recipient.email} />
+                                                    <RecipientStatusCell
+                                                        value={recipient.email}
+                                                    />
                                                 </TableCell>
                                                 <TableCell>
-                                                    <RecipientStatusCell value={recipient.whatsapp} />
+                                                    <RecipientStatusCell
+                                                        value={
+                                                            recipient.whatsapp
+                                                        }
+                                                    />
                                                 </TableCell>
                                                 <TableCell>
-                                                    <RecipientStatusCell value={recipient.read_at} />
+                                                    <RecipientStatusCell
+                                                        value={
+                                                            recipient.read_at
+                                                        }
+                                                    />
                                                 </TableCell>
                                             </TableRow>
                                         ),
