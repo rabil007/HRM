@@ -697,7 +697,6 @@ final class EmployeeProfilePageData
                     'bhp' => $row->vessel?->bhp,
                     'client_id' => $row->client_id,
                     'client_name' => $row->client?->name,
-                    'is_offshore' => $row->is_offshore,
                     'created_at' => $row->created_at?->toDateTimeString(),
                 ])
                 ->all();

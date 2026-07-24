@@ -31,7 +31,6 @@
             <th>End Date</th>
             <th>Months</th>
             <th>Days</th>
-            <th>Offshore</th>
             <th>Linked Assignment Phase</th>
         </tr>
         </thead>
@@ -49,7 +48,6 @@
                 <td>{{ optional($seaService->end_date)->toDateString() ?? '—' }}</td>
                 <td>{{ $seaService->total_months }}</td>
                 <td>{{ $seaService->total_days }}</td>
-                <td>{{ $seaService->is_offshore ? 'Yes' : 'No' }}</td>
                 <td>{{ $seaService->crew_assignment_phase_id ? 'Yes' : 'No' }}</td>
             </tr>
         @endforeach

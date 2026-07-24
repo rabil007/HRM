@@ -163,7 +163,6 @@ final class EmployeeProfileTemplateFieldRegistry
                 'start_date' => 'Start date',
                 'end_date' => 'End date',
                 'client_id' => 'Client',
-                'is_offshore' => 'Offshore',
             ],
             'employee_documents' => [
                 'document_type_id' => 'Document type',

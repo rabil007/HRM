@@ -276,8 +276,6 @@ final class SeaServiceImportOrchestrator
                     }
                 }
 
-                $isOffshore = $this->parseBoolean((string) ($parsedRow['is_offshore'] ?? ''));
-
                 if ($rowErrors === []) {
                     $duration = SeaServiceDuration::fromDates(
                         (string) $startDate,
@@ -294,7 +292,6 @@ final class SeaServiceImportOrchestrator
                         'total_months' => $duration['months'],
                         'total_days' => $duration['days'],
                         'client_id' => $clientId,
-                        'is_offshore' => $isOffshore,
                     ];
                 }
             }
@@ -313,7 +310,6 @@ final class SeaServiceImportOrchestrator
                 'start_date' => $parsedRow['start_date'],
                 'end_date' => $parsedRow['end_date'],
                 'client' => $parsedRow['client'],
-                'is_offshore' => $parsedRow['is_offshore'],
                 'action' => $action,
                 'errors' => $rowErrors,
                 'employee' => $employee,
@@ -362,18 +358,6 @@ final class SeaServiceImportOrchestrator
             || filled($row['rank'] ?? null)
             || filled($row['start_date'] ?? null)
             || filled($row['end_date'] ?? null)
-            || filled($row['client'] ?? null)
-            || filled($row['is_offshore'] ?? null);
-    }
-
-    private function parseBoolean(string $value): bool
-    {
-        $normalized = mb_strtolower(trim($value));
-
-        if ($normalized === '') {
-            return false;
-        }
-
-        return in_array($normalized, ['1', 'true', 'yes', 'y', 'on', 'offshore'], true);
+            || filled($row['client'] ?? null);
     }
 }

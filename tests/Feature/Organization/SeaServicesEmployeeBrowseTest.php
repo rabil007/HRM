@@ -109,7 +109,6 @@ test('employee sea services browse page loads records for the employee', functio
         'end_date' => '2023-06-30',
         'total_months' => $duration['months'],
         'total_days' => $duration['days'],
-        'is_offshore' => false,
         'sort_order' => 0,
     ]);
 

@@ -30,8 +30,6 @@ final class SeaServicesImport
 
     private const COL_CLIENT = 'H';
 
-    private const COL_OFFSHORE = 'I';
-
     /**
      * @return list<array<string, mixed>>
      */
@@ -60,7 +58,6 @@ final class SeaServicesImport
                 'start_date' => $this->dateValue($sheet, self::COL_START_DATE, $rowNumber),
                 'end_date' => $this->dateValue($sheet, self::COL_END_DATE, $rowNumber),
                 'client' => $this->stringValue($sheet, self::COL_CLIENT, $rowNumber),
-                'is_offshore' => $this->stringValue($sheet, self::COL_OFFSHORE, $rowNumber),
             ];
         }
 
@@ -86,7 +83,6 @@ final class SeaServicesImport
             'Start Date',
             'End Date',
             'Client',
-            'Is Offshore',
         ];
     }
 

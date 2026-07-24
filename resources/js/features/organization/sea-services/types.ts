@@ -14,8 +14,6 @@ import type { PaginationMeta } from '@/types/pagination';
 
 export type SeaServiceSummary = {
     total: number;
-    offshore: number;
-    shore: number;
     active: number;
 };
 
@@ -39,7 +37,6 @@ export type SeaServiceListItem = {
     end_date: string | null;
     total_months: number;
     total_days: number;
-    is_offshore: boolean;
     crew_assignment_phase_id: number | null;
     has_assignment_phase: boolean;
     sort_order: number;
@@ -72,7 +69,6 @@ export type SeaServicesIndexProps = {
     vessel_type_id: string;
     rank_id: string;
     client_id: string;
-    offshore: string;
     active: string;
     start_date: string;
     end_date: string;
@@ -122,7 +118,6 @@ export type SeaServiceEmployeeBackContext = {
     vessel_type_id?: string;
     rank_id?: string;
     client_id?: string;
-    offshore?: string;
     active?: string;
     start_date?: string;
     end_date?: string;

@@ -57,7 +57,6 @@ class EmployeeSeaServiceFactory extends Factory
             'total_months' => $duration['months'],
             'total_days' => $duration['days'],
             'client_id' => null,
-            'is_offshore' => fake()->boolean(40),
         ];
     }
 

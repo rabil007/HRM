@@ -167,10 +167,6 @@ export function seaServiceImportConfig(
             columnItem('start_date', 'required — DD/MM/YYYY or YYYY-MM-DD'),
             columnItem('end_date', 'required — DD/MM/YYYY or YYYY-MM-DD'),
             columnItem('client', 'optional (must match an active client name)'),
-            columnItem(
-                'is_offshore',
-                'optional (yes / no / true / false / 1 / 0)',
-            ),
         ]),
     };
 }

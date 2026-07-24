@@ -109,13 +109,6 @@ final class SeaServiceDirectoryQuery
                 'employee_sea_services.client_id',
                 $this->filters->clientId,
             ))
-            ->when($this->filters->offshore !== '', function (Builder $inner): void {
-                if ($this->filters->offshore === 'offshore') {
-                    $inner->where('employee_sea_services.is_offshore', true);
-                } elseif ($this->filters->offshore === 'shore') {
-                    $inner->where('employee_sea_services.is_offshore', false);
-                }
-            })
             ->when($this->filters->active === '1', fn (Builder $inner) => $inner->whereNull(
                 'employee_sea_services.end_date',
             ))

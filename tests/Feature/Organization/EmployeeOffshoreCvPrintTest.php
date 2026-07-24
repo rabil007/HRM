@@ -114,7 +114,6 @@ test('authenticated users can open printable offshore cv', function () {
             'end_date' => '2023-12-20',
             'total_months' => 11,
             'total_days' => 10,
-            'is_offshore' => true,
         ]);
 
     $onshoreVessel = Vessel::query()->create([
@@ -128,7 +127,6 @@ test('authenticated users can open printable offshore cv', function () {
         ->create([
             'vessel_id' => $onshoreVessel->id,
             'vessel_type_id' => $vesselType->id,
-            'is_offshore' => false,
         ]);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -236,7 +234,6 @@ test('offshore cv data includes all sea service rows in project history', functi
         ->create([
             'vessel_id' => $vessel->id,
             'vessel_type_id' => $vessel->vessel_type_id,
-            'is_offshore' => true,
         ]);
 
     $vessel = Vessel::query()->create([
@@ -250,7 +247,6 @@ test('offshore cv data includes all sea service rows in project history', functi
         ->create([
             'vessel_id' => $vessel->id,
             'vessel_type_id' => $vessel->vessel_type_id,
-            'is_offshore' => false,
         ]);
 
     $data = OffshoreCvData::for($employee, $company->id);
@@ -314,7 +310,6 @@ test('offshore cv applied rank and offshore experience use different filters', f
             'end_date' => null,
             'total_months' => 11,
             'total_days' => 30,
-            'is_offshore' => false,
         ]);
 
     $shadowVessel = Vessel::query()->create([
@@ -333,7 +328,6 @@ test('offshore cv applied rank and offshore experience use different filters', f
             'end_date' => '2023-12-31',
             'total_months' => 12,
             'total_days' => 0,
-            'is_offshore' => false,
         ]);
 
     $data = OffshoreCvData::for($employee, $company->id);
@@ -395,7 +389,6 @@ test('offshore cv applied rank is zero when no sea service matches employee rank
             'end_date' => null,
             'total_months' => 6,
             'total_days' => 15,
-            'is_offshore' => false,
         ]);
 
     $data = OffshoreCvData::for($employee, $company->id);

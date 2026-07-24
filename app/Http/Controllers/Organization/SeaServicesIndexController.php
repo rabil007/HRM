@@ -36,7 +36,6 @@ class SeaServicesIndexController extends Controller
             'vessel_type_id' => $filters->vesselTypeId,
             'rank_id' => $filters->rankId,
             'client_id' => $filters->clientId,
-            'offshore' => $filters->offshore,
             'active' => $filters->active,
             'start_date' => $filters->startDate,
             'end_date' => $filters->endDate,

@@ -4,7 +4,6 @@ import type { ReactElement } from 'react';
 import * as EmployeeSeaServiceController from '@/actions/App/Http/Controllers/Organization/EmployeeSeaServiceController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -52,7 +51,6 @@ export function EditSeaServiceDialog({
         start_date: '',
         end_date: '',
         client_id: '',
-        is_offshore: false,
     });
 
     useEffect(() => {
@@ -73,7 +71,6 @@ export function EditSeaServiceDialog({
                 seaService.client_id != null
                     ? String(seaService.client_id)
                     : '',
-            is_offshore: !!seaService.is_offshore,
         });
         editForm.clearErrors();
         // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when opening a different record
@@ -238,20 +235,6 @@ export function EditSeaServiceDialog({
                             ))}
                         </AppSelect>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                        <Checkbox
-                            id="edit-is-offshore"
-                            checked={editForm.data.is_offshore}
-                            onCheckedChange={(checked) =>
-                                editForm.setData(
-                                    'is_offshore',
-                                    checked === true,
-                                )
-                            }
-                        />
-                        <Label htmlFor="edit-is-offshore">Offshore</Label>
-                    </div>
                 </div>
 
                 <DialogFooter>
@@ -294,7 +277,6 @@ export function EditSeaServiceDialog({
                                     data.client_id === ''
                                         ? null
                                         : Number.parseInt(data.client_id, 10),
-                                is_offshore: data.is_offshore,
                             }));
                             editForm.put(
                                 EmployeeSeaServiceController.update.url({

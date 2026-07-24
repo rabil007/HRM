@@ -45,7 +45,7 @@ final class SeaServiceImportTemplateExporter
             $rowNumber++;
         }
 
-        $lastColumn = 'I';
+        $lastColumn = 'H';
         $lastDataRow = max($rowNumber - 1, SeaServicesImport::DATA_START_ROW);
         $sheet->setAutoFilter("A1:{$lastColumn}{$lastDataRow}");
         $sheet->freezePane('A2');

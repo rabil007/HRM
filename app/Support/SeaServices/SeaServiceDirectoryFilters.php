@@ -12,7 +12,6 @@ final class SeaServiceDirectoryFilters
         public readonly string $vesselTypeId = '',
         public readonly string $rankId = '',
         public readonly string $clientId = '',
-        public readonly string $offshore = '',
         public readonly string $active = '',
         public readonly string $startDate = '',
         public readonly string $endDate = '',
@@ -22,16 +21,6 @@ final class SeaServiceDirectoryFilters
 
     public static function fromRequest(Request $request): self
     {
-        $offshore = (string) $request->query('offshore', '');
-
-        if (in_array($offshore, ['1', 'true', 'yes', 'offshore'], true)) {
-            $offshore = 'offshore';
-        } elseif (in_array($offshore, ['0', 'false', 'no', 'shore'], true)) {
-            $offshore = 'shore';
-        } else {
-            $offshore = '';
-        }
-
         $active = (string) $request->query('active', '');
 
         if (in_array($active, ['1', 'true', 'yes', 'active'], true)) {
@@ -46,7 +35,6 @@ final class SeaServiceDirectoryFilters
             vesselTypeId: (string) $request->query('vessel_type_id', ''),
             rankId: (string) $request->query('rank_id', ''),
             clientId: (string) $request->query('client_id', ''),
-            offshore: $offshore,
             active: $active,
             startDate: (string) $request->query('start_date', ''),
             endDate: (string) $request->query('end_date', ''),
@@ -80,10 +68,6 @@ final class SeaServiceDirectoryFilters
 
         if ($this->clientId !== '') {
             $query['client_id'] = $this->clientId;
-        }
-
-        if ($this->offshore !== '') {
-            $query['offshore'] = $this->offshore;
         }
 
         if ($this->active !== '') {

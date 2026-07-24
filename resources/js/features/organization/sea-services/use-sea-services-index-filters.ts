@@ -2,7 +2,7 @@ import { router } from '@inertiajs/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SeaServiceSheetFilters } from '@/features/organization/sea-services/components/sea-services-filters-sheet';
 
-export type SeaServiceSummaryFilter = '' | 'offshore' | 'shore' | 'active';
+export type SeaServiceSummaryFilter = '' | 'active';
 
 function cleanParams(
     params: Record<string, string | number | null | undefined>,
@@ -25,7 +25,6 @@ export function useSeaServicesIndexFilters({
     initialVesselTypeId,
     initialRankId,
     initialClientId,
-    initialOffshore,
     initialActive,
     initialStartDate,
     initialEndDate,
@@ -39,7 +38,6 @@ export function useSeaServicesIndexFilters({
     initialVesselTypeId: string;
     initialRankId: string;
     initialClientId: string;
-    initialOffshore: string;
     initialActive: string;
     initialStartDate: string;
     initialEndDate: string;
@@ -67,7 +65,6 @@ export function useSeaServicesIndexFilters({
             vessel_type_id: initialVesselTypeId || undefined,
             rank_id: initialRankId || undefined,
             client_id: initialClientId || undefined,
-            offshore: initialOffshore || undefined,
             active: initialActive || undefined,
             start_date: initialStartDate || undefined,
             end_date: initialEndDate || undefined,
@@ -81,7 +78,6 @@ export function useSeaServicesIndexFilters({
             initialVesselTypeId,
             initialRankId,
             initialClientId,
-            initialOffshore,
             initialActive,
             initialStartDate,
             initialEndDate,
@@ -104,7 +100,6 @@ export function useSeaServicesIndexFilters({
                     'vessel_type_id',
                     'rank_id',
                     'client_id',
-                    'offshore',
                     'active',
                     'start_date',
                     'end_date',
@@ -147,10 +142,6 @@ export function useSeaServicesIndexFilters({
         (filter: SeaServiceSummaryFilter) => {
             visit({
                 ...baseParams(),
-                offshore:
-                    filter === 'offshore' || filter === 'shore'
-                        ? filter
-                        : undefined,
                 active: filter === 'active' ? '1' : undefined,
                 page: null,
             });

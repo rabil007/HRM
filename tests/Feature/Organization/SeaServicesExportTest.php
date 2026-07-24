@@ -79,7 +79,6 @@ function makeSeaServicesExportFixtures(): array
         'end_date' => '2023-06-30',
         'total_months' => $duration['months'],
         'total_days' => $duration['days'],
-        'is_offshore' => true,
         'sort_order' => 0,
     ]);
 
@@ -123,10 +122,11 @@ test('sea services export template links assignment phases instead of deployment
     expect($html)
         ->toContain('Linked Assignment Phase')
         ->not->toContain('Linked Deployment')
-        ->not->toContain('employee_deployment_id');
+        ->not->toContain('employee_deployment_id')
+        ->not->toContain('>Offshore<');
 });
 
-test('sea services export respects offshore filter parameter', function () {
+test('sea services export respects active filter parameter', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -136,6 +136,6 @@ test('sea services export respects offshore filter parameter', function () {
 
     $this->get(route('organization.sea-services.export', [
         'format' => 'csv',
-        'offshore' => 'offshore',
+        'active' => '1',
     ]))->assertOk();
 });

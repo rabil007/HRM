@@ -82,7 +82,6 @@ function buildSeaServicePayload(
         start_date: string;
         end_date: string;
         client_id: string;
-        is_offshore: boolean;
     },
     templateFields: Record<string, TemplateFieldConfig> | null | undefined,
 ) {
@@ -104,7 +103,6 @@ function buildSeaServicePayload(
                 data.client_id.trim() === ''
                     ? null
                     : Number.parseInt(data.client_id, 10),
-            is_offshore: !!data.is_offshore,
         },
         templateFields,
     );
@@ -210,7 +208,6 @@ export function EmployeeSeaServiceTab({
     } = useTemplateRecordFields(templateFields, {
         defaultRequiredFields:
             TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_sea_services,
-        booleanFields: ['is_offshore'],
     });
 
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -243,7 +240,6 @@ export function EmployeeSeaServiceTab({
         start_date: '',
         end_date: '',
         client_id: '',
-        is_offshore: false,
     });
 
     useClearMissingOnFormChange(
@@ -382,7 +378,7 @@ export function EmployeeSeaServiceTab({
               )
             : formatSeaServiceTotalsYmd(sea_services);
 
-    const offshoreTotals = formatSeaServiceTotalsYmd(sea_services);
+    const seaServiceTotals = formatSeaServiceTotalsYmd(sea_services);
 
     return (
         <EmployeeSeaServiceTabShell standalone={standalone}>
@@ -397,10 +393,10 @@ export function EmployeeSeaServiceTab({
                 </div>
                 <div className="rounded-xl border border-border/60 bg-black/10 px-4 py-3">
                     <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                        Offshore experience (in years)
+                        Total sea service experience (in years)
                     </div>
                     <div className="mt-1 font-mono text-sm font-semibold text-foreground">
-                        {offshoreTotals}
+                        {seaServiceTotals}
                     </div>
                 </div>
             </div>
@@ -463,7 +459,6 @@ export function EmployeeSeaServiceTab({
                                             start_date: '',
                                             end_date: '',
                                             client_id: '',
-                                            is_offshore: false,
                                         });
                                         setEditingRow(null);
                                         setDialogOpen(true);
@@ -559,16 +554,6 @@ export function EmployeeSeaServiceTab({
                             {showField('client_id') ? (
                                 <th className={employeeRecordsTableThClass()}>
                                     Client
-                                </th>
-                            ) : null}
-                            {showField('is_offshore') ? (
-                                <th
-                                    className={cn(
-                                        employeeRecordsTableThClass(),
-                                        'text-center',
-                                    )}
-                                >
-                                    Offshore
                                 </th>
                             ) : null}
                             {allowUpdate || allowDelete ? (
@@ -698,24 +683,6 @@ export function EmployeeSeaServiceTab({
                                         {row.client_name ?? '—'}
                                     </td>
                                 ) : null}
-                                {showField('is_offshore') ? (
-                                    <td
-                                        className={cn(
-                                            employeeRecordsTableTdClass(),
-                                            'text-center text-xs',
-                                        )}
-                                    >
-                                        {row.is_offshore ? (
-                                            <span className="text-emerald-600 dark:text-emerald-400">
-                                                ✓
-                                            </span>
-                                        ) : (
-                                            <span className="text-muted-foreground/50">
-                                                —
-                                            </span>
-                                        )}
-                                    </td>
-                                ) : null}
                                 {allowUpdate || allowDelete ? (
                                     <td
                                         className={employeeRecordsActionsTdClass(
@@ -756,8 +723,6 @@ export function EmployeeSeaServiceTab({
                                                                             row.client_id,
                                                                         )
                                                                       : '',
-                                                              is_offshore:
-                                                                  row.is_offshore,
                                                           });
                                                           employeeForm.clearErrors();
                                                           setDialogOpen(true);
@@ -1283,60 +1248,6 @@ export function EmployeeSeaServiceTab({
                                             (inclusive)
                                         </p>
                                     </div>
-                                </div>
-                            </>
-                        ) : null}
-
-                        {showField('is_offshore') ? (
-                            <>
-                                <div className="flex items-center gap-2 pt-2">
-                                    <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-                                        Settings
-                                    </span>
-                                    <div className="h-px flex-1 bg-muted/50" />
-                                </div>
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    {showField('is_offshore') ? (
-                                        <RecordFormField
-                                            field="is_offshore"
-                                            highlightMissing={isMissingRequired(
-                                                'is_offshore',
-                                            )}
-                                            className="sm:col-span-2"
-                                        >
-                                            <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
-                                                <label className="flex items-center gap-3 text-sm text-foreground">
-                                                    <Checkbox
-                                                        checked={
-                                                            employeeForm.data
-                                                                .is_offshore
-                                                        }
-                                                        onCheckedChange={(v) =>
-                                                            employeeForm.setData(
-                                                                'is_offshore',
-                                                                v === true,
-                                                            )
-                                                        }
-                                                    />
-                                                    <div>
-                                                        <div className="font-medium">
-                                                            Offshore experience
-                                                            <RequiredIndicator
-                                                                show={isFieldRequired(
-                                                                    'is_offshore',
-                                                                )}
-                                                            />
-                                                        </div>
-                                                        <div className="mt-0.5 text-[11px] text-muted-foreground">
-                                                            Mark if this sea
-                                                            service was
-                                                            completed offshore
-                                                        </div>
-                                                    </div>
-                                                </label>
-                                            </div>
-                                        </RecordFormField>
-                                    ) : null}
                                 </div>
                             </>
                         ) : null}

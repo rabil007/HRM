@@ -38,7 +38,6 @@ export function SeaServicesContent({
     vessel_type_id: initialVesselTypeId,
     rank_id: initialRankId,
     client_id: initialClientId,
-    offshore: initialOffshore,
     active: initialActive,
     start_date: initialStartDate,
     end_date: initialEndDate,
@@ -84,11 +83,7 @@ export function SeaServicesContent({
     ].filter(Boolean).length;
 
     const activeSummaryFilter: SeaServiceSummaryFilter =
-        initialActive === '1' || initialActive === 'true'
-            ? 'active'
-            : initialOffshore === 'offshore' || initialOffshore === 'shore'
-              ? initialOffshore
-              : '';
+        initialActive === '1' || initialActive === 'true' ? 'active' : '';
 
     const {
         searchInput,
@@ -105,7 +100,6 @@ export function SeaServicesContent({
         initialVesselTypeId,
         initialRankId,
         initialClientId,
-        initialOffshore,
         initialActive,
         initialStartDate,
         initialEndDate,
@@ -122,7 +116,6 @@ export function SeaServicesContent({
             vessel_type_id: initialVesselTypeId,
             rank_id: initialRankId,
             client_id: initialClientId,
-            offshore: initialOffshore,
             active: initialActive,
             start_date: initialStartDate,
             end_date: initialEndDate,
@@ -136,7 +129,6 @@ export function SeaServicesContent({
             initialVesselTypeId,
             initialRankId,
             initialClientId,
-            initialOffshore,
             initialActive,
             initialStartDate,
             initialEndDate,
@@ -164,7 +156,6 @@ export function SeaServicesContent({
                 vessel_type_id: initialVesselTypeId || undefined,
                 rank_id: initialRankId || undefined,
                 client_id: initialClientId || undefined,
-                offshore: initialOffshore || undefined,
                 active: initialActive || undefined,
                 start_date: initialStartDate || undefined,
                 end_date: initialEndDate || undefined,
@@ -253,7 +244,7 @@ export function SeaServicesContent({
             ) : (
                 <>
                     <OrganizationDataTable
-                        minWidth="min-w-[1320px]"
+                        minWidth="min-w-[1210px]"
                         tableClassName="table-fixed"
                     >
                         <TableHeader>
@@ -278,9 +269,6 @@ export function SeaServicesContent({
                                 </DataTableHead>
                                 <DataTableHead className="w-[100px]">
                                     Duration
-                                </DataTableHead>
-                                <DataTableHead className="w-[110px]">
-                                    Type
                                 </DataTableHead>
                                 <DataTableHead className="w-[140px] text-right">
                                     Actions

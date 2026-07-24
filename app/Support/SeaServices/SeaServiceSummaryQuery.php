@@ -9,8 +9,6 @@ final class SeaServiceSummaryQuery
     /**
      * @return array{
      *     total: int,
-     *     offshore: int,
-     *     shore: int,
      *     active: int
      * }
      */
@@ -22,15 +20,11 @@ final class SeaServiceSummaryQuery
 
         $row = $query
             ->selectRaw('COUNT(*) as total')
-            ->selectRaw('SUM(CASE WHEN is_offshore = 1 THEN 1 ELSE 0 END) as offshore')
-            ->selectRaw('SUM(CASE WHEN is_offshore = 0 THEN 1 ELSE 0 END) as shore')
             ->selectRaw('SUM(CASE WHEN end_date IS NULL THEN 1 ELSE 0 END) as active')
             ->first();
 
         return [
             'total' => (int) ($row->total ?? 0),
-            'offshore' => (int) ($row->offshore ?? 0),
-            'shore' => (int) ($row->shore ?? 0),
             'active' => (int) ($row->active ?? 0),
         ];
     }

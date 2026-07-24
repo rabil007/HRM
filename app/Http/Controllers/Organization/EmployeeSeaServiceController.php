@@ -171,8 +171,8 @@ class EmployeeSeaServiceController extends Controller
 
         abort_unless($employee->company_id === $companyId, 403);
 
-        $csv = "vessel_type,vessel,rank,start_date,end_date,client,is_offshore\n";
-        $csv .= "Tanker,MT Example,Chief Officer,2022-01-01,2023-04-15,Acme Corp,yes\n";
+        $csv = "vessel_type,vessel,rank,start_date,end_date,client\n";
+        $csv .= "Tanker,MT Example,Chief Officer,2022-01-01,2023-04-15,Acme Corp\n";
 
         return response($csv, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -344,11 +344,6 @@ class EmployeeSeaServiceController extends Controller
                 }
             }
 
-            $isOffshore = false;
-            if (isset($map['is_offshore'])) {
-                $isOffshore = $this->parseSeaServiceCsvBoolean((string) ($row[$map['is_offshore']] ?? ''));
-            }
-
             EmployeeSeaService::query()->create([
                 'company_id' => $companyId,
                 'employee_id' => $employee->id,
@@ -361,7 +356,6 @@ class EmployeeSeaServiceController extends Controller
                 'total_months' => $duration['months'],
                 'total_days' => $duration['days'],
                 'client_id' => $clientId,
-                'is_offshore' => $isOffshore,
             ]);
 
             $nextSort++;
@@ -516,23 +510,10 @@ class EmployeeSeaServiceController extends Controller
                 $map['end_date'] = (int) $index;
             } elseif (in_array($normalized, ['client', 'client name', 'client_name', 'company', 'employer'], true)) {
                 $map['client'] = (int) $index;
-            } elseif (in_array($normalized, ['is offshore', 'is_offshore', 'offshore', 'off shore'], true)) {
-                $map['is_offshore'] = (int) $index;
             }
         }
 
         return $map;
-    }
-
-    private function parseSeaServiceCsvBoolean(string $value): bool
-    {
-        $normalized = mb_strtolower(trim($value));
-
-        if ($normalized === '') {
-            return false;
-        }
-
-        return in_array($normalized, ['1', 'true', 'yes', 'y', 'on', 'offshore'], true);
     }
 
     /**
@@ -547,7 +528,6 @@ class EmployeeSeaServiceController extends Controller
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)],
-            'is_offshore' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -621,9 +601,6 @@ class EmployeeSeaServiceController extends Controller
             'client_id' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'client_id')
                 ? (isset($validated['client_id']) ? (int) $validated['client_id'] : null)
                 : $existing?->client_id,
-            'is_offshore' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'is_offshore')
-                ? (bool) ($validated['is_offshore'] ?? false)
-                : (bool) ($existing?->is_offshore ?? false),
         ];
     }
 }

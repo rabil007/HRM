@@ -106,7 +106,6 @@ test('sea services index returns paginated records with summary', function () {
         'end_date' => '2023-06-30',
         'total_months' => $duration['months'],
         'total_days' => $duration['days'],
-        'is_offshore' => true,
         'sort_order' => 0,
     ]);
 
@@ -115,19 +114,18 @@ test('sea services index returns paginated records with summary', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/sea-services/index')
             ->where('summary.total', 1)
-            ->where('summary.offshore', 1)
-            ->where('summary.shore', 0)
+            ->where('summary.active', 0)
             ->has('sea_services', 1)
             ->where('sea_services.0.employee_name', 'Index Seafarer')
             ->where('sea_services.0.vessel_name', $vessel->name)
-            ->where('sea_services.0.is_offshore', true)
+            ->missing('sea_services.0.is_offshore')
             ->where('can.view', true)
             ->where('can.create', false)
             ->where('can.update', false)
             ->where('can.delete', false));
 });
 
-test('sea services index filters by offshore flag', function () {
+test('sea services index filters open-ended records', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -144,10 +142,9 @@ test('sea services index filters by offshore flag', function () {
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
         'start_date' => '2023-01-01',
-        'end_date' => '2023-03-01',
+        'end_date' => null,
         'total_months' => $duration['months'],
         'total_days' => $duration['days'],
-        'is_offshore' => true,
         'sort_order' => 0,
     ]);
 
@@ -161,16 +158,15 @@ test('sea services index filters by offshore flag', function () {
         'end_date' => '2022-03-01',
         'total_months' => $duration['months'],
         'total_days' => $duration['days'],
-        'is_offshore' => false,
         'sort_order' => 1,
     ]);
 
-    $this->get(route('organization.sea-services', ['offshore' => 'offshore']))
+    $this->get(route('organization.sea-services', ['active' => '1']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/sea-services/index')
             ->has('sea_services', 1)
-            ->where('sea_services.0.is_offshore', true)
+            ->where('sea_services.0.end_date', null)
             ->where('summary.total', 1));
 });
 
@@ -196,7 +192,6 @@ test('sea services index does not leak other company records', function () {
         'end_date' => '2023-03-01',
         'total_months' => $duration['months'],
         'total_days' => $duration['days'],
-        'is_offshore' => false,
         'sort_order' => 0,
     ]);
 
@@ -210,7 +205,6 @@ test('sea services index does not leak other company records', function () {
         'end_date' => '2023-03-01',
         'total_months' => $duration['months'],
         'total_days' => $duration['days'],
-        'is_offshore' => true,
         'sort_order' => 0,
     ]);
 

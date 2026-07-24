@@ -52,7 +52,6 @@ type ImportPreviewRow = {
     start_date: string | null;
     end_date: string | null;
     client: string | null;
-    is_offshore: string | null;
     action: 'create' | 'skip';
     errors: ImportRowError[];
 };

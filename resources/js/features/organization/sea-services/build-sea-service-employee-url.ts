@@ -29,10 +29,6 @@ export function buildSeaServiceEmployeeUrl(
         query.client_id = back.client_id.trim();
     }
 
-    if (back.offshore?.trim()) {
-        query.offshore = back.offshore.trim();
-    }
-
     if (back.active?.trim()) {
         query.active = back.active.trim();
     }

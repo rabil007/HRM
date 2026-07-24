@@ -90,7 +90,6 @@ final class AdnocSeafarerCvData
             fn (EmployeeTraining $t) => self::isDpCourse($t->course?->name) || self::matchesDpOrCoc($t->course?->name),
         );
 
-        $offshoreRows = $seaServices->filter(fn (EmployeeSeaService $s) => $s->is_offshore)->values();
         $rankSeaServices = $seaServices->filter(
             fn (EmployeeSeaService $s) => $rankApplied !== '' && strcasecmp((string) $s->rank?->name, $rankApplied) === 0,
         );
@@ -235,7 +234,7 @@ final class AdnocSeafarerCvData
                 'company' => (string) ($row->client?->name ?? ''),
             ])->all(),
             'experience_rank_years' => self::yearsLabel($rankSeaServices),
-            'experience_offshore_years' => self::yearsFromSeaServices($offshoreRows),
+            'experience_offshore_years' => self::yearsFromSeaServices($seaServices),
             'experience_dp_hours' => '',
             'references' => [],
             'declaration_date' => now()->timezone(config('app.timezone'))->format('d-m-Y'),

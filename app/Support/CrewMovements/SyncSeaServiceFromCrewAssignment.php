@@ -47,7 +47,6 @@ final class SyncSeaServiceFromCrewAssignment
             'total_months' => $duration['months'],
             'total_days' => $duration['days'],
             'client_id' => $assignment->client_id,
-            'is_offshore' => $linked?->is_offshore ?? false,
         ];
 
         if ($linked !== null) {

@@ -98,19 +98,6 @@ export default function SeaServiceShow({
                             </Link>
                             <span className="text-muted-foreground">·</span>
                             <span>{employee.employee_no}</span>
-                            {sea_service.is_offshore ? (
-                                <>
-                                    <span className="text-muted-foreground">
-                                        ·
-                                    </span>
-                                    <Badge
-                                        variant="outline"
-                                        className="border-sky-500/30 bg-sky-500/10 text-[10px] text-sky-400 uppercase"
-                                    >
-                                        Offshore
-                                    </Badge>
-                                </>
-                            ) : null}
                             {sea_service.has_assignment_phase ? (
                                 <>
                                     <span className="text-muted-foreground">
@@ -203,10 +190,6 @@ export default function SeaServiceShow({
                             <MetadataField
                                 label="Duration"
                                 value={`${sea_service.total_months} months · ${sea_service.total_days} days`}
-                            />
-                            <MetadataField
-                                label="Offshore"
-                                value={sea_service.is_offshore ? 'Yes' : 'No'}
                             />
                             <MetadataField
                                 label="Linked deployment"

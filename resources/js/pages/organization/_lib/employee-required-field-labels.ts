@@ -66,7 +66,6 @@ const EMPLOYEE_REQUIRED_FIELD_LABELS: Record<string, string> = {
     certificate_path: 'Certificate file',
     vessel_type_id: 'Vessel type',
     vessel_id: 'Vessel',
-    is_offshore: 'Offshore',
     document_type_id: 'Document type',
     title: 'Title',
     document_number: 'Document number',

@@ -54,7 +54,6 @@ final class SeaServiceShowBackNavigation
             'vessel_type_id',
             'rank_id',
             'client_id',
-            'offshore',
             'active',
             'start_date',
             'end_date',

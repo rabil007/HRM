@@ -3,7 +3,7 @@ import type { SeaServiceSummary } from '@/features/organization/sea-services/typ
 import type { SeaServiceSummaryFilter } from '@/features/organization/sea-services/use-sea-services-index-filters';
 import { cn } from '@/lib/utils';
 
-type SummaryKey = 'total' | 'offshore' | 'shore' | 'active';
+type SummaryKey = 'total' | 'active';
 
 const SUMMARY_ITEMS: {
     key: SummaryKey;
@@ -22,24 +22,6 @@ const SUMMARY_ITEMS: {
         activeClass:
             'border-primary/30 ring-1 ring-primary/10 dark:border-white/20 dark:ring-white/10',
         valueClass: 'text-foreground',
-    },
-    {
-        key: 'offshore',
-        filter: 'offshore',
-        label: 'Offshore',
-        cardClass:
-            'border-sky-500/15 bg-sky-500/[0.04] hover:border-sky-500/30',
-        activeClass: 'border-sky-500/40 ring-1 ring-sky-500/25',
-        valueClass: 'text-sky-400',
-    },
-    {
-        key: 'shore',
-        filter: 'shore',
-        label: 'Non-offshore',
-        cardClass:
-            'border-emerald-500/15 bg-emerald-500/[0.04] hover:border-emerald-500/30',
-        activeClass: 'border-emerald-500/40 ring-1 ring-emerald-500/25',
-        valueClass: 'text-emerald-400',
     },
     {
         key: 'active',
@@ -62,7 +44,7 @@ export function SeaServicesSummaryCards({
     onSelect: (filter: SeaServiceSummaryFilter) => void;
 }) {
     return (
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-8 grid gap-4 sm:grid-cols-2">
             {SUMMARY_ITEMS.map((item) => {
                 const isActive = item.filter === activeFilter;
 

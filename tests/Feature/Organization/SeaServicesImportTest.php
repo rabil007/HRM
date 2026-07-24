@@ -37,6 +37,14 @@ test('sea services template lists active employees', function () {
 
     $employeeNumbers = [];
 
+    expect($importHeaders = app(SeaServicesImport::class)->headers())
+        ->toHaveCount(8)
+        ->not->toContain('Is Offshore');
+
+    foreach ($importHeaders as $columnIndex => $header) {
+        expect($sheet->getCellByColumnAndRow($columnIndex + 1, 1)->getValue())->toBe($header);
+    }
+
     for ($row = SeaServicesImport::DATA_START_ROW; $row <= $sheet->getHighestDataRow(); $row++) {
         $employeeNumbers[] = (string) $sheet->getCell('A'.$row)->getValue();
     }
@@ -61,7 +69,6 @@ test('sea services import preview rejects unknown employee numbers', function ()
             'start_date' => '2024-01-15',
             'end_date' => '2024-06-15',
             'client' => null,
-            'is_offshore' => 'yes',
         ],
     ]);
 
@@ -90,7 +97,6 @@ test('sea services import creates new records', function () {
             'start_date' => '2024-03-01',
             'end_date' => '2024-09-01',
             'client' => null,
-            'is_offshore' => 'yes',
         ],
     ]);
 
@@ -109,8 +115,7 @@ test('sea services import creates new records', function () {
 
     expect($created)->not->toBeNull()
         ->and($created->start_date?->toDateString())->toBe('2024-03-01')
-        ->and($created->end_date?->toDateString())->toBe('2024-09-01')
-        ->and($created->is_offshore)->toBeTrue();
+        ->and($created->end_date?->toDateString())->toBe('2024-09-01');
 });
 
 test('sea services import skips rows without sea service data', function () {
@@ -128,7 +133,6 @@ test('sea services import skips rows without sea service data', function () {
             'start_date' => null,
             'end_date' => null,
             'client' => null,
-            'is_offshore' => null,
         ],
     ]);
 
@@ -232,7 +236,6 @@ function makeSeaServicesImportFile(array $rows): UploadedFile
         $sheet->setCellValueByColumnAndRow(6, $rowNumber, $row['start_date'] ?? null);
         $sheet->setCellValueByColumnAndRow(7, $rowNumber, $row['end_date'] ?? null);
         $sheet->setCellValueByColumnAndRow(8, $rowNumber, $row['client'] ?? null);
-        $sheet->setCellValueByColumnAndRow(9, $rowNumber, $row['is_offshore'] ?? null);
 
         $rowNumber++;
     }

@@ -13,7 +13,12 @@ use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\Employees\SeaServiceDuration;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
+
+test('employee sea services no longer have an offshore flag', function () {
+    expect(Schema::hasColumn('employee_sea_services', 'is_offshore'))->toBeFalse();
+});
 
 test('guests cannot manage sea services', function () {
     $employee = Employee::factory()->create();
@@ -172,7 +177,6 @@ test('employee show page includes sea services', function () {
             'end_date' => '2020-06-22',
             'total_months' => $showDuration['months'],
             'total_days' => $showDuration['days'],
-            'is_offshore' => false,
         ]);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -282,7 +286,6 @@ test('users with permission can add update delete and reorder sea services', fun
         'start_date' => '2024-01-01',
         'end_date' => '2024-03-11',
         'client_id' => $clientX->id,
-        'is_offshore' => true,
     ])->assertRedirect();
 
     $row = EmployeeSeaService::query()->where('employee_id', $employee->id)->first();
@@ -290,7 +293,6 @@ test('users with permission can add update delete and reorder sea services', fun
 
     expect($row)->not->toBeNull();
     expect($row->load('vessel')->vessel?->name)->toBe('MV Alpha');
-    expect($row->is_offshore)->toBeTrue();
     expect($row->client_id)->toBe($clientX->id);
     expect($row->start_date?->toDateString())->toBe('2024-01-01');
     expect($row->end_date?->toDateString())->toBe('2024-03-11');
@@ -309,7 +311,6 @@ test('users with permission can add update delete and reorder sea services', fun
         'rank_id' => $rankCaptain->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-04-02',
-        'is_offshore' => false,
     ])->assertRedirect();
 
     $updatedDuration = SeaServiceDuration::fromDates('2024-01-01', '2024-04-02');
@@ -317,8 +318,7 @@ test('users with permission can add update delete and reorder sea services', fun
     expect($row->fresh()->vessel_type_id)->toBe($vesselAPlus->id)
         ->and($row->fresh()->load('vessel')->vessel?->name)->toBe('MV Alpha Plus')
         ->and($row->fresh()->total_months)->toBe($updatedDuration['months'])
-        ->and($row->fresh()->total_days)->toBe($updatedDuration['days'])
-        ->and($row->fresh()->is_offshore)->toBeFalse();
+        ->and($row->fresh()->total_days)->toBe($updatedDuration['days']);
 
     $ordered = [$second->id, $row->fresh()->id];
 
@@ -562,8 +562,8 @@ test('csv import appends sea service rows for the employee', function () {
     grantCompanyPermissions($user, $company, ['sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
     $csv = <<<'CSV'
-vessel type,vessel,rank,start date,end date,client,is offshore
-Bulk Carrier,MV North Star,Second Officer,2023-01-01,2023-09-11,Offshore Logistics,yes
+vessel type,vessel,rank,start date,end date,client
+Bulk Carrier,MV North Star,Second Officer,2023-01-01,2023-09-11,Offshore Logistics
 
 CSV;
 
@@ -585,8 +585,7 @@ CSV;
         ->and($importedRow->start_date?->toDateString())->toBe('2023-01-01')
         ->and($importedRow->end_date?->toDateString())->toBe('2023-09-11')
         ->and($importedRow->total_months)->toBe($importDuration['months'])
-        ->and($importedRow->total_days)->toBe($importDuration['days'])
-        ->and($importedRow->is_offshore)->toBeTrue();
+        ->and($importedRow->total_days)->toBe($importDuration['days']);
 
     expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(1);
 });
@@ -700,8 +699,8 @@ test('sea service import returns a clear error when vessel type is missing', fun
     ]);
 
     $csv = <<<'CSV'
-vessel_type,vessel,rank,start_date,end_date,client,is_offshore
-,CREST MARS,Appointed Person,2024-01-01,2024-03-15,EL HAIL,
+vessel_type,vessel,rank,start_date,end_date,client
+,CREST MARS,Appointed Person,2024-01-01,2024-03-15,EL HAIL
 
 CSV;
 

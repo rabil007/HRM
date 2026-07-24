@@ -5,7 +5,6 @@ import {
     dataTableCellClass,
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
-import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { SeaServiceListRowActions } from '@/features/organization/sea-services/sea-service-list-row-actions';
@@ -101,23 +100,6 @@ export function SeaServicesTableRow({
                 <span className="text-sm text-muted-foreground tabular-nums">
                     {seaService.total_months}m {seaService.total_days}d
                 </span>
-            </TableCell>
-            <TableCell className={dataTableCellClass()}>
-                {seaService.is_offshore ? (
-                    <Badge
-                        variant="outline"
-                        className="border-sky-500/30 bg-sky-500/10 font-normal text-sky-400"
-                    >
-                        Offshore
-                    </Badge>
-                ) : (
-                    <Badge
-                        variant="outline"
-                        className="border-border bg-muted/40 font-normal text-muted-foreground"
-                    >
-                        Shore
-                    </Badge>
-                )}
             </TableCell>
             <TableCell
                 className={cn(dataTableActionsCellClass(), 'min-w-[10rem]')}

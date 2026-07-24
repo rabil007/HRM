@@ -275,7 +275,6 @@ export type SeaServiceItem = {
     bhp: number | null;
     client_id: number | null;
     client_name: string | null;
-    is_offshore: boolean;
     created_at: string;
 };
 

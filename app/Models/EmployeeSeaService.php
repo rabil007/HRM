@@ -36,7 +36,6 @@ class EmployeeSeaService extends Model
                 'total_months',
                 'total_days',
                 'client_id',
-                'is_offshore',
             ])
             ->logOnlyDirty();
     }
@@ -54,7 +53,6 @@ class EmployeeSeaService extends Model
             'client_id' => 'integer',
             'total_months' => 'integer',
             'total_days' => 'integer',
-            'is_offshore' => 'boolean',
         ];
     }
 

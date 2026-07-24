@@ -80,7 +80,6 @@ function makeSeaServiceShowFixtures(): array
         'end_date' => '2023-06-30',
         'total_months' => $duration['months'],
         'total_days' => $duration['days'],
-        'is_offshore' => true,
         'sort_order' => 0,
     ]);
 
