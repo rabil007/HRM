@@ -35,6 +35,7 @@ type WhatsAppDocumentTemplatePreviewProps = {
     headerType?: WhatsAppTemplateHeaderType;
     headerText?: string;
     sampleFileName?: string;
+    accountName?: string;
     className?: string;
 };
 
@@ -45,6 +46,7 @@ export function WhatsAppDocumentTemplatePreview({
     headerType = 'document',
     headerText = '',
     sampleFileName = 'Employee Document.pdf',
+    accountName = 'Overseas Marine',
     className,
 }: WhatsAppDocumentTemplatePreviewProps) {
     const showDocumentHeader = headerType === 'document';
@@ -64,7 +66,7 @@ export function WhatsAppDocumentTemplatePreview({
             <div className="mx-auto w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-[#0b141a] shadow-xl">
                 <div className="border-b border-white/5 bg-[#202c33] px-4 py-3">
                     <p className="text-sm font-semibold text-[#e9edef]">
-                        Overseas Marine
+                        {accountName}
                     </p>
                     <p className="text-[11px] text-[#8696a0]">
                         Business account

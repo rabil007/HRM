@@ -20,6 +20,28 @@ final class BuildAnnouncementEmailContent
             'url' => $this->publicLinks->attachmentUrl($recipient, $attachment),
         ])->all();
 
+        return $this->render($announcement, $attachmentLinks);
+    }
+
+    /**
+     * @return array{subject: string, html: string}
+     */
+    public function preview(Announcement $announcement): array
+    {
+        $attachmentLinks = $announcement->attachments->map(fn ($attachment): array => [
+            'name' => $attachment->original_name,
+            'url' => '#',
+        ])->all();
+
+        return $this->render($announcement, $attachmentLinks);
+    }
+
+    /**
+     * @param  list<array{name: string, url: string}>  $attachmentLinks
+     * @return array{subject: string, html: string}
+     */
+    private function render(Announcement $announcement, array $attachmentLinks): array
+    {
         $html = View::make('mail.announcement', [
             'title' => $announcement->title,
             'bodyHtml' => $announcement->body_html,

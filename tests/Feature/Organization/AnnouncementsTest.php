@@ -248,3 +248,60 @@ test('selecting every employee as specific audience resolves as all employees', 
     expect($announcement->audiences)->toHaveCount(1)
         ->and($announcement->audiences->first()->audience_type->value)->toBe('all_employees');
 });
+
+test('announcement show includes structured channel previews for selected channels', function () {
+    ['user' => $user, 'company' => $company] = makeAnnouncementFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, announcementPermissions());
+
+    $announcement = Announcement::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Test Announcement',
+        'body_html' => '<p>Test Announcement By Rabil</p>',
+        'category' => 'safety',
+        'priority' => 'urgent',
+        'status' => AnnouncementStatus::Draft,
+        'channels' => ['in_app', 'email', 'whatsapp'],
+        'created_by' => $user->id,
+    ]);
+
+    $this->get("/organization/announcements/{$announcement->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/announcements/show')
+            ->where('announcement.channel_previews.channels', ['in_app', 'email', 'whatsapp'])
+            ->where('announcement.channel_previews.in_app.title', 'Test Announcement')
+            ->where('announcement.channel_previews.in_app.priority_label', 'Urgent')
+            ->where('announcement.channel_previews.email.subject', 'Urgent Announcement — Test Announcement')
+            ->where('announcement.channel_previews.email.html', fn ($html) => is_string($html) && str_contains($html, 'Test Announcement By Rabil'))
+            ->where('announcement.channel_previews.whatsapp.body_text', fn ($text) => is_string($text) && str_contains($text, 'Test Announcement'))
+            ->where('announcement.channel_previews.whatsapp.company_name', 'Announcement Co')
+        );
+});
+
+test('channel previews omit channels that were not selected', function () {
+    ['user' => $user, 'company' => $company] = makeAnnouncementFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, announcementPermissions());
+
+    $announcement = Announcement::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Email only',
+        'body_html' => '<p>Email body</p>',
+        'category' => 'general',
+        'priority' => 'normal',
+        'status' => AnnouncementStatus::Draft,
+        'channels' => ['email'],
+        'created_by' => $user->id,
+    ]);
+
+    $this->get("/organization/announcements/{$announcement->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/announcements/show')
+            ->where('announcement.channel_previews.channels', ['email'])
+            ->where('announcement.channel_previews.in_app', null)
+            ->where('announcement.channel_previews.whatsapp', null)
+            ->where('announcement.channel_previews.email.subject', 'Normal Announcement — Email only')
+        );
+});

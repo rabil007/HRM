@@ -7,6 +7,7 @@ use App\Models\AnnouncementAttachment;
 use App\Models\AnnouncementAudience;
 use App\Models\AnnouncementRecipient;
 use App\Support\Announcements\AnnouncementDeliverySummary;
+use App\Support\Announcements\BuildAnnouncementChannelPreview;
 
 final class AnnouncementResource
 {
@@ -63,6 +64,7 @@ final class AnnouncementResource
                 'size_bytes' => $attachment->size_bytes,
             ])->values()->all(),
             'delivery_summary' => AnnouncementDeliverySummary::for($announcement),
+            'channel_previews' => app(BuildAnnouncementChannelPreview::class)->handle($announcement),
             'recipients' => $announcement->recipients->map(fn (AnnouncementRecipient $recipient): array => [
                 'id' => $recipient->id,
                 'employee_name' => $recipient->employee_name,

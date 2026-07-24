@@ -65,6 +65,26 @@ export type AnnouncementFormPayload = {
     }[];
 };
 
+export type AnnouncementChannelPreviews = {
+    channels: string[];
+    in_app: {
+        title: string;
+        body_html: string;
+        priority_label: string;
+        category_label: string;
+    } | null;
+    email: {
+        subject: string;
+        html: string;
+    } | null;
+    whatsapp: {
+        template_name: string;
+        template_language: string;
+        body_text: string;
+        company_name: string;
+    } | null;
+};
+
 export type AnnouncementShow = AnnouncementListItem & {
     body_html: string;
     expires_at: string | null;
@@ -84,6 +104,7 @@ export type AnnouncementShow = AnnouncementListItem & {
         failed: number;
         skipped: number;
     };
+    channel_previews: AnnouncementChannelPreviews;
     recipients: {
         id: number;
         employee_name: string;

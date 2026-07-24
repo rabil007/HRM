@@ -2,7 +2,6 @@ import { Head, Link, router } from '@inertiajs/react';
 import {
     CheckCircle2,
     Clock3,
-    Download,
     FileText,
     Mail,
     MessageCircle,
@@ -25,6 +24,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { AnnouncementMessagePreview } from '@/features/organization/announcements/announcement-message-preview';
 import { cn } from '@/lib/utils';
 import type {
     AnnouncementCan,
@@ -194,52 +194,19 @@ export default function AnnouncementShowPage({
                 />
 
                 <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.6fr)]">
-                    {/* Message card */}
                     <Card className="overflow-hidden glass-card">
                         <CardHeader className="border-b border-border/60 bg-muted/20">
                             <CardTitle className="flex items-center gap-2 text-base">
-                                <FileText className="size-4 text-primary" /> Message
+                                <FileText className="size-4 text-primary" /> Message preview
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-6 pt-6">
-                            <div
-                                className="prose prose-sm dark:prose-invert max-w-none leading-7"
-                                dangerouslySetInnerHTML={{
-                                    __html: announcement.body_html,
-                                }}
+                        <CardContent className="pt-6">
+                            <AnnouncementMessagePreview
+                                previews={announcement.channel_previews}
+                                attachments={announcement.attachments}
+                                canDownloadAttachments={can.download_attachments}
+                                announcementId={announcement.id}
                             />
-                            {announcement.attachments.length > 0 ? (
-                                <div className="border-t border-border/60 pt-5">
-                                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                                        <Download className="size-3.5 text-muted-foreground" />
-                                        Attachments ({announcement.attachments.length})
-                                    </h3>
-                                    <ul className="grid gap-2 sm:grid-cols-2">
-                                        {announcement.attachments.map(
-                                            (attachment) => (
-                                                <li
-                                                    key={attachment.id}
-                                                    className="flex items-center gap-2 rounded-lg border border-border/70 bg-muted/30 px-3 py-2.5 text-sm transition-colors hover:bg-muted/60"
-                                                >
-                                                    <FileText className="size-4 shrink-0 text-muted-foreground" />
-                                                    <span className="min-w-0 truncate">
-                                                        {can.download_attachments ? (
-                                                            <a
-                                                                className="text-primary hover:underline"
-                                                                href={`/organization/announcements/${announcement.id}/attachments/${attachment.id}/download`}
-                                                            >
-                                                                {attachment.original_name}
-                                                            </a>
-                                                        ) : (
-                                                            attachment.original_name
-                                                        )}
-                                                    </span>
-                                                </li>
-                                            ),
-                                        )}
-                                    </ul>
-                                </div>
-                            ) : null}
                         </CardContent>
                     </Card>
 
