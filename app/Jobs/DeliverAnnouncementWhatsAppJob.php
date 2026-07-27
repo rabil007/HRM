@@ -7,6 +7,7 @@ use App\Models\AnnouncementDelivery;
 use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\Actions\RefreshAnnouncementDeliveryStatus;
+use App\Support\Announcements\AnnouncementWhatsAppMessage;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -81,23 +82,10 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $viewLink = trim((string) ($announcement->whatsapp_link ?? ''));
-
-        if ($viewLink === '') {
-            $delivery->update([
-                'status' => AnnouncementDeliveryStatus::Failed,
-                'failed_at' => now(),
-                'failure_reason' => 'WhatsApp view link is missing.',
-                'attempt_count' => $delivery->attempt_count + 1,
-            ]);
-            $refreshStatus->handle($announcement);
-
-            return;
-        }
+        $viewLink = AnnouncementWhatsAppMessage::viewLink($announcement);
 
         $companyName = (string) ($announcement->company?->name ?? config('app.name'));
-        $shortBody = str($announcement->body_html)->stripTags()->limit(200)->toString();
-        $shortSummary = $shortBody !== '' ? $shortBody : (string) $announcement->title;
+        $shortSummary = AnnouncementWhatsAppMessage::for($announcement);
 
         $components = [
             [

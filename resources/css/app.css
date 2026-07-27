@@ -118,6 +118,12 @@
         padding-inline-start: 1rem;
     }
 
+    .announcement-editor .tiptap a {
+        color: var(--primary);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
     .announcement-editor
         .tiptap
         p:only-child:has(> br.ProseMirror-trailingBreak)::before {

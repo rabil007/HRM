@@ -31,7 +31,6 @@ class StoreAnnouncementRequest extends FormRequest
             'channels' => ['required', 'array', 'min:1'],
             'channels.*' => ['required', Rule::in(AnnouncementChannel::values())],
             'whatsapp_link' => [
-                Rule::requiredIf(fn (): bool => in_array(AnnouncementChannel::WhatsApp->value, $this->input('channels', []), true)),
                 'nullable',
                 'string',
                 'url:http,https',
@@ -49,6 +48,32 @@ class StoreAnnouncementRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $channels = array_values(array_map('strval', $this->input('channels', [])));
+
+        // #region agent log
+        $rawLink = $this->input('whatsapp_link');
+        file_put_contents(
+            base_path('.cursor/debug-17d3aa.log'),
+            json_encode([
+                'sessionId' => '17d3aa',
+                'runId' => 'pre-fix',
+                'hypothesisId' => 'C-D-E',
+                'location' => 'StoreAnnouncementRequest.php:prepareForValidation',
+                'message' => 'Incoming announcement create validation inputs',
+                'data' => [
+                    'channels' => $channels,
+                    'has_whatsapp' => in_array(AnnouncementChannel::WhatsApp->value, $channels, true),
+                    'whatsapp_link_type' => gettype($rawLink),
+                    'whatsapp_link_is_null' => $rawLink === null,
+                    'whatsapp_link_length' => is_string($rawLink) ? strlen($rawLink) : null,
+                    'whatsapp_link_trimmed_length' => is_string($rawLink) ? strlen(trim($rawLink)) : null,
+                    'all_input_keys' => array_keys($this->all()),
+                    'run' => 'post-fix',
+                ],
+                'timestamp' => (int) round(microtime(true) * 1000),
+            ], JSON_UNESCAPED_SLASHES)."\n",
+            FILE_APPEND
+        );
+        // #endregion
 
         if (! in_array(AnnouncementChannel::WhatsApp->value, $channels, true)) {
             $this->merge(['whatsapp_link' => null]);

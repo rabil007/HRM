@@ -26,12 +26,18 @@ export type AnnouncementCan = {
 };
 
 export type AnnouncementFormOptions = {
+    company_name: string;
     categories: { value: string; label: string }[];
     priorities: { value: string; label: string }[];
     branches: { id: number; name: string }[];
     departments: { id: number; name: string; parent_id?: number | null }[];
     positions: { id: number; name: string }[];
     employees: { id: number; name: string; employee_no: string | null }[];
+    whatsapp_template: {
+        meta_name: string;
+        meta_language: string;
+        body_preview: string;
+    } | null;
 };
 
 export type AnnouncementFormData = {

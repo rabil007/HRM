@@ -6,7 +6,6 @@ use App\Enums\AnnouncementChannel;
 use App\Enums\WhatsAppTemplateCategory;
 use App\Models\Announcement;
 use App\Models\WhatsAppTemplate;
-use Illuminate\Support\Str;
 
 final class BuildAnnouncementChannelPreview
 {
@@ -65,12 +64,9 @@ final class BuildAnnouncementChannelPreview
                 ->first();
 
         $companyName = (string) ($announcement->company?->name ?? config('app.name'));
-        $shortBody = Str::of($announcement->body_html)->stripTags()->limit(200)->toString();
-        $message = $shortBody !== '' ? $shortBody : $announcement->title;
+        $message = AnnouncementWhatsAppMessage::for($announcement);
         $priority = $announcement->priority->label();
-        $viewLink = filled($announcement->whatsapp_link)
-            ? (string) $announcement->whatsapp_link
-            : 'https://example.com/your-link';
+        $viewLink = AnnouncementWhatsAppMessage::viewLink($announcement);
 
         $bodyText = filled($template?->body_preview)
             ? str_replace(
@@ -100,7 +96,7 @@ final class BuildAnnouncementChannelPreview
                 ],
                 (string) $template->body_preview,
             )
-            : "{$companyName} — {$announcement->title}: {$message}. Priority: {$priority}. Open: {$viewLink}";
+            : "Hello,\nA company notice from {$companyName} is available for you.\n\nTitle: {$announcement->title}\nSummary: {$message}\nPriority: {$priority}\nView link: {$viewLink}";
 
         return [
             'template_name' => (string) ($template?->meta_name ?? 'announcement'),

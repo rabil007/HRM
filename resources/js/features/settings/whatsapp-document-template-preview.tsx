@@ -1,4 +1,5 @@
 import { FileText } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -28,6 +29,25 @@ const VARIABLE_LABELS: Record<string, string> = {
     expiry_date: 'Expiry date ({{expiry_date}})',
 };
 
+function renderBodyWithLinks(bodyText: string): ReactNode {
+    const parts = bodyText.split(/(https?:\/\/[^\s]+)/g);
+
+    return parts.map((part, index) => {
+        if (/^https?:\/\/[^\s]+$/.test(part)) {
+            return (
+                <span
+                    key={`${index}-${part}`}
+                    className="break-all text-[#53bdeb] underline underline-offset-2"
+                >
+                    {part}
+                </span>
+            );
+        }
+
+        return <span key={`${index}-${part.slice(0, 12)}`}>{part}</span>;
+    });
+}
+
 type WhatsAppDocumentTemplatePreviewProps = {
     templateName: string;
     templateLanguage: string;
@@ -37,6 +57,7 @@ type WhatsAppDocumentTemplatePreviewProps = {
     sampleFileName?: string;
     accountName?: string;
     className?: string;
+    hint?: ReactNode | false;
 };
 
 export function WhatsAppDocumentTemplatePreview({
@@ -48,6 +69,7 @@ export function WhatsAppDocumentTemplatePreview({
     sampleFileName = 'Employee Document.pdf',
     accountName = 'Overseas Marine',
     className,
+    hint,
 }: WhatsAppDocumentTemplatePreviewProps) {
     const showDocumentHeader = headerType === 'document';
     const showTextHeader = headerType === 'text' && headerText.trim() !== '';
@@ -100,7 +122,7 @@ export function WhatsAppDocumentTemplatePreview({
                         ) : null}
 
                         <div className="px-3 py-2.5 text-sm leading-relaxed whitespace-pre-wrap text-[#e9edef]">
-                            {bodyText}
+                            {renderBodyWithLinks(bodyText)}
                         </div>
                         <div className="flex justify-end px-2 pb-1.5">
                             <span className="text-[10px] text-[#99bfb5]">
@@ -111,16 +133,23 @@ export function WhatsAppDocumentTemplatePreview({
                 </div>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-                Approximate preview only. WhatsApp delivers the approved Meta
-                template (
-                <span className="font-mono text-foreground/80">
-                    {templateName}
-                </span>
-                ). Meta fills {'{{1}}'}, {'{{2}}'}, {'{{3}}'} in order when
-                sending — map sample values below to see how the message will
-                look. Edit wording in Meta WhatsApp Manager, not here.
-            </p>
+            {hint === false ? null : (
+                <p className="text-xs text-muted-foreground">
+                    {hint ?? (
+                        <>
+                            Approximate preview only. WhatsApp delivers the
+                            approved Meta template (
+                            <span className="font-mono text-foreground/80">
+                                {templateName}
+                            </span>
+                            ). Meta fills {'{{1}}'}, {'{{2}}'}, {'{{3}}'} in
+                            order when sending — map sample values below to see
+                            how the message will look. Edit wording in Meta
+                            WhatsApp Manager, not here.
+                        </>
+                    )}
+                </p>
+            )}
         </div>
     );
 }

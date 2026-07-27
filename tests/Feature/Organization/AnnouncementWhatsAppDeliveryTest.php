@@ -16,6 +16,7 @@ use App\Models\Employee;
 use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\Actions\RefreshAnnouncementDeliveryStatus;
+use App\Support\Announcements\AnnouncementWhatsAppMessage;
 use Mockery\MockInterface;
 
 /**
@@ -106,10 +107,11 @@ function makeWhatsAppAnnouncementDelivery(array $overrides = []): array
 }
 
 test('whatsapp job sends five body parameters with custom announcement link', function () {
-    ['delivery' => $delivery] = makeWhatsAppAnnouncementDelivery();
+    ['delivery' => $delivery, 'recipient' => $recipient] = makeWhatsAppAnnouncementDelivery();
     $expectedUrl = 'https://files.example.com/muster-drill';
+    $expectedSummary = AnnouncementWhatsAppMessage::for($recipient->announcement);
 
-    $this->mock(WhatsAppService::class, function (MockInterface $mock) use ($expectedUrl): void {
+    $this->mock(WhatsAppService::class, function (MockInterface $mock) use ($expectedUrl, $expectedSummary): void {
         $mock->shouldReceive('sendTemplate')
             ->once()
             ->withArgs(function (
@@ -117,7 +119,7 @@ test('whatsapp job sends five body parameters with custom announcement link', fu
                 string $metaName,
                 string $metaLanguage,
                 array $components,
-            ) use ($expectedUrl): bool {
+            ) use ($expectedUrl, $expectedSummary): bool {
                 $parameters = $components[0]['parameters'] ?? [];
 
                 return $phone === '971509999999'
@@ -126,7 +128,7 @@ test('whatsapp job sends five body parameters with custom announcement link', fu
                     && count($parameters) === 5
                     && $parameters[0] === ['type' => 'text', 'text' => 'WhatsApp Co']
                     && $parameters[1] === ['type' => 'text', 'text' => 'Muster drill']
-                    && $parameters[2] === ['type' => 'text', 'text' => 'Report to station B immediately']
+                    && $parameters[2] === ['type' => 'text', 'text' => $expectedSummary]
                     && $parameters[3] === ['type' => 'text', 'text' => 'Urgent']
                     && $parameters[4] === ['type' => 'text', 'text' => $expectedUrl]
                     && ! str_contains($parameters[4]['text'], 'announcements/public')
@@ -149,13 +151,28 @@ test('whatsapp job sends five body parameters with custom announcement link', fu
         ->provider_reference->toBe('wamid.123');
 });
 
-test('whatsapp job fails when custom view link is missing', function () {
+test('whatsapp job sends with N/A when custom view link is missing', function () {
     ['delivery' => $delivery] = makeWhatsAppAnnouncementDelivery([
         'whatsapp_link' => null,
     ]);
 
     $this->mock(WhatsAppService::class, function (MockInterface $mock): void {
-        $mock->shouldNotReceive('sendTemplate');
+        $mock->shouldReceive('sendTemplate')
+            ->once()
+            ->withArgs(function (
+                string $to,
+                string $template,
+                string $language,
+                array $components,
+            ): bool {
+                $parameters = $components[0]['parameters'] ?? [];
+
+                return ($parameters[4]['text'] ?? null) === 'N/A';
+            })
+            ->andReturn([
+                'success' => true,
+                'message_id' => 'wamid.no-link',
+            ]);
     });
 
     (new DeliverAnnouncementWhatsAppJob($delivery->id))->handle(
@@ -164,8 +181,8 @@ test('whatsapp job fails when custom view link is missing', function () {
     );
 
     expect($delivery->fresh())
-        ->status->toBe(AnnouncementDeliveryStatus::Failed)
-        ->failure_reason->toBe('WhatsApp view link is missing.');
+        ->status->toBe(AnnouncementDeliveryStatus::Sent)
+        ->provider_reference->toBe('wamid.no-link');
 });
 
 test('already successful whatsapp deliveries are not resent', function () {

@@ -1,14 +1,17 @@
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
+import Link from '@tiptap/extension-link';
 import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
 import {
     Bold,
     Heading2,
     Italic,
+    Link2,
     List,
     ListOrdered,
     Quote,
     Redo2,
-    Underline,
+    Underline as UnderlineIcon,
     Undo2,
 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
@@ -29,6 +32,29 @@ type ToolbarAction = {
     run: () => void;
 };
 
+function normalizeLinkUrl(url: string): string | null {
+    const trimmed = url.trim();
+
+    if (trimmed === '') {
+        return null;
+    }
+
+    if (
+        trimmed.startsWith('#') ||
+        trimmed.startsWith('/') ||
+        trimmed.startsWith('mailto:') ||
+        trimmed.startsWith('tel:')
+    ) {
+        return trimmed;
+    }
+
+    if (/^https?:\/\//i.test(trimmed)) {
+        return trimmed;
+    }
+
+    return `https://${trimmed}`;
+}
+
 export function AnnouncementMessageEditor({
     id,
     value,
@@ -42,6 +68,17 @@ export function AnnouncementMessageEditor({
             StarterKit.configure({
                 heading: {
                     levels: [2, 3],
+                },
+            }),
+            Underline,
+            Link.configure({
+                openOnClick: false,
+                autolink: true,
+                defaultProtocol: 'https',
+                HTMLAttributes: {
+                    class: 'text-primary underline underline-offset-2',
+                    rel: 'noopener noreferrer',
+                    target: '_blank',
                 },
             }),
         ],
@@ -89,6 +126,7 @@ export function AnnouncementMessageEditor({
                 bold: currentEditor.isActive('bold'),
                 italic: currentEditor.isActive('italic'),
                 underline: currentEditor.isActive('underline'),
+                link: currentEditor.isActive('link'),
                 heading: currentEditor.isActive('heading', { level: 2 }),
                 bulletList: currentEditor.isActive('bulletList'),
                 orderedList: currentEditor.isActive('orderedList'),
@@ -98,6 +136,40 @@ export function AnnouncementMessageEditor({
             };
         },
     });
+
+    const toggleLink = () => {
+        if (!editor) {
+            return;
+        }
+
+        if (editor.isActive('link')) {
+            editor.chain().focus().extendMarkRange('link').unsetLink().run();
+
+            return;
+        }
+
+        const previousUrl = editor.getAttributes('link').href as
+            | string
+            | undefined;
+        const entered = window.prompt(
+            'Enter link URL',
+            previousUrl ?? 'https://',
+        );
+
+        if (entered === null) {
+            return;
+        }
+
+        const href = normalizeLinkUrl(entered);
+
+        if (href === null) {
+            editor.chain().focus().extendMarkRange('link').unsetLink().run();
+
+            return;
+        }
+
+        editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
+    };
 
     const actions: ToolbarAction[] = editor
         ? [
@@ -117,7 +189,7 @@ export function AnnouncementMessageEditor({
               },
               {
                   label: 'Underline',
-                  Icon: Underline,
+                  Icon: UnderlineIcon,
                   active: state?.underline ?? false,
                   disabled: !editor
                       .can()
@@ -126,6 +198,13 @@ export function AnnouncementMessageEditor({
                       .toggleUnderline()
                       .run(),
                   run: () => editor.chain().focus().toggleUnderline().run(),
+              },
+              {
+                  label: 'Link',
+                  Icon: Link2,
+                  active: state?.link ?? false,
+                  disabled: false,
+                  run: toggleLink,
               },
               {
                   label: 'Heading',

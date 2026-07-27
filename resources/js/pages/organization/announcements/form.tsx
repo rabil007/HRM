@@ -37,7 +37,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { AnnouncementMessageEditor } from '@/features/organization/announcements/announcement-message-editor';
+import { buildWhatsAppTemplatePreview } from '@/features/organization/announcements/build-whatsapp-template-preview';
 import type {
     AnnouncementCan,
     AnnouncementFormData,
@@ -45,6 +46,7 @@ import type {
     AnnouncementFormPayload,
     RecipientPreview,
 } from '@/features/organization/announcements/types';
+import { WhatsAppDocumentTemplatePreview } from '@/features/settings/whatsapp-document-template-preview';
 import { cn } from '@/lib/utils';
 
 const CHANNELS = [
@@ -881,6 +883,51 @@ export default function AnnouncementFormPage({
             publish_mode: mode,
         };
 
+        // #region agent log
+        fetch(
+            'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Debug-Session-Id': '17d3aa',
+                },
+                body: JSON.stringify({
+                    sessionId: '17d3aa',
+                    runId: 'post-fix',
+                    hypothesisId: 'A-B',
+                    location: 'form.tsx:submit',
+                    message: 'Announcement submit payload whatsapp fields',
+                    data: {
+                        mode,
+                        isEdit,
+                        channels: payload.channels,
+                        hasWhatsappChannel:
+                            payload.channels.includes('whatsapp'),
+                        whatsappLinkPresent: Object.prototype.hasOwnProperty.call(
+                            payload,
+                            'whatsapp_link',
+                        ),
+                        whatsappLinkLength: String(
+                            payload.whatsapp_link ?? '',
+                        ).length,
+                        whatsappLinkTrimmedLength: String(
+                            payload.whatsapp_link ?? '',
+                        ).trim().length,
+                        whatsappLinkStartsWithHttp: /^https?:\/\//i.test(
+                            String(payload.whatsapp_link ?? ''),
+                        ),
+                        formDataWhatsappLinkLength: String(
+                            form.data.whatsapp_link ?? '',
+                        ).length,
+                        allowEmptyLink: true,
+                    },
+                    timestamp: Date.now(),
+                }),
+            },
+        ).catch(() => {});
+        // #endregion
+
         if (isEdit && announcement) {
             router.put(
                 `/organization/announcements/${announcement.id}`,
@@ -913,6 +960,30 @@ export default function AnnouncementFormPage({
         (a) => a.type !== 'all_employees',
     ).length;
 
+    const priorityLabel =
+        options.priorities.find((option) => option.value === form.data.priority)
+            ?.label ?? form.data.priority;
+
+    const whatsappPreviewText = useMemo(
+        () =>
+            buildWhatsAppTemplatePreview({
+                bodyPreview: options.whatsapp_template?.body_preview,
+                companyName: options.company_name,
+                title: form.data.title,
+                bodyHtml: form.data.body_html,
+                priorityLabel,
+                viewLink: form.data.whatsapp_link,
+            }),
+        [
+            form.data.body_html,
+            form.data.title,
+            form.data.whatsapp_link,
+            options.company_name,
+            options.whatsapp_template?.body_preview,
+            priorityLabel,
+        ],
+    );
+
     return (
         <>
             <Head
@@ -936,6 +1007,62 @@ export default function AnnouncementFormPage({
                         </p>
                     </div>
 
+                    {/* Delivery channels */}
+                    <SectionCard
+                        icon={<Send className="size-4 text-primary" />}
+                        title="Delivery channels"
+                        description="Select at least one channel for delivery."
+                    >
+                        <div className="grid gap-3 sm:grid-cols-3">
+                            {CHANNELS.map((channel) => {
+                                const isChecked = form.data.channels.includes(
+                                    channel.value,
+                                );
+
+                                return (
+                                    <label
+                                        key={channel.value}
+                                        className={cn(
+                                            'flex cursor-pointer flex-col gap-3 rounded-xl border p-4 text-sm transition-all',
+                                            isChecked
+                                                ? 'border-primary/50 bg-primary/5 text-foreground shadow-sm'
+                                                : 'border-border/70 hover:bg-muted/40',
+                                        )}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div
+                                                className={cn(
+                                                    'flex size-9 items-center justify-center rounded-lg',
+                                                    isChecked
+                                                        ? 'bg-primary/15 text-primary'
+                                                        : 'bg-muted text-muted-foreground',
+                                                )}
+                                            >
+                                                <channel.Icon className="size-4" />
+                                            </div>
+                                            <Checkbox
+                                                checked={isChecked}
+                                                onCheckedChange={(checked) =>
+                                                    toggleChannel(
+                                                        channel.value,
+                                                        Boolean(checked),
+                                                    )
+                                                }
+                                            />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium">{channel.label}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {channel.description}
+                                            </p>
+                                        </div>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                        <InputError message={form.errors.channels} />
+                    </SectionCard>
+
                     {/* Message content */}
                     <SectionCard
                         icon={<FileText className="size-4 text-primary" />}
@@ -956,14 +1083,13 @@ export default function AnnouncementFormPage({
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="body_html">Message body</Label>
-                                <Textarea
+                                <AnnouncementMessageEditor
                                     id="body_html"
-                                    rows={8}
-                                    placeholder="Write the full announcement here..."
                                     value={form.data.body_html}
-                                    onChange={(e) =>
-                                        form.setData('body_html', e.target.value)
+                                    onChange={(value) =>
+                                        form.setData('body_html', value)
                                     }
+                                    invalid={Boolean(form.errors.body_html)}
                                 />
                                 <InputError message={form.errors.body_html} />
                             </div>
@@ -1033,6 +1159,59 @@ export default function AnnouncementFormPage({
                                     />
                                 </div>
                             </div>
+
+                            {form.data.channels.includes('whatsapp') ? (
+                                <div className="space-y-3 border-t border-border/60 pt-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="whatsapp_link">
+                                            WhatsApp view link{' '}
+                                            <span className="text-xs text-muted-foreground">
+                                                (optional)
+                                            </span>
+                                        </Label>
+                                        <Input
+                                            id="whatsapp_link"
+                                            type="url"
+                                            inputMode="url"
+                                            placeholder="https://example.com/your-document"
+                                            value={form.data.whatsapp_link}
+                                            onChange={(event) =>
+                                                form.setData(
+                                                    'whatsapp_link',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Optional WhatsApp-only field for
+                                            Meta template {'{{5}}'}. For email
+                                            and in-app, add a clickable link in
+                                            the message body instead.
+                                        </p>
+                                        <InputError
+                                            message={form.errors.whatsapp_link}
+                                        />
+                                    </div>
+
+                                    <WhatsAppDocumentTemplatePreview
+                                        templateName={
+                                            options.whatsapp_template
+                                                ?.meta_name ??
+                                            'employee_announcement_notice'
+                                        }
+                                        templateLanguage={
+                                            options.whatsapp_template
+                                                ?.meta_language ?? 'en'
+                                        }
+                                        bodyText={whatsappPreviewText}
+                                        headerType="none"
+                                        accountName={
+                                            options.company_name || 'Company'
+                                        }
+                                        hint="Live preview of the approved Meta template with your title, summary, priority, and view link."
+                                    />
+                                </div>
+                            ) : null}
                         </div>
                     </SectionCard>
 
@@ -1185,88 +1364,6 @@ export default function AnnouncementFormPage({
 
                             <InputError message={form.errors.audiences} />
                         </div>
-                    </SectionCard>
-
-                    {/* Delivery channels */}
-                    <SectionCard
-                        icon={<Send className="size-4 text-primary" />}
-                        title="Delivery channels"
-                        description="Select at least one channel for delivery."
-                    >
-                        <div className="grid gap-3 sm:grid-cols-3">
-                            {CHANNELS.map((channel) => {
-                                const isChecked = form.data.channels.includes(
-                                    channel.value,
-                                );
-
-                                return (
-                                    <label
-                                        key={channel.value}
-                                        className={cn(
-                                            'flex cursor-pointer flex-col gap-3 rounded-xl border p-4 text-sm transition-all',
-                                            isChecked
-                                                ? 'border-primary/50 bg-primary/5 text-foreground shadow-sm'
-                                                : 'border-border/70 hover:bg-muted/40',
-                                        )}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div
-                                                className={cn(
-                                                    'flex size-9 items-center justify-center rounded-lg',
-                                                    isChecked
-                                                        ? 'bg-primary/15 text-primary'
-                                                        : 'bg-muted text-muted-foreground',
-                                                )}
-                                            >
-                                                <channel.Icon className="size-4" />
-                                            </div>
-                                            <Checkbox
-                                                checked={isChecked}
-                                                onCheckedChange={(checked) =>
-                                                    toggleChannel(
-                                                        channel.value,
-                                                        Boolean(checked),
-                                                    )
-                                                }
-                                            />
-                                        </div>
-                                        <div>
-                                            <p className="font-medium">{channel.label}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {channel.description}
-                                            </p>
-                                        </div>
-                                    </label>
-                                );
-                            })}
-                        </div>
-                        <InputError message={form.errors.channels} />
-
-                        {form.data.channels.includes('whatsapp') ? (
-                            <div className="mt-5 space-y-2 border-t border-border/60 pt-5">
-                                <Label htmlFor="whatsapp_link">
-                                    WhatsApp view link
-                                </Label>
-                                <Input
-                                    id="whatsapp_link"
-                                    type="url"
-                                    inputMode="url"
-                                    placeholder="https://example.com/your-document"
-                                    value={form.data.whatsapp_link}
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'whatsapp_link',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                    Paste the custom link recipients should open
-                                    from the WhatsApp message.
-                                </p>
-                                <InputError message={form.errors.whatsapp_link} />
-                            </div>
-                        ) : null}
                     </SectionCard>
 
                     {/* Attachments (edit mode only) */}

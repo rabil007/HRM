@@ -9,6 +9,8 @@ final class AnnouncementWhatsAppMessage
 {
     public const MAX_LENGTH = 500;
 
+    public const EMPTY_VIEW_LINK = 'N/A';
+
     public static function for(Announcement $announcement): string
     {
         $message = filled($announcement->whatsapp_message)
@@ -22,6 +24,13 @@ final class AnnouncementWhatsAppMessage
         }
 
         return Str::limit($message, self::MAX_LENGTH, '');
+    }
+
+    public static function viewLink(Announcement $announcement): string
+    {
+        $link = trim((string) ($announcement->whatsapp_link ?? ''));
+
+        return $link !== '' ? $link : self::EMPTY_VIEW_LINK;
     }
 
     public static function fromHtml(string $html): string
