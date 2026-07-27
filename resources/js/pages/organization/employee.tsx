@@ -32,6 +32,7 @@ import { EmployeeProfileShell } from '@/features/organization/employees/profile/
 import { buildEmployeeProfileTabs } from '@/features/organization/employees/profile/employee-profile-tabs';
 import { useEnsureEmployee } from '@/features/organization/employees/profile/use-ensure-employee';
 import type { EnsuredEmployee } from '@/features/organization/employees/profile/use-ensure-employee';
+import { useEmployeeProfileTabProps } from '@/features/organization/employees/profile/use-employee-profile-tab-props';
 import { actions } from '@/lib/design-system';
 import { CreateEmployeeUserDialog } from '@/pages/organization/_components/create-employee-user-dialog';
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
@@ -221,7 +222,6 @@ function EmployeeDetailsPage({
     const canUpdate = isCreateMode
         ? true
         : (auth?.permissions ?? []).includes('employees.update');
-    const recordsLoading = !isCreateMode && contracts === undefined;
 
     void branches;
     void departments;
@@ -375,6 +375,47 @@ function EmployeeDetailsPage({
 
         return tabs[0]?.id ?? 'personal';
     }, [tabs, tabValue]);
+
+    const tabPageProps = useMemo(
+        () => ({
+            contracts,
+            documents,
+            education_qualifications,
+            work_experiences,
+            vaccinations,
+            languages,
+            trainings,
+            courses,
+            bank_accounts,
+            sea_services,
+            document_types,
+            vessel_types,
+            vessels,
+            clients,
+        }),
+        [
+            contracts,
+            documents,
+            education_qualifications,
+            work_experiences,
+            vaccinations,
+            languages,
+            trainings,
+            courses,
+            bank_accounts,
+            sea_services,
+            document_types,
+            vessel_types,
+            vessels,
+            clients,
+        ],
+    );
+
+    const recordsLoading = useEmployeeProfileTabProps({
+        activeTab,
+        isCreateMode,
+        pageProps: tabPageProps,
+    });
 
     useEffect(() => {
         if (EMPLOYEE_PAGE_LEGACY_HASH_KEYS.has(window.location.hash)) {

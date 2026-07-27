@@ -3,12 +3,31 @@
 use Inertia\Testing\AssertableInertia as Assert;
 
 /**
- * Assert deferred employee profile record props (loaded after initial paint).
+ * Assert employee profile tab record props via partial reload (Inertia::optional).
+ *
+ * @param  list<string>|null  $only
  */
-function assertEmployeeProfileRecords(Assert $page, ?Closure $callback = null): Assert
+function assertEmployeeProfileRecords(Assert $page, ?Closure $callback = null, ?array $only = null): Assert
 {
-    return $page->loadDeferredProps(
-        'employee_profile_records',
+    $props = $only ?? [
+        'contracts',
+        'documents',
+        'education_qualifications',
+        'work_experiences',
+        'vaccinations',
+        'languages',
+        'trainings',
+        'courses',
+        'bank_accounts',
+        'sea_services',
+        'document_types',
+        'vessel_types',
+        'vessels',
+        'clients',
+    ];
+
+    return $page->reloadOnly(
+        $props,
         $callback ?? static function (Assert $assertable): void {
             $assertable->has('contracts')
                 ->has('documents')

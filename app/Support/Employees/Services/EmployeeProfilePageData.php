@@ -35,8 +35,6 @@ use Spatie\Permission\Models\Role as SpatieRole;
 
 final class EmployeeProfilePageData
 {
-    private const DEFER_GROUP = 'employee_profile_records';
-
     /**
      * @return array<string, mixed>
      */
@@ -151,61 +149,48 @@ final class EmployeeProfilePageData
             'profile_clients' => $profileLookups['clients'],
             'employee_tabs' => $employeeTabsPayload,
             'contract_count' => self::contractCount($companyId, $employee->id),
-            'contracts' => Inertia::defer(
+            // Tab record props load only when the active tab requests them (Inertia::optional).
+            'contracts' => Inertia::optional(
                 fn () => self::contracts($companyId, $employee->id),
-                self::DEFER_GROUP,
             ),
-            'documents' => Inertia::defer(
+            'documents' => Inertia::optional(
                 fn () => self::documents($companyId, $employee->id),
-                self::DEFER_GROUP,
             ),
-            'education_qualifications' => Inertia::defer(
+            'education_qualifications' => Inertia::optional(
                 fn () => self::educationQualifications($companyId, $employee->id),
-                self::DEFER_GROUP,
             ),
-            'work_experiences' => Inertia::defer(
+            'work_experiences' => Inertia::optional(
                 fn () => self::workExperiences($companyId, $employee->id),
-                self::DEFER_GROUP,
             ),
-            'vaccinations' => Inertia::defer(
+            'vaccinations' => Inertia::optional(
                 fn () => self::vaccinations($companyId, $employee->id),
-                self::DEFER_GROUP,
             ),
-            'languages' => Inertia::defer(
+            'languages' => Inertia::optional(
                 fn () => self::languages($companyId, $employee->id),
-                self::DEFER_GROUP,
             ),
-            'bank_accounts' => Inertia::defer(
+            'bank_accounts' => Inertia::optional(
                 fn () => self::bankAccounts($companyId, $employee->id),
-                self::DEFER_GROUP,
             ),
-            'sea_services' => Inertia::defer(
+            'sea_services' => Inertia::optional(
                 fn () => self::seaServiceBundle($companyId, $employee->id)['sea_services'],
-                self::DEFER_GROUP,
             ),
-            'document_types' => Inertia::defer(
+            'document_types' => Inertia::optional(
                 fn () => self::documentTypes($companyId),
-                self::DEFER_GROUP,
             ),
-            'vessel_types' => Inertia::defer(
+            'vessel_types' => Inertia::optional(
                 fn () => self::seaServiceBundle($companyId, $employee->id)['vessel_types'],
-                self::DEFER_GROUP,
             ),
-            'vessels' => Inertia::defer(
+            'vessels' => Inertia::optional(
                 fn () => self::seaServiceBundle($companyId, $employee->id)['vessels'],
-                self::DEFER_GROUP,
             ),
-            'clients' => Inertia::defer(
+            'clients' => Inertia::optional(
                 fn () => self::seaServiceBundle($companyId, $employee->id)['clients'],
-                self::DEFER_GROUP,
             ),
-            'trainings' => Inertia::defer(
+            'trainings' => Inertia::optional(
                 fn () => self::trainings($companyId, $employee->id),
-                self::DEFER_GROUP,
             ),
-            'courses' => Inertia::defer(
+            'courses' => Inertia::optional(
                 fn () => self::courseOptions(),
-                self::DEFER_GROUP,
             ),
         ];
     }

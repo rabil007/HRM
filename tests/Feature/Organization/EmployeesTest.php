@@ -154,8 +154,74 @@ test('authenticated users can view an employee details page', function () {
                 ->has('employee_tabs')
                 ->has('ranks')
                 ->has('projects')
-                ->has('profile_clients'),
+                ->has('profile_clients')
+                ->missing('contracts')
+                ->missing('documents')
+                ->missing('trainings')
+                ->missing('sea_services'),
         ));
+});
+
+test('employee show loads contract tab props on partial reload only', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'OPT',
+        'name' => 'Optional Props Land',
+        'dial_code' => '+970',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'OPT',
+        'name' => 'Optional Currency',
+        'symbol' => 'O',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Optional Props Co',
+        'slug' => 'optional-props-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP-OPT-1',
+            'name' => 'Optional Props Employee',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'contracts.view']);
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employee')
+            ->missing('contracts')
+            ->reloadOnly(
+                ['contracts'],
+                fn (Assert $reloaded) => $reloaded
+                    ->has('contracts')
+                    ->missing('documents')
+                    ->missing('trainings'),
+            ));
 });
 
 test('employee profile includes profile template when assigned', function () {
