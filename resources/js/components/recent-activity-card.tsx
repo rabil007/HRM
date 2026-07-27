@@ -2,7 +2,11 @@ import { Activity } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatDisplayDate, formatDisplayValue, formatActivityFieldLabel } from '@/lib/format-date';
+import {
+    formatDisplayDate,
+    formatDisplayValue,
+    formatActivityFieldLabel,
+} from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
 export type RecentActivityItem = {
@@ -147,7 +151,10 @@ export function RecentActivityCard({
                                                             key={key}
                                                             className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground dark:border-white/10 dark:bg-white/5"
                                                         >
-                                                            {formatActivityFieldLabel(key)}:{' '}
+                                                            {formatActivityFieldLabel(
+                                                                key,
+                                                            )}
+                                                            :{' '}
                                                             <span className="text-muted-foreground/70">
                                                                 {formatDisplayValue(
                                                                     item

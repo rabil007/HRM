@@ -14,7 +14,11 @@ import type {
     Position,
     PositionFormData,
 } from '@/features/organization/positions/types';
-import { formatDisplayDate, formatDisplayValue, formatActivityFieldLabel } from '@/lib/format-date';
+import {
+    formatDisplayDate,
+    formatDisplayValue,
+    formatActivityFieldLabel,
+} from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
 type ActivityItem = {
@@ -36,7 +40,6 @@ const HIDDEN_ACTIVITY_KEYS = new Set([
     'remember_token',
     'password',
 ]);
-
 
 function eventColor(event: string | null) {
     switch (event?.toLowerCase()) {

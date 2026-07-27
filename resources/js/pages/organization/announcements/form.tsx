@@ -91,7 +91,9 @@ function SectionCard({
                     {title}
                 </h2>
                 {description ? (
-                    <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        {description}
+                    </p>
                 ) : null}
             </div>
             <div className="p-6">{children}</div>
@@ -185,8 +187,7 @@ function DepartmentTreeNode({
 
     const isFullySelected =
         familyIds.length > 0 && selectedFamilyCount === familyIds.length;
-    const isPartiallySelected =
-        selectedFamilyCount > 0 && !isFullySelected;
+    const isPartiallySelected = selectedFamilyCount > 0 && !isFullySelected;
     const isSelfSelected = selectedIds.includes(item.id);
 
     // Search filter logic
@@ -229,7 +230,8 @@ function DepartmentTreeNode({
             <div
                 className={cn(
                     'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-muted/50',
-                    isFullySelected && 'bg-primary/5 font-medium text-foreground',
+                    isFullySelected &&
+                        'bg-primary/5 font-medium text-foreground',
                     isPartiallySelected && 'bg-primary/5 text-foreground',
                 )}
                 style={{ paddingLeft: `${depth * 1.25 + 0.625}rem` }}
@@ -262,7 +264,7 @@ function DepartmentTreeNode({
                 />
 
                 <div
-                    className="flex flex-1 cursor-pointer items-center gap-2 min-w-0 select-none"
+                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 select-none"
                     onClick={handleToggle}
                 >
                     {hasChildren ? (
@@ -276,7 +278,7 @@ function DepartmentTreeNode({
                 </div>
 
                 {hasChildren ? (
-                    <span className="shrink-0 font-mono text-[11px] font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
+                    <span className="shrink-0 rounded-full bg-muted/60 px-2 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
                         {selectedFamilyCount > 0
                             ? `${selectedFamilyCount}/${familyIds.length}`
                             : `${children.length} sub-dept${children.length !== 1 ? 's' : ''}`}
@@ -335,10 +337,7 @@ function DepartmentTreePicker({
         return map;
     }, [items]);
 
-    const itemIdsSet = useMemo(
-        () => new Set(items.map((i) => i.id)),
-        [items],
-    );
+    const itemIdsSet = useMemo(() => new Set(items.map((i) => i.id)), [items]);
 
     const rootItems = useMemo(
         () =>
@@ -366,10 +365,9 @@ function DepartmentTreePicker({
     );
 
     const allSelected =
-        items.length > 0 && items.every((item) => selectedIds.includes(item.id));
-    const selectedItems = items.filter((item) =>
-        selectedIds.includes(item.id),
-    );
+        items.length > 0 &&
+        items.every((item) => selectedIds.includes(item.id));
+    const selectedItems = items.filter((item) => selectedIds.includes(item.id));
     const visibleSelectedItems = allSelected
         ? []
         : selectedItems.slice(0, MAX_VISIBLE_AUDIENCE_CHIPS);
@@ -461,9 +459,7 @@ function DepartmentTreePicker({
                                 <Input
                                     placeholder="Search departments…"
                                     value={search}
-                                    onChange={(e) =>
-                                        setSearch(e.target.value)
-                                    }
+                                    onChange={(e) => setSearch(e.target.value)}
                                     className="h-8 flex-1 text-xs"
                                 />
                             ) : null}
@@ -476,7 +472,7 @@ function DepartmentTreePicker({
                             </button>
                         </div>
 
-                        <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                        <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
                             {rootItems.length === 0 ? (
                                 <p className="py-4 text-center text-xs text-muted-foreground">
                                     No departments available
@@ -569,7 +565,11 @@ function AudiencePicker({
                                         type="button"
                                         className="ml-0.5 rounded-full opacity-60 transition-opacity hover:opacity-100"
                                         onClick={() =>
-                                            onToggleBatch(type, [item.id], false)
+                                            onToggleBatch(
+                                                type,
+                                                [item.id],
+                                                false,
+                                            )
                                         }
                                     >
                                         <X className="size-3" />
@@ -621,9 +621,7 @@ function AudiencePicker({
                                 <Input
                                     placeholder="Search…"
                                     value={search}
-                                    onChange={(e) =>
-                                        setSearch(e.target.value)
-                                    }
+                                    onChange={(e) => setSearch(e.target.value)}
                                     className="h-7 flex-1 text-xs"
                                 />
                             ) : null}
@@ -643,9 +641,7 @@ function AudiencePicker({
                                 </p>
                             ) : null}
                             {filtered.map((item) => {
-                                const isChecked = selectedIds.includes(
-                                    item.id,
-                                );
+                                const isChecked = selectedIds.includes(item.id);
 
                                 return (
                                     <label
@@ -706,7 +702,9 @@ export default function AnnouncementFormPage({
     });
     const [preview, setPreview] = useState<RecipientPreview | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
-    const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+        null,
+    );
     const [activeAudienceType, setActiveAudienceType] = useState<string>(
         announcement?.audiences.some((a) => a.type === 'all_employees')
             ? 'all_employees'
@@ -764,7 +762,9 @@ export default function AnnouncementFormPage({
         idsToToggle: number[],
         checked: boolean,
     ) => {
-        const otherAudiences = form.data.audiences.filter((a) => a.type !== type);
+        const otherAudiences = form.data.audiences.filter(
+            (a) => a.type !== type,
+        );
         const currentTypeIds = new Set(
             form.data.audiences
                 .filter((a) => a.type === type)
@@ -783,7 +783,9 @@ export default function AnnouncementFormPage({
             checked &&
             options.employees.length > 0 &&
             currentTypeIds.size === options.employees.length &&
-            options.employees.every((employee) => currentTypeIds.has(employee.id))
+            options.employees.every((employee) =>
+                currentTypeIds.has(employee.id),
+            )
         ) {
             setActiveAudienceType('all_employees');
             form.setData('audiences', [{ type: 'all_employees', id: null }]);
@@ -818,7 +820,9 @@ export default function AnnouncementFormPage({
             otherAudiences.length === 0 &&
             options.employees.length > 0 &&
             employeeIds.length === options.employees.length &&
-            options.employees.every((employee) => employeeIds.includes(employee.id))
+            options.employees.every((employee) =>
+                employeeIds.includes(employee.id),
+            )
         ) {
             return [{ type: 'all_employees', id: null }];
         }
@@ -828,7 +832,10 @@ export default function AnnouncementFormPage({
 
     const previewRequestIdRef = useRef(0);
 
-    const loadPreview = (channels: string[], audiences: { type: string; id: number | null }[]) => {
+    const loadPreview = (
+        channels: string[],
+        audiences: { type: string; id: number | null }[],
+    ) => {
         const requestId = ++previewRequestIdRef.current;
         const requestAudiences = audiencesForRequest(audiences);
 
@@ -873,7 +880,7 @@ export default function AnnouncementFormPage({
                 clearTimeout(previewDebounceRef.current);
             }
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [form.data.channels, form.data.audiences]);
 
     const submit = (mode: AnnouncementFormData['publish_mode']) => {
@@ -904,13 +911,13 @@ export default function AnnouncementFormPage({
                         channels: payload.channels,
                         hasWhatsappChannel:
                             payload.channels.includes('whatsapp'),
-                        whatsappLinkPresent: Object.prototype.hasOwnProperty.call(
-                            payload,
-                            'whatsapp_link',
-                        ),
-                        whatsappLinkLength: String(
-                            payload.whatsapp_link ?? '',
-                        ).length,
+                        whatsappLinkPresent:
+                            Object.prototype.hasOwnProperty.call(
+                                payload,
+                                'whatsapp_link',
+                            ),
+                        whatsappLinkLength: String(payload.whatsapp_link ?? '')
+                            .length,
                         whatsappLinkTrimmedLength: String(
                             payload.whatsapp_link ?? '',
                         ).trim().length,
@@ -1051,7 +1058,9 @@ export default function AnnouncementFormPage({
                                             />
                                         </div>
                                         <div>
-                                            <p className="font-medium">{channel.label}</p>
+                                            <p className="font-medium">
+                                                {channel.label}
+                                            </p>
                                             <p className="text-xs text-muted-foreground">
                                                 {channel.description}
                                             </p>
@@ -1106,14 +1115,16 @@ export default function AnnouncementFormPage({
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {options.categories.map((option) => (
-                                                <SelectItem
-                                                    key={option.value}
-                                                    value={option.value}
-                                                >
-                                                    {option.label}
-                                                </SelectItem>
-                                            ))}
+                                            {options.categories.map(
+                                                (option) => (
+                                                    <SelectItem
+                                                        key={option.value}
+                                                        value={option.value}
+                                                    >
+                                                        {option.label}
+                                                    </SelectItem>
+                                                ),
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -1129,14 +1140,16 @@ export default function AnnouncementFormPage({
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {options.priorities.map((option) => (
-                                                <SelectItem
-                                                    key={option.value}
-                                                    value={option.value}
-                                                >
-                                                    {option.label}
-                                                </SelectItem>
-                                            ))}
+                                            {options.priorities.map(
+                                                (option) => (
+                                                    <SelectItem
+                                                        key={option.value}
+                                                        value={option.value}
+                                                    >
+                                                        {option.label}
+                                                    </SelectItem>
+                                                ),
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -1154,7 +1167,10 @@ export default function AnnouncementFormPage({
                                         type="datetime-local"
                                         value={form.data.expires_at}
                                         onChange={(e) =>
-                                            form.setData('expires_at', e.target.value)
+                                            form.setData(
+                                                'expires_at',
+                                                e.target.value,
+                                            )
                                         }
                                     />
                                 </div>
@@ -1230,8 +1246,8 @@ export default function AnnouncementFormPage({
                                     const count =
                                         type.value === 'all_employees'
                                             ? null
-                                            : audienceOptions[type.value]
-                                                  ?.length ?? 0;
+                                            : (audienceOptions[type.value]
+                                                  ?.length ?? 0);
                                     const selectedCount =
                                         type.value !== 'all_employees'
                                             ? selectedIds(type.value).length
@@ -1272,7 +1288,7 @@ export default function AnnouncementFormPage({
                                                 <div className="flex items-center justify-between gap-1">
                                                     <span
                                                         className={cn(
-                                                            'font-medium leading-tight',
+                                                            'leading-tight font-medium',
                                                             isActive
                                                                 ? type.color
                                                                 : 'text-foreground',
@@ -1298,7 +1314,7 @@ export default function AnnouncementFormPage({
                                                         </span>
                                                     ) : null}
                                                 </div>
-                                                <p className="mt-0.5 text-xs text-muted-foreground leading-tight">
+                                                <p className="mt-0.5 text-xs leading-tight text-muted-foreground">
                                                     {type.description}
                                                 </p>
                                             </div>
@@ -1313,8 +1329,8 @@ export default function AnnouncementFormPage({
                                     <Globe className="size-4 shrink-0" />
                                     <span>
                                         This announcement will be sent to{' '}
-                                        <strong>all active employees</strong>{' '}
-                                        in the system.
+                                        <strong>all active employees</strong> in
+                                        the system.
                                     </span>
                                 </div>
                             ) : null}
@@ -1333,9 +1349,7 @@ export default function AnnouncementFormPage({
                               audienceOptions[activeAudienceType] ? (
                                 <AudiencePicker
                                     type={activeAudienceType}
-                                    items={
-                                        audienceOptions[activeAudienceType]
-                                    }
+                                    items={audienceOptions[activeAudienceType]}
                                     selectedIds={selectedIds(
                                         activeAudienceType,
                                     )}
@@ -1375,31 +1389,37 @@ export default function AnnouncementFormPage({
                             <div className="space-y-3">
                                 {announcement.attachments.length > 0 ? (
                                     <ul className="space-y-2">
-                                        {announcement.attachments.map((attachment) => (
-                                            <li
-                                                key={attachment.id}
-                                                className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 text-sm"
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <FileText className="size-4 text-muted-foreground" />
-                                                    <span>{attachment.original_name}</span>
-                                                </div>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                    onClick={() =>
-                                                        router.delete(
-                                                            `/organization/announcements/${announcement.id}/attachments/${attachment.id}`,
-                                                        )
-                                                    }
+                                        {announcement.attachments.map(
+                                            (attachment) => (
+                                                <li
+                                                    key={attachment.id}
+                                                    className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 text-sm"
                                                 >
-                                                    <Trash2 className="size-3.5" />
-                                                    Remove
-                                                </Button>
-                                            </li>
-                                        ))}
+                                                    <div className="flex items-center gap-2">
+                                                        <FileText className="size-4 text-muted-foreground" />
+                                                        <span>
+                                                            {
+                                                                attachment.original_name
+                                                            }
+                                                        </span>
+                                                    </div>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                        onClick={() =>
+                                                            router.delete(
+                                                                `/organization/announcements/${announcement.id}/attachments/${attachment.id}`,
+                                                            )
+                                                        }
+                                                    >
+                                                        <Trash2 className="size-3.5" />
+                                                        Remove
+                                                    </Button>
+                                                </li>
+                                            ),
+                                        )}
                                     </ul>
                                 ) : (
                                     <p className="text-sm text-muted-foreground">
@@ -1458,28 +1478,39 @@ export default function AnnouncementFormPage({
                                     type="datetime-local"
                                     value={form.data.scheduled_at}
                                     onChange={(e) =>
-                                        form.setData('scheduled_at', e.target.value)
+                                        form.setData(
+                                            'scheduled_at',
+                                            e.target.value,
+                                        )
                                     }
                                 />
-                                <InputError message={form.errors.scheduled_at} />
+                                <InputError
+                                    message={form.errors.scheduled_at}
+                                />
                             </div>
 
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <p className="text-sm font-medium">Recipient preview</p>
+                                    <p className="text-sm font-medium">
+                                        Recipient preview
+                                    </p>
                                     {previewLoading ? (
                                         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                             <span className="size-1.5 animate-pulse rounded-full bg-primary" />
                                             Updating…
                                         </span>
                                     ) : (
-                                        <span className="text-xs text-muted-foreground">Live</span>
+                                        <span className="text-xs text-muted-foreground">
+                                            Live
+                                        </span>
                                     )}
                                 </div>
                                 <div
                                     className={cn(
                                         'rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-sm transition-opacity',
-                                        previewLoading ? 'opacity-50' : 'opacity-100',
+                                        previewLoading
+                                            ? 'opacity-50'
+                                            : 'opacity-100',
                                     )}
                                 >
                                     {previewLoading && !preview ? (
@@ -1493,7 +1524,8 @@ export default function AnnouncementFormPage({
                                                 Selected employees
                                             </div>
                                             <div className="mt-0.5 text-lg font-bold">
-                                                {preview?.selected_employees ?? 0}
+                                                {preview?.selected_employees ??
+                                                    0}
                                             </div>
                                         </>
                                     )}
@@ -1508,7 +1540,8 @@ export default function AnnouncementFormPage({
                                     disabled={form.processing}
                                     onClick={() => submit('draft')}
                                 >
-                                    <FileText className="size-4" /> Save as draft
+                                    <FileText className="size-4" /> Save as
+                                    draft
                                 </Button>
                                 <Button
                                     type="button"
@@ -1519,7 +1552,8 @@ export default function AnnouncementFormPage({
                                     }
                                     onClick={() => submit('schedule')}
                                 >
-                                    <CalendarClock className="size-4" /> Schedule
+                                    <CalendarClock className="size-4" />{' '}
+                                    Schedule
                                 </Button>
                                 <Button
                                     type="button"

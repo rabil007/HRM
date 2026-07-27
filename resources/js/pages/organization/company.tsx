@@ -42,7 +42,11 @@ import type {
 } from '@/features/organization/companies/types';
 import { DocumentExpiryBadge } from '@/features/organization/documents/shared/document-expiry-badge';
 import { DocumentFileIcon } from '@/features/organization/documents/shared/document-file-icon';
-import { formatDisplayDate, formatDisplayValue, formatActivityFieldLabel } from '@/lib/format-date';
+import {
+    formatDisplayDate,
+    formatDisplayValue,
+    formatActivityFieldLabel,
+} from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { index as companyDocumentsIndex } from '@/routes/organization/companies/documents';
 
@@ -114,7 +118,6 @@ const HIDDEN_ACTIVITY_KEYS = new Set([
     'remember_token',
     'password',
 ]);
-
 
 function eventColor(event: string | null) {
     switch (event?.toLowerCase()) {

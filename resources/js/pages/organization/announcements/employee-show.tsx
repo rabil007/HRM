@@ -62,7 +62,8 @@ export default function EmployeeAnnouncementShow({
                     <Card className="overflow-hidden glass-card">
                         <CardHeader className="border-b border-border/60 bg-muted/20">
                             <CardTitle className="flex items-center gap-2 text-base">
-                                <Megaphone className="size-4 text-primary" /> Announcement
+                                <Megaphone className="size-4 text-primary" />{' '}
+                                Announcement
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6 pt-6">
@@ -78,7 +79,9 @@ export default function EmployeeAnnouncementShow({
                     <div className="space-y-4">
                         <Card className="h-fit glass-card">
                             <CardHeader className="pb-3">
-                                <CardTitle className="text-base">At a glance</CardTitle>
+                                <CardTitle className="text-base">
+                                    At a glance
+                                </CardTitle>
                             </CardHeader>
                             <CardContent className="grid gap-0 divide-y divide-border/50 text-sm">
                                 <div className="flex items-start gap-3 py-3 first:pt-0">
@@ -112,24 +115,31 @@ export default function EmployeeAnnouncementShow({
                                     <CardTitle className="flex items-center gap-2 text-base">
                                         <FileText className="size-4 text-primary" />
                                         Attachments
-                                        <Badge variant="secondary" className="ml-auto text-xs">
+                                        <Badge
+                                            variant="secondary"
+                                            className="ml-auto text-xs"
+                                        >
                                             {announcement.attachments.length}
                                         </Badge>
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <ul className="grid gap-2 text-sm">
-                                        {announcement.attachments.map((attachment) => (
-                                            <li
-                                                key={attachment.id}
-                                                className="flex items-center gap-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 transition-colors hover:bg-muted/40"
-                                            >
-                                                <Download className="size-4 shrink-0 text-muted-foreground" />
-                                                <span className="min-w-0 truncate">
-                                                    {attachment.original_name}
-                                                </span>
-                                            </li>
-                                        ))}
+                                        {announcement.attachments.map(
+                                            (attachment) => (
+                                                <li
+                                                    key={attachment.id}
+                                                    className="flex items-center gap-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 transition-colors hover:bg-muted/40"
+                                                >
+                                                    <Download className="size-4 shrink-0 text-muted-foreground" />
+                                                    <span className="min-w-0 truncate">
+                                                        {
+                                                            attachment.original_name
+                                                        }
+                                                    </span>
+                                                </li>
+                                            ),
+                                        )}
                                     </ul>
                                 </CardContent>
                             </Card>

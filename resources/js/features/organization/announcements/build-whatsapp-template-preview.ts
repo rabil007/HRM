@@ -34,8 +34,7 @@ export function buildWhatsAppTemplatePreview(input: {
     const company = input.companyName.trim() || 'Company';
     const title = input.title.trim() || 'Announcement title';
     const priority = input.priorityLabel.trim() || 'Normal';
-    const viewLink =
-        input.viewLink.trim() || 'N/A';
+    const viewLink = input.viewLink.trim() || 'N/A';
 
     const template =
         input.bodyPreview?.trim() ||

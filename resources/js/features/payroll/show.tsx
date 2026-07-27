@@ -26,7 +26,6 @@ import React, {
     useRef,
     useState,
 } from 'react';
-import ClearManualImportCrewTimesheetsController from '@/actions/App/Http/Controllers/Payroll/ClearManualImportCrewTimesheetsController';
 import {
     approve,
     cancel,
@@ -77,6 +76,7 @@ import type { SalaryPaymentMethodValue } from '@/features/organization/employees
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { show as crewTimelineShow } from '@/routes/payroll/crew-timeline';
+import { clearManualImport } from '@/routes/payroll/crew-timesheets';
 import { ClearCrewTimesheetsDialog } from './components/clear-crew-timesheets-dialog';
 import { CrewOperationalSourceBadge } from './components/crew-operational-source-badge';
 import { CrewSalaryStructureToggle } from './components/crew-salary-structure-toggle';
@@ -400,24 +400,21 @@ export function PayrollShowContent({
 
         await waitForCrewTimesheetAutosavesIdle();
 
-        router.delete(
-            ClearManualImportCrewTimesheetsController.url(period.id),
-            {
-                preserveScroll: true,
-                only: [
-                    'rows',
-                    'period',
-                    'clearable_timesheet_count',
-                    'crew_timeline_preparation',
-                    'generation_summary',
-                ],
-                onFinish: () => {
-                    isClearingTimesheetsRef.current = false;
-                    setIsClearingTimesheets(false);
-                    setIsClearTimesheetsDialogOpen(false);
-                },
+        router.delete(clearManualImport.url(period.id), {
+            preserveScroll: true,
+            only: [
+                'rows',
+                'period',
+                'clearable_timesheet_count',
+                'crew_timeline_preparation',
+                'generation_summary',
+            ],
+            onFinish: () => {
+                isClearingTimesheetsRef.current = false;
+                setIsClearingTimesheets(false);
+                setIsClearTimesheetsDialogOpen(false);
             },
-        );
+        });
     }, [
         cancelPendingCrewTimesheetAutosaves,
         period.id,

@@ -362,10 +362,7 @@ export function EmployeeDocumentsTab({
                 confirmLabel={isBulkDeleting ? 'Deleting…' : 'Delete'}
                 confirmDisabled={isBulkDeleting}
                 onConfirm={() => {
-                    if (
-                        selectedDocumentIds.length === 0 ||
-                        !hasEmployeeId
-                    ) {
+                    if (selectedDocumentIds.length === 0 || !hasEmployeeId) {
                         return;
                     }
 

@@ -451,51 +451,55 @@ export function EmployeeContractTab({
         setDialogOpen(true);
     };
 
-    const openEditDialog = useCallback((row: EmployeeContractDetails) => {
-        contractForm.clearErrors();
-        setMissingRequiredFields(new Set());
-        contractForm.setData({
-            payroll_category: row.payroll_category ?? 'office',
-            salary_structure:
-                row.salary_structure ??
-                (row.payroll_category === 'crew' ? 'daily' : 'monthly'),
-            start_date: row.start_date ?? '',
-            end_date: row.end_date ?? '',
-            labor_contract_id: row.labor_contract_id ?? '',
-            status: row.status ?? 'active',
-            basic_salary:
-                row.basic_salary === null || row.basic_salary === undefined
-                    ? ''
-                    : String(row.basic_salary),
-            housing_allowance:
-                row.housing_allowance === null ||
-                row.housing_allowance === undefined
-                    ? ''
-                    : String(row.housing_allowance),
-            transport_allowance:
-                row.transport_allowance === null ||
-                row.transport_allowance === undefined
-                    ? ''
-                    : String(row.transport_allowance),
-            other_allowances:
-                row.other_allowances === null ||
-                row.other_allowances === undefined
-                    ? ''
-                    : String(row.other_allowances),
-            supplementary_allowance:
-                row.supplementary_allowance === null ||
-                row.supplementary_allowance === undefined
-                    ? ''
-                    : String(row.supplementary_allowance),
-            site_allowance:
-                row.site_allowance === null || row.site_allowance === undefined
-                    ? ''
-                    : String(row.site_allowance),
-            note: row.note ?? '',
-        });
-        setEditingContract(row);
-        setDialogOpen(true);
-    }, [contractForm]);
+    const openEditDialog = useCallback(
+        (row: EmployeeContractDetails) => {
+            contractForm.clearErrors();
+            setMissingRequiredFields(new Set());
+            contractForm.setData({
+                payroll_category: row.payroll_category ?? 'office',
+                salary_structure:
+                    row.salary_structure ??
+                    (row.payroll_category === 'crew' ? 'daily' : 'monthly'),
+                start_date: row.start_date ?? '',
+                end_date: row.end_date ?? '',
+                labor_contract_id: row.labor_contract_id ?? '',
+                status: row.status ?? 'active',
+                basic_salary:
+                    row.basic_salary === null || row.basic_salary === undefined
+                        ? ''
+                        : String(row.basic_salary),
+                housing_allowance:
+                    row.housing_allowance === null ||
+                    row.housing_allowance === undefined
+                        ? ''
+                        : String(row.housing_allowance),
+                transport_allowance:
+                    row.transport_allowance === null ||
+                    row.transport_allowance === undefined
+                        ? ''
+                        : String(row.transport_allowance),
+                other_allowances:
+                    row.other_allowances === null ||
+                    row.other_allowances === undefined
+                        ? ''
+                        : String(row.other_allowances),
+                supplementary_allowance:
+                    row.supplementary_allowance === null ||
+                    row.supplementary_allowance === undefined
+                        ? ''
+                        : String(row.supplementary_allowance),
+                site_allowance:
+                    row.site_allowance === null ||
+                    row.site_allowance === undefined
+                        ? ''
+                        : String(row.site_allowance),
+                note: row.note ?? '',
+            });
+            setEditingContract(row);
+            setDialogOpen(true);
+        },
+        [contractForm],
+    );
 
     const didOpenInitialEdit = useRef(false);
 

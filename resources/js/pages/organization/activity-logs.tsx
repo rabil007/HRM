@@ -22,7 +22,11 @@ import {
 } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { formatDisplayDate, formatDisplayValue, formatActivityFieldLabel } from '@/lib/format-date';
+import {
+    formatDisplayDate,
+    formatDisplayValue,
+    formatActivityFieldLabel,
+} from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 

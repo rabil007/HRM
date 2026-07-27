@@ -1,7 +1,7 @@
-import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import Link from '@tiptap/extension-link';
-import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
+import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
 import {
     Bold,
     Heading2,

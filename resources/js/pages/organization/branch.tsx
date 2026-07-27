@@ -13,7 +13,11 @@ import type {
     Company,
     Country,
 } from '@/features/organization/branches/types';
-import { formatDisplayDate, formatDisplayValue, formatActivityFieldLabel } from '@/lib/format-date';
+import {
+    formatDisplayDate,
+    formatDisplayValue,
+    formatActivityFieldLabel,
+} from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
 type Branch = {
@@ -51,7 +55,6 @@ const HIDDEN_ACTIVITY_KEYS = new Set([
     'remember_token',
     'password',
 ]);
-
 
 function changedKeys(
     oldValues: Record<string, unknown> | null,

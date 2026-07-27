@@ -39,13 +39,21 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 import type { AnnouncementCan, AnnouncementListItem } from './types';
 
-const CHANNEL_ICONS: Record<string, { Icon: React.ElementType; label: string }> = {
+const CHANNEL_ICONS: Record<
+    string,
+    { Icon: React.ElementType; label: string }
+> = {
     in_app: { Icon: Smartphone, label: 'In-app' },
     email: { Icon: Mail, label: 'Email' },
     whatsapp: { Icon: MessageCircle, label: 'WhatsApp' },
@@ -83,24 +91,24 @@ export function AnnouncementsIndexContent({
         status: string,
     ): 'success' | 'info' | 'destructive' | 'secondary' => {
         if (status === 'published') {
-return 'success';
-}
+            return 'success';
+        }
 
         if (status === 'scheduled') {
-return 'info';
-}
+            return 'info';
+        }
 
         if (status === 'cancelled' || status === 'failed') {
-return 'destructive';
-}
+            return 'destructive';
+        }
 
         return 'secondary';
     };
 
     const priorityVariant = (priority: string): 'warning' | 'outline' => {
         if (priority === 'urgent' || priority === 'high') {
-return 'warning';
-}
+            return 'warning';
+        }
 
         return 'outline';
     };
@@ -160,9 +168,14 @@ return 'warning';
                                     <SelectValue placeholder="Status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">All statuses</SelectItem>
+                                    <SelectItem value="all">
+                                        All statuses
+                                    </SelectItem>
                                     {filterOptions.statuses.map((option) => (
-                                        <SelectItem key={option.value} value={option.value}>
+                                        <SelectItem
+                                            key={option.value}
+                                            value={option.value}
+                                        >
                                             {option.label}
                                         </SelectItem>
                                     ))}
@@ -181,9 +194,14 @@ return 'warning';
                                     <SelectValue placeholder="Category" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">All categories</SelectItem>
+                                    <SelectItem value="all">
+                                        All categories
+                                    </SelectItem>
                                     {filterOptions.categories.map((option) => (
-                                        <SelectItem key={option.value} value={option.value}>
+                                        <SelectItem
+                                            key={option.value}
+                                            value={option.value}
+                                        >
                                             {option.label}
                                         </SelectItem>
                                     ))}
@@ -202,9 +220,14 @@ return 'warning';
                                     <SelectValue placeholder="Priority" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">All priorities</SelectItem>
+                                    <SelectItem value="all">
+                                        All priorities
+                                    </SelectItem>
                                     {filterOptions.priorities.map((option) => (
-                                        <SelectItem key={option.value} value={option.value}>
+                                        <SelectItem
+                                            key={option.value}
+                                            value={option.value}
+                                        >
                                             {option.label}
                                         </SelectItem>
                                     ))}
@@ -244,7 +267,9 @@ return 'warning';
                                 <DataTableHead>Status</DataTableHead>
                                 <DataTableHead>Timing</DataTableHead>
                                 <DataTableHead>Created by</DataTableHead>
-                                <DataTableHead className="text-right">Actions</DataTableHead>
+                                <DataTableHead className="text-right">
+                                    Actions
+                                </DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>
@@ -253,15 +278,19 @@ return 'warning';
                                     key={item.id}
                                     className={dataTableBodyRowClass()}
                                 >
-                                    <TableCell className={dataTableCellPrimaryClass()}>
+                                    <TableCell
+                                        className={dataTableCellPrimaryClass()}
+                                    >
                                         <div className="flex items-start gap-3">
                                             <div className="relative mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                                                 <Megaphone className="size-4" />
                                                 {/* Priority indicator dot */}
                                                 <span
                                                     className={cn(
-                                                        'absolute -right-0.5 -top-0.5 size-2.5 rounded-full ring-2 ring-background',
-                                                        priorityDot(item.priority),
+                                                        'absolute -top-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-background',
+                                                        priorityDot(
+                                                            item.priority,
+                                                        ),
                                                     )}
                                                 />
                                             </div>
@@ -281,70 +310,111 @@ return 'warning';
                                     <TableCell className={dataTableCellClass()}>
                                         <div className="flex items-center gap-2 text-sm">
                                             <Users className="size-3.5 shrink-0 text-muted-foreground" />
-                                            <span className="line-clamp-1">{item.audience_summary}</span>
+                                            <span className="line-clamp-1">
+                                                {item.audience_summary}
+                                            </span>
                                         </div>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
                                         <TooltipProvider delayDuration={200}>
                                             <div className="flex gap-1.5">
-                                                {item.channels.map((channel) => {
-                                                    const meta = CHANNEL_ICONS[channel];
+                                                {item.channels.map(
+                                                    (channel) => {
+                                                        const meta =
+                                                            CHANNEL_ICONS[
+                                                                channel
+                                                            ];
 
-                                                    if (!meta) {
+                                                        if (!meta) {
+                                                            return (
+                                                                <Badge
+                                                                    key={
+                                                                        channel
+                                                                    }
+                                                                    variant="outline"
+                                                                    className="capitalize"
+                                                                >
+                                                                    {channel.replace(
+                                                                        '_',
+                                                                        ' ',
+                                                                    )}
+                                                                </Badge>
+                                                            );
+                                                        }
+
+                                                        const { Icon, label } =
+                                                            meta;
+
                                                         return (
-                                                            <Badge key={channel} variant="outline" className="capitalize">
-                                                                {channel.replace('_', ' ')}
-                                                            </Badge>
+                                                            <Tooltip
+                                                                key={channel}
+                                                            >
+                                                                <TooltipTrigger
+                                                                    asChild
+                                                                >
+                                                                    <div className="flex size-7 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary">
+                                                                        <Icon className="size-3.5" />
+                                                                    </div>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    {label}
+                                                                </TooltipContent>
+                                                            </Tooltip>
                                                         );
-                                                    }
-
-                                                    const { Icon, label } = meta;
-
-                                                    return (
-                                                        <Tooltip key={channel}>
-                                                            <TooltipTrigger asChild>
-                                                                <div className="flex size-7 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors">
-                                                                    <Icon className="size-3.5" />
-                                                                </div>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>{label}</TooltipContent>
-                                                        </Tooltip>
-                                                    );
-                                                })}
+                                                    },
+                                                )}
                                             </div>
                                         </TooltipProvider>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        <Badge variant={priorityVariant(item.priority)}>
+                                        <Badge
+                                            variant={priorityVariant(
+                                                item.priority,
+                                            )}
+                                        >
                                             {item.priority_label}
                                         </Badge>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        <Badge variant={statusVariant(item.status)}>
+                                        <Badge
+                                            variant={statusVariant(item.status)}
+                                        >
                                             {item.status_label}
                                         </Badge>
                                     </TableCell>
                                     <TableCell
-                                        className={cn(dataTableCellClass(), 'whitespace-nowrap')}
+                                        className={cn(
+                                            dataTableCellClass(),
+                                            'whitespace-nowrap',
+                                        )}
                                     >
                                         <div className="flex items-center gap-2 text-sm">
                                             <Bell className="size-3.5 text-muted-foreground" />
-                                            {item.published_at ?? item.scheduled_at ?? (
-                                                <span className="text-muted-foreground/60 italic">Not scheduled</span>
-                                            )}
+                                            {item.published_at ??
+                                                item.scheduled_at ?? (
+                                                    <span className="text-muted-foreground/60 italic">
+                                                        Not scheduled
+                                                    </span>
+                                                )}
                                         </div>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        <span className="text-sm">{item.created_by ?? '—'}</span>
+                                        <span className="text-sm">
+                                            {item.created_by ?? '—'}
+                                        </span>
                                     </TableCell>
-                                    <TableCell className={dataTableActionsCellClass()}>
+                                    <TableCell
+                                        className={dataTableActionsCellClass()}
+                                    >
                                         <div className="flex justify-end gap-2">
                                             <Button
                                                 variant="outline"
                                                 size="sm"
                                                 asChild
                                             >
-                                                <Link href={`/organization/announcements/${item.id}`}>
+                                                <Link
+                                                    href={`/organization/announcements/${item.id}`}
+                                                >
                                                     View
                                                 </Link>
                                             </Button>
@@ -356,19 +426,24 @@ return 'warning';
                                                     size="sm"
                                                     asChild
                                                 >
-                                                    <Link href={`/organization/announcements/${item.id}/edit`}>
+                                                    <Link
+                                                        href={`/organization/announcements/${item.id}/edit`}
+                                                    >
                                                         Edit
                                                     </Link>
                                                 </Button>
                                             ) : null}
-                                            {can.publish && item.status === 'draft' ? (
+                                            {can.publish &&
+                                            item.status === 'draft' ? (
                                                 <Button
                                                     size="sm"
                                                     onClick={() =>
                                                         router.post(
                                                             `/organization/announcements/${item.id}/publish`,
                                                             {},
-                                                            { preserveScroll: true },
+                                                            {
+                                                                preserveScroll: true,
+                                                            },
                                                         )
                                                     }
                                                 >
@@ -404,7 +479,8 @@ return 'warning';
                             can.create ? (
                                 <Button asChild>
                                     <Link href="/organization/announcements/create">
-                                        <Plus className="size-4" /> Create announcement
+                                        <Plus className="size-4" /> Create
+                                        announcement
                                     </Link>
                                 </Button>
                             ) : null

@@ -50,7 +50,6 @@ const HIDDEN_ACTIVITY_KEYS = new Set([
     'password',
 ]);
 
-
 function changedKeys(
     oldValues: Record<string, unknown> | null,
     newValues: Record<string, unknown> | null,
