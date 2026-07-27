@@ -1,6 +1,14 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { AlertTriangle } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    lazy,
+    Suspense,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import printEmployeeCv from '@/actions/App/Http/Controllers/Organization/EmployeeCvPrintController';
 import printEmployeeOffshoreCv from '@/actions/App/Http/Controllers/Organization/EmployeeOffshoreCvPrintController';
@@ -26,20 +34,10 @@ import { useEnsureEmployee } from '@/features/organization/employees/profile/use
 import type { EnsuredEmployee } from '@/features/organization/employees/profile/use-ensure-employee';
 import { actions } from '@/lib/design-system';
 import { CreateEmployeeUserDialog } from '@/pages/organization/_components/create-employee-user-dialog';
-import { EmployeeDocumentsTab } from '@/pages/organization/_components/documents/employee-documents-tab';
-import { EmployeeBankTab } from '@/pages/organization/_components/employee-bank-tab';
-import { EmployeeContractTab } from '@/pages/organization/_components/employee-contract-tab';
-import { EmployeeEducationTab } from '@/pages/organization/_components/employee-education-tab';
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
-import { EmployeeLanguagesTab } from '@/pages/organization/_components/employee-languages-tab';
 import { EmployeeMissingRequiredFieldsAlert } from '@/pages/organization/_components/employee-missing-required-fields-alert';
 import { EmployeePersonalTab } from '@/pages/organization/_components/employee-personal-tab';
 import { EmployeeProfileActionBar } from '@/pages/organization/_components/employee-profile-action-bar';
-import { EmployeeSalaryRevisionsTab } from '@/pages/organization/_components/employee-salary-revisions-tab';
-import { EmployeeSeaServiceTab } from '@/pages/organization/_components/employee-sea-service-tab';
-import { EmployeeTrainingTab } from '@/pages/organization/_components/employee-training-tab';
-import { EmployeeVaccinationTab } from '@/pages/organization/_components/employee-vaccination-tab';
-import { EmployeeWorkExperienceTab } from '@/pages/organization/_components/employee-work-experience-tab';
 import { useEmployeeProfileForm } from '@/pages/organization/_hooks/use-employee-profile-form';
 import type { UseEmployeeProfileFormResult } from '@/pages/organization/_hooks/use-employee-profile-form';
 import { resolveTemplateTableFields } from '@/pages/organization/_lib/resolve-template-table-fields';
@@ -51,6 +49,57 @@ import type {
 } from '@/pages/organization/employee-page.types';
 import { employee as employeeContractsBrowse } from '@/routes/organization/contracts';
 import { employee as employeeDocumentsBrowse } from '@/routes/organization/documents';
+
+const EmployeeBankTab = lazy(() =>
+    import('@/pages/organization/_components/employee-bank-tab').then(
+        (module) => ({ default: module.EmployeeBankTab }),
+    ),
+);
+const EmployeeContractTab = lazy(() =>
+    import('@/pages/organization/_components/employee-contract-tab').then(
+        (module) => ({ default: module.EmployeeContractTab }),
+    ),
+);
+const EmployeeDocumentsTab = lazy(() =>
+    import(
+        '@/pages/organization/_components/documents/employee-documents-tab'
+    ).then((module) => ({ default: module.EmployeeDocumentsTab })),
+);
+const EmployeeEducationTab = lazy(() =>
+    import('@/pages/organization/_components/employee-education-tab').then(
+        (module) => ({ default: module.EmployeeEducationTab }),
+    ),
+);
+const EmployeeLanguagesTab = lazy(() =>
+    import('@/pages/organization/_components/employee-languages-tab').then(
+        (module) => ({ default: module.EmployeeLanguagesTab }),
+    ),
+);
+const EmployeeSalaryRevisionsTab = lazy(() =>
+    import(
+        '@/pages/organization/_components/employee-salary-revisions-tab'
+    ).then((module) => ({ default: module.EmployeeSalaryRevisionsTab })),
+);
+const EmployeeSeaServiceTab = lazy(() =>
+    import('@/pages/organization/_components/employee-sea-service-tab').then(
+        (module) => ({ default: module.EmployeeSeaServiceTab }),
+    ),
+);
+const EmployeeTrainingTab = lazy(() =>
+    import('@/pages/organization/_components/employee-training-tab').then(
+        (module) => ({ default: module.EmployeeTrainingTab }),
+    ),
+);
+const EmployeeVaccinationTab = lazy(() =>
+    import('@/pages/organization/_components/employee-vaccination-tab').then(
+        (module) => ({ default: module.EmployeeVaccinationTab }),
+    ),
+);
+const EmployeeWorkExperienceTab = lazy(() =>
+    import(
+        '@/pages/organization/_components/employee-work-experience-tab'
+    ).then((module) => ({ default: module.EmployeeWorkExperienceTab })),
+);
 
 const EMPLOYEE_PAGE_TAB_HASH_KEYS: Partial<Record<string, EmployeeTab>> = {
     '#contract': 'contract',
@@ -692,42 +741,44 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <EmployeeContractTab
-                                        employeeId={effectiveEmployeeId}
-                                        contracts={contracts ?? []}
-                                        canCreate={
-                                            can?.contracts_create ?? false
-                                        }
-                                        canUpdate={
-                                            can?.contracts_update ?? false
-                                        }
-                                        canDelete={
-                                            can?.contracts_delete ?? false
-                                        }
-                                        canCreateSalaryRevisions={
-                                            can?.contracts_salary_revisions_create ??
-                                            false
-                                        }
-                                        canUpdateSalaryRevisions={
-                                            can?.contracts_salary_revisions_update ??
-                                            false
-                                        }
-                                        canDeleteSalaryRevisions={
-                                            can?.contracts_salary_revisions_delete ??
-                                            false
-                                        }
-                                        contractShowFrom="profile"
-                                        ensureEmployee={
-                                            isCreateMode
-                                                ? ensureEmployee
-                                                : undefined
-                                        }
-                                        templateContractFields={resolveTemplateTableFields(
-                                            employee_tabs.template_fields,
-                                            resolved_template?.fields,
-                                            'employee_contracts',
-                                        )}
-                                    />
+                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                        <EmployeeContractTab
+                                            employeeId={effectiveEmployeeId}
+                                            contracts={contracts ?? []}
+                                            canCreate={
+                                                can?.contracts_create ?? false
+                                            }
+                                            canUpdate={
+                                                can?.contracts_update ?? false
+                                            }
+                                            canDelete={
+                                                can?.contracts_delete ?? false
+                                            }
+                                            canCreateSalaryRevisions={
+                                                can?.contracts_salary_revisions_create ??
+                                                false
+                                            }
+                                            canUpdateSalaryRevisions={
+                                                can?.contracts_salary_revisions_update ??
+                                                false
+                                            }
+                                            canDeleteSalaryRevisions={
+                                                can?.contracts_salary_revisions_delete ??
+                                                false
+                                            }
+                                            contractShowFrom="profile"
+                                            ensureEmployee={
+                                                isCreateMode
+                                                    ? ensureEmployee
+                                                    : undefined
+                                            }
+                                            templateContractFields={resolveTemplateTableFields(
+                                                employee_tabs.template_fields,
+                                                resolved_template?.fields,
+                                                'employee_contracts',
+                                            )}
+                                        />
+                                    </Suspense>
                                 )
                             ) : null}
                             {employee_tabs.salary_revisions &&
@@ -735,46 +786,51 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <EmployeeSalaryRevisionsTab
-                                        employeeId={effectiveEmployeeId}
-                                        contracts={contracts ?? []}
-                                        canCreate={
-                                            can?.contracts_salary_revisions_create ??
-                                            false
-                                        }
-                                        canUpdate={
-                                            can?.contracts_salary_revisions_update ??
-                                            false
-                                        }
-                                        canDelete={
-                                            can?.contracts_salary_revisions_delete ??
-                                            false
-                                        }
-                                    />
+                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                        <EmployeeSalaryRevisionsTab
+                                            employeeId={effectiveEmployeeId}
+                                            contracts={contracts ?? []}
+                                            canCreate={
+                                                can?.contracts_salary_revisions_create ??
+                                                false
+                                            }
+                                            canUpdate={
+                                                can?.contracts_salary_revisions_update ??
+                                                false
+                                            }
+                                            canDelete={
+                                                can?.contracts_salary_revisions_delete ??
+                                                false
+                                            }
+                                        />
+                                    </Suspense>
                                 )
                             ) : null}
                             {employee_tabs.bank && activeTab === 'bank' ? (
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <EmployeeBankTab
-                                        employeeId={effectiveEmployeeId}
-                                        bank_accounts={bank_accounts ?? []}
-                                        banks={banks}
-                                        canManage={
-                                            can?.bank_accounts_manage ?? false
-                                        }
-                                        ensureEmployee={
-                                            isCreateMode
-                                                ? ensureEmployee
-                                                : undefined
-                                        }
-                                        templateFields={resolveTemplateTableFields(
-                                            employee_tabs.template_fields,
-                                            resolved_template?.fields,
-                                            'employee_bank_accounts',
-                                        )}
-                                    />
+                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                        <EmployeeBankTab
+                                            employeeId={effectiveEmployeeId}
+                                            bank_accounts={bank_accounts ?? []}
+                                            banks={banks}
+                                            canManage={
+                                                can?.bank_accounts_manage ??
+                                                false
+                                            }
+                                            ensureEmployee={
+                                                isCreateMode
+                                                    ? ensureEmployee
+                                                    : undefined
+                                            }
+                                            templateFields={resolveTemplateTableFields(
+                                                employee_tabs.template_fields,
+                                                resolved_template?.fields,
+                                                'employee_bank_accounts',
+                                            )}
+                                        />
+                                    </Suspense>
                                 )
                             ) : null}
                             {employee_tabs.education !== false &&
@@ -782,26 +838,28 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <EmployeeEducationTab
-                                        employeeId={effectiveEmployeeId}
-                                        education_qualifications={
-                                            education_qualifications ?? []
-                                        }
-                                        countries={countries}
-                                        canManage={
-                                            can?.education_manage ?? false
-                                        }
-                                        ensureEmployee={
-                                            isCreateMode
-                                                ? ensureEmployee
-                                                : undefined
-                                        }
-                                        templateFields={resolveTemplateTableFields(
-                                            employee_tabs.template_fields,
-                                            resolved_template?.fields,
-                                            'employee_education_qualifications',
-                                        )}
-                                    />
+                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                        <EmployeeEducationTab
+                                            employeeId={effectiveEmployeeId}
+                                            education_qualifications={
+                                                education_qualifications ?? []
+                                            }
+                                            countries={countries}
+                                            canManage={
+                                                can?.education_manage ?? false
+                                            }
+                                            ensureEmployee={
+                                                isCreateMode
+                                                    ? ensureEmployee
+                                                    : undefined
+                                            }
+                                            templateFields={resolveTemplateTableFields(
+                                                employee_tabs.template_fields,
+                                                resolved_template?.fields,
+                                                'employee_education_qualifications',
+                                            )}
+                                        />
+                                    </Suspense>
                                 )
                             ) : null}
                             {employee_tabs.work_experience !== false &&
@@ -809,25 +867,28 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <EmployeeWorkExperienceTab
-                                        employeeId={effectiveEmployeeId}
-                                        work_experiences={
-                                            work_experiences ?? []
-                                        }
-                                        canManage={
-                                            can?.work_experience_manage ?? false
-                                        }
-                                        ensureEmployee={
-                                            isCreateMode
-                                                ? ensureEmployee
-                                                : undefined
-                                        }
-                                        templateFields={resolveTemplateTableFields(
-                                            employee_tabs.template_fields,
-                                            resolved_template?.fields,
-                                            'employee_work_experiences',
-                                        )}
-                                    />
+                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                        <EmployeeWorkExperienceTab
+                                            employeeId={effectiveEmployeeId}
+                                            work_experiences={
+                                                work_experiences ?? []
+                                            }
+                                            canManage={
+                                                can?.work_experience_manage ??
+                                                false
+                                            }
+                                            ensureEmployee={
+                                                isCreateMode
+                                                    ? ensureEmployee
+                                                    : undefined
+                                            }
+                                            templateFields={resolveTemplateTableFields(
+                                                employee_tabs.template_fields,
+                                                resolved_template?.fields,
+                                                'employee_work_experiences',
+                                            )}
+                                        />
+                                    </Suspense>
                                 )
                             ) : null}
                             {employee_tabs.vaccination &&
@@ -835,24 +896,26 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <EmployeeVaccinationTab
-                                        employeeId={effectiveEmployeeId}
-                                        vaccinations={vaccinations ?? []}
-                                        countries={countries}
-                                        canManage={
-                                            can?.vaccination_manage ?? false
-                                        }
-                                        ensureEmployee={
-                                            isCreateMode
-                                                ? ensureEmployee
-                                                : undefined
-                                        }
-                                        templateFields={resolveTemplateTableFields(
-                                            employee_tabs.template_fields,
-                                            resolved_template?.fields,
-                                            'employee_vaccinations',
-                                        )}
-                                    />
+                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                        <EmployeeVaccinationTab
+                                            employeeId={effectiveEmployeeId}
+                                            vaccinations={vaccinations ?? []}
+                                            countries={countries}
+                                            canManage={
+                                                can?.vaccination_manage ?? false
+                                            }
+                                            ensureEmployee={
+                                                isCreateMode
+                                                    ? ensureEmployee
+                                                    : undefined
+                                            }
+                                            templateFields={resolveTemplateTableFields(
+                                                employee_tabs.template_fields,
+                                                resolved_template?.fields,
+                                                'employee_vaccinations',
+                                            )}
+                                        />
+                                    </Suspense>
                                 )
                             ) : null}
                             {employee_tabs.languages !== false &&
@@ -860,23 +923,25 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <EmployeeLanguagesTab
-                                        employeeId={effectiveEmployeeId}
-                                        languages={languages ?? []}
-                                        canManage={
-                                            can?.languages_manage ?? false
-                                        }
-                                        ensureEmployee={
-                                            isCreateMode
-                                                ? ensureEmployee
-                                                : undefined
-                                        }
-                                        templateFields={resolveTemplateTableFields(
-                                            employee_tabs.template_fields,
-                                            resolved_template?.fields,
-                                            'employee_languages',
-                                        )}
-                                    />
+                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                        <EmployeeLanguagesTab
+                                            employeeId={effectiveEmployeeId}
+                                            languages={languages ?? []}
+                                            canManage={
+                                                can?.languages_manage ?? false
+                                            }
+                                            ensureEmployee={
+                                                isCreateMode
+                                                    ? ensureEmployee
+                                                    : undefined
+                                            }
+                                            templateFields={resolveTemplateTableFields(
+                                                employee_tabs.template_fields,
+                                                resolved_template?.fields,
+                                                'employee_languages',
+                                            )}
+                                        />
+                                    </Suspense>
                                 )
                             ) : null}
                             {employee_tabs.training &&
@@ -884,35 +949,37 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <EmployeeTrainingTab
-                                        employeeId={effectiveEmployeeId}
-                                        employeeName={employee.name}
-                                        trainings={trainings ?? []}
-                                        courses={courses ?? []}
-                                        countries={countries}
-                                        canCreate={
-                                            can?.training_create ?? false
-                                        }
-                                        canUpdate={
-                                            can?.training_update ?? false
-                                        }
-                                        canDelete={
-                                            can?.training_delete ?? false
-                                        }
-                                        canImport={
-                                            can?.training_import ?? false
-                                        }
-                                        ensureEmployee={
-                                            isCreateMode
-                                                ? ensureEmployee
-                                                : undefined
-                                        }
-                                        templateFields={resolveTemplateTableFields(
-                                            employee_tabs.template_fields,
-                                            resolved_template?.fields,
-                                            'employee_trainings',
-                                        )}
-                                    />
+                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                        <EmployeeTrainingTab
+                                            employeeId={effectiveEmployeeId}
+                                            employeeName={employee.name}
+                                            trainings={trainings ?? []}
+                                            courses={courses ?? []}
+                                            countries={countries}
+                                            canCreate={
+                                                can?.training_create ?? false
+                                            }
+                                            canUpdate={
+                                                can?.training_update ?? false
+                                            }
+                                            canDelete={
+                                                can?.training_delete ?? false
+                                            }
+                                            canImport={
+                                                can?.training_import ?? false
+                                            }
+                                            ensureEmployee={
+                                                isCreateMode
+                                                    ? ensureEmployee
+                                                    : undefined
+                                            }
+                                            templateFields={resolveTemplateTableFields(
+                                                employee_tabs.template_fields,
+                                                resolved_template?.fields,
+                                                'employee_trainings',
+                                            )}
+                                        />
+                                    </Suspense>
                                 )
                             ) : null}
                             {employee_tabs.sea_service &&
@@ -920,42 +987,44 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <EmployeeSeaServiceTab
-                                        employeeId={effectiveEmployeeId}
-                                        sea_services={sea_services ?? []}
-                                        vessel_types={vessel_types ?? []}
-                                        vessels={vessels ?? []}
-                                        ranks={ranks}
-                                        clients={clients ?? []}
-                                        employeeRankId={
-                                            localEmployee.rank_id ?? null
-                                        }
-                                        canManage={
-                                            can?.sea_service_manage ?? false
-                                        }
-                                        canCreate={
-                                            can?.sea_service_create ?? false
-                                        }
-                                        canUpdate={
-                                            can?.sea_service_update ?? false
-                                        }
-                                        canDelete={
-                                            can?.sea_service_delete ?? false
-                                        }
-                                        canImport={
-                                            can?.sea_service_import ?? false
-                                        }
-                                        ensureEmployee={
-                                            isCreateMode
-                                                ? ensureEmployee
-                                                : undefined
-                                        }
-                                        templateFields={resolveTemplateTableFields(
-                                            employee_tabs.template_fields,
-                                            resolved_template?.fields,
-                                            'employee_sea_services',
-                                        )}
-                                    />
+                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                        <EmployeeSeaServiceTab
+                                            employeeId={effectiveEmployeeId}
+                                            sea_services={sea_services ?? []}
+                                            vessel_types={vessel_types ?? []}
+                                            vessels={vessels ?? []}
+                                            ranks={ranks}
+                                            clients={clients ?? []}
+                                            employeeRankId={
+                                                localEmployee.rank_id ?? null
+                                            }
+                                            canManage={
+                                                can?.sea_service_manage ?? false
+                                            }
+                                            canCreate={
+                                                can?.sea_service_create ?? false
+                                            }
+                                            canUpdate={
+                                                can?.sea_service_update ?? false
+                                            }
+                                            canDelete={
+                                                can?.sea_service_delete ?? false
+                                            }
+                                            canImport={
+                                                can?.sea_service_import ?? false
+                                            }
+                                            ensureEmployee={
+                                                isCreateMode
+                                                    ? ensureEmployee
+                                                    : undefined
+                                            }
+                                            templateFields={resolveTemplateTableFields(
+                                                employee_tabs.template_fields,
+                                                resolved_template?.fields,
+                                                'employee_sea_services',
+                                            )}
+                                        />
+                                    </Suspense>
                                 )
                             ) : null}
                             {employee_tabs.documents &&
@@ -963,36 +1032,40 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <EmployeeDocumentsTab
-                                        employee={{
-                                            id: localEmployee.id as number,
-                                            name: localEmployee.name,
-                                        }}
-                                        documents={documents ?? []}
-                                        document_types={
-                                            document_types ??
-                                            EMPTY_DOCUMENT_TYPES
-                                        }
-                                        can={{
-                                            documents_upload:
-                                                can?.documents_upload ?? false,
-                                            documents_download:
-                                                can?.documents_download ??
-                                                false,
-                                            documents_delete:
-                                                can?.documents_delete ?? false,
-                                        }}
-                                        ensureEmployee={
-                                            isCreateMode
-                                                ? ensureEmployee
-                                                : undefined
-                                        }
-                                        templateFields={resolveTemplateTableFields(
-                                            employee_tabs.template_fields,
-                                            resolved_template?.fields,
-                                            'employee_documents',
-                                        )}
-                                    />
+                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                        <EmployeeDocumentsTab
+                                            employee={{
+                                                id: localEmployee.id as number,
+                                                name: localEmployee.name,
+                                            }}
+                                            documents={documents ?? []}
+                                            document_types={
+                                                document_types ??
+                                                EMPTY_DOCUMENT_TYPES
+                                            }
+                                            can={{
+                                                documents_upload:
+                                                    can?.documents_upload ??
+                                                    false,
+                                                documents_download:
+                                                    can?.documents_download ??
+                                                    false,
+                                                documents_delete:
+                                                    can?.documents_delete ??
+                                                    false,
+                                            }}
+                                            ensureEmployee={
+                                                isCreateMode
+                                                    ? ensureEmployee
+                                                    : undefined
+                                            }
+                                            templateFields={resolveTemplateTableFields(
+                                                employee_tabs.template_fields,
+                                                resolved_template?.fields,
+                                                'employee_documents',
+                                            )}
+                                        />
+                                    </Suspense>
                                 )
                             ) : null}
                         </EmployeeProfileShell>
