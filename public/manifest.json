@@ -1,4 +1,5 @@
 {
+    "id": "/",
     "name": "OMS-HRM — Overseas",
     "short_name": "OMS-HRM",
     "description": "Overseas — Your Complete Marine Solutions | Human Resources Management",
@@ -61,6 +62,16 @@
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "maskable"
+        }
+    ],
+    "categories": ["business", "productivity"],
+    "screenshots": [
+        {
+            "src": "/screenshots/dashboard-wide.png",
+            "sizes": "1280x800",
+            "type": "image/png",
+            "form_factor": "wide",
+            "label": "HR Dashboard — workforce, document compliance and attendance at a glance"
         }
     ],
     "shortcuts": [
