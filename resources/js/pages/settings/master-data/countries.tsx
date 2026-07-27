@@ -1,28 +1,15 @@
-import { Head, router, useForm } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
-import Heading from '@/components/heading';
+import { MasterDataListShell } from '@/components/settings/master-data-list-shell';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+    MasterDataField,
+    MasterDataFormSheet,
+    MasterDataFormSheetFooter,
+    masterDataInputClass,
+} from '@/components/settings/master-data-form-sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-} from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
+import { useMasterDataCrud } from '@/hooks/use-master-data-crud';
 
 type Country = {
     id: number;
@@ -32,325 +19,196 @@ type Country = {
     is_active: boolean;
 };
 
+type CountryFormData = {
+    code: string;
+    name: string;
+    dial_code: string;
+    is_active: boolean;
+};
+
+const initialForm: CountryFormData = {
+    code: '',
+    name: '',
+    dial_code: '',
+    is_active: true,
+};
+
 export default function Countries({ countries }: { countries: Country[] }) {
     const can = useSettingsMasterDataCan('countries');
 
-    const [query, setQuery] = useState('');
-    const [sheetOpen, setSheetOpen] = useState(false);
-    const [deleteOpen, setDeleteOpen] = useState(false);
-    const [current, setCurrent] = useState<Country | null>(null);
-
-    const form = useForm({
-        code: '',
-        name: '',
-        dial_code: '',
-        is_active: true,
-    });
-
-    const rows = useMemo(() => {
-        const q = query.trim().toLowerCase();
-
-        if (!q) {
-            return countries;
-        }
-
-        return countries.filter((c) => {
-            return (
-                c.code.toLowerCase().includes(q) ||
-                c.name.toLowerCase().includes(q) ||
-                (c.dial_code ?? '').toLowerCase().includes(q)
-            );
-        });
-    }, [countries, query]);
-
-    const openCreate = () => {
-        setCurrent(null);
-        form.reset();
-        form.clearErrors();
-        form.setData({
-            code: '',
-            name: '',
-            dial_code: '',
-            is_active: true,
-        });
-        setSheetOpen(true);
-    };
-
-    const openEdit = (country: Country) => {
-        setCurrent(country);
-        form.reset();
-        form.clearErrors();
-        form.setData({
+    const {
+        query,
+        setQuery,
+        sheetOpen,
+        setSheetOpen,
+        deleteOpen,
+        setDeleteOpen,
+        current,
+        form,
+        rows,
+        openCreate,
+        openEdit,
+        submit,
+        requestDelete,
+        confirmDelete,
+        toggleActive,
+    } = useMasterDataCrud<Country, CountryFormData>({
+        items: countries,
+        baseUrl: '/settings/master-data/countries',
+        initialForm,
+        filterItem: (country, q) =>
+            country.code.toLowerCase().includes(q) ||
+            country.name.toLowerCase().includes(q) ||
+            (country.dial_code ?? '').toLowerCase().includes(q),
+        toFormData: (country) => ({
             code: country.code,
             name: country.name,
             dial_code: country.dial_code ?? '',
             is_active: country.is_active,
-        });
-        setSheetOpen(true);
-    };
-
-    const submit = () => {
-        if (current) {
-            form.put(`/settings/master-data/countries/${current.id}`, {
-                preserveScroll: true,
-                onSuccess: () => setSheetOpen(false),
-            });
-
-            return;
-        }
-
-        form.post('/settings/master-data/countries', {
-            preserveScroll: true,
-            onSuccess: () => setSheetOpen(false),
-        });
-    };
-
-    const requestDelete = (country: Country) => {
-        setCurrent(country);
-        setDeleteOpen(true);
-    };
-
-    const confirmDelete = () => {
-        if (!current) {
-            return;
-        }
-
-        router.delete(`/settings/master-data/countries/${current.id}`, {
-            preserveScroll: true,
-            onFinish: () => {
-                setDeleteOpen(false);
-                setCurrent(null);
-            },
-        });
-    };
-
-    const toggleActive = (country: Country) => {
-        router.put(
-            `/settings/master-data/countries/${country.id}`,
-            {
-                code: country.code,
-                name: country.name,
-                dial_code: country.dial_code,
-                is_active: !country.is_active,
-            },
-            {
-                preserveScroll: true,
-            },
-        );
-    };
+        }),
+        toTogglePayload: (country) => ({
+            code: country.code,
+            name: country.name,
+            dial_code: country.dial_code,
+            is_active: !country.is_active,
+        }),
+    });
 
     return (
-        <>
-            <Head title="Countries" />
-
-            <div className="space-y-6">
-                <Heading
-                    variant="small"
-                    title="Countries"
-                    description="Manage country codes used across the system."
-                />
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1">
+        <MasterDataListShell
+            headTitle="Countries"
+            title="Countries"
+            description="Manage country codes used across the system."
+            searchPlaceholder="Search by code, name, dial code..."
+            query={query}
+            onQueryChange={setQuery}
+            canCreate={can.create}
+            createButtonLabel="Add country"
+            onCreate={openCreate}
+            tableMinWidth="min-w-[720px]"
+            isEmpty={rows.length === 0}
+            emptyLabel="No countries found."
+            deleteOpen={deleteOpen}
+            onDeleteOpenChange={setDeleteOpen}
+            deleteTitle="Delete country"
+            deleteDescription="This will delete the country if it is not in use. If it is in use, it will be deactivated."
+            deleteConfirmText="Confirm"
+            onConfirmDelete={confirmDelete}
+            sheet={
+                <MasterDataFormSheet
+                    open={sheetOpen}
+                    onOpenChange={setSheetOpen}
+                    title={current ? 'Edit country' : 'New country'}
+                    description="Codes must be 3 letters."
+                    footer={
+                        <MasterDataFormSheetFooter
+                            onCancel={() => setSheetOpen(false)}
+                            onSubmit={submit}
+                            processing={form.processing}
+                            submitLabel="Save"
+                        />
+                    }
+                >
+                    <MasterDataField
+                        id="code"
+                        label="Code"
+                        error={form.errors.code}
+                    >
                         <Input
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder="Search by code, name, dial code..."
+                            id="code"
+                            value={form.data.code}
+                            onChange={(event) =>
+                                form.setData('code', event.target.value)
+                            }
+                            placeholder="UAE"
+                            className={masterDataInputClass}
+                        />
+                    </MasterDataField>
+
+                    <MasterDataField
+                        id="name"
+                        label="Name"
+                        error={form.errors.name}
+                    >
+                        <Input
+                            id="name"
+                            value={form.data.name}
+                            onChange={(event) =>
+                                form.setData('name', event.target.value)
+                            }
+                            placeholder="United Arab Emirates"
+                            className={masterDataInputClass}
+                        />
+                    </MasterDataField>
+
+                    <MasterDataField
+                        id="dial_code"
+                        label="Dial code"
+                        error={form.errors.dial_code}
+                    >
+                        <Input
+                            id="dial_code"
+                            value={form.data.dial_code}
+                            onChange={(event) =>
+                                form.setData('dial_code', event.target.value)
+                            }
+                            placeholder="+971"
+                            className={masterDataInputClass}
+                        />
+                    </MasterDataField>
+                </MasterDataFormSheet>
+            }
+        >
+            <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
+                <div className="col-span-2">Code</div>
+                <div className="col-span-4">Name</div>
+                <div className="col-span-2">Dial</div>
+                <div className="col-span-1">Active</div>
+                <div className="col-span-3 text-right">Actions</div>
+            </div>
+            {rows.map((country) => (
+                <div
+                    key={country.id}
+                    className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
+                >
+                    <div className="col-span-2 font-mono text-sm">
+                        {country.code}
+                    </div>
+                    <div className="col-span-4 truncate text-sm">
+                        {country.name}
+                    </div>
+                    <div className="col-span-2 text-sm text-muted-foreground">
+                        {country.dial_code ?? '—'}
+                    </div>
+                    <div className="col-span-1 flex items-center">
+                        <Switch
+                            disabled={!can.update}
+                            checked={country.is_active}
+                            onCheckedChange={() => toggleActive(country)}
                         />
                     </div>
-                    {can.create ? (
-                        <Button onClick={openCreate}>Add country</Button>
-                    ) : null}
-                </div>
-
-                <div className="overflow-hidden rounded-xl border border-border/60">
-                    <div className="overflow-x-auto">
-                        <div className="min-w-[720px]">
-                            <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
-                                <div className="col-span-2">Code</div>
-                                <div className="col-span-4">Name</div>
-                                <div className="col-span-2">Dial</div>
-                                <div className="col-span-1">Active</div>
-                                <div className="col-span-3 text-right">
-                                    Actions
-                                </div>
-                            </div>
-                            {rows.map((c) => (
-                                <div
-                                    key={c.id}
-                                    className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
-                                >
-                                    <div className="col-span-2 font-mono text-sm">
-                                        {c.code}
-                                    </div>
-                                    <div className="col-span-4 truncate text-sm">
-                                        {c.name}
-                                    </div>
-                                    <div className="col-span-2 text-sm text-muted-foreground">
-                                        {c.dial_code ?? '—'}
-                                    </div>
-                                    <div className="col-span-1 flex items-center">
-                                        <Switch
-                                            disabled={!can.update}
-                                            checked={c.is_active}
-                                            onCheckedChange={() =>
-                                                toggleActive(c)
-                                            }
-                                        />
-                                    </div>
-                                    <div className="col-span-3 flex flex-nowrap justify-end gap-2">
-                                        {can.update ? (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => openEdit(c)}
-                                            >
-                                                Edit
-                                            </Button>
-                                        ) : null}
-                                        {can.delete ? (
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={() => requestDelete(c)}
-                                            >
-                                                Delete
-                                            </Button>
-                                        ) : null}
-                                    </div>
-                                </div>
-                            ))}
-                            {rows.length === 0 ? (
-                                <div className="px-4 py-10 text-sm text-muted-foreground">
-                                    No countries found.
-                                </div>
-                            ) : null}
-                        </div>
+                    <div className="col-span-3 flex flex-nowrap justify-end gap-2">
+                        {can.update ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openEdit(country)}
+                            >
+                                Edit
+                            </Button>
+                        ) : null}
+                        {can.delete ? (
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => requestDelete(country)}
+                            >
+                                Delete
+                            </Button>
+                        ) : null}
                     </div>
                 </div>
-            </div>
-
-            <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-                <SheetContent
-                    side="right"
-                    className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-md"
-                >
-                    <SheetHeader className="border-b border-border/60 p-8 pb-6">
-                        <SheetTitle className="text-xl font-bold tracking-tight">
-                            {current ? 'Edit country' : 'New country'}
-                        </SheetTitle>
-                        <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
-                            Codes must be 3 letters.
-                        </SheetDescription>
-                    </SheetHeader>
-
-                    <div className="flex-1 space-y-5 overflow-y-auto p-8">
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="code"
-                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
-                            >
-                                Code
-                            </Label>
-                            <Input
-                                id="code"
-                                value={form.data.code}
-                                onChange={(e) =>
-                                    form.setData('code', e.target.value)
-                                }
-                                placeholder="UAE"
-                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
-                            />
-                            {form.errors.code ? (
-                                <div className="text-xs font-medium text-destructive">
-                                    {form.errors.code}
-                                </div>
-                            ) : null}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="name"
-                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
-                            >
-                                Name
-                            </Label>
-                            <Input
-                                id="name"
-                                value={form.data.name}
-                                onChange={(e) =>
-                                    form.setData('name', e.target.value)
-                                }
-                                placeholder="United Arab Emirates"
-                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
-                            />
-                            {form.errors.name ? (
-                                <div className="text-xs font-medium text-destructive">
-                                    {form.errors.name}
-                                </div>
-                            ) : null}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="dial_code"
-                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
-                            >
-                                Dial code
-                            </Label>
-                            <Input
-                                id="dial_code"
-                                value={form.data.dial_code}
-                                onChange={(e) =>
-                                    form.setData('dial_code', e.target.value)
-                                }
-                                placeholder="+971"
-                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
-                            />
-                            {form.errors.dial_code ? (
-                                <div className="text-xs font-medium text-destructive">
-                                    {form.errors.dial_code}
-                                </div>
-                            ) : null}
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3 border-t border-border/60 bg-background/40 p-6">
-                        <Button
-                            variant="ghost"
-                            onClick={() => setSheetOpen(false)}
-                            className="h-11 flex-1 rounded-xl px-6 text-muted-foreground"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            className="h-11 flex-1 rounded-xl px-8 font-semibold"
-                            disabled={form.processing}
-                            onClick={submit}
-                        >
-                            Save
-                        </Button>
-                    </div>
-                </SheetContent>
-            </Sheet>
-
-            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete country</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This will delete the country if it is not in use. If
-                            it is in use, it will be deactivated.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmDelete}>
-                            Confirm
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </>
+            ))}
+        </MasterDataListShell>
     );
 }

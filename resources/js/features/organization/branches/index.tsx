@@ -1,6 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Filter, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { Plus } from 'lucide-react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -12,11 +11,9 @@ import {
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
-import { Main } from '@/components/layout/main';
 import { ListTableCrudActions } from '@/components/list-table-actions';
-import { PageHeader } from '@/components/page-header';
+import { OrganizationListPageShell } from '@/components/organization-list-page-shell';
 import { Pagination } from '@/components/pagination';
-import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -26,8 +23,9 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { useOrganizationCrudList } from '@/hooks/use-organization-crud-list';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { useViewPreference } from '@/hooks/use-view-preference';
+import { buildListExportUrl } from '@/lib/build-list-export-url';
 import { toast } from '@/lib/toast';
 import type { PaginationMeta } from '@/types/pagination';
 import { BranchCard } from './components/branch-card';
@@ -63,11 +61,7 @@ export function BranchesContent({
         filters: initialFilters,
         pagination,
     });
-    const [view, setView] = useViewPreference('branches:view', 'grid');
-    const [isSheetOpen, setIsSheetOpen] = useState(false);
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-    const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
+    const crud = useOrganizationCrudList<Branch>({ viewKey: 'branches:view' });
 
     const filters: BranchFilters = {
         country: initialFilters.country,
@@ -100,59 +94,51 @@ export function BranchesContent({
     });
 
     const handleAdd = () => {
-        setCurrentBranch(null);
-        form.reset();
-        form.clearErrors();
-        form.setData({
-            name: '',
-            code: '',
-            address: '',
-            city: '',
-            country:
-                countries.find((c) => c.code === 'UAE')?.code ??
-                countries[0]?.code ??
-                '',
-            phone: '',
-            email: '',
-            is_headquarters: false,
-            status: 'active',
+        crud.openCreate(() => {
+            form.reset();
+            form.clearErrors();
+            form.setData({
+                name: '',
+                code: '',
+                address: '',
+                city: '',
+                country:
+                    countries.find((c) => c.code === 'UAE')?.code ??
+                    countries[0]?.code ??
+                    '',
+                phone: '',
+                email: '',
+                is_headquarters: false,
+                status: 'active',
+            });
         });
-        setIsSheetOpen(true);
     };
 
     const handleEdit = (branch: Branch) => {
-        setCurrentBranch(branch);
-        form.reset();
-        form.clearErrors();
-        form.setData({
-            name: branch.name ?? '',
-            code: branch.code ?? '',
-            address: branch.address ?? '',
-            city: branch.city ?? '',
-            country: branch.country ?? '',
-            phone: branch.phone ?? '',
-            email: branch.email ?? '',
-            is_headquarters: branch.is_headquarters ?? false,
-            status: branch.status ?? 'active',
+        crud.openEdit(branch, () => {
+            form.reset();
+            form.clearErrors();
+            form.setData({
+                name: branch.name ?? '',
+                code: branch.code ?? '',
+                address: branch.address ?? '',
+                city: branch.city ?? '',
+                country: branch.country ?? '',
+                phone: branch.phone ?? '',
+                email: branch.email ?? '',
+                is_headquarters: branch.is_headquarters ?? false,
+                status: branch.status ?? 'active',
+            });
         });
-        setIsSheetOpen(true);
-    };
-
-    const handleDeleteClick = (branch: Branch) => {
-        setCurrentBranch(branch);
-        setIsDeleteDialogOpen(true);
     };
 
     const confirmDelete = () => {
-        if (!currentBranch) {
+        if (!crud.currentEntity) {
             return;
         }
 
-        router.delete(`/organization/branches/${currentBranch.id}`, {
-            onFinish: () => {
-                setIsDeleteDialogOpen(false);
-                setCurrentBranch(null);
-            },
+        router.delete(`/organization/branches/${crud.currentEntity.id}`, {
+            onFinish: () => crud.confirmDeleteFinish(),
         });
     };
 
@@ -184,10 +170,10 @@ export function BranchesContent({
     };
 
     const submit = () => {
-        if (currentBranch) {
-            form.put(`/organization/branches/${currentBranch.id}`, {
+        if (crud.currentEntity) {
+            form.put(`/organization/branches/${crud.currentEntity.id}`, {
                 preserveScroll: true,
-                onSuccess: () => setIsSheetOpen(false),
+                onSuccess: () => crud.setIsSheetOpen(false),
             });
 
             return;
@@ -195,102 +181,67 @@ export function BranchesContent({
 
         form.post('/organization/branches', {
             preserveScroll: true,
-            onSuccess: () => setIsSheetOpen(false),
+            onSuccess: () => crud.setIsSheetOpen(false),
         });
     };
 
-    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
-        const params = new URLSearchParams();
-
-        if (initialSearch) {
-            params.set('search', initialSearch);
-        }
-
-        if (initialFilters.country) {
-            params.set('country', initialFilters.country);
-        }
-
-        if (initialFilters.status) {
-            params.set('status', initialFilters.status);
-        }
-
-        if (initialFilters.city) {
-            params.set('city', initialFilters.city);
-        }
-
-        if (initialFilters.headquartersOnly) {
-            params.set('headquartersOnly', '1');
-        }
-
-        if (initialFilters.hasEmail) {
-            params.set('hasEmail', '1');
-        }
-
-        if (initialFilters.hasPhone) {
-            params.set('hasPhone', '1');
-        }
-
-        params.set('format', format);
-
-        return `/organization/branches/export?${params.toString()}`;
-    };
+    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') =>
+        buildListExportUrl('/organization/branches/export', {
+            search: initialSearch,
+            country: initialFilters.country,
+            status: initialFilters.status,
+            city: initialFilters.city,
+            headquartersOnly: initialFilters.headquartersOnly,
+            hasEmail: initialFilters.hasEmail,
+            hasPhone: initialFilters.hasPhone,
+            format,
+        });
 
     return (
-        <Main>
-            <PageHeader
-                title="Branches"
-                description="Manage branches across your companies."
-                right={
-                    <>
-                        <ExportMenu
-                            getUrl={getExportUrl}
-                            buttonVariant="secondary"
-                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
-                        />
-                        <Button
-                            onClick={handleAdd}
-                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
-                        >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Branch
-                        </Button>
-                    </>
-                }
-            />
-
-            <SearchBar
-                placeholder="Search branches by name, code, company, or location..."
-                value={list.searchInput}
-                onChange={list.onSearchChange}
-                right={
-                    <>
-                        <ViewToggle value={view} onChange={setView} />
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
-                            onClick={() => setIsFiltersOpen(true)}
-                        >
-                            <Filter className="mr-2 h-4 w-4" />
-                            Filters
-                            {activeFiltersCount ? (
-                                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
-                                    {activeFiltersCount}
-                                </span>
-                            ) : null}
-                        </Button>
-                    </>
-                }
-            />
-
-            {view === 'grid' ? (
+        <OrganizationListPageShell
+            title="Branches"
+            description="Manage branches across your companies."
+            headerRight={
+                <>
+                    <ExportMenu
+                        getUrl={getExportUrl}
+                        buttonVariant="secondary"
+                        buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                    />
+                    <Button
+                        onClick={handleAdd}
+                        className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Branch
+                    </Button>
+                </>
+            }
+            search={{
+                placeholder:
+                    'Search branches by name, code, company, or location...',
+                value: list.searchInput,
+                onChange: list.onSearchChange,
+                right: crud.view && crud.setView ? (
+                    <ViewToggle value={crud.view} onChange={crud.setView} />
+                ) : null,
+            }}
+            filtersButton={{
+                onClick: () => crud.setIsFiltersOpen(true),
+                activeFiltersCount,
+            }}
+            pagination={
+                <Pagination {...list.paginationProps} label="branches" />
+            }
+        >
+            {crud.view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     {branches.map((branch) => (
                         <BranchCard
                             key={branch.id}
                             branch={branch}
                             onEdit={handleEdit}
-                            onDelete={handleDeleteClick}
+                            onDelete={crud.openDelete}
                             onToggleStatus={toggleStatus}
                         />
                     ))}
@@ -299,9 +250,7 @@ export function BranchesContent({
                 <OrganizationDataTable minWidth="min-w-[980px]">
                     <TableHeader>
                         <DataTableHeaderRow>
-                            <DataTableHead className="pl-5">
-                                Branch
-                            </DataTableHead>
+                            <DataTableHead className="pl-5">Branch</DataTableHead>
                             <DataTableHead>Code</DataTableHead>
                             <DataTableHead>HQ</DataTableHead>
                             <DataTableHead>Location</DataTableHead>
@@ -373,7 +322,7 @@ export function BranchesContent({
                                         }}
                                         onDelete={(e) => {
                                             e.stopPropagation();
-                                            handleDeleteClick(branch);
+                                            crud.openDelete(branch);
                                         }}
                                     />
                                 </TableCell>
@@ -387,32 +336,30 @@ export function BranchesContent({
                 <EmptyState title="No branches found." />
             ) : null}
 
-            <Pagination {...list.paginationProps} label="branches" />
-
             <BranchFormSheet
-                open={isSheetOpen}
-                onOpenChange={setIsSheetOpen}
-                branch={currentBranch}
+                open={crud.isSheetOpen}
+                onOpenChange={crud.setIsSheetOpen}
+                branch={crud.currentEntity}
                 countries={countries}
                 form={form}
                 onSubmit={submit}
             />
 
             <BranchDeleteDialog
-                open={isDeleteDialogOpen}
-                onOpenChange={setIsDeleteDialogOpen}
-                branch={currentBranch}
+                open={crud.isDeleteDialogOpen}
+                onOpenChange={crud.setIsDeleteDialogOpen}
+                branch={crud.currentEntity}
                 onConfirm={confirmDelete}
             />
 
             <BranchFiltersSheet
-                open={isFiltersOpen}
-                onOpenChange={setIsFiltersOpen}
+                open={crud.isFiltersOpen}
+                onOpenChange={crud.setIsFiltersOpen}
                 countries={countries}
                 value={filters}
                 onChange={handleFiltersChange}
                 onReset={resetFilters}
             />
-        </Main>
+        </OrganizationListPageShell>
     );
 }

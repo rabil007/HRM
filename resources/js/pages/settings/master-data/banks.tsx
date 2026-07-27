@@ -1,29 +1,16 @@
-import { Head, router, useForm } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
-import Heading from '@/components/heading';
+import { MasterDataListShell } from '@/components/settings/master-data-list-shell';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+    MasterDataField,
+    MasterDataFormSheet,
+    MasterDataFormSheetFooter,
+    masterDataInputClass,
+} from '@/components/settings/master-data-form-sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-} from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
+import { useMasterDataCrud } from '@/hooks/use-master-data-crud';
 import { firstValidationError } from '@/lib/first-validation-error';
 import { toast } from '@/lib/toast';
 
@@ -42,6 +29,20 @@ type CountryOption = {
     code: string;
 };
 
+type BankFormData = {
+    name: string;
+    uae_routing_code_agent_id: string;
+    country_id: number | '';
+    is_active: boolean;
+};
+
+const initialForm: BankFormData = {
+    name: '',
+    uae_routing_code_agent_id: '',
+    country_id: '',
+    is_active: true,
+};
+
 export default function Banks({
     banks,
     countries,
@@ -51,381 +52,237 @@ export default function Banks({
 }) {
     const can = useSettingsMasterDataCan('banks');
 
-    const [query, setQuery] = useState('');
-    const [sheetOpen, setSheetOpen] = useState(false);
-    const [deleteOpen, setDeleteOpen] = useState(false);
-    const [current, setCurrent] = useState<Bank | null>(null);
-
-    const form = useForm({
-        name: '',
-        uae_routing_code_agent_id: '',
-        country_id: '' as number | '',
-        is_active: true,
-    });
-
-    const rows = useMemo(() => {
-        const q = query.trim().toLowerCase();
-
-        if (!q) {
-            return banks;
-        }
-
-        return banks.filter((b) => {
-            return (
-                b.name.toLowerCase().includes(q) ||
-                (b.uae_routing_code_agent_id ?? '').toLowerCase().includes(q) ||
-                (b.country?.name ?? '').toLowerCase().includes(q)
-            );
-        });
-    }, [banks, query]);
-
-    const openCreate = () => {
-        setCurrent(null);
-        form.reset();
-        form.clearErrors();
-        form.setData({
-            name: '',
-            uae_routing_code_agent_id: '',
-            country_id: '',
-            is_active: true,
-        });
-        setSheetOpen(true);
-    };
-
-    const openEdit = (bank: Bank) => {
-        setCurrent(bank);
-        form.reset();
-        form.clearErrors();
-        form.setData({
+    const {
+        query,
+        setQuery,
+        sheetOpen,
+        setSheetOpen,
+        deleteOpen,
+        setDeleteOpen,
+        current,
+        form,
+        rows,
+        openCreate,
+        openEdit,
+        submit,
+        requestDelete,
+        confirmDelete,
+        toggleActive,
+    } = useMasterDataCrud<Bank, BankFormData>({
+        items: banks,
+        baseUrl: '/settings/master-data/banks',
+        initialForm,
+        filterItem: (bank, q) =>
+            bank.name.toLowerCase().includes(q) ||
+            (bank.uae_routing_code_agent_id ?? '')
+                .toLowerCase()
+                .includes(q) ||
+            (bank.country?.name ?? '').toLowerCase().includes(q),
+        toFormData: (bank) => ({
             name: bank.name,
             uae_routing_code_agent_id: bank.uae_routing_code_agent_id ?? '',
             country_id: bank.country_id ?? '',
             is_active: bank.is_active,
-        });
-        setSheetOpen(true);
-    };
-
-    const submit = () => {
-        const payload = {
-            name: form.data.name,
-            uae_routing_code_agent_id:
-                form.data.uae_routing_code_agent_id || null,
-            country_id: form.data.country_id || null,
-            is_active: form.data.is_active,
-        };
-
-        if (current) {
-            form.transform(() => payload);
-            form.put(`/settings/master-data/banks/${current.id}`, {
-                preserveScroll: true,
-                onSuccess: () => setSheetOpen(false),
-            });
-
-            return;
-        }
-
-        form.transform(() => payload);
-        form.post('/settings/master-data/banks', {
-            preserveScroll: true,
-            onSuccess: () => setSheetOpen(false),
-        });
-    };
-
-    const requestDelete = (bank: Bank) => {
-        setCurrent(bank);
-        setDeleteOpen(true);
-    };
-
-    const confirmDelete = () => {
-        if (!current) {
-            return;
-        }
-
-        router.delete(`/settings/master-data/banks/${current.id}`, {
-            preserveScroll: true,
-            onFinish: () => {
-                setDeleteOpen(false);
-                setCurrent(null);
-            },
-            onError: (errors) => {
-                toast.error(
-                    firstValidationError(
-                        errors,
-                        'bank',
-                        'This bank could not be deleted.',
-                    ),
-                );
-            },
-        });
-    };
-
-    const toggleActive = (bank: Bank) => {
-        router.put(
-            `/settings/master-data/banks/${bank.id}`,
-            {
-                name: bank.name,
-                uae_routing_code_agent_id: bank.uae_routing_code_agent_id,
-                country_id: bank.country_id,
-                is_active: !bank.is_active,
-            },
-            { preserveScroll: true },
-        );
-    };
+        }),
+        toTogglePayload: (bank) => ({
+            name: bank.name,
+            uae_routing_code_agent_id: bank.uae_routing_code_agent_id,
+            country_id: bank.country_id,
+            is_active: !bank.is_active,
+        }),
+        transformSubmit: (data) => ({
+            name: data.name,
+            uae_routing_code_agent_id: data.uae_routing_code_agent_id || null,
+            country_id: data.country_id || null,
+            is_active: data.is_active,
+        }),
+        onDeleteError: (errors) => {
+            toast.error(
+                firstValidationError(
+                    errors,
+                    'bank',
+                    'This bank could not be deleted.',
+                ),
+            );
+        },
+    });
 
     return (
-        <>
-            <Head title="Banks" />
-
-            <div className="space-y-6">
-                <Heading
-                    variant="small"
-                    title="Banks"
-                    description="Manage banks and routing identifiers used across the system."
-                />
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1">
+        <MasterDataListShell
+            headTitle="Banks"
+            title="Banks"
+            description="Manage banks and routing identifiers used across the system."
+            searchPlaceholder="Search banks..."
+            query={query}
+            onQueryChange={setQuery}
+            canCreate={can.create}
+            createButtonLabel="Add bank"
+            onCreate={openCreate}
+            tableMinWidth="min-w-[980px]"
+            isEmpty={rows.length === 0}
+            emptyLabel="No banks found."
+            deleteOpen={deleteOpen}
+            onDeleteOpenChange={setDeleteOpen}
+            deleteTitle="Delete bank"
+            deleteDescription={
+                current
+                    ? `This will permanently delete “${current.name}”.`
+                    : 'This will permanently delete this bank.'
+            }
+            deleteConfirmText="Delete"
+            deleteContentClassName="glass-card"
+            onConfirmDelete={confirmDelete}
+            sheet={
+                <MasterDataFormSheet
+                    open={sheetOpen}
+                    onOpenChange={setSheetOpen}
+                    title={current ? 'Edit bank' : 'New bank'}
+                    description="Add name and optional identifiers."
+                    footer={
+                        <MasterDataFormSheetFooter
+                            onCancel={() => setSheetOpen(false)}
+                            onSubmit={submit}
+                            processing={form.processing}
+                            submitLabel="Save"
+                        />
+                    }
+                >
+                    <MasterDataField
+                        id="name"
+                        label="Name"
+                        error={form.errors.name}
+                    >
                         <Input
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder="Search banks..."
+                            id="name"
+                            value={form.data.name}
+                            onChange={(event) =>
+                                form.setData('name', event.target.value)
+                            }
+                            placeholder="ABU DHABI ISLAMIC BK"
+                            className={masterDataInputClass}
+                        />
+                    </MasterDataField>
+
+                    <MasterDataField
+                        id="uae_routing_code_agent_id"
+                        label="UAE routing code / agent ID"
+                        error={form.errors.uae_routing_code_agent_id}
+                    >
+                        <Input
+                            id="uae_routing_code_agent_id"
+                            value={form.data.uae_routing_code_agent_id}
+                            onChange={(event) =>
+                                form.setData(
+                                    'uae_routing_code_agent_id',
+                                    event.target.value,
+                                )
+                            }
+                            placeholder="405010101"
+                            className={masterDataInputClass}
+                        />
+                    </MasterDataField>
+
+                    <MasterDataField
+                        id="country_id"
+                        label="Country"
+                        error={form.errors.country_id}
+                    >
+                        <AppSelect
+                            value={
+                                form.data.country_id === ''
+                                    ? ''
+                                    : String(form.data.country_id)
+                            }
+                            onValueChange={(value) =>
+                                form.setData(
+                                    'country_id',
+                                    value ? Number(value) : '',
+                                )
+                            }
+                            variant="dark"
+                            placeholder="—"
+                        >
+                            <AppSelectItem value="">—</AppSelectItem>
+                            {countries.map((country) => (
+                                <AppSelectItem
+                                    key={country.id}
+                                    value={String(country.id)}
+                                >
+                                    {country.name} ({country.code})
+                                </AppSelectItem>
+                            ))}
+                        </AppSelect>
+                    </MasterDataField>
+
+                    <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                        <div>
+                            <div className="text-sm font-semibold text-foreground">
+                                Active
+                            </div>
+                            <div className="text-xs text-muted-foreground/80">
+                                Disable to hide from selections.
+                            </div>
+                        </div>
+                        <Switch
+                            disabled={!can.update}
+                            checked={form.data.is_active}
+                            onCheckedChange={(value) =>
+                                form.setData('is_active', value)
+                            }
                         />
                     </div>
-                    {can.create ? (
-                        <Button onClick={openCreate}>Add bank</Button>
-                    ) : null}
-                </div>
-
-                <div className="overflow-hidden rounded-xl border border-border/60">
-                    <div className="overflow-x-auto">
-                        <div className="min-w-[980px]">
-                            <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
-                                <div className="col-span-4">Name</div>
-                                <div className="col-span-2">Routing</div>
-                                <div className="col-span-4">Country</div>
-                                <div className="col-span-1">Active</div>
-                                <div className="col-span-1 text-right">
-                                    Actions
-                                </div>
-                            </div>
-
-                            {rows.map((b) => (
-                                <div
-                                    key={b.id}
-                                    className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
-                                >
-                                    <div className="col-span-4 truncate text-sm">
-                                        {b.name}
-                                    </div>
-                                    <div className="col-span-2 font-mono text-sm text-muted-foreground">
-                                        {b.uae_routing_code_agent_id ?? '—'}
-                                    </div>
-                                    <div className="col-span-4 truncate text-sm text-muted-foreground">
-                                        {b.country?.name ?? '—'}
-                                    </div>
-                                    <div className="col-span-1 flex items-center">
-                                        <Switch
-                                            disabled={!can.update}
-                                            checked={b.is_active}
-                                            onCheckedChange={() =>
-                                                toggleActive(b)
-                                            }
-                                        />
-                                    </div>
-                                    <div className="col-span-1 flex justify-end gap-2">
-                                        {can.update ? (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => openEdit(b)}
-                                            >
-                                                Edit
-                                            </Button>
-                                        ) : null}
-                                        {can.delete ? (
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={() => requestDelete(b)}
-                                            >
-                                                Delete
-                                            </Button>
-                                        ) : null}
-                                    </div>
-                                </div>
-                            ))}
-
-                            {rows.length === 0 ? (
-                                <div className="px-4 py-10 text-sm text-muted-foreground">
-                                    No banks found.
-                                </div>
-                            ) : null}
-                        </div>
-                    </div>
-                </div>
+                </MasterDataFormSheet>
+            }
+        >
+            <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
+                <div className="col-span-4">Name</div>
+                <div className="col-span-2">Routing</div>
+                <div className="col-span-4">Country</div>
+                <div className="col-span-1">Active</div>
+                <div className="col-span-1 text-right">Actions</div>
             </div>
 
-            <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-                <SheetContent
-                    side="right"
-                    className="flex w-full flex-col rounded-none glass-card p-0 sm:max-w-md"
+            {rows.map((bank) => (
+                <div
+                    key={bank.id}
+                    className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
                 >
-                    <SheetHeader className="border-b border-border/60 p-8 pb-6">
-                        <SheetTitle className="text-xl font-bold tracking-tight">
-                            {current ? 'Edit bank' : 'New bank'}
-                        </SheetTitle>
-                        <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
-                            Add name and optional identifiers.
-                        </SheetDescription>
-                    </SheetHeader>
-
-                    <div className="flex-1 space-y-5 overflow-y-auto p-8">
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="name"
-                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
-                            >
-                                Name
-                            </Label>
-                            <Input
-                                id="name"
-                                value={form.data.name}
-                                onChange={(e) =>
-                                    form.setData('name', e.target.value)
-                                }
-                                placeholder="ABU DHABI ISLAMIC BK"
-                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
-                            />
-                            {form.errors.name ? (
-                                <div className="text-xs font-medium text-destructive">
-                                    {form.errors.name}
-                                </div>
-                            ) : null}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="uae_routing_code_agent_id"
-                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
-                            >
-                                UAE routing code / agent ID
-                            </Label>
-                            <Input
-                                id="uae_routing_code_agent_id"
-                                value={form.data.uae_routing_code_agent_id}
-                                onChange={(e) =>
-                                    form.setData(
-                                        'uae_routing_code_agent_id',
-                                        e.target.value,
-                                    )
-                                }
-                                placeholder="405010101"
-                                className="h-11 rounded-xl border-border bg-card transition-all focus-visible:ring-primary/40"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="country_id"
-                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
-                            >
-                                Country
-                            </Label>
-                            <AppSelect
-                                value={
-                                    form.data.country_id === ''
-                                        ? ''
-                                        : String(form.data.country_id)
-                                }
-                                onValueChange={(v) =>
-                                    form.setData(
-                                        'country_id',
-                                        v ? Number(v) : '',
-                                    )
-                                }
-                                variant="dark"
-                                placeholder="—"
-                            >
-                                <AppSelectItem value="">—</AppSelectItem>
-                                {countries.map((c) => (
-                                    <AppSelectItem
-                                        key={c.id}
-                                        value={String(c.id)}
-                                    >
-                                        {c.name} ({c.code})
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
-                            {form.errors.country_id ? (
-                                <div className="text-xs font-medium text-destructive">
-                                    {form.errors.country_id}
-                                </div>
-                            ) : null}
-                        </div>
-
-                        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
-                            <div>
-                                <div className="text-sm font-semibold text-foreground">
-                                    Active
-                                </div>
-                                <div className="text-xs text-muted-foreground/80">
-                                    Disable to hide from selections.
-                                </div>
-                            </div>
-                            <Switch
-                                disabled={!can.update}
-                                checked={form.data.is_active}
-                                onCheckedChange={(v) =>
-                                    form.setData('is_active', v)
-                                }
-                            />
-                        </div>
+                    <div className="col-span-4 truncate text-sm">{bank.name}</div>
+                    <div className="col-span-2 font-mono text-sm text-muted-foreground">
+                        {bank.uae_routing_code_agent_id ?? '—'}
                     </div>
-
-                    <div className="flex gap-3 border-t border-border/60 bg-background/40 p-6">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            className="h-11 flex-1 rounded-xl px-6 text-muted-foreground"
-                            onClick={() => setSheetOpen(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            className="h-11 flex-1 rounded-xl px-6 font-semibold"
-                            onClick={submit}
-                            disabled={form.processing}
-                        >
-                            {form.processing ? 'Saving…' : 'Save'}
-                        </Button>
+                    <div className="col-span-4 truncate text-sm text-muted-foreground">
+                        {bank.country?.name ?? '—'}
                     </div>
-                </SheetContent>
-            </Sheet>
-
-            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-                <AlertDialogContent className="glass-card">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete bank</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {current
-                                ? `This will permanently delete “${current.name}”.`
-                                : 'This will permanently delete this bank.'}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel className="rounded-xl glass-card hover:bg-accent">
-                            Cancel
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                            className="rounded-xl"
-                            onClick={confirmDelete}
-                        >
-                            Delete
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </>
+                    <div className="col-span-1 flex items-center">
+                        <Switch
+                            disabled={!can.update}
+                            checked={bank.is_active}
+                            onCheckedChange={() => toggleActive(bank)}
+                        />
+                    </div>
+                    <div className="col-span-1 flex justify-end gap-2">
+                        {can.update ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openEdit(bank)}
+                            >
+                                Edit
+                            </Button>
+                        ) : null}
+                        {can.delete ? (
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => requestDelete(bank)}
+                            >
+                                Delete
+                            </Button>
+                        ) : null}
+                    </div>
+                </div>
+            ))}
+        </MasterDataListShell>
     );
 }

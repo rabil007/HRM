@@ -1,6 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Filter, Plus, Users } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Users } from 'lucide-react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -12,11 +11,9 @@ import {
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
-import { Main } from '@/components/layout/main';
 import { ListTableCrudActions } from '@/components/list-table-actions';
-import { PageHeader } from '@/components/page-header';
+import { OrganizationListPageShell } from '@/components/organization-list-page-shell';
 import { Pagination } from '@/components/pagination';
-import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import {
     TableBody,
@@ -25,8 +22,9 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { useOrganizationCrudList } from '@/hooks/use-organization-crud-list';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { useViewPreference } from '@/hooks/use-view-preference';
+import { buildListExportUrl } from '@/lib/build-list-export-url';
 import type { PaginationMeta } from '@/types/pagination';
 import { RoleCard } from './components/role-card';
 import { RoleDeleteDialog } from './components/role-delete-dialog';
@@ -58,11 +56,7 @@ export function RolesContent({
         filters: initialFilters,
         pagination,
     });
-    const [view, setView] = useViewPreference('roles:view', 'grid');
-    const [isSheetOpen, setIsSheetOpen] = useState(false);
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-    const [currentRole, setCurrentRole] = useState<Role | null>(null);
+    const crud = useOrganizationCrudList<Role>({ viewKey: 'roles:view' });
 
     const filters: RoleFilters = {
         has_permissions:
@@ -78,44 +72,36 @@ export function RolesContent({
     });
 
     const handleAdd = () => {
-        setCurrentRole(null);
-        form.reset();
-        form.clearErrors();
-        form.setData({ name: '' });
-        setIsSheetOpen(true);
+        crud.openCreate(() => {
+            form.reset();
+            form.clearErrors();
+            form.setData({ name: '' });
+        });
     };
 
     const handleEdit = (role: Role) => {
-        setCurrentRole(role);
-        form.reset();
-        form.clearErrors();
-        form.setData({ name: role.name ?? '' });
-        setIsSheetOpen(true);
-    };
-
-    const handleDelete = (role: Role) => {
-        setCurrentRole(role);
-        setIsDeleteOpen(true);
+        crud.openEdit(role, () => {
+            form.reset();
+            form.clearErrors();
+            form.setData({ name: role.name ?? '' });
+        });
     };
 
     const confirmDelete = () => {
-        if (!currentRole) {
+        if (!crud.currentEntity) {
             return;
         }
 
-        router.delete(`/organization/roles/${currentRole.id}`, {
-            onFinish: () => {
-                setIsDeleteOpen(false);
-                setCurrentRole(null);
-            },
+        router.delete(`/organization/roles/${crud.currentEntity.id}`, {
+            onFinish: () => crud.confirmDeleteFinish(),
         });
     };
 
     const submit = () => {
-        if (currentRole) {
-            form.put(`/organization/roles/${currentRole.id}`, {
+        if (crud.currentEntity) {
+            form.put(`/organization/roles/${crud.currentEntity.id}`, {
                 preserveScroll: true,
-                onSuccess: () => setIsSheetOpen(false),
+                onSuccess: () => crud.setIsSheetOpen(false),
             });
 
             return;
@@ -123,7 +109,7 @@ export function RolesContent({
 
         form.post('/organization/roles', {
             preserveScroll: true,
-            onSuccess: () => setIsSheetOpen(false),
+            onSuccess: () => crud.setIsSheetOpen(false),
         });
     };
 
@@ -131,82 +117,63 @@ export function RolesContent({
         list.applyFilters(next);
     };
 
-    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
-        const params = new URLSearchParams();
-
-        if (initialSearch) {
-            params.set('search', initialSearch);
-        }
-
-        if (initialFilters.has_permissions) {
-            params.set('has_permissions', initialFilters.has_permissions);
-        }
-
-        params.set('format', format);
-
-        return `/organization/roles/export?${params.toString()}`;
-    };
+    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') =>
+        buildListExportUrl('/organization/roles/export', {
+            search: initialSearch,
+            has_permissions: initialFilters.has_permissions,
+            format,
+        });
 
     return (
-        <Main>
-            <PageHeader
-                title="Roles & Permissions"
-                description={
-                    company?.name
-                        ? `Manage roles for ${company.name}.`
-                        : 'Manage roles and permissions.'
-                }
-                right={
-                    <>
-                        <ExportMenu
-                            getUrl={getExportUrl}
-                            buttonVariant="secondary"
-                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
-                        />
-                        <Button
-                            onClick={handleAdd}
-                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
-                        >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Role
-                        </Button>
-                    </>
-                }
-            />
-
-            <SearchBar
-                placeholder="Search roles by name, slug, company, or permission..."
-                value={list.searchInput}
-                onChange={list.onSearchChange}
-                right={
-                    <>
-                        <ViewToggle value={view} onChange={setView} />
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
-                            onClick={() => setIsFiltersOpen(true)}
-                        >
-                            <Filter className="mr-2 h-4 w-4" />
-                            Filters
-                            {activeFiltersCount ? (
-                                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
-                                    {activeFiltersCount}
-                                </span>
-                            ) : null}
-                        </Button>
-                    </>
-                }
-            />
-
-            {view === 'grid' ? (
+        <OrganizationListPageShell
+            title="Roles & Permissions"
+            description={
+                company?.name
+                    ? `Manage roles for ${company.name}.`
+                    : 'Manage roles and permissions.'
+            }
+            headerRight={
+                <>
+                    <ExportMenu
+                        getUrl={getExportUrl}
+                        buttonVariant="secondary"
+                        buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                    />
+                    <Button
+                        onClick={handleAdd}
+                        className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Role
+                    </Button>
+                </>
+            }
+            search={{
+                placeholder:
+                    'Search roles by name, slug, company, or permission...',
+                value: list.searchInput,
+                onChange: list.onSearchChange,
+                right:
+                    crud.view && crud.setView ? (
+                        <ViewToggle value={crud.view} onChange={crud.setView} />
+                    ) : null,
+            }}
+            filtersButton={{
+                onClick: () => crud.setIsFiltersOpen(true),
+                activeFiltersCount,
+            }}
+            pagination={
+                <Pagination {...list.paginationProps} label="roles" />
+            }
+        >
+            {crud.view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     {roles.map((role) => (
                         <RoleCard
                             key={role.id}
                             role={role}
                             onEdit={handleEdit}
-                            onDelete={handleDelete}
+                            onDelete={crud.openDelete}
                         />
                     ))}
                 </div>
@@ -275,7 +242,7 @@ export function RolesContent({
                                             }}
                                             onDelete={(e) => {
                                                 e.stopPropagation();
-                                                handleDelete(role);
+                                                crud.openDelete(role);
                                             }}
                                         />
                                     </div>
@@ -286,32 +253,32 @@ export function RolesContent({
                 </OrganizationDataTable>
             )}
 
-            {roles.length === 0 ? <EmptyState title="No roles found." /> : null}
-
-            <Pagination {...list.paginationProps} label="roles" />
+            {roles.length === 0 ? (
+                <EmptyState title="No roles found." />
+            ) : null}
 
             <RoleFormSheet
-                open={isSheetOpen}
-                onOpenChange={setIsSheetOpen}
-                role={currentRole}
+                open={crud.isSheetOpen}
+                onOpenChange={crud.setIsSheetOpen}
+                role={crud.currentEntity}
                 form={form}
                 onSubmit={submit}
             />
 
             <RoleFiltersSheet
-                open={isFiltersOpen}
-                onOpenChange={setIsFiltersOpen}
+                open={crud.isFiltersOpen}
+                onOpenChange={crud.setIsFiltersOpen}
                 value={filters}
                 onChange={handleFiltersChange}
                 onReset={() => handleFiltersChange({ has_permissions: '' })}
             />
 
             <RoleDeleteDialog
-                open={isDeleteOpen}
-                onOpenChange={setIsDeleteOpen}
-                role={currentRole}
+                open={crud.isDeleteDialogOpen}
+                onOpenChange={crud.setIsDeleteDialogOpen}
+                role={crud.currentEntity}
                 onConfirm={confirmDelete}
             />
-        </Main>
+        </OrganizationListPageShell>
     );
 }

@@ -1,6 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Filter, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { Plus } from 'lucide-react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -12,11 +11,9 @@ import {
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
-import { Main } from '@/components/layout/main';
 import { ListTableCrudActions } from '@/components/list-table-actions';
-import { PageHeader } from '@/components/page-header';
+import { OrganizationListPageShell } from '@/components/organization-list-page-shell';
 import { Pagination } from '@/components/pagination';
-import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -26,8 +23,9 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { useOrganizationCrudList } from '@/hooks/use-organization-crud-list';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { useViewPreference } from '@/hooks/use-view-preference';
+import { buildListExportUrl } from '@/lib/build-list-export-url';
 import { toast } from '@/lib/toast';
 import type { PaginationMeta } from '@/types/pagination';
 import { DepartmentCard } from './components/department-card';
@@ -76,12 +74,9 @@ export function DepartmentsContent({
         filters: initialFilters,
         pagination,
     });
-    const [view, setView] = useViewPreference('departments:view', 'grid');
-    const [isSheetOpen, setIsSheetOpen] = useState(false);
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-    const [currentDepartment, setCurrentDepartment] =
-        useState<Department | null>(null);
+    const crud = useOrganizationCrudList<Department>({
+        viewKey: 'departments:view',
+    });
 
     const filters: DepartmentFilters = {
         id: initialFilters.id ?? '',
@@ -111,51 +106,46 @@ export function DepartmentsContent({
     });
 
     const handleAdd = () => {
-        setCurrentDepartment(null);
-        form.reset();
-        form.clearErrors();
-        form.setData({
-            branch_id: '',
-            parent_id: '',
-            manager_id: '',
-            name: '',
-            code: '',
-            status: 'active',
+        crud.openCreate(() => {
+            form.reset();
+            form.clearErrors();
+            form.setData({
+                branch_id: '',
+                parent_id: '',
+                manager_id: '',
+                name: '',
+                code: '',
+                status: 'active',
+            });
         });
-        setIsSheetOpen(true);
     };
 
     const handleEdit = (department: Department) => {
-        setCurrentDepartment(department);
-        form.reset();
-        form.clearErrors();
-        form.setData({
-            branch_id: department.branch?.id ?? '',
-            parent_id: department.parent?.id ?? '',
-            manager_id: department.manager?.id ?? '',
-            name: department.name ?? '',
-            code: department.code ?? '',
-            status: department.status ?? 'active',
+        crud.openEdit(department, () => {
+            form.reset();
+            form.clearErrors();
+            form.setData({
+                branch_id: department.branch?.id ?? '',
+                parent_id: department.parent?.id ?? '',
+                manager_id: department.manager?.id ?? '',
+                name: department.name ?? '',
+                code: department.code ?? '',
+                status: department.status ?? 'active',
+            });
         });
-        setIsSheetOpen(true);
-    };
-
-    const handleDelete = (department: Department) => {
-        setCurrentDepartment(department);
-        setIsDeleteOpen(true);
     };
 
     const confirmDelete = () => {
-        if (!currentDepartment) {
+        if (!crud.currentEntity) {
             return;
         }
 
-        router.delete(`/organization/departments/${currentDepartment.id}`, {
-            onFinish: () => {
-                setIsDeleteOpen(false);
-                setCurrentDepartment(null);
+        router.delete(
+            `/organization/departments/${crud.currentEntity.id}`,
+            {
+                onFinish: () => crud.confirmDeleteFinish(),
             },
-        });
+        );
     };
 
     const toggleStatus = (department: Department, enabled: boolean) => {
@@ -171,18 +161,21 @@ export function DepartmentsContent({
     };
 
     const submit = () => {
-        if (currentDepartment) {
-            form.put(`/organization/departments/${currentDepartment.id}`, {
-                preserveScroll: true,
-                onSuccess: () => setIsSheetOpen(false),
-            });
+        if (crud.currentEntity) {
+            form.put(
+                `/organization/departments/${crud.currentEntity.id}`,
+                {
+                    preserveScroll: true,
+                    onSuccess: () => crud.setIsSheetOpen(false),
+                },
+            );
 
             return;
         }
 
         form.post('/organization/departments', {
             preserveScroll: true,
-            onSuccess: () => setIsSheetOpen(false),
+            onSuccess: () => crud.setIsSheetOpen(false),
         });
     };
 
@@ -190,104 +183,75 @@ export function DepartmentsContent({
         list.applyFilters(next);
     };
 
-    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
-        const params = new URLSearchParams();
-
-        if (initialSearch) {
-            params.set('search', initialSearch);
-        }
-
-        if (initialFilters.id) {
-            params.set('id', initialFilters.id);
-        }
-
-        if (initialFilters.branch_id) {
-            params.set('branch_id', initialFilters.branch_id);
-        }
-
-        if (initialFilters.parent_id) {
-            params.set('parent_id', initialFilters.parent_id);
-        }
-
-        if (initialFilters.manager_id) {
-            params.set('manager_id', initialFilters.manager_id);
-        }
-
-        if (initialFilters.status) {
-            params.set('status', initialFilters.status);
-        }
-
-        if (initialFilters.code) {
-            params.set('code', initialFilters.code);
-        }
-
-        params.set('format', format);
-
-        return `/organization/departments/export?${params.toString()}`;
-    };
+    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') =>
+        buildListExportUrl('/organization/departments/export', {
+            search: initialSearch,
+            id: initialFilters.id,
+            branch_id: initialFilters.branch_id,
+            parent_id: initialFilters.parent_id,
+            manager_id: initialFilters.manager_id,
+            status: initialFilters.status,
+            code: initialFilters.code,
+            format,
+        });
 
     return (
-        <Main>
-            <PageHeader
-                title="Departments"
-                description="Manage departments across your organization."
-                right={
-                    <>
-                        <ExportMenu
-                            getUrl={getExportUrl}
-                            buttonVariant="secondary"
-                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
-                        />
-                        <Button
-                            onClick={handleAdd}
-                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
-                        >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Department
-                        </Button>
-                    </>
-                }
-            />
-
-            <SearchBar
-                placeholder="Search departments by name, code, company, branch, or manager..."
-                value={list.searchInput}
-                onChange={list.onSearchChange}
-                right={
-                    <>
+        <OrganizationListPageShell
+            title="Departments"
+            description="Manage departments across your organization."
+            headerRight={
+                <>
+                    <ExportMenu
+                        getUrl={getExportUrl}
+                        buttonVariant="secondary"
+                        buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                    />
+                    <Button
+                        onClick={handleAdd}
+                        className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Department
+                    </Button>
+                </>
+            }
+            search={{
+                placeholder:
+                    'Search departments by name, code, company, branch, or manager...',
+                value: list.searchInput,
+                onChange: list.onSearchChange,
+                right:
+                    crud.view && crud.setView ? (
                         <ViewToggle
-                            value={view}
-                            onChange={setView}
+                            value={crud.view}
+                            onChange={crud.setView}
                             showTreeView={true}
                         />
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
-                            onClick={() => setIsFiltersOpen(true)}
-                        >
-                            <Filter className="mr-2 h-4 w-4" />
-                            Filters
-                            {activeFiltersCount ? (
-                                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
-                                    {activeFiltersCount}
-                                </span>
-                            ) : null}
-                        </Button>
-                    </>
-                }
-            />
-
-            {view === 'tree' ? (
+                    ) : null,
+            }}
+            filtersButton={{
+                onClick: () => crud.setIsFiltersOpen(true),
+                activeFiltersCount,
+            }}
+            pagination={
+                crud.view !== 'tree' ? (
+                    <Pagination
+                        {...list.paginationProps}
+                        label="departments"
+                    />
+                ) : null
+            }
+        >
+            {crud.view === 'tree' ? (
                 <DepartmentTreeView departments={all_departments} />
-            ) : view === 'grid' ? (
+            ) : crud.view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     {departments.map((department) => (
                         <DepartmentCard
                             key={department.id}
                             department={department}
                             onEdit={handleEdit}
-                            onDelete={handleDelete}
+                            onDelete={crud.openDelete}
                             onToggleStatus={toggleStatus}
                         />
                     ))}
@@ -369,7 +333,7 @@ export function DepartmentsContent({
                                         }}
                                         onDelete={(e) => {
                                             e.stopPropagation();
-                                            handleDelete(department);
+                                            crud.openDelete(department);
                                         }}
                                     />
                                 </TableCell>
@@ -379,18 +343,14 @@ export function DepartmentsContent({
                 </OrganizationDataTable>
             )}
 
-            {view !== 'tree' && departments.length === 0 ? (
+            {crud.view !== 'tree' && departments.length === 0 ? (
                 <EmptyState title="No departments found." />
             ) : null}
 
-            {view !== 'tree' ? (
-                <Pagination {...list.paginationProps} label="departments" />
-            ) : null}
-
             <DepartmentFormSheet
-                open={isSheetOpen}
-                onOpenChange={setIsSheetOpen}
-                department={currentDepartment}
+                open={crud.isSheetOpen}
+                onOpenChange={crud.setIsSheetOpen}
+                department={crud.currentEntity}
                 branches={branches}
                 parents={parents}
                 managers={managers}
@@ -399,8 +359,8 @@ export function DepartmentsContent({
             />
 
             <DepartmentFiltersSheet
-                open={isFiltersOpen}
-                onOpenChange={setIsFiltersOpen}
+                open={crud.isFiltersOpen}
+                onOpenChange={crud.setIsFiltersOpen}
                 branches={branches}
                 parents={parents}
                 managers={managers}
@@ -419,11 +379,11 @@ export function DepartmentsContent({
             />
 
             <DepartmentDeleteDialog
-                open={isDeleteOpen}
-                onOpenChange={setIsDeleteOpen}
-                department={currentDepartment}
+                open={crud.isDeleteDialogOpen}
+                onOpenChange={crud.setIsDeleteDialogOpen}
+                department={crud.currentEntity}
                 onConfirm={confirmDelete}
             />
-        </Main>
+        </OrganizationListPageShell>
     );
 }
