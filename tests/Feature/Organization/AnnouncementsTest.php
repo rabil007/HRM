@@ -120,51 +120,6 @@ test('authorized users can create a draft announcement', function () {
         ->and($announcement->title)->toBe('Safety briefing');
 });
 
-test('announcement body must contain readable content', function () {
-    ['user' => $user, 'company' => $company] = makeAnnouncementFixtures();
-    $this->actingAs($user);
-    grantCompanyPermissions($user, $company, announcementPermissions());
-
-    $this->post('/organization/announcements', [
-        'title' => 'Empty editor',
-        'body_html' => '<p><br></p>',
-        'category' => 'general',
-        'priority' => 'normal',
-        'channels' => ['in_app'],
-        'audiences' => [['type' => 'all_employees', 'id' => null]],
-        'publish_mode' => 'draft',
-    ])->assertSessionHasErrors('body_html');
-});
-
-test('announcement rich text is sanitized before it is stored', function () {
-    ['user' => $user, 'company' => $company] = makeAnnouncementFixtures();
-    $this->actingAs($user);
-    grantCompanyPermissions($user, $company, announcementPermissions());
-
-    $this->post('/organization/announcements', [
-        'title' => 'Safe rich text',
-        'body_html' => '<h2>Update</h2><p>Read <strong>carefully</strong>.</p><a href="javascript:alert(1)" onclick="alert(1)">Unsafe</a><a href="https://example.com/policy">Policy</a><script>alert(1)</script>',
-        'category' => 'policy',
-        'priority' => 'normal',
-        'channels' => ['email'],
-        'audiences' => [['type' => 'all_employees', 'id' => null]],
-        'publish_mode' => 'draft',
-    ])->assertRedirect();
-
-    $body = (string) Announcement::query()
-        ->where('company_id', $company->id)
-        ->value('body_html');
-
-    expect($body)
-        ->toContain('<h2>Update</h2>')
-        ->toContain('<strong>carefully</strong>')
-        ->toContain('href="https://example.com/policy"')
-        ->not->toContain('javascript:')
-        ->not->toContain('onclick')
-        ->not->toContain('<script')
-        ->not->toContain('alert(1)');
-});
-
 test('draft announcements can be deleted and published ones cannot', function () {
     ['user' => $user, 'company' => $company] = makeAnnouncementFixtures();
     $this->actingAs($user);
@@ -307,8 +262,7 @@ test('announcement show includes structured channel previews for selected channe
         'priority' => 'urgent',
         'status' => AnnouncementStatus::Draft,
         'channels' => ['in_app', 'email', 'whatsapp'],
-        'whatsapp_message' => 'WhatsApp-ready safety summary',
-        'whatsapp_link' => 'https://example.com/test-announcement',
+        'whatsapp_link' => 'https://files.example.com/test-announcement',
         'created_by' => $user->id,
     ]);
 
@@ -321,10 +275,8 @@ test('announcement show includes structured channel previews for selected channe
             ->where('announcement.channel_previews.in_app.priority_label', 'Urgent')
             ->where('announcement.channel_previews.email.subject', 'Urgent Announcement — Test Announcement')
             ->where('announcement.channel_previews.email.html', fn ($html) => is_string($html) && str_contains($html, 'Test Announcement By Rabil'))
-            ->where('announcement.channel_previews.whatsapp.body_text', fn ($text) => is_string($text) && str_contains($text, 'WhatsApp-ready safety summary') && str_contains($text, 'https://example.com/test-announcement'))
+            ->where('announcement.channel_previews.whatsapp.body_text', fn ($text) => is_string($text) && str_contains($text, 'Test Announcement'))
             ->where('announcement.channel_previews.whatsapp.company_name', 'Announcement Co')
-            ->where('announcement.channel_previews.whatsapp.whatsapp_link', 'https://example.com/test-announcement')
-            ->where('announcement.whatsapp_link', 'https://example.com/test-announcement')
         );
 });
 

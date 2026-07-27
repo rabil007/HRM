@@ -7,7 +7,6 @@ use App\Models\AnnouncementDelivery;
 use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\Actions\RefreshAnnouncementDeliveryStatus;
-use App\Support\Announcements\AnnouncementWhatsAppMessage;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -65,20 +64,6 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $viewLink = trim((string) ($announcement->whatsapp_link ?? ''));
-
-        if ($viewLink === '') {
-            $delivery->update([
-                'status' => AnnouncementDeliveryStatus::Failed,
-                'failed_at' => now(),
-                'failure_reason' => 'WhatsApp view link is missing.',
-                'attempt_count' => $delivery->attempt_count + 1,
-            ]);
-            $refreshStatus->handle($announcement);
-
-            return;
-        }
-
         $template = WhatsAppTemplate::query()
             ->where('slug', 'announcement')
             ->where('enabled', true)
@@ -96,8 +81,23 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        $viewLink = trim((string) ($announcement->whatsapp_link ?? ''));
+
+        if ($viewLink === '') {
+            $delivery->update([
+                'status' => AnnouncementDeliveryStatus::Failed,
+                'failed_at' => now(),
+                'failure_reason' => 'WhatsApp view link is missing.',
+                'attempt_count' => $delivery->attempt_count + 1,
+            ]);
+            $refreshStatus->handle($announcement);
+
+            return;
+        }
+
         $companyName = (string) ($announcement->company?->name ?? config('app.name'));
-        $summary = AnnouncementWhatsAppMessage::for($announcement);
+        $shortBody = str($announcement->body_html)->stripTags()->limit(200)->toString();
+        $shortSummary = $shortBody !== '' ? $shortBody : (string) $announcement->title;
 
         $components = [
             [
@@ -105,7 +105,7 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
                 'parameters' => [
                     ['type' => 'text', 'text' => $companyName],
                     ['type' => 'text', 'text' => (string) $announcement->title],
-                    ['type' => 'text', 'text' => $summary],
+                    ['type' => 'text', 'text' => $shortSummary],
                     ['type' => 'text', 'text' => $announcement->priority->label()],
                     ['type' => 'text', 'text' => $viewLink],
                 ],

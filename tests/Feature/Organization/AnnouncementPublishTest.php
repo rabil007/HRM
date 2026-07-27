@@ -94,7 +94,6 @@ test('publishing snapshots recipients and queues channel jobs', function () {
         'priority' => 'normal',
         'status' => AnnouncementStatus::Draft,
         'channels' => ['in_app', 'email', 'whatsapp'],
-        'whatsapp_link' => 'https://example.com/meeting',
         'created_by' => $user->id,
     ]);
 
@@ -144,7 +143,7 @@ test('email is queued individually and whatsapp failure does not block email', f
         'priority' => 'high',
         'status' => AnnouncementStatus::Published,
         'channels' => ['email', 'whatsapp'],
-        'whatsapp_link' => 'https://example.com/policy',
+        'whatsapp_link' => 'https://files.example.com/policy-update',
         'created_by' => $user->id,
         'published_by' => $user->id,
         'published_at' => now(),

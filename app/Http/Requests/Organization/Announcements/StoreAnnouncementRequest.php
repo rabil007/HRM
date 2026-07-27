@@ -7,12 +7,9 @@ use App\Enums\AnnouncementCategory;
 use App\Enums\AnnouncementChannel;
 use App\Enums\AnnouncementPriority;
 use App\Support\Announcements\Actions\PersistAnnouncement;
-use App\Support\Announcements\AnnouncementWhatsAppMessage;
-use App\Support\Announcements\SanitizeAnnouncementHtml;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Validator;
 
 class StoreAnnouncementRequest extends FormRequest
 {
@@ -28,23 +25,17 @@ class StoreAnnouncementRequest extends FormRequest
     {
         return [
             'title' => ['required', 'string', 'max:255'],
-            'body_html' => ['required', 'string', 'max:65535'],
+            'body_html' => ['required', 'string'],
             'category' => ['required', Rule::in(AnnouncementCategory::values())],
             'priority' => ['required', Rule::in(AnnouncementPriority::values())],
             'channels' => ['required', 'array', 'min:1'],
             'channels.*' => ['required', Rule::in(AnnouncementChannel::values())],
-            'whatsapp_message' => [
-                Rule::requiredIf(fn (): bool => in_array(AnnouncementChannel::WhatsApp->value, $this->input('channels', []), true)),
-                'nullable',
-                'string',
-                'max:'.AnnouncementWhatsAppMessage::MAX_LENGTH,
-            ],
             'whatsapp_link' => [
                 Rule::requiredIf(fn (): bool => in_array(AnnouncementChannel::WhatsApp->value, $this->input('channels', []), true)),
                 'nullable',
                 'string',
-                'max:2048',
                 'url:http,https',
+                'max:2048',
             ],
             'audiences' => ['required', 'array', 'min:1'],
             'audiences.*.type' => ['required', Rule::in(AnnouncementAudienceType::values())],
@@ -55,40 +46,13 @@ class StoreAnnouncementRequest extends FormRequest
         ];
     }
 
-    /**
-     * @return array<string, string>
-     */
-    public function messages(): array
+    protected function prepareForValidation(): void
     {
-        return [
-            'body_html.max' => 'Keep the announcement body under 65,535 characters.',
-            'whatsapp_message.required' => 'Add a plain-text WhatsApp summary when WhatsApp delivery is selected.',
-            'whatsapp_message.max' => 'Keep the WhatsApp summary within '.AnnouncementWhatsAppMessage::MAX_LENGTH.' characters.',
-            'whatsapp_link.required' => 'Add a WhatsApp view link when WhatsApp delivery is selected.',
-            'whatsapp_link.url' => 'Enter a valid http or https link for WhatsApp.',
-        ];
-    }
+        $channels = array_values(array_map('strval', $this->input('channels', [])));
 
-    /**
-     * @return list<callable>
-     */
-    public function after(): array
-    {
-        return [
-            function (Validator $validator): void {
-                $body = $this->input('body_html');
-
-                if (! is_string($body)) {
-                    return;
-                }
-
-                $sanitized = SanitizeAnnouncementHtml::handle($body);
-
-                if (AnnouncementWhatsAppMessage::fromHtml($sanitized) === '') {
-                    $validator->errors()->add('body_html', 'Write a message before saving the announcement.');
-                }
-            },
-        ];
+        if (! in_array(AnnouncementChannel::WhatsApp->value, $channels, true)) {
+            $this->merge(['whatsapp_link' => null]);
+        }
     }
 
     protected function passedValidation(): void

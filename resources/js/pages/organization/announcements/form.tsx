@@ -38,7 +38,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { AnnouncementMessageEditor } from '@/features/organization/announcements/announcement-message-editor';
 import type {
     AnnouncementCan,
     AnnouncementFormData,
@@ -46,10 +45,7 @@ import type {
     AnnouncementFormPayload,
     RecipientPreview,
 } from '@/features/organization/announcements/types';
-import { WhatsAppDocumentTemplatePreview } from '@/features/settings/whatsapp-document-template-preview';
 import { cn } from '@/lib/utils';
-
-const WHATSAPP_MESSAGE_MAX_LENGTH = 500;
 
 const CHANNELS = [
     {
@@ -72,24 +68,6 @@ const CHANNELS = [
     },
 ] as const;
 
-function announcementHtmlToPlainText(html: string): string {
-    const withLineBreaks = html.replace(
-        /<(?:br\s*\/?|\/(?:p|div|li|h[1-6]|blockquote))\s*>/gi,
-        '\n',
-    );
-    const document = new DOMParser().parseFromString(
-        withLineBreaks,
-        'text/html',
-    );
-
-    return (document.body.textContent ?? '')
-        .replace(/[^\S\n]+/g, ' ')
-        .replace(/ *\n */g, '\n')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim()
-        .slice(0, WHATSAPP_MESSAGE_MAX_LENGTH);
-}
-
 function SectionCard({
     icon,
     title,
@@ -111,9 +89,7 @@ function SectionCard({
                     {title}
                 </h2>
                 {description ? (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        {description}
-                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">{description}</p>
                 ) : null}
             </div>
             <div className="p-6">{children}</div>
@@ -207,7 +183,8 @@ function DepartmentTreeNode({
 
     const isFullySelected =
         familyIds.length > 0 && selectedFamilyCount === familyIds.length;
-    const isPartiallySelected = selectedFamilyCount > 0 && !isFullySelected;
+    const isPartiallySelected =
+        selectedFamilyCount > 0 && !isFullySelected;
     const isSelfSelected = selectedIds.includes(item.id);
 
     // Search filter logic
@@ -250,8 +227,7 @@ function DepartmentTreeNode({
             <div
                 className={cn(
                     'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-muted/50',
-                    isFullySelected &&
-                        'bg-primary/5 font-medium text-foreground',
+                    isFullySelected && 'bg-primary/5 font-medium text-foreground',
                     isPartiallySelected && 'bg-primary/5 text-foreground',
                 )}
                 style={{ paddingLeft: `${depth * 1.25 + 0.625}rem` }}
@@ -284,7 +260,7 @@ function DepartmentTreeNode({
                 />
 
                 <div
-                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 select-none"
+                    className="flex flex-1 cursor-pointer items-center gap-2 min-w-0 select-none"
                     onClick={handleToggle}
                 >
                     {hasChildren ? (
@@ -298,7 +274,7 @@ function DepartmentTreeNode({
                 </div>
 
                 {hasChildren ? (
-                    <span className="shrink-0 rounded-full bg-muted/60 px-2 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
+                    <span className="shrink-0 font-mono text-[11px] font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
                         {selectedFamilyCount > 0
                             ? `${selectedFamilyCount}/${familyIds.length}`
                             : `${children.length} sub-dept${children.length !== 1 ? 's' : ''}`}
@@ -357,7 +333,10 @@ function DepartmentTreePicker({
         return map;
     }, [items]);
 
-    const itemIdsSet = useMemo(() => new Set(items.map((i) => i.id)), [items]);
+    const itemIdsSet = useMemo(
+        () => new Set(items.map((i) => i.id)),
+        [items],
+    );
 
     const rootItems = useMemo(
         () =>
@@ -385,9 +364,10 @@ function DepartmentTreePicker({
     );
 
     const allSelected =
-        items.length > 0 &&
-        items.every((item) => selectedIds.includes(item.id));
-    const selectedItems = items.filter((item) => selectedIds.includes(item.id));
+        items.length > 0 && items.every((item) => selectedIds.includes(item.id));
+    const selectedItems = items.filter((item) =>
+        selectedIds.includes(item.id),
+    );
     const visibleSelectedItems = allSelected
         ? []
         : selectedItems.slice(0, MAX_VISIBLE_AUDIENCE_CHIPS);
@@ -479,7 +459,9 @@ function DepartmentTreePicker({
                                 <Input
                                     placeholder="Search departments…"
                                     value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
+                                    onChange={(e) =>
+                                        setSearch(e.target.value)
+                                    }
                                     className="h-8 flex-1 text-xs"
                                 />
                             ) : null}
@@ -492,7 +474,7 @@ function DepartmentTreePicker({
                             </button>
                         </div>
 
-                        <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                        <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
                             {rootItems.length === 0 ? (
                                 <p className="py-4 text-center text-xs text-muted-foreground">
                                     No departments available
@@ -585,11 +567,7 @@ function AudiencePicker({
                                         type="button"
                                         className="ml-0.5 rounded-full opacity-60 transition-opacity hover:opacity-100"
                                         onClick={() =>
-                                            onToggleBatch(
-                                                type,
-                                                [item.id],
-                                                false,
-                                            )
+                                            onToggleBatch(type, [item.id], false)
                                         }
                                     >
                                         <X className="size-3" />
@@ -641,7 +619,9 @@ function AudiencePicker({
                                 <Input
                                     placeholder="Search…"
                                     value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
+                                    onChange={(e) =>
+                                        setSearch(e.target.value)
+                                    }
                                     className="h-7 flex-1 text-xs"
                                 />
                             ) : null}
@@ -661,7 +641,9 @@ function AudiencePicker({
                                 </p>
                             ) : null}
                             {filtered.map((item) => {
-                                const isChecked = selectedIds.includes(item.id);
+                                const isChecked = selectedIds.includes(
+                                    item.id,
+                                );
 
                                 return (
                                     <label
@@ -722,9 +704,7 @@ export default function AnnouncementFormPage({
     });
     const [preview, setPreview] = useState<RecipientPreview | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
-    const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
-        null,
-    );
+    const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [activeAudienceType, setActiveAudienceType] = useState<string>(
         announcement?.audiences.some((a) => a.type === 'all_employees')
             ? 'all_employees'
@@ -737,7 +717,6 @@ export default function AnnouncementFormPage({
         category: announcement?.category ?? 'general',
         priority: announcement?.priority ?? 'normal',
         channels: announcement?.channels ?? ['in_app'],
-        whatsapp_message: announcement?.whatsapp_message ?? '',
         whatsapp_link: announcement?.whatsapp_link ?? '',
         audiences: announcement?.audiences?.length
             ? announcement.audiences
@@ -752,66 +731,12 @@ export default function AnnouncementFormPage({
         const next = checked
             ? [...form.data.channels, channel]
             : form.data.channels.filter((c) => c !== channel);
-        form.setData('channels', next);
-
-        if (channel !== 'whatsapp') {
-            return;
-        }
-
-        if (!checked) {
-            form.setData((data) => ({
-                ...data,
-                whatsapp_message: '',
-                whatsapp_link: '',
-            }));
-
-            return;
-        }
-
-        if (form.data.whatsapp_message.trim() === '') {
-            form.setData(
-                'whatsapp_message',
-                announcementHtmlToPlainText(form.data.body_html),
-            );
-        }
+        form.setData((data) => ({
+            ...data,
+            channels: next,
+            whatsapp_link: next.includes('whatsapp') ? data.whatsapp_link : '',
+        }));
     };
-
-    const whatsappTemplateBody = useMemo(() => {
-        if (!options.whatsapp_template) {
-            return 'The WhatsApp announcement template is not configured.';
-        }
-
-        const priority =
-            options.priorities.find(
-                (option) => option.value === form.data.priority,
-            )?.label ?? form.data.priority;
-        const values = [
-            options.company_name,
-            form.data.title || 'Announcement title',
-            form.data.whatsapp_message || 'WhatsApp summary',
-            priority,
-            form.data.whatsapp_link || 'https://example.com/announcement',
-        ];
-
-        return values.reduce(
-            (body, value, index) =>
-                body
-                    .replaceAll(`{{${index + 1}}}`, value)
-                    .replaceAll(
-                        `{{${['company', 'title', 'message', 'priority', 'url'][index]}}}`,
-                        value,
-                    ),
-            options.whatsapp_template.body_preview,
-        );
-    }, [
-        form.data.priority,
-        form.data.title,
-        form.data.whatsapp_link,
-        form.data.whatsapp_message,
-        options.company_name,
-        options.priorities,
-        options.whatsapp_template,
-    ]);
 
     const selectAudienceType = (type: string) => {
         setActiveAudienceType(type);
@@ -837,9 +762,7 @@ export default function AnnouncementFormPage({
         idsToToggle: number[],
         checked: boolean,
     ) => {
-        const otherAudiences = form.data.audiences.filter(
-            (a) => a.type !== type,
-        );
+        const otherAudiences = form.data.audiences.filter((a) => a.type !== type);
         const currentTypeIds = new Set(
             form.data.audiences
                 .filter((a) => a.type === type)
@@ -858,9 +781,7 @@ export default function AnnouncementFormPage({
             checked &&
             options.employees.length > 0 &&
             currentTypeIds.size === options.employees.length &&
-            options.employees.every((employee) =>
-                currentTypeIds.has(employee.id),
-            )
+            options.employees.every((employee) => currentTypeIds.has(employee.id))
         ) {
             setActiveAudienceType('all_employees');
             form.setData('audiences', [{ type: 'all_employees', id: null }]);
@@ -895,9 +816,7 @@ export default function AnnouncementFormPage({
             otherAudiences.length === 0 &&
             options.employees.length > 0 &&
             employeeIds.length === options.employees.length &&
-            options.employees.every((employee) =>
-                employeeIds.includes(employee.id),
-            )
+            options.employees.every((employee) => employeeIds.includes(employee.id))
         ) {
             return [{ type: 'all_employees', id: null }];
         }
@@ -907,10 +826,7 @@ export default function AnnouncementFormPage({
 
     const previewRequestIdRef = useRef(0);
 
-    const loadPreview = (
-        channels: string[],
-        audiences: { type: string; id: number | null }[],
-    ) => {
+    const loadPreview = (channels: string[], audiences: { type: string; id: number | null }[]) => {
         const requestId = ++previewRequestIdRef.current;
         const requestAudiences = audiencesForRequest(audiences);
 
@@ -955,7 +871,7 @@ export default function AnnouncementFormPage({
                 clearTimeout(previewDebounceRef.current);
             }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [form.data.channels, form.data.audiences]);
 
     const submit = (mode: AnnouncementFormData['publish_mode']) => {
@@ -1020,6 +936,257 @@ export default function AnnouncementFormPage({
                         </p>
                     </div>
 
+                    {/* Message content */}
+                    <SectionCard
+                        icon={<FileText className="size-4 text-primary" />}
+                        title="Message content"
+                    >
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="title">Title</Label>
+                                <Input
+                                    id="title"
+                                    placeholder="e.g. Office closed on Friday, 25 July"
+                                    value={form.data.title}
+                                    onChange={(e) =>
+                                        form.setData('title', e.target.value)
+                                    }
+                                />
+                                <InputError message={form.errors.title} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="body_html">Message body</Label>
+                                <Textarea
+                                    id="body_html"
+                                    rows={8}
+                                    placeholder="Write the full announcement here..."
+                                    value={form.data.body_html}
+                                    onChange={(e) =>
+                                        form.setData('body_html', e.target.value)
+                                    }
+                                />
+                                <InputError message={form.errors.body_html} />
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                    <Label>Category</Label>
+                                    <Select
+                                        value={form.data.category}
+                                        onValueChange={(value) =>
+                                            form.setData('category', value)
+                                        }
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {options.categories.map((option) => (
+                                                <SelectItem
+                                                    key={option.value}
+                                                    value={option.value}
+                                                >
+                                                    {option.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Priority</Label>
+                                    <Select
+                                        value={form.data.priority}
+                                        onValueChange={(value) =>
+                                            form.setData('priority', value)
+                                        }
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {options.priorities.map((option) => (
+                                                <SelectItem
+                                                    key={option.value}
+                                                    value={option.value}
+                                                >
+                                                    {option.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                    <Label htmlFor="expires_at">
+                                        Expiry date{' '}
+                                        <span className="text-xs text-muted-foreground">
+                                            (optional)
+                                        </span>
+                                    </Label>
+                                    <Input
+                                        id="expires_at"
+                                        type="datetime-local"
+                                        value={form.data.expires_at}
+                                        onChange={(e) =>
+                                            form.setData('expires_at', e.target.value)
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </SectionCard>
+
+                    {/* Audience */}
+                    <SectionCard
+                        icon={<Users className="size-4 text-primary" />}
+                        title="Audience"
+                        description="Choose who should receive this announcement."
+                    >
+                        <div className="space-y-4">
+                            {/* Audience type cards */}
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                                {AUDIENCE_TYPES.map((type) => {
+                                    const isActive =
+                                        activeAudienceType === type.value;
+                                    const count =
+                                        type.value === 'all_employees'
+                                            ? null
+                                            : audienceOptions[type.value]
+                                                  ?.length ?? 0;
+                                    const selectedCount =
+                                        type.value !== 'all_employees'
+                                            ? selectedIds(type.value).length
+                                            : null;
+
+                                    return (
+                                        <button
+                                            key={type.value}
+                                            type="button"
+                                            onClick={() =>
+                                                selectAudienceType(type.value)
+                                            }
+                                            className={cn(
+                                                'flex flex-col items-start gap-2 rounded-xl border p-3.5 text-left text-sm transition-all',
+                                                isActive
+                                                    ? [
+                                                          type.borderColor,
+                                                          type.bgColor,
+                                                          'shadow-sm',
+                                                      ]
+                                                    : 'border-border/60 hover:border-border hover:bg-muted/30',
+                                            )}
+                                        >
+                                            <div
+                                                className={cn(
+                                                    'flex size-8 items-center justify-center rounded-lg',
+                                                    isActive
+                                                        ? [
+                                                              type.bgColor,
+                                                              type.color,
+                                                          ]
+                                                        : 'bg-muted text-muted-foreground',
+                                                )}
+                                            >
+                                                <type.Icon className="size-4" />
+                                            </div>
+                                            <div className="w-full">
+                                                <div className="flex items-center justify-between gap-1">
+                                                    <span
+                                                        className={cn(
+                                                            'font-medium leading-tight',
+                                                            isActive
+                                                                ? type.color
+                                                                : 'text-foreground',
+                                                        )}
+                                                    >
+                                                        {type.label}
+                                                    </span>
+                                                    {count !== null ? (
+                                                        <span
+                                                            className={cn(
+                                                                'rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+                                                                isActive
+                                                                    ? [
+                                                                          type.bgColor,
+                                                                          type.color,
+                                                                      ]
+                                                                    : 'bg-muted text-muted-foreground',
+                                                            )}
+                                                        >
+                                                            {selectedCount
+                                                                ? `${selectedCount}/${count}`
+                                                                : count}
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                                <p className="mt-0.5 text-xs text-muted-foreground leading-tight">
+                                                    {type.description}
+                                                </p>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* All employees confirmation */}
+                            {activeAudienceType === 'all_employees' ? (
+                                <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">
+                                    <Globe className="size-4 shrink-0" />
+                                    <span>
+                                        This announcement will be sent to{' '}
+                                        <strong>all active employees</strong>{' '}
+                                        in the system.
+                                    </span>
+                                </div>
+                            ) : null}
+
+                            {/* Sub-picker for non-all modes */}
+                            {activeAudienceType === 'department' ? (
+                                <DepartmentTreePicker
+                                    items={options.departments}
+                                    selectedIds={selectedIds('department')}
+                                    onToggleBatch={toggleAudienceBatch}
+                                    onClear={() =>
+                                        clearAudienceType('department')
+                                    }
+                                />
+                            ) : activeAudienceType !== 'all_employees' &&
+                              audienceOptions[activeAudienceType] ? (
+                                <AudiencePicker
+                                    type={activeAudienceType}
+                                    items={
+                                        audienceOptions[activeAudienceType]
+                                    }
+                                    selectedIds={selectedIds(
+                                        activeAudienceType,
+                                    )}
+                                    onToggleBatch={toggleAudienceBatch}
+                                    onClear={() =>
+                                        clearAudienceType(activeAudienceType)
+                                    }
+                                    onSelectAll={
+                                        activeAudienceType === 'employee'
+                                            ? () =>
+                                                  selectAudienceType(
+                                                      'all_employees',
+                                                  )
+                                            : undefined
+                                    }
+                                />
+                            ) : null}
+
+                            {/* Validation warning when nothing chosen in non-all mode */}
+                            {activeAudienceType !== 'all_employees' &&
+                            totalAudienceSelected === 0 ? (
+                                <p className="text-xs text-warning">
+                                    Select at least one option to continue.
+                                </p>
+                            ) : null}
+
+                            <InputError message={form.errors.audiences} />
+                        </div>
+                    </SectionCard>
+
                     {/* Delivery channels */}
                     <SectionCard
                         icon={<Send className="size-4 text-primary" />}
@@ -1064,9 +1231,7 @@ export default function AnnouncementFormPage({
                                             />
                                         </div>
                                         <div>
-                                            <p className="font-medium">
-                                                {channel.label}
-                                            </p>
+                                            <p className="font-medium">{channel.label}</p>
                                             <p className="text-xs text-muted-foreground">
                                                 {channel.description}
                                             </p>
@@ -1078,378 +1243,30 @@ export default function AnnouncementFormPage({
                         <InputError message={form.errors.channels} />
 
                         {form.data.channels.includes('whatsapp') ? (
-                            <div className="grid gap-5 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <Label htmlFor="whatsapp_message">
-                                                WhatsApp summary
-                                            </Label>
-                                            <span
-                                                className={cn(
-                                                    'text-xs text-muted-foreground tabular-nums',
-                                                    form.data.whatsapp_message
-                                                        .length >=
-                                                        WHATSAPP_MESSAGE_MAX_LENGTH &&
-                                                        'font-medium text-destructive',
-                                                )}
-                                            >
-                                                {
-                                                    form.data.whatsapp_message
-                                                        .length
-                                                }
-                                                /{WHATSAPP_MESSAGE_MAX_LENGTH}
-                                            </span>
-                                        </div>
-                                        <Textarea
-                                            id="whatsapp_message"
-                                            rows={5}
-                                            maxLength={
-                                                WHATSAPP_MESSAGE_MAX_LENGTH
-                                            }
-                                            placeholder="Write the plain-text summary inserted into the approved WhatsApp template."
-                                            value={form.data.whatsapp_message}
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'whatsapp_message',
-                                                    event.target.value,
-                                                )
-                                            }
-                                            aria-invalid={Boolean(
-                                                form.errors.whatsapp_message,
-                                            )}
-                                        />
-                                        <p className="text-xs text-muted-foreground">
-                                            Plain text only. This fills the
-                                            template&apos;s summary variable;
-                                            the approved wording around it
-                                            cannot be changed here.
-                                        </p>
-                                        <InputError
-                                            message={
-                                                form.errors.whatsapp_message
-                                            }
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="whatsapp_link">
-                                            WhatsApp view link
-                                        </Label>
-                                        <Input
-                                            id="whatsapp_link"
-                                            type="url"
-                                            inputMode="url"
-                                            placeholder="https://example.com/your-document"
-                                            value={form.data.whatsapp_link}
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'whatsapp_link',
-                                                    event.target.value,
-                                                )
-                                            }
-                                            aria-invalid={Boolean(
-                                                form.errors.whatsapp_link,
-                                            )}
-                                        />
-                                        <p className="text-xs text-muted-foreground">
-                                            Paste the link recipients should
-                                            open from the WhatsApp message.
-                                        </p>
-                                        <InputError
-                                            message={form.errors.whatsapp_link}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="min-w-0">
-                                    {options.whatsapp_template ? (
-                                        <WhatsAppDocumentTemplatePreview
-                                            templateName={
-                                                options.whatsapp_template
-                                                    .meta_name
-                                            }
-                                            templateLanguage={
-                                                options.whatsapp_template
-                                                    .meta_language
-                                            }
-                                            bodyText={whatsappTemplateBody}
-                                            headerType="none"
-                                            accountName={options.company_name}
-                                            className="mx-auto"
-                                        />
-                                    ) : (
-                                        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-                                            Configure and enable the
-                                            announcement template before sending
-                                            through WhatsApp.
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ) : null}
-                    </SectionCard>
-
-                    {/* Message content */}
-                    <SectionCard
-                        icon={<FileText className="size-4 text-primary" />}
-                        title="Message content"
-                    >
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="title">Title</Label>
-                                <Input
-                                    id="title"
-                                    placeholder="e.g. Office closed on Friday, 25 July"
-                                    value={form.data.title}
-                                    onChange={(e) =>
-                                        form.setData('title', e.target.value)
-                                    }
-                                />
-                                <InputError message={form.errors.title} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="body_html">
-                                    Full announcement
+                            <div className="mt-5 space-y-2 border-t border-border/60 pt-5">
+                                <Label htmlFor="whatsapp_link">
+                                    WhatsApp view link
                                 </Label>
-                                <AnnouncementMessageEditor
-                                    id="body_html"
-                                    value={form.data.body_html}
-                                    onChange={(value) =>
-                                        form.setData('body_html', value)
+                                <Input
+                                    id="whatsapp_link"
+                                    type="url"
+                                    inputMode="url"
+                                    placeholder="https://example.com/your-document"
+                                    value={form.data.whatsapp_link}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'whatsapp_link',
+                                            event.target.value,
+                                        )
                                     }
-                                    invalid={Boolean(form.errors.body_html)}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    Rich formatting is used in email and in-app
-                                    views. WhatsApp uses the plain-text summary
-                                    in Delivery channels.
+                                    Paste the custom link recipients should open
+                                    from the WhatsApp message.
                                 </p>
-                                <InputError message={form.errors.body_html} />
+                                <InputError message={form.errors.whatsapp_link} />
                             </div>
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label>Category</Label>
-                                    <Select
-                                        value={form.data.category}
-                                        onValueChange={(value) =>
-                                            form.setData('category', value)
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {options.categories.map(
-                                                (option) => (
-                                                    <SelectItem
-                                                        key={option.value}
-                                                        value={option.value}
-                                                    >
-                                                        {option.label}
-                                                    </SelectItem>
-                                                ),
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Priority</Label>
-                                    <Select
-                                        value={form.data.priority}
-                                        onValueChange={(value) =>
-                                            form.setData('priority', value)
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {options.priorities.map(
-                                                (option) => (
-                                                    <SelectItem
-                                                        key={option.value}
-                                                        value={option.value}
-                                                    >
-                                                        {option.label}
-                                                    </SelectItem>
-                                                ),
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="expires_at">
-                                        Expiry date{' '}
-                                        <span className="text-xs text-muted-foreground">
-                                            (optional)
-                                        </span>
-                                    </Label>
-                                    <Input
-                                        id="expires_at"
-                                        type="datetime-local"
-                                        value={form.data.expires_at}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'expires_at',
-                                                e.target.value,
-                                            )
-                                        }
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </SectionCard>
-
-                    {/* Audience */}
-                    <SectionCard
-                        icon={<Users className="size-4 text-primary" />}
-                        title="Audience"
-                        description="Choose who should receive this announcement."
-                    >
-                        <div className="space-y-4">
-                            {/* Audience type cards */}
-                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                                {AUDIENCE_TYPES.map((type) => {
-                                    const isActive =
-                                        activeAudienceType === type.value;
-                                    const count =
-                                        type.value === 'all_employees'
-                                            ? null
-                                            : (audienceOptions[type.value]
-                                                  ?.length ?? 0);
-                                    const selectedCount =
-                                        type.value !== 'all_employees'
-                                            ? selectedIds(type.value).length
-                                            : null;
-
-                                    return (
-                                        <button
-                                            key={type.value}
-                                            type="button"
-                                            onClick={() =>
-                                                selectAudienceType(type.value)
-                                            }
-                                            className={cn(
-                                                'flex flex-col items-start gap-2 rounded-xl border p-3.5 text-left text-sm transition-all',
-                                                isActive
-                                                    ? [
-                                                          type.borderColor,
-                                                          type.bgColor,
-                                                          'shadow-sm',
-                                                      ]
-                                                    : 'border-border/60 hover:border-border hover:bg-muted/30',
-                                            )}
-                                        >
-                                            <div
-                                                className={cn(
-                                                    'flex size-8 items-center justify-center rounded-lg',
-                                                    isActive
-                                                        ? [
-                                                              type.bgColor,
-                                                              type.color,
-                                                          ]
-                                                        : 'bg-muted text-muted-foreground',
-                                                )}
-                                            >
-                                                <type.Icon className="size-4" />
-                                            </div>
-                                            <div className="w-full">
-                                                <div className="flex items-center justify-between gap-1">
-                                                    <span
-                                                        className={cn(
-                                                            'leading-tight font-medium',
-                                                            isActive
-                                                                ? type.color
-                                                                : 'text-foreground',
-                                                        )}
-                                                    >
-                                                        {type.label}
-                                                    </span>
-                                                    {count !== null ? (
-                                                        <span
-                                                            className={cn(
-                                                                'rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
-                                                                isActive
-                                                                    ? [
-                                                                          type.bgColor,
-                                                                          type.color,
-                                                                      ]
-                                                                    : 'bg-muted text-muted-foreground',
-                                                            )}
-                                                        >
-                                                            {selectedCount
-                                                                ? `${selectedCount}/${count}`
-                                                                : count}
-                                                        </span>
-                                                    ) : null}
-                                                </div>
-                                                <p className="mt-0.5 text-xs leading-tight text-muted-foreground">
-                                                    {type.description}
-                                                </p>
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            {/* All employees confirmation */}
-                            {activeAudienceType === 'all_employees' ? (
-                                <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">
-                                    <Globe className="size-4 shrink-0" />
-                                    <span>
-                                        This announcement will be sent to{' '}
-                                        <strong>all active employees</strong> in
-                                        the system.
-                                    </span>
-                                </div>
-                            ) : null}
-
-                            {/* Sub-picker for non-all modes */}
-                            {activeAudienceType === 'department' ? (
-                                <DepartmentTreePicker
-                                    items={options.departments}
-                                    selectedIds={selectedIds('department')}
-                                    onToggleBatch={toggleAudienceBatch}
-                                    onClear={() =>
-                                        clearAudienceType('department')
-                                    }
-                                />
-                            ) : activeAudienceType !== 'all_employees' &&
-                              audienceOptions[activeAudienceType] ? (
-                                <AudiencePicker
-                                    type={activeAudienceType}
-                                    items={audienceOptions[activeAudienceType]}
-                                    selectedIds={selectedIds(
-                                        activeAudienceType,
-                                    )}
-                                    onToggleBatch={toggleAudienceBatch}
-                                    onClear={() =>
-                                        clearAudienceType(activeAudienceType)
-                                    }
-                                    onSelectAll={
-                                        activeAudienceType === 'employee'
-                                            ? () =>
-                                                  selectAudienceType(
-                                                      'all_employees',
-                                                  )
-                                            : undefined
-                                    }
-                                />
-                            ) : null}
-
-                            {/* Validation warning when nothing chosen in non-all mode */}
-                            {activeAudienceType !== 'all_employees' &&
-                            totalAudienceSelected === 0 ? (
-                                <p className="text-xs text-warning">
-                                    Select at least one option to continue.
-                                </p>
-                            ) : null}
-
-                            <InputError message={form.errors.audiences} />
-                        </div>
+                        ) : null}
                     </SectionCard>
 
                     {/* Attachments (edit mode only) */}
@@ -1461,37 +1278,31 @@ export default function AnnouncementFormPage({
                             <div className="space-y-3">
                                 {announcement.attachments.length > 0 ? (
                                     <ul className="space-y-2">
-                                        {announcement.attachments.map(
-                                            (attachment) => (
-                                                <li
-                                                    key={attachment.id}
-                                                    className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 text-sm"
+                                        {announcement.attachments.map((attachment) => (
+                                            <li
+                                                key={attachment.id}
+                                                className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 text-sm"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <FileText className="size-4 text-muted-foreground" />
+                                                    <span>{attachment.original_name}</span>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                    onClick={() =>
+                                                        router.delete(
+                                                            `/organization/announcements/${announcement.id}/attachments/${attachment.id}`,
+                                                        )
+                                                    }
                                                 >
-                                                    <div className="flex items-center gap-2">
-                                                        <FileText className="size-4 text-muted-foreground" />
-                                                        <span>
-                                                            {
-                                                                attachment.original_name
-                                                            }
-                                                        </span>
-                                                    </div>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                        onClick={() =>
-                                                            router.delete(
-                                                                `/organization/announcements/${announcement.id}/attachments/${attachment.id}`,
-                                                            )
-                                                        }
-                                                    >
-                                                        <Trash2 className="size-3.5" />
-                                                        Remove
-                                                    </Button>
-                                                </li>
-                                            ),
-                                        )}
+                                                    <Trash2 className="size-3.5" />
+                                                    Remove
+                                                </Button>
+                                            </li>
+                                        ))}
                                     </ul>
                                 ) : (
                                     <p className="text-sm text-muted-foreground">
@@ -1550,39 +1361,28 @@ export default function AnnouncementFormPage({
                                     type="datetime-local"
                                     value={form.data.scheduled_at}
                                     onChange={(e) =>
-                                        form.setData(
-                                            'scheduled_at',
-                                            e.target.value,
-                                        )
+                                        form.setData('scheduled_at', e.target.value)
                                     }
                                 />
-                                <InputError
-                                    message={form.errors.scheduled_at}
-                                />
+                                <InputError message={form.errors.scheduled_at} />
                             </div>
 
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <p className="text-sm font-medium">
-                                        Recipient preview
-                                    </p>
+                                    <p className="text-sm font-medium">Recipient preview</p>
                                     {previewLoading ? (
                                         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                             <span className="size-1.5 animate-pulse rounded-full bg-primary" />
                                             Updating…
                                         </span>
                                     ) : (
-                                        <span className="text-xs text-muted-foreground">
-                                            Live
-                                        </span>
+                                        <span className="text-xs text-muted-foreground">Live</span>
                                     )}
                                 </div>
                                 <div
                                     className={cn(
                                         'rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-sm transition-opacity',
-                                        previewLoading
-                                            ? 'opacity-50'
-                                            : 'opacity-100',
+                                        previewLoading ? 'opacity-50' : 'opacity-100',
                                     )}
                                 >
                                     {previewLoading && !preview ? (
@@ -1596,8 +1396,7 @@ export default function AnnouncementFormPage({
                                                 Selected employees
                                             </div>
                                             <div className="mt-0.5 text-lg font-bold">
-                                                {preview?.selected_employees ??
-                                                    0}
+                                                {preview?.selected_employees ?? 0}
                                             </div>
                                         </>
                                     )}
@@ -1612,8 +1411,7 @@ export default function AnnouncementFormPage({
                                     disabled={form.processing}
                                     onClick={() => submit('draft')}
                                 >
-                                    <FileText className="size-4" /> Save as
-                                    draft
+                                    <FileText className="size-4" /> Save as draft
                                 </Button>
                                 <Button
                                     type="button"
@@ -1624,8 +1422,7 @@ export default function AnnouncementFormPage({
                                     }
                                     onClick={() => submit('schedule')}
                                 >
-                                    <CalendarClock className="size-4" />{' '}
-                                    Schedule
+                                    <CalendarClock className="size-4" /> Schedule
                                 </Button>
                                 <Button
                                     type="button"

@@ -7,7 +7,6 @@ use App\Models\AnnouncementAttachment;
 use App\Models\AnnouncementAudience;
 use App\Models\AnnouncementRecipient;
 use App\Support\Announcements\AnnouncementDeliverySummary;
-use App\Support\Announcements\AnnouncementWhatsAppMessage;
 use App\Support\Announcements\BuildAnnouncementChannelPreview;
 
 final class AnnouncementResource
@@ -52,9 +51,8 @@ final class AnnouncementResource
         return [
             ...self::toListArray($announcement),
             'body_html' => $announcement->body_html,
-            'whatsapp_message' => $announcement->whatsapp_message,
-            'whatsapp_link' => $announcement->whatsapp_link,
             'expires_at' => $announcement->expires_at?->toIso8601String(),
+            'whatsapp_link' => $announcement->whatsapp_link,
             'published_by' => $announcement->publisher?->name,
             'audiences' => $announcement->audiences->map(fn (AnnouncementAudience $audience): array => [
                 'type' => $audience->audience_type->value,
@@ -95,9 +93,6 @@ final class AnnouncementResource
             'priority' => $announcement->priority->value,
             'status' => $announcement->status->value,
             'channels' => $announcement->channels ?? [],
-            'whatsapp_message' => in_array('whatsapp', $announcement->channels ?? [], true)
-                ? AnnouncementWhatsAppMessage::for($announcement)
-                : '',
             'whatsapp_link' => $announcement->whatsapp_link ?? '',
             'expires_at' => $announcement->expires_at?->format('Y-m-d\TH:i'),
             'scheduled_at' => $announcement->scheduled_at?->format('Y-m-d\TH:i'),

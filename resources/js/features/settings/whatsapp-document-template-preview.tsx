@@ -117,8 +117,9 @@ export function WhatsAppDocumentTemplatePreview({
                 <span className="font-mono text-foreground/80">
                     {templateName}
                 </span>
-                ). Meta fills its configured variables in order when sending.
-                Edit approved wording in Meta WhatsApp Manager, not here.
+                ). Meta fills {'{{1}}'}, {'{{2}}'}, {'{{3}}'} in order when
+                sending — map sample values below to see how the message will
+                look. Edit wording in Meta WhatsApp Manager, not here.
             </p>
         </div>
     );
