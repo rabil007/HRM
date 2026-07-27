@@ -10,6 +10,7 @@ final class CrewPayrollPagePermissions
      * @return array{
      *     create: bool,
      *     update: bool,
+     *     clear_timesheets: bool,
      *     generate_payroll: bool,
      *     revert_to_draft: bool,
      *     revert_to_approved: bool,
@@ -24,6 +25,7 @@ final class CrewPayrollPagePermissions
         return [
             'create' => $user?->can('payroll.crew_timesheets.create') ?? false,
             'update' => $user?->can('payroll.crew_timesheets.update') ?? false,
+            'clear_timesheets' => $user?->can('payroll.crew_timesheets.clear') ?? false,
             'submit_timesheet' => $user?->can('payroll.crew_timesheets.submit') ?? false,
             'approve_timesheet' => $user?->can('payroll.crew_timesheets.approve') ?? false,
             'return_timesheet' => $user?->can('payroll.crew_timesheets.return') ?? false,

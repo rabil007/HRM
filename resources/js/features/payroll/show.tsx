@@ -10,6 +10,7 @@ import {
     CheckSquare,
     CreditCard,
     Download,
+    Eraser,
     Filter,
     Paperclip,
     RotateCcw,
@@ -25,6 +26,7 @@ import React, {
     useRef,
     useState,
 } from 'react';
+import ClearManualImportCrewTimesheetsController from '@/actions/App/Http/Controllers/Payroll/ClearManualImportCrewTimesheetsController';
 import {
     approve,
     cancel,
@@ -75,6 +77,7 @@ import type { SalaryPaymentMethodValue } from '@/features/organization/employees
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { show as crewTimelineShow } from '@/routes/payroll/crew-timeline';
+import { ClearCrewTimesheetsDialog } from './components/clear-crew-timesheets-dialog';
 import { CrewOperationalSourceBadge } from './components/crew-operational-source-badge';
 import { CrewSalaryStructureToggle } from './components/crew-salary-structure-toggle';
 import { CrewTimesheetApprovalBadge } from './components/crew-timesheet-approval-badge';
@@ -151,6 +154,7 @@ export function PayrollShowContent({
     wps_preview,
     employee_stats,
     crew_timeline_preparation = null,
+    clearable_timesheet_count = 0,
 }: PayrollShowProps) {
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -173,6 +177,9 @@ export function PayrollShowContent({
     const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+    const [isClearTimesheetsDialogOpen, setIsClearTimesheetsDialogOpen] =
+        useState(false);
+    const [isClearingTimesheets, setIsClearingTimesheets] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [salaryInputsRecord, setSalaryInputsRecord] =
         useState<PayrollRecordListItem | null>(null);
@@ -199,10 +206,20 @@ export function PayrollShowContent({
     const crewSaveTimersRef = useRef<
         Record<number, ReturnType<typeof setTimeout>>
     >({});
+    const isClearingTimesheetsRef = useRef(false);
+    const savingTimesheetEmployeeIdsRef = useRef(savingTimesheetEmployeeIds);
 
     useEffect(() => {
         crewTimesheetDraftsRef.current = crewTimesheetDrafts;
     }, [crewTimesheetDrafts]);
+
+    useEffect(() => {
+        savingTimesheetEmployeeIdsRef.current = savingTimesheetEmployeeIds;
+    }, [savingTimesheetEmployeeIds]);
+
+    useEffect(() => {
+        isClearingTimesheetsRef.current = isClearingTimesheets;
+    }, [isClearingTimesheets]);
 
     useEffect(() => {
         const timers = crewSaveTimersRef.current;
@@ -220,6 +237,10 @@ export function PayrollShowContent({
         val: string,
         initialTimesheet: CrewPayrollRow['timesheet'],
     ) => {
+        if (isClearingTimesheetsRef.current) {
+            return;
+        }
+
         setCrewTimesheetDrafts((prev) => {
             const existing =
                 prev[employeeId] ?? buildCrewTimesheetDraft(initialTimesheet);
@@ -242,6 +263,10 @@ export function PayrollShowContent({
 
     const saveCrewTimesheet = useCallback(
         (employeeId: number, initialTimesheet: CrewPayrollRow['timesheet']) => {
+            if (isClearingTimesheetsRef.current) {
+                return;
+            }
+
             const current = crewTimesheetDraftsRef.current[employeeId];
 
             if (!current) {
@@ -330,6 +355,10 @@ export function PayrollShowContent({
 
     const scheduleSaveCrewTimesheet = useCallback(
         (employeeId: number, initialTimesheet: CrewPayrollRow['timesheet']) => {
+            if (isClearingTimesheetsRef.current) {
+                return;
+            }
+
             const existingTimer = crewSaveTimersRef.current[employeeId];
 
             if (existingTimer) {
@@ -343,6 +372,57 @@ export function PayrollShowContent({
         },
         [saveCrewTimesheet],
     );
+
+    const cancelPendingCrewTimesheetAutosaves = useCallback(() => {
+        Object.values(crewSaveTimersRef.current).forEach((timer) => {
+            clearTimeout(timer);
+        });
+        crewSaveTimersRef.current = {};
+        crewTimesheetDraftsRef.current = {};
+        setCrewTimesheetDrafts({});
+    }, []);
+
+    const waitForCrewTimesheetAutosavesIdle = useCallback(async () => {
+        const startedAt = Date.now();
+
+        while (
+            savingTimesheetEmployeeIdsRef.current.length > 0 &&
+            Date.now() - startedAt < 10000
+        ) {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+    }, []);
+
+    const handleConfirmClearTimesheets = useCallback(async () => {
+        cancelPendingCrewTimesheetAutosaves();
+        isClearingTimesheetsRef.current = true;
+        setIsClearingTimesheets(true);
+
+        await waitForCrewTimesheetAutosavesIdle();
+
+        router.delete(
+            ClearManualImportCrewTimesheetsController.url(period.id),
+            {
+                preserveScroll: true,
+                only: [
+                    'rows',
+                    'period',
+                    'clearable_timesheet_count',
+                    'crew_timeline_preparation',
+                    'generation_summary',
+                ],
+                onFinish: () => {
+                    isClearingTimesheetsRef.current = false;
+                    setIsClearingTimesheets(false);
+                    setIsClearTimesheetsDialogOpen(false);
+                },
+            },
+        );
+    }, [
+        cancelPendingCrewTimesheetAutosaves,
+        period.id,
+        waitForCrewTimesheetAutosavesIdle,
+    ]);
 
     useEffect(() => {
         setSelectedWpsRecordIds(all_payroll_record_ids);
@@ -1138,6 +1218,24 @@ export function PayrollShowContent({
                                           Import Excel
                                       </Button>
                                   ) : null}
+                                  {permissions.clear_timesheets &&
+                                  clearable_timesheet_count > 0 ? (
+                                      <Button
+                                          variant="outline"
+                                          className="h-12 shrink-0 rounded-xl border-destructive/30 px-6 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                          disabled={isClearingTimesheets}
+                                          onClick={() =>
+                                              setIsClearTimesheetsDialogOpen(
+                                                  true,
+                                              )
+                                          }
+                                      >
+                                          <Eraser className="mr-2 h-4 w-4" />
+                                          {isClearingTimesheets
+                                              ? 'Clearing…'
+                                              : 'Clear Timesheets'}
+                                      </Button>
+                                  ) : null}
                               </div>,
                           )
                         : renderListToolbar()}
@@ -1229,6 +1327,22 @@ export function PayrollShowContent({
                     open={isImportDialogOpen}
                     onOpenChange={setIsImportDialogOpen}
                     periodId={period.id}
+                />
+            ) : null}
+
+            {period.supports_timesheets ? (
+                <ClearCrewTimesheetsDialog
+                    open={isClearTimesheetsDialogOpen}
+                    onOpenChange={(open) => {
+                        if (!isClearingTimesheets) {
+                            setIsClearTimesheetsDialogOpen(open);
+                        }
+                    }}
+                    clearableCount={clearable_timesheet_count}
+                    isClearing={isClearingTimesheets}
+                    onConfirm={() => {
+                        void handleConfirmClearTimesheets();
+                    }}
                 />
             ) : null}
 

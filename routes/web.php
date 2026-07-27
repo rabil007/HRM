@@ -119,6 +119,7 @@ use App\Http\Controllers\Organization\UserController;
 use App\Http\Controllers\Organization\VesselManningController;
 use App\Http\Controllers\Payroll\ApplyCrewTimesheetPreparationController;
 use App\Http\Controllers\Payroll\ApproveCrewTimesheetPreparationController;
+use App\Http\Controllers\Payroll\ClearManualImportCrewTimesheetsController;
 use App\Http\Controllers\Payroll\CrewPayrollGenerationPreviewController;
 use App\Http\Controllers\Payroll\CrewTimesheetApprovalController;
 use App\Http\Controllers\Payroll\CrewTimesheetPreparationShowController;
@@ -410,6 +411,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('payroll/{payrollPeriod}/timesheets/import/template', [PayrollController::class, 'importTemplate'])->name('payroll.timesheets.import.template');
     Route::post('payroll/{payrollPeriod}/timesheets/import/preview', [PayrollController::class, 'importPreview'])->name('payroll.timesheets.import.preview');
     Route::post('payroll/{payrollPeriod}/timesheets/import', [PayrollController::class, 'importTimesheets'])->name('payroll.timesheets.import');
+    Route::delete('payroll/{payrollPeriod}/crew-timesheets/manual-import', ClearManualImportCrewTimesheetsController::class)
+        ->middleware('can:payroll.crew_timesheets.clear')
+        ->name('payroll.crew-timesheets.clear-manual-import');
     Route::post('payroll/{payrollPeriod}/timesheets/{timesheet}/submit', [CrewTimesheetApprovalController::class, 'submit'])
         ->middleware('can:payroll.crew_timesheets.submit')
         ->name('payroll.timesheets.submit');

@@ -212,10 +212,23 @@ Manual/Import timesheet approval:
 - Crew Operations still uses Prepare → Approve → Apply and displays **Applied** on the board (not Manual/Import-style Approved)
 - Financial-only updates on locked Crew Operations rows preserve operational values and Applied approval
 
+Clear Timesheets (Draft crew periods only):
+
+- One period-level action clears every Manual and Excel Import timesheet in the current Draft crew pay period (`DELETE /payroll/{payrollPeriod}/crew-timesheets/manual-import`)
+- Requires `payroll.crew_timesheets.clear`
+- Soft-deletes matching rows; Crew Operations timesheets, preparation-linked rows, timeline/preparation history, contracts, salary inputs, and exclusions are never modified
+- Legacy `source = null` rows are treated as Manual via `resolvedSource()` and are included
+- After clearing, Manual save and Excel import restore the soft-deleted row (no duplicate-key failure) and re-apply auto-approval
+- Daily Crew rows return to Not Entered; Monthly Crew Manual/Import overrides are removed so default monthly eligibility applies again
+- Show page exposes trusted `clearable_timesheet_count` for the whole period (not the current page only)
+- Audits with `event = crew_timesheets_cleared` including company, period, actor, cleared count, sources, and timesheet IDs
+
 Key files:
 
 - `app/Support/Payroll/ApplyManualImportTimesheetAutoApproval.php`
 - `app/Support/Payroll/Actions/NormalizeLegacyManualImportTimesheetApprovals.php`
+- `app/Support/Payroll/Actions/ClearManualImportCrewTimesheets.php`
+- `app/Support/Payroll/ClearableManualImportCrewTimesheetsQuery.php`
 - `app/Console/Commands/NormalizeLegacyCrewTimesheetApprovalsCommand.php`
 
 - `app/Enums/CrewTimesheetMode.php`
@@ -446,6 +459,7 @@ All routes below are inside the authenticated and verified web group. Some use r
 | GET | `/payroll/{payrollPeriod}/timesheets/import/template` | `payroll.timesheets.import.template` | No dedicated permission check beyond authenticated access and company/category checks |
 | POST | `/payroll/{payrollPeriod}/timesheets/import/preview` | `payroll.timesheets.import.preview` | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
 | POST | `/payroll/{payrollPeriod}/timesheets/import` | `payroll.timesheets.import` | `payroll.crew_timesheets.import` or `payroll.crew_timesheets.create` |
+| DELETE | `/payroll/{payrollPeriod}/crew-timesheets/manual-import` | `payroll.crew-timesheets.clear-manual-import` | `payroll.crew_timesheets.clear` |
 | POST | `/payroll/{payrollPeriod}/crew-timeline/prepare` | `payroll.crew-timeline.prepare` | `payroll.crew_timesheets.prepare` |
 | GET | `/payroll/{payrollPeriod}/crew-timeline/{preparation}` | `payroll.crew-timeline.show` | `payroll.crew_timesheets.view` |
 | POST | `/payroll/{payrollPeriod}/crew-timeline/{preparation}/submit` | `payroll.crew-timeline.submit` | `payroll.crew_timesheets.submit` |
@@ -495,7 +509,12 @@ payroll.crew_timesheets.view
 payroll.crew_timesheets.create
 payroll.crew_timesheets.update
 payroll.crew_timesheets.import
+payroll.crew_timesheets.clear
 payroll.crew_timesheets.prepare
+payroll.crew_timesheets.submit
+payroll.crew_timesheets.approve
+payroll.crew_timesheets.return
+payroll.crew_timesheets.apply_approved
 payroll.salary_inputs.create
 payroll.salary_inputs.update
 payroll.salary_inputs.delete

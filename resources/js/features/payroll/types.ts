@@ -304,6 +304,7 @@ export function buildCrewTimesheetDraft(
 export type CrewPayrollPermissions = {
     create: boolean;
     update: boolean;
+    clear_timesheets: boolean;
     submit_timesheet: boolean;
     approve_timesheet: boolean;
     return_timesheet: boolean;
@@ -526,6 +527,7 @@ export type PayrollShowProps = {
     employee_stats: EmployeeStats | null;
     crew_timeline_preparation: CrewTimelinePreparationSummary | null;
     crew_timesheet_mode_options: CrewTimesheetModeOption[];
+    clearable_timesheet_count: number;
 };
 
 function formatAmount(value: string | null | undefined): string {

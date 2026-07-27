@@ -40,6 +40,7 @@ use App\Support\Payroll\Actions\RevertPayrollPeriodToProcessing;
 use App\Support\Payroll\Actions\UpdatePayrollPeriodCrewTimesheetMode;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use App\Support\Payroll\BuildCrewPayrollCoverageSummary;
+use App\Support\Payroll\ClearableManualImportCrewTimesheetsQuery;
 use App\Support\Payroll\CrewPayrollPagePermissions;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewQuery;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationSummaryResource;
@@ -158,6 +159,7 @@ class PayrollController extends Controller
         CrewTimesheetPreparationReviewQuery $crewTimelineReviewQuery,
         CrewTimesheetPreparationSummaryResource $crewTimelineSummaryResource,
         BuildCrewPayrollCoverageSummary $buildCrewPayrollCoverageSummary,
+        ClearableManualImportCrewTimesheetsQuery $clearableManualImportCrewTimesheetsQuery,
     ): InertiaResponse|RedirectResponse {
         $this->authorizePayrollShow($request);
 
@@ -411,6 +413,9 @@ class PayrollController extends Controller
                 ])
                 ->values()
                 ->all(),
+            'clearable_timesheet_count' => $payrollPeriod->isCrew() && $payrollPeriod->status === PayrollPeriodStatus::Draft
+                ? $clearableManualImportCrewTimesheetsQuery->count($payrollPeriod, $companyId)
+                : 0,
             'employee_stats' => $employeeStats,
         ]);
     }

@@ -76,13 +76,18 @@ final class UpsertCrewTimesheet
                 ]);
             }
 
-            $existing = CrewTimesheet::query()
+            $existing = CrewTimesheet::withTrashed()
                 ->where('company_id', $period->company_id)
                 ->where('employee_id', $employee->id)
                 ->where('period_id', $period->id)
                 ->with('preparation')
                 ->lockForUpdate()
                 ->first();
+
+            if ($existing !== null && $existing->trashed()) {
+                $existing->restore();
+                $existing->setRelation('preparation', null);
+            }
 
             $source = $this->resolveSource($data, $existing);
             $approvedByUserId = $approvedByUserId ?? auth()->id();
@@ -118,30 +123,29 @@ final class UpsertCrewTimesheet
                     ]);
                 }
 
-                return CrewTimesheet::query()->updateOrCreate(
+                $attributes = array_merge(
                     [
-                        'company_id' => $period->company_id,
-                        'employee_id' => $employee->id,
-                        'period_id' => $period->id,
+                        'overtime_hours' => $this->financialValue($data, $existing, 'overtime_hours', 0),
+                        'overtime_amount' => $this->financialValue($data, $existing, 'overtime_amount', 0),
+                        'additional_amount' => $this->financialValue($data, $existing, 'additional_amount', 0),
+                        'deduction_amount' => $this->financialValue($data, $existing, 'deduction_amount', 0),
+                        'remarks' => $this->financialValue($data, $existing, 'remarks', null),
+                        'source' => $source === CrewTimesheetSource::Import
+                            ? CrewTimesheetSource::Import
+                            : CrewTimesheetSource::Manual,
+                        'crew_timesheet_preparation_id' => null,
+                        'operational_approved_by' => null,
+                        'operational_approved_at' => null,
+                        'movement_source_hash' => null,
                     ],
-                    array_merge(
-                        [
-                            'overtime_hours' => $this->financialValue($data, $existing, 'overtime_hours', 0),
-                            'overtime_amount' => $this->financialValue($data, $existing, 'overtime_amount', 0),
-                            'additional_amount' => $this->financialValue($data, $existing, 'additional_amount', 0),
-                            'deduction_amount' => $this->financialValue($data, $existing, 'deduction_amount', 0),
-                            'remarks' => $this->financialValue($data, $existing, 'remarks', null),
-                            'source' => $source === CrewTimesheetSource::Import
-                                ? CrewTimesheetSource::Import
-                                : CrewTimesheetSource::Manual,
+                    $this->autoApproval->shouldAutoApprove($source)
+                        ? $this->autoApproval->approvalAttributes($approvedByUserId)
+                        : [
+                            'approval_status' => $existing?->approval_status ?? CrewTimesheetApprovalStatus::Draft,
                         ],
-                        $this->autoApproval->shouldAutoApprove($source)
-                            ? $this->autoApproval->approvalAttributes($approvedByUserId)
-                            : [
-                                'approval_status' => $existing?->approval_status ?? CrewTimesheetApprovalStatus::Draft,
-                            ],
-                    ),
                 );
+
+                return $this->persistTimesheet($period, $employee, $existing, $attributes);
             }
 
             $attributes = [
@@ -160,6 +164,10 @@ final class UpsertCrewTimesheet
                 'deduction_amount' => $this->financialValue($data, $existing, 'deduction_amount', 0),
                 'remarks' => $this->financialValue($data, $existing, 'remarks', null),
                 'source' => $source,
+                'crew_timesheet_preparation_id' => null,
+                'operational_approved_by' => null,
+                'operational_approved_at' => null,
+                'movement_source_hash' => null,
             ];
 
             if ($this->autoApproval->shouldAutoApprove($source)) {
@@ -169,15 +177,34 @@ final class UpsertCrewTimesheet
                 );
             }
 
-            return CrewTimesheet::query()->updateOrCreate(
-                [
-                    'company_id' => $period->company_id,
-                    'employee_id' => $employee->id,
-                    'period_id' => $period->id,
-                ],
-                $attributes,
-            );
+            return $this->persistTimesheet($period, $employee, $existing, $attributes);
         });
+    }
+
+    /**
+     * Persist against an active or restored soft-deleted row to honour the
+     * unique (company_id, employee_id, period_id) constraint.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function persistTimesheet(
+        PayrollPeriod $period,
+        Employee $employee,
+        ?CrewTimesheet $existing,
+        array $attributes,
+    ): CrewTimesheet {
+        if ($existing !== null) {
+            $existing->fill($attributes);
+            $existing->save();
+
+            return $existing->fresh() ?? $existing;
+        }
+
+        return CrewTimesheet::query()->create(array_merge([
+            'company_id' => $period->company_id,
+            'employee_id' => $employee->id,
+            'period_id' => $period->id,
+        ], $attributes));
     }
 
     /**

@@ -97,7 +97,7 @@ final class ApplyCrewTimesheetPreparation
             $aggregates = $this->aggregatePayableLines($lines);
             $employeeIds = array_keys($aggregates);
 
-            $existingTimesheets = CrewTimesheet::query()
+            $existingTimesheets = CrewTimesheet::withTrashed()
                 ->where('company_id', $companyId)
                 ->where('period_id', $period->id)
                 ->whereIn('employee_id', $employeeIds !== [] ? $employeeIds : [0])
@@ -178,6 +178,10 @@ final class ApplyCrewTimesheetPreparation
                         'preserved_financial' => $this->financialSnapshot($timesheet),
                     ];
                 } else {
+                    if ($existing->trashed()) {
+                        $existing->restore();
+                    }
+
                     $previousOperational = $this->operationalSnapshot($existing);
                     $preservedFinancial = $this->financialSnapshot($existing);
 
