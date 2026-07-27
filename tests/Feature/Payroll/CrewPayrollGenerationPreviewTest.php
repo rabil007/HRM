@@ -57,7 +57,7 @@ test('missing daily timesheet is skipped warning and does not block readiness wh
         ->and(PayrollRecord::query()->where('period_id', $period->id)->where('employee_id', $missing->id)->exists())->toBeFalse();
 });
 
-test('unapproved manual and import timesheets are awaiting approval and skipped', function () {
+test('legacy unapproved manual and import timesheets remain awaiting approval until normalized', function () {
     ['company' => $company] = makePayrollFixtures();
 
     $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
@@ -73,6 +73,8 @@ test('unapproved manual and import timesheets are awaiting approval and skipped'
         'period_id' => $period->id,
         'source' => CrewTimesheetSource::Manual,
         'onsite_days' => 8,
+        'onsite_from' => '2026-07-01',
+        'onsite_to' => '2026-07-08',
     ]);
     CrewTimesheet::factory()->submitted()->create([
         'company_id' => $company->id,
@@ -80,6 +82,8 @@ test('unapproved manual and import timesheets are awaiting approval and skipped'
         'period_id' => $period->id,
         'source' => CrewTimesheetSource::Import,
         'onsite_days' => 8,
+        'onsite_from' => '2026-07-01',
+        'onsite_to' => '2026-07-08',
     ]);
 
     $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id);

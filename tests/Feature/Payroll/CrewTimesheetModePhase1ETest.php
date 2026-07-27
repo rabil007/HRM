@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\CrewPhaseCode;
+use App\Enums\CrewTimesheetApprovalStatus;
 use App\Enums\CrewTimesheetMode;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\CrewTimesheetSource;
@@ -254,9 +255,9 @@ test('payroll show exposes mode, generation readiness, and timeline props for cr
             ->where('period.crew_timesheet_mode', CrewTimesheetMode::CrewOperations->value)
             ->where('period.uses_crew_operations_timesheets', true)
             ->where('period.generation_ready', false)
-            ->where('generation_readiness.ready', false)
+            ->where('period.generation_preview.ready', false)
             ->where(
-                'generation_readiness.blocking_reason',
+                'period.generation_preview.blocking_reason',
                 CrewOperationsPayrollGenerationGuard::MISSING_APPLIED_MESSAGE,
             )
             ->has('crew_timesheet_mode_options', 3));
@@ -282,7 +283,7 @@ test('payroll show hides generation readiness blocking for manual crew periods',
         ->assertInertia(fn (Assert $page) => $page
             ->where('period.uses_manual_timesheets', true)
             ->where('period.generation_ready', true)
-            ->where('generation_readiness.ready', true)
+            ->where('period.generation_preview.ready', true)
             ->where('crew_timeline_preparation', null));
 });
 
@@ -314,12 +315,14 @@ test('daily financial upsert is allowed in crew operations mode before applied',
             'overtime_hours' => 4,
             'remarks' => 'OT only',
         ],
+        $fixtures['user']->id,
     );
 
     expect($timesheet->overtime_hours)->toBe('4.00')
         ->and($timesheet->remarks)->toBe('OT only')
         ->and($timesheet->sign_on_standby_days)->toBeNull()
-        ->and($timesheet->source)->toBe(CrewTimesheetSource::Manual);
+        ->and($timesheet->source)->toBe(CrewTimesheetSource::Manual)
+        ->and($timesheet->approval_status)->toBe(CrewTimesheetApprovalStatus::Approved);
 });
 
 test('crew timesheet mode cannot change after a preparation exists', function () {

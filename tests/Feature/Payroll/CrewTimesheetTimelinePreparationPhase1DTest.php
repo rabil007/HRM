@@ -291,7 +291,7 @@ test('manual update cannot overwrite applied operational fields but can update f
         'additional_amount' => 10,
         'deduction_amount' => 5,
         'remarks' => 'Financial update',
-    ]);
+    ], $fixtures['user']->id);
 
     $timesheet->refresh();
 

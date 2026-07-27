@@ -66,8 +66,6 @@ export type CrewPayrollGenerationPreview = {
     affected_employee_id: number | null;
 };
 
-export type GenerationReadiness = CrewPayrollGenerationPreview;
-
 export type PayrollPeriodStatus =
     | 'draft'
     | 'processing'
@@ -527,7 +525,6 @@ export type PayrollShowProps = {
     timesheet_draft: CrewTimesheetFormData | null;
     employee_stats: EmployeeStats | null;
     crew_timeline_preparation: CrewTimelinePreparationSummary | null;
-    generation_readiness: GenerationReadiness | null;
     crew_timesheet_mode_options: CrewTimesheetModeOption[];
 };
 

@@ -26,11 +26,6 @@ import React, {
     useState,
 } from 'react';
 import {
-    approve as approveTimesheet,
-    returnMethod as returnTimesheet,
-    submit as submitTimesheet,
-} from '@/actions/App/Http/Controllers/Payroll/CrewTimesheetApprovalController';
-import {
     approve,
     cancel,
     destroyPayrollRecord,
@@ -156,7 +151,6 @@ export function PayrollShowContent({
     wps_preview,
     employee_stats,
     crew_timeline_preparation = null,
-    generation_readiness = null,
 }: PayrollShowProps) {
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -199,6 +193,8 @@ export function PayrollShowContent({
     const [crewTimesheetDrafts, setCrewTimesheetDrafts] = useState<
         Record<number, CrewTimesheetDraft>
     >({});
+    const [savingTimesheetEmployeeIds, setSavingTimesheetEmployeeIds] =
+        useState<number[]>([]);
     const crewTimesheetDraftsRef = useRef(crewTimesheetDrafts);
     const crewSaveTimersRef = useRef<
         Record<number, ReturnType<typeof setTimeout>>
@@ -254,6 +250,12 @@ export function PayrollShowContent({
 
             const submittedDraft: CrewTimesheetDraft = { ...current };
 
+            setSavingTimesheetEmployeeIds((previous) =>
+                previous.includes(employeeId)
+                    ? previous
+                    : [...previous, employeeId],
+            );
+
             router.post(
                 storeTimesheet.url(period.id),
                 {
@@ -276,6 +278,11 @@ export function PayrollShowContent({
                     preserveScroll: true,
                     preserveState: true,
                     only: ['rows'],
+                    onFinish: () => {
+                        setSavingTimesheetEmployeeIds((previous) =>
+                            previous.filter((id) => id !== employeeId),
+                        );
+                    },
                     onSuccess: () => {
                         setCrewTimesheetDrafts((prev) => {
                             const draft = prev[employeeId];
@@ -678,19 +685,7 @@ export function PayrollShowContent({
 
     const generationBlockingReason =
         period.generation_blocking_reason ??
-        generation_readiness?.period_blocking_reason ??
-        generation_readiness?.blocking_reason ??
         'Apply the approved Crew Operations timeline before generating payroll.';
-
-    const coveragePreview = generation_readiness ?? period.generation_preview;
-    const coverageSummaryParts = [
-        coveragePreview && coveragePreview.missing_timesheet_count > 0
-            ? `${coveragePreview.missing_timesheet_count} employees have no timesheet and will be skipped when payroll is generated`
-            : null,
-        coveragePreview && coveragePreview.awaiting_approval_count > 0
-            ? `${coveragePreview.awaiting_approval_count} employees are awaiting approval and will be skipped`
-            : null,
-    ].filter(Boolean) as string[];
 
     const showTimelineCard =
         period.supports_timesheets &&
@@ -1111,30 +1106,6 @@ export function PayrollShowContent({
                 </Card>
             ) : null}
 
-            {!isGenerationBlocked &&
-            period.supports_timesheets &&
-            coverageSummaryParts.length > 0 &&
-            period.can_generate_crew_payroll ? (
-                <Card className="glass-card border-amber-500/20 bg-amber-500/5">
-                    <CardContent className="flex items-start gap-3 p-5">
-                        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-                        <div className="space-y-1">
-                            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                                Timesheet coverage
-                            </p>
-                            {coverageSummaryParts.map((part) => (
-                                <p
-                                    key={part}
-                                    className="text-sm text-amber-800/90 dark:text-amber-200/90"
-                                >
-                                    {part}.
-                                </p>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-            ) : null}
-
             {/* ── Section 1: Employees / Timesheets ──────── */}
             {period.status === 'draft' && (
                 <section className="space-y-4">
@@ -1487,7 +1458,7 @@ export function PayrollShowContent({
                             )}
                         </div>
 
-                        <OrganizationDataTable minWidth="min-w-[1580px]">
+                        <OrganizationDataTable minWidth="min-w-[1540px]">
                             <TableHeader>
                                 {/* Group labels row */}
                                 <tr className="border-b-0">
@@ -1496,7 +1467,7 @@ export function PayrollShowContent({
                                         className="h-7 border-b border-border/30"
                                     />
                                     <th
-                                        colSpan={2}
+                                        colSpan={1}
                                         className="h-7 border-b border-border/30"
                                     />
                                     <th
@@ -1518,7 +1489,7 @@ export function PayrollShowContent({
                                         Overtime
                                     </th>
                                     <th
-                                        colSpan={2}
+                                        colSpan={3}
                                         className="h-7 border-b border-border/30"
                                     />
                                 </tr>
@@ -1533,13 +1504,12 @@ export function PayrollShowContent({
                                         />
                                     </DataTableHead>
                                     <DataTableHead>Employee</DataTableHead>
-                                    <DataTableHead>Approval</DataTableHead>
                                     <DataTableHead>Bank</DataTableHead>
                                     <DataTableHead className="border-l border-primary/10 bg-primary/3 text-right">
                                         Basic
                                     </DataTableHead>
                                     <DataTableHead className="bg-primary/3 text-right">
-                                        Suppl.
+                                        Supplementary
                                     </DataTableHead>
                                     <DataTableHead className="border-r border-primary/10 bg-primary/3 text-right">
                                         Site
@@ -1551,10 +1521,13 @@ export function PayrollShowContent({
                                         Onsite
                                     </DataTableHead>
                                     <DataTableHead className="border-x border-amber-500/10 bg-amber-500/3 text-right">
-                                        Hours
+                                        Overtime
                                     </DataTableHead>
                                     <DataTableHead>Payment</DataTableHead>
-                                    <DataTableHead>Status</DataTableHead>
+                                    <DataTableHead>
+                                        Timesheet Status
+                                    </DataTableHead>
+                                    <DataTableHead>Source</DataTableHead>
                                 </DataTableHeaderRow>
                             </TableHeader>
                             <TableBody>
@@ -1611,6 +1584,20 @@ export function PayrollShowContent({
 
                                     const isDirty =
                                         !!crewTimesheetDrafts[row.employee.id];
+                                    const isSaving =
+                                        savingTimesheetEmployeeIds.includes(
+                                            row.employee.id,
+                                        );
+                                    const operationalSource =
+                                        row.operational_source ??
+                                        (isMonthlyCrewRow
+                                            ? 'monthly_crew'
+                                            : row.timesheet
+                                              ? ((row.timesheet.source as
+                                                    | 'crew_operations'
+                                                    | 'import'
+                                                    | 'manual') ?? 'manual')
+                                              : 'not_entered');
 
                                     return (
                                         <TableRow
@@ -1653,140 +1640,6 @@ export function PayrollShowContent({
                                                 employee={row.employee}
                                                 isExcluded={isExcluded}
                                             />
-                                            <TableCell
-                                                className={cn(
-                                                    dataTableCellClass(),
-                                                    'align-middle',
-                                                )}
-                                            >
-                                                <div className="flex flex-col items-start gap-1.5">
-                                                    <CrewTimesheetApprovalBadge
-                                                        status={
-                                                            row.approval_status
-                                                        }
-                                                        label={
-                                                            row.approval_status_label
-                                                        }
-                                                    />
-                                                    {row.timesheet &&
-                                                    period.status === 'draft' &&
-                                                    row.timesheet.source !==
-                                                        'crew_operations' ? (
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {(row.timesheet
-                                                                .approval_status ===
-                                                                'draft' ||
-                                                                row.timesheet
-                                                                    .approval_status ===
-                                                                    'returned') &&
-                                                            permissions.submit_timesheet ? (
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-7 px-2 text-[11px]"
-                                                                    onClick={() =>
-                                                                        router.post(
-                                                                            submitTimesheet.url(
-                                                                                {
-                                                                                    payrollPeriod:
-                                                                                        period.id,
-                                                                                    timesheet:
-                                                                                        row
-                                                                                            .timesheet!
-                                                                                            .id,
-                                                                                },
-                                                                            ),
-                                                                            {},
-                                                                            {
-                                                                                preserveScroll: true,
-                                                                            },
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    Submit
-                                                                </Button>
-                                                            ) : null}
-                                                            {row.timesheet
-                                                                .approval_status ===
-                                                                'submitted' &&
-                                                            permissions.approve_timesheet ? (
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-7 px-2 text-[11px]"
-                                                                    onClick={() =>
-                                                                        router.post(
-                                                                            approveTimesheet.url(
-                                                                                {
-                                                                                    payrollPeriod:
-                                                                                        period.id,
-                                                                                    timesheet:
-                                                                                        row
-                                                                                            .timesheet!
-                                                                                            .id,
-                                                                                },
-                                                                            ),
-                                                                            {},
-                                                                            {
-                                                                                preserveScroll: true,
-                                                                            },
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    Approve
-                                                                </Button>
-                                                            ) : null}
-                                                            {row.timesheet
-                                                                .approval_status ===
-                                                                'submitted' &&
-                                                            permissions.return_timesheet ? (
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-7 px-2 text-[11px]"
-                                                                    onClick={() => {
-                                                                        const reason =
-                                                                            window.prompt(
-                                                                                'Return reason',
-                                                                            );
-
-                                                                        if (
-                                                                            !reason?.trim()
-                                                                        ) {
-                                                                            return;
-                                                                        }
-
-                                                                        router.post(
-                                                                            returnTimesheet.url(
-                                                                                {
-                                                                                    payrollPeriod:
-                                                                                        period.id,
-                                                                                    timesheet:
-                                                                                        row
-                                                                                            .timesheet!
-                                                                                            .id,
-                                                                                },
-                                                                            ),
-                                                                            {
-                                                                                return_reason:
-                                                                                    reason.trim(),
-                                                                            },
-                                                                            {
-                                                                                preserveScroll: true,
-                                                                            },
-                                                                        );
-                                                                    }}
-                                                                >
-                                                                    Return
-                                                                </Button>
-                                                            ) : null}
-                                                        </div>
-                                                    ) : null}
-                                                </div>
-                                            </TableCell>
 
                                             {/* Bank account */}
                                             <PayrollRecordBankAccountCell
@@ -2070,54 +1923,55 @@ export function PayrollShowContent({
                                                 }
                                             />
 
-                                            {/* Status + source */}
                                             <TableCell
-                                                className={dataTableCellClass()}
+                                                className={cn(
+                                                    dataTableCellClass(),
+                                                    'align-middle',
+                                                )}
                                             >
-                                                <div className="flex flex-col items-start gap-1.5">
-                                                    <Badge
-                                                        variant={
-                                                            row.is_filled
-                                                                ? 'default'
-                                                                : 'outline'
+                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                    <CrewTimesheetApprovalBadge
+                                                        status={
+                                                            row.approval_status
                                                         }
-                                                        className={cn(
-                                                            'text-[11px] font-semibold',
-                                                            row.is_filled
-                                                                ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                                                                : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-                                                        )}
-                                                    >
-                                                        {row.is_filled
-                                                            ? '✓ Filled'
-                                                            : 'Pending'}
-                                                    </Badge>
+                                                        label={
+                                                            row.approval_status_label
+                                                        }
+                                                    />
+                                                    {isSaving ? (
+                                                        <span className="text-[10px] font-medium text-muted-foreground">
+                                                            Saving…
+                                                        </span>
+                                                    ) : isDirty ? (
+                                                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary/70">
+                                                            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary/60" />
+                                                            Unsaved
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                            </TableCell>
+
+                                            <TableCell
+                                                className={cn(
+                                                    dataTableCellClass(),
+                                                    'align-middle',
+                                                )}
+                                            >
+                                                {operationalSource ===
+                                                'not_entered' ? (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        —
+                                                    </span>
+                                                ) : (
                                                     <CrewOperationalSourceBadge
                                                         source={
-                                                            row.operational_source ??
-                                                            (isMonthlyCrewRow
-                                                                ? 'monthly_crew'
-                                                                : row.timesheet
-                                                                  ? ((row
-                                                                        .timesheet
-                                                                        .source as
-                                                                        | 'crew_operations'
-                                                                        | 'import'
-                                                                        | 'manual') ??
-                                                                    'manual')
-                                                                  : 'not_entered')
+                                                            operationalSource
                                                         }
                                                         label={
                                                             row.operational_source_label
                                                         }
                                                     />
-                                                    {isDirty && (
-                                                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary/70">
-                                                            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary/60" />
-                                                            Unsaved
-                                                        </span>
-                                                    )}
-                                                </div>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     );

@@ -9,6 +9,7 @@ use App\Enums\PayrollCategory;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Support\Payroll\ApplyManualImportTimesheetAutoApproval;
 use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,7 @@ final class UpsertCrewTimesheet
 {
     public function __construct(
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
+        private readonly ApplyManualImportTimesheetAutoApproval $autoApproval,
     ) {}
 
     private const OPERATIONAL_KEYS = [
@@ -39,11 +41,15 @@ final class UpsertCrewTimesheet
     /**
      * @param  array<string, mixed>  $data
      */
-    public function handle(PayrollPeriod $period, Employee $employee, array $data): CrewTimesheet
-    {
+    public function handle(
+        PayrollPeriod $period,
+        Employee $employee,
+        array $data,
+        ?int $approvedByUserId = null,
+    ): CrewTimesheet {
         abort_unless((int) $period->company_id === (int) $employee->company_id, 404);
 
-        return DB::transaction(function () use ($period, $employee, $data): CrewTimesheet {
+        return DB::transaction(function () use ($period, $employee, $data, $approvedByUserId): CrewTimesheet {
             $period = PayrollPeriod::query()
                 ->whereKey($period->id)
                 ->where('company_id', $period->company_id)
@@ -79,6 +85,14 @@ final class UpsertCrewTimesheet
                 ->first();
 
             $source = $this->resolveSource($data, $existing);
+            $approvedByUserId = $approvedByUserId ?? auth()->id();
+
+            if ($this->autoApproval->shouldAutoApprove($source) && $approvedByUserId === null) {
+                throw ValidationException::withMessages([
+                    'employee_id' => 'An authenticated user is required to save manual or imported crew timesheets.',
+                ]);
+            }
+
             $isDaily = $contract->resolvedSalaryStructure() === ContractSalaryStructure::Daily;
             $exclusiveCrewOperations = $period->requiresExclusiveCrewOperationsTimesheets();
 
@@ -110,22 +124,26 @@ final class UpsertCrewTimesheet
                         'employee_id' => $employee->id,
                         'period_id' => $period->id,
                     ],
-                    [
-                        'overtime_hours' => $this->financialValue($data, $existing, 'overtime_hours', 0),
-                        'overtime_amount' => $this->financialValue($data, $existing, 'overtime_amount', 0),
-                        'additional_amount' => $this->financialValue($data, $existing, 'additional_amount', 0),
-                        'deduction_amount' => $this->financialValue($data, $existing, 'deduction_amount', 0),
-                        'remarks' => $this->financialValue($data, $existing, 'remarks', null),
-                        'source' => $source === CrewTimesheetSource::Import
-                            ? CrewTimesheetSource::Import
-                            : CrewTimesheetSource::Manual,
-                        'approval_status' => $existing?->approval_status ?? CrewTimesheetApprovalStatus::Draft,
-                    ],
+                    array_merge(
+                        [
+                            'overtime_hours' => $this->financialValue($data, $existing, 'overtime_hours', 0),
+                            'overtime_amount' => $this->financialValue($data, $existing, 'overtime_amount', 0),
+                            'additional_amount' => $this->financialValue($data, $existing, 'additional_amount', 0),
+                            'deduction_amount' => $this->financialValue($data, $existing, 'deduction_amount', 0),
+                            'remarks' => $this->financialValue($data, $existing, 'remarks', null),
+                            'source' => $source === CrewTimesheetSource::Import
+                                ? CrewTimesheetSource::Import
+                                : CrewTimesheetSource::Manual,
+                        ],
+                        $this->autoApproval->shouldAutoApprove($source)
+                            ? $this->autoApproval->approvalAttributes($approvedByUserId)
+                            : [
+                                'approval_status' => $existing?->approval_status ?? CrewTimesheetApprovalStatus::Draft,
+                            ],
+                    ),
                 );
             }
 
-            $operationalChanged = $existing === null || $this->operationalValuesChanged($data, $existing);
-            $financialChanged = $existing !== null && $this->financialValuesChanged($data, $existing);
             $attributes = [
                 'sign_on_standby_from' => $data['sign_on_standby_from'] ?? null,
                 'sign_on_standby_to' => $data['sign_on_standby_to'] ?? null,
@@ -144,15 +162,11 @@ final class UpsertCrewTimesheet
                 'source' => $source,
             ];
 
-            if ($operationalChanged || $financialChanged) {
-                $attributes['approval_status'] = CrewTimesheetApprovalStatus::Draft;
-                $attributes['submitted_by'] = null;
-                $attributes['submitted_at'] = null;
-                $attributes['approved_by'] = null;
-                $attributes['approved_at'] = null;
-                $attributes['returned_by'] = null;
-                $attributes['returned_at'] = null;
-                $attributes['return_reason'] = null;
+            if ($this->autoApproval->shouldAutoApprove($source)) {
+                $attributes = array_merge(
+                    $attributes,
+                    $this->autoApproval->approvalAttributes($approvedByUserId),
+                );
             }
 
             return CrewTimesheet::query()->updateOrCreate(

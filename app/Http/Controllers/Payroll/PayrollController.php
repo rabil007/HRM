@@ -404,7 +404,6 @@ class PayrollController extends Controller
                     $payrollPeriod,
                 )
                 : null,
-            'generation_readiness' => $generationSummary,
             'crew_timesheet_mode_options' => collect(CrewTimesheetMode::cases())
                 ->map(fn (CrewTimesheetMode $mode) => [
                     'value' => $mode->value,
@@ -669,6 +668,7 @@ class PayrollController extends Controller
             $payrollPeriod,
             $request->employee(),
             $request->timesheetData(),
+            $request->user()?->id,
         );
 
         return back();
@@ -753,7 +753,7 @@ class PayrollController extends Controller
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
 
         try {
-            $result = $orchestrator->execute($companyId, $payrollPeriod, $request->file('file'));
+            $result = $orchestrator->execute($companyId, $payrollPeriod, $request->file('file'), $request->user()?->id);
         } catch (\InvalidArgumentException $exception) {
             throw ValidationException::withMessages([
                 'file' => $exception->getMessage(),

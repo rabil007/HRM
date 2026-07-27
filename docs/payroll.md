@@ -196,7 +196,7 @@ Creation:
 Generation readiness (hybrid / manual):
 
 - `BuildCrewPayrollGenerationPreview` classifies every included employee as Ready, Missing timesheet, Awaiting approval, Excluded, or Blocking
-- Missing Daily timesheets and unapproved Manual/Import timesheets are **skipped warnings**, not period blockers
+- Missing Daily timesheets and legacy unapproved Manual/Import timesheets are **skipped warnings**, not period blockers
 - Applied Crew Operations rows count as approved (no second Manual/Import-style approval)
 - Invalid approved timesheets and broken Crew Operations linkage are **blocking**
 - Clicking Generate opens a server-backed preview; confirmation recomputes under the period lock and generates only Ready employees
@@ -205,12 +205,18 @@ Generation readiness (hybrid / manual):
 
 Manual/Import timesheet approval:
 
-- Additive `approval_status` on `crew_timesheets`: draft → submitted → approved / returned
-- Reuses `payroll.crew_timesheets.submit|approve|return`
-- Operational (and net-affecting financial) edits on Manual/Import reset approval to draft
+- Manual save and confirmed Excel import automatically set `approval_status = approved` with `approved_by` / `approved_at` from the authenticated actor
+- Valid Manual/Import rows are immediately Ready for payroll generation; operational integrity validation still runs at generation time
+- Legacy Draft/Submitted/Returned Manual/Import rows on editable Draft periods can be normalized with `php artisan payroll:normalize-legacy-crew-timesheet-approvals`
+- Submit/Approve/Return routes remain for backward compatibility on legacy rows; the payroll board no longer shows those actions for Manual/Import
+- Crew Operations still uses Prepare → Approve → Apply and displays **Applied** on the board (not Manual/Import-style Approved)
 - Financial-only updates on locked Crew Operations rows preserve operational values and Applied approval
 
 Key files:
+
+- `app/Support/Payroll/ApplyManualImportTimesheetAutoApproval.php`
+- `app/Support/Payroll/Actions/NormalizeLegacyManualImportTimesheetApprovals.php`
+- `app/Console/Commands/NormalizeLegacyCrewTimesheetApprovalsCommand.php`
 
 - `app/Enums/CrewTimesheetMode.php`
 - `app/Enums/CrewTimesheetApprovalStatus.php`
@@ -245,7 +251,7 @@ Payable-category filtering:
 
 Readiness / generation parity:
 
-- Show-page coverage uses `BuildCrewPayrollCoverageSummary` once (counts + period-level blockers). Full integrity classification runs on Generate click via `BuildCrewPayrollGenerationPreview` and again under lock on confirm.
+- Show-page readiness uses `BuildCrewPayrollCoverageSummary` once for period-level blockers only. Per-employee skip counts run on Generate click via `BuildCrewPayrollGenerationPreview` and again under lock on confirm.
 - Public preview JSON returns counts and capped blocking issues only; Ready employee IDs stay server-side.
 - Exclusive historical `crew_operations` still uses period-level Applied preparation checks.
 - Confirmation soft-deletes draft skipped records (never approved/paid), loads existing payroll rows once, and skips full-period salary-input recalculation when no inputs exist.

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CrewTimesheetApprovalStatus;
 use App\Enums\PayrollCategory;
 use App\Imports\CrewTimesheetsImport;
 use App\Models\CrewTimesheet;
@@ -340,7 +341,10 @@ test('crew timesheet import stores remarks from excel', function () {
         ->first();
 
     expect($timesheet)->not->toBeNull()
-        ->and($timesheet->remarks)->toBe('Imported adjustment');
+        ->and($timesheet->remarks)->toBe('Imported adjustment')
+        ->and($timesheet->approval_status)->toBe(CrewTimesheetApprovalStatus::Approved)
+        ->and($timesheet->approved_by)->toBe($user->id)
+        ->and($timesheet->approved_at)->not->toBeNull();
 });
 
 test('crew timesheet import stores typed salary input from excel', function () {

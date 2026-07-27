@@ -69,8 +69,12 @@ final class CrewTimesheetImportOrchestrator
     /**
      * @return array{imported: int, skipped: int, errors: list<array{row: int, field: string, message: string}>}
      */
-    public function execute(int $companyId, PayrollPeriod $period, UploadedFile $file): array
-    {
+    public function execute(
+        int $companyId,
+        PayrollPeriod $period,
+        UploadedFile $file,
+        ?int $importedByUserId = null,
+    ): array {
         $this->assertImportablePeriod($period);
 
         $parsed = $this->import->parse($file, $companyId);
@@ -114,6 +118,7 @@ final class CrewTimesheetImportOrchestrator
                 $period,
                 $employee,
                 $timesheetData,
+                $importedByUserId,
             );
 
             if (PayrollRecord::query()

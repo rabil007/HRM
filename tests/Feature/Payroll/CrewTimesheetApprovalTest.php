@@ -6,14 +6,10 @@ use App\Enums\CrewTimesheetSource;
 use App\Models\CrewTimesheet;
 use App\Models\PayrollPeriod;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
+use Illuminate\Validation\ValidationException;
 
-test('manual timesheet can be submitted then approved', function () {
+test('manual timesheet creation is automatically approved', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
-    grantCompanyPermissions($user, $company, [
-        'payroll.crew_timesheets.submit',
-        'payroll.crew_timesheets.approve',
-        'payroll.periods.view',
-    ]);
 
     $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
         'start_date' => '2026-07-01',
@@ -21,31 +17,72 @@ test('manual timesheet can be submitted then approved', function () {
     ]);
     $employee = createCrewEmployeeWithContract($company, 'APR-1', 100, 50, 25);
 
-    $timesheet = CrewTimesheet::factory()->draft()->create([
+    $timesheet = app(UpsertCrewTimesheet::class)->handle($period, $employee, [
+        'onsite_from' => '2026-07-01',
+        'onsite_to' => '2026-07-10',
+        'onsite_days' => 10,
+        'source' => CrewTimesheetSource::Manual,
+    ], $user->id);
+
+    expect($timesheet->approval_status)->toBe(CrewTimesheetApprovalStatus::Approved)
+        ->and($timesheet->approved_by)->toBe($user->id)
+        ->and($timesheet->approved_at)->not->toBeNull()
+        ->and($timesheet->submitted_by)->toBeNull()
+        ->and($timesheet->returned_by)->toBeNull();
+});
+
+test('manual timesheet editing remains approved and refreshes approver metadata', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+    $employee = createCrewEmployeeWithContract($company, 'APR-EDIT', 100, 50, 25);
+
+    CrewTimesheet::factory()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'period_id' => $period->id,
         'source' => CrewTimesheetSource::Manual,
+        'approval_status' => CrewTimesheetApprovalStatus::Approved,
+        'approved_by' => $user->id,
+        'approved_at' => now()->subDay(),
         'onsite_days' => 10,
+        'onsite_from' => '2026-07-01',
+        'onsite_to' => '2026-07-10',
     ]);
 
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->post(route('payroll.timesheets.submit', [$period, $timesheet]))
-        ->assertRedirect(route('payroll.show', $period));
+    $updated = app(UpsertCrewTimesheet::class)->handle($period, $employee, [
+        'onsite_from' => '2026-07-01',
+        'onsite_to' => '2026-07-12',
+        'onsite_days' => 12,
+        'source' => CrewTimesheetSource::Manual,
+    ], $user->id);
 
-    expect($timesheet->fresh()->approval_status)->toBe(CrewTimesheetApprovalStatus::Submitted);
-
-    $this->actingAs($user)
-        ->withSession(['current_company_id' => $company->id])
-        ->post(route('payroll.timesheets.approve', [$period, $timesheet]))
-        ->assertRedirect(route('payroll.show', $period));
-
-    expect($timesheet->fresh()->approval_status)->toBe(CrewTimesheetApprovalStatus::Approved)
-        ->and($timesheet->fresh()->approved_by)->toBe($user->id);
+    expect($updated->approval_status)->toBe(CrewTimesheetApprovalStatus::Approved)
+        ->and($updated->approved_by)->toBe($user->id)
+        ->and($updated->approved_at)->not->toBeNull();
 });
 
-test('submitted timesheet can be returned with reason', function () {
+test('manual timesheet save without authenticated actor is rejected', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+    $employee = createCrewEmployeeWithContract($company, 'APR-NOACTOR', 100, 50, 25);
+
+    expect(fn () => app(UpsertCrewTimesheet::class)->handle($period, $employee, [
+        'onsite_from' => '2026-07-01',
+        'onsite_to' => '2026-07-10',
+        'onsite_days' => 10,
+        'source' => CrewTimesheetSource::Manual,
+    ]))->toThrow(ValidationException::class);
+});
+
+test('legacy submitted import timesheet can still be returned through approval route', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     grantCompanyPermissions($user, $company, [
         'payroll.crew_timesheets.return',
@@ -125,38 +162,6 @@ test('cross company approval is rejected', function () {
         ->assertNotFound();
 });
 
-test('editing approved operational data resets approval to draft', function () {
-    ['company' => $company] = makePayrollFixtures();
-    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
-        'start_date' => '2026-07-01',
-        'end_date' => '2026-07-31',
-    ]);
-    $employee = createCrewEmployeeWithContract($company, 'APR-EDIT', 100, 50, 25);
-
-    CrewTimesheet::factory()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'period_id' => $period->id,
-        'source' => CrewTimesheetSource::Manual,
-        'approval_status' => CrewTimesheetApprovalStatus::Approved,
-        'approved_at' => now(),
-        'onsite_days' => 10,
-        'onsite_from' => '2026-07-01',
-        'onsite_to' => '2026-07-10',
-    ]);
-
-    $updated = app(UpsertCrewTimesheet::class)->handle($period, $employee, [
-        'onsite_from' => '2026-07-01',
-        'onsite_to' => '2026-07-12',
-        'onsite_days' => 12,
-        'source' => CrewTimesheetSource::Manual,
-    ]);
-
-    expect($updated->approval_status)->toBe(CrewTimesheetApprovalStatus::Draft)
-        ->and($updated->approved_by)->toBeNull()
-        ->and($updated->approved_at)->toBeNull();
-});
-
 test('financial only update on locked crew operations preserves approval and operational fields', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     $fixtures['period']->update(['crew_timesheet_mode' => CrewTimesheetMode::Hybrid]);
@@ -178,7 +183,7 @@ test('financial only update on locked crew operations preserves approval and ope
         'overtime_hours' => 22,
         'additional_amount' => 150,
         'source' => CrewTimesheetSource::Manual,
-    ]);
+    ], $approver->id);
 
     expect($updated->source)->toBe(CrewTimesheetSource::CrewOperations)
         ->and($updated->isOperationallyLocked())->toBeTrue()

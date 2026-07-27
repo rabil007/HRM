@@ -68,21 +68,7 @@ test('crew payroll coverage summary query count stays bounded', function () {
     ]);
 
     foreach (range(1, 20) as $index) {
-        $employee = createCrewEmployeeWithContract($company, "COV-{$index}", 100, 50, 25);
-        if ($index % 3 === 0) {
-            continue;
-        }
-
-        CrewTimesheet::factory()->create([
-            'company_id' => $company->id,
-            'employee_id' => $employee->id,
-            'period_id' => $period->id,
-            'source' => CrewTimesheetSource::Manual,
-            'approval_status' => $index % 2 === 0
-                ? CrewTimesheetApprovalStatus::Approved
-                : CrewTimesheetApprovalStatus::Draft,
-            'onsite_days' => 5,
-        ]);
+        createCrewEmployeeWithContract($company, "COV-{$index}", 100, 50, 25);
     }
 
     DB::flushQueryLog();
@@ -90,9 +76,10 @@ test('crew payroll coverage summary query count stays bounded', function () {
     $summary = app(BuildCrewPayrollCoverageSummary::class)->handle($period, (int) $company->id);
     $queryCount = count(DB::getQueryLog());
 
-    expect($queryCount)->toBeLessThan(15)
-        ->and($summary['missing_timesheet_count'])->toBeGreaterThan(0)
-        ->and($summary['awaiting_approval_count'])->toBeGreaterThan(0);
+    expect($queryCount)->toBeLessThan(10)
+        ->and($summary['missing_timesheet_count'])->toBe(0)
+        ->and($summary['awaiting_approval_count'])->toBe(0)
+        ->and($summary['ready_count'])->toBe(20);
 });
 
 test('generate crew payroll does not multiply read queries per employee', function () {

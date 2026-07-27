@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CrewTimesheetApprovalStatus;
 use App\Enums\CrewTimesheetMode;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
@@ -14,7 +15,7 @@ use Spatie\Activitylog\Models\Activity;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 test('hybrid period allows manual operational entry without movement coverage', function () {
-    ['company' => $company] = makePayrollFixtures();
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
 
     $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
         'start_date' => '2026-07-01',
@@ -30,15 +31,16 @@ test('hybrid period allows manual operational entry without movement coverage', 
         'onsite_to' => '2026-07-18',
         'onsite_days' => 15,
         'source' => CrewTimesheetSource::Manual,
-    ]);
+    ], $user->id);
 
     expect($timesheet->source)->toBe(CrewTimesheetSource::Manual)
+        ->and($timesheet->approval_status)->toBe(CrewTimesheetApprovalStatus::Approved)
         ->and((float) $timesheet->onsite_days)->toBe(15.0)
         ->and($timesheet->isOperationallyLocked())->toBeFalse();
 });
 
 test('hybrid period allows import source operational entry without movement coverage', function () {
-    ['company' => $company] = makePayrollFixtures();
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
 
     $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
         'start_date' => '2026-07-01',
@@ -52,7 +54,7 @@ test('hybrid period allows import source operational entry without movement cove
         'onsite_days' => 15,
         'overtime_hours' => 10,
         'source' => CrewTimesheetSource::Import,
-    ]);
+    ], $user->id);
 
     expect($timesheet->source)->toBe(CrewTimesheetSource::Import)
         ->and((float) $timesheet->onsite_days)->toBe(15.0)
@@ -127,6 +129,7 @@ test('manual and import cannot overwrite applied crew operations operational fie
             'onsite_days' => 20,
             'source' => CrewTimesheetSource::Manual,
         ],
+        $approver->id,
     ))->toThrow(ValidationException::class);
 
     $financial = app(UpsertCrewTimesheet::class)->handle(
@@ -137,6 +140,7 @@ test('manual and import cannot overwrite applied crew operations operational fie
             'additional_amount' => 250,
             'source' => CrewTimesheetSource::Import,
         ],
+        $approver->id,
     );
 
     expect((float) $financial->onsite_days)->toBe($originalOnsite)
@@ -177,6 +181,7 @@ test('employee outside preparation remains editable after apply', function () {
             'onsite_days' => 14,
             'source' => CrewTimesheetSource::Manual,
         ],
+        $approver->id,
     );
 
     expect($otherTimesheet->source)->toBe(CrewTimesheetSource::Manual)

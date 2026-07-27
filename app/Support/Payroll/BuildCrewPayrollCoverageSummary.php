@@ -2,23 +2,18 @@
 
 namespace App\Support\Payroll;
 
-use App\Enums\ContractSalaryStructure;
-use App\Enums\CrewTimesheetApprovalStatus;
 use App\Enums\CrewTimesheetPreparationStatus;
-use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
-use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\PayrollPeriod;
 
 /**
- * Lightweight coverage counts for the payroll show page.
- * Full classification and integrity checks run only on generation preview/confirm.
+ * Period-level generation readiness for the payroll show page.
+ * Per-employee skip counts run only on generation preview/confirm.
  */
 final class BuildCrewPayrollCoverageSummary
 {
     public function __construct(
-        private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
         private readonly CrewOperationsPayrollGenerationGuard $legacyGuard,
     ) {}
 
@@ -44,7 +39,7 @@ final class BuildCrewPayrollCoverageSummary
             return $this->exclusiveSummary($period, $companyId, $excluded);
         }
 
-        return $this->hybridCoverage($period, $companyId, $excluded);
+        return $this->hybridReadiness($period, $companyId, $excluded);
     }
 
     /**
@@ -85,7 +80,7 @@ final class BuildCrewPayrollCoverageSummary
      * @param  list<int>  $excluded
      * @return array<string, mixed>
      */
-    private function hybridCoverage(PayrollPeriod $period, int $companyId, array $excluded): array
+    private function hybridReadiness(PayrollPeriod $period, int $companyId, array $excluded): array
     {
         $applied = CrewTimesheetPreparation::query()
             ->where('company_id', $companyId)
@@ -121,104 +116,16 @@ final class BuildCrewPayrollCoverageSummary
             ]];
         }
 
-        $employeeIds = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
+        $employeeCount = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Crew)
             ->when($excluded !== [], fn ($query) => $query->whereNotIn('employees.id', $excluded))
-            ->pluck('employees.id')
-            ->map(intval(...))
-            ->all();
-
-        if ($employeeIds === []) {
-            return [
-                'ready' => $blockingCount === 0,
-                'can_generate' => false,
-                'ready_count' => 0,
-                'missing_timesheet_count' => 0,
-                'awaiting_approval_count' => 0,
-                'excluded_count' => count($excluded),
-                'blocking_count' => $blockingCount,
-                'blocking_issues' => $blockingIssues,
-                'applied_preparation_id' => $preparation?->id,
-                'applied_preparation_version' => $preparation?->version,
-                'period_blocking_reason' => $periodBlocking,
-                'blocking_reason' => $periodBlocking,
-                'affected_employee_id' => null,
-            ];
-        }
-
-        $contracts = $this->resolveContract->resolveMany($period, $employeeIds);
-        $timesheetRows = CrewTimesheet::query()
-            ->where('company_id', $companyId)
-            ->where('period_id', $period->id)
-            ->whereIn('employee_id', $employeeIds)
-            ->get(['employee_id', 'source', 'approval_status']);
-
-        $timesheetsByEmployee = $timesheetRows->keyBy(fn (CrewTimesheet $row) => (int) $row->employee_id);
-
-        $missing = 0;
-        $awaiting = 0;
-        $ready = 0;
-
-        foreach ($employeeIds as $employeeId) {
-            $contract = $contracts->get($employeeId);
-
-            if ($contract === null || $contract->payroll_category !== PayrollCategory::Crew) {
-                continue;
-            }
-
-            $structure = $contract->resolvedSalaryStructure();
-            $timesheet = $timesheetsByEmployee->get($employeeId);
-
-            if ($structure === ContractSalaryStructure::Monthly) {
-                if ($timesheet === null) {
-                    $ready++;
-
-                    continue;
-                }
-
-                if ($timesheet->source === CrewTimesheetSource::CrewOperations) {
-                    continue;
-                }
-
-                if (($timesheet->approval_status ?? CrewTimesheetApprovalStatus::Draft)
-                    !== CrewTimesheetApprovalStatus::Approved) {
-                    $awaiting++;
-
-                    continue;
-                }
-
-                $ready++;
-
-                continue;
-            }
-
-            if ($timesheet === null) {
-                $missing++;
-
-                continue;
-            }
-
-            if ($timesheet->source === CrewTimesheetSource::CrewOperations) {
-                $ready++;
-
-                continue;
-            }
-
-            if (($timesheet->approval_status ?? CrewTimesheetApprovalStatus::Draft)
-                !== CrewTimesheetApprovalStatus::Approved) {
-                $awaiting++;
-
-                continue;
-            }
-
-            $ready++;
-        }
+            ->count();
 
         return [
             'ready' => $blockingCount === 0,
-            'can_generate' => $blockingCount === 0 && $ready > 0,
-            'ready_count' => $ready,
-            'missing_timesheet_count' => $missing,
-            'awaiting_approval_count' => $awaiting,
+            'can_generate' => $blockingCount === 0 && $employeeCount > 0,
+            'ready_count' => $employeeCount,
+            'missing_timesheet_count' => 0,
+            'awaiting_approval_count' => 0,
             'excluded_count' => count($excluded),
             'blocking_count' => $blockingCount,
             'blocking_issues' => $blockingIssues,

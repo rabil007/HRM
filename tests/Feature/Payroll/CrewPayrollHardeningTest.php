@@ -58,6 +58,7 @@ test('overtime-only import preserves existing additions and deductions on an app
         $fixtures['period'],
         $fixtures['employee'],
         ['overtime_hours' => 8, 'source' => CrewTimesheetSource::Import],
+        $fixtures['user']->id,
     );
 
     $timesheet->refresh();
@@ -83,6 +84,7 @@ test('remarks-only import preserves all financial amounts on an applied timeshee
         $fixtures['period'],
         $fixtures['employee'],
         ['remarks' => 'Reviewed by crewing'],
+        $fixtures['user']->id,
     );
 
     $timesheet->refresh();
@@ -109,6 +111,7 @@ test('explicit zero clears a financial value while explicit amount updates it', 
         $fixtures['period'],
         $fixtures['employee'],
         ['additional_amount' => 0, 'deduction_amount' => 250],
+        $fixtures['user']->id,
     );
 
     $timesheet->refresh();
