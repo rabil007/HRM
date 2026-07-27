@@ -1487,16 +1487,16 @@ export function PayrollShowContent({
                             )}
                         </div>
 
-                        <OrganizationDataTable>
+                        <OrganizationDataTable minWidth="min-w-[1580px]">
                             <TableHeader>
                                 {/* Group labels row */}
                                 <tr className="border-b-0">
                                     <th
-                                        colSpan={3}
+                                        colSpan={2}
                                         className="h-7 border-b border-border/30"
                                     />
                                     <th
-                                        colSpan={1}
+                                        colSpan={2}
                                         className="h-7 border-b border-border/30"
                                     />
                                     <th
@@ -1533,7 +1533,6 @@ export function PayrollShowContent({
                                         />
                                     </DataTableHead>
                                     <DataTableHead>Employee</DataTableHead>
-                                    <DataTableHead>Source</DataTableHead>
                                     <DataTableHead>Approval</DataTableHead>
                                     <DataTableHead>Bank</DataTableHead>
                                     <DataTableHead className="border-l border-primary/10 bg-primary/3 text-right">
@@ -1654,31 +1653,6 @@ export function PayrollShowContent({
                                                 employee={row.employee}
                                                 isExcluded={isExcluded}
                                             />
-                                            <TableCell
-                                                className={cn(
-                                                    dataTableCellClass(),
-                                                    'align-middle',
-                                                )}
-                                            >
-                                                <CrewOperationalSourceBadge
-                                                    source={
-                                                        row.operational_source ??
-                                                        (isMonthlyCrewRow
-                                                            ? 'monthly_crew'
-                                                            : row.timesheet
-                                                              ? ((row.timesheet
-                                                                    .source as
-                                                                    | 'crew_operations'
-                                                                    | 'import'
-                                                                    | 'manual') ??
-                                                                'manual')
-                                                              : 'not_entered')
-                                                    }
-                                                    label={
-                                                        row.operational_source_label
-                                                    }
-                                                />
-                                            </TableCell>
                                             <TableCell
                                                 className={cn(
                                                     dataTableCellClass(),
@@ -2096,7 +2070,7 @@ export function PayrollShowContent({
                                                 }
                                             />
 
-                                            {/* Status */}
+                                            {/* Status + source */}
                                             <TableCell
                                                 className={dataTableCellClass()}
                                             >
@@ -2118,6 +2092,25 @@ export function PayrollShowContent({
                                                             ? '✓ Filled'
                                                             : 'Pending'}
                                                     </Badge>
+                                                    <CrewOperationalSourceBadge
+                                                        source={
+                                                            row.operational_source ??
+                                                            (isMonthlyCrewRow
+                                                                ? 'monthly_crew'
+                                                                : row.timesheet
+                                                                  ? ((row
+                                                                        .timesheet
+                                                                        .source as
+                                                                        | 'crew_operations'
+                                                                        | 'import'
+                                                                        | 'manual') ??
+                                                                    'manual')
+                                                                  : 'not_entered')
+                                                        }
+                                                        label={
+                                                            row.operational_source_label
+                                                        }
+                                                    />
                                                     {isDirty && (
                                                         <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary/70">
                                                             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary/60" />
