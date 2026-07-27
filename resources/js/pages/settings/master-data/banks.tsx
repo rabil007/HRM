@@ -1,11 +1,11 @@
 import { AppSelect, AppSelectItem } from '@/components/app-select';
-import { MasterDataListShell } from '@/components/settings/master-data-list-shell';
 import {
     MasterDataField,
     MasterDataFormSheet,
     MasterDataFormSheetFooter,
     masterDataInputClass,
 } from '@/components/settings/master-data-form-sheet';
+import { MasterDataListShell } from '@/components/settings/master-data-list-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -74,9 +74,7 @@ export default function Banks({
         initialForm,
         filterItem: (bank, q) =>
             bank.name.toLowerCase().includes(q) ||
-            (bank.uae_routing_code_agent_id ?? '')
-                .toLowerCase()
-                .includes(q) ||
+            (bank.uae_routing_code_agent_id ?? '').toLowerCase().includes(q) ||
             (bank.country?.name ?? '').toLowerCase().includes(q),
         toFormData: (bank) => ({
             name: bank.name,
@@ -247,7 +245,9 @@ export default function Banks({
                     key={bank.id}
                     className="grid grid-cols-12 gap-2 border-t border-border/60 px-4 py-3 whitespace-nowrap"
                 >
-                    <div className="col-span-4 truncate text-sm">{bank.name}</div>
+                    <div className="col-span-4 truncate text-sm">
+                        {bank.name}
+                    </div>
                     <div className="col-span-2 font-mono text-sm text-muted-foreground">
                         {bank.uae_routing_code_agent_id ?? '—'}
                     </div>

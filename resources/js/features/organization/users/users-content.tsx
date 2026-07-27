@@ -188,16 +188,12 @@ export function UsersContent({
                 </>
             }
             search={{
-                placeholder:
-                    'Search users by name, email, company, or role...',
+                placeholder: 'Search users by name, email, company, or role...',
                 value: list.searchInput,
                 onChange: list.onSearchChange,
                 right:
                     crud.view && crud.setView ? (
-                        <ViewToggle
-                            value={crud.view}
-                            onChange={crud.setView}
-                        />
+                        <ViewToggle value={crud.view} onChange={crud.setView} />
                     ) : null,
             }}
             filtersButton={{
@@ -309,9 +305,7 @@ export function UsersContent({
                 onOpenChange={crud.setIsFiltersOpen}
                 value={filters}
                 onChange={handleFiltersChange}
-                onReset={() =>
-                    handleFiltersChange({ status: '', role_id: '' })
-                }
+                onReset={() => handleFiltersChange({ status: '', role_id: '' })}
                 roles={roles}
             />
 

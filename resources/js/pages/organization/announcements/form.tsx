@@ -21,7 +21,15 @@ import {
     Users,
     X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    lazy,
+    Suspense,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import InputError from '@/components/input-error';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
@@ -36,7 +44,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { AnnouncementMessageEditor } from '@/features/organization/announcements/announcement-message-editor';
+import { AnnouncementMessageEditorSkeleton } from '@/features/organization/announcements/announcement-message-editor-skeleton';
 import { buildWhatsAppTemplatePreview } from '@/features/organization/announcements/build-whatsapp-template-preview';
 import type {
     AnnouncementCan,
@@ -47,6 +55,18 @@ import type {
 } from '@/features/organization/announcements/types';
 import { WhatsAppDocumentTemplatePreview } from '@/features/settings/whatsapp-document-template-preview';
 import { cn } from '@/lib/utils';
+
+/**
+ * Tiptap and ProseMirror are the heaviest dependency on this page, so the
+ * editor is split out of the initial page chunk.
+ */
+const LazyAnnouncementMessageEditor = lazy(() =>
+    import('@/features/organization/announcements/announcement-message-editor').then(
+        (module) => ({
+            default: module.AnnouncementMessageEditor,
+        }),
+    ),
+);
 
 const CHANNELS = [
     {
@@ -988,9 +1008,7 @@ export default function AnnouncementFormPage({
                 options.whatsapp_template?.meta_name ??
                 'employee_announcement_notice'
             }
-            templateLanguage={
-                options.whatsapp_template?.meta_language ?? 'en'
-            }
+            templateLanguage={options.whatsapp_template?.meta_language ?? 'en'}
             bodyText={whatsappPreviewText}
             headerType="none"
             accountName={options.company_name || 'Company'}
@@ -1015,9 +1033,7 @@ export default function AnnouncementFormPage({
                         <div className="space-y-5">
                             <SectionCard
                                 step={1}
-                                icon={
-                                    <Send className="size-4 text-primary" />
-                                }
+                                icon={<Send className="size-4 text-primary" />}
                                 title="Delivery channels"
                                 description="Choose at least one way to deliver this announcement."
                             >
@@ -1108,19 +1124,25 @@ export default function AnnouncementFormPage({
                                         <Label htmlFor="body_html">
                                             Message body
                                         </Label>
-                                        <AnnouncementMessageEditor
-                                            id="body_html"
-                                            value={form.data.body_html}
-                                            onChange={(value) =>
-                                                form.setData(
-                                                    'body_html',
-                                                    value,
-                                                )
+                                        <Suspense
+                                            fallback={
+                                                <AnnouncementMessageEditorSkeleton />
                                             }
-                                            invalid={Boolean(
-                                                form.errors.body_html,
-                                            )}
-                                        />
+                                        >
+                                            <LazyAnnouncementMessageEditor
+                                                id="body_html"
+                                                value={form.data.body_html}
+                                                onChange={(value) =>
+                                                    form.setData(
+                                                        'body_html',
+                                                        value,
+                                                    )
+                                                }
+                                                invalid={Boolean(
+                                                    form.errors.body_html,
+                                                )}
+                                            />
+                                        </Suspense>
                                         <p className="text-xs text-muted-foreground">
                                             Use the link button for clickable
                                             email and in-app links.
@@ -1266,9 +1288,7 @@ export default function AnnouncementFormPage({
 
                             <SectionCard
                                 step={3}
-                                icon={
-                                    <Users className="size-4 text-primary" />
-                                }
+                                icon={<Users className="size-4 text-primary" />}
                                 title="Audience"
                                 description="Choose who should receive this announcement."
                                 headerRight={
@@ -1277,229 +1297,258 @@ export default function AnnouncementFormPage({
                                     </span>
                                 }
                             >
-                        <div className="space-y-4">
-                            {/* Audience type cards */}
-                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                                {AUDIENCE_TYPES.map((type) => {
-                                    const isActive =
-                                        activeAudienceType === type.value;
-                                    const count =
-                                        type.value === 'all_employees'
-                                            ? null
-                                            : (audienceOptions[type.value]
-                                                  ?.length ?? 0);
-                                    const selectedCount =
-                                        type.value !== 'all_employees'
-                                            ? selectedIds(type.value).length
-                                            : null;
+                                <div className="space-y-4">
+                                    {/* Audience type cards */}
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                                        {AUDIENCE_TYPES.map((type) => {
+                                            const isActive =
+                                                activeAudienceType ===
+                                                type.value;
+                                            const count =
+                                                type.value === 'all_employees'
+                                                    ? null
+                                                    : (audienceOptions[
+                                                          type.value
+                                                      ]?.length ?? 0);
+                                            const selectedCount =
+                                                type.value !== 'all_employees'
+                                                    ? selectedIds(type.value)
+                                                          .length
+                                                    : null;
 
-                                    return (
-                                        <button
-                                            key={type.value}
-                                            type="button"
-                                            onClick={() =>
-                                                selectAudienceType(type.value)
-                                            }
-                                            className={cn(
-                                                'flex flex-col items-start gap-2 rounded-xl border p-3.5 text-left text-sm transition-all',
-                                                isActive
-                                                    ? [
-                                                          type.borderColor,
-                                                          type.bgColor,
-                                                          'shadow-sm',
-                                                      ]
-                                                    : 'border-border/60 hover:border-border hover:bg-muted/30',
-                                            )}
-                                        >
-                                            <div
-                                                className={cn(
-                                                    'flex size-8 items-center justify-center rounded-lg',
-                                                    isActive
-                                                        ? [
-                                                              type.bgColor,
-                                                              type.color,
-                                                          ]
-                                                        : 'bg-muted text-muted-foreground',
-                                                )}
-                                            >
-                                                <type.Icon className="size-4" />
-                                            </div>
-                                            <div className="w-full">
-                                                <div className="flex items-center justify-between gap-1">
-                                                    <span
+                                            return (
+                                                <button
+                                                    key={type.value}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        selectAudienceType(
+                                                            type.value,
+                                                        )
+                                                    }
+                                                    className={cn(
+                                                        'flex flex-col items-start gap-2 rounded-xl border p-3.5 text-left text-sm transition-all',
+                                                        isActive
+                                                            ? [
+                                                                  type.borderColor,
+                                                                  type.bgColor,
+                                                                  'shadow-sm',
+                                                              ]
+                                                            : 'border-border/60 hover:border-border hover:bg-muted/30',
+                                                    )}
+                                                >
+                                                    <div
                                                         className={cn(
-                                                            'leading-tight font-medium',
+                                                            'flex size-8 items-center justify-center rounded-lg',
                                                             isActive
-                                                                ? type.color
-                                                                : 'text-foreground',
+                                                                ? [
+                                                                      type.bgColor,
+                                                                      type.color,
+                                                                  ]
+                                                                : 'bg-muted text-muted-foreground',
                                                         )}
                                                     >
-                                                        {type.label}
-                                                    </span>
-                                                    {count !== null ? (
-                                                        <span
-                                                            className={cn(
-                                                                'rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
-                                                                isActive
-                                                                    ? [
-                                                                          type.bgColor,
-                                                                          type.color,
-                                                                      ]
-                                                                    : 'bg-muted text-muted-foreground',
-                                                            )}
-                                                        >
-                                                            {selectedCount
-                                                                ? `${selectedCount}/${count}`
-                                                                : count}
-                                                        </span>
-                                                    ) : null}
-                                                </div>
-                                                <p className="mt-0.5 text-xs leading-tight text-muted-foreground">
-                                                    {type.description}
-                                                </p>
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            {/* All employees confirmation */}
-                            {activeAudienceType === 'all_employees' ? (
-                                <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">
-                                    <Globe className="size-4 shrink-0" />
-                                    <span>
-                                        This announcement will be sent to{' '}
-                                        <strong>all active employees</strong> in
-                                        the system.
-                                    </span>
-                                </div>
-                            ) : null}
-
-                            {/* Sub-picker for non-all modes */}
-                            {activeAudienceType === 'department' ? (
-                                <DepartmentTreePicker
-                                    items={options.departments}
-                                    selectedIds={selectedIds('department')}
-                                    onToggleBatch={toggleAudienceBatch}
-                                    onClear={() =>
-                                        clearAudienceType('department')
-                                    }
-                                />
-                            ) : activeAudienceType !== 'all_employees' &&
-                              audienceOptions[activeAudienceType] ? (
-                                <AudiencePicker
-                                    type={activeAudienceType}
-                                    items={audienceOptions[activeAudienceType]}
-                                    selectedIds={selectedIds(
-                                        activeAudienceType,
-                                    )}
-                                    onToggleBatch={toggleAudienceBatch}
-                                    onClear={() =>
-                                        clearAudienceType(activeAudienceType)
-                                    }
-                                    onSelectAll={
-                                        activeAudienceType === 'employee'
-                                            ? () =>
-                                                  selectAudienceType(
-                                                      'all_employees',
-                                                  )
-                                            : undefined
-                                    }
-                                />
-                            ) : null}
-
-                            {/* Validation warning when nothing chosen in non-all mode */}
-                            {activeAudienceType !== 'all_employees' &&
-                            totalAudienceSelected === 0 ? (
-                                <p className="text-xs text-warning">
-                                    Select at least one option to continue.
-                                </p>
-                            ) : null}
-
-                            <InputError message={form.errors.audiences} />
-                        </div>
-                    </SectionCard>
-
-                    {/* Attachments (edit mode only) */}
-                    {isEdit && announcement ? (
-                        <SectionCard
-                            icon={<Upload className="size-4 text-primary" />}
-                            title="Attachments"
-                        >
-                            <div className="space-y-3">
-                                {announcement.attachments.length > 0 ? (
-                                    <ul className="space-y-2">
-                                        {announcement.attachments.map(
-                                            (attachment) => (
-                                                <li
-                                                    key={attachment.id}
-                                                    className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 text-sm"
-                                                >
-                                                    <div className="flex items-center gap-2">
-                                                        <FileText className="size-4 text-muted-foreground" />
-                                                        <span>
-                                                            {
-                                                                attachment.original_name
-                                                            }
-                                                        </span>
+                                                        <type.Icon className="size-4" />
                                                     </div>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                        onClick={() =>
-                                                            router.delete(
-                                                                `/organization/announcements/${announcement.id}/attachments/${attachment.id}`,
-                                                            )
-                                                        }
-                                                    >
-                                                        <Trash2 className="size-3.5" />
-                                                        Remove
-                                                    </Button>
-                                                </li>
-                                            ),
-                                        )}
-                                    </ul>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">
-                                        No attachments yet.
-                                    </p>
-                                )}
-                                <div className="rounded-xl border border-dashed border-border/70 p-4">
-                                    <Label
-                                        htmlFor="attachment-upload"
-                                        className="flex cursor-pointer flex-col items-center gap-2 text-center text-sm text-muted-foreground"
-                                    >
-                                        <Upload className="size-5" />
-                                        <span>Click to upload a file</span>
-                                    </Label>
-                                    <Input
-                                        id="attachment-upload"
-                                        type="file"
-                                        className="sr-only"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0];
-
-                                            if (!file) {
-                                                return;
-                                            }
-
-                                            const data = new FormData();
-                                            data.append('attachment', file);
-                                            router.post(
-                                                `/organization/announcements/${announcement.id}/attachments`,
-                                                data,
-                                                { forceFormData: true },
+                                                    <div className="w-full">
+                                                        <div className="flex items-center justify-between gap-1">
+                                                            <span
+                                                                className={cn(
+                                                                    'leading-tight font-medium',
+                                                                    isActive
+                                                                        ? type.color
+                                                                        : 'text-foreground',
+                                                                )}
+                                                            >
+                                                                {type.label}
+                                                            </span>
+                                                            {count !== null ? (
+                                                                <span
+                                                                    className={cn(
+                                                                        'rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+                                                                        isActive
+                                                                            ? [
+                                                                                  type.bgColor,
+                                                                                  type.color,
+                                                                              ]
+                                                                            : 'bg-muted text-muted-foreground',
+                                                                    )}
+                                                                >
+                                                                    {selectedCount
+                                                                        ? `${selectedCount}/${count}`
+                                                                        : count}
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                        <p className="mt-0.5 text-xs leading-tight text-muted-foreground">
+                                                            {type.description}
+                                                        </p>
+                                                    </div>
+                                                </button>
                                             );
-                                        }}
+                                        })}
+                                    </div>
+
+                                    {/* All employees confirmation */}
+                                    {activeAudienceType === 'all_employees' ? (
+                                        <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">
+                                            <Globe className="size-4 shrink-0" />
+                                            <span>
+                                                This announcement will be sent
+                                                to{' '}
+                                                <strong>
+                                                    all active employees
+                                                </strong>{' '}
+                                                in the system.
+                                            </span>
+                                        </div>
+                                    ) : null}
+
+                                    {/* Sub-picker for non-all modes */}
+                                    {activeAudienceType === 'department' ? (
+                                        <DepartmentTreePicker
+                                            items={options.departments}
+                                            selectedIds={selectedIds(
+                                                'department',
+                                            )}
+                                            onToggleBatch={toggleAudienceBatch}
+                                            onClear={() =>
+                                                clearAudienceType('department')
+                                            }
+                                        />
+                                    ) : activeAudienceType !==
+                                          'all_employees' &&
+                                      audienceOptions[activeAudienceType] ? (
+                                        <AudiencePicker
+                                            type={activeAudienceType}
+                                            items={
+                                                audienceOptions[
+                                                    activeAudienceType
+                                                ]
+                                            }
+                                            selectedIds={selectedIds(
+                                                activeAudienceType,
+                                            )}
+                                            onToggleBatch={toggleAudienceBatch}
+                                            onClear={() =>
+                                                clearAudienceType(
+                                                    activeAudienceType,
+                                                )
+                                            }
+                                            onSelectAll={
+                                                activeAudienceType ===
+                                                'employee'
+                                                    ? () =>
+                                                          selectAudienceType(
+                                                              'all_employees',
+                                                          )
+                                                    : undefined
+                                            }
+                                        />
+                                    ) : null}
+
+                                    {/* Validation warning when nothing chosen in non-all mode */}
+                                    {activeAudienceType !== 'all_employees' &&
+                                    totalAudienceSelected === 0 ? (
+                                        <p className="text-xs text-warning">
+                                            Select at least one option to
+                                            continue.
+                                        </p>
+                                    ) : null}
+
+                                    <InputError
+                                        message={form.errors.audiences}
                                     />
                                 </div>
-                            </div>
-                        </SectionCard>
-                    ) : null}
+                            </SectionCard>
 
-                    {/* Publishing */}
+                            {/* Attachments (edit mode only) */}
+                            {isEdit && announcement ? (
+                                <SectionCard
+                                    icon={
+                                        <Upload className="size-4 text-primary" />
+                                    }
+                                    title="Attachments"
+                                >
+                                    <div className="space-y-3">
+                                        {announcement.attachments.length > 0 ? (
+                                            <ul className="space-y-2">
+                                                {announcement.attachments.map(
+                                                    (attachment) => (
+                                                        <li
+                                                            key={attachment.id}
+                                                            className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 text-sm"
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <FileText className="size-4 text-muted-foreground" />
+                                                                <span>
+                                                                    {
+                                                                        attachment.original_name
+                                                                    }
+                                                                </span>
+                                                            </div>
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                                onClick={() =>
+                                                                    router.delete(
+                                                                        `/organization/announcements/${announcement.id}/attachments/${attachment.id}`,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Trash2 className="size-3.5" />
+                                                                Remove
+                                                            </Button>
+                                                        </li>
+                                                    ),
+                                                )}
+                                            </ul>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">
+                                                No attachments yet.
+                                            </p>
+                                        )}
+                                        <div className="rounded-xl border border-dashed border-border/70 p-4">
+                                            <Label
+                                                htmlFor="attachment-upload"
+                                                className="flex cursor-pointer flex-col items-center gap-2 text-center text-sm text-muted-foreground"
+                                            >
+                                                <Upload className="size-5" />
+                                                <span>
+                                                    Click to upload a file
+                                                </span>
+                                            </Label>
+                                            <Input
+                                                id="attachment-upload"
+                                                type="file"
+                                                className="sr-only"
+                                                onChange={(e) => {
+                                                    const file =
+                                                        e.target.files?.[0];
+
+                                                    if (!file) {
+                                                        return;
+                                                    }
+
+                                                    const data = new FormData();
+                                                    data.append(
+                                                        'attachment',
+                                                        file,
+                                                    );
+                                                    router.post(
+                                                        `/organization/announcements/${announcement.id}/attachments`,
+                                                        data,
+                                                        { forceFormData: true },
+                                                    );
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </SectionCard>
+                            ) : null}
+
+                            {/* Publishing */}
                             <SectionCard
                                 step={4}
                                 icon={

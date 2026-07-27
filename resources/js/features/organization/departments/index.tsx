@@ -140,12 +140,9 @@ export function DepartmentsContent({
             return;
         }
 
-        router.delete(
-            `/organization/departments/${crud.currentEntity.id}`,
-            {
-                onFinish: () => crud.confirmDeleteFinish(),
-            },
-        );
+        router.delete(`/organization/departments/${crud.currentEntity.id}`, {
+            onFinish: () => crud.confirmDeleteFinish(),
+        });
     };
 
     const toggleStatus = (department: Department, enabled: boolean) => {
@@ -162,13 +159,10 @@ export function DepartmentsContent({
 
     const submit = () => {
         if (crud.currentEntity) {
-            form.put(
-                `/organization/departments/${crud.currentEntity.id}`,
-                {
-                    preserveScroll: true,
-                    onSuccess: () => crud.setIsSheetOpen(false),
-                },
-            );
+            form.put(`/organization/departments/${crud.currentEntity.id}`, {
+                preserveScroll: true,
+                onSuccess: () => crud.setIsSheetOpen(false),
+            });
 
             return;
         }
@@ -235,10 +229,7 @@ export function DepartmentsContent({
             }}
             pagination={
                 crud.view !== 'tree' ? (
-                    <Pagination
-                        {...list.paginationProps}
-                        label="departments"
-                    />
+                    <Pagination {...list.paginationProps} label="departments" />
                 ) : null
             }
         >

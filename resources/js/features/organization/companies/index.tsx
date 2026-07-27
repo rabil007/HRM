@@ -1,6 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Filter, FolderOpen, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { FolderOpen, Plus } from 'lucide-react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -12,11 +11,9 @@ import {
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
-import { Main } from '@/components/layout/main';
 import { ListTableCrudActions } from '@/components/list-table-actions';
-import { PageHeader } from '@/components/page-header';
+import { OrganizationListPageShell } from '@/components/organization-list-page-shell';
 import { Pagination } from '@/components/pagination';
-import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -26,8 +23,9 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { useOrganizationCrudList } from '@/hooks/use-organization-crud-list';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { useViewPreference } from '@/hooks/use-view-preference';
+import { buildListExportUrl } from '@/lib/build-list-export-url';
 import { toast } from '@/lib/toast';
 import { index as companyDocumentsIndex } from '@/routes/organization/companies/documents';
 import type { PaginationMeta } from '@/types/pagination';
@@ -59,11 +57,9 @@ export function CompaniesContent({
         filters: initialFilters,
         pagination,
     });
-    const [view, setView] = useViewPreference('companies:view', 'grid');
-    const [isSheetOpen, setIsSheetOpen] = useState(false);
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-    const [currentCompany, setCurrentCompany] = useState<Company | null>(null);
+    const crud = useOrganizationCrudList<Company>({
+        viewKey: 'companies:view',
+    });
 
     const filters: CompanyFilters = {
         industry: initialFilters.industry,
@@ -104,86 +100,78 @@ export function CompaniesContent({
     });
 
     const handleAdd = () => {
-        setCurrentCompany(null);
-        form.reset();
-        form.clearErrors();
-        form.setData({
-            logo: null,
-            name: '',
-            industry: '',
-            company_size: '',
-            registration_number: '',
-            tax_id: '',
-            city: '',
-            address: '',
-            phone: '',
-            country_id: countries.find((c) => c.code === 'UAE')?.id ?? '',
-            email: '',
-            website: '',
-            currency_id: currencies.find((c) => c.code === 'AED')?.id ?? '',
-            timezone: 'Asia/Dubai',
-            payroll_cycle: 'monthly',
-            working_days: [1, 2, 3, 4, 5],
-            wps_agent_code: '',
-            wps_mol_uid: '',
-            wps_employer_iban: '',
-            status: 'active',
+        crud.openCreate(() => {
+            form.reset();
+            form.clearErrors();
+            form.setData({
+                logo: null,
+                name: '',
+                industry: '',
+                company_size: '',
+                registration_number: '',
+                tax_id: '',
+                city: '',
+                address: '',
+                phone: '',
+                country_id: countries.find((c) => c.code === 'UAE')?.id ?? '',
+                email: '',
+                website: '',
+                currency_id: currencies.find((c) => c.code === 'AED')?.id ?? '',
+                timezone: 'Asia/Dubai',
+                payroll_cycle: 'monthly',
+                working_days: [1, 2, 3, 4, 5],
+                wps_agent_code: '',
+                wps_mol_uid: '',
+                wps_employer_iban: '',
+                status: 'active',
+            });
         });
-        setIsSheetOpen(true);
     };
 
     const handleEdit = (company: Company) => {
-        setCurrentCompany(company);
-        form.reset();
-        form.clearErrors();
+        crud.openEdit(company, () => {
+            form.reset();
+            form.clearErrors();
 
-        const payrollCycle =
-            company.payroll_cycle === 'monthly' ||
-            company.payroll_cycle === 'biweekly' ||
-            company.payroll_cycle === 'weekly'
-                ? company.payroll_cycle
-                : 'monthly';
+            const payrollCycle =
+                company.payroll_cycle === 'monthly' ||
+                company.payroll_cycle === 'biweekly' ||
+                company.payroll_cycle === 'weekly'
+                    ? company.payroll_cycle
+                    : 'monthly';
 
-        form.setData({
-            logo: null,
-            name: company.name ?? '',
-            industry: company.industry ?? '',
-            company_size: company.company_size ?? '',
-            registration_number: company.registration_number ?? '',
-            tax_id: company.tax_id ?? '',
-            city: company.city ?? '',
-            address: company.address ?? '',
-            phone: company.phone ?? '',
-            country_id: company.country.id ?? '',
-            email: company.email ?? '',
-            website: company.website ?? '',
-            currency_id: company.currency.id ?? '',
-            timezone: company.timezone ?? 'Asia/Dubai',
-            payroll_cycle: payrollCycle,
-            working_days: company.working_days ?? [1, 2, 3, 4, 5],
-            wps_agent_code: company.wps_agent_code ?? '',
-            wps_mol_uid: company.wps_mol_uid ?? '',
-            wps_employer_iban: company.wps_employer_iban ?? '',
-            status: company.status ?? 'active',
+            form.setData({
+                logo: null,
+                name: company.name ?? '',
+                industry: company.industry ?? '',
+                company_size: company.company_size ?? '',
+                registration_number: company.registration_number ?? '',
+                tax_id: company.tax_id ?? '',
+                city: company.city ?? '',
+                address: company.address ?? '',
+                phone: company.phone ?? '',
+                country_id: company.country.id ?? '',
+                email: company.email ?? '',
+                website: company.website ?? '',
+                currency_id: company.currency.id ?? '',
+                timezone: company.timezone ?? 'Asia/Dubai',
+                payroll_cycle: payrollCycle,
+                working_days: company.working_days ?? [1, 2, 3, 4, 5],
+                wps_agent_code: company.wps_agent_code ?? '',
+                wps_mol_uid: company.wps_mol_uid ?? '',
+                wps_employer_iban: company.wps_employer_iban ?? '',
+                status: company.status ?? 'active',
+            });
         });
-        setIsSheetOpen(true);
-    };
-
-    const handleDeleteClick = (company: Company) => {
-        setCurrentCompany(company);
-        setIsDeleteDialogOpen(true);
     };
 
     const confirmDelete = () => {
-        if (!currentCompany) {
+        if (!crud.currentEntity) {
             return;
         }
 
-        router.delete(`/organization/companies/${currentCompany.id}`, {
-            onFinish: () => {
-                setIsDeleteDialogOpen(false);
-                setCurrentCompany(null);
-            },
+        router.delete(`/organization/companies/${crud.currentEntity.id}`, {
+            onFinish: () => crud.confirmDeleteFinish(),
         });
     };
 
@@ -207,35 +195,22 @@ export function CompaniesContent({
         });
     };
 
-    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
-        const params = new URLSearchParams();
-
-        if (initialSearch) {
-            params.set('search', initialSearch);
-        }
-
-        if (initialFilters.industry) {
-            params.set('industry', initialFilters.industry);
-        }
-
-        if (initialFilters.country) {
-            params.set('country', initialFilters.country);
-        }
-
-        if (initialFilters.currency) {
-            params.set('currency', initialFilters.currency);
-        }
-
-        params.set('format', format);
-
-        return `/organization/companies/export?${params.toString()}`;
+    const resetFilters = () => {
+        handleFiltersChange({
+            industry: '',
+            country: '',
+            currency: '',
+            hasLogo: false,
+            hasEmail: false,
+            hasWebsite: false,
+        });
     };
 
     const submit = () => {
-        if (currentCompany) {
-            form.put(`/organization/companies/${currentCompany.id}`, {
+        if (crud.currentEntity) {
+            form.put(`/organization/companies/${crud.currentEntity.id}`, {
                 preserveScroll: true,
-                onSuccess: () => setIsSheetOpen(false),
+                onSuccess: () => crud.setIsSheetOpen(false),
             });
 
             return;
@@ -243,66 +218,65 @@ export function CompaniesContent({
 
         form.post('/organization/companies', {
             preserveScroll: true,
-            onSuccess: () => setIsSheetOpen(false),
+            onSuccess: () => crud.setIsSheetOpen(false),
         });
     };
 
+    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') =>
+        buildListExportUrl('/organization/companies/export', {
+            search: initialSearch,
+            industry: initialFilters.industry,
+            country: initialFilters.country,
+            currency: initialFilters.currency,
+            format,
+        });
+
     return (
-        <Main>
-            <PageHeader
-                title="Companies"
-                description="Manage your multi-company structure and general information."
-                right={
-                    <>
-                        <ExportMenu
-                            getUrl={getExportUrl}
-                            buttonVariant="secondary"
-                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
-                        />
-                        <Button
-                            onClick={handleAdd}
-                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
-                        >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Company
-                        </Button>
-                    </>
-                }
-            />
-
-            <SearchBar
-                placeholder="Search companies by name, industry, or location..."
-                value={list.searchInput}
-                onChange={list.onSearchChange}
-                right={
-                    <>
-                        <ViewToggle value={view} onChange={setView} />
-
-                        <Button
-                            variant="outline"
-                            className="rounded-xl glass-card px-6 py-6 hover:bg-accent"
-                            onClick={() => setIsFiltersOpen(true)}
-                        >
-                            <Filter className="mr-2 h-4 w-4" />
-                            Filters
-                            {activeFiltersCount ? (
-                                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
-                                    {activeFiltersCount}
-                                </span>
-                            ) : null}
-                        </Button>
-                    </>
-                }
-            />
-
-            {view === 'grid' ? (
+        <OrganizationListPageShell
+            title="Companies"
+            description="Manage your multi-company structure and general information."
+            headerRight={
+                <>
+                    <ExportMenu
+                        getUrl={getExportUrl}
+                        buttonVariant="secondary"
+                        buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                    />
+                    <Button
+                        onClick={handleAdd}
+                        className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Company
+                    </Button>
+                </>
+            }
+            search={{
+                placeholder:
+                    'Search companies by name, industry, or location...',
+                value: list.searchInput,
+                onChange: list.onSearchChange,
+                right:
+                    crud.view && crud.setView ? (
+                        <ViewToggle value={crud.view} onChange={crud.setView} />
+                    ) : null,
+            }}
+            filtersButton={{
+                onClick: () => crud.setIsFiltersOpen(true),
+                activeFiltersCount,
+            }}
+            pagination={
+                <Pagination {...list.paginationProps} label="companies" />
+            }
+        >
+            {crud.view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     {companies.map((company) => (
                         <CompanyCard
                             key={company.id}
                             company={company}
                             onEdit={handleEdit}
-                            onDelete={handleDeleteClick}
+                            onDelete={crud.openDelete}
                             onToggleStatus={toggleStatus}
                         />
                     ))}
@@ -399,7 +373,7 @@ export function CompaniesContent({
                                             }}
                                             onDelete={(e) => {
                                                 e.stopPropagation();
-                                                handleDeleteClick(company);
+                                                crud.openDelete(company);
                                             }}
                                         />
                                     </div>
@@ -414,12 +388,10 @@ export function CompaniesContent({
                 <EmptyState title="No companies found." />
             ) : null}
 
-            <Pagination {...list.paginationProps} label="companies" />
-
             <CompanyFormSheet
-                open={isSheetOpen}
-                onOpenChange={setIsSheetOpen}
-                company={currentCompany}
+                open={crud.isSheetOpen}
+                onOpenChange={crud.setIsSheetOpen}
+                company={crud.currentEntity}
                 countries={countries}
                 currencies={currencies}
                 form={form}
@@ -427,30 +399,21 @@ export function CompaniesContent({
             />
 
             <CompanyFiltersSheet
-                open={isFiltersOpen}
-                onOpenChange={setIsFiltersOpen}
+                open={crud.isFiltersOpen}
+                onOpenChange={crud.setIsFiltersOpen}
                 countries={countries}
                 currencies={currencies}
                 value={filters}
                 onChange={handleFiltersChange}
-                onReset={() =>
-                    handleFiltersChange({
-                        industry: '',
-                        country: '',
-                        currency: '',
-                        hasLogo: false,
-                        hasEmail: false,
-                        hasWebsite: false,
-                    })
-                }
+                onReset={resetFilters}
             />
 
             <CompanyDeleteDialog
-                open={isDeleteDialogOpen}
-                onOpenChange={setIsDeleteDialogOpen}
-                company={currentCompany}
+                open={crud.isDeleteDialogOpen}
+                onOpenChange={crud.setIsDeleteDialogOpen}
+                company={crud.currentEntity}
                 onConfirm={confirmDelete}
             />
-        </Main>
+        </OrganizationListPageShell>
     );
 }

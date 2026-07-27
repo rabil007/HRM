@@ -162,9 +162,7 @@ export function RolesContent({
                 onClick: () => crud.setIsFiltersOpen(true),
                 activeFiltersCount,
             }}
-            pagination={
-                <Pagination {...list.paginationProps} label="roles" />
-            }
+            pagination={<Pagination {...list.paginationProps} label="roles" />}
         >
             {crud.view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
@@ -253,9 +251,7 @@ export function RolesContent({
                 </OrganizationDataTable>
             )}
 
-            {roles.length === 0 ? (
-                <EmptyState title="No roles found." />
-            ) : null}
+            {roles.length === 0 ? <EmptyState title="No roles found." /> : null}
 
             <RoleFormSheet
                 open={crud.isSheetOpen}

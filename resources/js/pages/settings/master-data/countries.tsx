@@ -1,10 +1,10 @@
-import { MasterDataListShell } from '@/components/settings/master-data-list-shell';
 import {
     MasterDataField,
     MasterDataFormSheet,
     MasterDataFormSheetFooter,
     masterDataInputClass,
 } from '@/components/settings/master-data-form-sheet';
+import { MasterDataListShell } from '@/components/settings/master-data-list-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';

@@ -30,9 +30,9 @@ import { Button } from '@/components/ui/button';
 import { EmployeeTabSkeleton } from '@/features/organization/employees/profile/components/employee-tab-skeleton';
 import { EmployeeProfileShell } from '@/features/organization/employees/profile/employee-profile-shell';
 import { buildEmployeeProfileTabs } from '@/features/organization/employees/profile/employee-profile-tabs';
+import { useEmployeeProfileTabProps } from '@/features/organization/employees/profile/use-employee-profile-tab-props';
 import { useEnsureEmployee } from '@/features/organization/employees/profile/use-ensure-employee';
 import type { EnsuredEmployee } from '@/features/organization/employees/profile/use-ensure-employee';
-import { useEmployeeProfileTabProps } from '@/features/organization/employees/profile/use-employee-profile-tab-props';
 import { actions } from '@/lib/design-system';
 import { CreateEmployeeUserDialog } from '@/pages/organization/_components/create-employee-user-dialog';
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
@@ -62,9 +62,9 @@ const EmployeeContractTab = lazy(() =>
     ),
 );
 const EmployeeDocumentsTab = lazy(() =>
-    import(
-        '@/pages/organization/_components/documents/employee-documents-tab'
-    ).then((module) => ({ default: module.EmployeeDocumentsTab })),
+    import('@/pages/organization/_components/documents/employee-documents-tab').then(
+        (module) => ({ default: module.EmployeeDocumentsTab }),
+    ),
 );
 const EmployeeEducationTab = lazy(() =>
     import('@/pages/organization/_components/employee-education-tab').then(
@@ -77,9 +77,9 @@ const EmployeeLanguagesTab = lazy(() =>
     ),
 );
 const EmployeeSalaryRevisionsTab = lazy(() =>
-    import(
-        '@/pages/organization/_components/employee-salary-revisions-tab'
-    ).then((module) => ({ default: module.EmployeeSalaryRevisionsTab })),
+    import('@/pages/organization/_components/employee-salary-revisions-tab').then(
+        (module) => ({ default: module.EmployeeSalaryRevisionsTab }),
+    ),
 );
 const EmployeeSeaServiceTab = lazy(() =>
     import('@/pages/organization/_components/employee-sea-service-tab').then(
@@ -97,9 +97,9 @@ const EmployeeVaccinationTab = lazy(() =>
     ),
 );
 const EmployeeWorkExperienceTab = lazy(() =>
-    import(
-        '@/pages/organization/_components/employee-work-experience-tab'
-    ).then((module) => ({ default: module.EmployeeWorkExperienceTab })),
+    import('@/pages/organization/_components/employee-work-experience-tab').then(
+        (module) => ({ default: module.EmployeeWorkExperienceTab }),
+    ),
 );
 
 const EMPLOYEE_PAGE_TAB_HASH_KEYS: Partial<Record<string, EmployeeTab>> = {
@@ -782,7 +782,9 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                    <Suspense
+                                        fallback={<EmployeeTabSkeleton />}
+                                    >
                                         <EmployeeContractTab
                                             employeeId={effectiveEmployeeId}
                                             contracts={contracts ?? []}
@@ -827,7 +829,9 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                    <Suspense
+                                        fallback={<EmployeeTabSkeleton />}
+                                    >
                                         <EmployeeSalaryRevisionsTab
                                             employeeId={effectiveEmployeeId}
                                             contracts={contracts ?? []}
@@ -851,7 +855,9 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                    <Suspense
+                                        fallback={<EmployeeTabSkeleton />}
+                                    >
                                         <EmployeeBankTab
                                             employeeId={effectiveEmployeeId}
                                             bank_accounts={bank_accounts ?? []}
@@ -879,7 +885,9 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                    <Suspense
+                                        fallback={<EmployeeTabSkeleton />}
+                                    >
                                         <EmployeeEducationTab
                                             employeeId={effectiveEmployeeId}
                                             education_qualifications={
@@ -908,7 +916,9 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                    <Suspense
+                                        fallback={<EmployeeTabSkeleton />}
+                                    >
                                         <EmployeeWorkExperienceTab
                                             employeeId={effectiveEmployeeId}
                                             work_experiences={
@@ -937,7 +947,9 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                    <Suspense
+                                        fallback={<EmployeeTabSkeleton />}
+                                    >
                                         <EmployeeVaccinationTab
                                             employeeId={effectiveEmployeeId}
                                             vaccinations={vaccinations ?? []}
@@ -964,7 +976,9 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                    <Suspense
+                                        fallback={<EmployeeTabSkeleton />}
+                                    >
                                         <EmployeeLanguagesTab
                                             employeeId={effectiveEmployeeId}
                                             languages={languages ?? []}
@@ -990,7 +1004,9 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                    <Suspense
+                                        fallback={<EmployeeTabSkeleton />}
+                                    >
                                         <EmployeeTrainingTab
                                             employeeId={effectiveEmployeeId}
                                             employeeName={employee.name}
@@ -1028,7 +1044,9 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                    <Suspense
+                                        fallback={<EmployeeTabSkeleton />}
+                                    >
                                         <EmployeeSeaServiceTab
                                             employeeId={effectiveEmployeeId}
                                             sea_services={sea_services ?? []}
@@ -1073,7 +1091,9 @@ function EmployeeDetailsPage({
                                 recordsLoading ? (
                                     <EmployeeTabSkeleton />
                                 ) : (
-                                    <Suspense fallback={<EmployeeTabSkeleton />}>
+                                    <Suspense
+                                        fallback={<EmployeeTabSkeleton />}
+                                    >
                                         <EmployeeDocumentsTab
                                             employee={{
                                                 id: localEmployee.id as number,

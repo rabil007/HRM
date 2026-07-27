@@ -1,4 +1,5 @@
 import { Head } from '@inertiajs/react';
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import Heading from '@/components/heading';
 import {
     MasterDataActiveToggle,
@@ -7,15 +8,12 @@ import {
     MasterDataFormSheetFooter,
     masterDataInputClass,
 } from '@/components/settings/master-data-form-sheet';
-import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
-import {
-    useMasterDataNameActiveCrud,
-    type MasterDataNameActiveItem,
-} from '@/hooks/use-master-data-name-active-crud';
+import { useMasterDataNameActiveCrud } from '@/hooks/use-master-data-name-active-crud';
+import type { MasterDataNameActiveItem } from '@/hooks/use-master-data-name-active-crud';
 
 type MasterDataNameActivePageProps<T extends MasterDataNameActiveItem> = {
     headTitle: string;
@@ -100,7 +98,9 @@ export function MasterDataNameActivePage<T extends MasterDataNameActiveItem>({
                         />
                     </div>
                     {can.create ? (
-                        <Button onClick={openCreate}>{createButtonLabel}</Button>
+                        <Button onClick={openCreate}>
+                            {createButtonLabel}
+                        </Button>
                     ) : null}
                 </div>
 
@@ -108,7 +108,9 @@ export function MasterDataNameActivePage<T extends MasterDataNameActiveItem>({
                     <div className="overflow-x-auto">
                         <div className="min-w-[640px]">
                             <div className="grid grid-cols-12 gap-2 bg-muted/30 px-4 py-3 text-xs font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase">
-                                <div className="col-span-7">{nameColumnLabel}</div>
+                                <div className="col-span-7">
+                                    {nameColumnLabel}
+                                </div>
                                 <div className="col-span-2">Active</div>
                                 <div className="col-span-3 text-right">
                                     Actions
@@ -170,11 +172,7 @@ export function MasterDataNameActivePage<T extends MasterDataNameActiveItem>({
             <MasterDataFormSheet
                 open={sheetOpen}
                 onOpenChange={setSheetOpen}
-                title={
-                    current
-                        ? `Edit ${entityLabel}`
-                        : `New ${entityLabel}`
-                }
+                title={current ? `Edit ${entityLabel}` : `New ${entityLabel}`}
                 description={sheetDescription}
                 footer={
                     <MasterDataFormSheetFooter

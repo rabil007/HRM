@@ -15,6 +15,8 @@ import {
     Users,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { lazy, Suspense } from 'react';
+import { ChartSkeleton } from '@/components/chart-skeleton';
 import { Main } from '@/components/layout/main';
 import { RecentActivityCard } from '@/components/recent-activity-card';
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +29,6 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { CrewOperationsDeploymentSummaryCards } from '@/features/organization/crew-operations/components/deployment-summary-cards';
-import { DeploymentTrendChart } from '@/features/organization/crew-operations/components/deployment-trend-chart';
 import { ManningGapsCard } from '@/features/organization/crew-operations/components/manning-gaps-card';
 import type { CrewOperationsDashboardProps } from '@/features/organization/crew-operations/types';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -37,6 +38,16 @@ import { index as crewPlanningIndex } from '@/routes/organization/crew-planning'
 import { index as vesselManningIndex } from '@/routes/organization/vessel-manning';
 
 export type { CrewOperationsDashboardProps } from '@/features/organization/crew-operations/types';
+
+/**
+ * Recharts is the heaviest dependency on this page and the chart sits below the
+ * fold, so it loads after the page is interactive.
+ */
+const DeploymentTrendChart = lazy(() =>
+    import('@/features/organization/crew-operations/components/deployment-trend-chart').then(
+        (module) => ({ default: module.DeploymentTrendChart }),
+    ),
+);
 
 const SEVERITY_BADGE: Record<string, 'destructive' | 'warning' | 'secondary'> =
     {
@@ -319,7 +330,9 @@ export function CrewOperationsDashboardContent({
                         </div>
                     </CardHeader>
                     <CardContent className="pt-5">
-                        <DeploymentTrendChart data={deploymentTrends} />
+                        <Suspense fallback={<ChartSkeleton />}>
+                            <DeploymentTrendChart data={deploymentTrends} />
+                        </Suspense>
                     </CardContent>
                 </Card>
 

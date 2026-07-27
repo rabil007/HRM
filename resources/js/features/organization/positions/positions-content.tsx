@@ -1,6 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Filter, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { Plus } from 'lucide-react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -12,11 +11,9 @@ import {
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
-import { Main } from '@/components/layout/main';
 import { ListTableCrudActions } from '@/components/list-table-actions';
-import { PageHeader } from '@/components/page-header';
+import { OrganizationListPageShell } from '@/components/organization-list-page-shell';
 import { Pagination } from '@/components/pagination';
-import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -26,8 +23,9 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { useOrganizationCrudList } from '@/hooks/use-organization-crud-list';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { useViewPreference } from '@/hooks/use-view-preference';
+import { buildListExportUrl } from '@/lib/build-list-export-url';
 import { toast } from '@/lib/toast';
 import type { PaginationMeta } from '@/types/pagination';
 import { PositionCard } from './components/position-card';
@@ -61,13 +59,9 @@ export function PositionsContent({
         filters: initialFilters,
         pagination,
     });
-    const [view, setView] = useViewPreference('positions:view', 'grid');
-    const [isSheetOpen, setIsSheetOpen] = useState(false);
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-    const [currentPosition, setCurrentPosition] = useState<Position | null>(
-        null,
-    );
+    const crud = useOrganizationCrudList<Position>({
+        viewKey: 'positions:view',
+    });
 
     const filters: PositionFilters = {
         department_id: initialFilters.department_id,
@@ -91,50 +85,46 @@ export function PositionsContent({
     });
 
     const handleAdd = () => {
-        setCurrentPosition(null);
-        form.reset();
-        form.clearErrors();
-        form.setData({
-            department_id: '',
-            title: '',
-            grade: '',
-            min_salary: '',
-            max_salary: '',
-            status: 'active',
+        crud.openCreate(() => {
+            form.reset();
+            form.clearErrors();
+            form.setData({
+                department_id: '',
+                title: '',
+                grade: '',
+                min_salary: '',
+                max_salary: '',
+                status: 'active',
+            });
         });
-        setIsSheetOpen(true);
     };
 
     const handleEdit = (position: Position) => {
-        setCurrentPosition(position);
-        form.reset();
-        form.clearErrors();
-        form.setData({
-            department_id: position.department?.id ?? '',
-            title: position.title ?? '',
-            grade: position.grade ?? '',
-            min_salary: position.min_salary ? String(position.min_salary) : '',
-            max_salary: position.max_salary ? String(position.max_salary) : '',
-            status: position.status ?? 'active',
+        crud.openEdit(position, () => {
+            form.reset();
+            form.clearErrors();
+            form.setData({
+                department_id: position.department?.id ?? '',
+                title: position.title ?? '',
+                grade: position.grade ?? '',
+                min_salary: position.min_salary
+                    ? String(position.min_salary)
+                    : '',
+                max_salary: position.max_salary
+                    ? String(position.max_salary)
+                    : '',
+                status: position.status ?? 'active',
+            });
         });
-        setIsSheetOpen(true);
-    };
-
-    const handleDelete = (position: Position) => {
-        setCurrentPosition(position);
-        setIsDeleteOpen(true);
     };
 
     const confirmDelete = () => {
-        if (!currentPosition) {
+        if (!crud.currentEntity) {
             return;
         }
 
-        router.delete(`/organization/positions/${currentPosition.id}`, {
-            onFinish: () => {
-                setIsDeleteOpen(false);
-                setCurrentPosition(null);
-            },
+        router.delete(`/organization/positions/${crud.currentEntity.id}`, {
+            onFinish: () => crud.confirmDeleteFinish(),
         });
     };
 
@@ -151,10 +141,10 @@ export function PositionsContent({
     };
 
     const submit = () => {
-        if (currentPosition) {
-            form.put(`/organization/positions/${currentPosition.id}`, {
+        if (crud.currentEntity) {
+            form.put(`/organization/positions/${crud.currentEntity.id}`, {
                 preserveScroll: true,
-                onSuccess: () => setIsSheetOpen(false),
+                onSuccess: () => crud.setIsSheetOpen(false),
             });
 
             return;
@@ -162,7 +152,7 @@ export function PositionsContent({
 
         form.post('/organization/positions', {
             preserveScroll: true,
-            onSuccess: () => setIsSheetOpen(false),
+            onSuccess: () => crud.setIsSheetOpen(false),
         });
     };
 
@@ -170,95 +160,78 @@ export function PositionsContent({
         list.applyFilters(next);
     };
 
-    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
-        const params = new URLSearchParams();
-
-        if (initialSearch) {
-            params.set('search', initialSearch);
-        }
-
-        if (initialFilters.department_id) {
-            params.set('department_id', initialFilters.department_id);
-        }
-
-        if (initialFilters.status) {
-            params.set('status', initialFilters.status);
-        }
-
-        if (initialFilters.grade) {
-            params.set('grade', initialFilters.grade);
-        }
-
-        params.set('format', format);
-
-        return `/organization/positions/export?${params.toString()}`;
+    const resetFilters = () => {
+        handleFiltersChange({
+            department_id: '',
+            status: '',
+            grade: '',
+        });
     };
 
-    return (
-        <Main>
-            <PageHeader
-                title="Positions"
-                description="Manage job positions and grades."
-                right={
-                    <>
-                        <ExportMenu
-                            getUrl={getExportUrl}
-                            buttonVariant="secondary"
-                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
-                        />
-                        <Button
-                            onClick={handleAdd}
-                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
-                        >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Position
-                        </Button>
-                    </>
-                }
-            />
+    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') =>
+        buildListExportUrl('/organization/positions/export', {
+            search: initialSearch,
+            department_id: initialFilters.department_id,
+            status: initialFilters.status,
+            grade: initialFilters.grade,
+            format,
+        });
 
-            <SearchBar
-                placeholder="Search positions by title, grade, company, or department..."
-                value={list.searchInput}
-                onChange={list.onSearchChange}
-                right={
-                    <>
+    return (
+        <OrganizationListPageShell
+            title="Positions"
+            description="Manage job positions and grades."
+            headerRight={
+                <>
+                    <ExportMenu
+                        getUrl={getExportUrl}
+                        buttonVariant="secondary"
+                        buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                    />
+                    <Button
+                        onClick={handleAdd}
+                        className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Position
+                    </Button>
+                </>
+            }
+            search={{
+                placeholder:
+                    'Search positions by title, grade, company, or department...',
+                value: list.searchInput,
+                onChange: list.onSearchChange,
+                right:
+                    crud.view && crud.setView ? (
                         <ViewToggle
-                            value={view}
-                            onChange={setView}
+                            value={crud.view}
+                            onChange={crud.setView}
                             showTreeView={true}
                         />
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
-                            onClick={() => setIsFiltersOpen(true)}
-                        >
-                            <Filter className="mr-2 h-4 w-4" />
-                            Filters
-                            {activeFiltersCount ? (
-                                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
-                                    {activeFiltersCount}
-                                </span>
-                            ) : null}
-                        </Button>
-                    </>
-                }
-            />
-
-            {view === 'tree' ? (
+                    ) : null,
+            }}
+            filtersButton={{
+                onClick: () => crud.setIsFiltersOpen(true),
+                activeFiltersCount,
+            }}
+            pagination={
+                <Pagination {...list.paginationProps} label="positions" />
+            }
+        >
+            {crud.view === 'tree' ? (
                 <PositionTreeView
                     departments={tree_departments}
                     positions={tree_positions}
                 />
-            ) : view === 'grid' ? (
+            ) : crud.view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     {positions.map((position) => (
                         <PositionCard
                             key={position.id}
                             position={position}
                             onEdit={handleEdit}
-                            onDelete={handleDelete}
+                            onDelete={crud.openDelete}
                             onToggleStatus={toggleStatus}
                         />
                     ))}
@@ -337,7 +310,7 @@ export function PositionsContent({
                                         }}
                                         onDelete={(e) => {
                                             e.stopPropagation();
-                                            handleDelete(position);
+                                            crud.openDelete(position);
                                         }}
                                     />
                                 </TableCell>
@@ -351,38 +324,30 @@ export function PositionsContent({
                 <EmptyState title="No positions found." />
             ) : null}
 
-            <Pagination {...list.paginationProps} label="positions" />
-
             <PositionFormSheet
-                open={isSheetOpen}
-                onOpenChange={setIsSheetOpen}
-                position={currentPosition}
+                open={crud.isSheetOpen}
+                onOpenChange={crud.setIsSheetOpen}
+                position={crud.currentEntity}
                 departments={departments}
                 form={form}
                 onSubmit={submit}
             />
 
             <PositionFiltersSheet
-                open={isFiltersOpen}
-                onOpenChange={setIsFiltersOpen}
+                open={crud.isFiltersOpen}
+                onOpenChange={crud.setIsFiltersOpen}
                 departments={departments}
                 value={filters}
                 onChange={handleFiltersChange}
-                onReset={() =>
-                    handleFiltersChange({
-                        department_id: '',
-                        status: '',
-                        grade: '',
-                    })
-                }
+                onReset={resetFilters}
             />
 
             <PositionDeleteDialog
-                open={isDeleteOpen}
-                onOpenChange={setIsDeleteOpen}
-                position={currentPosition}
+                open={crud.isDeleteDialogOpen}
+                onOpenChange={crud.setIsDeleteDialogOpen}
+                position={crud.currentEntity}
                 onConfirm={confirmDelete}
             />
-        </Main>
+        </OrganizationListPageShell>
     );
 }

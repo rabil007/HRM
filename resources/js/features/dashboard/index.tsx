@@ -24,6 +24,8 @@ import {
     UserRoundCheck,
 } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
+import { lazy, Suspense } from 'react';
+import { ChartSkeleton } from '@/components/chart-skeleton';
 import { Main } from '@/components/layout/main';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -37,10 +39,6 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RecordStatusBadge } from '@/features/attendance/records/components/record-status-badge';
-import { AttendanceTrendChart } from '@/features/dashboard/charts/attendance-trend-chart';
-import { DistributionBarChart } from '@/features/dashboard/charts/distribution-bar-chart';
-import { DocumentHealthChart } from '@/features/dashboard/charts/document-health-chart';
-import { WorkforceTrendChart } from '@/features/dashboard/charts/workforce-trend-chart';
 import type { DashboardProps } from '@/features/dashboard/dashboard-types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -49,6 +47,31 @@ import { documents, employees } from '@/routes/organization';
 import { show as showEmployee } from '@/routes/organization/employees';
 
 export type { DashboardProps } from '@/features/dashboard/dashboard-types';
+
+/**
+ * Recharts is the heaviest dependency on the dashboard and every chart sits
+ * below the fold, so the charts load after the page is interactive.
+ */
+const AttendanceTrendChart = lazy(() =>
+    import('@/features/dashboard/charts/attendance-trend-chart').then(
+        (module) => ({ default: module.AttendanceTrendChart }),
+    ),
+);
+const DistributionBarChart = lazy(() =>
+    import('@/features/dashboard/charts/distribution-bar-chart').then(
+        (module) => ({ default: module.DistributionBarChart }),
+    ),
+);
+const DocumentHealthChart = lazy(() =>
+    import('@/features/dashboard/charts/document-health-chart').then(
+        (module) => ({ default: module.DocumentHealthChart }),
+    ),
+);
+const WorkforceTrendChart = lazy(() =>
+    import('@/features/dashboard/charts/workforce-trend-chart').then(
+        (module) => ({ default: module.WorkforceTrendChart }),
+    ),
+);
 
 /** Returns initials (up to 2 chars) from a full name. */
 function getInitials(name: string): string {
@@ -69,20 +92,6 @@ function nameToHue(name: string): number {
     }
 
     return Math.abs(hash) % 360;
-}
-
-function ChartSkeleton({ className }: { className?: string }): ReactElement {
-    return (
-        <div
-            className={cn('space-y-3', className)}
-            role="status"
-            aria-live="polite"
-            aria-label="Loading chart"
-        >
-            <Skeleton className="h-4 w-1/3" />
-            <Skeleton className="h-48 w-full rounded-xl" />
-        </div>
-    );
 }
 
 function ListSkeleton({ rows = 4 }: { rows?: number }): ReactElement {
@@ -147,7 +156,11 @@ function DeferredCard({
                 </div>
             </CardHeader>
             <CardContent className="pt-5">
-                {loading ? <ChartSkeleton /> : children}
+                {loading ? (
+                    <ChartSkeleton />
+                ) : (
+                    <Suspense fallback={<ChartSkeleton />}>{children}</Suspense>
+                )}
             </CardContent>
         </Card>
     );
@@ -541,7 +554,9 @@ export function DashboardContent({
                         </div>
                     </CardHeader>
                     <CardContent className="pt-5">
-                        <DocumentHealthChart data={documentHealth} />
+                        <Suspense fallback={<ChartSkeleton />}>
+                            <DocumentHealthChart data={documentHealth} />
+                        </Suspense>
                     </CardContent>
                 </Card>
             </div>
@@ -661,9 +676,11 @@ export function DashboardContent({
                         </div>
                     </CardHeader>
                     <CardContent className="pt-5">
-                        <AttendanceTrendChart
-                            data={attendanceAnalytics.weekly_trends}
-                        />
+                        <Suspense fallback={<ChartSkeleton />}>
+                            <AttendanceTrendChart
+                                data={attendanceAnalytics.weekly_trends}
+                            />
+                        </Suspense>
                     </CardContent>
                 </Card>
 

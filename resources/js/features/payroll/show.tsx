@@ -208,16 +208,38 @@ export function PayrollShowContent({
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [salaryInputsRecord, setSalaryInputsRecord] =
         useState<PayrollRecordListItem | null>(null);
-    const [excludedIds, setExcludedIds] = useState<Set<number>>(
+    const [storedExcludedIds, setExcludedIds] = useState<Set<number>>(
         () => new Set(period.excluded_employee_ids ?? []),
+    );
+    /**
+     * Employees that leave the board (filter change, record removal) must not
+     * stay excluded, so stale ids are dropped while rendering rather than in an
+     * effect that would trigger a second render pass.
+     */
+    const excludedIds = useMemo(
+        () => pruneExcludedIds(storedExcludedIds, all_board_employee_ids),
+        [storedExcludedIds, all_board_employee_ids],
     );
     const [removeRecord, setRemoveRecord] =
         useState<PayrollRecordListItem | null>(null);
     const [isRemovingRecord, setIsRemovingRecord] = useState(false);
     const [isPreparingTimeline, setIsPreparingTimeline] = useState(false);
     const [isReprepareDialogOpen, setIsReprepareDialogOpen] = useState(false);
-    const [selectedWpsRecordIds, setSelectedWpsRecordIds] = useState<number[]>(
-        () => all_payroll_record_ids,
+    /**
+     * Records are selected for WPS export by default, so the deselected ids are
+     * tracked instead of the selected ones. Every partial reload hands back a
+     * new all_payroll_record_ids array, and storing the selection directly meant
+     * it had to be resynced on each reload, discarding the user's choice.
+     */
+    const [deselectedWpsRecordIds, setDeselectedWpsRecordIds] = useState<
+        Set<number>
+    >(() => new Set());
+    const selectedWpsRecordIds = useMemo(
+        () =>
+            all_payroll_record_ids.filter(
+                (id) => !deselectedWpsRecordIds.has(id),
+            ),
+        [all_payroll_record_ids, deselectedWpsRecordIds],
     );
     const [rowDates, setRowDates] = useState<
         Record<number, { start: string; end: string }>
@@ -446,16 +468,6 @@ export function PayrollShowContent({
         waitForCrewTimesheetAutosavesIdle,
     ]);
 
-    useEffect(() => {
-        setSelectedWpsRecordIds(all_payroll_record_ids);
-    }, [period.id, all_payroll_record_ids]);
-
-    useEffect(() => {
-        setExcludedIds((current) =>
-            pruneExcludedIds(current, all_board_employee_ids),
-        );
-    }, [all_board_employee_ids]);
-
     const isDraftPeriod = period.status === 'draft';
 
     const payrollFilters: PayrollShowFilters = {
@@ -623,7 +635,7 @@ export function PayrollShowContent({
                 preserveScroll: true,
                 onSuccess: () => {
                     setExcludedIds(new Set());
-                    setSelectedWpsRecordIds([]);
+                    setDeselectedWpsRecordIds(new Set());
                 },
                 onFinish: () => {
                     setIsReverting(false);
@@ -847,17 +859,38 @@ export function PayrollShowContent({
             allSelected,
             someSelected,
             onToggleRecord: (recordId: number) => {
-                setSelectedWpsRecordIds((current) =>
-                    current.includes(recordId)
-                        ? current.filter((id) => id !== recordId)
-                        : [...current, recordId],
-                );
+                setDeselectedWpsRecordIds((current) => {
+                    const next = new Set(current);
+
+                    if (next.has(recordId)) {
+                        next.delete(recordId);
+                    } else {
+                        next.add(recordId);
+                    }
+
+                    return next;
+                });
             },
             onToggleAll: () => {
-                setSelectedWpsRecordIds(allSelected ? [] : recordIds);
+                const pageRecordIds = new Set(recordIds);
+
+                setDeselectedWpsRecordIds(
+                    allSelected
+                        ? new Set(all_payroll_record_ids)
+                        : new Set(
+                              all_payroll_record_ids.filter(
+                                  (id) => !pageRecordIds.has(id),
+                              ),
+                          ),
+                );
             },
         };
-    }, [canSelectForWpsExport, payroll_records, selectedWpsRecordIds]);
+    }, [
+        all_payroll_record_ids,
+        canSelectForWpsExport,
+        payroll_records,
+        selectedWpsRecordIds,
+    ]);
 
     const isProcessingPayRun = period.status === 'processing';
     const hasPayrollRecords = period.payroll_records_count > 0;
@@ -1319,9 +1352,13 @@ export function PayrollShowContent({
                                 setExcludedIds={setExcludedIds}
                                 employee_stats={employee_stats}
                                 activeEmployeeGroup={activeEmployeeGroup}
-                                onEmployeeGroupSelect={handleEmployeeGroupSelect}
+                                onEmployeeGroupSelect={
+                                    handleEmployeeGroupSelect
+                                }
                                 crewTimesheetDrafts={crewTimesheetDrafts}
-                                onCrewTimesheetChange={handleCrewTimesheetChange}
+                                onCrewTimesheetChange={
+                                    handleCrewTimesheetChange
+                                }
                                 savingTimesheetEmployeeIds={
                                     savingTimesheetEmployeeIds
                                 }
@@ -1337,7 +1374,9 @@ export function PayrollShowContent({
                                 allBoardEmployeeIds={all_board_employee_ids}
                                 employee_stats={employee_stats}
                                 activeEmployeeGroup={activeEmployeeGroup}
-                                onEmployeeGroupSelect={handleEmployeeGroupSelect}
+                                onEmployeeGroupSelect={
+                                    handleEmployeeGroupSelect
+                                }
                                 excludedIds={excludedIds}
                                 setExcludedIds={setExcludedIds}
                                 rowDates={rowDates}
@@ -1432,8 +1471,12 @@ export function PayrollShowContent({
                             }
                             payroll_records={payroll_records}
                             payroll_records_monthly={payroll_records_monthly}
-                            activeCrewSalaryStructure={activeCrewSalaryStructure}
-                            salary_inputs_by_employee={salary_inputs_by_employee}
+                            activeCrewSalaryStructure={
+                                activeCrewSalaryStructure
+                            }
+                            salary_inputs_by_employee={
+                                salary_inputs_by_employee
+                            }
                             canManageSalaryInputs={canManageSalaryInputs}
                             wpsSelection={wpsSelection}
                             onManageSalaryInputs={setSalaryInputsRecord}

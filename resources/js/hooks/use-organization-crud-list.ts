@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import {
-    useViewPreference,
-    type ViewPreference,
-} from '@/hooks/use-view-preference';
+import { useViewPreference } from '@/hooks/use-view-preference';
+import type { ViewPreference } from '@/hooks/use-view-preference';
 
 type UseOrganizationCrudListOptions = {
     viewKey?: string;

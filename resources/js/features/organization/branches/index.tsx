@@ -222,9 +222,10 @@ export function BranchesContent({
                     'Search branches by name, code, company, or location...',
                 value: list.searchInput,
                 onChange: list.onSearchChange,
-                right: crud.view && crud.setView ? (
-                    <ViewToggle value={crud.view} onChange={crud.setView} />
-                ) : null,
+                right:
+                    crud.view && crud.setView ? (
+                        <ViewToggle value={crud.view} onChange={crud.setView} />
+                    ) : null,
             }}
             filtersButton={{
                 onClick: () => crud.setIsFiltersOpen(true),
@@ -250,7 +251,9 @@ export function BranchesContent({
                 <OrganizationDataTable minWidth="min-w-[980px]">
                     <TableHeader>
                         <DataTableHeaderRow>
-                            <DataTableHead className="pl-5">Branch</DataTableHead>
+                            <DataTableHead className="pl-5">
+                                Branch
+                            </DataTableHead>
                             <DataTableHead>Code</DataTableHead>
                             <DataTableHead>HQ</DataTableHead>
                             <DataTableHead>Location</DataTableHead>
