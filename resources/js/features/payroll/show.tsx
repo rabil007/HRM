@@ -1,14 +1,8 @@
 import { router } from '@inertiajs/react';
 import {
-    Calculator,
     AlertCircle,
-    Ban,
-    Building2,
-    Calendar,
-    CalendarDays,
+    Calculator,
     CheckCircle2,
-    CheckSquare,
-    CreditCard,
     Download,
     Eraser,
     Filter,
@@ -16,10 +10,11 @@ import {
     RotateCcw,
     Ship,
     Upload,
-    Users,
     XCircle,
 } from 'lucide-react';
-import React, {
+import {
+    lazy,
+    Suspense,
     useCallback,
     useEffect,
     useMemo,
@@ -41,93 +36,123 @@ import {
     storeTimesheet,
 } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
 import PrepareCrewTimesheetTimelineController from '@/actions/App/Http/Controllers/Payroll/PrepareCrewTimesheetTimelineController';
-import {
-    OrganizationDataTable,
-    DataTableHead,
-    DataTableHeaderRow,
-    dataTableBodyRowClass,
-    dataTableCellClass,
-} from '@/components/data-table';
 import { DetailsHeader } from '@/components/details-header';
-import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
-import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import {
-    TableBody,
-    TableCell,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
-
-import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import { formatDisplayDate } from '@/lib/format-date';
-import { cn } from '@/lib/utils';
 import { show as crewTimelineShow } from '@/routes/payroll/crew-timeline';
 import { clearManualImport } from '@/routes/payroll/crew-timesheets';
-import { ClearCrewTimesheetsDialog } from './components/clear-crew-timesheets-dialog';
-import { CrewOperationalSourceBadge } from './components/crew-operational-source-badge';
 import { CrewSalaryStructureToggle } from './components/crew-salary-structure-toggle';
-import { CrewTimesheetApprovalBadge } from './components/crew-timesheet-approval-badge';
-import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
-import { OfficePayrollRecordsTable } from './components/office-payroll-records-table';
-import { OfficeSalaryInputsSheet } from './components/office-salary-inputs-sheet';
-import { PayrollApproveDialog } from './components/payroll-approve-dialog';
-import { PayrollCancelDialog } from './components/payroll-cancel-dialog';
+import { PayrollBoardSkeleton } from './components/payroll-board-skeleton';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
 import { PayrollCreationSourceBadge } from './components/payroll-creation-source-badge';
-import { PayrollEmployeeCell } from './components/payroll-employee-cell';
-import { PayrollGenerateDialog } from './components/payroll-generate-dialog';
-import { PayrollMarkPaidDialog } from './components/payroll-mark-paid-dialog';
 import { PayrollPeriodDeliveryPanel } from './components/payroll-period-delivery-panel';
 import { PayrollPeriodStatusBadge } from './components/payroll-period-status-badge';
-import {
-    PayrollRecordBankAccountCell,
-    PayrollRecordPaymentMethodCell,
-} from './components/payroll-record-display-cells';
-import { PayrollRecordRemoveDialog } from './components/payroll-record-remove-dialog';
 import { PayrollRecordsSummaryCards } from './components/payroll-records-summary-cards';
-import { PayrollRecordsTable } from './components/payroll-records-table';
-import { PayrollReprepareTimelineDialog } from './components/payroll-reprepare-timeline-dialog';
-import { PayrollRevertToApprovedDialog } from './components/payroll-revert-to-approved-dialog';
-import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft-dialog';
-import { PayrollRevertToProcessingDialog } from './components/payroll-revert-to-processing-dialog';
 import { PayrollShowFiltersSheet } from './components/payroll-show-filters-sheet';
 import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
+import { PayrollStatusTimeline } from './components/payroll-status-timeline';
 import { CrewTimelineStatusBadge } from './crew-timeline/crew-timeline-status-badge';
 import { usePayslipGenerationPoll } from './hooks/use-payslip-generation-poll';
-import { calculateInclusiveDays } from './lib/calculate-inclusive-days';
-import {
-    getPayrollBoardSelectionSummary,
-    pruneExcludedIds,
-} from './lib/payroll-board-selection';
+import { pruneExcludedIds } from './lib/payroll-board-selection';
 import type {
-    CrewPayrollRecordListItem,
     CrewPayrollRow,
     CrewTimesheetDraft,
-    EmployeeStats,
-    OfficePayrollRecordListItem,
-    PayrollPeriod,
-    PayrollRecordListItem,
     PayrollPeriodStatus,
+    PayrollRecordListItem,
     PayrollShowFilters,
     PayrollShowProps,
     SalaryInput,
 } from './types';
-import { buildCrewTimesheetDraft, formatTimesheetDays } from './types';
+import { buildCrewTimesheetDraft } from './types';
 import { usePayrollShowFilters } from './use-payroll-show-filters';
+
+const LazyOfficeEmployeesTabContent = lazy(() =>
+    import('./components/office-employees-tab-content').then((module) => ({
+        default: module.OfficeEmployeesTabContent,
+    })),
+);
+const LazyCrewTimesheetsBoard = lazy(() =>
+    import('./components/crew-timesheets-board').then((module) => ({
+        default: module.CrewTimesheetsBoard,
+    })),
+);
+const LazyPayrollRecordsBoard = lazy(() =>
+    import('./components/payroll-records-board').then((module) => ({
+        default: module.PayrollRecordsBoard,
+    })),
+);
+const LazyCrewTimesheetImportDialog = lazy(() =>
+    import('./components/crew-timesheet-import-dialog').then((module) => ({
+        default: module.CrewTimesheetImportDialog,
+    })),
+);
+const LazyClearCrewTimesheetsDialog = lazy(() =>
+    import('./components/clear-crew-timesheets-dialog').then((module) => ({
+        default: module.ClearCrewTimesheetsDialog,
+    })),
+);
+const LazyOfficeSalaryInputsSheet = lazy(() =>
+    import('./components/office-salary-inputs-sheet').then((module) => ({
+        default: module.OfficeSalaryInputsSheet,
+    })),
+);
+const LazyPayrollGenerateDialog = lazy(() =>
+    import('./components/payroll-generate-dialog').then((module) => ({
+        default: module.PayrollGenerateDialog,
+    })),
+);
+const LazyPayrollRevertToDraftDialog = lazy(() =>
+    import('./components/payroll-revert-to-draft-dialog').then((module) => ({
+        default: module.PayrollRevertToDraftDialog,
+    })),
+);
+const LazyPayrollRevertToApprovedDialog = lazy(() =>
+    import('./components/payroll-revert-to-approved-dialog').then((module) => ({
+        default: module.PayrollRevertToApprovedDialog,
+    })),
+);
+const LazyPayrollRevertToProcessingDialog = lazy(() =>
+    import('./components/payroll-revert-to-processing-dialog').then(
+        (module) => ({
+            default: module.PayrollRevertToProcessingDialog,
+        }),
+    ),
+);
+const LazyPayrollApproveDialog = lazy(() =>
+    import('./components/payroll-approve-dialog').then((module) => ({
+        default: module.PayrollApproveDialog,
+    })),
+);
+const LazyPayrollMarkPaidDialog = lazy(() =>
+    import('./components/payroll-mark-paid-dialog').then((module) => ({
+        default: module.PayrollMarkPaidDialog,
+    })),
+);
+const LazyPayrollCancelDialog = lazy(() =>
+    import('./components/payroll-cancel-dialog').then((module) => ({
+        default: module.PayrollCancelDialog,
+    })),
+);
+const LazyPayrollReprepareTimelineDialog = lazy(() =>
+    import('./components/payroll-reprepare-timeline-dialog').then((module) => ({
+        default: module.PayrollReprepareTimelineDialog,
+    })),
+);
+const LazyPayrollRecordRemoveDialog = lazy(() =>
+    import('./components/payroll-record-remove-dialog').then((module) => ({
+        default: module.PayrollRecordRemoveDialog,
+    })),
+);
 
 export function PayrollShowContent({
     period,
@@ -858,6 +883,47 @@ export function PayrollShowContent({
     const recordsPagination = payroll_records_pagination;
     const monthlyRecordsPagination = payroll_records_monthly_pagination;
 
+    const payrollRecordsQuery = useMemo(
+        () => ({
+            crew_salary_structure: activeCrewSalaryStructure,
+            search: initialSearch || undefined,
+        }),
+        [activeCrewSalaryStructure, initialSearch],
+    );
+
+    const handleDailyRecordsPageChange = useCallback(
+        (page: number) => {
+            list.visit({
+                ...payrollRecordsQuery,
+                records_page: page,
+                monthly_records_page:
+                    monthlyRecordsPagination?.current_page ?? undefined,
+            });
+        },
+        [list, monthlyRecordsPagination?.current_page, payrollRecordsQuery],
+    );
+
+    const handleMonthlyRecordsPageChange = useCallback(
+        (page: number) => {
+            list.visit({
+                ...payrollRecordsQuery,
+                monthly_records_page: page,
+                records_page: recordsPagination?.current_page ?? undefined,
+            });
+        },
+        [list, payrollRecordsQuery, recordsPagination?.current_page],
+    );
+
+    const handleOfficeRecordsPageChange = useCallback(
+        (page: number) => {
+            list.visit({
+                records_page: page,
+                search: initialSearch || undefined,
+            });
+        },
+        [initialSearch, list],
+    );
+
     return (
         <Main>
             <DetailsHeader
@@ -1241,9 +1307,44 @@ export function PayrollShowContent({
                           )
                         : renderListToolbar()}
 
-                    {period.supports_timesheets
-                        ? renderTimesheetsTab()
-                        : renderOfficeEmployeesTab()}
+                    {period.supports_timesheets ? (
+                        <Suspense fallback={<PayrollBoardSkeleton />}>
+                            <LazyCrewTimesheetsBoard
+                                period={period}
+                                rows={rows}
+                                pagination={pagination}
+                                paginationProps={list.paginationProps}
+                                allBoardEmployeeIds={all_board_employee_ids}
+                                excludedIds={excludedIds}
+                                setExcludedIds={setExcludedIds}
+                                employee_stats={employee_stats}
+                                activeEmployeeGroup={activeEmployeeGroup}
+                                onEmployeeGroupSelect={handleEmployeeGroupSelect}
+                                crewTimesheetDrafts={crewTimesheetDrafts}
+                                onCrewTimesheetChange={handleCrewTimesheetChange}
+                                savingTimesheetEmployeeIds={
+                                    savingTimesheetEmployeeIds
+                                }
+                                canEditTimesheets={canEditTimesheets}
+                            />
+                        </Suspense>
+                    ) : (
+                        <Suspense fallback={<PayrollBoardSkeleton />}>
+                            <LazyOfficeEmployeesTabContent
+                                period={period}
+                                rows={rows}
+                                paginationProps={list.paginationProps}
+                                allBoardEmployeeIds={all_board_employee_ids}
+                                employee_stats={employee_stats}
+                                activeEmployeeGroup={activeEmployeeGroup}
+                                onEmployeeGroupSelect={handleEmployeeGroupSelect}
+                                excludedIds={excludedIds}
+                                setExcludedIds={setExcludedIds}
+                                rowDates={rowDates}
+                                setRowDates={setRowDates}
+                            />
+                        </Suspense>
+                    )}
                 </section>
             )}
 
@@ -1319,49 +1420,88 @@ export function PayrollShowContent({
                             summary={payroll_records_summary}
                         />
                     ) : null}
-                    {renderPayrollTab()}
+                    <Suspense fallback={<PayrollBoardSkeleton />}>
+                        <LazyPayrollRecordsBoard
+                            period={period}
+                            hasPayrollRecords={hasPayrollRecords}
+                            canGenerate={canGenerate}
+                            isGenerationBlocked={isGenerationBlocked}
+                            generationBlockingReason={generationBlockingReason}
+                            onOpenGenerateDialog={() =>
+                                setIsGenerateDialogOpen(true)
+                            }
+                            payroll_records={payroll_records}
+                            payroll_records_monthly={payroll_records_monthly}
+                            activeCrewSalaryStructure={activeCrewSalaryStructure}
+                            salary_inputs_by_employee={salary_inputs_by_employee}
+                            canManageSalaryInputs={canManageSalaryInputs}
+                            wpsSelection={wpsSelection}
+                            onManageSalaryInputs={setSalaryInputsRecord}
+                            onRemove={setRemoveRecord}
+                            isPayslipGenerationLive={isPayslipGenerationLive}
+                            recordsPagination={recordsPagination}
+                            monthlyRecordsPagination={monthlyRecordsPagination}
+                            onDailyRecordsPageChange={
+                                handleDailyRecordsPageChange
+                            }
+                            onMonthlyRecordsPageChange={
+                                handleMonthlyRecordsPageChange
+                            }
+                            onOfficeRecordsPageChange={
+                                handleOfficeRecordsPageChange
+                            }
+                        />
+                    </Suspense>
                 </section>
             )}
 
-            {period.supports_timesheets ? (
-                <CrewTimesheetImportDialog
-                    open={isImportDialogOpen}
-                    onOpenChange={setIsImportDialogOpen}
-                    periodId={period.id}
-                />
+            {period.supports_timesheets && isImportDialogOpen ? (
+                <Suspense fallback={null}>
+                    <LazyCrewTimesheetImportDialog
+                        open={isImportDialogOpen}
+                        onOpenChange={setIsImportDialogOpen}
+                        periodId={period.id}
+                    />
+                </Suspense>
             ) : null}
 
-            {period.supports_timesheets ? (
-                <ClearCrewTimesheetsDialog
-                    open={isClearTimesheetsDialogOpen}
-                    onOpenChange={(open) => {
-                        if (!isClearingTimesheets) {
-                            setIsClearTimesheetsDialogOpen(open);
-                        }
-                    }}
-                    clearableCount={clearable_timesheet_count}
-                    isClearing={isClearingTimesheets}
-                    onConfirm={() => {
-                        void handleConfirmClearTimesheets();
-                    }}
-                />
+            {period.supports_timesheets && isClearTimesheetsDialogOpen ? (
+                <Suspense fallback={null}>
+                    <LazyClearCrewTimesheetsDialog
+                        open={isClearTimesheetsDialogOpen}
+                        onOpenChange={(open) => {
+                            if (!isClearingTimesheets) {
+                                setIsClearTimesheetsDialogOpen(open);
+                            }
+                        }}
+                        clearableCount={clearable_timesheet_count}
+                        isClearing={isClearingTimesheets}
+                        onConfirm={() => {
+                            void handleConfirmClearTimesheets();
+                        }}
+                    />
+                </Suspense>
             ) : null}
 
-            <OfficeSalaryInputsSheet
-                open={salaryInputsRecord !== null}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setSalaryInputsRecord(null);
-                    }
-                }}
-                periodId={period.id}
-                record={salaryInputsRecord as any}
-                inputs={activeSalaryInputs}
-                typeOptions={salary_input_type_options}
-                canCreate={permissions.salary_inputs_create}
-                canUpdate={permissions.salary_inputs_update}
-                canDelete={permissions.salary_inputs_delete}
-            />
+            {salaryInputsRecord !== null ? (
+                <Suspense fallback={null}>
+                    <LazyOfficeSalaryInputsSheet
+                        open={salaryInputsRecord !== null}
+                        onOpenChange={(open) => {
+                            if (!open) {
+                                setSalaryInputsRecord(null);
+                            }
+                        }}
+                        periodId={period.id}
+                        record={salaryInputsRecord as any}
+                        inputs={activeSalaryInputs}
+                        typeOptions={salary_input_type_options}
+                        canCreate={permissions.salary_inputs_create}
+                        canUpdate={permissions.salary_inputs_update}
+                        canDelete={permissions.salary_inputs_delete}
+                    />
+                </Suspense>
+            ) : null}
 
             <PayrollShowFiltersSheet
                 open={isFiltersOpen}
@@ -1393,1799 +1533,123 @@ export function PayrollShowContent({
                 }}
             />
 
-            <PayrollGenerateDialog
-                open={isGenerateDialogOpen}
-                onOpenChange={setIsGenerateDialogOpen}
-                onConfirm={handleGeneratePayroll}
-                processing={isGenerating}
-                payrollCategory={period.payroll_category}
-                periodId={period.id}
-                hasExistingRecords={hasPayrollRecords}
-                excludedCount={excludedIds.size}
-                excludedEmployeeIds={Array.from(excludedIds)}
-            />
-
-            <PayrollRevertToDraftDialog
-                open={isRevertDialogOpen}
-                onOpenChange={setIsRevertDialogOpen}
-                onConfirm={handleRevertToDraft}
-                processing={isReverting}
-                supportsTimesheets={period.supports_timesheets}
-            />
-
-            <PayrollRevertToApprovedDialog
-                open={isRevertToApprovedDialogOpen}
-                onOpenChange={setIsRevertToApprovedDialogOpen}
-                onConfirm={handleRevertToApproved}
-                processing={isRevertingToApproved}
-            />
-
-            <PayrollRevertToProcessingDialog
-                open={isRevertToProcessingDialogOpen}
-                onOpenChange={setIsRevertToProcessingDialogOpen}
-                onConfirm={handleRevertToProcessing}
-                processing={isRevertingToProcessing}
-            />
-
-            <PayrollApproveDialog
-                open={isApproveDialogOpen}
-                onOpenChange={setIsApproveDialogOpen}
-                onConfirm={handleApprove}
-                processing={isApproving}
-            />
-
-            <PayrollMarkPaidDialog
-                open={isMarkPaidDialogOpen}
-                onOpenChange={(open) => {
-                    setIsMarkPaidDialogOpen(open);
-
-                    if (!open) {
-                        setMarkPaidDateError(undefined);
-                    }
-                }}
-                onConfirm={handleMarkPaid}
-                processing={isMarkingPaid}
-                paymentDateError={markPaidDateError}
-            />
-
-            <PayrollCancelDialog
-                open={isCancelDialogOpen}
-                onOpenChange={setIsCancelDialogOpen}
-                onConfirm={handleCancel}
-                processing={isCancelling}
-            />
-
-            {crew_timeline_preparation ? (
-                <PayrollReprepareTimelineDialog
-                    open={isReprepareDialogOpen}
-                    onOpenChange={setIsReprepareDialogOpen}
-                    onConfirm={handlePrepareTimeline}
-                    processing={isPreparingTimeline}
-                    currentVersion={crew_timeline_preparation.version}
-                />
+            {isGenerateDialogOpen ? (
+                <Suspense fallback={null}>
+                    <LazyPayrollGenerateDialog
+                        open={isGenerateDialogOpen}
+                        onOpenChange={setIsGenerateDialogOpen}
+                        onConfirm={handleGeneratePayroll}
+                        processing={isGenerating}
+                        payrollCategory={period.payroll_category}
+                        periodId={period.id}
+                        hasExistingRecords={hasPayrollRecords}
+                        excludedCount={excludedIds.size}
+                        excludedEmployeeIds={Array.from(excludedIds)}
+                    />
+                </Suspense>
             ) : null}
 
-            <PayrollRecordRemoveDialog
-                open={removeRecord !== null}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setRemoveRecord(null);
-                    }
-                }}
-                employeeName={removeRecord?.employee.name ?? null}
-                onConfirm={handleRemoveRecord}
-                processing={isRemovingRecord}
-            />
-        </Main>
-    );
-
-    function renderTimesheetsTab() {
-        const allIds = all_board_employee_ids;
-        const selection = getPayrollBoardSelectionSummary({
-            pagination,
-            allBoardEmployeeIds: allIds,
-            excludedIds,
-            rows,
-        });
-
-        const handleSelectAll = (checked: boolean | 'indeterminate') => {
-            if (checked === true) {
-                setExcludedIds(new Set());
-            } else {
-                setExcludedIds(new Set(allIds));
-            }
-        };
-
-        const handleRowToggle = (
-            employeeId: number,
-            checked: boolean | 'indeterminate',
-        ) => {
-            setExcludedIds((prev) => {
-                const next = new Set(prev);
-
-                if (checked === true) {
-                    next.delete(employeeId);
-                } else {
-                    next.add(employeeId);
-                }
-
-                return next;
-            });
-        };
-
-        const includedCount = selection.includedCount;
-        const hasPayRunEmployees = (employee_stats?.total ?? 0) > 0;
-        const hasVisibleRows = rows.length > 0;
-
-        return (
-            <div className="space-y-6">
-                {employee_stats !== null && (
-                    <EmployeeAnalyticsCardsGrid
-                        employee_stats={employee_stats}
-                        activeEmployeeGroup={activeEmployeeGroup}
-                        onEmployeeGroupSelect={handleEmployeeGroupSelect}
+            {isRevertDialogOpen ? (
+                <Suspense fallback={null}>
+                    <LazyPayrollRevertToDraftDialog
+                        open={isRevertDialogOpen}
+                        onOpenChange={setIsRevertDialogOpen}
+                        onConfirm={handleRevertToDraft}
+                        processing={isReverting}
+                        supportsTimesheets={period.supports_timesheets}
                     />
-                )}
+                </Suspense>
+            ) : null}
 
-                {!hasPayRunEmployees ? (
-                    <EmptyState
-                        title={`No ${period.payroll_category_label.toLowerCase()} employees`}
-                        description={`Only active employees with an active ${period.payroll_category_label.toLowerCase()} contract appear on this pay run.`}
+            {isRevertToApprovedDialogOpen ? (
+                <Suspense fallback={null}>
+                    <LazyPayrollRevertToApprovedDialog
+                        open={isRevertToApprovedDialogOpen}
+                        onOpenChange={setIsRevertToApprovedDialogOpen}
+                        onConfirm={handleRevertToApproved}
+                        processing={isRevertingToApproved}
                     />
-                ) : !hasVisibleRows ? (
-                    <PayrollBoardFilteredEmptyState
-                        activeEmployeeGroup={activeEmployeeGroup}
-                        onShowAll={() => handleEmployeeGroupSelect('')}
+                </Suspense>
+            ) : null}
+
+            {isRevertToProcessingDialogOpen ? (
+                <Suspense fallback={null}>
+                    <LazyPayrollRevertToProcessingDialog
+                        open={isRevertToProcessingDialogOpen}
+                        onOpenChange={setIsRevertToProcessingDialogOpen}
+                        onConfirm={handleRevertToProcessing}
+                        processing={isRevertingToProcessing}
                     />
-                ) : (
-                    <>
-                        {/* Selection info bar */}
-                        <div className="flex items-center justify-between rounded-xl border border-border/40 bg-muted/30 px-4 py-2.5 backdrop-blur-sm">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <CheckSquare className="h-4 w-4 shrink-0 text-primary" />
-                                <span>
-                                    <span className="font-semibold text-foreground">
-                                        {includedCount}
-                                    </span>{' '}
-                                    of{' '}
-                                    <span className="font-semibold text-foreground">
-                                        {selection.totalCount}
-                                    </span>{' '}
-                                    employees included
-                                </span>
-                                {selection.excludedCount > 0 && (
-                                    <Badge
-                                        variant="outline"
-                                        className="ml-1 border-amber-500/30 bg-amber-500/10 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
-                                    >
-                                        {selection.excludedCount} excluded
-                                    </Badge>
-                                )}
-                            </div>
-                            {selection.excludedCount > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={() => setExcludedIds(new Set())}
-                                    className="text-xs font-medium text-primary underline-offset-2 transition-colors hover:underline"
-                                >
-                                    Include all
-                                </button>
-                            )}
-                        </div>
+                </Suspense>
+            ) : null}
 
-                        <OrganizationDataTable minWidth="min-w-[1540px]">
-                            <TableHeader>
-                                {/* Group labels row */}
-                                <tr className="border-b-0">
-                                    <th
-                                        colSpan={2}
-                                        className="h-7 border-b border-border/30"
-                                    />
-                                    <th
-                                        colSpan={1}
-                                        className="h-7 border-b border-border/30"
-                                    />
-                                    <th
-                                        colSpan={3}
-                                        className="h-7 border-x border-b border-primary/15 bg-primary/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-primary/50 uppercase"
-                                    >
-                                        Daily Rates
-                                    </th>
-                                    <th
-                                        colSpan={2}
-                                        className="h-7 border-x border-b border-blue-500/15 bg-blue-500/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-blue-600/60 uppercase dark:text-blue-400/60"
-                                    >
-                                        Days
-                                    </th>
-                                    <th
-                                        colSpan={1}
-                                        className="h-7 border-x border-b border-amber-500/15 bg-amber-500/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-amber-600/60 uppercase dark:text-amber-400/60"
-                                    >
-                                        Overtime
-                                    </th>
-                                    <th
-                                        colSpan={3}
-                                        className="h-7 border-b border-border/30"
-                                    />
-                                </tr>
-                                <DataTableHeaderRow>
-                                    <DataTableHead className="w-10">
-                                        <Checkbox
-                                            id="select-all-crew-employees"
-                                            checked={selection.headerChecked}
-                                            onCheckedChange={handleSelectAll}
-                                            aria-label="Select all employees"
-                                            className="rounded"
-                                        />
-                                    </DataTableHead>
-                                    <DataTableHead>Employee</DataTableHead>
-                                    <DataTableHead>Bank</DataTableHead>
-                                    <DataTableHead className="border-l border-primary/10 bg-primary/3 text-right">
-                                        Basic
-                                    </DataTableHead>
-                                    <DataTableHead className="bg-primary/3 text-right">
-                                        Supplementary
-                                    </DataTableHead>
-                                    <DataTableHead className="border-r border-primary/10 bg-primary/3 text-right">
-                                        Site
-                                    </DataTableHead>
-                                    <DataTableHead className="border-l border-blue-500/10 bg-blue-500/3">
-                                        Standby
-                                    </DataTableHead>
-                                    <DataTableHead className="border-r border-blue-500/10 bg-blue-500/3">
-                                        Onsite
-                                    </DataTableHead>
-                                    <DataTableHead className="border-x border-amber-500/10 bg-amber-500/3 text-right">
-                                        Overtime
-                                    </DataTableHead>
-                                    <DataTableHead>Payment</DataTableHead>
-                                    <DataTableHead>
-                                        Timesheet Status
-                                    </DataTableHead>
-                                    <DataTableHead>Source</DataTableHead>
-                                </DataTableHeaderRow>
-                            </TableHeader>
-                            <TableBody>
-                                {rows.map((row) => {
-                                    const isExcluded = excludedIds.has(
-                                        row.employee.id,
-                                    );
-                                    const paymentMethod =
-                                        (row.salary_payment_method ??
-                                            'bank_transfer') as SalaryPaymentMethodValue;
-                                    const contract = row.contract ?? null;
-                                    const isMonthlyCrewRow =
-                                        row.salary_structure === 'monthly';
-
-                                    const currentDraft =
-                                        crewTimesheetDrafts[row.employee.id];
-                                    const signOnFrom =
-                                        currentDraft?.sign_on_standby_from ??
-                                        row.timesheet?.sign_on_standby_from ??
-                                        '';
-                                    const signOnTo =
-                                        currentDraft?.sign_on_standby_to ??
-                                        row.timesheet?.sign_on_standby_to ??
-                                        '';
-                                    const onsiteFrom =
-                                        currentDraft?.onsite_from ??
-                                        row.timesheet?.onsite_from ??
-                                        '';
-                                    const onsiteTo =
-                                        currentDraft?.onsite_to ??
-                                        row.timesheet?.onsite_to ??
-                                        '';
-                                    const signOffFrom =
-                                        currentDraft?.sign_off_standby_from ??
-                                        row.timesheet?.sign_off_standby_from ??
-                                        '';
-                                    const signOffTo =
-                                        currentDraft?.sign_off_standby_to ??
-                                        row.timesheet?.sign_off_standby_to ??
-                                        '';
-                                    const unpaidLeaveDays =
-                                        currentDraft?.unpaid_leave_days ??
-                                        row.timesheet?.unpaid_leave_days ??
-                                        '';
-                                    const overtimeHours =
-                                        currentDraft?.overtime_hours ??
-                                        row.timesheet?.overtime_hours ??
-                                        '';
-
-                                    const isOperationallyLocked =
-                                        !isMonthlyCrewRow &&
-                                        row.timesheet
-                                            ?.is_operationally_locked === true;
-
-                                    const isDirty =
-                                        !!crewTimesheetDrafts[row.employee.id];
-                                    const isSaving =
-                                        savingTimesheetEmployeeIds.includes(
-                                            row.employee.id,
-                                        );
-                                    const operationalSource =
-                                        row.operational_source ??
-                                        (isMonthlyCrewRow
-                                            ? 'monthly_crew'
-                                            : row.timesheet
-                                              ? ((row.timesheet.source as
-                                                    | 'crew_operations'
-                                                    | 'import'
-                                                    | 'manual') ?? 'manual')
-                                              : 'not_entered');
-
-                                    return (
-                                        <TableRow
-                                            key={row.employee.id}
-                                            className={cn(
-                                                dataTableBodyRowClass(),
-                                                'group transition-all duration-200',
-                                                isExcluded
-                                                    ? 'bg-muted/10 opacity-35 dark:bg-muted/5'
-                                                    : 'hover:bg-muted/30',
-                                                isDirty &&
-                                                    !isExcluded &&
-                                                    'ring-1 ring-primary/20 ring-inset',
-                                            )}
-                                        >
-                                            {/* Checkbox */}
-                                            <TableCell
-                                                className={cn(
-                                                    dataTableCellClass(),
-                                                    'pl-4',
-                                                )}
-                                            >
-                                                <Checkbox
-                                                    id={`crew-employee-${row.employee.id}`}
-                                                    checked={!isExcluded}
-                                                    onCheckedChange={(
-                                                        checked,
-                                                    ) =>
-                                                        handleRowToggle(
-                                                            row.employee.id,
-                                                            checked,
-                                                        )
-                                                    }
-                                                    aria-label={`Include ${row.employee.name}`}
-                                                    className="rounded"
-                                                />
-                                            </TableCell>
-
-                                            <PayrollEmployeeCell
-                                                employee={row.employee}
-                                                isExcluded={isExcluded}
-                                            />
-
-                                            {/* Bank account */}
-                                            <PayrollRecordBankAccountCell
-                                                primary_account={
-                                                    row.primary_account ?? null
-                                                }
-                                                salary_payment_method={
-                                                    paymentMethod
-                                                }
-                                            />
-
-                                            {/* Basic salary */}
-                                            <TableCell
-                                                className={cn(
-                                                    dataTableCellClass(),
-                                                    'border-l border-primary/8 bg-primary/2 text-right',
-                                                )}
-                                            >
-                                                <SalaryCell
-                                                    value={
-                                                        contract?.basic_salary
-                                                    }
-                                                />
-                                            </TableCell>
-
-                                            {/* Supplementary */}
-                                            <TableCell
-                                                className={cn(
-                                                    dataTableCellClass(),
-                                                    'bg-primary/2 text-right',
-                                                )}
-                                            >
-                                                <SalaryCell
-                                                    value={
-                                                        contract?.supplementary_allowance
-                                                    }
-                                                />
-                                            </TableCell>
-
-                                            {/* Site allowance */}
-                                            <TableCell
-                                                className={cn(
-                                                    dataTableCellClass(),
-                                                    'border-r border-primary/8 bg-primary/2 text-right',
-                                                )}
-                                            >
-                                                <SalaryCell
-                                                    value={
-                                                        contract?.site_allowance
-                                                    }
-                                                />
-                                            </TableCell>
-
-                                            {/* Sign-on / Sign-off standby (daily) or Unpaid leave (monthly) */}
-                                            <TableCell
-                                                className={cn(
-                                                    dataTableCellClass(),
-                                                    'border-l border-blue-500/8 bg-blue-500/2',
-                                                )}
-                                            >
-                                                {isMonthlyCrewRow ? (
-                                                    <div className="flex flex-col gap-1">
-                                                        <p className="text-[10px] font-semibold tracking-wide text-muted-foreground/70 uppercase">
-                                                            Unpaid leave days
-                                                        </p>
-                                                        <Input
-                                                            type="number"
-                                                            min="0"
-                                                            step="0.01"
-                                                            inputMode="decimal"
-                                                            placeholder="0"
-                                                            value={
-                                                                unpaidLeaveDays
-                                                            }
-                                                            onChange={(e) =>
-                                                                handleCrewTimesheetChange(
-                                                                    row.employee
-                                                                        .id,
-                                                                    'unpaid_leave_days',
-                                                                    e.target
-                                                                        .value,
-                                                                    row.timesheet,
-                                                                )
-                                                            }
-                                                            disabled={
-                                                                !canEditTimesheets
-                                                            }
-                                                            className="h-8 w-[110px] rounded-md border-border/50 bg-background/60 px-2 font-mono text-[11px] tabular-nums shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50"
-                                                            aria-label={`Unpaid leave days for ${row.employee.name}`}
-                                                        />
-                                                    </div>
-                                                ) : isOperationallyLocked ? (
-                                                    <div className="space-y-2 text-[11px]">
-                                                        <OperationalDateRange
-                                                            label="Sign-on standby"
-                                                            from={
-                                                                row.timesheet
-                                                                    ?.sign_on_standby_from
-                                                            }
-                                                            to={
-                                                                row.timesheet
-                                                                    ?.sign_on_standby_to
-                                                            }
-                                                            days={
-                                                                row.timesheet
-                                                                    ?.sign_on_standby_days
-                                                            }
-                                                        />
-                                                        <OperationalDateRange
-                                                            label="Sign-off standby"
-                                                            from={
-                                                                row.timesheet
-                                                                    ?.sign_off_standby_from
-                                                            }
-                                                            to={
-                                                                row.timesheet
-                                                                    ?.sign_off_standby_to
-                                                            }
-                                                            days={
-                                                                row.timesheet
-                                                                    ?.sign_off_standby_days
-                                                            }
-                                                        />
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-2">
-                                                        <CrewRangeEditor
-                                                            label="Sign-on standby"
-                                                            from={signOnFrom}
-                                                            to={signOnTo}
-                                                            disabled={
-                                                                !canEditTimesheets
-                                                            }
-                                                            onFromChange={(v) =>
-                                                                handleCrewTimesheetChange(
-                                                                    row.employee
-                                                                        .id,
-                                                                    'sign_on_standby_from',
-                                                                    v,
-                                                                    row.timesheet,
-                                                                )
-                                                            }
-                                                            onToChange={(v) =>
-                                                                handleCrewTimesheetChange(
-                                                                    row.employee
-                                                                        .id,
-                                                                    'sign_on_standby_to',
-                                                                    v,
-                                                                    row.timesheet,
-                                                                )
-                                                            }
-                                                        />
-                                                        <CrewRangeEditor
-                                                            label="Sign-off standby"
-                                                            from={signOffFrom}
-                                                            to={signOffTo}
-                                                            disabled={
-                                                                !canEditTimesheets
-                                                            }
-                                                            onFromChange={(v) =>
-                                                                handleCrewTimesheetChange(
-                                                                    row.employee
-                                                                        .id,
-                                                                    'sign_off_standby_from',
-                                                                    v,
-                                                                    row.timesheet,
-                                                                )
-                                                            }
-                                                            onToChange={(v) =>
-                                                                handleCrewTimesheetChange(
-                                                                    row.employee
-                                                                        .id,
-                                                                    'sign_off_standby_to',
-                                                                    v,
-                                                                    row.timesheet,
-                                                                )
-                                                            }
-                                                        />
-                                                    </div>
-                                                )}
-                                            </TableCell>
-
-                                            {/* Onsite dates */}
-                                            <TableCell
-                                                className={cn(
-                                                    dataTableCellClass(),
-                                                    'border-r border-blue-500/8 bg-blue-500/2',
-                                                )}
-                                            >
-                                                {isMonthlyCrewRow ? (
-                                                    <span className="text-xs text-muted-foreground">
-                                                        —
-                                                    </span>
-                                                ) : isOperationallyLocked ? (
-                                                    <OperationalDateRange
-                                                        label="Onsite"
-                                                        from={
-                                                            row.timesheet
-                                                                ?.onsite_from
-                                                        }
-                                                        to={
-                                                            row.timesheet
-                                                                ?.onsite_to
-                                                        }
-                                                        days={
-                                                            row.timesheet
-                                                                ?.onsite_days
-                                                        }
-                                                    />
-                                                ) : (
-                                                    <CrewRangeEditor
-                                                        label="Onsite"
-                                                        from={onsiteFrom}
-                                                        to={onsiteTo}
-                                                        disabled={
-                                                            !canEditTimesheets
-                                                        }
-                                                        activeColorClass="border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                                                        onFromChange={(v) =>
-                                                            handleCrewTimesheetChange(
-                                                                row.employee.id,
-                                                                'onsite_from',
-                                                                v,
-                                                                row.timesheet,
-                                                            )
-                                                        }
-                                                        onToChange={(v) =>
-                                                            handleCrewTimesheetChange(
-                                                                row.employee.id,
-                                                                'onsite_to',
-                                                                v,
-                                                                row.timesheet,
-                                                            )
-                                                        }
-                                                    />
-                                                )}
-                                            </TableCell>
-
-                                            {/* Overtime hours */}
-                                            <TableCell
-                                                className={cn(
-                                                    dataTableCellClass(),
-                                                    'border-x border-amber-500/8 bg-amber-500/2',
-                                                )}
-                                            >
-                                                {isMonthlyCrewRow ? (
-                                                    <span className="text-xs text-muted-foreground">
-                                                        —
-                                                    </span>
-                                                ) : (
-                                                    <Input
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.01"
-                                                        inputMode="decimal"
-                                                        placeholder="0"
-                                                        value={overtimeHours}
-                                                        onChange={(e) =>
-                                                            handleCrewTimesheetChange(
-                                                                row.employee.id,
-                                                                'overtime_hours',
-                                                                e.target.value,
-                                                                row.timesheet,
-                                                            )
-                                                        }
-                                                        disabled={
-                                                            !canEditTimesheets
-                                                        }
-                                                        className="h-8 w-[110px] rounded-md border-border/50 bg-background/60 px-2 font-mono text-[11px] tabular-nums shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50"
-                                                        aria-label={`Overtime hours for ${row.employee.name}`}
-                                                    />
-                                                )}
-                                            </TableCell>
-
-                                            {/* Payment method */}
-                                            <PayrollRecordPaymentMethodCell
-                                                method={paymentMethod}
-                                                label={
-                                                    row.salary_payment_method_label ??
-                                                    'Bank transfer'
-                                                }
-                                            />
-
-                                            <TableCell
-                                                className={cn(
-                                                    dataTableCellClass(),
-                                                    'align-middle',
-                                                )}
-                                            >
-                                                <div className="flex flex-wrap items-center gap-1.5">
-                                                    <CrewTimesheetApprovalBadge
-                                                        status={
-                                                            row.approval_status
-                                                        }
-                                                        label={
-                                                            row.approval_status_label
-                                                        }
-                                                    />
-                                                    {isSaving ? (
-                                                        <span className="text-[10px] font-medium text-muted-foreground">
-                                                            Saving…
-                                                        </span>
-                                                    ) : isDirty ? (
-                                                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary/70">
-                                                            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary/60" />
-                                                            Unsaved
-                                                        </span>
-                                                    ) : null}
-                                                </div>
-                                            </TableCell>
-
-                                            <TableCell
-                                                className={cn(
-                                                    dataTableCellClass(),
-                                                    'align-middle',
-                                                )}
-                                            >
-                                                {operationalSource ===
-                                                'not_entered' ? (
-                                                    <span className="text-xs text-muted-foreground">
-                                                        —
-                                                    </span>
-                                                ) : (
-                                                    <CrewOperationalSourceBadge
-                                                        source={
-                                                            operationalSource
-                                                        }
-                                                        label={
-                                                            row.operational_source_label
-                                                        }
-                                                    />
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })}
-                            </TableBody>
-                        </OrganizationDataTable>
-
-                        <Pagination
-                            {...list.paginationProps}
-                            label="employees"
-                        />
-                    </>
-                )}
-            </div>
-        );
-    }
-
-    function renderPayrollTab() {
-        const emptyDescription = period.supports_timesheets
-            ? 'Generate payroll from entered timesheets to review gross and net amounts.'
-            : 'Generate payroll to review full monthly salary and leave usage for this period.';
-
-        if (!hasPayrollRecords) {
-            return (
-                <EmptyState
-                    title="No payroll records yet"
-                    description={emptyDescription}
-                    action={
-                        canGenerate ? (
-                            <Button
-                                className="rounded-xl"
-                                onClick={() => setIsGenerateDialogOpen(true)}
-                            >
-                                <Calculator className="mr-2 h-4 w-4" />
-                                Generate payroll
-                            </Button>
-                        ) : isGenerationBlocked ? (
-                            <p className="max-w-md text-center text-sm text-muted-foreground">
-                                {generationBlockingReason}
-                            </p>
-                        ) : undefined
-                    }
-                />
-            );
-        }
-
-        const dailyCrewRecords = payroll_records.filter(
-            (record): record is CrewPayrollRecordListItem =>
-                record.payroll_category === 'crew',
-        );
-        const monthlyCrewRecords = payroll_records_monthly;
-        const officeRecords = payroll_records.filter(
-            (record): record is OfficePayrollRecordListItem =>
-                record.payroll_category === 'office',
-        );
-
-        const payrollRecordsQuery = {
-            crew_salary_structure: activeCrewSalaryStructure,
-            search: initialSearch || undefined,
-        };
-
-        return (
-            <>
-                {period.supports_timesheets ? (
-                    <div className="space-y-6">
-                        {activeCrewSalaryStructure === 'daily' ? (
-                            dailyCrewRecords.length > 0 ? (
-                                <>
-                                    <PayrollRecordsTable
-                                        records={dailyCrewRecords}
-                                        salaryInputsByEmployee={
-                                            salary_inputs_by_employee
-                                        }
-                                        canManageSalaryInputs={
-                                            canManageSalaryInputs
-                                        }
-                                        canRemove={canGenerate}
-                                        wpsSelection={wpsSelection}
-                                        onManageSalaryInputs={
-                                            setSalaryInputsRecord
-                                        }
-                                        onRemove={setRemoveRecord}
-                                        isPayslipGenerationLive={
-                                            isPayslipGenerationLive
-                                        }
-                                    />
-                                    {recordsPagination &&
-                                    recordsPagination.last_page > 1 ? (
-                                        <Pagination
-                                            currentPage={
-                                                recordsPagination.current_page
-                                            }
-                                            lastPage={
-                                                recordsPagination.last_page
-                                            }
-                                            perPage={recordsPagination.per_page}
-                                            total={recordsPagination.total}
-                                            from={recordsPagination.from}
-                                            to={recordsPagination.to}
-                                            onPageChange={(page) => {
-                                                list.visit({
-                                                    ...payrollRecordsQuery,
-                                                    records_page: page,
-                                                    monthly_records_page:
-                                                        monthlyRecordsPagination?.current_page ??
-                                                        undefined,
-                                                });
-                                            }}
-                                        />
-                                    ) : null}
-                                </>
-                            ) : (
-                                <EmptyState
-                                    title="No daily crew payroll records"
-                                    description="Generate payroll or switch to Monthly to review monthly crew salaries."
-                                />
-                            )
-                        ) : (monthlyRecordsPagination?.total ?? 0) > 0 ? (
-                            <>
-                                <OfficePayrollRecordsTable
-                                    records={monthlyCrewRecords.map(
-                                        (record) => ({
-                                            ...record,
-                                            payroll_category: 'office' as const,
-                                        }),
-                                    )}
-                                    salaryInputsByEmployee={
-                                        salary_inputs_by_employee
-                                    }
-                                    canManageSalaryInputs={
-                                        canManageSalaryInputs
-                                    }
-                                    canRemove={canGenerate}
-                                    wpsSelection={wpsSelection}
-                                    onManageSalaryInputs={(record) =>
-                                        setSalaryInputsRecord({
-                                            ...record,
-                                            payroll_category: 'crew',
-                                        } as CrewPayrollRecordListItem)
-                                    }
-                                    onRemove={(record) =>
-                                        setRemoveRecord({
-                                            ...record,
-                                            payroll_category: 'crew',
-                                        } as CrewPayrollRecordListItem)
-                                    }
-                                    isPayslipGenerationLive={
-                                        isPayslipGenerationLive
-                                    }
-                                />
-                                {monthlyRecordsPagination &&
-                                monthlyRecordsPagination.last_page > 1 ? (
-                                    <Pagination
-                                        currentPage={
-                                            monthlyRecordsPagination.current_page
-                                        }
-                                        lastPage={
-                                            monthlyRecordsPagination.last_page
-                                        }
-                                        perPage={
-                                            monthlyRecordsPagination.per_page
-                                        }
-                                        total={monthlyRecordsPagination.total}
-                                        from={monthlyRecordsPagination.from}
-                                        to={monthlyRecordsPagination.to}
-                                        onPageChange={(page) => {
-                                            list.visit({
-                                                ...payrollRecordsQuery,
-                                                monthly_records_page: page,
-                                                records_page:
-                                                    recordsPagination?.current_page ??
-                                                    undefined,
-                                            });
-                                        }}
-                                    />
-                                ) : null}
-                            </>
-                        ) : (
-                            <EmptyState
-                                title="No monthly crew payroll records"
-                                description="Switch to Daily to review standby, onsite, and overtime payroll."
-                            />
-                        )}
-                    </div>
-                ) : (
-                    <OfficePayrollRecordsTable
-                        records={officeRecords}
-                        salaryInputsByEmployee={salary_inputs_by_employee}
-                        canManageSalaryInputs={canManageSalaryInputs}
-                        canRemove={canGenerate}
-                        wpsSelection={wpsSelection}
-                        onManageSalaryInputs={setSalaryInputsRecord}
-                        onRemove={setRemoveRecord}
-                        isPayslipGenerationLive={isPayslipGenerationLive}
+            {isApproveDialogOpen ? (
+                <Suspense fallback={null}>
+                    <LazyPayrollApproveDialog
+                        open={isApproveDialogOpen}
+                        onOpenChange={setIsApproveDialogOpen}
+                        onConfirm={handleApprove}
+                        processing={isApproving}
                     />
-                )}
-                {!period.supports_timesheets && recordsPagination ? (
-                    <Pagination
-                        currentPage={recordsPagination.current_page}
-                        lastPage={recordsPagination.last_page}
-                        perPage={recordsPagination.per_page}
-                        total={recordsPagination.total}
-                        from={recordsPagination.from}
-                        to={recordsPagination.to}
-                        onPageChange={(page) => {
-                            list.visit({
-                                records_page: page,
-                                search: initialSearch || undefined,
-                            });
+                </Suspense>
+            ) : null}
+
+            {isMarkPaidDialogOpen ? (
+                <Suspense fallback={null}>
+                    <LazyPayrollMarkPaidDialog
+                        open={isMarkPaidDialogOpen}
+                        onOpenChange={(open) => {
+                            setIsMarkPaidDialogOpen(open);
+
+                            if (!open) {
+                                setMarkPaidDateError(undefined);
+                            }
                         }}
+                        onConfirm={handleMarkPaid}
+                        processing={isMarkingPaid}
+                        paymentDateError={markPaidDateError}
                     />
-                ) : null}
-            </>
-        );
-    }
-
-    function renderOfficeEmployeesTab() {
-        return (
-            <OfficeEmployeesTabContent
-                period={period}
-                rows={rows}
-                paginationProps={list.paginationProps}
-                allBoardEmployeeIds={all_board_employee_ids}
-                employee_stats={employee_stats}
-                activeEmployeeGroup={activeEmployeeGroup}
-                onEmployeeGroupSelect={handleEmployeeGroupSelect}
-                excludedIds={excludedIds}
-                setExcludedIds={setExcludedIds}
-                rowDates={rowDates}
-                setRowDates={setRowDates}
-            />
-        );
-    }
-}
-
-// ─── Payroll Status Timeline ───────────────────────────────────────────────────
-
-const PAYROLL_FLOW = [
-    {
-        status: 'draft',
-        label: 'Draft',
-        description: 'Pay run created',
-    },
-    {
-        status: 'processing',
-        label: 'Processing',
-        description: 'Payroll generated',
-    },
-    {
-        status: 'approved',
-        label: 'Approved',
-        description: 'Pay run approved',
-    },
-    {
-        status: 'paid',
-        label: 'Paid',
-        description: 'Salaries disbursed',
-    },
-] as const;
-
-function PayrollStatusTimeline({
-    status,
-    approver,
-}: {
-    status: string;
-    approver: { id: number; name: string } | null;
-}) {
-    const isCancelled = status === 'cancelled';
-    const currentIndex = PAYROLL_FLOW.findIndex((s) => s.status === status);
-
-    if (isCancelled) {
-        return (
-            <div className="relative mb-6 overflow-hidden rounded-2xl border border-destructive/20 bg-gradient-to-r from-destructive/5 via-destructive/3 to-background p-4">
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_left,_var(--tw-gradient-stops))] from-destructive/10 via-transparent to-transparent" />
-                <div className="relative flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-destructive/30 bg-destructive/10 text-destructive shadow-inner">
-                        <Ban className="h-5 w-5" />
-                    </div>
-                    <div>
-                        <p className="text-sm font-bold text-destructive">
-                            Pay Run Cancelled
-                        </p>
-                        <p className="text-xs text-muted-foreground/70">
-                            This payroll period has been cancelled and cannot be
-                            processed.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="relative mb-6 overflow-hidden rounded-2xl border border-border/40 bg-gradient-to-r from-muted/20 via-background to-background p-5 shadow-sm">
-            {/* subtle background shimmer */}
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
-
-            <div className="relative">
-                <div className="flex items-start justify-between gap-2">
-                    {PAYROLL_FLOW.map((step, index) => {
-                        const isCompleted = index < currentIndex;
-                        const isActive = index === currentIndex;
-                        const isFuture = index > currentIndex;
-                        const isLast = index === PAYROLL_FLOW.length - 1;
-
-                        return (
-                            <React.Fragment key={step.status}>
-                                {/* Step node */}
-                                <div className="flex min-w-0 flex-1 flex-col items-center gap-2">
-                                    {/* Circle */}
-                                    <div
-                                        className={cn(
-                                            'relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-500',
-                                            isCompleted &&
-                                                'border-emerald-500 bg-emerald-500 text-white shadow-lg shadow-emerald-500/30',
-                                            isActive &&
-                                                'scale-110 border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/40',
-                                            isFuture &&
-                                                'border-border/40 bg-muted/30 text-muted-foreground/40',
-                                        )}
-                                    >
-                                        {isCompleted ? (
-                                            <CheckCircle2 className="h-5 w-5" />
-                                        ) : isActive ? (
-                                            <>
-                                                {/* Pulse ring for active */}
-                                                <span className="absolute inset-0 animate-ping rounded-full bg-primary/30 duration-1000" />
-                                                <span className="relative h-2.5 w-2.5 rounded-full bg-primary-foreground" />
-                                            </>
-                                        ) : (
-                                            <span className="h-2 w-2 rounded-full bg-current" />
-                                        )}
-                                    </div>
-
-                                    {/* Labels */}
-                                    <div className="text-center">
-                                        <p
-                                            className={cn(
-                                                'text-xs font-bold transition-colors duration-300',
-                                                isCompleted &&
-                                                    'text-emerald-600 dark:text-emerald-400',
-                                                isActive && 'text-primary',
-                                                isFuture &&
-                                                    'text-muted-foreground/40',
-                                            )}
-                                        >
-                                            {step.label}
-                                        </p>
-                                        <p
-                                            className={cn(
-                                                'mt-0.5 text-[10px] transition-colors duration-300',
-                                                isActive
-                                                    ? 'text-muted-foreground'
-                                                    : 'text-muted-foreground/40',
-                                            )}
-                                        >
-                                            {step.description}
-                                        </p>
-                                        {/* Approver badge */}
-                                        {step.status === 'approved' &&
-                                        isCompleted &&
-                                        approver ? (
-                                            <p className="mt-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                                                by {approver.name}
-                                            </p>
-                                        ) : null}
-                                    </div>
-                                </div>
-
-                                {/* Connector line */}
-                                {!isLast && (
-                                    <div className="relative mt-5 h-0.5 flex-1 overflow-hidden rounded-full bg-border/30">
-                                        <div
-                                            className={cn(
-                                                'h-full rounded-full transition-all duration-700',
-                                                isCompleted
-                                                    ? 'w-full bg-emerald-500'
-                                                    : 'w-0',
-                                            )}
-                                        />
-                                    </div>
-                                )}
-                            </React.Fragment>
-                        );
-                    })}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// ─── Analytics Cards ────────────────────────────────────────────────────────────
-
-const employeeGroupLabels: Record<
-    Exclude<PayrollShowFilters['employee_group'], ''>,
-    string
-> = {
-    with_bank_account: 'Bank Account Set',
-    cash_payment: 'Non-bank payment',
-    missing_bank_account: 'Missing Bank Account',
-};
-
-function PayrollBoardFilteredEmptyState({
-    activeEmployeeGroup,
-    onShowAll,
-}: {
-    activeEmployeeGroup: PayrollShowFilters['employee_group'];
-    onShowAll: () => void;
-}) {
-    const filterLabel =
-        activeEmployeeGroup !== ''
-            ? employeeGroupLabels[activeEmployeeGroup]
-            : 'this filter';
-
-    return (
-        <EmptyState
-            title="No employees in this group"
-            description={`No employees match "${filterLabel}". Select Total Employees or try another category.`}
-            action={
-                <Button
-                    type="button"
-                    variant="outline"
-                    className="rounded-xl"
-                    onClick={onShowAll}
-                >
-                    Show all employees
-                </Button>
-            }
-        />
-    );
-}
-
-function EmployeeAnalyticsCardsGrid({
-    employee_stats,
-    activeEmployeeGroup,
-    onEmployeeGroupSelect,
-}: {
-    employee_stats: EmployeeStats;
-    activeEmployeeGroup: PayrollShowFilters['employee_group'];
-    onEmployeeGroupSelect: (
-        employeeGroup: PayrollShowFilters['employee_group'],
-    ) => void;
-}) {
-    return (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <EmployeeAnalyticsCard
-                title="Total Employees"
-                value={employee_stats.total}
-                subtitle="Active on this pay run"
-                icon={Users}
-                variant="total"
-                isSelected={activeEmployeeGroup === ''}
-                onClick={() => onEmployeeGroupSelect('')}
-            />
-            <EmployeeAnalyticsCard
-                title="Bank Account Set"
-                value={employee_stats.with_bank_account}
-                subtitle="Ready for salary transfer"
-                icon={CreditCard}
-                variant="success"
-                isSelected={activeEmployeeGroup === 'with_bank_account'}
-                onClick={() => onEmployeeGroupSelect('with_bank_account')}
-            />
-            <EmployeeAnalyticsCard
-                title="Non-bank payment"
-                value={employee_stats.cash_payment_count}
-                subtitle="C3, Ansari, Cash, or third party"
-                icon={Building2}
-                variant={
-                    employee_stats.cash_payment_count > 0
-                        ? 'warning'
-                        : 'success'
-                }
-                isSelected={activeEmployeeGroup === 'cash_payment'}
-                onClick={() => onEmployeeGroupSelect('cash_payment')}
-            />
-            <EmployeeAnalyticsCard
-                title="Missing Bank Account"
-                value={employee_stats.missing_bank_account}
-                subtitle={
-                    employee_stats.missing_bank_account > 0
-                        ? 'Bank-transfer employees only — action required before WPS'
-                        : 'All bank-transfer employees configured'
-                }
-                icon={
-                    employee_stats.missing_bank_account > 0
-                        ? AlertCircle
-                        : Building2
-                }
-                variant={
-                    employee_stats.missing_bank_account > 0
-                        ? 'warning'
-                        : 'success'
-                }
-                isSelected={activeEmployeeGroup === 'missing_bank_account'}
-                onClick={() => onEmployeeGroupSelect('missing_bank_account')}
-            />
-        </div>
-    );
-}
-
-function EmployeeAnalyticsCard({
-    title,
-    value,
-    subtitle,
-    icon: Icon,
-    variant,
-    isSelected = false,
-    onClick,
-}: {
-    title: string;
-    value: number;
-    subtitle: string;
-    icon: React.ElementType;
-    variant: 'total' | 'success' | 'warning';
-    isSelected?: boolean;
-    onClick?: () => void;
-}) {
-    const styles = {
-        total: {
-            card: 'border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background hover:border-primary/40 hover:shadow-primary/10',
-            icon: 'bg-primary/10 border-primary/20 text-primary',
-            value: 'text-primary',
-            dot: 'bg-primary',
-        },
-        success: {
-            card: 'border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 via-background to-background hover:border-emerald-500/40 hover:shadow-emerald-500/10',
-            icon: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400',
-            value: 'text-emerald-600 dark:text-emerald-400',
-            dot: 'bg-emerald-500',
-        },
-        warning: {
-            card: 'border-amber-500/20 bg-gradient-to-br from-amber-500/5 via-background to-background hover:border-amber-500/40 hover:shadow-amber-500/10',
-            icon: 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400',
-            value: 'text-amber-600 dark:text-amber-400',
-            dot: 'bg-amber-500',
-        },
-    }[variant];
-
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={cn(
-                'group relative w-full overflow-hidden rounded-2xl border p-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none',
-                styles.card,
-                isSelected && 'shadow-lg ring-2 ring-primary/50',
-            )}
-        >
-            {/* Subtle background glow */}
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent opacity-40 dark:from-white/5" />
-
-            <div className="relative z-10 flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold tracking-[0.16em] text-muted-foreground/60 uppercase">
-                        {title}
-                    </p>
-                    <p
-                        className={cn(
-                            'mt-2 text-3xl font-extrabold tracking-tight tabular-nums',
-                            styles.value,
-                        )}
-                    >
-                        {value.toLocaleString()}
-                    </p>
-                    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground/70">
-                        <span
-                            className={cn(
-                                'inline-block h-1.5 w-1.5 rounded-full',
-                                styles.dot,
-                            )}
-                        />
-                        {subtitle}
-                    </p>
-                </div>
-                <div
-                    className={cn(
-                        'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-inner transition-transform duration-300 group-hover:scale-110',
-                        styles.icon,
-                    )}
-                >
-                    <Icon className="h-5 w-5" />
-                </div>
-            </div>
-        </button>
-    );
-}
-
-// ─── Office Employees Tab Content ─────────────────────────────────────────────
-
-function SalaryCell({ value }: { value: string | null | undefined }) {
-    if (!value || Number(value) === 0) {
-        return <span className="text-xs text-muted-foreground/40">—</span>;
-    }
-
-    return (
-        <span className="font-medium tabular-nums">
-            {Number(value).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-            })}
-        </span>
-    );
-}
-
-function OfficeEmployeesTabContent({
-    period,
-    rows,
-    paginationProps,
-    allBoardEmployeeIds,
-    employee_stats,
-    activeEmployeeGroup,
-    onEmployeeGroupSelect,
-    excludedIds,
-    setExcludedIds,
-    rowDates,
-    setRowDates,
-}: {
-    period: PayrollPeriod;
-    rows: CrewPayrollRow[];
-    paginationProps: {
-        currentPage: number;
-        lastPage: number;
-        from: number | null;
-        to: number | null;
-        total: number;
-        perPage: number;
-        onPerPageChange: (perPage: number) => void;
-        onPageChange: (page: number) => void;
-    };
-    allBoardEmployeeIds: number[];
-    employee_stats: EmployeeStats | null;
-    activeEmployeeGroup: PayrollShowFilters['employee_group'];
-    onEmployeeGroupSelect: (
-        employeeGroup: PayrollShowFilters['employee_group'],
-    ) => void;
-    excludedIds: Set<number>;
-    setExcludedIds: React.Dispatch<React.SetStateAction<Set<number>>>;
-    rowDates: Record<number, { start: string; end: string }>;
-    setRowDates: React.Dispatch<
-        React.SetStateAction<Record<number, { start: string; end: string }>>
-    >;
-}) {
-    const handleStartDateChange = (employeeId: number, val: string) => {
-        setRowDates((prev) => ({
-            ...prev,
-            [employeeId]: {
-                start: val,
-                end: prev[employeeId]?.end ?? period.end_date,
-            },
-        }));
-    };
-
-    const handleEndDateChange = (employeeId: number, val: string) => {
-        setRowDates((prev) => ({
-            ...prev,
-            [employeeId]: {
-                start: prev[employeeId]?.start ?? period.start_date,
-                end: val,
-            },
-        }));
-    };
-
-    const selection = getPayrollBoardSelectionSummary({
-        pagination: {
-            current_page: paginationProps.currentPage,
-            last_page: paginationProps.lastPage,
-            per_page: paginationProps.perPage,
-            total: paginationProps.total,
-            from: paginationProps.from,
-            to: paginationProps.to,
-        },
-        allBoardEmployeeIds,
-        excludedIds,
-        rows,
-    });
-
-    const handleSelectAll = (checked: boolean | 'indeterminate') => {
-        if (checked === true) {
-            setExcludedIds(new Set());
-        } else {
-            setExcludedIds(new Set(allBoardEmployeeIds));
-        }
-    };
-
-    const handleRowToggle = (
-        employeeId: number,
-        checked: boolean | 'indeterminate',
-    ) => {
-        setExcludedIds((prev) => {
-            const next = new Set(prev);
-
-            if (checked === true) {
-                next.delete(employeeId);
-            } else {
-                next.add(employeeId);
-            }
-
-            return next;
-        });
-    };
-
-    const includedCount = selection.includedCount;
-    const hasPayRunEmployees = (employee_stats?.total ?? 0) > 0;
-    const hasVisibleRows = rows.length > 0;
-
-    return (
-        <div className="space-y-6">
-            {employee_stats !== null && (
-                <EmployeeAnalyticsCardsGrid
-                    employee_stats={employee_stats}
-                    activeEmployeeGroup={activeEmployeeGroup}
-                    onEmployeeGroupSelect={onEmployeeGroupSelect}
-                />
-            )}
-
-            {!hasPayRunEmployees ? (
-                <EmptyState
-                    title={`No ${period.payroll_category_label.toLowerCase()} employees`}
-                    description={`Only active employees with an active ${period.payroll_category_label.toLowerCase()} contract appear on this pay run.`}
-                />
-            ) : !hasVisibleRows ? (
-                <PayrollBoardFilteredEmptyState
-                    activeEmployeeGroup={activeEmployeeGroup}
-                    onShowAll={() => onEmployeeGroupSelect('')}
-                />
-            ) : (
-                <>
-                    {/* Selection info bar */}
-                    <div className="flex items-center justify-between rounded-xl border border-border/40 bg-muted/30 px-4 py-2.5 backdrop-blur-sm">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <CheckSquare className="h-4 w-4 shrink-0 text-primary" />
-                            <span>
-                                <span className="font-semibold text-foreground">
-                                    {includedCount}
-                                </span>{' '}
-                                of{' '}
-                                <span className="font-semibold text-foreground">
-                                    {selection.totalCount}
-                                </span>{' '}
-                                employees included
-                            </span>
-                            {selection.excludedCount > 0 && (
-                                <Badge
-                                    variant="outline"
-                                    className="ml-1 border-amber-500/30 bg-amber-500/10 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
-                                >
-                                    {selection.excludedCount} excluded
-                                </Badge>
-                            )}
-                        </div>
-                        {selection.excludedCount > 0 && (
-                            <button
-                                type="button"
-                                onClick={() => setExcludedIds(new Set())}
-                                className="text-xs font-medium text-primary underline-offset-2 transition-colors hover:underline"
-                            >
-                                Include all
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Table */}
-                    <OrganizationDataTable>
-                        <TableHeader>
-                            <DataTableHeaderRow>
-                                {/* Select-all checkbox */}
-                                <DataTableHead className="w-10">
-                                    <Checkbox
-                                        id="select-all-employees"
-                                        checked={selection.headerChecked}
-                                        onCheckedChange={handleSelectAll}
-                                        aria-label="Select all employees"
-                                        className="rounded"
-                                    />
-                                </DataTableHead>
-                                <DataTableHead>Employee</DataTableHead>
-                                <DataTableHead>Bank account</DataTableHead>
-                                {/* Salary columns */}
-                                <DataTableHead>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span className="inline-flex cursor-default items-center gap-1.5">
-                                                <Calculator className="h-3 w-3 text-primary/60" />
-                                                Basic Salary
-                                            </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            From current contract
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </DataTableHead>
-                                <DataTableHead>Housing Allow.</DataTableHead>
-                                <DataTableHead>Transport Allow.</DataTableHead>
-                                <DataTableHead>Other Allow.</DataTableHead>
-                                <DataTableHead>Payment</DataTableHead>
-                                <DataTableHead>
-                                    <span className="inline-flex cursor-default items-center gap-1.5">
-                                        <Calendar className="h-3 w-3 text-primary/60" />
-                                        Period (Start — End)
-                                    </span>
-                                </DataTableHead>
-                                <DataTableHead>
-                                    <span className="inline-flex cursor-default items-center gap-1.5">
-                                        <CalendarDays className="h-3 w-3 text-primary/60" />
-                                        Total Days
-                                    </span>
-                                </DataTableHead>
-                            </DataTableHeaderRow>
-                        </TableHeader>
-                        <TableBody>
-                            {rows.map((row) => {
-                                const isExcluded = excludedIds.has(
-                                    row.employee.id,
-                                );
-                                const paymentMethod =
-                                    (row.salary_payment_method ??
-                                        'bank_transfer') as SalaryPaymentMethodValue;
-                                const contract = row.contract ?? null;
-                                const startDate =
-                                    rowDates[row.employee.id]?.start ??
-                                    period.start_date;
-                                const endDate =
-                                    rowDates[row.employee.id]?.end ??
-                                    period.end_date;
-                                const totalDays = calculateInclusiveDays(
-                                    startDate,
-                                    endDate,
-                                );
-
-                                return (
-                                    <TableRow
-                                        key={row.employee.id}
-                                        className={cn(
-                                            dataTableBodyRowClass(),
-                                            'group transition-all duration-200',
-                                            isExcluded
-                                                ? 'bg-muted/20 opacity-40 dark:bg-muted/10'
-                                                : 'hover:bg-muted/40',
-                                        )}
-                                    >
-                                        {/* Checkbox */}
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            <Checkbox
-                                                id={`employee-${row.employee.id}`}
-                                                checked={!isExcluded}
-                                                onCheckedChange={(checked) =>
-                                                    handleRowToggle(
-                                                        row.employee.id,
-                                                        checked,
-                                                    )
-                                                }
-                                                aria-label={`Include ${row.employee.name}`}
-                                                className="rounded"
-                                            />
-                                        </TableCell>
-
-                                        <PayrollEmployeeCell
-                                            employee={row.employee}
-                                            isExcluded={isExcluded}
-                                        />
-
-                                        <PayrollRecordBankAccountCell
-                                            primary_account={
-                                                row.primary_account ?? null
-                                            }
-                                            salary_payment_method={
-                                                paymentMethod
-                                            }
-                                        />
-
-                                        {/* Basic salary */}
-                                        <TableCell
-                                            className={cn(
-                                                dataTableCellClass(),
-                                                'text-right',
-                                            )}
-                                        >
-                                            <SalaryCell
-                                                value={contract?.basic_salary}
-                                            />
-                                        </TableCell>
-
-                                        {/* Housing allowance */}
-                                        <TableCell
-                                            className={cn(
-                                                dataTableCellClass(),
-                                                'text-right',
-                                            )}
-                                        >
-                                            <SalaryCell
-                                                value={
-                                                    contract?.housing_allowance
-                                                }
-                                            />
-                                        </TableCell>
-
-                                        {/* Transport allowance */}
-                                        <TableCell
-                                            className={cn(
-                                                dataTableCellClass(),
-                                                'text-right',
-                                            )}
-                                        >
-                                            <SalaryCell
-                                                value={
-                                                    contract?.transport_allowance
-                                                }
-                                            />
-                                        </TableCell>
-
-                                        {/* Other allowances */}
-                                        <TableCell
-                                            className={cn(
-                                                dataTableCellClass(),
-                                                'text-right',
-                                            )}
-                                        >
-                                            <SalaryCell
-                                                value={
-                                                    contract?.other_allowances
-                                                }
-                                            />
-                                        </TableCell>
-
-                                        <PayrollRecordPaymentMethodCell
-                                            method={paymentMethod}
-                                            label={
-                                                row.salary_payment_method_label ??
-                                                'Bank transfer'
-                                            }
-                                        />
-
-                                        {/* Period dates */}
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            <div className="flex min-w-[310px] items-center gap-2">
-                                                <Input
-                                                    type="date"
-                                                    value={startDate}
-                                                    onChange={(e) =>
-                                                        handleStartDateChange(
-                                                            row.employee.id,
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    className="h-8 w-[142px] rounded-lg border-border/60 bg-background/50 px-2 font-mono text-xs transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                                />
-                                                <span className="text-xs font-bold text-muted-foreground/50">
-                                                    —
-                                                </span>
-                                                <Input
-                                                    type="date"
-                                                    value={endDate}
-                                                    onChange={(e) =>
-                                                        handleEndDateChange(
-                                                            row.employee.id,
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    className="h-8 w-[142px] rounded-lg border-border/60 bg-background/50 px-2 font-mono text-xs transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:dark:invert"
-                                                />
-                                            </div>
-                                        </TableCell>
-
-                                        {/* Total days */}
-                                        <TableCell
-                                            className={dataTableCellClass()}
-                                        >
-                                            <Badge
-                                                variant="secondary"
-                                                className={cn(
-                                                    'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold tabular-nums transition-colors',
-                                                    totalDays &&
-                                                        Number(totalDays) > 0
-                                                        ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                                                        : 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-                                                )}
-                                            >
-                                                {formatTimesheetDays(totalDays)}{' '}
-                                                days
-                                            </Badge>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </OrganizationDataTable>
-
-                    <Pagination {...paginationProps} label="employees" />
-                </>
-            )}
-        </div>
-    );
-}
-
-function CrewRangeEditor({
-    label,
-    from,
-    to,
-    onFromChange,
-    onToChange,
-    disabled,
-    activeColorClass = 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300',
-}: {
-    label: string;
-    from: string;
-    to: string;
-    onFromChange: (value: string) => void;
-    onToChange: (value: string) => void;
-    disabled: boolean;
-    activeColorClass?: string;
-}) {
-    const days = calculateInclusiveDays(from, to);
-    const inputClass =
-        'h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert';
-
-    return (
-        <div className="flex flex-col gap-1">
-            <p className="text-[10px] font-semibold tracking-wide text-muted-foreground/70 uppercase">
-                {label}
-            </p>
-            <div className="flex items-center gap-1">
-                <Input
-                    type="date"
-                    value={from}
-                    onChange={(e) => onFromChange(e.target.value)}
-                    className={inputClass}
-                    disabled={disabled}
-                />
-                <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
-                    →
-                </span>
-                <Input
-                    type="date"
-                    value={to}
-                    onChange={(e) => onToChange(e.target.value)}
-                    className={inputClass}
-                    disabled={disabled}
-                />
-            </div>
-            <Badge
-                variant="secondary"
-                className={cn(
-                    'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
-                    days && Number(days) > 0
-                        ? activeColorClass
-                        : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
-                )}
-            >
-                {days && Number(days) > 0 ? (
-                    <>{formatTimesheetDays(days)} days</>
-                ) : (
-                    <>No dates set</>
-                )}
-            </Badge>
-        </div>
-    );
-}
-
-function OperationalDateRange({
-    label,
-    from,
-    to,
-    days,
-}: {
-    label: string;
-    from: string | null | undefined;
-    to: string | null | undefined;
-    days: string | null | undefined;
-}) {
-    const hasDays = days !== null && days !== undefined && days !== '';
-    const hasRange = Boolean(from) || Boolean(to);
-
-    return (
-        <div className="space-y-1">
-            <p className="text-[10px] font-semibold tracking-wide text-muted-foreground/70 uppercase">
-                {label}
-            </p>
-            {hasRange ? (
-                <p className="font-mono text-[11px] text-foreground/90">
-                    {formatDisplayDate(from)} → {formatDisplayDate(to)}
-                </p>
-            ) : (
-                <p className="text-[11px] text-muted-foreground/60">
-                    No dates set
-                </p>
-            )}
-            {hasDays && Number(days) > 0 ? (
-                <Badge
-                    variant="secondary"
-                    className="inline-flex w-fit items-center gap-1 rounded-md border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-700 tabular-nums dark:text-blue-300"
-                >
-                    {formatTimesheetDays(days)} days
-                </Badge>
+                </Suspense>
             ) : null}
-        </div>
+
+            {isCancelDialogOpen ? (
+                <Suspense fallback={null}>
+                    <LazyPayrollCancelDialog
+                        open={isCancelDialogOpen}
+                        onOpenChange={setIsCancelDialogOpen}
+                        onConfirm={handleCancel}
+                        processing={isCancelling}
+                    />
+                </Suspense>
+            ) : null}
+
+            {crew_timeline_preparation && isReprepareDialogOpen ? (
+                <Suspense fallback={null}>
+                    <LazyPayrollReprepareTimelineDialog
+                        open={isReprepareDialogOpen}
+                        onOpenChange={setIsReprepareDialogOpen}
+                        onConfirm={handlePrepareTimeline}
+                        processing={isPreparingTimeline}
+                        currentVersion={crew_timeline_preparation.version}
+                    />
+                </Suspense>
+            ) : null}
+
+            {removeRecord !== null ? (
+                <Suspense fallback={null}>
+                    <LazyPayrollRecordRemoveDialog
+                        open={removeRecord !== null}
+                        onOpenChange={(open) => {
+                            if (!open) {
+                                setRemoveRecord(null);
+                            }
+                        }}
+                        employeeName={removeRecord?.employee.name ?? null}
+                        onConfirm={handleRemoveRecord}
+                        processing={isRemovingRecord}
+                    />
+                </Suspense>
+            ) : null}
+        </Main>
     );
 }
