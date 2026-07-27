@@ -10,9 +10,11 @@ use App\Http\Requests\Organization\Announcements\StoreAnnouncementRequest;
 use App\Http\Requests\Organization\Announcements\UpdateAnnouncementRequest;
 use App\Models\Announcement;
 use App\Models\Branch;
+use App\Models\Company;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
+use App\Models\WhatsAppTemplate;
 use App\Support\Announcements\Actions\PersistAnnouncement;
 use App\Support\Announcements\Actions\PublishAnnouncement;
 use App\Support\Announcements\AnnouncementPagePermissions;
@@ -198,6 +200,9 @@ class AnnouncementController extends Controller
     private function formOptions(int $companyId): array
     {
         return [
+            'company_name' => (string) Company::query()
+                ->whereKey($companyId)
+                ->value('name'),
             'categories' => collect(AnnouncementCategory::cases())->map(fn ($c) => [
                 'value' => $c->value,
                 'label' => $c->label(),
@@ -233,6 +238,11 @@ class AnnouncementController extends Controller
                 ->orderBy('name')
                 ->limit(500)
                 ->get(['id', 'name', 'employee_no']),
+            'whatsapp_template' => WhatsAppTemplate::query()
+                ->where('slug', 'announcement')
+                ->where('enabled', true)
+                ->first(['meta_name', 'meta_language', 'body_preview'])
+                ?->only(['meta_name', 'meta_language', 'body_preview']),
         ];
     }
 }

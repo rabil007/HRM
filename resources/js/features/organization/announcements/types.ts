@@ -26,12 +26,18 @@ export type AnnouncementCan = {
 };
 
 export type AnnouncementFormOptions = {
+    company_name: string;
     categories: { value: string; label: string }[];
     priorities: { value: string; label: string }[];
     branches: { id: number; name: string }[];
     departments: { id: number; name: string; parent_id?: number | null }[];
     positions: { id: number; name: string }[];
     employees: { id: number; name: string; employee_no: string | null }[];
+    whatsapp_template: {
+        meta_name: string;
+        meta_language: string;
+        body_preview: string;
+    } | null;
 };
 
 export type AnnouncementFormData = {
@@ -40,6 +46,8 @@ export type AnnouncementFormData = {
     category: string;
     priority: string;
     channels: string[];
+    whatsapp_message: string;
+    whatsapp_link: string;
     audiences: { type: string; id: number | null }[];
     expires_at: string;
     publish_mode: 'draft' | 'schedule' | 'send_now';
@@ -54,6 +62,8 @@ export type AnnouncementFormPayload = {
     priority: string;
     status: string;
     channels: string[];
+    whatsapp_message: string;
+    whatsapp_link: string;
     expires_at: string | null;
     scheduled_at: string | null;
     audiences: { type: string; id: number | null }[];
@@ -82,11 +92,14 @@ export type AnnouncementChannelPreviews = {
         template_language: string;
         body_text: string;
         company_name: string;
+        whatsapp_link: string | null;
     } | null;
 };
 
 export type AnnouncementShow = AnnouncementListItem & {
     body_html: string;
+    whatsapp_message: string | null;
+    whatsapp_link: string | null;
     expires_at: string | null;
     published_by: string | null;
     audiences: { type: string; id: number | null }[];

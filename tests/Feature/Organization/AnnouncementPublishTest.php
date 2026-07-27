@@ -22,7 +22,6 @@ use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\Actions\RefreshAnnouncementDeliveryStatus;
 use App\Support\Announcements\BuildAnnouncementEmailContent;
-use App\Support\Announcements\BuildAnnouncementPublicLinks;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
@@ -95,6 +94,7 @@ test('publishing snapshots recipients and queues channel jobs', function () {
         'priority' => 'normal',
         'status' => AnnouncementStatus::Draft,
         'channels' => ['in_app', 'email', 'whatsapp'],
+        'whatsapp_link' => 'https://example.com/meeting',
         'created_by' => $user->id,
     ]);
 
@@ -144,6 +144,7 @@ test('email is queued individually and whatsapp failure does not block email', f
         'priority' => 'high',
         'status' => AnnouncementStatus::Published,
         'channels' => ['email', 'whatsapp'],
+        'whatsapp_link' => 'https://example.com/policy',
         'created_by' => $user->id,
         'published_by' => $user->id,
         'published_at' => now(),
@@ -206,7 +207,6 @@ test('email is queued individually and whatsapp failure does not block email', f
     (new DeliverAnnouncementWhatsAppJob($whatsappDelivery->id))->handle(
         app(WhatsAppService::class),
         app(RefreshAnnouncementDeliveryStatus::class),
-        app(BuildAnnouncementPublicLinks::class),
     );
 
     Mail::assertSent(AnnouncementMail::class, function (AnnouncementMail $mail) {

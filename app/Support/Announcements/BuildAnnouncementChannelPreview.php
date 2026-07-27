@@ -6,7 +6,6 @@ use App\Enums\AnnouncementChannel;
 use App\Enums\WhatsAppTemplateCategory;
 use App\Models\Announcement;
 use App\Models\WhatsAppTemplate;
-use Illuminate\Support\Str;
 
 final class BuildAnnouncementChannelPreview
 {
@@ -17,7 +16,7 @@ final class BuildAnnouncementChannelPreview
      *     channels: list<string>,
      *     in_app: array{title: string, body_html: string, priority_label: string, category_label: string}|null,
      *     email: array{subject: string, html: string}|null,
-     *     whatsapp: array{template_name: string, template_language: string, body_text: string, company_name: string}|null
+     *     whatsapp: array{template_name: string, template_language: string, body_text: string, company_name: string, whatsapp_link: string|null}|null
      * }
      */
     public function handle(Announcement $announcement): array
@@ -49,7 +48,7 @@ final class BuildAnnouncementChannelPreview
     }
 
     /**
-     * @return array{template_name: string, template_language: string, body_text: string, company_name: string}
+     * @return array{template_name: string, template_language: string, body_text: string, company_name: string, whatsapp_link: string|null}
      */
     private function whatsappPreview(Announcement $announcement): array
     {
@@ -65,10 +64,11 @@ final class BuildAnnouncementChannelPreview
                 ->first();
 
         $companyName = (string) ($announcement->company?->name ?? config('app.name'));
-        $shortBody = Str::of($announcement->body_html)->stripTags()->limit(200)->toString();
-        $message = $shortBody !== '' ? $shortBody : $announcement->title;
+        $message = AnnouncementWhatsAppMessage::for($announcement);
         $priority = $announcement->priority->label();
-        $sampleUrl = rtrim((string) config('app.url'), '/').'/announcements/public/preview-token';
+        $viewLink = filled($announcement->whatsapp_link)
+            ? (string) $announcement->whatsapp_link
+            : 'Add a WhatsApp view link';
 
         $bodyText = filled($template?->body_preview)
             ? str_replace(
@@ -89,22 +89,23 @@ final class BuildAnnouncementChannelPreview
                     $announcement->title,
                     $message,
                     $priority,
-                    $sampleUrl,
+                    $viewLink,
                     $companyName,
                     $announcement->title,
                     $message,
                     $priority,
-                    $sampleUrl,
+                    $viewLink,
                 ],
                 (string) $template->body_preview,
             )
-            : "{$companyName} — {$announcement->title}: {$message}. Priority: {$priority}. Open: {$sampleUrl}";
+            : "{$companyName} — {$announcement->title}: {$message}. Priority: {$priority}. Open: {$viewLink}";
 
         return [
             'template_name' => (string) ($template?->meta_name ?? 'announcement'),
             'template_language' => (string) ($template?->meta_language ?? 'en'),
             'body_text' => $bodyText,
             'company_name' => $companyName,
+            'whatsapp_link' => filled($announcement->whatsapp_link) ? (string) $announcement->whatsapp_link : null,
         ];
     }
 }

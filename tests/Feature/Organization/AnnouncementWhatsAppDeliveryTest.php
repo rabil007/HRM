@@ -16,7 +16,6 @@ use App\Models\Employee;
 use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
 use App\Support\Announcements\Actions\RefreshAnnouncementDeliveryStatus;
-use App\Support\Announcements\BuildAnnouncementPublicLinks;
 use Mockery\MockInterface;
 
 /**
@@ -63,6 +62,8 @@ function makeWhatsAppAnnouncementDelivery(array $overrides = []): array
         'priority' => 'urgent',
         'status' => AnnouncementStatus::Published,
         'channels' => ['whatsapp'],
+        'whatsapp_message' => 'Use the north entrance for the muster drill.',
+        'whatsapp_link' => 'https://example.com/muster-drill',
         'published_at' => now(),
     ]);
 
@@ -103,9 +104,9 @@ function makeWhatsAppAnnouncementDelivery(array $overrides = []): array
     return compact('company', 'recipient', 'delivery');
 }
 
-test('whatsapp job sends five body parameters with recipient public url', function () {
+test('whatsapp job sends five body parameters with custom view link', function () {
     ['recipient' => $recipient, 'delivery' => $delivery] = makeWhatsAppAnnouncementDelivery();
-    $expectedUrl = app(BuildAnnouncementPublicLinks::class)->showUrl($recipient);
+    $expectedUrl = 'https://example.com/muster-drill';
 
     $this->mock(WhatsAppService::class, function (MockInterface $mock) use ($expectedUrl): void {
         $mock->shouldReceive('sendTemplate')
@@ -124,7 +125,7 @@ test('whatsapp job sends five body parameters with recipient public url', functi
                     && count($parameters) === 5
                     && $parameters[0] === ['type' => 'text', 'text' => 'WhatsApp Co']
                     && $parameters[1] === ['type' => 'text', 'text' => 'Muster drill']
-                    && $parameters[2] === ['type' => 'text', 'text' => 'Report to station B immediately']
+                    && $parameters[2] === ['type' => 'text', 'text' => 'Use the north entrance for the muster drill.']
                     && $parameters[3] === ['type' => 'text', 'text' => 'Urgent']
                     && $parameters[4] === ['type' => 'text', 'text' => $expectedUrl]
                     && ! str_contains($parameters[4]['text'], 'wa@example.test')
@@ -139,7 +140,6 @@ test('whatsapp job sends five body parameters with recipient public url', functi
     (new DeliverAnnouncementWhatsAppJob($delivery->id))->handle(
         app(WhatsAppService::class),
         app(RefreshAnnouncementDeliveryStatus::class),
-        app(BuildAnnouncementPublicLinks::class),
     );
 
     expect($delivery->fresh())
@@ -160,7 +160,6 @@ test('already successful whatsapp deliveries are not resent', function () {
     (new DeliverAnnouncementWhatsAppJob($delivery->id))->handle(
         app(WhatsAppService::class),
         app(RefreshAnnouncementDeliveryStatus::class),
-        app(BuildAnnouncementPublicLinks::class),
     );
 
     expect($delivery->fresh()->status)->toBe(AnnouncementDeliveryStatus::Sent);
@@ -182,7 +181,6 @@ test('missing phone numbers remain skipped for whatsapp delivery', function () {
     (new DeliverAnnouncementWhatsAppJob($delivery->id))->handle(
         app(WhatsAppService::class),
         app(RefreshAnnouncementDeliveryStatus::class),
-        app(BuildAnnouncementPublicLinks::class),
     );
 
     expect($delivery->fresh()->status)->toBe(AnnouncementDeliveryStatus::Skipped);

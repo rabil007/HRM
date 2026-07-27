@@ -85,6 +85,50 @@
     @apply relative overflow-hidden before:absolute before:-inset-px before:-z-10 before:translate-y-1/2 before:rounded-full before:bg-info/15 before:blur-2xl before:content-[''];
 }
 
+@layer components {
+    .announcement-editor .tiptap > * + * {
+        margin-top: 0.75rem;
+    }
+
+    .announcement-editor .tiptap h2 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
+    .announcement-editor .tiptap h3 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        line-height: 1.45;
+    }
+
+    .announcement-editor .tiptap ul {
+        list-style: disc;
+        padding-inline-start: 1.5rem;
+    }
+
+    .announcement-editor .tiptap ol {
+        list-style: decimal;
+        padding-inline-start: 1.5rem;
+    }
+
+    .announcement-editor .tiptap blockquote {
+        border-inline-start: 3px solid var(--border);
+        color: var(--muted-foreground);
+        padding-inline-start: 1rem;
+    }
+
+    .announcement-editor
+        .tiptap
+        p:only-child:has(> br.ProseMirror-trailingBreak)::before {
+        color: var(--muted-foreground);
+        content: 'Write the full announcement here…';
+        float: inline-start;
+        height: 0;
+        pointer-events: none;
+    }
+}
+
 .CollapsibleContent {
     overflow: hidden;
 }

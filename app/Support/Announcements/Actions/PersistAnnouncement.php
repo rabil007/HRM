@@ -10,6 +10,7 @@ use App\Enums\AnnouncementStatus;
 use App\Models\Announcement;
 use App\Models\AnnouncementAudience;
 use App\Models\User;
+use App\Support\Announcements\AnnouncementWhatsAppMessage;
 use App\Support\Announcements\ResolveAnnouncementAudience;
 use App\Support\Announcements\SanitizeAnnouncementHtml;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,8 @@ final class PersistAnnouncement
      *     category: string,
      *     priority: string,
      *     channels: list<string>,
+     *     whatsapp_message?: string|null,
+     *     whatsapp_link?: string|null,
      *     audiences: list<array{type: string, id?: int|null}>,
      *     expires_at?: string|null,
      *     publish_mode: string,
@@ -39,6 +42,7 @@ final class PersistAnnouncement
 
         return DB::transaction(function () use ($companyId, $user, $data): Announcement {
             $status = $this->statusForPublishMode($data['publish_mode']);
+            $channels = array_values($data['channels']);
 
             $announcement = Announcement::query()->create([
                 'company_id' => $companyId,
@@ -47,7 +51,9 @@ final class PersistAnnouncement
                 'category' => AnnouncementCategory::from($data['category']),
                 'priority' => AnnouncementPriority::from($data['priority']),
                 'status' => $status,
-                'channels' => array_values($data['channels']),
+                'channels' => $channels,
+                'whatsapp_message' => $this->resolveWhatsAppMessage($channels, $data['whatsapp_message'] ?? null),
+                'whatsapp_link' => $this->resolveWhatsAppLink($channels, $data['whatsapp_link'] ?? null),
                 'scheduled_at' => $status === AnnouncementStatus::Scheduled ? $data['scheduled_at'] : null,
                 'expires_at' => $data['expires_at'] ?? null,
                 'created_by' => $user->id,
@@ -66,6 +72,8 @@ final class PersistAnnouncement
      *     category: string,
      *     priority: string,
      *     channels: list<string>,
+     *     whatsapp_message?: string|null,
+     *     whatsapp_link?: string|null,
      *     audiences: list<array{type: string, id?: int|null}>,
      *     expires_at?: string|null,
      *     publish_mode: string,
@@ -85,6 +93,7 @@ final class PersistAnnouncement
 
         return DB::transaction(function () use ($announcement, $data): Announcement {
             $status = $this->statusForPublishMode($data['publish_mode']);
+            $channels = array_values($data['channels']);
 
             $announcement->update([
                 'title' => $data['title'],
@@ -94,7 +103,9 @@ final class PersistAnnouncement
                 'status' => $status === AnnouncementStatus::Draft || $status === AnnouncementStatus::Scheduled
                     ? $status
                     : $announcement->status,
-                'channels' => array_values($data['channels']),
+                'channels' => $channels,
+                'whatsapp_message' => $this->resolveWhatsAppMessage($channels, $data['whatsapp_message'] ?? null),
+                'whatsapp_link' => $this->resolveWhatsAppLink($channels, $data['whatsapp_link'] ?? null),
                 'scheduled_at' => $status === AnnouncementStatus::Scheduled ? $data['scheduled_at'] : null,
                 'expires_at' => $data['expires_at'] ?? null,
             ]);
@@ -126,6 +137,36 @@ final class PersistAnnouncement
                     : (int) ($audience['id'] ?? 0),
             ]);
         }
+    }
+
+    /**
+     * @param  list<string>  $channels
+     */
+    private function resolveWhatsAppMessage(array $channels, mixed $whatsAppMessage): ?string
+    {
+        if (! in_array(AnnouncementChannel::WhatsApp->value, $channels, true)) {
+            return null;
+        }
+
+        $message = is_string($whatsAppMessage)
+            ? AnnouncementWhatsAppMessage::normalize($whatsAppMessage)
+            : '';
+
+        return $message !== '' ? $message : null;
+    }
+
+    /**
+     * @param  list<string>  $channels
+     */
+    private function resolveWhatsAppLink(array $channels, mixed $whatsappLink): ?string
+    {
+        if (! in_array(AnnouncementChannel::WhatsApp->value, $channels, true)) {
+            return null;
+        }
+
+        $link = is_string($whatsappLink) ? trim($whatsappLink) : '';
+
+        return $link !== '' ? $link : null;
     }
 
     private function statusForPublishMode(string $mode): AnnouncementStatus
