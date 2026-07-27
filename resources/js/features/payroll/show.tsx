@@ -754,6 +754,12 @@ export function PayrollShowContent({
     const canGenerate =
         period.can_generate_payroll && permissions.generate_payroll;
 
+    const canClearTimesheets =
+        period.status === 'draft' &&
+        period.supports_timesheets &&
+        permissions.clear_timesheets &&
+        clearable_timesheet_count > 0;
+
     const isGenerationBlocked =
         period.supports_timesheets &&
         Boolean(period.generation_blocking_reason) &&
@@ -845,6 +851,7 @@ export function PayrollShowContent({
         canApprove ||
         canMarkPaid ||
         canCancelPeriod ||
+        canClearTimesheets ||
         permissions.export_payroll ||
         Boolean(period.has_payment_proof);
 
@@ -920,6 +927,21 @@ export function PayrollShowContent({
                                 >
                                     <XCircle className="mr-2 h-4 w-4" />
                                     Cancel pay run
+                                </Button>
+                            ) : null}
+                            {canClearTimesheets ? (
+                                <Button
+                                    variant="outline"
+                                    className="h-12 rounded-xl border-destructive/30 bg-destructive/5 px-6 text-destructive transition-all duration-300 hover:bg-destructive/15 hover:text-destructive"
+                                    disabled={isClearingTimesheets}
+                                    onClick={() =>
+                                        setIsClearTimesheetsDialogOpen(true)
+                                    }
+                                >
+                                    <Eraser className="mr-2 h-4 w-4" />
+                                    {isClearingTimesheets
+                                        ? 'Clearing…'
+                                        : 'Clear Timesheets'}
                                 </Button>
                             ) : null}
                             {canPrepareTimeline &&
@@ -1213,24 +1235,6 @@ export function PayrollShowContent({
                                       >
                                           <Upload className="mr-2 h-4 w-4" />
                                           Import Excel
-                                      </Button>
-                                  ) : null}
-                                  {permissions.clear_timesheets &&
-                                  clearable_timesheet_count > 0 ? (
-                                      <Button
-                                          variant="outline"
-                                          className="h-12 shrink-0 rounded-xl border-destructive/30 px-6 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                          disabled={isClearingTimesheets}
-                                          onClick={() =>
-                                              setIsClearTimesheetsDialogOpen(
-                                                  true,
-                                              )
-                                          }
-                                      >
-                                          <Eraser className="mr-2 h-4 w-4" />
-                                          {isClearingTimesheets
-                                              ? 'Clearing…'
-                                              : 'Clear Timesheets'}
                                       </Button>
                                   ) : null}
                               </div>,
