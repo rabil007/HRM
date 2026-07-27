@@ -12,7 +12,6 @@ import {
     GitBranch,
     Globe,
     Mail,
-    Megaphone,
     MessageCircle,
     Send,
     Smartphone,
@@ -55,48 +54,73 @@ const CHANNELS = [
         label: 'In-app',
         Icon: Smartphone,
         description: 'Notification inside the app',
+        activeClass:
+            'border-primary/45 bg-primary/5 shadow-[0_0_0_1px] shadow-primary/15',
+        iconActiveClass: 'bg-primary/15 text-primary',
     },
     {
         value: 'email',
         label: 'Email',
         Icon: Mail,
         description: 'Sent to employee email',
+        activeClass:
+            'border-sky-500/45 bg-sky-500/5 shadow-[0_0_0_1px] shadow-sky-500/15',
+        iconActiveClass: 'bg-sky-500/15 text-sky-500',
     },
     {
         value: 'whatsapp',
         label: 'WhatsApp',
         Icon: MessageCircle,
         description: 'Message to registered phone',
+        activeClass:
+            'border-emerald-500/45 bg-emerald-500/5 shadow-[0_0_0_1px] shadow-emerald-500/15',
+        iconActiveClass: 'bg-emerald-500/15 text-emerald-500',
     },
 ] as const;
 
 function SectionCard({
+    step,
     icon,
     title,
     description,
     children,
     className,
+    headerRight,
 }: {
+    step?: number;
     icon: React.ReactNode;
     title: string;
     description?: string;
     children: React.ReactNode;
     className?: string;
+    headerRight?: React.ReactNode;
 }) {
     return (
         <section className={cn('rounded-xl border glass-card', className)}>
-            <div className="border-b border-border/60 bg-muted/20 px-6 py-4">
-                <h2 className="flex items-center gap-2 text-base font-semibold">
-                    {icon}
-                    {title}
-                </h2>
-                {description ? (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        {description}
-                    </p>
+            <div className="flex items-start justify-between gap-4 border-b border-border/60 bg-muted/20 px-5 py-4 sm:px-6">
+                <div className="min-w-0">
+                    <h2 className="flex items-center gap-2.5 text-base font-semibold">
+                        {step ? (
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-bold text-primary">
+                                {step}
+                            </span>
+                        ) : null}
+                        <span className="flex items-center gap-2">
+                            {icon}
+                            {title}
+                        </span>
+                    </h2>
+                    {description ? (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {description}
+                        </p>
+                    ) : null}
+                </div>
+                {headerRight ? (
+                    <div className="shrink-0">{headerRight}</div>
                 ) : null}
             </div>
-            <div className="p-6">{children}</div>
+            <div className="p-5 sm:p-6">{children}</div>
         </section>
     );
 }
@@ -890,51 +914,6 @@ export default function AnnouncementFormPage({
             publish_mode: mode,
         };
 
-        // #region agent log
-        fetch(
-            'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Debug-Session-Id': '17d3aa',
-                },
-                body: JSON.stringify({
-                    sessionId: '17d3aa',
-                    runId: 'post-fix',
-                    hypothesisId: 'A-B',
-                    location: 'form.tsx:submit',
-                    message: 'Announcement submit payload whatsapp fields',
-                    data: {
-                        mode,
-                        isEdit,
-                        channels: payload.channels,
-                        hasWhatsappChannel:
-                            payload.channels.includes('whatsapp'),
-                        whatsappLinkPresent:
-                            Object.prototype.hasOwnProperty.call(
-                                payload,
-                                'whatsapp_link',
-                            ),
-                        whatsappLinkLength: String(payload.whatsapp_link ?? '')
-                            .length,
-                        whatsappLinkTrimmedLength: String(
-                            payload.whatsapp_link ?? '',
-                        ).trim().length,
-                        whatsappLinkStartsWithHttp: /^https?:\/\//i.test(
-                            String(payload.whatsapp_link ?? ''),
-                        ),
-                        formDataWhatsappLinkLength: String(
-                            form.data.whatsapp_link ?? '',
-                        ).length,
-                        allowEmptyLink: true,
-                    },
-                    timestamp: Date.now(),
-                }),
-            },
-        ).catch(() => {});
-        // #endregion
-
         if (isEdit && announcement) {
             router.put(
                 `/organization/announcements/${announcement.id}`,
@@ -967,6 +946,18 @@ export default function AnnouncementFormPage({
         (a) => a.type !== 'all_employees',
     ).length;
 
+    const isAllEmployees = form.data.audiences.some(
+        (audience) => audience.type === 'all_employees',
+    );
+
+    const audienceSummary = isAllEmployees
+        ? 'All employees'
+        : totalAudienceSelected > 0
+          ? `${totalAudienceSelected} selected`
+          : 'No audience selected';
+
+    const whatsappSelected = form.data.channels.includes('whatsapp');
+
     const priorityLabel =
         options.priorities.find((option) => option.value === form.data.priority)
             ?.label ?? form.data.priority;
@@ -991,6 +982,22 @@ export default function AnnouncementFormPage({
         ],
     );
 
+    const whatsappPreview = whatsappSelected ? (
+        <WhatsAppDocumentTemplatePreview
+            templateName={
+                options.whatsapp_template?.meta_name ??
+                'employee_announcement_notice'
+            }
+            templateLanguage={
+                options.whatsapp_template?.meta_language ?? 'en'
+            }
+            bodyText={whatsappPreviewText}
+            headerType="none"
+            accountName={options.company_name || 'Company'}
+            hint="Live preview of the approved Meta template."
+        />
+    ) : null;
+
     return (
         <>
             <Head
@@ -999,244 +1006,277 @@ export default function AnnouncementFormPage({
             <Main>
                 <PageHeader
                     title={isEdit ? 'Edit announcement' : 'Create announcement'}
-                    description="Compose the message, choose audience and channels, then draft, schedule, or send."
+                    description="Write the message, pick channels and audience, then draft, schedule, or send."
                     kicker="Communications"
                 />
 
-                <div className="mx-auto max-w-5xl space-y-6">
-                    {/* Tip banner */}
-                    <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
-                        <Megaphone className="mt-0.5 size-4 shrink-0 text-primary" />
-                        <p>
-                            Keep the title concise and make the first sentence
-                            useful on its own. You can save a draft and finish
-                            it later.
-                        </p>
-                    </div>
+                <div className="mx-auto max-w-6xl pb-28">
+                    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20.5rem]">
+                        <div className="space-y-5">
+                            <SectionCard
+                                step={1}
+                                icon={
+                                    <Send className="size-4 text-primary" />
+                                }
+                                title="Delivery channels"
+                                description="Choose at least one way to deliver this announcement."
+                            >
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                    {CHANNELS.map((channel) => {
+                                        const isChecked =
+                                            form.data.channels.includes(
+                                                channel.value,
+                                            );
 
-                    {/* Delivery channels */}
-                    <SectionCard
-                        icon={<Send className="size-4 text-primary" />}
-                        title="Delivery channels"
-                        description="Select at least one channel for delivery."
-                    >
-                        <div className="grid gap-3 sm:grid-cols-3">
-                            {CHANNELS.map((channel) => {
-                                const isChecked = form.data.channels.includes(
-                                    channel.value,
-                                );
-
-                                return (
-                                    <label
-                                        key={channel.value}
-                                        className={cn(
-                                            'flex cursor-pointer flex-col gap-3 rounded-xl border p-4 text-sm transition-all',
-                                            isChecked
-                                                ? 'border-primary/50 bg-primary/5 text-foreground shadow-sm'
-                                                : 'border-border/70 hover:bg-muted/40',
-                                        )}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div
+                                        return (
+                                            <label
+                                                key={channel.value}
                                                 className={cn(
-                                                    'flex size-9 items-center justify-center rounded-lg',
+                                                    'group relative flex cursor-pointer flex-col gap-3 rounded-xl border p-4 text-sm transition-all',
                                                     isChecked
-                                                        ? 'bg-primary/15 text-primary'
-                                                        : 'bg-muted text-muted-foreground',
+                                                        ? channel.activeClass
+                                                        : 'border-border/70 hover:border-border hover:bg-muted/30',
                                                 )}
                                             >
-                                                <channel.Icon className="size-4" />
-                                            </div>
-                                            <Checkbox
-                                                checked={isChecked}
-                                                onCheckedChange={(checked) =>
-                                                    toggleChannel(
-                                                        channel.value,
-                                                        Boolean(checked),
+                                                <div className="flex items-center justify-between">
+                                                    <div
+                                                        className={cn(
+                                                            'flex size-9 items-center justify-center rounded-lg transition-colors',
+                                                            isChecked
+                                                                ? channel.iconActiveClass
+                                                                : 'bg-muted text-muted-foreground',
+                                                        )}
+                                                    >
+                                                        <channel.Icon className="size-4" />
+                                                    </div>
+                                                    <Checkbox
+                                                        checked={isChecked}
+                                                        onCheckedChange={(
+                                                            checked,
+                                                        ) =>
+                                                            toggleChannel(
+                                                                channel.value,
+                                                                Boolean(
+                                                                    checked,
+                                                                ),
+                                                            )
+                                                        }
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium">
+                                                        {channel.label}
+                                                    </p>
+                                                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                                                        {channel.description}
+                                                    </p>
+                                                </div>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                                <InputError message={form.errors.channels} />
+                            </SectionCard>
+
+                            <SectionCard
+                                step={2}
+                                icon={
+                                    <FileText className="size-4 text-primary" />
+                                }
+                                title="Message content"
+                                description="Title and body are shared across channels. WhatsApp uses a Meta template filled from these fields."
+                            >
+                                <div className="space-y-5">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="title">Title</Label>
+                                        <Input
+                                            id="title"
+                                            placeholder="e.g. Office closed on Friday, 25 July"
+                                            value={form.data.title}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'title',
+                                                    e.target.value,
+                                                )
+                                            }
+                                        />
+                                        <InputError
+                                            message={form.errors.title}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="body_html">
+                                            Message body
+                                        </Label>
+                                        <AnnouncementMessageEditor
+                                            id="body_html"
+                                            value={form.data.body_html}
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'body_html',
+                                                    value,
+                                                )
+                                            }
+                                            invalid={Boolean(
+                                                form.errors.body_html,
+                                            )}
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Use the link button for clickable
+                                            email and in-app links.
+                                        </p>
+                                        <InputError
+                                            message={form.errors.body_html}
+                                        />
+                                    </div>
+
+                                    <div className="grid gap-4 rounded-xl border border-border/60 bg-muted/15 p-4 sm:grid-cols-3">
+                                        <div className="space-y-2">
+                                            <Label>Category</Label>
+                                            <Select
+                                                value={form.data.category}
+                                                onValueChange={(value) =>
+                                                    form.setData(
+                                                        'category',
+                                                        value,
+                                                    )
+                                                }
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {options.categories.map(
+                                                        (option) => (
+                                                            <SelectItem
+                                                                key={
+                                                                    option.value
+                                                                }
+                                                                value={
+                                                                    option.value
+                                                                }
+                                                            >
+                                                                {option.label}
+                                                            </SelectItem>
+                                                        ),
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Priority</Label>
+                                            <Select
+                                                value={form.data.priority}
+                                                onValueChange={(value) =>
+                                                    form.setData(
+                                                        'priority',
+                                                        value,
+                                                    )
+                                                }
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {options.priorities.map(
+                                                        (option) => (
+                                                            <SelectItem
+                                                                key={
+                                                                    option.value
+                                                                }
+                                                                value={
+                                                                    option.value
+                                                                }
+                                                            >
+                                                                {option.label}
+                                                            </SelectItem>
+                                                        ),
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="expires_at">
+                                                Expiry{' '}
+                                                <span className="text-xs font-normal text-muted-foreground">
+                                                    optional
+                                                </span>
+                                            </Label>
+                                            <Input
+                                                id="expires_at"
+                                                type="datetime-local"
+                                                value={form.data.expires_at}
+                                                onChange={(e) =>
+                                                    form.setData(
+                                                        'expires_at',
+                                                        e.target.value,
                                                     )
                                                 }
                                             />
                                         </div>
-                                        <div>
-                                            <p className="font-medium">
-                                                {channel.label}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {channel.description}
-                                            </p>
-                                        </div>
-                                    </label>
-                                );
-                            })}
-                        </div>
-                        <InputError message={form.errors.channels} />
-                    </SectionCard>
-
-                    {/* Message content */}
-                    <SectionCard
-                        icon={<FileText className="size-4 text-primary" />}
-                        title="Message content"
-                    >
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="title">Title</Label>
-                                <Input
-                                    id="title"
-                                    placeholder="e.g. Office closed on Friday, 25 July"
-                                    value={form.data.title}
-                                    onChange={(e) =>
-                                        form.setData('title', e.target.value)
-                                    }
-                                />
-                                <InputError message={form.errors.title} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="body_html">Message body</Label>
-                                <AnnouncementMessageEditor
-                                    id="body_html"
-                                    value={form.data.body_html}
-                                    onChange={(value) =>
-                                        form.setData('body_html', value)
-                                    }
-                                    invalid={Boolean(form.errors.body_html)}
-                                />
-                                <InputError message={form.errors.body_html} />
-                            </div>
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label>Category</Label>
-                                    <Select
-                                        value={form.data.category}
-                                        onValueChange={(value) =>
-                                            form.setData('category', value)
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {options.categories.map(
-                                                (option) => (
-                                                    <SelectItem
-                                                        key={option.value}
-                                                        value={option.value}
-                                                    >
-                                                        {option.label}
-                                                    </SelectItem>
-                                                ),
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Priority</Label>
-                                    <Select
-                                        value={form.data.priority}
-                                        onValueChange={(value) =>
-                                            form.setData('priority', value)
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {options.priorities.map(
-                                                (option) => (
-                                                    <SelectItem
-                                                        key={option.value}
-                                                        value={option.value}
-                                                    >
-                                                        {option.label}
-                                                    </SelectItem>
-                                                ),
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="expires_at">
-                                        Expiry date{' '}
-                                        <span className="text-xs text-muted-foreground">
-                                            (optional)
-                                        </span>
-                                    </Label>
-                                    <Input
-                                        id="expires_at"
-                                        type="datetime-local"
-                                        value={form.data.expires_at}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'expires_at',
-                                                e.target.value,
-                                            )
-                                        }
-                                    />
-                                </div>
-                            </div>
-
-                            {form.data.channels.includes('whatsapp') ? (
-                                <div className="space-y-3 border-t border-border/60 pt-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="whatsapp_link">
-                                            WhatsApp view link{' '}
-                                            <span className="text-xs text-muted-foreground">
-                                                (optional)
-                                            </span>
-                                        </Label>
-                                        <Input
-                                            id="whatsapp_link"
-                                            type="url"
-                                            inputMode="url"
-                                            placeholder="https://example.com/your-document"
-                                            value={form.data.whatsapp_link}
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'whatsapp_link',
-                                                    event.target.value,
-                                                )
-                                            }
-                                        />
-                                        <p className="text-xs text-muted-foreground">
-                                            Optional WhatsApp-only field for
-                                            Meta template {'{{5}}'}. For email
-                                            and in-app, add a clickable link in
-                                            the message body instead.
-                                        </p>
-                                        <InputError
-                                            message={form.errors.whatsapp_link}
-                                        />
                                     </div>
 
-                                    <WhatsAppDocumentTemplatePreview
-                                        templateName={
-                                            options.whatsapp_template
-                                                ?.meta_name ??
-                                            'employee_announcement_notice'
-                                        }
-                                        templateLanguage={
-                                            options.whatsapp_template
-                                                ?.meta_language ?? 'en'
-                                        }
-                                        bodyText={whatsappPreviewText}
-                                        headerType="none"
-                                        accountName={
-                                            options.company_name || 'Company'
-                                        }
-                                        hint="Live preview of the approved Meta template with your title, summary, priority, and view link."
-                                    />
+                                    {whatsappSelected ? (
+                                        <div className="space-y-4 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.04] p-4">
+                                            <div className="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                                                <MessageCircle className="size-4" />
+                                                WhatsApp options
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="whatsapp_link">
+                                                    View link{' '}
+                                                    <span className="text-xs font-normal text-muted-foreground">
+                                                        optional
+                                                    </span>
+                                                </Label>
+                                                <Input
+                                                    id="whatsapp_link"
+                                                    type="url"
+                                                    inputMode="url"
+                                                    placeholder="https://example.com/your-document"
+                                                    value={
+                                                        form.data.whatsapp_link
+                                                    }
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'whatsapp_link',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                <p className="text-xs text-muted-foreground">
+                                                    Fills Meta template view
+                                                    link. Leave empty to send
+                                                    with N/A.
+                                                </p>
+                                                <InputError
+                                                    message={
+                                                        form.errors
+                                                            .whatsapp_link
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="xl:hidden">
+                                                {whatsappPreview}
+                                            </div>
+                                        </div>
+                                    ) : null}
                                 </div>
-                            ) : null}
-                        </div>
-                    </SectionCard>
+                            </SectionCard>
 
-                    {/* Audience */}
-                    <SectionCard
-                        icon={<Users className="size-4 text-primary" />}
-                        title="Audience"
-                        description="Choose who should receive this announcement."
-                    >
+                            <SectionCard
+                                step={3}
+                                icon={
+                                    <Users className="size-4 text-primary" />
+                                }
+                                title="Audience"
+                                description="Choose who should receive this announcement."
+                                headerRight={
+                                    <span className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-xs text-muted-foreground">
+                                        {audienceSummary}
+                                    </span>
+                                }
+                            >
                         <div className="space-y-4">
                             {/* Audience type cards */}
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -1460,111 +1500,161 @@ export default function AnnouncementFormPage({
                     ) : null}
 
                     {/* Publishing */}
-                    <SectionCard
-                        icon={<CalendarClock className="size-4 text-primary" />}
-                        title="Publishing"
-                        description="Choose how and when this announcement should go out."
-                    >
-                        <div className="space-y-5">
-                            <div className="space-y-2">
-                                <Label htmlFor="scheduled_at">
-                                    Schedule for later{' '}
-                                    <span className="text-xs text-muted-foreground">
-                                        (optional)
-                                    </span>
-                                </Label>
-                                <Input
-                                    id="scheduled_at"
-                                    type="datetime-local"
-                                    value={form.data.scheduled_at}
-                                    onChange={(e) =>
-                                        form.setData(
-                                            'scheduled_at',
-                                            e.target.value,
-                                        )
-                                    }
-                                />
-                                <InputError
-                                    message={form.errors.scheduled_at}
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm font-medium">
-                                        Recipient preview
-                                    </p>
-                                    {previewLoading ? (
-                                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                            <span className="size-1.5 animate-pulse rounded-full bg-primary" />
-                                            Updating…
-                                        </span>
-                                    ) : (
-                                        <span className="text-xs text-muted-foreground">
-                                            Live
-                                        </span>
-                                    )}
+                            <SectionCard
+                                step={4}
+                                icon={
+                                    <CalendarClock className="size-4 text-primary" />
+                                }
+                                title="Schedule"
+                                description="Optional. Leave empty to send immediately or save as draft."
+                            >
+                                <div className="space-y-2">
+                                    <Label htmlFor="scheduled_at">
+                                        Schedule for later
+                                    </Label>
+                                    <Input
+                                        id="scheduled_at"
+                                        type="datetime-local"
+                                        value={form.data.scheduled_at}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'scheduled_at',
+                                                e.target.value,
+                                            )
+                                        }
+                                    />
+                                    <InputError
+                                        message={form.errors.scheduled_at}
+                                    />
                                 </div>
-                                <div
-                                    className={cn(
-                                        'rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-sm transition-opacity',
-                                        previewLoading
-                                            ? 'opacity-50'
-                                            : 'opacity-100',
-                                    )}
-                                >
-                                    {previewLoading && !preview ? (
-                                        <div className="space-y-1.5">
-                                            <div className="h-3 w-28 animate-pulse rounded bg-muted" />
-                                            <div className="h-6 w-12 animate-pulse rounded bg-muted" />
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="text-xs text-muted-foreground">
-                                                Selected employees
-                                            </div>
-                                            <div className="mt-0.5 text-lg font-bold">
-                                                {preview?.selected_employees ??
-                                                    0}
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Submit actions */}
-                            <div className="flex flex-col-reverse gap-2 border-t border-border/60 pt-5 sm:flex-row sm:justify-end">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    disabled={form.processing}
-                                    onClick={() => submit('draft')}
-                                >
-                                    <FileText className="size-4" /> Save as
-                                    draft
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    disabled={
-                                        form.processing ||
-                                        !form.data.scheduled_at
-                                    }
-                                    onClick={() => submit('schedule')}
-                                >
-                                    <CalendarClock className="size-4" />{' '}
-                                    Schedule
-                                </Button>
-                                <Button
-                                    type="button"
-                                    disabled={form.processing}
-                                    onClick={() => submit('send_now')}
-                                >
-                                    <CheckCircle2 className="size-4" /> Send now
-                                </Button>
-                            </div>
+                            </SectionCard>
                         </div>
-                    </SectionCard>
+
+                        <aside className="hidden xl:block">
+                            <div className="sticky top-24 space-y-4">
+                                <div className="rounded-xl border glass-card p-5">
+                                    <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                                        Summary
+                                    </p>
+                                    <div className="mt-4 space-y-3">
+                                        <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Recipients
+                                            </p>
+                                            <p className="mt-0.5 text-2xl font-semibold tracking-tight">
+                                                {previewLoading && !preview
+                                                    ? '…'
+                                                    : (preview?.selected_employees ??
+                                                      0)}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Channels
+                                            </p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {form.data.channels.length ===
+                                                0 ? (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        None selected
+                                                    </span>
+                                                ) : (
+                                                    form.data.channels.map(
+                                                        (channel) => {
+                                                            const meta =
+                                                                CHANNELS.find(
+                                                                    (item) =>
+                                                                        item.value ===
+                                                                        channel,
+                                                                );
+
+                                                            return (
+                                                                <span
+                                                                    key={
+                                                                        channel
+                                                                    }
+                                                                    className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-2 py-0.5 text-xs"
+                                                                >
+                                                                    {meta ? (
+                                                                        <meta.Icon className="size-3" />
+                                                                    ) : null}
+                                                                    {meta?.label ??
+                                                                        channel}
+                                                                </span>
+                                                            );
+                                                        },
+                                                    )
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Audience
+                                            </p>
+                                            <p className="text-sm font-medium">
+                                                {audienceSummary}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Priority
+                                            </p>
+                                            <p className="text-sm font-medium">
+                                                {priorityLabel}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {whatsappSelected ? (
+                                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.03] p-4">
+                                        {whatsappPreview}
+                                    </div>
+                                ) : null}
+                            </div>
+                        </aside>
+                    </div>
+                </div>
+
+                <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/90 backdrop-blur-md">
+                    <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                        <div className="min-w-0 text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">
+                                {preview?.selected_employees ?? 0}
+                            </span>{' '}
+                            recipients · {audienceSummary}
+                            {form.data.channels.length > 0
+                                ? ` · ${form.data.channels.length} channel${form.data.channels.length === 1 ? '' : 's'}`
+                                : ''}
+                        </div>
+                        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={form.processing}
+                                onClick={() => submit('draft')}
+                            >
+                                <FileText className="size-4" /> Save draft
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                disabled={
+                                    form.processing || !form.data.scheduled_at
+                                }
+                                onClick={() => submit('schedule')}
+                            >
+                                <CalendarClock className="size-4" /> Schedule
+                            </Button>
+                            <Button
+                                type="button"
+                                disabled={form.processing}
+                                onClick={() => submit('send_now')}
+                            >
+                                <CheckCircle2 className="size-4" /> Send now
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </Main>
         </>
