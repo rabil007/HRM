@@ -151,6 +151,20 @@ test('whatsapp job sends five body parameters with custom announcement link', fu
         ->provider_reference->toBe('wamid.123');
 });
 
+test('whatsapp summary collapses newlines for meta template parameters', function () {
+    $announcement = new Announcement([
+        'title' => 'Line break check',
+        'body_html' => '<p>First line</p><p>Second line</p>',
+        'whatsapp_message' => null,
+    ]);
+
+    $summary = AnnouncementWhatsAppMessage::for($announcement);
+
+    expect($summary)->toBe('First line Second line')
+        ->and($summary)->not->toContain("\n")
+        ->and($summary)->not->toContain("\t");
+});
+
 test('whatsapp job sends with N/A when custom view link is missing', function () {
     ['delivery' => $delivery] = makeWhatsAppAnnouncementDelivery([
         'whatsapp_link' => null,

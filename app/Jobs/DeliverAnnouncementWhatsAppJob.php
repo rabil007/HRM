@@ -84,18 +84,23 @@ class DeliverAnnouncementWhatsAppJob implements ShouldBeUnique, ShouldQueue
 
         $viewLink = AnnouncementWhatsAppMessage::viewLink($announcement);
 
-        $companyName = (string) ($announcement->company?->name ?? config('app.name'));
+        $companyName = AnnouncementWhatsAppMessage::templateParameter(
+            (string) ($announcement->company?->name ?? config('app.name')),
+        );
         $shortSummary = AnnouncementWhatsAppMessage::for($announcement);
+        $title = AnnouncementWhatsAppMessage::templateParameter((string) $announcement->title);
+        $priority = AnnouncementWhatsAppMessage::templateParameter($announcement->priority->label());
+        $linkParameter = AnnouncementWhatsAppMessage::templateParameter($viewLink);
 
         $components = [
             [
                 'type' => 'body',
                 'parameters' => [
                     ['type' => 'text', 'text' => $companyName],
-                    ['type' => 'text', 'text' => (string) $announcement->title],
+                    ['type' => 'text', 'text' => $title],
                     ['type' => 'text', 'text' => $shortSummary],
-                    ['type' => 'text', 'text' => $announcement->priority->label()],
-                    ['type' => 'text', 'text' => $viewLink],
+                    ['type' => 'text', 'text' => $priority],
+                    ['type' => 'text', 'text' => $linkParameter],
                 ],
             ],
         ];

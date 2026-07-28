@@ -50,11 +50,15 @@ final class AnnouncementWhatsAppMessage
 
     public static function normalize(string $message): string
     {
-        $message = str_replace(["\r\n", "\r"], "\n", $message);
-        $message = preg_replace('/[^\S\n]+/u', ' ', $message) ?? $message;
-        $message = preg_replace('/ *\n */u', "\n", $message) ?? $message;
-        $message = preg_replace('/\n{3,}/u', "\n\n", $message) ?? $message;
+        // Meta rejects template body params with newlines, tabs, or 4+ consecutive spaces.
+        $message = str_replace(["\r\n", "\r", "\n", "\t"], ' ', $message);
+        $message = preg_replace('/\s+/u', ' ', $message) ?? $message;
 
         return trim($message);
+    }
+
+    public static function templateParameter(string $value): string
+    {
+        return self::normalize($value);
     }
 }
