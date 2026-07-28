@@ -361,6 +361,8 @@ export type EmployeePageProps = {
         work_experience_manage: boolean;
         vaccination_manage: boolean;
         languages_manage: boolean;
+        salary_certificate_print?: boolean;
+        salary_declaration_print?: boolean;
         bank_accounts_view?: boolean;
         bank_accounts_create?: boolean;
         bank_accounts_update?: boolean;

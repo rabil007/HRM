@@ -96,7 +96,10 @@ test('authenticated users can open printable salary certificate', function () {
         'site_allowance' => 0,
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.salary_certificate.print',
+    ]);
 
     $this->get("/organization/employees/{$employee->id}/salary-certificate")
         ->assertSuccessful()
@@ -159,7 +162,10 @@ test('users can download salary certificate pdf', function () {
         'site_allowance' => 100,
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.salary_certificate.print',
+    ]);
 
     $this->get("/organization/employees/{$employee->id}/salary-certificate")
         ->assertSuccessful()
@@ -218,7 +224,10 @@ test('users cannot print salary certificate for employees in another company', f
             'status' => 'active',
         ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.salary_certificate.print',
+    ]);
 
     $this->get("/organization/employees/{$employee->id}/salary-certificate")
         ->assertNotFound();

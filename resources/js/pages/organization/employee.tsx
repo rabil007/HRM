@@ -672,6 +672,12 @@ function EmployeeDetailsPage({
                                 printSalaryDeclarationUrl={printEmployeeSalaryDeclaration.url(
                                     { employee: localEmployee.id as number },
                                 )}
+                                canPrintSalaryCertificate={
+                                    can?.salary_certificate_print ?? false
+                                }
+                                canPrintSalaryDeclaration={
+                                    can?.salary_declaration_print ?? false
+                                }
                                 employeeNavigation={employee_navigation}
                                 onNavigateEmployee={handleNavigateEmployee}
                                 showDocumentsButton={

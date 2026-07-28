@@ -198,6 +198,8 @@ class PermissionsSeeder extends Seeder
             'employees.export',
             'employees.import',
             'employees.education.manage',
+            'employees.salary_certificate.print',
+            'employees.salary_declaration.print',
 
             'documents.view',
             'documents.download',

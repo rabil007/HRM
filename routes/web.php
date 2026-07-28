@@ -507,8 +507,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/employees/import', [EmployeeImportController::class, 'import'])->middleware('can:employees.import')->name('organization.employees.import');
     Route::get('organization/employees/{employee}/cv', EmployeeCvPrintController::class)->middleware('can:employees.view')->name('organization.employees.cv');
     Route::get('organization/employees/{employee}/offshore-cv', EmployeeOffshoreCvPrintController::class)->middleware('can:employees.view')->name('organization.employees.offshore-cv');
-    Route::get('organization/employees/{employee}/salary-certificate', EmployeeSalaryCertificatePrintController::class)->middleware('can:employees.view')->name('organization.employees.salary-certificate');
-    Route::get('organization/employees/{employee}/salary-declaration', EmployeeSalaryDeclarationPrintController::class)->middleware('can:employees.view')->name('organization.employees.salary-declaration');
+    Route::get('organization/employees/{employee}/salary-certificate', EmployeeSalaryCertificatePrintController::class)->middleware('can:employees.salary_certificate.print')->name('organization.employees.salary-certificate');
+    Route::get('organization/employees/{employee}/salary-declaration', EmployeeSalaryDeclarationPrintController::class)->middleware('can:employees.salary_declaration.print')->name('organization.employees.salary-declaration');
     Route::post('organization/employees/{employee}/user', [EmployeeUserController::class, 'store'])->middleware('can:users.create')->name('organization.employees.user.store');
     Route::get('organization/employees/{employee}', [EmployeeController::class, 'show'])->middleware('can:employees.view')->name('organization.employees.show');
     Route::post('organization/employees', [EmployeeController::class, 'store'])->middleware('can:employees.create')->name('organization.employees.store');

@@ -68,7 +68,10 @@ test('authenticated users can open printable salary declaration with employee da
             'status' => 'active',
         ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.salary_declaration.print',
+    ]);
 
     $this->get("/organization/employees/{$employee->id}/salary-declaration")
         ->assertSuccessful()
@@ -118,7 +121,10 @@ test('salary declaration falls back to passport number when emirates id missing'
             'status' => 'active',
         ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.salary_declaration.print',
+    ]);
 
     $this->get("/organization/employees/{$employee->id}/salary-declaration")
         ->assertSuccessful()
@@ -172,7 +178,10 @@ test('users cannot print salary declaration for employees in another company', f
             'status' => 'active',
         ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.salary_declaration.print',
+    ]);
 
     $this->get("/organization/employees/{$employee->id}/salary-declaration")
         ->assertNotFound();

@@ -165,11 +165,15 @@ function PrintMenu({
     printOffshoreCvUrl,
     printSalaryCertificateUrl,
     printSalaryDeclarationUrl,
+    canPrintSalaryCertificate = false,
+    canPrintSalaryDeclaration = false,
 }: {
     printCvUrl: string;
     printOffshoreCvUrl: string;
     printSalaryCertificateUrl: string;
     printSalaryDeclarationUrl: string;
+    canPrintSalaryCertificate?: boolean;
+    canPrintSalaryDeclaration?: boolean;
 }): ReactElement {
     const items: Array<{
         href: string;
@@ -189,19 +193,25 @@ function PrintMenu({
             icon: Anchor,
             tone: 'text-sky-600 dark:text-sky-400',
         },
-        {
+    ];
+
+    if (canPrintSalaryCertificate) {
+        items.push({
             href: printSalaryCertificateUrl,
             label: 'Salary certificate',
             icon: ScrollText,
             tone: 'text-amber-600 dark:text-amber-400',
-        },
-        {
+        });
+    }
+
+    if (canPrintSalaryDeclaration) {
+        items.push({
             href: printSalaryDeclarationUrl,
             label: 'Salary declaration',
             icon: FileCheck2,
             tone: 'text-rose-600 dark:text-rose-400',
-        },
-    ];
+        });
+    }
 
     return (
         <DropdownMenu>
@@ -245,6 +255,8 @@ export function EmployeeProfileActionBar({
     printOffshoreCvUrl,
     printSalaryCertificateUrl,
     printSalaryDeclarationUrl,
+    canPrintSalaryCertificate = false,
+    canPrintSalaryDeclaration = false,
     employeeNavigation,
     onNavigateEmployee,
     showDocumentsButton = false,
@@ -264,6 +276,8 @@ export function EmployeeProfileActionBar({
     printOffshoreCvUrl: string;
     printSalaryCertificateUrl: string;
     printSalaryDeclarationUrl: string;
+    canPrintSalaryCertificate?: boolean;
+    canPrintSalaryDeclaration?: boolean;
     employeeNavigation?: EmployeeNavigation | null;
     onNavigateEmployee?: (employeeId: number) => void;
     showDocumentsButton?: boolean;
@@ -357,6 +371,8 @@ export function EmployeeProfileActionBar({
                     printOffshoreCvUrl={printOffshoreCvUrl}
                     printSalaryCertificateUrl={printSalaryCertificateUrl}
                     printSalaryDeclarationUrl={printSalaryDeclarationUrl}
+                    canPrintSalaryCertificate={canPrintSalaryCertificate}
+                    canPrintSalaryDeclaration={canPrintSalaryDeclaration}
                 />
 
                 {recordLinks.length > 0 ? (
