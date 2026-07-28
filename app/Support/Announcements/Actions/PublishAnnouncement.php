@@ -7,6 +7,7 @@ use App\Enums\AnnouncementDeliveryStatus;
 use App\Enums\AnnouncementStatus;
 use App\Jobs\DeliverAnnouncementEmailJob;
 use App\Jobs\DeliverAnnouncementInAppJob;
+use App\Jobs\DeliverAnnouncementWebPushJob;
 use App\Jobs\DeliverAnnouncementWhatsAppJob;
 use App\Models\Announcement;
 use App\Models\AnnouncementDelivery;
@@ -69,6 +70,7 @@ final class PublishAnnouncement
                 ->delete();
 
             $deliveryIds = [];
+            $webPushRecipientIds = [];
 
             foreach ($employees as $employee) {
                 $email = ResolveEmployeeAnnouncementEmail::for($employee);
@@ -106,6 +108,10 @@ final class PublishAnnouncement
 
                     if ($status === AnnouncementDeliveryStatus::Queued) {
                         $deliveryIds[] = [$channel, $delivery->id];
+
+                        if ($channel === AnnouncementChannel::InApp && $recipient->user_id !== null) {
+                            $webPushRecipientIds[] = $recipient->id;
+                        }
                     }
                 }
             }
@@ -128,6 +134,16 @@ final class PublishAnnouncement
                     AnnouncementChannel::Email => DeliverAnnouncementEmailJob::dispatch($deliveryId),
                     AnnouncementChannel::WhatsApp => DeliverAnnouncementWhatsAppJob::dispatch($deliveryId),
                 };
+            }
+
+            foreach ($webPushRecipientIds as $recipientId) {
+                $pending = DeliverAnnouncementWebPushJob::dispatch($recipientId);
+
+                // RefreshDatabase wraps feature tests in a transaction, so afterCommit
+                // would never flush during assertions. Production still waits for commit.
+                if (! app()->runningUnitTests()) {
+                    $pending->afterCommit();
+                }
             }
 
             return $locked->fresh(['audiences', 'attachments', 'recipients.deliveries', 'creator', 'publisher']) ?? $locked;

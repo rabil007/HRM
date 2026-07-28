@@ -10,6 +10,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { WebPushNotificationControl } from '@/components/web-push-notification-control';
 
 type FeedItem = {
     id: number;
@@ -79,6 +80,8 @@ export function AnnouncementNotificationBell() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80">
                 <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <WebPushNotificationControl />
                 <DropdownMenuSeparator />
                 {items.length === 0 ? (
                     <div className="px-2 py-6 text-center text-sm text-muted-foreground">

@@ -59,6 +59,10 @@ declare module '@inertiajs/core' {
                 };
             };
             auth: Auth;
+            web_push: {
+                vapid_public_key: string;
+                enabled: boolean;
+            };
             sidebarOpen: boolean;
             sidebarStateSet: boolean;
             [key: string]: unknown;

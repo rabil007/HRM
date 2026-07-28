@@ -1,5 +1,7 @@
 import { router } from '@inertiajs/react';
+import { useState } from 'react';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { useWebPushSubscription } from '@/hooks/use-web-push-subscription';
 import { logout } from '@/routes';
 
 type SignOutDialogProps = {
@@ -8,8 +10,23 @@ type SignOutDialogProps = {
 };
 
 export function SignOutDialog({ open, onOpenChange }: SignOutDialogProps) {
-    const handleSignOut = () => {
-        router.post(logout.url());
+    const { detachBeforeLogout } = useWebPushSubscription();
+    const [signingOut, setSigningOut] = useState(false);
+
+    const handleSignOut = async () => {
+        if (signingOut) {
+            return;
+        }
+
+        setSigningOut(true);
+
+        try {
+            await detachBeforeLogout();
+        } finally {
+            router.post(logout.url(), undefined, {
+                onFinish: () => setSigningOut(false),
+            });
+        }
     };
 
     return (
@@ -18,9 +35,11 @@ export function SignOutDialog({ open, onOpenChange }: SignOutDialogProps) {
             onOpenChange={onOpenChange}
             title="Sign out"
             desc="Are you sure you want to sign out? You will need to sign in again to access your account."
-            confirmText="Sign out"
+            confirmText={signingOut ? 'Signing out…' : 'Sign out'}
             destructive
-            handleConfirm={handleSignOut}
+            handleConfirm={() => {
+                void handleSignOut();
+            }}
             className="sm:max-w-sm"
         />
     );
