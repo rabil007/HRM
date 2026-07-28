@@ -72,6 +72,11 @@ export default defineConfig({
             manifest: false,
             workbox: {
                 /**
+                 * Attach announcement push handlers without replacing the
+                 * VitePWA-generated worker or adding offline caching here.
+                 */
+                importScripts: ['/service-worker.js'],
+                /**
                  * Only cache compiled static assets — never cache HTML or
                  * Inertia JSON responses (they must always come from the server).
                  */

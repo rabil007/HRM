@@ -153,6 +153,12 @@ class HandleInertiaRequests extends Middleware
             ],
             'company_switcher_companies' => $companies,
             'current_company_id' => $currentCompanyId,
+            'web_push' => [
+                'vapid_public_key' => $user ? (string) (config('webpush.vapid.public_key') ?? '') : '',
+                'enabled' => $user !== null
+                    && filled(config('webpush.vapid.public_key'))
+                    && filled(config('webpush.vapid.private_key')),
+            ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'sidebarStateSet' => $request->hasCookie('sidebar_state'),
         ];

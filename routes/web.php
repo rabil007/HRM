@@ -11,6 +11,9 @@ use App\Http\Controllers\DatabaseViewerController;
 use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
 use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\JobRunController;
+use App\Http\Controllers\Notifications\DestroyPushSubscriptionController;
+use App\Http\Controllers\Notifications\OpenAnnouncementNotificationController;
+use App\Http\Controllers\Notifications\StorePushSubscriptionController;
 use App\Http\Controllers\Organization\ActivityLogController;
 use App\Http\Controllers\Organization\Announcements\AnnouncementAttachmentController;
 use App\Http\Controllers\Organization\Announcements\AnnouncementController;
@@ -221,6 +224,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('jobs/pending/{id}', [JobRunController::class, 'destroyPending'])->name('jobs.pending.destroy');
 
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::post('notification-settings/push-subscription', StorePushSubscriptionController::class)
+        ->name('notification-settings.push-subscription.store');
+    Route::delete('notification-settings/push-subscription', DestroyPushSubscriptionController::class)
+        ->name('notification-settings.push-subscription.destroy');
+    Route::get('notifications/announcements/{recipient}/open', OpenAnnouncementNotificationController::class)
+        ->name('notifications.announcements.open');
     Route::get('organization/companies', [CompanyController::class, 'index'])->middleware('can:companies.view')->name('organization.companies');
     Route::get('organization/companies/export', [CompanyController::class, 'export'])->middleware('can:companies.export')->name('organization.companies.export');
     Route::get('organization/companies/{company}/documents', [CompanyDocumentController::class, 'index'])->name('organization.companies.documents.index');

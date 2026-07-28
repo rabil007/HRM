@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
+use App\Support\Companies\ActivateCompanySession;
 use Illuminate\Http\Request;
 
 class CompanySwitchController extends Controller
 {
-    public function __invoke(Request $request)
+    public function __invoke(Request $request, ActivateCompanySession $activateCompany)
     {
         $user = $request->user();
 
@@ -17,14 +18,7 @@ class CompanySwitchController extends Controller
             'company_id' => ['required', 'integer', 'exists:companies,id'],
         ]);
 
-        $companyId = (int) $data['company_id'];
-
-        $isMember = $user->companies()->whereKey($companyId)->exists()
-            || ($user->company_id && (int) $user->company_id === $companyId);
-
-        abort_unless($isMember, 403);
-
-        $request->session()->put('current_company_id', $companyId);
+        $activateCompany->handle($user, (int) $data['company_id'], $request);
 
         return back();
     }

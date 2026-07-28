@@ -7,6 +7,7 @@ use App\Enums\WhatsAppTemplateCategory;
 use App\Enums\WhatsAppTemplateHeaderType;
 use App\Jobs\DeliverAnnouncementEmailJob;
 use App\Jobs\DeliverAnnouncementInAppJob;
+use App\Jobs\DeliverAnnouncementWebPushJob;
 use App\Jobs\DeliverAnnouncementWhatsAppJob;
 use App\Mail\AnnouncementMail;
 use App\Models\Announcement;
@@ -116,6 +117,7 @@ test('publishing snapshots recipients and queues channel jobs', function () {
     Queue::assertPushed(DeliverAnnouncementInAppJob::class);
     Queue::assertPushed(DeliverAnnouncementEmailJob::class);
     Queue::assertPushed(DeliverAnnouncementWhatsAppJob::class);
+    Queue::assertPushed(DeliverAnnouncementWebPushJob::class);
 });
 
 test('email is queued individually and whatsapp failure does not block email', function () {
