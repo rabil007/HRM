@@ -40,13 +40,13 @@ A single `WebPushProvider` in the authenticated layout owns that synchronisation
 When browser notifications are enabled for the current device, the bell control also shows **Send test notification**. That action:
 
 - Targets **only the current browser/device subscription** (endpoint from `pushManager.getSubscription()`)
-- Queues a focused test push job (`SendTestWebPushJob`)
+- Sends a focused test push **synchronously** (`SendTestWebPushJob::dispatchSync`) so a popup can appear without a queue worker
 - Never creates an announcement, recipient, delivery row, or inbox bell item
 - Never sends email or WhatsApp
 - Never notifies the user’s other devices
 - Is rate-limited (`throttle:5,1`)
 
-The UI reports that the test was queued/requested; delivery still depends on a running queue worker and the browser push provider.
+The UI reports that the test was sent after the push provider accepts it. Announcement browser push still uses the async queue (`DeliverAnnouncementWebPushJob`) and needs `php artisan queue:work` (or `composer run dev`).
 
 ## Subscription ownership and limits
 
@@ -85,13 +85,29 @@ Inactive memberships and inactive companies are rejected.
 
 ## Service Worker architecture
 
-`vite-plugin-pwa` generates the controlling Service Worker. That generated worker imports:
+`public/service-worker.js` holds the push handlers. OMS-HRM serves it from:
 
 ```text
-/service-worker.js
+GET /sw.js
 ```
 
-`/service-worker.js` contains only `push` / `notificationclick` handlers. The frontend must use the existing VitePWA registration (`navigator.serviceWorker.ready` / `getRegistration()`) and must **not** independently register `/service-worker.js` as a second root-scope worker. Navigation requests remain uncached for Inertia.
+with the `Service-Worker-Allowed: /` header so the worker can control the whole origin (not only `/build/`).
+
+The frontend registers `/sw.js` with `scope: '/'`, calls `registration.update()` so server-side worker changes are picked up immediately, and unregisters legacy `/build/`-scoped workers.
+
+The route deliberately serves the lightweight push worker instead of the VitePWA/Workbox artifact at `public/build/sw.js`. That build worker precaches hashed production assets which 404 under `npm run dev`; the worker then stays unhealthy, so FCM accepts the push (201) while the browser never shows a notification.
+
+### Laravel Herd note
+
+Browser push requires a **trusted** HTTPS origin. If Chrome shows “Not Secure” for `https://oms-hrm.test`, Service Worker registration fails (console: SSL certificate error) and OMS-HRM cannot enable push.
+
+Trust Herd’s local CA (Herd app → Settings / General → trust certificate), or run:
+
+```bash
+herd secure oms-hrm
+```
+
+Then fully reload the site and try **Enable browser notifications** again.
 
 ## Queue behaviour
 
@@ -141,6 +157,7 @@ Notes:
 - Test push job: `app/Jobs/SendTestWebPushJob.php`
 - Test notification: `app/Notifications/TestWebPushNotification.php`
 - Endpoint rule: `app/Rules/ValidWebPushEndpoint.php`
-- Service Worker handlers: `public/service-worker.js` (imported by VitePWA)
+- Service Worker handlers: `public/service-worker.js` (served at `/sw.js`)
+- Service Worker route: `app/Http/Controllers/ServiceWorkerController.php`
 - Frontend provider: `resources/js/context/web-push-provider.tsx`
 - Frontend control: `resources/js/components/web-push-notification-control.tsx`

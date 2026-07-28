@@ -5,11 +5,13 @@ import {
     useContext,
     useEffect,
     useMemo,
+    useRef,
     useState,
 } from 'react';
 import DestroyPushSubscriptionController from '@/actions/App/Http/Controllers/Notifications/DestroyPushSubscriptionController';
 import StorePushSubscriptionController from '@/actions/App/Http/Controllers/Notifications/StorePushSubscriptionController';
 import TestPushSubscriptionController from '@/actions/App/Http/Controllers/Notifications/TestPushSubscriptionController';
+import { ensureAppServiceWorker } from '@/lib/register-app-service-worker';
 
 export type WebPushStatus =
     | 'unsupported'
@@ -88,31 +90,18 @@ function preferredContentEncoding(): 'aes128gcm' | 'aesgcm' {
 }
 
 /**
- * Use the VitePWA-generated service worker registration only.
- * Do not independently register /service-worker.js (imported via workbox).
+ * Use the root-scoped worker served at /sw.js.
+ * Do not independently register /service-worker.js.
  */
 async function resolvePushServiceWorkerRegistration(): Promise<ServiceWorkerRegistration | null> {
-    const existing = await navigator.serviceWorker.getRegistration();
-
-    if (existing) {
-        await navigator.serviceWorker.ready;
-
-        return existing;
-    }
-
-    try {
-        const ready = await navigator.serviceWorker.ready;
-
-        return ready;
-    } catch {
-        return null;
-    }
+    return ensureAppServiceWorker();
 }
 
 function readHttpErrorPayload(error: unknown): {
     status?: number;
     message?: string;
     expired?: boolean;
+    errors?: Record<string, string[]>;
 } {
     if (
         !error ||
@@ -131,15 +120,18 @@ function readHttpErrorPayload(error: unknown): {
 
     let message: string | undefined;
     let expired: boolean | undefined;
+    let errors: Record<string, string[]> | undefined;
 
     if (typeof response.data === 'string') {
         try {
             const parsed = JSON.parse(response.data) as {
                 message?: string;
                 expired?: boolean;
+                errors?: Record<string, string[]>;
             };
             message = parsed.message;
             expired = parsed.expired;
+            errors = parsed.errors;
         } catch {
             // Ignore non-JSON error bodies.
         }
@@ -147,15 +139,18 @@ function readHttpErrorPayload(error: unknown): {
         const parsed = response.data as {
             message?: string;
             expired?: boolean;
+            errors?: Record<string, string[]>;
         };
         message = parsed.message;
         expired = parsed.expired;
+        errors = parsed.errors;
     }
 
     return {
         status: response.status,
         message,
         expired,
+        errors,
     };
 }
 
@@ -182,6 +177,8 @@ function useWebPushSubscriptionState(): WebPushContextValue {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [testStatus, setTestStatus] = useState<WebPushTestStatus>('idle');
     const [testMessage, setTestMessage] = useState<string | null>(null);
+    const lastSyncedEndpointRef = useRef<string | null>(null);
+    const syncPromiseRef = useRef<Promise<void> | null>(null);
 
     const syncSubscriptionToServer = useCallback(
         async (subscription: PushSubscription) => {
@@ -191,27 +188,66 @@ function useWebPushSubscriptionState(): WebPushContextValue {
                 throw new Error('Push subscription payload is incomplete.');
             }
 
-            http.setData({
-                endpoint: json.endpoint,
-                keys: {
-                    p256dh: json.keys.p256dh,
-                    auth: json.keys.auth,
-                },
-                contentEncoding: preferredContentEncoding(),
-            });
+            const endpoint = json.endpoint;
+            const p256dh = json.keys.p256dh;
+            const auth = json.keys.auth;
+            const contentEncoding = preferredContentEncoding();
 
-            await http.post(StorePushSubscriptionController.url());
+            if (
+                lastSyncedEndpointRef.current === endpoint &&
+                syncPromiseRef.current === null
+            ) {
+                return;
+            }
+
+            if (syncPromiseRef.current) {
+                await syncPromiseRef.current;
+
+                if (lastSyncedEndpointRef.current === endpoint) {
+                    return;
+                }
+            }
+
+            const syncPromise = (async () => {
+                // useHttp setData is async (React state); post() reads dataRef
+                // immediately, so send this payload via transform instead.
+                http.transform(() => ({
+                    endpoint,
+                    keys: {
+                        p256dh,
+                        auth,
+                    },
+                    contentEncoding,
+                }));
+
+                try {
+                    await http.post(StorePushSubscriptionController.url());
+                    lastSyncedEndpointRef.current = endpoint;
+                } finally {
+                    http.transform((data) => data);
+                }
+            })();
+
+            syncPromiseRef.current = syncPromise;
+
+            try {
+                await syncPromise;
+            } finally {
+                if (syncPromiseRef.current === syncPromise) {
+                    syncPromiseRef.current = null;
+                }
+            }
         },
         [http],
     );
 
     const refreshStatus = useCallback(async () => {
         if (!browserSupportsWebPush() || !serverConfigured || !userId) {
-            setStatus(
+            const next =
                 !browserSupportsWebPush() || !serverConfigured
                     ? 'unsupported'
-                    : 'not_enabled',
-            );
+                    : 'not_enabled';
+            setStatus(next);
 
             return;
         }
@@ -226,7 +262,12 @@ function useWebPushSubscriptionState(): WebPushContextValue {
             const registration = await resolvePushServiceWorkerRegistration();
 
             if (!registration) {
-                setStatus('unsupported');
+                setStatus('error');
+                setErrorMessage(
+                    window.isSecureContext
+                        ? 'Could not register the notification service worker. Trust Laravel Herd’s local HTTPS certificate, then reload.'
+                        : 'Browser notifications require a trusted HTTPS site (Laravel Herd local certificate).',
+                );
 
                 return;
             }
@@ -249,17 +290,26 @@ function useWebPushSubscriptionState(): WebPushContextValue {
         }
     }, [serverConfigured, syncSubscriptionToServer, userId]);
 
+    const refreshStatusRef = useRef(refreshStatus);
+    refreshStatusRef.current = refreshStatus;
+
     useEffect(() => {
         if (!userId) {
             return;
         }
 
+        let cancelled = false;
         const frame = window.requestAnimationFrame(() => {
-            void refreshStatus();
+            if (!cancelled) {
+                void refreshStatusRef.current();
+            }
         });
 
-        return () => window.cancelAnimationFrame(frame);
-    }, [refreshStatus, userId]);
+        return () => {
+            cancelled = true;
+            window.cancelAnimationFrame(frame);
+        };
+    }, [userId, serverConfigured]);
 
     const enable = useCallback(async () => {
         if (!browserSupportsWebPush() || !serverConfigured || !userId) {
@@ -294,9 +344,11 @@ function useWebPushSubscriptionState(): WebPushContextValue {
             const registration = await resolvePushServiceWorkerRegistration();
 
             if (!registration) {
-                setStatus('unsupported');
+                setStatus('error');
                 setErrorMessage(
-                    'Browser notifications require the installed app service worker.',
+                    window.isSecureContext
+                        ? 'Could not register the notification service worker. Trust Laravel Herd’s local HTTPS certificate, then reload.'
+                        : 'Browser notifications require a trusted HTTPS site (Laravel Herd local certificate).',
                 );
 
                 return;
@@ -304,22 +356,42 @@ function useWebPushSubscriptionState(): WebPushContextValue {
 
             await navigator.serviceWorker.ready;
 
-            let subscription = await registration.pushManager.getSubscription();
+            // FCM can mark an endpoint expired while Chrome still returns it from
+            // getSubscription(). Reusing that zombie always 410s — drop it first.
+            const existing = await registration.pushManager.getSubscription();
 
-            if (!subscription) {
-                subscription = await registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(
-                        vapidPublicKey,
-                    ) as BufferSource,
-                });
+            if (existing) {
+                try {
+                    await existing.unsubscribe();
+                } catch {
+                    // Continue and create a fresh subscription below.
+                }
             }
 
+            lastSyncedEndpointRef.current = null;
+
+            const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: applicationServerKey.buffer.slice(
+                    applicationServerKey.byteOffset,
+                    applicationServerKey.byteOffset +
+                        applicationServerKey.byteLength,
+                ) as ArrayBuffer,
+            });
+
             await syncSubscriptionToServer(subscription);
+            lastSyncedEndpointRef.current = subscription.endpoint;
             setStatus('enabled');
-        } catch {
+        } catch (error: unknown) {
+            const payload = readHttpErrorPayload(error);
             setStatus('error');
-            setErrorMessage('Could not enable browser notifications.');
+            setErrorMessage(
+                payload.errors?.endpoint?.[0] ??
+                    payload.errors?.keys?.[0] ??
+                    payload.message ??
+                    'Could not enable browser notifications.',
+            );
         }
     }, [serverConfigured, syncSubscriptionToServer, userId, vapidPublicKey]);
 
@@ -338,8 +410,17 @@ function useWebPushSubscriptionState(): WebPushContextValue {
 
             if (subscription) {
                 try {
-                    http.setData({ endpoint: subscription.endpoint });
-                    await http.delete(DestroyPushSubscriptionController.url());
+                    http.transform(() => ({
+                        endpoint: subscription.endpoint,
+                    }));
+
+                    try {
+                        await http.delete(
+                            DestroyPushSubscriptionController.url(),
+                        );
+                    } finally {
+                        http.transform((data) => data);
+                    }
                 } catch {
                     // Best-effort server detach; still unsubscribe locally.
                 }
@@ -347,6 +428,7 @@ function useWebPushSubscriptionState(): WebPushContextValue {
                 await subscription.unsubscribe();
             }
 
+            lastSyncedEndpointRef.current = null;
             setStatus(
                 Notification.permission === 'denied' ? 'denied' : 'not_enabled',
             );
@@ -372,8 +454,15 @@ function useWebPushSubscriptionState(): WebPushContextValue {
                 return;
             }
 
-            http.setData({ endpoint: subscription.endpoint });
-            await http.delete(DestroyPushSubscriptionController.url());
+            http.transform(() => ({
+                endpoint: subscription.endpoint,
+            }));
+
+            try {
+                await http.delete(DestroyPushSubscriptionController.url());
+            } finally {
+                http.transform((data) => data);
+            }
         } catch {
             // Never block logout.
         }
@@ -429,11 +518,15 @@ function useWebPushSubscriptionState(): WebPushContextValue {
                 return;
             }
 
-            http.setData({
+            http.transform(() => ({
                 endpoint: subscription.endpoint,
-            });
+            }));
 
-            await http.post(TestPushSubscriptionController.url());
+            try {
+                await http.post(TestPushSubscriptionController.url());
+            } finally {
+                http.transform((data) => data);
+            }
 
             setTestStatus('success');
             setTestMessage(
@@ -452,6 +545,22 @@ function useWebPushSubscriptionState(): WebPushContextValue {
             }
 
             if (payload.expired || payload.status === 404) {
+                lastSyncedEndpointRef.current = null;
+
+                try {
+                    const registration =
+                        await resolvePushServiceWorkerRegistration();
+                    const stale = registration
+                        ? await registration.pushManager.getSubscription()
+                        : null;
+
+                    if (stale) {
+                        await stale.unsubscribe();
+                    }
+                } catch {
+                    // Best-effort local cleanup before asking the user to re-enable.
+                }
+
                 setStatus('not_enabled');
                 setTestStatus('error');
                 setTestMessage(

@@ -18,10 +18,6 @@ class HikvisionWebhookController extends Controller
             ? HikvisionSetting::findActiveWebhookIntegration($publicIntegrationId)
             : HikvisionSetting::findLegacyWebhookIntegration();
 
-        // #region agent log
-        @file_put_contents(base_path('.cursor/debug-688778.log'), json_encode(['sessionId' => '688778', 'runId' => 'post-fix', 'hypothesisId' => 'W1', 'location' => 'HikvisionWebhookController.php:__invoke', 'message' => 'webhook request received', 'data' => ['method' => $request->method(), 'public_integration_id' => $publicIntegrationId, 'legacy_route' => ! filled($publicIntegrationId), 'settings_found' => $settings !== null, 'company_id' => $settings?->company_id], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND | LOCK_EX);
-        // #endregion
-
         if ($settings === null) {
             abort(404);
         }
@@ -57,10 +53,6 @@ class HikvisionWebhookController extends Controller
     {
         $authFailure = $this->authenticationFailureReason($request, $settings);
 
-        // #region agent log
-        @file_put_contents(base_path('.cursor/debug-688778.log'), json_encode(['sessionId' => '688778', 'runId' => 'post-fix', 'hypothesisId' => 'W2', 'location' => 'HikvisionWebhookController.php:handleEvent', 'message' => 'webhook auth check', 'data' => ['company_id' => $settings->company_id, 'auth_failure' => $authFailure, 'has_signature' => $request->header('X-Hook-Signature') !== null, 'payload_keys' => array_keys($request->json()->all() ?? [])], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND | LOCK_EX);
-        // #endregion
-
         if ($authFailure !== null) {
             abort(404);
         }
@@ -74,10 +66,6 @@ class HikvisionWebhookController extends Controller
 
         ProcessHikvisionWebhookEventJob::dispatch($payload, $settings->id);
         $settings->markWebhookEventReceived();
-
-        // #region agent log
-        @file_put_contents(base_path('.cursor/debug-688778.log'), json_encode(['sessionId' => '688778', 'runId' => 'post-fix', 'hypothesisId' => 'W3', 'location' => 'HikvisionWebhookController.php:handleEvent', 'message' => 'webhook job dispatched', 'data' => ['setting_id' => $settings->id, 'company_id' => $settings->company_id, 'has_list' => isset($payload['list']), 'batch_id' => $payload['batchId'] ?? null], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND | LOCK_EX);
-        // #endregion
 
         return response()->noContent();
     }

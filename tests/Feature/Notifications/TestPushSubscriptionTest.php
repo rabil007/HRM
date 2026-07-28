@@ -11,6 +11,7 @@ use App\Models\AnnouncementRecipient;
 use App\Models\User;
 use App\Notifications\TestWebPushNotification;
 use App\Support\Notifications\SinglePushSubscriptionNotifiable;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
@@ -54,8 +55,8 @@ test('guest cannot send a test push notification', function () {
         ->assertUnauthorized();
 });
 
-test('authenticated user can queue a test for their own subscription', function () {
-    Queue::fake();
+test('authenticated user can send a test for their own subscription', function () {
+    Bus::fake();
 
     $user = User::factory()->create();
     $payload = sampleTestPushPayload('own');
@@ -73,21 +74,21 @@ test('authenticated user can queue a test for their own subscription', function 
         ->assertOk()
         ->assertJson([
             'ok' => true,
-            'message' => 'Test notification queued.',
+            'message' => 'Test notification sent.',
         ]);
 
     expect($response->getContent())->not->toContain($payload['endpoint'])
         ->and($response->getContent())->not->toContain($payload['keys']['p256dh'])
         ->and($response->getContent())->not->toContain($payload['keys']['auth']);
 
-    Queue::assertPushed(SendTestWebPushJob::class, function (SendTestWebPushJob $job) use ($user, $subscription): bool {
+    Bus::assertDispatchedSync(SendTestWebPushJob::class, function (SendTestWebPushJob $job) use ($user, $subscription): bool {
         return $job->userId === $user->id
             && $job->subscriptionId === $subscription->id;
     });
 });
 
 test('test targets only the submitted current-device subscription', function () {
-    Queue::fake();
+    Bus::fake();
 
     $user = User::factory()->create();
 
@@ -111,7 +112,7 @@ test('test targets only the submitted current-device subscription', function () 
         ])
         ->assertOk();
 
-    Queue::assertPushed(SendTestWebPushJob::class, function (SendTestWebPushJob $job) use ($user, $target, $other): bool {
+    Bus::assertDispatchedSync(SendTestWebPushJob::class, function (SendTestWebPushJob $job) use ($user, $target, $other): bool {
         return $job->userId === $user->id
             && $job->subscriptionId === $target->id
             && $job->subscriptionId !== $other->id;
@@ -144,7 +145,7 @@ test('job sends only through the single verified subscription notifiable', funct
                 expect($notifiable)->toBeInstanceOf(SinglePushSubscriptionNotifiable::class)
                     ->and($notification)->toBeInstanceOf(TestWebPushNotification::class);
 
-                $subscriptions = $notifiable->routeNotificationForWebPush();
+                $subscriptions = $notifiable->routeNotificationFor('WebPush', $notification);
 
                 expect($subscriptions)->toHaveCount(1)
                     ->and($subscriptions->first()?->is($target))->toBeTrue();
@@ -157,7 +158,7 @@ test('job sends only through the single verified subscription notifiable', funct
 });
 
 test('user cannot test another users subscription', function () {
-    Queue::fake();
+    Bus::fake();
 
     $owner = User::factory()->create();
     $intruder = User::factory()->create();
@@ -178,7 +179,7 @@ test('user cannot test another users subscription', function () {
         ])
         ->assertJsonMissingPath('endpoint');
 
-    Queue::assertNotPushed(SendTestWebPushJob::class);
+    Bus::assertNotDispatchedSync(SendTestWebPushJob::class);
 });
 
 test('missing endpoint is rejected', function () {
@@ -217,6 +218,7 @@ test('client-supplied ownership fields are rejected on test', function () {
 });
 
 test('test action creates no announcement records or delivery jobs', function () {
+    Bus::fake();
     Queue::fake();
 
     $user = User::factory()->create();
@@ -240,7 +242,7 @@ test('test action creates no announcement records or delivery jobs', function ()
         ->and(AnnouncementRecipient::query()->count())->toBe($beforeRecipients)
         ->and(AnnouncementDelivery::query()->count())->toBe($beforeDeliveries);
 
-    Queue::assertPushed(SendTestWebPushJob::class);
+    Bus::assertDispatchedSync(SendTestWebPushJob::class);
     Queue::assertNotPushed(DeliverAnnouncementInAppJob::class);
     Queue::assertNotPushed(DeliverAnnouncementEmailJob::class);
     Queue::assertNotPushed(DeliverAnnouncementWhatsAppJob::class);
@@ -248,7 +250,7 @@ test('test action creates no announcement records or delivery jobs', function ()
 });
 
 test('test push route is throttled', function () {
-    Queue::fake();
+    Bus::fake();
 
     $user = User::factory()->create();
     $payload = sampleTestPushPayload('throttle');
@@ -276,7 +278,7 @@ test('test push route is throttled', function () {
 });
 
 test('missing subscription is treated as expired without logging the endpoint', function () {
-    Queue::fake();
+    Bus::fake();
     Log::spy();
 
     $user = User::factory()->create();
@@ -294,7 +296,7 @@ test('missing subscription is treated as expired without logging the endpoint', 
         ]);
 
     expect($response->getContent())->not->toContain($endpoint);
-    Queue::assertNotPushed(SendTestWebPushJob::class);
+    Bus::assertNotDispatchedSync(SendTestWebPushJob::class);
     Log::shouldNotHaveReceived('warning');
 });
 

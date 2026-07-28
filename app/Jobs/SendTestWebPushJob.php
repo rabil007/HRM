@@ -7,9 +7,12 @@ use App\Notifications\TestWebPushNotification;
 use App\Support\Notifications\SinglePushSubscriptionNotifiable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use NotificationChannels\WebPush\Events\NotificationFailed;
 use NotificationChannels\WebPush\PushSubscription;
 use NotificationChannels\WebPush\WebPushChannel;
+use RuntimeException;
 use Throwable;
 
 class SendTestWebPushJob implements ShouldQueue
@@ -43,10 +46,20 @@ class SendTestWebPushJob implements ShouldQueue
         }
 
         try {
+            $failed = 0;
+
+            Event::listen(NotificationFailed::class, function () use (&$failed): void {
+                $failed++;
+            });
+
             $channel->send(
                 new SinglePushSubscriptionNotifiable($subscription),
                 new TestWebPushNotification,
             );
+
+            if ($failed > 0) {
+                throw new RuntimeException('Web push provider rejected the test notification.');
+            }
         } catch (Throwable $exception) {
             Log::warning('Test web push delivery failed', [
                 'user_id' => $this->userId,

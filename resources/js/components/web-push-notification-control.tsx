@@ -4,18 +4,18 @@ import { useWebPushContext } from '@/hooks/use-web-push-subscription';
 
 function statusLabel(status: WebPushStatus): string {
     switch (status) {
-        case 'enabled':
-            return 'Browser notifications are on for this device.';
-        case 'denied':
-            return 'Browser notifications are blocked. Enable them in your browser settings.';
+        case 'error':
+            return 'Browser notifications could not be updated.';
         case 'unsupported':
             return 'Browser notifications are not available in this browser.';
         case 'requesting_permission':
             return 'Waiting for browser permission…';
         case 'subscribing':
             return 'Enabling browser notifications…';
-        case 'error':
-            return 'Browser notifications could not be updated.';
+        case 'denied':
+            return 'Browser notifications are blocked. Enable them in your browser settings.';
+        case 'enabled':
+            return 'Browser notifications are on for this device.';
         default:
             return 'Get announcements as browser notifications on this device.';
     }

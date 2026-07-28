@@ -4,6 +4,7 @@ namespace App\Http\Requests\Notifications;
 
 use App\Rules\ValidWebPushEndpoint;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Validator;
 
 class StorePushSubscriptionRequest extends FormRequest
@@ -45,6 +46,30 @@ class StorePushSubscriptionRequest extends FormRequest
                 $validator->errors()->add('contentEncoding', 'The content encoding is invalid.');
             }
         });
+    }
+
+    protected function prepareForValidation(): void
+    {
+        foreach (['contentEncoding', 'content_encoding'] as $field) {
+            if ($this->input($field) === '') {
+                $this->merge([$field => null]);
+            }
+        }
+    }
+
+    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator): void
+    {
+        Log::warning('Push subscription validation failed', [
+            'error_keys' => array_keys($validator->errors()->toArray()),
+            'messages' => $validator->errors()->all(),
+            'has_endpoint' => $this->filled('endpoint'),
+            'endpoint_length' => is_string($this->input('endpoint')) ? strlen((string) $this->input('endpoint')) : null,
+            'has_keys' => is_array($this->input('keys')),
+            'key_fields' => is_array($this->input('keys')) ? array_keys($this->input('keys')) : [],
+            'content_encoding' => $this->input('contentEncoding') ?? $this->input('content_encoding'),
+        ]);
+
+        parent::failedValidation($validator);
     }
 
     /**

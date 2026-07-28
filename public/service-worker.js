@@ -1,7 +1,20 @@
 /* OMS-HRM push notification handlers.
- * Imported into the VitePWA-generated service worker via workbox.importScripts.
- * Also usable as a standalone push-only service worker when no PWA worker is registered.
+ * Served at /sw.js with Service-Worker-Allowed: / (see ServiceWorkerController).
  */
+
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+});
+
+self.addEventListener('install', (event) => {
+    event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(self.clients.claim());
+});
 
 self.addEventListener('push', (event) => {
     let payload = {};
@@ -11,20 +24,26 @@ self.addEventListener('push', (event) => {
     } catch (error) {
         payload = {
             title: 'OMS-HRM',
-            body: event.data ? event.data.text() : 'A new announcement is available. Click to view.',
+            body: event.data
+                ? event.data.text()
+                : 'A new announcement is available. Click to view.',
         };
     }
 
-    const title = typeof payload.title === 'string' && payload.title !== ''
-        ? payload.title
-        : 'OMS-HRM';
-    const body = typeof payload.body === 'string' && payload.body !== ''
-        ? payload.body
-        : 'A new announcement is available. Click to view.';
-    const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
-    const tag = typeof payload.tag === 'string' && payload.tag !== ''
-        ? payload.tag
-        : 'oms-hrm-announcement';
+    const title =
+        typeof payload.title === 'string' && payload.title !== ''
+            ? payload.title
+            : 'OMS-HRM';
+    const body =
+        typeof payload.body === 'string' && payload.body !== ''
+            ? payload.body
+            : 'A new announcement is available. Click to view.';
+    const data =
+        payload.data && typeof payload.data === 'object' ? payload.data : {};
+    const tag =
+        typeof payload.tag === 'string' && payload.tag !== ''
+            ? payload.tag
+            : 'oms-hrm-announcement';
 
     event.waitUntil(
         self.registration.showNotification(title, {
@@ -41,9 +60,10 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
-    const data = event.notification.data && typeof event.notification.data === 'object'
-        ? event.notification.data
-        : {};
+    const data =
+        event.notification.data && typeof event.notification.data === 'object'
+            ? event.notification.data
+            : {};
     const targetUrl = typeof data.url === 'string' ? data.url : '/dashboard';
 
     event.waitUntil(

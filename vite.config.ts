@@ -29,6 +29,7 @@ function copyPdfWorker(): Plugin {
 
 export default defineConfig({
     server: {
+        // Bind locally; expose assets via the Herd hostname so the TLS cert CN matches.
         host: '127.0.0.1',
         port: 5173,
         strictPort: true,
@@ -39,10 +40,11 @@ export default defineConfig({
                 /^https?:\/\/.*\.test(:\d+)?$/,
             ],
         },
+        // Herd cert SANs are oms-hrm.test / *.oms-hrm.test — not 127.0.0.1.
+        // Using 127.0.0.1 in public/hot causes ERR_CERT_COMMON_NAME_INVALID.
         hmr: {
-            host: '127.0.0.1',
+            host: 'oms-hrm.test',
             port: 5173,
-            protocol: 'ws',
         },
     },
     plugins: [
@@ -50,6 +52,7 @@ export default defineConfig({
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
             refresh: true,
+            detectTls: 'oms-hrm.test',
         }),
         inertia(),
         react({
@@ -64,7 +67,12 @@ export default defineConfig({
         VitePWA({
             strategies: 'generateSW',
             registerType: 'autoUpdate',
-            injectRegister: 'script',
+            /**
+             * App registers /sw.js (Laravel-served with Service-Worker-Allowed)
+             * so the worker can control the whole origin, not only /build/.
+             */
+            injectRegister: false,
+            scope: '/',
             /**
              * We manage /public/manifest.json ourselves so Vite doesn't
              * generate a second one or inject its own link tag.

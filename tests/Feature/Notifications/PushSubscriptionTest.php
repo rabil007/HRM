@@ -97,11 +97,6 @@ test('one user can own multiple device subscriptions up to the limit', function 
 
     expect($user->pushSubscriptions()->count())->toBe(SyncPushSubscription::MAX_SUBSCRIPTIONS_PER_USER);
 
-    $this->actingAs($user)
-        ->postJson('/notification-settings/push-subscription', samplePushPayload('device-11'))
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors(['endpoint']);
-
     $atLimit = samplePushPayload('device-1');
     $atLimit['keys']['auth'] = 'updatedAuthTokenValue12';
 
@@ -110,6 +105,26 @@ test('one user can own multiple device subscriptions up to the limit', function 
         ->assertOk();
 
     expect($user->fresh()->pushSubscriptions()->count())->toBe(SyncPushSubscription::MAX_SUBSCRIPTIONS_PER_USER);
+});
+
+test('registering beyond the limit evicts the least recently used subscription', function () {
+    $user = User::factory()->create();
+
+    foreach (range(1, SyncPushSubscription::MAX_SUBSCRIPTIONS_PER_USER) as $index) {
+        $this->actingAs($user)
+            ->postJson('/notification-settings/push-subscription', samplePushPayload("device-{$index}"))
+            ->assertOk();
+    }
+
+    $this->actingAs($user)
+        ->postJson('/notification-settings/push-subscription', samplePushPayload('device-11'))
+        ->assertOk();
+
+    $endpoints = $user->fresh()->pushSubscriptions()->pluck('endpoint');
+
+    expect($endpoints)->toHaveCount(SyncPushSubscription::MAX_SUBSCRIPTIONS_PER_USER)
+        ->and($endpoints)->toContain(samplePushPayload('device-11')['endpoint'])
+        ->and($endpoints)->not->toContain(samplePushPayload('device-1')['endpoint']);
 });
 
 test('re-registering the same endpoint updates rather than duplicates it', function () {

@@ -147,6 +147,7 @@ use App\Http\Controllers\Public\DocumentShare\ShowDocumentShareController;
 use App\Http\Controllers\Public\DocumentShare\UnlockDocumentShareController;
 use App\Http\Controllers\Public\DocumentShare\UploadSharedDocumentController;
 use App\Http\Controllers\Public\PublicAnnouncementController;
+use App\Http\Controllers\ServiceWorkerController;
 use App\Http\Controllers\Webhooks\HikvisionWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use App\Http\Middleware\DenyFraming;
@@ -155,6 +156,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'))->name('home');
+
+Route::get('sw.js', ServiceWorkerController::class)
+    ->name('service-worker');
 
 Route::match(['get', 'post'], 'organization/documents/share/{document}', DocumentShareController::class)
     ->middleware('signed')
