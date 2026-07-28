@@ -13,6 +13,7 @@ Product and developer documentation for the Herd OMS-HRM application. These guid
 | [Permissions](./permissions.md) | Admins, developers | Spatie permissions, documents, imports |
 | [Email configuration](./email-configuration.md) | Admins, developers | SMTP settings, test email |
 | [Announcement Web Push](./announcements-web-push.md) | Admins, developers | Browser push as an extension of in-app announcements |
+| [Document compliance Web Push](./document-compliance-web-push.md) | Admins, developers | Browser push for the daily document expiry summary |
 | [Hikvision integration](./hikvision-integration.md) | Admins, developers | Company settings, webhooks, scheduled syncs |
 | [Payroll](./payroll.md) | Payroll users, developers | Periods, salary inputs, timesheets, payslips, WPS, state transitions |
 | [Crew payroll timeline preparation](./architecture/crew-payroll-timeline-preparation.md) | Payroll, operations, developers | Prepare / review / approve / apply crew timeline from Crew Operations actuals (Phase 1A–1D; calculator safeguards are 1E) |
