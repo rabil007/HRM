@@ -393,7 +393,7 @@ flowchart LR
 | `employees.export` | Export directory |
 | `employees.import` | Employee import, including identity columns |
 | `contracts.*`, `bank_accounts.*`, `training.*`, `sea_services.*` (view/create/update/delete/import) | Contracts, bank accounts, training, sea services modules and their import columns |
-| `employees.education.manage`, `.work_experience.manage`, `.vaccination.manage`, `.languages.manage` | Profile tabs |
+| `education.*`, `work_experience.*`, `vaccination.*`, `languages.*` | Profile tabs (view/create/update/delete; import on work experience and vaccination) |
 
 ### Important workflows
 

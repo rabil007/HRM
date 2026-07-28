@@ -900,8 +900,14 @@ function EmployeeDetailsPage({
                                                 education_qualifications ?? []
                                             }
                                             countries={countries}
-                                            canManage={
-                                                can?.education_manage ?? false
+                                            canCreate={
+                                                can?.education_create ?? false
+                                            }
+                                            canUpdate={
+                                                can?.education_update ?? false
+                                            }
+                                            canDelete={
+                                                can?.education_delete ?? false
                                             }
                                             ensureEmployee={
                                                 isCreateMode
@@ -930,8 +936,20 @@ function EmployeeDetailsPage({
                                             work_experiences={
                                                 work_experiences ?? []
                                             }
-                                            canManage={
-                                                can?.work_experience_manage ??
+                                            canCreate={
+                                                can?.work_experience_create ??
+                                                false
+                                            }
+                                            canUpdate={
+                                                can?.work_experience_update ??
+                                                false
+                                            }
+                                            canDelete={
+                                                can?.work_experience_delete ??
+                                                false
+                                            }
+                                            canImport={
+                                                can?.work_experience_import ??
                                                 false
                                             }
                                             ensureEmployee={
@@ -960,8 +978,17 @@ function EmployeeDetailsPage({
                                             employeeId={effectiveEmployeeId}
                                             vaccinations={vaccinations ?? []}
                                             countries={countries}
-                                            canManage={
-                                                can?.vaccination_manage ?? false
+                                            canCreate={
+                                                can?.vaccination_create ?? false
+                                            }
+                                            canUpdate={
+                                                can?.vaccination_update ?? false
+                                            }
+                                            canDelete={
+                                                can?.vaccination_delete ?? false
+                                            }
+                                            canImport={
+                                                can?.vaccination_import ?? false
                                             }
                                             ensureEmployee={
                                                 isCreateMode
@@ -988,8 +1015,14 @@ function EmployeeDetailsPage({
                                         <EmployeeLanguagesTab
                                             employeeId={effectiveEmployeeId}
                                             languages={languages ?? []}
-                                            canManage={
-                                                can?.languages_manage ?? false
+                                            canCreate={
+                                                can?.languages_create ?? false
+                                            }
+                                            canUpdate={
+                                                can?.languages_update ?? false
+                                            }
+                                            canDelete={
+                                                can?.languages_delete ?? false
                                             }
                                             ensureEmployee={
                                                 isCreateMode

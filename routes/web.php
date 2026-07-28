@@ -679,25 +679,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/employees/{employee}/contracts/{employeeContract}/salary-revisions/{salaryRevision}', [ContractSalaryRevisionController::class, 'update'])->middleware('can:contracts.salary_revisions.update')->name('organization.employees.contracts.salary-revisions.update');
     Route::delete('organization/employees/{employee}/contracts/{employeeContract}/salary-revisions/{salaryRevision}', [ContractSalaryRevisionController::class, 'destroy'])->middleware('can:contracts.salary_revisions.delete')->name('organization.employees.contracts.salary-revisions.destroy');
 
-    Route::post('organization/employees/{employee}/education', [EmployeeEducationQualificationController::class, 'store'])->middleware('can:employees.education.manage')->name('organization.employees.education.store');
-    Route::put('organization/employees/{employee}/education/{qualification}', [EmployeeEducationQualificationController::class, 'update'])->middleware('can:employees.education.manage')->name('organization.employees.education.update');
-    Route::delete('organization/employees/{employee}/education/{qualification}', [EmployeeEducationQualificationController::class, 'destroy'])->middleware('can:employees.education.manage')->name('organization.employees.education.destroy');
+    Route::post('organization/employees/{employee}/education', [EmployeeEducationQualificationController::class, 'store'])->middleware('can:education.create')->name('organization.employees.education.store');
+    Route::put('organization/employees/{employee}/education/{qualification}', [EmployeeEducationQualificationController::class, 'update'])->middleware('can:education.update')->name('organization.employees.education.update');
+    Route::delete('organization/employees/{employee}/education/{qualification}', [EmployeeEducationQualificationController::class, 'destroy'])->middleware('can:education.delete')->name('organization.employees.education.destroy');
 
-    Route::get('organization/employees/{employee}/work-experience/import/template', [EmployeeWorkExperienceController::class, 'importTemplate'])->middleware('can:employees.work_experience.manage')->name('organization.employees.work-experience.import.template');
-    Route::post('organization/employees/{employee}/work-experience/import', [EmployeeWorkExperienceController::class, 'import'])->middleware('can:employees.work_experience.manage')->name('organization.employees.work-experience.import');
-    Route::post('organization/employees/{employee}/work-experience', [EmployeeWorkExperienceController::class, 'store'])->middleware('can:employees.work_experience.manage')->name('organization.employees.work-experience.store');
-    Route::put('organization/employees/{employee}/work-experience/{workExperience}', [EmployeeWorkExperienceController::class, 'update'])->middleware('can:employees.work_experience.manage')->name('organization.employees.work-experience.update');
-    Route::delete('organization/employees/{employee}/work-experience/{workExperience}', [EmployeeWorkExperienceController::class, 'destroy'])->middleware('can:employees.work_experience.manage')->name('organization.employees.work-experience.destroy');
+    Route::get('organization/employees/{employee}/work-experience/import/template', [EmployeeWorkExperienceController::class, 'importTemplate'])->middleware('can:work_experience.import')->name('organization.employees.work-experience.import.template');
+    Route::post('organization/employees/{employee}/work-experience/import', [EmployeeWorkExperienceController::class, 'import'])->middleware('can:work_experience.import')->name('organization.employees.work-experience.import');
+    Route::post('organization/employees/{employee}/work-experience', [EmployeeWorkExperienceController::class, 'store'])->middleware('can:work_experience.create')->name('organization.employees.work-experience.store');
+    Route::put('organization/employees/{employee}/work-experience/{workExperience}', [EmployeeWorkExperienceController::class, 'update'])->middleware('can:work_experience.update')->name('organization.employees.work-experience.update');
+    Route::delete('organization/employees/{employee}/work-experience/{workExperience}', [EmployeeWorkExperienceController::class, 'destroy'])->middleware('can:work_experience.delete')->name('organization.employees.work-experience.destroy');
 
-    Route::get('organization/employees/{employee}/vaccinations/import/template', [EmployeeVaccinationController::class, 'importTemplate'])->middleware('can:employees.vaccination.manage')->name('organization.employees.vaccinations.import.template');
-    Route::post('organization/employees/{employee}/vaccinations/import', [EmployeeVaccinationController::class, 'import'])->middleware('can:employees.vaccination.manage')->name('organization.employees.vaccinations.import');
-    Route::post('organization/employees/{employee}/vaccinations', [EmployeeVaccinationController::class, 'store'])->middleware('can:employees.vaccination.manage')->name('organization.employees.vaccinations.store');
-    Route::put('organization/employees/{employee}/vaccinations/{vaccination}', [EmployeeVaccinationController::class, 'update'])->middleware('can:employees.vaccination.manage')->name('organization.employees.vaccinations.update');
-    Route::delete('organization/employees/{employee}/vaccinations/{vaccination}', [EmployeeVaccinationController::class, 'destroy'])->middleware('can:employees.vaccination.manage')->name('organization.employees.vaccinations.destroy');
+    Route::get('organization/employees/{employee}/vaccinations/import/template', [EmployeeVaccinationController::class, 'importTemplate'])->middleware('can:vaccination.import')->name('organization.employees.vaccinations.import.template');
+    Route::post('organization/employees/{employee}/vaccinations/import', [EmployeeVaccinationController::class, 'import'])->middleware('can:vaccination.import')->name('organization.employees.vaccinations.import');
+    Route::post('organization/employees/{employee}/vaccinations', [EmployeeVaccinationController::class, 'store'])->middleware('can:vaccination.create')->name('organization.employees.vaccinations.store');
+    Route::put('organization/employees/{employee}/vaccinations/{vaccination}', [EmployeeVaccinationController::class, 'update'])->middleware('can:vaccination.update')->name('organization.employees.vaccinations.update');
+    Route::delete('organization/employees/{employee}/vaccinations/{vaccination}', [EmployeeVaccinationController::class, 'destroy'])->middleware('can:vaccination.delete')->name('organization.employees.vaccinations.destroy');
 
-    Route::post('organization/employees/{employee}/languages', [EmployeeLanguageController::class, 'store'])->middleware('can:employees.languages.manage')->name('organization.employees.languages.store');
-    Route::put('organization/employees/{employee}/languages/{language}', [EmployeeLanguageController::class, 'update'])->middleware('can:employees.languages.manage')->name('organization.employees.languages.update');
-    Route::delete('organization/employees/{employee}/languages/{language}', [EmployeeLanguageController::class, 'destroy'])->middleware('can:employees.languages.manage')->name('organization.employees.languages.destroy');
+    Route::post('organization/employees/{employee}/languages', [EmployeeLanguageController::class, 'store'])->middleware('can:languages.create')->name('organization.employees.languages.store');
+    Route::put('organization/employees/{employee}/languages/{language}', [EmployeeLanguageController::class, 'update'])->middleware('can:languages.update')->name('organization.employees.languages.update');
+    Route::delete('organization/employees/{employee}/languages/{language}', [EmployeeLanguageController::class, 'destroy'])->middleware('can:languages.delete')->name('organization.employees.languages.destroy');
 
     Route::get('organization/employees/{employee}/training/{training}', EmployeeTrainingShowController::class)->middleware('can:employees.view')->name('organization.employees.training.show');
     Route::get('organization/employees/{employee}/training/import/template', [EmployeeTrainingController::class, 'importTemplate'])->middleware('can:training.import')->name('organization.employees.training.import.template');

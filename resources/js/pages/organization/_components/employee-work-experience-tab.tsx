@@ -63,7 +63,10 @@ export type EmployeeWorkExperienceTabProps = {
     employeeId: number | null;
     ensureEmployee?: () => Promise<number>;
     work_experiences: WorkExperienceItem[];
-    canManage: boolean;
+    canCreate: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
+    canImport: boolean;
     templateFields?: Record<string, TemplateFieldConfig> | null;
 };
 
@@ -71,7 +74,10 @@ export function EmployeeWorkExperienceTab({
     employeeId,
     ensureEmployee,
     work_experiences,
-    canManage,
+    canCreate,
+    canUpdate,
+    canDelete,
+    canImport,
     templateFields = null,
 }: EmployeeWorkExperienceTabProps): ReactElement {
     const {
@@ -222,28 +228,32 @@ export function EmployeeWorkExperienceTab({
                 isEmpty={work_experiences.length === 0}
                 emptyMessage="No work history recorded."
                 actions={
-                    canManage ? (
+                    canCreate || canImport ? (
                         <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 gap-1.5 text-xs"
-                                type="button"
-                                disabled={!canImportRecords}
-                                onClick={() =>
-                                    setWorkExperienceImportOpen(true)
-                                }
-                            >
-                                Import CSV
-                            </Button>
-                            <Button
-                                size="sm"
-                                className="h-8 gap-1.5 text-xs"
-                                type="button"
-                                onClick={openCreateDialog}
-                            >
-                                + Add line
-                            </Button>
+                            {canImport ? (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 gap-1.5 text-xs"
+                                    type="button"
+                                    disabled={!canImportRecords}
+                                    onClick={() =>
+                                        setWorkExperienceImportOpen(true)
+                                    }
+                                >
+                                    Import CSV
+                                </Button>
+                            ) : null}
+                            {canCreate ? (
+                                <Button
+                                    size="sm"
+                                    className="h-8 gap-1.5 text-xs"
+                                    type="button"
+                                    onClick={openCreateDialog}
+                                >
+                                    + Add line
+                                </Button>
+                            ) : null}
                         </div>
                     ) : undefined
                 }
@@ -279,7 +289,7 @@ export function EmployeeWorkExperienceTab({
                             <th className={employeeRecordsTableThClass()}>
                                 Added
                             </th>
-                            {canManage ? (
+                            {canUpdate || canDelete ? (
                                 <EmployeeRecordsActionsHeader />
                             ) : null}
                         </tr>
@@ -353,7 +363,7 @@ export function EmployeeWorkExperienceTab({
                                 >
                                     {formatDisplayDate(row.created_at)}
                                 </td>
-                                {canManage ? (
+                                {canUpdate || canDelete ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
@@ -361,11 +371,18 @@ export function EmployeeWorkExperienceTab({
                                         )}
                                     >
                                         <EmployeeRecordRowActions
-                                            onEdit={() => openEditDialog(row)}
-                                            onDelete={() =>
-                                                setDeleteWorkExperienceId(
-                                                    row.id,
-                                                )
+                                            onEdit={
+                                                canUpdate
+                                                    ? () => openEditDialog(row)
+                                                    : undefined
+                                            }
+                                            onDelete={
+                                                canDelete
+                                                    ? () =>
+                                                          setDeleteWorkExperienceId(
+                                                              row.id,
+                                                          )
+                                                    : undefined
                                             }
                                         />
                                     </td>

@@ -66,7 +66,10 @@ export type EmployeeVaccinationTabProps = {
     ensureEmployee?: () => Promise<number>;
     vaccinations: VaccinationItem[];
     countries: CountryOption[];
-    canManage: boolean;
+    canCreate: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
+    canImport: boolean;
     templateFields?: Record<string, TemplateFieldConfig> | null;
 };
 
@@ -75,7 +78,10 @@ export function EmployeeVaccinationTab({
     ensureEmployee,
     vaccinations,
     countries,
-    canManage,
+    canCreate,
+    canUpdate,
+    canDelete,
+    canImport,
     templateFields = null,
 }: EmployeeVaccinationTabProps): ReactElement {
     const {
@@ -229,26 +235,30 @@ export function EmployeeVaccinationTab({
                 isEmpty={vaccinations.length === 0}
                 emptyMessage="No vaccination records."
                 actions={
-                    canManage ? (
+                    canCreate || canImport ? (
                         <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 gap-1.5 text-xs"
-                                type="button"
-                                disabled={!canImportRecords}
-                                onClick={() => setVaccinationImportOpen(true)}
-                            >
-                                Import CSV
-                            </Button>
-                            <Button
-                                size="sm"
-                                className="h-8 gap-1.5 text-xs"
-                                type="button"
-                                onClick={openCreateDialog}
-                            >
-                                + Add line
-                            </Button>
+                            {canImport ? (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 gap-1.5 text-xs"
+                                    type="button"
+                                    disabled={!canImportRecords}
+                                    onClick={() => setVaccinationImportOpen(true)}
+                                >
+                                    Import CSV
+                                </Button>
+                            ) : null}
+                            {canCreate ? (
+                                <Button
+                                    size="sm"
+                                    className="h-8 gap-1.5 text-xs"
+                                    type="button"
+                                    onClick={openCreateDialog}
+                                >
+                                    + Add line
+                                </Button>
+                            ) : null}
                         </div>
                     ) : undefined
                 }
@@ -284,7 +294,7 @@ export function EmployeeVaccinationTab({
                             <th className={employeeRecordsTableThClass()}>
                                 Added
                             </th>
-                            {canManage ? (
+                            {canUpdate || canDelete ? (
                                 <EmployeeRecordsActionsHeader />
                             ) : null}
                         </tr>
@@ -360,7 +370,7 @@ export function EmployeeVaccinationTab({
                                 >
                                     {formatDisplayDate(row.created_at)}
                                 </td>
-                                {canManage ? (
+                                {canUpdate || canDelete ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
@@ -368,9 +378,18 @@ export function EmployeeVaccinationTab({
                                         )}
                                     >
                                         <EmployeeRecordRowActions
-                                            onEdit={() => openEditDialog(row)}
-                                            onDelete={() =>
-                                                setDeleteVaccinationId(row.id)
+                                            onEdit={
+                                                canUpdate
+                                                    ? () => openEditDialog(row)
+                                                    : undefined
+                                            }
+                                            onDelete={
+                                                canDelete
+                                                    ? () =>
+                                                          setDeleteVaccinationId(
+                                                              row.id,
+                                                          )
+                                                    : undefined
                                             }
                                         />
                                     </td>

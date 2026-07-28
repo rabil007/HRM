@@ -67,7 +67,9 @@ export type EmployeeLanguagesTabProps = {
     employeeId: number | null;
     ensureEmployee?: () => Promise<number>;
     languages: LanguageItem[];
-    canManage: boolean;
+    canCreate: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
     templateFields?: Record<string, TemplateFieldConfig> | null;
 };
 
@@ -75,7 +77,9 @@ export function EmployeeLanguagesTab({
     employeeId,
     ensureEmployee,
     languages,
-    canManage,
+    canCreate,
+    canUpdate,
+    canDelete,
     templateFields = null,
 }: EmployeeLanguagesTabProps): ReactElement {
     const {
@@ -213,7 +217,7 @@ export function EmployeeLanguagesTab({
                 isEmpty={languages.length === 0}
                 emptyMessage="No languages recorded."
                 actions={
-                    canManage ? (
+                    canCreate ? (
                         <Button
                             size="sm"
                             className="h-8 gap-1.5 text-xs"
@@ -276,7 +280,7 @@ export function EmployeeLanguagesTab({
                             <th className={employeeRecordsTableThClass()}>
                                 Added
                             </th>
-                            {canManage ? (
+                            {canUpdate || canDelete ? (
                                 <EmployeeRecordsActionsHeader />
                             ) : null}
                         </tr>
@@ -378,7 +382,7 @@ export function EmployeeLanguagesTab({
                                 >
                                     {formatDisplayDate(row.created_at)}
                                 </td>
-                                {canManage ? (
+                                {canUpdate || canDelete ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
@@ -386,9 +390,18 @@ export function EmployeeLanguagesTab({
                                         )}
                                     >
                                         <EmployeeRecordRowActions
-                                            onEdit={() => openEditDialog(row)}
-                                            onDelete={() =>
-                                                setDeleteLanguageId(row.id)
+                                            onEdit={
+                                                canUpdate
+                                                    ? () => openEditDialog(row)
+                                                    : undefined
+                                            }
+                                            onDelete={
+                                                canDelete
+                                                    ? () =>
+                                                          setDeleteLanguageId(
+                                                              row.id,
+                                                          )
+                                                    : undefined
                                             }
                                         />
                                     </td>

@@ -188,7 +188,7 @@ test('users with permission can create update and delete vaccinations', function
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.vaccination.manage']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'vaccination.create', 'vaccination.update', 'vaccination.delete', 'vaccination.import']);
 
     $this->post(route('organization.employees.vaccinations.store', $employee), [
         'vaccination_name' => 'Hepatitis B',
@@ -273,7 +273,7 @@ test('csv import appends vaccination rows', function () {
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.vaccination.manage']);
+    grantCompanyPermissions($user, $company, ['vaccination.create', 'vaccination.update', 'vaccination.delete', 'vaccination.import']);
 
     $csv = <<<'CSV'
 Vaccination,Country,1st dose,2nd dose,Booster
@@ -338,7 +338,7 @@ test('vaccination import returns an error when no rows can be imported', functio
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.vaccination.manage']);
+    grantCompanyPermissions($user, $company, ['vaccination.create', 'vaccination.update', 'vaccination.delete', 'vaccination.import']);
 
     $csv = <<<'CSV'
 vaccination_name,country,first_dose
@@ -413,7 +413,7 @@ test('another employee cannot mutate vaccination rows', function () {
         ->forEmployee($alice)
         ->create(['vaccination_name' => 'Flu']);
 
-    grantCompanyPermissions($user, $company, ['employees.vaccination.manage']);
+    grantCompanyPermissions($user, $company, ['vaccination.create', 'vaccination.update', 'vaccination.delete', 'vaccination.import']);
 
     $this->put(route('organization.employees.vaccinations.update', [
         'employee' => $bob,

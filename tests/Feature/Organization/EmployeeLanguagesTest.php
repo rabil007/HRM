@@ -183,7 +183,7 @@ test('users with permission can add update and delete languages', function () {
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.languages.manage']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'languages.create', 'languages.update', 'languages.delete']);
 
     $this->post(route('organization.employees.languages.store', $employee), [
         'language_name' => 'English (US)',

@@ -61,7 +61,9 @@ export type EmployeeEducationTabProps = {
     employeeId: number | null;
     education_qualifications: EducationQualificationItem[];
     countries: CountryOption[];
-    canManage: boolean;
+    canCreate: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
     ensureEmployee?: () => Promise<number>;
     templateFields?: Record<string, TemplateFieldConfig> | null;
 };
@@ -70,7 +72,9 @@ export function EmployeeEducationTab({
     employeeId,
     education_qualifications,
     countries,
-    canManage,
+    canCreate,
+    canUpdate,
+    canDelete,
     ensureEmployee,
     templateFields = null,
 }: EmployeeEducationTabProps): ReactElement {
@@ -199,7 +203,7 @@ export function EmployeeEducationTab({
                 isEmpty={education_qualifications.length === 0}
                 emptyMessage="No qualifications recorded."
                 actions={
-                    canManage ? (
+                    canCreate ? (
                         <Button
                             size="sm"
                             className="h-8 gap-1.5 text-xs"
@@ -234,7 +238,7 @@ export function EmployeeEducationTab({
                                     Country
                                 </th>
                             ) : null}
-                            {canManage ? (
+                            {canUpdate || canDelete ? (
                                 <EmployeeRecordsActionsHeader />
                             ) : null}
                         </tr>
@@ -285,7 +289,7 @@ export function EmployeeEducationTab({
                                         {row.country_name ?? '—'}
                                     </td>
                                 ) : null}
-                                {canManage ? (
+                                {canUpdate || canDelete ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
@@ -293,9 +297,18 @@ export function EmployeeEducationTab({
                                         )}
                                     >
                                         <EmployeeRecordRowActions
-                                            onEdit={() => openEditDialog(row)}
-                                            onDelete={() =>
-                                                setDeleteEducationId(row.id)
+                                            onEdit={
+                                                canUpdate
+                                                    ? () => openEditDialog(row)
+                                                    : undefined
+                                            }
+                                            onDelete={
+                                                canDelete
+                                                    ? () =>
+                                                          setDeleteEducationId(
+                                                              row.id,
+                                                          )
+                                                    : undefined
                                             }
                                         />
                                     </td>

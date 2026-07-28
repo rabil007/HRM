@@ -26,8 +26,8 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 | Area | Current permission families |
 |------|-----------------------------|
 | Organization | `companies.*`, `branches.*`, `departments.*`, `positions.*`, `users.*`, `roles.*` |
-| Employees | `employees.view|create|update|delete|export|import`, employee sub-record `.manage` permissions, and `employees.salary_certificate.print` / `employees.salary_declaration.print` |
-| Contracts / bank / training / sea service | `contracts.view|create|update|delete|import`, `contracts.salary_revisions.view|create|update|delete`, `bank_accounts.view|create|update|delete|import`, `training.view|create|update|delete|import`, `sea_services.view|create|update|delete|import` |
+| Employees | `employees.view|create|update|delete|export|import`, and `employees.salary_certificate.print` / `employees.salary_declaration.print` |
+| Contracts / bank / training / sea service / profile tabs | `contracts.view|create|update|delete|import`, `contracts.salary_revisions.view|create|update|delete`, `bank_accounts.view|create|update|delete|import`, `training.view|create|update|delete|import`, `sea_services.view|create|update|delete|import`, `education.view|create|update|delete`, `work_experience.view|create|update|delete|import`, `vaccination.view|create|update|delete|import`, `languages.view|create|update|delete` |
 | Documents | `documents.view|download|share|upload|delete` |
 | Bulk documents / signatures | `bulk_documents.view|generate|delete|email`, `bulk_documents.signatures.review` |
 | Crew operations | `crew_operations.overview.view`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*`, `crew_operations.assignments.*`, `crew_operations.movements.perform`, `crew_operations.corrections.view|request|approve|override` |
@@ -64,8 +64,10 @@ Employee import has one employee permission plus module imports for related reco
 | `bank_accounts.import` | Bank-account columns and bank import workflow |
 | `training.import` | Training import workflow |
 | `sea_services.import` | Sea service import workflow |
+| `work_experience.import` | Work experience import workflow |
+| `vaccination.import` | Vaccination import workflow |
 
-Employee profile sub-records use `employees.education.manage`, `employees.work_experience.manage`, `employees.vaccination.manage`, and `employees.languages.manage`. Salary certificate and salary declaration prints use `employees.salary_certificate.print` and `employees.salary_declaration.print` (separate from `employees.view`). Contracts, bank accounts, training, and sea services use their own view/create/update/delete families rather than the removed `employees.contracts.manage`, `employees.bank_accounts.manage`, and `employees.sea_service.manage` names.
+Salary certificate and salary declaration prints use `employees.salary_certificate.print` and `employees.salary_declaration.print` (separate from `employees.view`). Education, work experience, vaccination, languages, contracts, bank accounts, training, and sea services use their own view/create/update/delete families rather than the removed `employees.education.manage`, `employees.work_experience.manage`, `employees.vaccination.manage`, `employees.languages.manage`, `employees.contracts.manage`, `employees.bank_accounts.manage`, and `employees.sea_service.manage` names.
 
 Document pages receive their UI flags from `DocumentPagePermissions::for($user)`:
 

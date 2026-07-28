@@ -186,7 +186,7 @@ test('users with permission can create education qualifications', function () {
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.education.manage']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'education.create', 'education.update', 'education.delete']);
 
     $this->post(route('organization.employees.education.store', $employee), [
         'certificate' => 'BSc Computer Science',
@@ -248,7 +248,7 @@ test('creating education qualification requires certificate', function () {
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.education.manage']);
+    grantCompanyPermissions($user, $company, ['education.create', 'education.update', 'education.delete']);
 
     $this->post(route('organization.employees.education.store', $employee), [
         'certificate' => '',
@@ -307,7 +307,7 @@ test('education qualification rejects inactive countries', function () {
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.education.manage']);
+    grantCompanyPermissions($user, $company, ['education.create', 'education.update', 'education.delete']);
 
     $this->post(route('organization.employees.education.store', $employee), [
         'certificate' => 'PhD',
@@ -366,7 +366,7 @@ test('users can update and delete their education qualifications', function () {
             'university' => 'Old School',
         ]);
 
-    grantCompanyPermissions($user, $company, ['employees.education.manage']);
+    grantCompanyPermissions($user, $company, ['education.create', 'education.update', 'education.delete']);
 
     $this->put(route('organization.employees.education.update', [$employee, $qualification]), [
         'certificate' => 'Diploma (Honors)',
@@ -443,7 +443,7 @@ test('education qualification routes reject mismatched employee', function () {
         ->forEmployee($alice)
         ->create(['certificate' => 'Cert']);
 
-    grantCompanyPermissions($user, $company, ['employees.education.manage']);
+    grantCompanyPermissions($user, $company, ['education.create', 'education.update', 'education.delete']);
 
     $this->put(route('organization.employees.education.update', [$bob, $qualification]), [
         'certificate' => 'Hacked',

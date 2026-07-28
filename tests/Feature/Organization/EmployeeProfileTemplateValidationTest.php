@@ -494,7 +494,7 @@ test('education store succeeds when template hides optional fields', function ()
 
     grantCompanyPermissions($user, $company, [
         'employees.view',
-        'employees.education.manage',
+        'education.create',
     ]);
 
     $this->actingAs($user)

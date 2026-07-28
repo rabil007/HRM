@@ -207,7 +207,7 @@ test('users with permission can create update and delete work experience', funct
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'employees.work_experience.manage']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'work_experience.create', 'work_experience.update', 'work_experience.delete', 'work_experience.import']);
 
     $this->post(route('organization.employees.work-experience.store', $employee), [
         'company_name' => 'Gamma LLC',
@@ -285,7 +285,7 @@ test('csv import appends rows for the employee', function () {
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.work_experience.manage']);
+    grantCompanyPermissions($user, $company, ['work_experience.create', 'work_experience.update', 'work_experience.delete', 'work_experience.import']);
 
     $csv = <<<'CSV'
 company name,job title,start date,end date,responsibilities
@@ -352,7 +352,7 @@ test('work experience import returns an error when no rows can be imported', fun
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.work_experience.manage']);
+    grantCompanyPermissions($user, $company, ['work_experience.create', 'work_experience.update', 'work_experience.delete', 'work_experience.import']);
 
     $csv = <<<'CSV'
 company_name,job_title,date_from
@@ -427,7 +427,7 @@ test('another employee cannot mutate work experience rows', function () {
         ->forEmployee($alice)
         ->create(['company_name' => 'Held', 'job_title' => 'Role', 'date_from' => '2025-01-01']);
 
-    grantCompanyPermissions($user, $company, ['employees.work_experience.manage']);
+    grantCompanyPermissions($user, $company, ['work_experience.create', 'work_experience.update', 'work_experience.delete', 'work_experience.import']);
 
     $this->put(route('organization.employees.work-experience.update', [
         'employee' => $bob,
