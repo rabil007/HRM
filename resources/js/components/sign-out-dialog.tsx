@@ -1,7 +1,7 @@
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
 import { ConfirmDialog } from '@/components/confirm-dialog';
-import { useWebPushSubscription } from '@/hooks/use-web-push-subscription';
+import { useWebPushContext } from '@/hooks/use-web-push-subscription';
 import { logout } from '@/routes';
 
 type SignOutDialogProps = {
@@ -10,7 +10,7 @@ type SignOutDialogProps = {
 };
 
 export function SignOutDialog({ open, onOpenChange }: SignOutDialogProps) {
-    const { detachBeforeLogout } = useWebPushSubscription();
+    const { detachBeforeLogout } = useWebPushContext();
     const [signingOut, setSigningOut] = useState(false);
 
     const handleSignOut = async () => {

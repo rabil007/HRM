@@ -55,12 +55,26 @@ class DeliverAnnouncementWebPushJob implements ShouldBeUnique, ShouldQueue
         try {
             Notification::send($user, new AnnouncementWebPushNotification($recipient));
         } catch (Throwable $exception) {
-            // Best-effort only: never affect in-app / announcement delivery status.
             Log::warning('Announcement web push delivery failed', [
                 'recipient_id' => $this->recipientId,
                 'user_id' => $user->id,
-                'exception' => $exception->getMessage(),
+                'attempt' => $this->attempts(),
+                'exception_class' => $exception::class,
+                'failure_category' => 'web_push_transport',
             ]);
+
+            // Rethrow so queue retries/backoff can run. Never touch delivery rows.
+            throw $exception;
         }
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        Log::warning('Announcement web push delivery exhausted retries', [
+            'recipient_id' => $this->recipientId,
+            'attempt' => $this->attempts(),
+            'exception_class' => $exception::class,
+            'failure_category' => 'web_push_exhausted',
+        ]);
     }
 }

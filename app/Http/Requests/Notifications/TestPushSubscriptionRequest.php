@@ -5,7 +5,7 @@ namespace App\Http\Requests\Notifications;
 use App\Rules\ValidWebPushEndpoint;
 use Illuminate\Foundation\Http\FormRequest;
 
-class DestroyPushSubscriptionRequest extends FormRequest
+class TestPushSubscriptionRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -24,5 +24,13 @@ class DestroyPushSubscriptionRequest extends FormRequest
             'subscribable_id' => ['prohibited'],
             'subscribable_type' => ['prohibited'],
         ];
+    }
+
+    public function endpoint(): string
+    {
+        /** @var array{endpoint: string} $validated */
+        $validated = $this->validated();
+
+        return $validated['endpoint'];
     }
 }

@@ -114,10 +114,10 @@ test('publishing snapshots recipients and queues channel jobs', function () {
         ->and(AnnouncementRecipient::query()->where('announcement_id', $announcement->id)->count())->toBe(1)
         ->and(AnnouncementDelivery::query()->count())->toBe(3);
 
-    Queue::assertPushed(DeliverAnnouncementInAppJob::class);
-    Queue::assertPushed(DeliverAnnouncementEmailJob::class);
-    Queue::assertPushed(DeliverAnnouncementWhatsAppJob::class);
-    Queue::assertPushed(DeliverAnnouncementWebPushJob::class);
+    Queue::assertPushed(DeliverAnnouncementInAppJob::class, fn ($job) => $job->afterCommit === true);
+    Queue::assertPushed(DeliverAnnouncementEmailJob::class, fn ($job) => $job->afterCommit === true);
+    Queue::assertPushed(DeliverAnnouncementWhatsAppJob::class, fn ($job) => $job->afterCommit === true);
+    Queue::assertPushed(DeliverAnnouncementWebPushJob::class, fn ($job) => $job->afterCommit === true);
 });
 
 test('email is queued individually and whatsapp failure does not block email', function () {

@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Notifications;
 
+use App\Rules\ValidWebPushEndpoint;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class StorePushSubscriptionRequest extends FormRequest
 {
@@ -17,17 +19,36 @@ class StorePushSubscriptionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'endpoint' => ['required', 'string', 'url', 'max:500'],
-            'keys' => ['required', 'array'],
-            'keys.p256dh' => ['required', 'string', 'max:255'],
-            'keys.auth' => ['required', 'string', 'max:255'],
-            'contentEncoding' => ['nullable', 'string', 'in:aesgcm,aes128gcm'],
-            'content_encoding' => ['nullable', 'string', 'in:aesgcm,aes128gcm'],
+            'endpoint' => ['required', 'string', 'max:500', new ValidWebPushEndpoint],
+            'keys' => ['required', 'array:p256dh,auth'],
+            'keys.p256dh' => ['required', 'string', 'min:20', 'max:255'],
+            'keys.auth' => ['required', 'string', 'min:8', 'max:255'],
+            'contentEncoding' => ['nullable', 'string', 'in:aes128gcm,aesgcm'],
+            'content_encoding' => ['nullable', 'string', 'in:aes128gcm,aesgcm'],
+            'user_id' => ['prohibited'],
+            'company_id' => ['prohibited'],
+            'subscribable_id' => ['prohibited'],
+            'subscribable_type' => ['prohibited'],
         ];
     }
 
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $encoding = $this->input('contentEncoding') ?? $this->input('content_encoding');
+
+            if ($encoding !== null && ! in_array($encoding, ['aes128gcm', 'aesgcm'], true)) {
+                $validator->errors()->add('contentEncoding', 'The content encoding is invalid.');
+            }
+        });
+    }
+
     /**
-     * @return array{endpoint: string, keys: array{p256dh: string, auth: string}, contentEncoding: string|null}
+     * @return array{endpoint: string, keys: array{p256dh: string, auth: string}, contentEncoding: string}
      */
     public function subscriptionPayload(): array
     {
@@ -40,7 +61,9 @@ class StorePushSubscriptionRequest extends FormRequest
                 'p256dh' => $validated['keys']['p256dh'],
                 'auth' => $validated['keys']['auth'],
             ],
-            'contentEncoding' => $validated['contentEncoding'] ?? $validated['content_encoding'] ?? 'aesgcm',
+            'contentEncoding' => $validated['contentEncoding']
+                ?? $validated['content_encoding']
+                ?? 'aes128gcm',
         ];
     }
 }

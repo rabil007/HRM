@@ -21,7 +21,7 @@ function makeOpenAnnouncementFixtures(): array
     $owner = User::factory()->create();
     $other = User::factory()->create();
 
-    $makeCompany = function (string $prefix): Company {
+    $makeCompany = function (string $prefix, string $status = 'active'): Company {
         $code = $prefix.fake()->unique()->numerify('##');
         $country = Country::query()->create([
             'code' => $code,
@@ -44,7 +44,7 @@ function makeOpenAnnouncementFixtures(): array
             'currency_id' => $currency->id,
             'timezone' => 'Asia/Dubai',
             'payroll_cycle' => 'monthly',
-            'status' => 'active',
+            'status' => $status,
         ]);
     };
 
@@ -149,6 +149,96 @@ test('user without membership in the recipient company is rejected', function ()
     $this->actingAs($owner)
         ->get("/notifications/announcements/{$recipient->id}/open")
         ->assertForbidden();
+});
+
+test('inactive membership is rejected when opening a pushed announcement', function () {
+    ['companyA' => $companyA, 'companyB' => $companyB, 'owner' => $owner, 'recipient' => $recipient] = makeOpenAnnouncementFixtures();
+
+    DB::table('company_user')
+        ->where('company_id', $companyB->id)
+        ->where('user_id', $owner->id)
+        ->update(['status' => 'inactive']);
+
+    $this->actingAs($owner)
+        ->withSession(['current_company_id' => $companyA->id])
+        ->get("/notifications/announcements/{$recipient->id}/open")
+        ->assertForbidden();
+});
+
+test('inactive company is rejected when opening a pushed announcement', function () {
+    ['companyA' => $companyA, 'companyB' => $companyB, 'owner' => $owner, 'recipient' => $recipient] = makeOpenAnnouncementFixtures();
+
+    $companyB->update(['status' => 'inactive']);
+
+    $this->actingAs($owner)
+        ->withSession(['current_company_id' => $companyA->id])
+        ->get("/notifications/announcements/{$recipient->id}/open")
+        ->assertForbidden();
+});
+
+test('company switch rejects inactive membership and inactive company', function () {
+    $user = User::factory()->create(['company_id' => null]);
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'SW'.fake()->unique()->numerify('#'),
+        'name' => 'Switchland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+    $currency = Currency::query()->create([
+        'code' => $country->code,
+        'name' => 'Switch Currency',
+        'symbol' => 'S$',
+        'is_active' => true,
+    ]);
+
+    $activeCompany = Company::query()->create([
+        'name' => 'Active Switch Co',
+        'slug' => 'active-switch-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $inactiveCompany = Company::query()->create([
+        'name' => 'Inactive Switch Co',
+        'slug' => 'inactive-switch-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'inactive',
+    ]);
+
+    DB::table('company_user')->insert([
+        [
+            'company_id' => $activeCompany->id,
+            'user_id' => $user->id,
+            'status' => 'inactive',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+        [
+            'company_id' => $inactiveCompany->id,
+            'user_id' => $user->id,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+    ]);
+
+    $this->post('/organization/companies/switch', [
+        'company_id' => $activeCompany->id,
+    ])->assertForbidden();
+
+    $this->post('/organization/companies/switch', [
+        'company_id' => $inactiveCompany->id,
+    ])->assertForbidden();
 });
 
 test('guest is redirected to login when opening a pushed announcement', function () {
