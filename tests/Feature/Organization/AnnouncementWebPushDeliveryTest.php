@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Notifications\AnnouncementWebPushNotification;
 use App\Support\Announcements\Actions\RefreshAnnouncementDeliveryStatus;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 
@@ -61,7 +62,7 @@ function makeWebPushAnnouncementFixtures(): array
     return ['user' => $user, 'company' => $company];
 }
 
-test('publishing an in-app announcement queues in-app and web push jobs without a push delivery row', function () {
+test('publishing an in-app announcement queues in-app and web push jobs after commit without a push delivery row', function () {
     Queue::fake();
     ['user' => $user, 'company' => $company] = makeWebPushAnnouncementFixtures();
     $this->actingAs($user);
@@ -103,8 +104,8 @@ test('publishing an in-app announcement queues in-app and web push jobs without 
     expect(AnnouncementDelivery::query()->count())->toBe(1)
         ->and(AnnouncementDelivery::query()->first()?->channel)->toBe(AnnouncementChannel::InApp);
 
-    Queue::assertPushed(DeliverAnnouncementInAppJob::class);
-    Queue::assertPushed(DeliverAnnouncementWebPushJob::class);
+    Queue::assertPushed(DeliverAnnouncementInAppJob::class, fn ($job) => $job->afterCommit === true);
+    Queue::assertPushed(DeliverAnnouncementWebPushJob::class, fn ($job) => $job->afterCommit === true);
 });
 
 test('email-only announcement does not queue web push', function () {
@@ -236,14 +237,15 @@ test('user without push subscriptions still receives successful in-app delivery'
         ->and($announcement->fresh()->status)->toBe(AnnouncementStatus::Published);
 });
 
-test('push failure does not mark in-app delivery failed or announcement partially delivered', function () {
+test('push transport failure is rethrown for retries without affecting announcement status or leaking endpoints', function () {
     ['user' => $user, 'company' => $company] = makeWebPushAnnouncementFixtures();
     $employeeUser = User::factory()->create();
+    $endpoint = 'https://fcm.googleapis.com/fcm/send/failing-endpoint-secret';
     $employeeUser->updatePushSubscription(
-        'https://push.example.test/failing',
+        $endpoint,
         'BNcRnejnsCWcu6BCNCiCyiQoXKnAJkOjvgBgzEUrvsSMesTXHsYELfY35xZjFcRp27YWPBMBcIvP1uvxS9Xn1gE',
         'tBHItJI5svbpez7KI4CCXg',
-        'aesgcm',
+        'aes128gcm',
     );
 
     $employee = Employee::factory()->forCompany($company)->create([
@@ -285,9 +287,24 @@ test('push failure does not mark in-app delivery failed or announcement partiall
 
     Notification::shouldReceive('send')
         ->once()
-        ->andThrow(new RuntimeException('push boom'));
+        ->andThrow(new RuntimeException('push boom containing '.$endpoint));
 
-    (new DeliverAnnouncementWebPushJob($recipient->id))->handle();
+    Log::shouldReceive('warning')
+        ->once()
+        ->withArgs(function (string $message, array $context) use ($endpoint): bool {
+            $encoded = json_encode($context) ?: '';
+
+            return $message === 'Announcement web push delivery failed'
+                && ($context['failure_category'] ?? null) === 'web_push_transport'
+                && ($context['exception_class'] ?? null) === RuntimeException::class
+                && ! array_key_exists('exception', $context)
+                && ! str_contains($encoded, $endpoint)
+                && ! str_contains($encoded, 'push boom');
+        })
+        ->andReturnNull();
+
+    expect(fn () => (new DeliverAnnouncementWebPushJob($recipient->id))->handle())
+        ->toThrow(RuntimeException::class);
 
     expect($delivery->fresh()->status)->toBe(AnnouncementDeliveryStatus::Sent)
         ->and($announcement->fresh()->status)->toBe(AnnouncementStatus::Published);
@@ -299,16 +316,16 @@ test('web push job notifies all subscriptions for the recipient user', function 
     ['user' => $user, 'company' => $company] = makeWebPushAnnouncementFixtures();
     $employeeUser = User::factory()->create();
     $employeeUser->updatePushSubscription(
-        'https://push.example.test/device-1',
+        'https://fcm.googleapis.com/fcm/send/device-1',
         'BNcRnejnsCWcu6BCNCiCyiQoXKnAJkOjvgBgzEUrvsSMesTXHsYELfY35xZjFcRp27YWPBMBcIvP1uvxS9Xn1gE',
         'tBHItJI5svbpez7KI4CCXg',
-        'aesgcm',
+        'aes128gcm',
     );
     $employeeUser->updatePushSubscription(
-        'https://push.example.test/device-2',
+        'https://fcm.googleapis.com/fcm/send/device-2',
         'BNcRnejnsCWcu6BCNCiCyiQoXKnAJkOjvgBgzEUrvsSMesTXHsYELfY35xZjFcRp27YWPBMBcIvP1uvxS9Xn1gE',
         'tBHItJI5svbpez7KI4CCXg',
-        'aesgcm',
+        'aes128gcm',
     );
 
     $employee = Employee::factory()->forCompany($company)->create([
@@ -382,5 +399,22 @@ test('scheduled publishing queues web push when in-app is selected', function ()
     $this->artisan('announcements:publish-scheduled')
         ->assertSuccessful();
 
-    Queue::assertPushed(DeliverAnnouncementWebPushJob::class);
+    Queue::assertPushed(DeliverAnnouncementWebPushJob::class, fn ($job) => $job->afterCommit === true);
+});
+
+test('after commit callbacks do not run when the surrounding transaction rolls back', function () {
+    $executed = false;
+
+    try {
+        DB::transaction(function () use (&$executed): void {
+            DB::afterCommit(function () use (&$executed): void {
+                $executed = true;
+            });
+
+            throw new RuntimeException('force rollback');
+        });
+    } catch (RuntimeException) {
+    }
+
+    expect($executed)->toBeFalse();
 });

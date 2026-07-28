@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
+use App\Rules\ValidWebPushEndpoint;
+use App\Support\Notifications\SyncPushSubscription;
+use Illuminate\Support\Facades\Validator;
 use NotificationChannels\WebPush\PushSubscription;
 
 /**
@@ -10,13 +12,23 @@ use NotificationChannels\WebPush\PushSubscription;
 function samplePushPayload(string $suffix = 'a'): array
 {
     return [
-        'endpoint' => "https://push.example.test/endpoint-{$suffix}",
+        'endpoint' => "https://fcm.googleapis.com/fcm/send/oms-hrm-{$suffix}",
         'keys' => [
             'p256dh' => 'BNcRnejnsCWcu6BCNCiCyiQoXKnAJkOjvgBgzEUrvsSMesTXHsYELfY35xZjFcRp27YWPBMBcIvP1uvxS9Xn1gE',
             'auth' => 'tBHItJI5svbpez7KI4CCXg',
         ],
-        'contentEncoding' => 'aesgcm',
+        'contentEncoding' => 'aes128gcm',
     ];
+}
+
+function assertEndpointRejected(string $endpoint): void
+{
+    $validator = Validator::make(
+        ['endpoint' => $endpoint],
+        ['endpoint' => [new ValidWebPushEndpoint]],
+    );
+
+    expect($validator->fails())->toBeTrue();
 }
 
 test('guest cannot register a push subscription', function () {
@@ -24,7 +36,7 @@ test('guest cannot register a push subscription', function () {
         ->assertUnauthorized();
 });
 
-test('authenticated user can register a push subscription', function () {
+test('authenticated user can register a valid https push subscription', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
@@ -37,41 +49,67 @@ test('authenticated user can register a push subscription', function () {
         ->assertJsonMissingPath('endpoint')
         ->assertJsonMissingPath('keys');
 
-    expect($user->pushSubscriptions()->count())->toBe(1);
+    expect($user->pushSubscriptions()->count())->toBe(1)
+        ->and($user->pushSubscriptions()->first()?->content_encoding?->value)->toBe('aes128gcm');
 });
 
-test('client supplied user_id and company_id are ignored when storing subscriptions', function () {
-    $owner = User::factory()->create();
-    $other = User::factory()->create();
+test('http localhost ip literal credential and malformed endpoints are rejected', function () {
+    assertEndpointRejected('http://fcm.googleapis.com/fcm/send/x');
+    assertEndpointRejected('https://localhost/push');
+    assertEndpointRejected('https://foo.localhost/push');
+    assertEndpointRejected('https://127.0.0.1/push');
+    assertEndpointRejected('https://[::1]/push');
+    assertEndpointRejected('https://10.0.0.5/push');
+    assertEndpointRejected('https://169.254.10.1/push');
+    assertEndpointRejected('https://user:pass@fcm.googleapis.com/fcm/send/x');
+    assertEndpointRejected('https://fcm.googleapis.com/fcm/send/x#fragment');
+    assertEndpointRejected('not-a-url');
+});
 
+test('ownership fields are prohibited on store and destroy', function () {
+    $user = User::factory()->create();
     $payload = samplePushPayload('owned');
-    $payload['user_id'] = $other->id;
+    $payload['user_id'] = 999;
     $payload['company_id'] = 999;
+    $payload['subscribable_id'] = 999;
+    $payload['subscribable_type'] = User::class;
 
-    $this->actingAs($owner)
+    $this->actingAs($user)
         ->postJson('/notification-settings/push-subscription', $payload)
-        ->assertOk();
+        ->assertUnprocessable();
 
-    $subscription = PushSubscription::query()->first();
-
-    expect($subscription)->not->toBeNull()
-        ->and((int) $subscription->subscribable_id)->toBe($owner->id)
-        ->and($subscription->subscribable_type)->toBe($owner->getMorphClass())
-        ->and(DB::table('push_subscriptions')->where('subscribable_id', $other->id)->count())->toBe(0);
+    $this->actingAs($user)
+        ->deleteJson('/notification-settings/push-subscription', [
+            'endpoint' => samplePushPayload('owned')['endpoint'],
+            'user_id' => 999,
+        ])
+        ->assertUnprocessable();
 });
 
-test('one user can own multiple device subscriptions', function () {
+test('one user can own multiple device subscriptions up to the limit', function () {
     $user = User::factory()->create();
 
-    $this->actingAs($user)
-        ->postJson('/notification-settings/push-subscription', samplePushPayload('desktop'))
-        ->assertOk();
+    foreach (range(1, SyncPushSubscription::MAX_SUBSCRIPTIONS_PER_USER) as $index) {
+        $this->actingAs($user)
+            ->postJson('/notification-settings/push-subscription', samplePushPayload("device-{$index}"))
+            ->assertOk();
+    }
+
+    expect($user->pushSubscriptions()->count())->toBe(SyncPushSubscription::MAX_SUBSCRIPTIONS_PER_USER);
 
     $this->actingAs($user)
-        ->postJson('/notification-settings/push-subscription', samplePushPayload('mobile'))
+        ->postJson('/notification-settings/push-subscription', samplePushPayload('device-11'))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['endpoint']);
+
+    $atLimit = samplePushPayload('device-1');
+    $atLimit['keys']['auth'] = 'updatedAuthTokenValue12';
+
+    $this->actingAs($user)
+        ->postJson('/notification-settings/push-subscription', $atLimit)
         ->assertOk();
 
-    expect($user->pushSubscriptions()->count())->toBe(2);
+    expect($user->fresh()->pushSubscriptions()->count())->toBe(SyncPushSubscription::MAX_SUBSCRIPTIONS_PER_USER);
 });
 
 test('re-registering the same endpoint updates rather than duplicates it', function () {
@@ -128,18 +166,33 @@ test('a user cannot delete another users unrelated subscription', function () {
     expect($owner->fresh()->pushSubscriptions()->count())->toBe(1);
 });
 
-test('invalid endpoint or missing encryption keys are rejected', function () {
+test('invalid encryption keys are rejected', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
         ->postJson('/notification-settings/push-subscription', [
-            'endpoint' => 'not-a-url',
+            'endpoint' => samplePushPayload('bad-keys')['endpoint'],
             'keys' => [
-                'p256dh' => '',
-                'auth' => '',
+                'p256dh' => 'short',
+                'auth' => 'x',
             ],
         ])
         ->assertUnprocessable();
+});
+
+test('subscription routes are throttled', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user);
+
+    for ($i = 0; $i < 20; $i++) {
+        $this->postJson('/notification-settings/push-subscription', samplePushPayload("throttle-{$i}"))
+            ->assertOk();
+        $user->pushSubscriptions()->delete();
+    }
+
+    $this->postJson('/notification-settings/push-subscription', samplePushPayload('throttle-over'))
+        ->assertStatus(429);
 });
 
 test('authenticated user can detach their own subscription endpoint', function () {

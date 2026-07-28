@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { useWebPushSubscription } from '@/hooks/use-web-push-subscription';
 import type { WebPushStatus } from '@/hooks/use-web-push-subscription';
+import { useWebPushContext } from '@/hooks/use-web-push-subscription';
 
 function statusLabel(status: WebPushStatus): string {
     switch (status) {
@@ -23,7 +23,7 @@ function statusLabel(status: WebPushStatus): string {
 
 export function WebPushNotificationControl() {
     const { status, errorMessage, enable, disable, serverConfigured } =
-        useWebPushSubscription();
+        useWebPushContext();
 
     if (!serverConfigured && status === 'unsupported') {
         return null;

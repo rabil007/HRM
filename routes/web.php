@@ -225,8 +225,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::post('notification-settings/push-subscription', StorePushSubscriptionController::class)
+        ->middleware('throttle:20,1')
         ->name('notification-settings.push-subscription.store');
     Route::delete('notification-settings/push-subscription', DestroyPushSubscriptionController::class)
+        ->middleware('throttle:20,1')
         ->name('notification-settings.push-subscription.destroy');
     Route::get('notifications/announcements/{recipient}/open', OpenAnnouncementNotificationController::class)
         ->name('notifications.announcements.open');

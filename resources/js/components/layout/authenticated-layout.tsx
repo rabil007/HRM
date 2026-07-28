@@ -3,6 +3,7 @@ import { SkipToMain } from '@/components/skip-to-main';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { LayoutProvider } from '@/context/layout-provider';
 import { SearchProvider } from '@/context/search-provider';
+import { WebPushProvider } from '@/context/web-push-provider';
 import { useSidebarDefaultOpen } from '@/hooks/use-application-branding';
 import { cn } from '@/lib/utils';
 
@@ -16,19 +17,21 @@ export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
     return (
         <SearchProvider>
             <LayoutProvider>
-                <SidebarProvider defaultOpen={defaultOpen}>
-                    <SkipToMain />
-                    <AppSidebar />
-                    <SidebarInset
-                        className={cn(
-                            '@container/content',
-                            'has-data-[layout=fixed]:h-svh',
-                            'peer-data-[variant=inset]:has-data-[layout=fixed]:h-[calc(100svh-(var(--spacing)*4))]',
-                        )}
-                    >
-                        {children}
-                    </SidebarInset>
-                </SidebarProvider>
+                <WebPushProvider>
+                    <SidebarProvider defaultOpen={defaultOpen}>
+                        <SkipToMain />
+                        <AppSidebar />
+                        <SidebarInset
+                            className={cn(
+                                '@container/content',
+                                'has-data-[layout=fixed]:h-svh',
+                                'peer-data-[variant=inset]:has-data-[layout=fixed]:h-[calc(100svh-(var(--spacing)*4))]',
+                            )}
+                        >
+                            {children}
+                        </SidebarInset>
+                    </SidebarProvider>
+                </WebPushProvider>
             </LayoutProvider>
         </SearchProvider>
     );

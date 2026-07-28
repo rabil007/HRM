@@ -43,4 +43,10 @@ return [
      */
     'automatic_padding' => env('WEBPUSH_AUTOMATIC_PADDING', true),
 
+    /**
+     * When true, push subscription endpoints must resolve to public addresses.
+     * Disabled in automated tests that cannot rely on live DNS.
+     */
+    'validate_endpoint_dns' => env('WEBPUSH_VALIDATE_ENDPOINT_DNS', true),
+
 ];

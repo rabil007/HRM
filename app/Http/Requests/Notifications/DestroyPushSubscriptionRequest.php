@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Notifications;
 
+use App\Rules\ValidWebPushEndpoint;
 use Illuminate\Foundation\Http\FormRequest;
 
 class DestroyPushSubscriptionRequest extends FormRequest
@@ -17,7 +18,11 @@ class DestroyPushSubscriptionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'endpoint' => ['required', 'string', 'url', 'max:500'],
+            'endpoint' => ['required', 'string', 'max:500', new ValidWebPushEndpoint],
+            'user_id' => ['prohibited'],
+            'company_id' => ['prohibited'],
+            'subscribable_id' => ['prohibited'],
+            'subscribable_type' => ['prohibited'],
         ];
     }
 }

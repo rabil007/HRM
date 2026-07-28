@@ -130,20 +130,14 @@ final class PublishAnnouncement
 
             foreach ($deliveryIds as [$channel, $deliveryId]) {
                 match ($channel) {
-                    AnnouncementChannel::InApp => DeliverAnnouncementInAppJob::dispatch($deliveryId),
-                    AnnouncementChannel::Email => DeliverAnnouncementEmailJob::dispatch($deliveryId),
-                    AnnouncementChannel::WhatsApp => DeliverAnnouncementWhatsAppJob::dispatch($deliveryId),
+                    AnnouncementChannel::InApp => DeliverAnnouncementInAppJob::dispatch($deliveryId)->afterCommit(),
+                    AnnouncementChannel::Email => DeliverAnnouncementEmailJob::dispatch($deliveryId)->afterCommit(),
+                    AnnouncementChannel::WhatsApp => DeliverAnnouncementWhatsAppJob::dispatch($deliveryId)->afterCommit(),
                 };
             }
 
             foreach ($webPushRecipientIds as $recipientId) {
-                $pending = DeliverAnnouncementWebPushJob::dispatch($recipientId);
-
-                // RefreshDatabase wraps feature tests in a transaction, so afterCommit
-                // would never flush during assertions. Production still waits for commit.
-                if (! app()->runningUnitTests()) {
-                    $pending->afterCommit();
-                }
+                DeliverAnnouncementWebPushJob::dispatch($recipientId)->afterCommit();
             }
 
             return $locked->fresh(['audiences', 'attachments', 'recipients.deliveries', 'creator', 'publisher']) ?? $locked;
