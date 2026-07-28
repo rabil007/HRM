@@ -9,6 +9,7 @@ import {
 } from 'react';
 import DestroyPushSubscriptionController from '@/actions/App/Http/Controllers/Notifications/DestroyPushSubscriptionController';
 import StorePushSubscriptionController from '@/actions/App/Http/Controllers/Notifications/StorePushSubscriptionController';
+import TestPushSubscriptionController from '@/actions/App/Http/Controllers/Notifications/TestPushSubscriptionController';
 
 export type WebPushStatus =
     | 'unsupported'
@@ -18,6 +19,8 @@ export type WebPushStatus =
     | 'enabled'
     | 'denied'
     | 'error';
+
+export type WebPushTestStatus = 'idle' | 'sending' | 'success' | 'error';
 
 type WebPushSharedProps = {
     web_push?: {
@@ -36,6 +39,9 @@ type WebPushContextValue = {
     disable: () => Promise<void>;
     detachBeforeLogout: () => Promise<void>;
     refreshStatus: () => Promise<void>;
+    sendTest: () => Promise<void>;
+    testStatus: WebPushTestStatus;
+    testMessage: string | null;
     serverConfigured: boolean;
 };
 
@@ -103,6 +109,56 @@ async function resolvePushServiceWorkerRegistration(): Promise<ServiceWorkerRegi
     }
 }
 
+function readHttpErrorPayload(error: unknown): {
+    status?: number;
+    message?: string;
+    expired?: boolean;
+} {
+    if (
+        !error ||
+        typeof error !== 'object' ||
+        !('response' in error) ||
+        !error.response ||
+        typeof error.response !== 'object'
+    ) {
+        return {};
+    }
+
+    const response = error.response as {
+        status?: number;
+        data?: unknown;
+    };
+
+    let message: string | undefined;
+    let expired: boolean | undefined;
+
+    if (typeof response.data === 'string') {
+        try {
+            const parsed = JSON.parse(response.data) as {
+                message?: string;
+                expired?: boolean;
+            };
+            message = parsed.message;
+            expired = parsed.expired;
+        } catch {
+            // Ignore non-JSON error bodies.
+        }
+    } else if (response.data && typeof response.data === 'object') {
+        const parsed = response.data as {
+            message?: string;
+            expired?: boolean;
+        };
+        message = parsed.message;
+        expired = parsed.expired;
+    }
+
+    return {
+        status: response.status,
+        message,
+        expired,
+    };
+}
+
 function useWebPushSubscriptionState(): WebPushContextValue {
     const page = usePage<WebPushSharedProps>();
     const http = useHttp();
@@ -124,6 +180,8 @@ function useWebPushSubscriptionState(): WebPushContextValue {
         return 'not_enabled';
     });
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [testStatus, setTestStatus] = useState<WebPushTestStatus>('idle');
+    const [testMessage, setTestMessage] = useState<string | null>(null);
 
     const syncSubscriptionToServer = useCallback(
         async (subscription: PushSubscription) => {
@@ -321,6 +379,96 @@ function useWebPushSubscriptionState(): WebPushContextValue {
         }
     }, [http, userId]);
 
+    const sendTest = useCallback(async () => {
+        if (testStatus === 'sending') {
+            return;
+        }
+
+        setTestMessage(null);
+        setTestStatus('sending');
+
+        if (!browserSupportsWebPush() || !serverConfigured || !userId) {
+            setTestStatus('error');
+            setTestMessage('The test notification could not be sent.');
+
+            return;
+        }
+
+        if (Notification.permission !== 'granted') {
+            setStatus(
+                Notification.permission === 'denied' ? 'denied' : 'not_enabled',
+            );
+            setTestStatus('error');
+            setTestMessage(
+                'This browser is no longer subscribed. Enable notifications again.',
+            );
+
+            return;
+        }
+
+        try {
+            const registration = await resolvePushServiceWorkerRegistration();
+
+            if (!registration) {
+                setTestStatus('error');
+                setTestMessage('The test notification could not be sent.');
+
+                return;
+            }
+
+            const subscription =
+                await registration.pushManager.getSubscription();
+
+            if (!subscription) {
+                setStatus('not_enabled');
+                setTestStatus('error');
+                setTestMessage(
+                    'This browser is no longer subscribed. Enable notifications again.',
+                );
+
+                return;
+            }
+
+            http.setData({
+                endpoint: subscription.endpoint,
+            });
+
+            await http.post(TestPushSubscriptionController.url());
+
+            setTestStatus('success');
+            setTestMessage(
+                'Test notification sent. Check your browser notifications.',
+            );
+        } catch (error: unknown) {
+            const payload = readHttpErrorPayload(error);
+
+            if (payload.status === 429) {
+                setTestStatus('error');
+                setTestMessage(
+                    'Too many test requests. Please wait a moment and try again.',
+                );
+
+                return;
+            }
+
+            if (payload.expired || payload.status === 404) {
+                setStatus('not_enabled');
+                setTestStatus('error');
+                setTestMessage(
+                    payload.message ??
+                        'This browser is no longer subscribed. Enable notifications again.',
+                );
+
+                return;
+            }
+
+            setTestStatus('error');
+            setTestMessage(
+                payload.message ?? 'The test notification could not be sent.',
+            );
+        }
+    }, [http, serverConfigured, testStatus, userId]);
+
     return useMemo(
         () => ({
             status,
@@ -329,6 +477,9 @@ function useWebPushSubscriptionState(): WebPushContextValue {
             disable,
             detachBeforeLogout,
             refreshStatus,
+            sendTest,
+            testStatus,
+            testMessage,
             serverConfigured,
         }),
         [
@@ -338,6 +489,9 @@ function useWebPushSubscriptionState(): WebPushContextValue {
             disable,
             detachBeforeLogout,
             refreshStatus,
+            sendTest,
+            testStatus,
+            testMessage,
             serverConfigured,
         ],
     );

@@ -14,6 +14,7 @@ use App\Http\Controllers\JobRunController;
 use App\Http\Controllers\Notifications\DestroyPushSubscriptionController;
 use App\Http\Controllers\Notifications\OpenAnnouncementNotificationController;
 use App\Http\Controllers\Notifications\StorePushSubscriptionController;
+use App\Http\Controllers\Notifications\TestPushSubscriptionController;
 use App\Http\Controllers\Organization\ActivityLogController;
 use App\Http\Controllers\Organization\Announcements\AnnouncementAttachmentController;
 use App\Http\Controllers\Organization\Announcements\AnnouncementController;
@@ -227,6 +228,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('notification-settings/push-subscription', StorePushSubscriptionController::class)
         ->middleware('throttle:20,1')
         ->name('notification-settings.push-subscription.store');
+    Route::post('notification-settings/push-subscription/test', TestPushSubscriptionController::class)
+        ->middleware('throttle:5,1')
+        ->name('notification-settings.push-subscription.test');
     Route::delete('notification-settings/push-subscription', DestroyPushSubscriptionController::class)
         ->middleware('throttle:20,1')
         ->name('notification-settings.push-subscription.destroy');

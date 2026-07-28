@@ -22,8 +22,16 @@ function statusLabel(status: WebPushStatus): string {
 }
 
 export function WebPushNotificationControl() {
-    const { status, errorMessage, enable, disable, serverConfigured } =
-        useWebPushContext();
+    const {
+        status,
+        errorMessage,
+        enable,
+        disable,
+        sendTest,
+        testStatus,
+        testMessage,
+        serverConfigured,
+    } = useWebPushContext();
 
     if (!serverConfigured && status === 'unsupported') {
         return null;
@@ -37,18 +45,46 @@ export function WebPushNotificationControl() {
             {errorMessage ? (
                 <p className="text-xs text-destructive">{errorMessage}</p>
             ) : null}
-            {status === 'enabled' ? (
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                        void disable();
-                    }}
+            {testMessage ? (
+                <p
+                    className={
+                        testStatus === 'error'
+                            ? 'text-xs text-destructive'
+                            : 'text-xs text-muted-foreground'
+                    }
                 >
-                    Disable browser notifications
-                </Button>
+                    {testMessage}
+                </p>
+            ) : null}
+            {status === 'enabled' ? (
+                <div className="space-y-2">
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="w-full"
+                        disabled={testStatus === 'sending'}
+                        onClick={() => {
+                            void sendTest();
+                        }}
+                    >
+                        {testStatus === 'sending'
+                            ? 'Sending test…'
+                            : 'Send test notification'}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        disabled={testStatus === 'sending'}
+                        onClick={() => {
+                            void disable();
+                        }}
+                    >
+                        Disable browser notifications
+                    </Button>
+                </div>
             ) : null}
             {status === 'not_enabled' || status === 'error' ? (
                 <Button

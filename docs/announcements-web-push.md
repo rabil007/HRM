@@ -37,6 +37,17 @@ If permission is already granted, the current browser subscription is synchronis
 
 A single `WebPushProvider` in the authenticated layout owns that synchronisation. The bell control and both sign-out dialogs consume the shared context so only one sync POST runs on page load.
 
+When browser notifications are enabled for the current device, the bell control also shows **Send test notification**. That action:
+
+- Targets **only the current browser/device subscription** (endpoint from `pushManager.getSubscription()`)
+- Queues a focused test push job (`SendTestWebPushJob`)
+- Never creates an announcement, recipient, delivery row, or inbox bell item
+- Never sends email or WhatsApp
+- Never notifies the user’s other devices
+- Is rate-limited (`throttle:5,1`)
+
+The UI reports that the test was queued/requested; delivery still depends on a running queue worker and the browser push provider.
+
 ## Subscription ownership and limits
 
 - Subscriptions belong to the authenticated `User`, not a company.
@@ -126,6 +137,9 @@ Notes:
 - Publish trigger: `app/Support/Announcements/Actions/PublishAnnouncement.php`
 - Push job: `app/Jobs/DeliverAnnouncementWebPushJob.php`
 - Notification: `app/Notifications/AnnouncementWebPushNotification.php`
+- Test push controller: `app/Http/Controllers/Notifications/TestPushSubscriptionController.php`
+- Test push job: `app/Jobs/SendTestWebPushJob.php`
+- Test notification: `app/Notifications/TestWebPushNotification.php`
 - Endpoint rule: `app/Rules/ValidWebPushEndpoint.php`
 - Service Worker handlers: `public/service-worker.js` (imported by VitePWA)
 - Frontend provider: `resources/js/context/web-push-provider.tsx`
