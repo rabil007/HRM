@@ -13,6 +13,7 @@ use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\JobRunController;
 use App\Http\Controllers\Notifications\DestroyPushSubscriptionController;
 use App\Http\Controllers\Notifications\OpenAnnouncementNotificationController;
+use App\Http\Controllers\Notifications\OpenDocumentComplianceNotificationController;
 use App\Http\Controllers\Notifications\StorePushSubscriptionController;
 use App\Http\Controllers\Notifications\TestPushSubscriptionController;
 use App\Http\Controllers\Organization\ActivityLogController;
@@ -240,6 +241,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('notification-settings.push-subscription.destroy');
     Route::get('notifications/announcements/{recipient}/open', OpenAnnouncementNotificationController::class)
         ->name('notifications.announcements.open');
+    Route::get('notifications/documents/compliance/{company}/open', OpenDocumentComplianceNotificationController::class)
+        ->name('notifications.documents.compliance.open');
     Route::get('organization/companies', [CompanyController::class, 'index'])->middleware('can:companies.view')->name('organization.companies');
     Route::get('organization/companies/export', [CompanyController::class, 'export'])->middleware('can:companies.export')->name('organization.companies.export');
     Route::get('organization/companies/{company}/documents', [CompanyDocumentController::class, 'index'])->name('organization.companies.documents.index');
