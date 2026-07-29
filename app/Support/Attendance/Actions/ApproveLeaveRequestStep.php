@@ -6,6 +6,7 @@ use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
 use App\Models\User;
+use App\Support\Attendance\AssertLeaveApprovalWorkflowInvariant;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestVisibility;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,7 @@ final class ApproveLeaveRequestStep
     public function __construct(
         private LeaveBalanceManager $leaveBalances,
         private LeaveRequestVisibility $visibility,
+        private AssertLeaveApprovalWorkflowInvariant $assertInvariant,
         private SendLeaveRequestApproverActionRequiredEmail $sendActionRequiredEmail,
         private SendLeaveRequestDecidedEmail $sendDecidedEmail,
     ) {}
@@ -55,30 +57,7 @@ final class ApproveLeaveRequestStep
                 ->lockForUpdate()
                 ->get();
 
-            $pendingSteps = $allApprovals->filter(
-                function (LeaveRequestApproval $approval): bool {
-                    $status = $approval->status instanceof LeaveRequestApprovalStatus
-                        ? $approval->status
-                        : LeaveRequestApprovalStatus::tryFrom((string) $approval->status);
-
-                    return $status === LeaveRequestApprovalStatus::Pending;
-                },
-            )->values();
-
-            if ($pendingSteps->count() !== 1) {
-                throw ValidationException::withMessages([
-                    'leave_request' => 'This leave request has a corrupted approval workflow (expected exactly one pending step). Contact an administrator.',
-                ]);
-            }
-
-            /** @var LeaveRequestApproval $pendingStep */
-            $pendingStep = $pendingSteps->first();
-
-            if ((int) $pendingStep->approver_user_id !== (int) $actor->id) {
-                throw ValidationException::withMessages([
-                    'leave_request' => 'There is no pending approval step assigned to you for this leave request.',
-                ]);
-            }
+            $pendingStep = $this->assertInvariant->forPendingRequest($leaveRequest, $allApprovals, $actor);
 
             $pendingStep->forceFill([
                 'status' => LeaveRequestApprovalStatus::Approved,
@@ -99,14 +78,20 @@ final class ApproveLeaveRequestStep
                     'cancellation_reason' => null,
                 ])->save();
 
+                $fresh = $leaveRequest->fresh(['approvals', 'employee', 'leaveType', 'company']) ?? $leaveRequest;
+                $this->assertInvariant->forTerminalRequest($fresh, $fresh->approvals);
+
                 return [
-                    'leave_request' => $leaveRequest->fresh(['approvals', 'employee', 'leaveType', 'company']) ?? $leaveRequest,
+                    'leave_request' => $fresh,
                     'notify' => 'decided',
                 ];
             }
 
+            $fresh = $leaveRequest->fresh(['approvals', 'employee', 'leaveType', 'company']) ?? $leaveRequest;
+            $this->assertInvariant->forPendingRequest($fresh, $fresh->approvals);
+
             return [
-                'leave_request' => $leaveRequest->fresh(['approvals', 'employee', 'leaveType', 'company']) ?? $leaveRequest,
+                'leave_request' => $fresh,
                 'notify' => 'next',
                 'next_step_id' => $nextPending->id,
             ];

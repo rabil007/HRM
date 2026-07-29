@@ -10,6 +10,7 @@ use App\Http\Requests\Attendance\UpdateLeaveApprovalPolicyStatusRequest;
 use App\Models\Company;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\LeaveApprovalPolicyStep;
+use App\Models\LeaveRequestApproval;
 use App\Support\Attendance\Actions\SyncLeaveApprovalPolicySteps;
 use App\Support\Attendance\Actions\UpdateLeaveApprovalPolicyState;
 use App\Support\Attendance\PresentLeaveApproverOption;
@@ -53,6 +54,43 @@ class LeaveApprovalPolicyController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
+        $policyIds = $paginator->getCollection()->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $stepIds = $paginator->getCollection()
+            ->flatMap(fn (LeaveApprovalPolicy $policy) => $policy->steps->pluck('id'))
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $unsafePolicyIds = [];
+        if ($policyIds !== []) {
+            $byPolicyId = LeaveRequestApproval::query()
+                ->where('company_id', $companyId)
+                ->whereIn('policy_id', $policyIds)
+                ->distinct()
+                ->pluck('policy_id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+
+            $byStepPolicyId = $stepIds === []
+                ? []
+                : LeaveRequestApproval::query()
+                    ->where('company_id', $companyId)
+                    ->whereIn('policy_step_id', $stepIds)
+                    ->with('policyStep:id,leave_approval_policy_id')
+                    ->get()
+                    ->map(fn (LeaveRequestApproval $approval): ?int => $approval->policyStep?->leave_approval_policy_id !== null
+                        ? (int) $approval->policyStep->leave_approval_policy_id
+                        : null)
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+
+            $unsafePolicyIds = array_values(array_unique([...$byPolicyId, ...$byStepPolicyId]));
+        }
+        $unsafePolicySet = array_fill_keys($unsafePolicyIds, true);
+
         $selectedEmployeeIds = $paginator->getCollection()
             ->flatMap(fn (LeaveApprovalPolicy $policy) => $policy->steps->pluck('approver_employee_id'))
             ->filter()
@@ -61,7 +99,9 @@ class LeaveApprovalPolicyController extends Controller
             ->values()
             ->all();
 
-        $policies = $paginator->through(fn (LeaveApprovalPolicy $policy) => $this->serializePolicy($policy));
+        $policies = $paginator->through(
+            fn (LeaveApprovalPolicy $policy) => $this->serializePolicy($policy, $unsafePolicySet),
+        );
 
         return Inertia::render('attendance/leave-approval-policies', [
             'policies' => $policies->items(),
@@ -182,59 +222,6 @@ class LeaveApprovalPolicyController extends Controller
             ->with('success', 'Company default leave approval policy updated.');
     }
 
-    public function moveStep(Request $request, LeaveApprovalPolicy $leaveApprovalPolicy, LeaveApprovalPolicyStep $step): RedirectResponse
-    {
-        $companyId = (int) $request->attributes->get('current_company_id');
-        abort_unless((int) $leaveApprovalPolicy->company_id === $companyId, 404);
-        abort_unless((int) $step->company_id === $companyId, 404);
-        abort_unless((int) $step->leave_approval_policy_id === (int) $leaveApprovalPolicy->id, 404);
-
-        $direction = (string) $request->input('direction', '');
-
-        if (! in_array($direction, ['up', 'down'], true)) {
-            throw ValidationException::withMessages([
-                'direction' => 'Direction must be up or down.',
-            ]);
-        }
-
-        DB::transaction(function () use ($leaveApprovalPolicy, $step, $direction, $companyId): void {
-            $steps = LeaveApprovalPolicyStep::query()
-                ->where('company_id', $companyId)
-                ->where('leave_approval_policy_id', $leaveApprovalPolicy->id)
-                ->orderBy('sequence')
-                ->lockForUpdate()
-                ->get();
-
-            $index = $steps->search(fn (LeaveApprovalPolicyStep $item) => (int) $item->id === (int) $step->id);
-
-            if ($index === false) {
-                abort(404);
-            }
-
-            $swapWith = $direction === 'up' ? $index - 1 : $index + 1;
-
-            if ($swapWith < 0 || $swapWith >= $steps->count()) {
-                return;
-            }
-
-            /** @var LeaveApprovalPolicyStep $current */
-            $current = $steps[$index];
-            /** @var LeaveApprovalPolicyStep $neighbor */
-            $neighbor = $steps[$swapWith];
-
-            $currentSequence = (int) $current->sequence;
-            $neighborSequence = (int) $neighbor->sequence;
-
-            $current->forceFill(['sequence' => 0])->save();
-            $neighbor->forceFill(['sequence' => $currentSequence])->save();
-            $current->forceFill(['sequence' => $neighborSequence])->save();
-        });
-
-        return redirect()
-            ->route('attendance.leave-approval-policies.index')
-            ->with('success', 'Approval step order updated.');
-    }
-
     public function destroy(LeaveApprovalPolicy $leaveApprovalPolicy): RedirectResponse
     {
         $companyId = (int) request()->attributes->get('current_company_id');
@@ -279,19 +266,23 @@ class LeaveApprovalPolicyController extends Controller
     }
 
     /**
+     * @param  array<int, true>  $unsafePolicySet
      * @return array<string, mixed>
      */
-    private function serializePolicy(LeaveApprovalPolicy $policy): array
+    private function serializePolicy(LeaveApprovalPolicy $policy, array $unsafePolicySet = []): array
     {
         $user = request()->user();
         $canUpdate = $user?->can('attendance.leave-approval-policies.update') ?? false;
         $canDeletePermission = $user?->can('attendance.leave-approval-policies.delete') ?? false;
         $deleteBlockedReason = null;
+        $departmentsCount = (int) ($policy->departments_count ?? 0);
 
         if ($policy->is_default) {
             $deleteBlockedReason = 'The company default leave approval policy cannot be deleted.';
-        } elseif (! $policy->isSafelyDeletable()) {
-            $deleteBlockedReason = 'This leave approval policy cannot be deleted because it is assigned to departments or used by leave request approvals.';
+        } elseif ($departmentsCount > 0) {
+            $deleteBlockedReason = 'This leave approval policy cannot be deleted because it is assigned to departments.';
+        } elseif (isset($unsafePolicySet[(int) $policy->id])) {
+            $deleteBlockedReason = 'This leave approval policy cannot be deleted because it is used by leave request approvals.';
         }
 
         return [
@@ -300,7 +291,7 @@ class LeaveApprovalPolicyController extends Controller
             'description' => $policy->description,
             'is_default' => (bool) $policy->is_default,
             'status' => $policy->status,
-            'departments_count' => $policy->departments_count ?? $policy->departments()->count(),
+            'departments_count' => $departmentsCount,
             'steps' => $policy->steps
                 ->map(fn (LeaveApprovalPolicyStep $step) => [
                     'id' => $step->id,

@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /**
@@ -247,12 +248,13 @@ test('set default switches company default policy', function () {
         ->and($second->fresh()->status)->toBe('active');
 });
 
-test('move step swaps sequence order', function () {
+test('immediate move step endpoint is removed and save persists step order', function () {
     ['user' => $user, 'company' => $company] = makeLeaveApprovalPolicyFixtures();
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, [
         'attendance.leave-approval-policies.update',
+        'attendance.leave-approval-policies.view',
     ]);
 
     $policy = LeaveApprovalPolicy::factory()
@@ -261,17 +263,40 @@ test('move step swaps sequence order', function () {
             ['type' => LeaveApprovalApproverType::DepartmentManager],
             ['type' => LeaveApprovalApproverType::HrApprover],
         ])
-        ->create();
+        ->create(['is_default' => false]);
 
     $first = $policy->steps()->where('sequence', 1)->first();
     $second = $policy->steps()->where('sequence', 2)->first();
 
     $this->put("/attendance/leave-approval-policies/{$policy->id}/steps/{$second->id}/move", [
         'direction' => 'up',
+    ])->assertNotFound();
+
+    expect(Route::has('attendance.leave-approval-policies.steps.move'))->toBeFalse();
+
+    $this->put("/attendance/leave-approval-policies/{$policy->id}", [
+        'name' => $policy->name,
+        'description' => $policy->description,
+        'status' => $policy->status,
+        'is_default' => false,
+        'steps' => [
+            [
+                'approver_type' => LeaveApprovalApproverType::HrApprover->value,
+                'approver_employee_id' => null,
+                'is_required' => true,
+            ],
+            [
+                'approver_type' => LeaveApprovalApproverType::DepartmentManager->value,
+                'approver_employee_id' => null,
+                'is_required' => true,
+            ],
+        ],
     ])->assertRedirect(route('attendance.leave-approval-policies.index'));
 
-    expect($first->fresh()->sequence)->toBe(2)
-        ->and($second->fresh()->sequence)->toBe(1);
+    $ordered = $policy->fresh()->steps()->orderBy('sequence')->get();
+    expect($ordered)->toHaveCount(2)
+        ->and($ordered[0]->approver_type->value)->toBe(LeaveApprovalApproverType::HrApprover->value)
+        ->and($ordered[1]->approver_type->value)->toBe(LeaveApprovalApproverType::DepartmentManager->value);
 });
 
 test('leave approval settings can be updated with validation warnings', function () {

@@ -30,8 +30,8 @@ trait ValidatesOverlappingLeaveRequests
             ->where('employee_id', $employeeId)
             ->whereIn('status', ['pending', 'approved'])
             ->when($excludeId !== null, fn ($query) => $query->whereKeyNot($excludeId))
-            ->whereDate('start_date', '<=', $endDate)
-            ->whereDate('end_date', '>=', $startDate);
+            ->where('start_date', '<=', $endDate.' 23:59:59')
+            ->where('end_date', '>=', $startDate.' 00:00:00');
 
         $hasOverlap = $overlapQuery->exists();
 

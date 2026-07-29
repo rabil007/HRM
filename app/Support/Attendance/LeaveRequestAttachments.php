@@ -49,7 +49,7 @@ class LeaveRequestAttachments
 
     /**
      * @param  list<array{path?: string, name?: string, size?: int, mime?: string|null}>|null  $attachments
-     * @return list<array{path: string, name: string, size: int, mime: string|null, url: string}>
+     * @return list<array{name: string, size: int, mime: string|null, url: string}>
      */
     public function serializeForFrontend(?array $attachments, int $leaveRequestId): array
     {
@@ -60,7 +60,6 @@ class LeaveRequestAttachments
         return collect($attachments)
             ->filter(fn (array $attachment) => filled($attachment['path'] ?? null))
             ->map(fn (array $attachment) => [
-                'path' => (string) $attachment['path'],
                 'name' => (string) ($attachment['name'] ?? 'Attachment'),
                 'size' => (int) ($attachment['size'] ?? 0),
                 'mime' => isset($attachment['mime']) ? (string) $attachment['mime'] : null,

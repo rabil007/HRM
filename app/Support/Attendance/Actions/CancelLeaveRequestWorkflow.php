@@ -6,6 +6,7 @@ use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
 use App\Models\User;
+use App\Support\Attendance\AssertLeaveApprovalWorkflowInvariant;
 use App\Support\Attendance\LeaveBalanceManager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -14,6 +15,7 @@ final class CancelLeaveRequestWorkflow
 {
     public function __construct(
         private LeaveBalanceManager $leaveBalances,
+        private AssertLeaveApprovalWorkflowInvariant $assertInvariant,
     ) {}
 
     public function handle(
@@ -64,7 +66,10 @@ final class CancelLeaveRequestWorkflow
                 'cancellation_reason' => $cancellationReason,
             ])->save();
 
-            return $leaveRequest->fresh(['approvals', 'employee', 'leaveType']) ?? $leaveRequest;
+            $fresh = $leaveRequest->fresh(['approvals', 'employee', 'leaveType']) ?? $leaveRequest;
+            $this->assertInvariant->forTerminalRequest($fresh, $fresh->approvals);
+
+            return $fresh;
         });
     }
 }

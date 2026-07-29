@@ -15,6 +15,7 @@ use App\Models\Employee;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\Position;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Departments\DepartmentHierarchyContext;
 use App\Support\Departments\PresentDepartmentEffectiveFields;
 use App\Support\Employees\EmployeeFormOptions;
 use App\Support\Pagination\ResolvesPerPage;
@@ -90,11 +91,17 @@ class DepartmentController extends Controller
 
         $departmentsById = Department::query()
             ->where('company_id', $companyId)
-            ->get(['id', 'company_id', 'parent_id', 'manager_id', 'leave_approval_policy_id', 'name'])
+            ->with([
+                'manager:id,company_id,name,employee_no,user_id,status',
+                'leaveApprovalPolicy:id,company_id,name,status,is_default',
+            ])
+            ->get(['id', 'company_id', 'parent_id', 'manager_id', 'leave_approval_policy_id', 'name', 'code', 'status'])
             ->keyBy('id');
 
-        $departments = $paginator->through(function (Department $department) use ($departmentsById, $companyId) {
-            $effective = PresentDepartmentEffectiveFields::forDepartment($department, $departmentsById, $companyId);
+        $hierarchyContext = DepartmentHierarchyContext::fromDepartments($companyId, $departmentsById);
+
+        $departments = $paginator->through(function (Department $department) use ($hierarchyContext) {
+            $effective = PresentDepartmentEffectiveFields::forDepartmentWithContext($department, $hierarchyContext);
 
             return [
                 'id' => $department->id,
@@ -147,8 +154,8 @@ class DepartmentController extends Controller
             ->withCount(['positions', 'employees as users_count'])
             ->orderBy('name')
             ->get()
-            ->map(function ($department) use ($departmentsById, $companyId) {
-                $effective = PresentDepartmentEffectiveFields::forDepartment($department, $departmentsById, $companyId);
+            ->map(function ($department) use ($hierarchyContext) {
+                $effective = PresentDepartmentEffectiveFields::forDepartmentWithContext($department, $hierarchyContext);
 
                 return [
                     'id' => $department->id,
@@ -232,10 +239,15 @@ class DepartmentController extends Controller
 
         $departmentsById = Department::query()
             ->where('company_id', $companyId)
-            ->get(['id', 'company_id', 'parent_id', 'manager_id', 'leave_approval_policy_id', 'name'])
+            ->with([
+                'manager:id,company_id,name,employee_no,user_id,status',
+                'leaveApprovalPolicy:id,company_id,name,status,is_default',
+            ])
+            ->get(['id', 'company_id', 'parent_id', 'manager_id', 'leave_approval_policy_id', 'name', 'code', 'status'])
             ->keyBy('id');
 
-        $effective = PresentDepartmentEffectiveFields::forDepartment($department, $departmentsById, $companyId);
+        $hierarchyContext = DepartmentHierarchyContext::fromDepartments($companyId, $departmentsById);
+        $effective = PresentDepartmentEffectiveFields::forDepartmentWithContext($department, $hierarchyContext);
 
         $childDepartments = Department::query()
             ->where('company_id', $companyId)

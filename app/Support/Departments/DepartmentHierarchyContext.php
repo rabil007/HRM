@@ -23,9 +23,6 @@ use Illuminate\Support\Collection;
  */
 final class DepartmentHierarchyContext
 {
-    /** @var array<int, self> */
-    private static array $instances = [];
-
     /**
      * @param  Collection<int, Department>  $departmentsById
      * @param  Collection<int, LeaveApprovalPolicy>  $policiesById
@@ -37,12 +34,11 @@ final class DepartmentHierarchyContext
         public readonly ?LeaveApprovalPolicy $companyDefaultPolicy,
     ) {}
 
+    /**
+     * Build a fresh company-scoped hierarchy context (no process-wide static cache).
+     */
     public static function forCompany(int $companyId): self
     {
-        if (isset(self::$instances[$companyId])) {
-            return self::$instances[$companyId];
-        }
-
         $departmentsById = Department::query()
             ->where('company_id', $companyId)
             ->with([
@@ -61,28 +57,56 @@ final class DepartmentHierarchyContext
             ])
             ->keyBy('id');
 
+        return self::fromDepartments($companyId, $departmentsById);
+    }
+
+    /**
+     * Reuse an already-loaded department map without reloading the hierarchy.
+     *
+     * @param  Collection<int, Department>  $departmentsById
+     */
+    public static function fromDepartments(int $companyId, Collection $departmentsById): self
+    {
+        $policyIds = $departmentsById
+            ->pluck('leave_approval_policy_id')
+            ->filter()
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
         $policiesById = LeaveApprovalPolicy::query()
             ->where('company_id', $companyId)
+            ->where(function ($query) use ($policyIds): void {
+                $query->where('is_default', true);
+
+                if ($policyIds !== []) {
+                    $query->orWhereIn('id', $policyIds);
+                }
+            })
             ->get(['id', 'company_id', 'name', 'status', 'is_default'])
             ->keyBy('id');
+
+        // Ensure every department-referenced policy is present even if inactive.
+        $missingIds = array_values(array_diff($policyIds, $policiesById->keys()->all()));
+        if ($missingIds !== []) {
+            $extra = LeaveApprovalPolicy::query()
+                ->where('company_id', $companyId)
+                ->whereIn('id', $missingIds)
+                ->get(['id', 'company_id', 'name', 'status', 'is_default'])
+                ->keyBy('id');
+            $policiesById = $policiesById->union($extra);
+        }
 
         $companyDefaultPolicy = $policiesById
             ->first(fn (LeaveApprovalPolicy $policy): bool => $policy->is_default && $policy->status === 'active');
 
-        return self::$instances[$companyId] = new self(
+        return new self(
             companyId: $companyId,
             departmentsById: $departmentsById,
             policiesById: $policiesById,
             companyDefaultPolicy: $companyDefaultPolicy,
         );
-    }
-
-    /**
-     * Test/request isolation helper.
-     */
-    public static function flush(): void
-    {
-        self::$instances = [];
     }
 
     /**

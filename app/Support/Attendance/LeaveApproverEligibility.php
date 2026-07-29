@@ -4,19 +4,22 @@ namespace App\Support\Attendance;
 
 use App\Models\Employee;
 use App\Models\User;
+use App\Support\Companies\ResolveCompanyAccess;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Single source of truth for whether an employee is an actionable leave approver.
- * Actionable requires: active employee, linked active user, active company
- * membership, and both the view and approve leave-request permissions.
+ * Actionable requires: active employee, linked active user, accessible company
+ * membership (active pivot or legacy no-pivot home), and both view + approve.
  */
 final class LeaveApproverEligibility
 {
     public function __construct(
         private PermissionRegistrar $permissionRegistrar,
+        private ResolveCompanyAccess $companyAccess,
     ) {}
 
     /**
@@ -36,7 +39,7 @@ final class LeaveApproverEligibility
         $employee->loadMissing('user:id,name,email,status');
 
         $userIds = $employee->user_id !== null ? [(int) $employee->user_id] : [];
-        $membershipByUserId = $this->activeMembershipByUserId($companyId, $userIds);
+        $membershipByUserId = $this->companyAccess->accessibleMembershipByUserId($companyId, $userIds);
         $permissionByUserId = $employee->user !== null && $employee->user->status === 'active'
             ? $this->permissionsByUserId($companyId, collect([$employee->user]))
             : [];
@@ -45,8 +48,6 @@ final class LeaveApproverEligibility
     }
 
     /**
-     * Batch evaluation to avoid N+1 queries when presenting many employees.
-     *
      * @param  iterable<int, Employee>  $employees
      * @return array<int, array{
      *     employee_active: bool,
@@ -61,10 +62,12 @@ final class LeaveApproverEligibility
      */
     public function evaluateMany(iterable $employees, int $companyId): array
     {
-        $collection = collect($employees);
-        $collection->each(fn (Employee $employee) => $employee->loadMissing('user:id,name,email,status'));
+        $collection = $employees instanceof EloquentCollection
+            ? $employees
+            : new EloquentCollection(collect($employees)->all());
+        $collection->loadMissing('user:id,name,email,status');
 
-        $membershipByUserId = $this->activeMembershipByUserId(
+        $membershipByUserId = $this->companyAccess->accessibleMembershipByUserId(
             $companyId,
             $collection->pluck('user_id')->filter()->map(fn ($id): int => (int) $id)->unique()->values()->all(),
         );
@@ -141,32 +144,8 @@ final class LeaveApproverEligibility
     }
 
     /**
-     * @param  list<int>  $userIds
-     * @return array<int, bool>
-     */
-    private function activeMembershipByUserId(int $companyId, array $userIds): array
-    {
-        if ($userIds === []) {
-            return [];
-        }
-
-        $activeIds = DB::table('company_user')
-            ->where('company_id', $companyId)
-            ->whereIn('user_id', $userIds)
-            ->where('status', 'active')
-            ->pluck('user_id')
-            ->map(fn ($id): int => (int) $id)
-            ->all();
-
-        $map = [];
-        foreach ($userIds as $userId) {
-            $map[$userId] = in_array($userId, $activeIds, true);
-        }
-
-        return $map;
-    }
-
-    /**
+     * Batch-load team-scoped direct + role permissions without per-user can() queries.
+     *
      * @param  Collection<int, User>  $users
      * @return array<int, array{view: bool, approve: bool}>
      */
@@ -176,24 +155,90 @@ final class LeaveApproverEligibility
             return [];
         }
 
-        $previousTeamId = $this->permissionRegistrar->getPermissionsTeamId();
+        $userIds = $users->map(fn (User $user): int => (int) $user->id)->unique()->values()->all();
+        $needed = [
+            'attendance.leave-requests.view',
+            'attendance.leave-requests.approve',
+        ];
+
+        $permissionTable = config('permission.table_names.permissions');
+        $modelHasPermissions = config('permission.table_names.model_has_permissions');
+        $modelHasRoles = config('permission.table_names.model_has_roles');
+        $roleHasPermissions = config('permission.table_names.role_has_permissions');
+        $teamKey = config('permission.column_names.team_foreign_key', 'company_id');
+
+        $permissionIdsByName = DB::table($permissionTable)
+            ->where('guard_name', 'web')
+            ->whereIn('name', $needed)
+            ->pluck('id', 'name')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $viewPermissionId = $permissionIdsByName['attendance.leave-requests.view'] ?? null;
+        $approvePermissionId = $permissionIdsByName['attendance.leave-requests.approve'] ?? null;
+
         $map = [];
+        foreach ($userIds as $userId) {
+            $map[$userId] = ['view' => false, 'approve' => false];
+        }
 
-        try {
-            $this->permissionRegistrar->setPermissionsTeamId($companyId);
+        if ($viewPermissionId === null && $approvePermissionId === null) {
+            return $map;
+        }
 
-            foreach ($users as $user) {
-                $user->unsetRelation('roles')->unsetRelation('permissions');
-                $map[(int) $user->id] = [
-                    'view' => $user->can('attendance.leave-requests.view'),
-                    'approve' => $user->can('attendance.leave-requests.approve'),
-                ];
+        $permissionIds = array_values(array_filter([$viewPermissionId, $approvePermissionId]));
+
+        $direct = DB::table($modelHasPermissions)
+            ->where($teamKey, $companyId)
+            ->where('model_type', User::class)
+            ->whereIn('model_id', $userIds)
+            ->whereIn('permission_id', $permissionIds)
+            ->get(['model_id', 'permission_id']);
+
+        foreach ($direct as $row) {
+            $userId = (int) $row->model_id;
+            $permissionId = (int) $row->permission_id;
+
+            if ($permissionId === $viewPermissionId) {
+                $map[$userId]['view'] = true;
             }
-        } finally {
-            $this->permissionRegistrar->setPermissionsTeamId($previousTeamId);
+            if ($permissionId === $approvePermissionId) {
+                $map[$userId]['approve'] = true;
+            }
+        }
 
-            foreach ($users as $user) {
-                $user->unsetRelation('roles')->unsetRelation('permissions');
+        $roleAssignments = DB::table($modelHasRoles)
+            ->where($teamKey, $companyId)
+            ->where('model_type', User::class)
+            ->whereIn('model_id', $userIds)
+            ->get(['model_id', 'role_id']);
+
+        $roleIds = $roleAssignments->pluck('role_id')->map(fn ($id): int => (int) $id)->unique()->values()->all();
+
+        if ($roleIds === []) {
+            return $map;
+        }
+
+        $rolePermissions = DB::table($roleHasPermissions)
+            ->whereIn('role_id', $roleIds)
+            ->whereIn('permission_id', $permissionIds)
+            ->get(['role_id', 'permission_id']);
+
+        $permissionsByRole = [];
+        foreach ($rolePermissions as $row) {
+            $permissionsByRole[(int) $row->role_id][] = (int) $row->permission_id;
+        }
+
+        foreach ($roleAssignments as $assignment) {
+            $userId = (int) $assignment->model_id;
+            $roleId = (int) $assignment->role_id;
+            $rolePermissionIds = $permissionsByRole[$roleId] ?? [];
+
+            if ($viewPermissionId !== null && in_array($viewPermissionId, $rolePermissionIds, true)) {
+                $map[$userId]['view'] = true;
+            }
+            if ($approvePermissionId !== null && in_array($approvePermissionId, $rolePermissionIds, true)) {
+                $map[$userId]['approve'] = true;
             }
         }
 
@@ -230,7 +275,7 @@ final class LeaveApproverEligibility
         }
 
         if (! $hasActiveMembership) {
-            $warnings[] = "{$name}'s linked user does not have active membership in this company.";
+            $warnings[] = "{$name}'s linked user does not have accessible membership in this company.";
         }
 
         if (! $hasViewPermission) {

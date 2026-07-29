@@ -9,10 +9,12 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\LeaveBalance;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\LeaveBalanceManager;
 use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Support\Facades\DB;
@@ -352,36 +354,24 @@ test('rejection cancels remaining steps and queues decided email', function () {
     ['employee' => $employee, 'leaveType' => $leaveType] = makeWorkflowActors($company, $managed['department']);
     $employee->update(['work_email' => 'employee@example.com']);
 
-    $leaveRequest = createLeaveRequestRecord([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'leave_type_id' => $leaveType->id,
-        'start_date' => '2026-06-10',
-        'end_date' => '2026-06-12',
-        'total_days' => 3,
-        'status' => 'pending',
-    ]);
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $employee->id, 2026);
+    LeaveBalance::query()
+        ->where('employee_id', $employee->id)
+        ->where('leave_type_id', $leaveType->id)
+        ->where('year', 2026)
+        ->update(['entitled_days' => 30, 'pending_days' => 0, 'used_days' => 0]);
 
-    LeaveRequestApproval::factory()->create([
-        'company_id' => $company->id,
-        'leave_request_id' => $leaveRequest->id,
-        'sequence' => 1,
-        'approver_type' => LeaveApprovalApproverType::DepartmentManager,
-        'approver_employee_id' => $managed['manager']->id,
-        'approver_user_id' => $managed['managerUser']->id,
-        'status' => LeaveRequestApprovalStatus::Pending,
-        'is_required' => true,
-    ]);
-
-    LeaveRequestApproval::factory()->waiting()->create([
-        'company_id' => $company->id,
-        'leave_request_id' => $leaveRequest->id,
-        'sequence' => 2,
-        'approver_type' => LeaveApprovalApproverType::HrApprover,
-        'approver_employee_id' => $hr->id,
-        'approver_user_id' => $hrUser->id,
-        'is_required' => true,
-    ]);
+    $leaveRequest = app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $employee->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-12',
+            'reason' => 'Coverage test',
+        ],
+        notify: false,
+    );
 
     $this->actingAs($managed['managerUser']);
     $this->withSession(['current_company_id' => $company->id])

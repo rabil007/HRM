@@ -97,8 +97,33 @@ final class UpdateLeaveRequestWithApprovals
 
                 $employeeId = (int) $attributes['employee_id'];
                 $leaveTypeId = (int) $attributes['leave_type_id'];
-                $startDate = (string) $attributes['start_date'];
-                $endDate = (string) $attributes['end_date'];
+                $startDate = trim((string) ($attributes['start_date'] ?? ''));
+                $endDate = trim((string) ($attributes['end_date'] ?? ''));
+
+                if ($startDate === '' || $endDate === '') {
+                    throw ValidationException::withMessages([
+                        'start_date' => 'A valid leave date range is required.',
+                    ]);
+                }
+
+                if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate) || strtotime($startDate) === false) {
+                    throw ValidationException::withMessages([
+                        'start_date' => 'The start date is invalid.',
+                    ]);
+                }
+
+                if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate) || strtotime($endDate) === false) {
+                    throw ValidationException::withMessages([
+                        'end_date' => 'The end date is invalid.',
+                    ]);
+                }
+
+                if ($startDate > $endDate) {
+                    throw ValidationException::withMessages([
+                        'start_date' => 'The start date must be on or before the end date.',
+                    ]);
+                }
+
                 $reason = array_key_exists('reason', $attributes)
                     ? ($attributes['reason'] ?? null)
                     : $locked->reason;

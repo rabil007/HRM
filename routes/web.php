@@ -848,10 +848,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:attendance.leave-approval-policies.update')
         ->name('attendance.leave-approval-policies.default');
 
-    Route::put('attendance/leave-approval-policies/{leave_approval_policy}/steps/{step}/move', [LeaveApprovalPolicyController::class, 'moveStep'])
-        ->middleware('can:attendance.leave-approval-policies.update')
-        ->name('attendance.leave-approval-policies.steps.move');
-
     Route::delete('attendance/leave-approval-policies/{leave_approval_policy}', [LeaveApprovalPolicyController::class, 'destroy'])
         ->middleware('can:attendance.leave-approval-policies.delete')
         ->name('attendance.leave-approval-policies.destroy');

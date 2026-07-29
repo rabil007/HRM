@@ -92,9 +92,8 @@ final class SubmitLeaveRequestWithApprovals
                     $leaveTypeId = (int) $attributes['leave_type_id'];
                     $startDate = (string) $attributes['start_date'];
                     $endDate = (string) $attributes['end_date'];
-                    $totalDays = isset($attributes['total_days'])
-                        ? (float) $attributes['total_days']
-                        : ($this->calculateDays)($startDate, $endDate);
+                    // Domain-authoritative: ignore any caller-supplied total_days.
+                    $totalDays = ($this->calculateDays)($startDate, $endDate);
                     $reason = $attributes['reason'] ?? null;
                 }
 

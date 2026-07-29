@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Company;
+use App\Support\Companies\ResolveCompanyAccess;
 use Closure;
 use Illuminate\Http\Request;
 use Spatie\Permission\PermissionRegistrar;
@@ -10,6 +10,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class SetCurrentCompany
 {
+    public function __construct(
+        private ResolveCompanyAccess $companyAccess,
+    ) {}
+
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
@@ -18,7 +22,7 @@ class SetCurrentCompany
             return $next($request);
         }
 
-        $accessibleCompanyIds = $this->accessibleCompanyIds($user);
+        $accessibleCompanyIds = $this->companyAccess->accessibleCompanyIds($user);
         $currentCompanyId = $request->session()->get('current_company_id');
 
         if ($currentCompanyId !== null && in_array((int) $currentCompanyId, $accessibleCompanyIds, true)) {
@@ -29,7 +33,7 @@ class SetCurrentCompany
             return $next($request);
         }
 
-        $fallbackCompanyId = $this->resolveFallbackCompanyId($user, $accessibleCompanyIds);
+        $fallbackCompanyId = $this->companyAccess->resolveFallbackCompanyId($user, $accessibleCompanyIds);
 
         if ($fallbackCompanyId !== null) {
             $request->session()->put('current_company_id', $fallbackCompanyId);
@@ -44,51 +48,5 @@ class SetCurrentCompany
         app(PermissionRegistrar::class)->setPermissionsTeamId(null);
 
         return $next($request);
-    }
-
-    /**
-     * Active companies with an active company_user membership, plus the legacy
-     * home-company path when no pivot row exists for that user/company.
-     *
-     * @return list<int>
-     */
-    private function accessibleCompanyIds(mixed $user): array
-    {
-        $activeMembershipIds = $user->companies()
-            ->where('companies.status', 'active')
-            ->wherePivot('status', 'active')
-            ->pluck('companies.id')
-            ->map(fn ($id): int => (int) $id)
-            ->all();
-
-        if ($user->company_id) {
-            $homeCompanyId = (int) $user->company_id;
-            $hasAnyPivotForHome = $user->companies()->whereKey($homeCompanyId)->exists();
-
-            if (! $hasAnyPivotForHome) {
-                $homeIsActive = Company::query()
-                    ->whereKey($homeCompanyId)
-                    ->where('status', 'active')
-                    ->exists();
-
-                if ($homeIsActive && ! in_array($homeCompanyId, $activeMembershipIds, true)) {
-                    $activeMembershipIds[] = $homeCompanyId;
-                }
-            }
-        }
-
-        return array_values(array_unique($activeMembershipIds));
-    }
-
-    /**
-     * @param  list<int>  $accessibleCompanyIds
-     */
-    private function resolveFallbackCompanyId(mixed $user, array $accessibleCompanyIds): ?int
-    {
-        if ($user->company_id && in_array((int) $user->company_id, $accessibleCompanyIds, true)) {
-            return (int) $user->company_id;
-        }
-
-        return $accessibleCompanyIds[0] ?? null;
     }
 }

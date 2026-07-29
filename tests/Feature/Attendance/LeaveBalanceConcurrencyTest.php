@@ -300,7 +300,7 @@ test('multi-year request updates each year balance row', function () {
         ->toBe((float) $leaveRequest->total_days);
 });
 
-test('repeated release is idempotent and never produces negative pending_days', function () {
+test('repeated release on a still-pending request fails when reservation is already gone', function () {
     $context = makeBalanceConcurrencyContext();
     $manager = app(LeaveBalanceManager::class);
 
@@ -315,7 +315,10 @@ test('repeated release is idempotent and never produces negative pending_days', 
 
     DB::transaction(fn () => $manager->reserveLeaveRequest($leaveRequest));
     DB::transaction(fn () => $manager->releaseLeaveRequest($leaveRequest));
-    DB::transaction(fn () => $manager->releaseLeaveRequest($leaveRequest->fresh() ?? $leaveRequest));
+
+    expect(fn () => DB::transaction(
+        fn () => $manager->releaseLeaveRequest($leaveRequest->fresh() ?? $leaveRequest),
+    ))->toThrow(RuntimeException::class);
 
     $pending = LeaveBalance::query()
         ->where('employee_id', $context['employee']->id)

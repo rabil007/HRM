@@ -339,7 +339,8 @@ export function LeaveApprovalPoliciesContent({
                                                 : undefined
                                         }
                                         onDelete={
-                                            can.delete && !policy.is_default
+                                            can.delete &&
+                                            policy.can_delete !== false
                                                 ? () => handleDelete(policy)
                                                 : undefined
                                         }

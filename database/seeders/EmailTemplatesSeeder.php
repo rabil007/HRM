@@ -24,21 +24,43 @@ class EmailTemplatesSeeder extends Seeder
 
     /**
      * Create missing leave email templates without overwriting administrator customizations.
+     * Soft-deleted matching slugs are restored without clobbering custom content.
      *
      * @param  array<string, mixed>  $defaults
+     * @param  bool  $markDefaultIfNone  Only for brand-new rows when no HR default exists
      */
-    private static function seedLeaveTemplateIfMissing(string $slug, array $defaults): EmailTemplate
-    {
-        $existing = EmailTemplate::query()->where('slug', $slug)->first();
+    private static function seedLeaveTemplateIfMissing(
+        string $slug,
+        array $defaults,
+        bool $markDefaultIfNone = false,
+    ): EmailTemplate {
+        $existing = EmailTemplate::withTrashed()->where('slug', $slug)->first();
 
         if ($existing !== null) {
-            return $existing;
+            if ($existing->trashed()) {
+                $existing->restore();
+            }
+
+            return $existing->fresh() ?? $existing;
         }
 
-        return EmailTemplate::query()->create([
+        $template = EmailTemplate::query()->create([
             'slug' => $slug,
             ...$defaults,
         ]);
+
+        if (
+            $markDefaultIfNone
+            && ! EmailTemplate::query()
+                ->where('category', EmailTemplateCategory::Hr)
+                ->where('is_default', true)
+                ->whereKeyNot($template->id)
+                ->exists()
+        ) {
+            $template->markAsDefaultForCategory();
+        }
+
+        return $template->fresh() ?? $template;
     }
 
     public static function seedPayslipDeliveryTemplate(): EmailTemplate
@@ -67,7 +89,7 @@ class EmailTemplatesSeeder extends Seeder
 
     public static function seedLeaveRequestSubmittedTemplate(): EmailTemplate
     {
-        $template = self::seedLeaveTemplateIfMissing('leave_request_submitted', [
+        return self::seedLeaveTemplateIfMissing('leave_request_submitted', [
             'label' => 'Leave request submitted',
             'category' => EmailTemplateCategory::Hr,
             'to_preset' => null,
@@ -77,13 +99,7 @@ class EmailTemplatesSeeder extends Seeder
             'body_html' => self::leaveRequestSubmittedBody(),
             'enabled' => true,
             'sort_order' => 0,
-        ]);
-
-        if (! $template->is_default) {
-            $template->markAsDefaultForCategory();
-        }
-
-        return $template->fresh() ?? $template;
+        ], markDefaultIfNone: true);
     }
 
     public static function seedLeaveRequestUpdatedTemplate(): EmailTemplate

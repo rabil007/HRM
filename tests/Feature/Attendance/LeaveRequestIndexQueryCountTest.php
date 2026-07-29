@@ -108,7 +108,7 @@ function countApprovalRelatedQueries(): int
         ->count();
 }
 
-test('leave request index keeps approval query count constant as page size grows', function () {
+test('leave request index keeps total and approval query counts bounded as page size grows', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType] = makeIndexQueryCountFixtures();
 
     seedLeaveRequestsWithApprovals($company, $employee, $leaveType, 5);
@@ -123,22 +123,25 @@ test('leave request index keeps approval query count constant as page size grows
     DB::flushQueryLog();
     DB::enableQueryLog();
 
-    $this->get('/attendance/leave-requests?scope=all')
+    $this->get('/attendance/leave-requests?scope=all&per_page=50')
         ->assertOk();
 
+    $smallTotalQueries = count(DB::getQueryLog());
     $smallPageApprovalQueries = countApprovalRelatedQueries();
 
-    seedLeaveRequestsWithApprovals($company, $employee, $leaveType, 15);
+    seedLeaveRequestsWithApprovals($company, $employee, $leaveType, 45);
 
     DB::flushQueryLog();
     DB::enableQueryLog();
 
-    $this->get('/attendance/leave-requests?scope=all')
+    $this->get('/attendance/leave-requests?scope=all&per_page=50')
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->has('leave_requests', 20));
+        ->assertInertia(fn ($page) => $page->has('leave_requests', 50));
 
+    $largeTotalQueries = count(DB::getQueryLog());
     $largePageApprovalQueries = countApprovalRelatedQueries();
 
     expect($smallPageApprovalQueries)->toBeGreaterThan(0)
-        ->and($largePageApprovalQueries)->toBeLessThanOrEqual($smallPageApprovalQueries + 2);
+        ->and($largePageApprovalQueries)->toBeLessThanOrEqual($smallPageApprovalQueries + 2)
+        ->and($largeTotalQueries)->toBeLessThanOrEqual($smallTotalQueries + 5);
 });

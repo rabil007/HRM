@@ -50,13 +50,15 @@ test('shared inertia sidebar props are cached per user and company', function ()
         'updated_at' => now(),
     ]);
 
-    $this->get('/dashboard')
+    $this->withSession(['current_company_id' => $company->id])
+        ->get('/dashboard')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('company_switcher_companies', 1)
             ->where('company_switcher_companies.0.id', $company->id)
             ->where('company_switcher_companies.0.name', 'Acme')
             ->where('company_switcher_companies.0.logo_url', null)
+            ->where('current_company_id', $company->id)
         );
 
     expect(Cache::has("inertia:shared:{$user->id}:companies"))->toBeTrue();

@@ -164,7 +164,8 @@ final class LeaveBalanceManager
     }
 
     /**
-     * Release exactly the request allocation from pending without going negative.
+     * Release exactly the request allocation from pending.
+     * Missing dates, leave type, or insufficient pending is workflow corruption.
      *
      * @throws RuntimeException
      */
@@ -176,17 +177,22 @@ final class LeaveBalanceManager
         $startDate = $leaveRequest->start_date?->toDateString();
         $endDate = $leaveRequest->end_date?->toDateString();
 
-        if ($startDate === null || $endDate === null) {
-            return;
+        if ($startDate === null || $endDate === null || $startDate === '' || $endDate === '') {
+            throw new RuntimeException('Leave request dates are missing; cannot release balance reservation.');
         }
 
-        $leaveType = LeaveType::query()->find($leaveTypeId);
+        $leaveType = LeaveType::query()
+            ->where('company_id', $companyId)
+            ->whereKey($leaveTypeId)
+            ->first();
 
         if ($leaveType === null) {
-            return;
+            throw new RuntimeException('The leave type for this request is missing or does not belong to the request company.');
         }
 
         $run = function () use ($companyId, $employeeId, $leaveType, $startDate, $endDate): void {
+            $updates = [];
+
             foreach ($this->daysByYear($startDate, $endDate) as $year => $days) {
                 if ($days <= 0) {
                     continue;
@@ -195,26 +201,22 @@ final class LeaveBalanceManager
                 $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: true);
                 $current = (float) $balance->pending_days;
 
-                // Exactly-once release is enforced by request-state transitions.
-                // An already-empty pending bucket is a no-op rather than a hard failure.
-                if ($current <= 0.0001) {
-                    continue;
-                }
-
-                $nextValue = $current - $days;
-
-                if ($nextValue < -0.0001) {
+                if ($current + 0.0001 < $days) {
                     throw new RuntimeException(sprintf(
-                        'Leave balance for %s (%d) cannot go negative on pending_days (current %.2f, delta %.2f).',
+                        'Cannot release leave: pending reservation for %s (%d) is missing or insufficient (have %.2f, need %.2f).',
                         $leaveType->name,
                         $year,
                         $current,
-                        -$days,
+                        $days,
                     ));
                 }
 
+                $updates[] = [$balance, $current - $days];
+            }
+
+            foreach ($updates as [$balance, $pendingDays]) {
                 $balance->forceFill([
-                    'pending_days' => max(0, $nextValue),
+                    'pending_days' => $pendingDays,
                 ])->save();
             }
         };
@@ -236,17 +238,22 @@ final class LeaveBalanceManager
         $startDate = $leaveRequest->start_date?->toDateString();
         $endDate = $leaveRequest->end_date?->toDateString();
 
-        if ($startDate === null || $endDate === null) {
-            return;
+        if ($startDate === null || $endDate === null || $startDate === '' || $endDate === '') {
+            throw new RuntimeException('Leave request dates are missing; cannot convert balance reservation.');
         }
 
-        $leaveType = LeaveType::query()->find($leaveTypeId);
+        $leaveType = LeaveType::query()
+            ->where('company_id', $companyId)
+            ->whereKey($leaveTypeId)
+            ->first();
 
         if ($leaveType === null) {
-            throw new RuntimeException('The leave type for this request no longer exists.');
+            throw new RuntimeException('The leave type for this request is missing or does not belong to the request company.');
         }
 
         $run = function () use ($companyId, $employeeId, $leaveType, $startDate, $endDate): void {
+            $updates = [];
+
             foreach ($this->daysByYear($startDate, $endDate) as $year => $days) {
                 if ($days <= 0) {
                     continue;
@@ -265,9 +272,13 @@ final class LeaveBalanceManager
                     ));
                 }
 
+                $updates[] = [$balance, $pending - $days, (float) $balance->used_days + $days];
+            }
+
+            foreach ($updates as [$balance, $pendingDays, $usedDays]) {
                 $balance->forceFill([
-                    'pending_days' => max(0, $pending - $days),
-                    'used_days' => (float) $balance->used_days + $days,
+                    'pending_days' => $pendingDays,
+                    'used_days' => $usedDays,
                 ])->save();
             }
         };

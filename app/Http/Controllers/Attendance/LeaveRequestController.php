@@ -33,6 +33,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class LeaveRequestController extends Controller
 {
@@ -250,6 +251,10 @@ class LeaveRequestController extends Controller
                 attachment: $request->file('attachment'),
             );
         } catch (RuntimeException $exception) {
+            if ($exception instanceof HttpExceptionInterface) {
+                throw $exception;
+            }
+
             throw ValidationException::withMessages([
                 'leave_request' => $exception->getMessage(),
             ]);
@@ -288,6 +293,10 @@ class LeaveRequestController extends Controller
         } catch (ValidationException $exception) {
             throw $exception;
         } catch (RuntimeException $exception) {
+            if ($exception instanceof HttpExceptionInterface) {
+                throw $exception;
+            }
+
             throw ValidationException::withMessages([
                 'leave_request' => $exception->getMessage(),
             ]);
@@ -311,6 +320,10 @@ class LeaveRequestController extends Controller
             return redirect()
                 ->route('attendance.leave-requests.index')
                 ->withErrors($exception->errors());
+        } catch (RuntimeException $exception) {
+            return redirect()
+                ->route('attendance.leave-requests.index')
+                ->withErrors(['leave_request' => $exception->getMessage()]);
         }
 
         return redirect()
@@ -326,12 +339,22 @@ class LeaveRequestController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $this->authorization->assertCanView($leaveRequest, $request->user(), $companyId);
 
-        $approveStep->handle(
-            $leaveRequest,
-            $request->user(),
-            $companyId,
-            $request->validated('comments'),
-        );
+        try {
+            $approveStep->handle(
+                $leaveRequest,
+                $request->user(),
+                $companyId,
+                $request->validated('comments'),
+            );
+        } catch (RuntimeException $exception) {
+            if ($exception instanceof HttpExceptionInterface) {
+                throw $exception;
+            }
+
+            throw ValidationException::withMessages([
+                'leave_request' => $exception->getMessage(),
+            ]);
+        }
 
         return redirect()
             ->route('attendance.leave-requests.index')
@@ -346,12 +369,22 @@ class LeaveRequestController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $this->authorization->assertCanView($leaveRequest, $request->user(), $companyId);
 
-        $rejectStep->handle(
-            $leaveRequest,
-            $request->user(),
-            $companyId,
-            $request->validated('rejection_reason'),
-        );
+        try {
+            $rejectStep->handle(
+                $leaveRequest,
+                $request->user(),
+                $companyId,
+                $request->validated('rejection_reason'),
+            );
+        } catch (RuntimeException $exception) {
+            if ($exception instanceof HttpExceptionInterface) {
+                throw $exception;
+            }
+
+            throw ValidationException::withMessages([
+                'leave_request' => $exception->getMessage(),
+            ]);
+        }
 
         return redirect()
             ->route('attendance.leave-requests.index')
@@ -366,12 +399,22 @@ class LeaveRequestController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $this->authorization->assertCanCancel($leaveRequest, $request->user(), $companyId);
 
-        $cancelWorkflow->handle(
-            $leaveRequest,
-            $request->user(),
-            $companyId,
-            $request->validated('cancellation_reason'),
-        );
+        try {
+            $cancelWorkflow->handle(
+                $leaveRequest,
+                $request->user(),
+                $companyId,
+                $request->validated('cancellation_reason'),
+            );
+        } catch (RuntimeException $exception) {
+            if ($exception instanceof HttpExceptionInterface) {
+                throw $exception;
+            }
+
+            throw ValidationException::withMessages([
+                'leave_request' => $exception->getMessage(),
+            ]);
+        }
 
         return redirect()
             ->route('attendance.leave-requests.index')

@@ -33,7 +33,8 @@ final class SendLeaveRequestDecidedEmail
             'employee.user:id,email',
             'leaveType',
             'company',
-            'approvals.approverEmployee:id,name',
+            'approvals.approverEmployee:id,name,work_email,personal_email,user_id',
+            'approvals.approverEmployee.user:id,email',
             'approver:id,name',
         ]);
 

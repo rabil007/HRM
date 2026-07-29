@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Company;
 use App\Models\User;
 use App\Services\Settings\SettingService;
+use App\Support\Companies\ResolveCompanyAccess;
 use App\Support\Users\UserAvatar;
 use Closure;
 use Illuminate\Http\Request;
@@ -76,77 +77,96 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $currentCompanyId = $request->attributes->get('current_company_id') ?? $request->session()->get('current_company_id');
         $user = $request->user();
+        $companyAccess = app(ResolveCompanyAccess::class);
+
+        // Prefer the attribute validated by SetCurrentCompany. If it is missing
+        // (middleware order / early Inertia share edge cases), re-apply the same
+        // accessibility rules — never restore an inaccessible users.company_id.
+        $currentCompanyId = $request->attributes->get('current_company_id');
+        if ($currentCompanyId !== null) {
+            $currentCompanyId = (int) $currentCompanyId;
+        }
 
         $companies = [];
         $permissions = [];
         $roleNames = [];
 
         if ($user) {
-            $companiesCacheKey = "inertia:shared:{$user->id}:companies";
-            $cachedCompanies = Cache::get($companiesCacheKey);
+            $accessibleCompanyIds = $companyAccess->accessibleCompanyIds($user);
 
-            if ($this->isValidCompanySwitcherCache($cachedCompanies)) {
-                $companies = $cachedCompanies;
-            } else {
-                if ($cachedCompanies !== null) {
-                    Cache::forget($companiesCacheKey);
+            if ($currentCompanyId === null) {
+                $sessionCompanyId = $request->session()->get('current_company_id');
+                if ($sessionCompanyId !== null && in_array((int) $sessionCompanyId, $accessibleCompanyIds, true)) {
+                    $currentCompanyId = (int) $sessionCompanyId;
+                } else {
+                    $currentCompanyId = $companyAccess->resolveFallbackCompanyId($user, $accessibleCompanyIds);
                 }
 
-                $companies = Cache::remember($companiesCacheKey, now()->addSeconds(60), function () use ($user): array {
-                    $models = $user->companies()
-                        ->where('companies.status', 'active')
-                        ->wherePivot('status', 'active')
-                        ->orderBy('name')
-                        ->get(['companies.id', 'companies.name', 'companies.logo']);
+                if ($currentCompanyId !== null) {
+                    $request->attributes->set('current_company_id', $currentCompanyId);
+                    $request->session()->put('current_company_id', $currentCompanyId);
+                    app(PermissionRegistrar::class)->setPermissionsTeamId($currentCompanyId);
+                }
+            }
 
-                    if ($models->isEmpty() && $user->company_id) {
-                        $homeCompanyId = (int) $user->company_id;
-                        $hasAnyPivotForHome = $user->companies()->whereKey($homeCompanyId)->exists();
+            if ($currentCompanyId !== null && ! in_array($currentCompanyId, $accessibleCompanyIds, true)) {
+                $currentCompanyId = null;
+                $request->attributes->remove('current_company_id');
+                $request->session()->forget('current_company_id');
+                app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+            }
 
-                        if (! $hasAnyPivotForHome) {
-                            $models = Company::query()
-                                ->whereKey($homeCompanyId)
-                                ->where('status', 'active')
-                                ->get(['id', 'name', 'logo']);
-                        }
-                    }
+            if ($currentCompanyId === null && $accessibleCompanyIds === []) {
+                $request->session()->forget('current_company_id');
+                $request->attributes->remove('current_company_id');
+                app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+            }
 
-                    return $models
+            $companiesCacheKey = "inertia:shared:{$user->id}:companies";
+            $cachedCompanies = Cache::get($companiesCacheKey);
+            $accessibleIdSet = array_fill_keys($accessibleCompanyIds, true);
+
+            if (
+                $this->isValidCompanySwitcherCache($cachedCompanies)
+                && $this->cachedCompaniesMatchAccessible($cachedCompanies, $accessibleIdSet)
+            ) {
+                $companies = $cachedCompanies;
+            } else {
+                Cache::forget($companiesCacheKey);
+
+                $companies = Cache::remember($companiesCacheKey, now()->addSeconds(60), function () use ($companyAccess, $user): array {
+                    return $companyAccess->accessibleCompanies($user)
                         ->map(fn (Company $company): array => $this->formatCompanySwitcherEntry($company))
                         ->all();
                 });
             }
 
-            if (! $currentCompanyId) {
-                $currentCompanyId = $user->company_id ?: ($companies[0]['id'] ?? null);
+            if ($currentCompanyId === null) {
+                $permissions = [];
+                $roleNames = [];
+            } else {
+                $companyKeyPart = (int) $currentCompanyId;
+                $permissionsCacheKey = "inertia:shared:{$user->id}:company:{$companyKeyPart}:permissions";
+                $rolesCacheKey = "inertia:shared:{$user->id}:company:{$companyKeyPart}:roles";
+
+                $permissions = Cache::remember($permissionsCacheKey, now()->addSeconds(60), function () use ($currentCompanyId, $user) {
+                    app(PermissionRegistrar::class)->setPermissionsTeamId((int) $currentCompanyId);
+
+                    return $user->getAllPermissions()->pluck('name')->all();
+                });
+
+                $roleNames = Cache::remember($rolesCacheKey, now()->addSeconds(60), function () use ($currentCompanyId, $user) {
+                    app(PermissionRegistrar::class)->setPermissionsTeamId((int) $currentCompanyId);
+
+                    return $user->getRoleNames()->all();
+                });
             }
-
-            $companyKeyPart = $currentCompanyId ? (int) $currentCompanyId : 'none';
-            $permissionsCacheKey = "inertia:shared:{$user->id}:company:{$companyKeyPart}:permissions";
-            $rolesCacheKey = "inertia:shared:{$user->id}:company:{$companyKeyPart}:roles";
-
-            $permissions = Cache::remember($permissionsCacheKey, now()->addSeconds(60), function () use ($currentCompanyId, $user) {
-                if ($currentCompanyId) {
-                    app(PermissionRegistrar::class)->setPermissionsTeamId((int) $currentCompanyId);
-                }
-
-                return $user->getAllPermissions()->pluck('name')->all();
-            });
-
-            $roleNames = Cache::remember($rolesCacheKey, now()->addSeconds(60), function () use ($currentCompanyId, $user) {
-                if ($currentCompanyId) {
-                    app(PermissionRegistrar::class)->setPermissionsTeamId((int) $currentCompanyId);
-                }
-
-                return $user->getRoleNames()->all();
-            });
         }
 
         $settingService = app(SettingService::class);
         $applicationSettings = $settingService->forInertia(
-            $currentCompanyId ? (int) $currentCompanyId : null,
+            $currentCompanyId !== null ? (int) $currentCompanyId : null,
         );
 
         return [
@@ -177,23 +197,27 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * @param  array<int, array{id: int, name: string, logo_url: string|null}>|null  $cached
+     * @param  array<int, array{id: int, name: string, logo_url: string|null}>  $cached
+     * @param  array<int, true>  $accessibleIdSet
      */
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function formatAuthUser(?User $user): ?array
+    private function cachedCompaniesMatchAccessible(array $cached, array $accessibleIdSet): bool
     {
-        if ($user === null) {
-            return null;
+        if (count($cached) !== count($accessibleIdSet)) {
+            return false;
         }
 
-        $data = $user->toArray();
-        $data['avatar'] = UserAvatar::url($user->avatar);
+        foreach ($cached as $entry) {
+            if (! isset($accessibleIdSet[(int) $entry['id']])) {
+                return false;
+            }
+        }
 
-        return $data;
+        return true;
     }
 
+    /**
+     * @param  array<int, array{id: int, name: string, logo_url: string|null}>|null  $cached
+     */
     private function isValidCompanySwitcherCache(?array $cached): bool
     {
         if (! is_array($cached)) {
@@ -210,6 +234,21 @@ class HandleInertiaRequests extends Middleware
             && array_key_exists('id', $first)
             && array_key_exists('name', $first)
             && array_key_exists('logo_url', $first);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function formatAuthUser(?User $user): ?array
+    {
+        if ($user === null) {
+            return null;
+        }
+
+        $data = $user->toArray();
+        $data['avatar'] = UserAvatar::url($user->avatar);
+
+        return $data;
     }
 
     /**

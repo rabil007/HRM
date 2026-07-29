@@ -5,6 +5,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use App\Support\Companies\ResolveCompanyAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\PermissionRegistrar;
@@ -86,7 +87,7 @@ test('inactive company membership cannot become current company', function () {
     $request->setLaravelSession(app('session.store'));
     $request->session()->put('current_company_id', $inactiveCompany->id);
 
-    (new SetCurrentCompany)->handle($request, fn ($req) => response('ok'));
+    (new SetCurrentCompany(app(ResolveCompanyAccess::class)))->handle($request, fn ($req) => response('ok'));
 
     expect((int) $request->attributes->get('current_company_id'))->toBe((int) $activeCompany->id)
         ->and((int) $request->session()->get('current_company_id'))->toBe((int) $activeCompany->id)
@@ -128,7 +129,7 @@ test('legacy home company works only when no pivot row exists', function () {
     $request->setUserResolver(fn () => $user);
     $request->setLaravelSession(app('session.store'));
 
-    (new SetCurrentCompany)->handle($request, fn ($req) => response('ok'));
+    (new SetCurrentCompany(app(ResolveCompanyAccess::class)))->handle($request, fn ($req) => response('ok'));
 
     expect((int) $request->attributes->get('current_company_id'))->toBe((int) $company->id);
 });
@@ -143,7 +144,7 @@ test('inactive pivot for home company is not accepted as legacy access', functio
     $request->setLaravelSession(app('session.store'));
     $request->session()->put('current_company_id', $inactiveCompany->id);
 
-    (new SetCurrentCompany)->handle($request, fn ($req) => response('ok'));
+    (new SetCurrentCompany(app(ResolveCompanyAccess::class)))->handle($request, fn ($req) => response('ok'));
 
     expect((int) $request->attributes->get('current_company_id'))->toBe((int) $activeCompany->id);
 });

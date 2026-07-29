@@ -28,8 +28,10 @@ final class AssertLeaveRequestOverlap
                 $excludeLeaveRequestId !== null,
                 fn ($query) => $query->whereKeyNot($excludeLeaveRequestId),
             )
-            ->whereDate('start_date', '<=', $endDate)
-            ->whereDate('end_date', '>=', $startDate)
+            // Bound the day so DATETIME-backed SQLite columns compare correctly while
+            // remaining index-friendly for MySQL DATE columns.
+            ->where('start_date', '<=', $endDate.' 23:59:59')
+            ->where('end_date', '>=', $startDate.' 00:00:00')
             ->exists();
 
         if ($hasOverlap) {
