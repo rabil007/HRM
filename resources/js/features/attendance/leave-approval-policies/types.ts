@@ -18,6 +18,8 @@ export type LeaveApprovalPolicyEmployeeOption = {
     employee_status?: string | null;
     has_linked_user?: boolean;
     linked_user_active?: boolean;
+    has_active_company_membership?: boolean;
+    has_view_permission?: boolean;
     has_leave_request_approve_permission?: boolean;
     actionable?: boolean;
     warnings?: string[];
@@ -40,6 +42,11 @@ export type LeaveApprovalPolicy = {
     status: 'active' | 'inactive';
     departments_count: number;
     steps: LeaveApprovalPolicyStep[];
+    can_edit?: boolean;
+    can_change_status?: boolean;
+    can_set_default?: boolean;
+    can_delete?: boolean;
+    delete_blocked_reason?: string | null;
     created_at: string | null;
     updated_at: string | null;
 };

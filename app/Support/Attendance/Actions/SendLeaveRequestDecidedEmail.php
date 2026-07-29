@@ -7,6 +7,7 @@ use App\Mail\LeaveRequestDecidedMail;
 use App\Models\EmailTemplate;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
+use App\Models\LeaveRequestApproval;
 use App\Support\Departments\ResolveDepartmentEffectiveManager;
 use App\Support\Email\CommaSeparatedEmailList;
 use Illuminate\Support\Facades\Mail;
@@ -81,27 +82,31 @@ final class SendLeaveRequestDecidedEmail
         $toPreset = CommaSeparatedEmailList::parse($template->to_preset);
         $ccPreset = CommaSeparatedEmailList::parse($template->cc_preset);
         $employeeEmail = $this->resolveEmployeeEmail($leaveRequest);
-        $managerEmail = $this->resolveManagerEmail($leaveRequest);
+        $snapshotApproverEmail = $this->resolveSnapshotApproverEmail($leaveRequest);
 
-        $merged = collect([...$toPreset, $employeeEmail])
-            ->filter(fn (string $email) => $email !== '')
-            ->unique(fn (string $email) => strtolower($email))
-            ->values()
-            ->all();
+        if ($employeeEmail === '') {
+            $cc = collect([...$toPreset, ...$ccPreset, $snapshotApproverEmail])
+                ->filter(fn (string $email) => $email !== '')
+                ->unique(fn (string $email) => strtolower($email))
+                ->values()
+                ->all();
 
-        if ($merged === []) {
-            return ['to' => '', 'cc' => $ccPreset];
+            return [
+                'to' => $cc[0] ?? '',
+                'cc' => array_slice($cc, 1),
+            ];
         }
 
-        $ccMerged = collect([...$ccPreset, $managerEmail])
+        $cc = collect([...$toPreset, ...$ccPreset, $snapshotApproverEmail])
             ->filter(fn (string $email) => $email !== '')
+            ->filter(fn (string $email) => strcasecmp($email, $employeeEmail) !== 0)
             ->unique(fn (string $email) => strtolower($email))
             ->values()
             ->all();
 
         return [
-            'to' => $merged[0],
-            'cc' => array_values(array_unique([...array_slice($merged, 1), ...$ccMerged], SORT_REGULAR)),
+            'to' => $employeeEmail,
+            'cc' => $cc,
         ];
     }
 
@@ -116,31 +121,35 @@ final class SendLeaveRequestDecidedEmail
         return $this->employeeEmail($employee);
     }
 
-    private function resolveManagerEmail(LeaveRequest $leaveRequest): string
+    private function resolveSnapshotApproverEmail(LeaveRequest $leaveRequest): string
     {
-        $employee = $leaveRequest->employee;
+        $approvals = $leaveRequest->relationLoaded('approvals')
+            ? $leaveRequest->approvals
+            : $leaveRequest->approvals()->with('approverEmployee.user:id,email')->get();
 
-        if ($employee === null) {
+        $acted = $approvals
+            ->sortByDesc('sequence')
+            ->first(function (LeaveRequestApproval $approval): bool {
+                $status = $approval->status instanceof LeaveRequestApprovalStatus
+                    ? $approval->status
+                    : LeaveRequestApprovalStatus::tryFrom((string) $approval->status);
+
+                return $status === LeaveRequestApprovalStatus::Approved
+                    || $status === LeaveRequestApprovalStatus::Rejected;
+            });
+
+        if ($acted === null) {
             return '';
         }
 
-        $managerSummary = ResolveDepartmentEffectiveManager::managerForEmployee($employee);
+        $acted->loadMissing('approverEmployee.user:id,email');
+        $approver = $acted->approverEmployee;
 
-        if ($managerSummary === null) {
+        if ($approver === null) {
             return '';
         }
 
-        $manager = Employee::query()
-            ->where('company_id', $employee->company_id)
-            ->whereKey($managerSummary->id)
-            ->with('user:id,email')
-            ->first(['id', 'work_email', 'personal_email', 'user_id']);
-
-        if ($manager === null) {
-            return '';
-        }
-
-        return $this->employeeEmail($manager);
+        return $this->employeeEmail($approver);
     }
 
     private function employeeEmail(Employee $employee): string

@@ -16,13 +16,12 @@ use App\Support\Attendance\Data\ResolvedLeaveApprovalChain;
 use App\Support\Attendance\Data\ResolvedLeaveApprovalStep;
 use App\Support\Departments\ResolveDepartmentManagementChain;
 use RuntimeException;
-use Spatie\Permission\PermissionRegistrar;
 
 final class ResolveLeaveApprovalChain
 {
     public function __construct(
         private ResolveLeaveApprovalPolicy $resolvePolicy,
-        private PermissionRegistrar $permissionRegistrar,
+        private LeaveApproverEligibility $eligibility,
     ) {}
 
     public function handle(Employee $employee, int $companyId): ResolvedLeaveApprovalChain
@@ -96,7 +95,7 @@ final class ResolveLeaveApprovalChain
             if (! $this->isActionable($candidate['employee'], $companyId, $requesterId)) {
                 if ($step->is_required) {
                     throw new RuntimeException(sprintf(
-                        'Required approval step "%s" resolved to an employee who is not an actionable approver (active employee, linked active user, active company membership, and leave-request approve permission).',
+                        'Required approval step "%s" resolved to an employee who is not an actionable approver (active employee, linked active user, active company membership, and leave-request view and approve permissions).',
                         $step->approver_type->label(),
                     ));
                 }
@@ -393,43 +392,7 @@ final class ResolveLeaveApprovalChain
             return false;
         }
 
-        if ($employee->status !== 'active') {
-            return false;
-        }
-
-        $user = $employee->relationLoaded('user')
-            ? $employee->user
-            : $employee->user()->first(['id', 'name', 'email', 'status']);
-
-        if ($user === null || $user->status !== 'active') {
-            return false;
-        }
-
-        $hasActiveMembership = $user->companies()
-            ->whereKey($companyId)
-            ->wherePivot('status', 'active')
-            ->exists();
-
-        if (! $hasActiveMembership) {
-            return false;
-        }
-
-        return $this->userHasApprovePermission($user, $companyId);
-    }
-
-    private function userHasApprovePermission(User $user, int $companyId): bool
-    {
-        $previousTeamId = $this->permissionRegistrar->getPermissionsTeamId();
-
-        try {
-            $this->permissionRegistrar->setPermissionsTeamId($companyId);
-            $user->unsetRelation('roles')->unsetRelation('permissions');
-
-            return $user->can('attendance.leave-requests.approve');
-        } finally {
-            $this->permissionRegistrar->setPermissionsTeamId($previousTeamId);
-            $user->unsetRelation('roles')->unsetRelation('permissions');
-        }
+        return $this->eligibility->evaluate($employee, $companyId)['actionable'];
     }
 
     private function isManagerChainType(LeaveApprovalApproverType $type): bool

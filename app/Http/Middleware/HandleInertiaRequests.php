@@ -95,10 +95,22 @@ class HandleInertiaRequests extends Middleware
                 }
 
                 $companies = Cache::remember($companiesCacheKey, now()->addSeconds(60), function () use ($user): array {
-                    $models = $user->companies()->orderBy('name')->get(['companies.id', 'companies.name', 'companies.logo']);
+                    $models = $user->companies()
+                        ->where('companies.status', 'active')
+                        ->wherePivot('status', 'active')
+                        ->orderBy('name')
+                        ->get(['companies.id', 'companies.name', 'companies.logo']);
 
                     if ($models->isEmpty() && $user->company_id) {
-                        $models = Company::query()->whereKey($user->company_id)->get(['id', 'name', 'logo']);
+                        $homeCompanyId = (int) $user->company_id;
+                        $hasAnyPivotForHome = $user->companies()->whereKey($homeCompanyId)->exists();
+
+                        if (! $hasAnyPivotForHome) {
+                            $models = Company::query()
+                                ->whereKey($homeCompanyId)
+                                ->where('status', 'active')
+                                ->get(['id', 'name', 'logo']);
+                        }
                     }
 
                     return $models

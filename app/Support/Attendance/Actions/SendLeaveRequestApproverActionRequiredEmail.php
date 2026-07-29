@@ -19,21 +19,12 @@ final class SendLeaveRequestApproverActionRequiredEmail
 {
     private const TEMPLATE_SLUG = 'leave_request_approver_action_required';
 
-    private const FALLBACK_TEMPLATE_SLUG = 'leave_request_submitted';
-
     public function handle(LeaveRequest $leaveRequest): void
     {
         $template = EmailTemplate::query()
             ->where('slug', self::TEMPLATE_SLUG)
             ->where('enabled', true)
             ->first();
-
-        if ($template === null) {
-            $template = EmailTemplate::query()
-                ->where('slug', self::FALLBACK_TEMPLATE_SLUG)
-                ->where('enabled', true)
-                ->first();
-        }
 
         if ($template === null) {
             return;

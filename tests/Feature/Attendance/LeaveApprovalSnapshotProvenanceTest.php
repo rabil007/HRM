@@ -81,7 +81,8 @@ test('approval snapshot stores policy provenance and survives policy step recrea
     $originalPolicyName = $approval->policy_name;
     $originalLabel = $approval->policy_step_label;
 
-    // Policy updates delete/recreate steps (nullOnDelete on policy_step_id).
+    // Diff-based policy step sync preserves step IDs for unchanged positions.
+    // Snapshot provenance fields on the approval row must remain frozen.
     $user = User::factory()->create();
     DB::table('company_user')->insert([
         'company_id' => $company->id,
@@ -111,11 +112,12 @@ test('approval snapshot stores policy provenance and survives policy step recrea
 
     $approval->refresh();
 
-    expect($approval->policy_step_id)->toBeNull()
+    expect($approval->policy_step_id)->toBe($originalStepId)
         ->and($approval->policy_id)->toBe($originalPolicyId)
         ->and($approval->policy_name)->toBe($originalPolicyName)
         ->and($approval->policy_step_label)->toBe($originalLabel)
-        ->and($originalStepId)->not->toBeNull();
+        ->and($originalStepId)->not->toBeNull()
+        ->and($policy->fresh()->name)->toBe('Renamed Policy');
 });
 
 test('optional snapshot metadata backfill never overwrites existing provenance', function () {

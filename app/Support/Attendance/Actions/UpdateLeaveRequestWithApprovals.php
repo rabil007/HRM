@@ -7,7 +7,9 @@ use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
+use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\AssertLeaveRequestOverlap;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAttachments;
@@ -26,6 +28,7 @@ final class UpdateLeaveRequestWithApprovals
         private ResolveLeaveApprovalChain $resolveChain,
         private LeaveBalanceManager $leaveBalances,
         private CalculateLeaveRequestDays $calculateDays,
+        private AssertLeaveRequestOverlap $assertOverlap,
         private LeaveRequestAttachments $attachments,
         private SendLeaveRequestUpdatedEmail $sendUpdatedEmail,
     ) {}
@@ -53,25 +56,19 @@ final class UpdateLeaveRequestWithApprovals
 
         $storedAttachments = null;
         $previousAttachmentsToDelete = null;
-
-        if ($newAttachment !== null) {
-            $storedAttachments = $this->attachments->store(
-                $newAttachment,
-                $companyId,
-                (int) $leaveRequest->id,
-            );
-        }
+        $changed = false;
 
         try {
             $updated = DB::transaction(function () use (
                 $leaveRequest,
                 $companyId,
                 $attributes,
-                $storedAttachments,
                 $newAttachment,
                 $removeAttachment,
                 $actor,
+                &$storedAttachments,
                 &$previousAttachmentsToDelete,
+                &$changed,
             ): LeaveRequest {
                 $locked = LeaveRequest::query()
                     ->whereKey($leaveRequest->id)
@@ -98,6 +95,52 @@ final class UpdateLeaveRequestWithApprovals
                     ]);
                 }
 
+                $employeeId = (int) $attributes['employee_id'];
+                $leaveTypeId = (int) $attributes['leave_type_id'];
+                $startDate = (string) $attributes['start_date'];
+                $endDate = (string) $attributes['end_date'];
+                $reason = array_key_exists('reason', $attributes)
+                    ? ($attributes['reason'] ?? null)
+                    : $locked->reason;
+                $totalDays = ($this->calculateDays)($startDate, $endDate);
+
+                $employeeChanged = $employeeId !== (int) $locked->employee_id;
+                $typeChanged = $leaveTypeId !== (int) $locked->leave_type_id;
+                $datesChanged = $startDate !== $locked->start_date?->toDateString()
+                    || $endDate !== $locked->end_date?->toDateString();
+                $reasonChanged = $reason !== $locked->reason;
+                $attachmentChanged = $newAttachment !== null || $removeAttachment;
+
+                if (! $employeeChanged && ! $typeChanged && ! $datesChanged && ! $reasonChanged && ! $attachmentChanged) {
+                    return $locked->fresh(['approvals', 'employee', 'leaveType', 'company']) ?? $locked;
+                }
+
+                $changed = true;
+
+                $this->assertActiveTargets($companyId, $employeeId, $leaveTypeId, $employeeChanged);
+
+                $employeeIds = array_values(array_unique(array_filter([
+                    (int) $locked->employee_id,
+                    $employeeId,
+                ])));
+                sort($employeeIds);
+
+                foreach ($employeeIds as $lockEmployeeId) {
+                    Employee::query()
+                        ->where('company_id', $companyId)
+                        ->whereKey($lockEmployeeId)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                }
+
+                $this->assertOverlap->handle(
+                    companyId: $companyId,
+                    employeeId: $employeeId,
+                    startDate: $startDate,
+                    endDate: $endDate,
+                    excludeLeaveRequestId: (int) $locked->id,
+                );
+
                 $previousApprovalSnapshot = $this->serializeApprovalsForAudit($approvals);
                 $previousRequestSnapshot = [
                     'employee_id' => (int) $locked->employee_id,
@@ -108,34 +151,41 @@ final class UpdateLeaveRequestWithApprovals
                     'reason' => $locked->reason,
                 ];
 
-                // Capture attachment state from the locked model, not the stale route model.
-                if ($newAttachment !== null || $removeAttachment) {
+                if ($attachmentChanged) {
                     $previousAttachmentsToDelete = $locked->attachments;
                 }
 
-                $this->leaveBalances->replacePendingLeaveRequest($locked, [
-                    'employee_id' => $attributes['employee_id'],
-                    'leave_type_id' => $attributes['leave_type_id'],
-                    'start_date' => $attributes['start_date'],
-                    'end_date' => $attributes['end_date'],
-                ]);
+                if ($employeeChanged || $typeChanged || $datesChanged) {
+                    $this->leaveBalances->replacePendingReservation($locked, [
+                        'employee_id' => $employeeId,
+                        'leave_type_id' => $leaveTypeId,
+                        'start_date' => $startDate,
+                        'end_date' => $endDate,
+                    ]);
+                }
 
                 $payload = [
-                    'employee_id' => $attributes['employee_id'],
-                    'leave_type_id' => $attributes['leave_type_id'],
-                    'start_date' => $attributes['start_date'],
-                    'end_date' => $attributes['end_date'],
-                    'total_days' => ($this->calculateDays)($attributes['start_date'], $attributes['end_date']),
-                    'reason' => $attributes['reason'] ?? null,
+                    'employee_id' => $employeeId,
+                    'leave_type_id' => $leaveTypeId,
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'total_days' => $totalDays,
+                    'reason' => $reason,
                 ];
 
-                if ($newAttachment !== null || $removeAttachment) {
-                    $payload['attachments'] = $newAttachment !== null ? $storedAttachments : null;
+                if ($newAttachment !== null) {
+                    $storedAttachments = $this->attachments->store(
+                        $newAttachment,
+                        $companyId,
+                        (int) $locked->id,
+                    );
+                    $payload['attachments'] = $storedAttachments;
+                } elseif ($removeAttachment) {
+                    $payload['attachments'] = null;
                 }
 
                 $locked->fill($payload)->save();
 
-                // Remove unacted snapshot rows only after re-validating none were acted.
                 $approvals = LeaveRequestApproval::query()
                     ->where('company_id', $companyId)
                     ->where('leave_request_id', $locked->id)
@@ -155,7 +205,7 @@ final class UpdateLeaveRequestWithApprovals
 
                 $employee = Employee::query()
                     ->where('company_id', $companyId)
-                    ->whereKey((int) $locked->employee_id)
+                    ->whereKey($employeeId)
                     ->firstOrFail();
 
                 try {
@@ -194,19 +244,52 @@ final class UpdateLeaveRequestWithApprovals
             throw $exception;
         }
 
-        if ($previousAttachmentsToDelete !== null) {
+        if ($changed && $previousAttachmentsToDelete !== null) {
             $this->attachments->deleteFromStorage($previousAttachmentsToDelete);
         }
 
-        DB::afterCommit(function () use ($updated): void {
-            try {
-                $this->sendUpdatedEmail->handle($updated->fresh(['approvals.approverEmployee.user', 'employee.department', 'leaveType', 'company']) ?? $updated);
-            } catch (Throwable $exception) {
-                report($exception);
-            }
-        });
+        if ($changed) {
+            DB::afterCommit(function () use ($updated): void {
+                try {
+                    $this->sendUpdatedEmail->handle(
+                        $updated->fresh(['approvals.approverEmployee.user', 'employee.department', 'leaveType', 'company']) ?? $updated,
+                    );
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
+            });
+        }
 
         return $updated;
+    }
+
+    private function assertActiveTargets(int $companyId, int $employeeId, int $leaveTypeId, bool $employeeChanged): void
+    {
+        $employeeQuery = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employeeId);
+
+        if ($employeeChanged) {
+            $employeeQuery->where('status', 'active');
+        }
+
+        if ($employeeQuery->doesntExist()) {
+            throw ValidationException::withMessages([
+                'employee_id' => 'The selected employee is invalid or inactive for this company.',
+            ]);
+        }
+
+        $leaveType = LeaveType::query()
+            ->where('company_id', $companyId)
+            ->whereKey($leaveTypeId)
+            ->where('status', 'active')
+            ->exists();
+
+        if (! $leaveType) {
+            throw ValidationException::withMessages([
+                'leave_type_id' => 'The selected leave type is invalid or inactive for this company.',
+            ]);
+        }
     }
 
     /**

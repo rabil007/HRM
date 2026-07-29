@@ -65,7 +65,13 @@ final class LeaveBalanceManager
             return;
         }
 
-        $this->adjustBucketsForRequest($leaveRequest, ['pending_days' => 1.0]);
+        $this->reserveIfAvailable(
+            companyId: (int) $leaveRequest->company_id,
+            employeeId: (int) $leaveRequest->employee_id,
+            leaveTypeId: (int) $leaveRequest->leave_type_id,
+            startDate: (string) $leaveRequest->start_date?->toDateString(),
+            endDate: (string) $leaveRequest->end_date?->toDateString(),
+        );
     }
 
     public function releaseLeaveRequest(LeaveRequest $leaveRequest): void
@@ -74,15 +80,12 @@ final class LeaveBalanceManager
             return;
         }
 
-        $this->adjustBucketsForRequest($leaveRequest, ['pending_days' => -1.0]);
+        $this->releasePendingReservation($leaveRequest);
     }
 
     public function approveLeaveRequest(LeaveRequest $leaveRequest): void
     {
-        $this->adjustBucketsForRequest($leaveRequest, [
-            'pending_days' => -1.0,
-            'used_days' => 1.0,
-        ]);
+        $this->convertPendingToUsed($leaveRequest);
     }
 
     /**
@@ -99,17 +102,204 @@ final class LeaveBalanceManager
             return;
         }
 
-        $this->releaseLeaveRequest($leaveRequest);
+        $this->replacePendingReservation($leaveRequest, $replacement);
+    }
 
-        $temporary = $leaveRequest->replicate();
-        $temporary->employee_id = $replacement['employee_id'];
-        $temporary->leave_type_id = $replacement['leave_type_id'];
-        $temporary->start_date = $replacement['start_date'];
-        $temporary->end_date = $replacement['end_date'];
-        $temporary->total_days = ($this->calculateDays)($replacement['start_date'], $replacement['end_date']);
-        $temporary->status = 'pending';
+    /**
+     * Lock year rows, validate remaining entitlement, then increment pending under the same locks.
+     *
+     * @throws RuntimeException
+     */
+    public function reserveIfAvailable(
+        int $companyId,
+        int $employeeId,
+        int $leaveTypeId,
+        string $startDate,
+        string $endDate,
+        ?LeaveRequest $creditSameKeyRequest = null,
+    ): void {
+        if ($startDate === '' || $endDate === '') {
+            throw new RuntimeException('Leave request dates are required to reserve balance.');
+        }
 
-        $this->reserveLeaveRequest($temporary);
+        $leaveType = LeaveType::query()
+            ->where('company_id', $companyId)
+            ->whereKey($leaveTypeId)
+            ->where('status', 'active')
+            ->first();
+
+        if ($leaveType === null) {
+            throw new RuntimeException('The selected leave type is invalid.');
+        }
+
+        $run = function () use ($companyId, $employeeId, $leaveType, $startDate, $endDate, $creditSameKeyRequest): void {
+            foreach ($this->daysByYear($startDate, $endDate) as $year => $days) {
+                if ($days <= 0) {
+                    continue;
+                }
+
+                $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: true);
+                $available = (float) $balance->remaining_days;
+
+                if ($this->canCreditPendingRequest($creditSameKeyRequest, $companyId, $employeeId, (int) $leaveType->id, $year)) {
+                    $available += $this->daysForRequestInYear($creditSameKeyRequest, $year);
+                }
+
+                if ($available + 0.0001 < $days) {
+                    throw new RuntimeException(sprintf(
+                        'Insufficient %s balance for %d. Only %.1f day(s) remaining.',
+                        $leaveType->name,
+                        $year,
+                        max(0, $available),
+                    ));
+                }
+
+                $balance->forceFill([
+                    'pending_days' => (float) $balance->pending_days + $days,
+                ])->save();
+            }
+        };
+
+        $this->runInTransaction($run);
+    }
+
+    /**
+     * Release exactly the request allocation from pending without going negative.
+     *
+     * @throws RuntimeException
+     */
+    public function releasePendingReservation(LeaveRequest $leaveRequest): void
+    {
+        $companyId = (int) $leaveRequest->company_id;
+        $employeeId = (int) $leaveRequest->employee_id;
+        $leaveTypeId = (int) $leaveRequest->leave_type_id;
+        $startDate = $leaveRequest->start_date?->toDateString();
+        $endDate = $leaveRequest->end_date?->toDateString();
+
+        if ($startDate === null || $endDate === null) {
+            return;
+        }
+
+        $leaveType = LeaveType::query()->find($leaveTypeId);
+
+        if ($leaveType === null) {
+            return;
+        }
+
+        $run = function () use ($companyId, $employeeId, $leaveType, $startDate, $endDate): void {
+            foreach ($this->daysByYear($startDate, $endDate) as $year => $days) {
+                if ($days <= 0) {
+                    continue;
+                }
+
+                $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: true);
+                $current = (float) $balance->pending_days;
+
+                // Exactly-once release is enforced by request-state transitions.
+                // An already-empty pending bucket is a no-op rather than a hard failure.
+                if ($current <= 0.0001) {
+                    continue;
+                }
+
+                $nextValue = $current - $days;
+
+                if ($nextValue < -0.0001) {
+                    throw new RuntimeException(sprintf(
+                        'Leave balance for %s (%d) cannot go negative on pending_days (current %.2f, delta %.2f).',
+                        $leaveType->name,
+                        $year,
+                        $current,
+                        -$days,
+                    ));
+                }
+
+                $balance->forceFill([
+                    'pending_days' => max(0, $nextValue),
+                ])->save();
+            }
+        };
+
+        $this->runInTransaction($run);
+    }
+
+    /**
+     * Convert pending reservation to used for every affected year.
+     * Fails if pending does not contain the allocation — never increments used alone.
+     *
+     * @throws RuntimeException
+     */
+    public function convertPendingToUsed(LeaveRequest $leaveRequest): void
+    {
+        $companyId = (int) $leaveRequest->company_id;
+        $employeeId = (int) $leaveRequest->employee_id;
+        $leaveTypeId = (int) $leaveRequest->leave_type_id;
+        $startDate = $leaveRequest->start_date?->toDateString();
+        $endDate = $leaveRequest->end_date?->toDateString();
+
+        if ($startDate === null || $endDate === null) {
+            return;
+        }
+
+        $leaveType = LeaveType::query()->find($leaveTypeId);
+
+        if ($leaveType === null) {
+            throw new RuntimeException('The leave type for this request no longer exists.');
+        }
+
+        $run = function () use ($companyId, $employeeId, $leaveType, $startDate, $endDate): void {
+            foreach ($this->daysByYear($startDate, $endDate) as $year => $days) {
+                if ($days <= 0) {
+                    continue;
+                }
+
+                $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: true);
+                $pending = (float) $balance->pending_days;
+
+                if ($pending + 0.0001 < $days) {
+                    throw new RuntimeException(sprintf(
+                        'Cannot approve leave: pending reservation for %s (%d) is missing or insufficient (have %.2f, need %.2f).',
+                        $leaveType->name,
+                        $year,
+                        $pending,
+                        $days,
+                    ));
+                }
+
+                $balance->forceFill([
+                    'pending_days' => max(0, $pending - $days),
+                    'used_days' => (float) $balance->used_days + $days,
+                ])->save();
+            }
+        };
+
+        $this->runInTransaction($run);
+    }
+
+    /**
+     * Release the old pending reservation and reserve the replacement under the same outer transaction.
+     *
+     * @param  array{
+     *     employee_id: int,
+     *     leave_type_id: int,
+     *     start_date: string,
+     *     end_date: string,
+     * }  $replacement
+     */
+    public function replacePendingReservation(LeaveRequest $leaveRequest, array $replacement): void
+    {
+        $run = function () use ($leaveRequest, $replacement): void {
+            $this->releasePendingReservation($leaveRequest);
+
+            $this->reserveIfAvailable(
+                companyId: (int) $leaveRequest->company_id,
+                employeeId: $replacement['employee_id'],
+                leaveTypeId: $replacement['leave_type_id'],
+                startDate: $replacement['start_date'],
+                endDate: $replacement['end_date'],
+            );
+        };
+
+        $this->runInTransaction($run);
     }
 
     /**
@@ -141,7 +331,7 @@ final class LeaveBalanceManager
             $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: DB::transactionLevel() > 0);
             $available = (float) $balance->remaining_days;
 
-            if ($ignore !== null && $ignore->status === 'pending') {
+            if ($this->canCreditPendingRequest($ignore, $companyId, $employeeId, $leaveTypeId, $year)) {
                 $available += $this->daysForRequestInYear($ignore, $year);
             }
 
@@ -225,19 +415,35 @@ final class LeaveBalanceManager
         $synced = 0;
 
         foreach ($leaveTypes as $leaveType) {
-            $balance = $this->findOrCreateBalance($companyId, $employeeId, $leaveType, $year);
-            $usedDays = $this->sumRequestDaysForYear($companyId, $employeeId, $leaveType->id, $year, 'approved');
-            $pendingDays = $this->sumRequestDaysForYear($companyId, $employeeId, $leaveType->id, $year, 'pending');
-
-            $balance->forceFill([
-                'used_days' => $usedDays,
-                'pending_days' => $pendingDays,
-            ])->save();
-
+            $this->synchronizeBalanceKey($companyId, $employeeId, (int) $leaveType->id, $year);
             $synced++;
         }
 
         return $synced;
+    }
+
+    /**
+     * Recalculate used/pending for one balance key under a short per-key transaction lock.
+     */
+    public function synchronizeBalanceKey(int $companyId, int $employeeId, int $leaveTypeId, int $year): void
+    {
+        $leaveType = LeaveType::query()
+            ->where('company_id', $companyId)
+            ->whereKey($leaveTypeId)
+            ->first();
+
+        if ($leaveType === null) {
+            return;
+        }
+
+        DB::transaction(function () use ($companyId, $employeeId, $leaveType, $leaveTypeId, $year): void {
+            $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: true);
+
+            $balance->forceFill([
+                'used_days' => $this->sumRequestDaysForYear($companyId, $employeeId, $leaveTypeId, $year, 'approved'),
+                'pending_days' => $this->sumRequestDaysForYear($companyId, $employeeId, $leaveTypeId, $year, 'pending'),
+            ])->save();
+        });
     }
 
     /**
@@ -301,25 +507,9 @@ final class LeaveBalanceManager
             'pending_days' => 0,
         ]);
 
-        $this->syncEmployeeLeaveTypeYear($companyId, $employeeId, $leaveType->id, $year);
+        $this->synchronizeBalanceKey($companyId, $employeeId, (int) $leaveType->id, $year);
 
         return true;
-    }
-
-    private function syncEmployeeLeaveTypeYear(int $companyId, int $employeeId, int $leaveTypeId, int $year): void
-    {
-        $leaveType = LeaveType::query()->find($leaveTypeId);
-
-        if ($leaveType === null) {
-            return;
-        }
-
-        $balance = $this->findOrCreateBalance($companyId, $employeeId, $leaveType, $year);
-
-        $balance->forceFill([
-            'used_days' => $this->sumRequestDaysForYear($companyId, $employeeId, $leaveTypeId, $year, 'approved'),
-            'pending_days' => $this->sumRequestDaysForYear($companyId, $employeeId, $leaveTypeId, $year, 'pending'),
-        ])->save();
     }
 
     private function sumRequestDaysForYear(
@@ -347,69 +537,30 @@ final class LeaveBalanceManager
         return $total;
     }
 
-    private function adjustBucketsForRequest(LeaveRequest $leaveRequest, array $bucketDirections): void
-    {
-        $companyId = (int) $leaveRequest->company_id;
-        $employeeId = (int) $leaveRequest->employee_id;
-        $leaveTypeId = (int) $leaveRequest->leave_type_id;
-        $startDate = $leaveRequest->start_date?->toDateString();
-        $endDate = $leaveRequest->end_date?->toDateString();
-
-        if ($startDate === null || $endDate === null || $bucketDirections === []) {
-            return;
+    private function canCreditPendingRequest(
+        ?LeaveRequest $request,
+        int $companyId,
+        int $employeeId,
+        int $leaveTypeId,
+        int $year,
+    ): bool {
+        if ($request === null || $request->status !== 'pending') {
+            return false;
         }
 
-        $leaveType = LeaveType::query()->find($leaveTypeId);
-
-        if ($leaveType === null) {
-            return;
+        if ((int) $request->company_id !== $companyId) {
+            return false;
         }
 
-        $run = function () use ($companyId, $employeeId, $leaveType, $startDate, $endDate, $bucketDirections): void {
-            foreach ($this->daysByYear($startDate, $endDate) as $year => $days) {
-                if ($days <= 0) {
-                    continue;
-                }
-
-                $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: true);
-
-                foreach ($bucketDirections as $bucket => $direction) {
-                    $delta = $days * (float) $direction;
-                    $current = (float) $balance->{$bucket};
-                    $nextValue = $current + $delta;
-
-                    // Idempotent release/approve reductions when the bucket is already empty.
-                    if ($delta < 0 && $current <= 0.0001) {
-                        continue;
-                    }
-
-                    if ($nextValue < -0.0001) {
-                        throw new RuntimeException(sprintf(
-                            'Leave balance for %s (%d) cannot go negative on %s (current %.2f, delta %.2f).',
-                            $leaveType->name,
-                            $year,
-                            $bucket,
-                            $current,
-                            $delta,
-                        ));
-                    }
-
-                    $balance->forceFill([
-                        $bucket => max(0, $nextValue),
-                    ]);
-                }
-
-                $balance->save();
-            }
-        };
-
-        if (DB::transactionLevel() > 0) {
-            $run();
-
-            return;
+        if ((int) $request->employee_id !== $employeeId) {
+            return false;
         }
 
-        DB::transaction($run);
+        if ((int) $request->leave_type_id !== $leaveTypeId) {
+            return false;
+        }
+
+        return $this->daysForRequestInYear($request, $year) > 0;
     }
 
     private function lockedBalance(
@@ -483,6 +634,7 @@ final class LeaveBalanceManager
             $allocations[$year] = $this->daysWithinYear($startDate, $endDate, $year);
         }
 
+        // Ascending year order is already guaranteed by the loop.
         return $allocations;
     }
 
@@ -510,5 +662,16 @@ final class LeaveBalanceManager
         }
 
         return $this->daysWithinYear($startDate, $endDate, $year);
+    }
+
+    private function runInTransaction(callable $callback): void
+    {
+        if (DB::transactionLevel() > 0) {
+            $callback();
+
+            return;
+        }
+
+        DB::transaction($callback);
     }
 }

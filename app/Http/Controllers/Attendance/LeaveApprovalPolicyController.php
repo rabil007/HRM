@@ -7,8 +7,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Attendance\StoreLeaveApprovalPolicyRequest;
 use App\Http\Requests\Attendance\UpdateLeaveApprovalPolicyRequest;
 use App\Http\Requests\Attendance\UpdateLeaveApprovalPolicyStatusRequest;
+use App\Models\Company;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\LeaveApprovalPolicyStep;
+use App\Support\Attendance\Actions\SyncLeaveApprovalPolicySteps;
 use App\Support\Attendance\Actions\UpdateLeaveApprovalPolicyState;
 use App\Support\Attendance\PresentLeaveApproverOption;
 use App\Support\Pagination\ResolvesPerPage;
@@ -26,6 +28,7 @@ class LeaveApprovalPolicyController extends Controller
     public function __construct(
         private PresentLeaveApproverOption $presentApproverOption,
         private UpdateLeaveApprovalPolicyState $policyState,
+        private SyncLeaveApprovalPolicySteps $syncSteps,
     ) {}
 
     public function index(Request $request): Response
@@ -105,7 +108,7 @@ class LeaveApprovalPolicyController extends Controller
                 'updated_by' => $userId,
             ])->save();
 
-            $this->syncSteps($policy, $companyId, $data['steps']);
+            $this->syncSteps->handle($policy, $companyId, $data['steps']);
 
             if (! empty($data['is_default'])) {
                 $this->policyState->markAsDefault($policy, $companyId, $userId);
@@ -137,7 +140,7 @@ class LeaveApprovalPolicyController extends Controller
         }
 
         DB::transaction(function () use ($leaveApprovalPolicy, $companyId, $data, $stateAttributes): void {
-            $this->syncSteps($leaveApprovalPolicy, $companyId, $data['steps']);
+            $this->syncSteps->handle($leaveApprovalPolicy, $companyId, $data['steps']);
             $this->policyState->handle($leaveApprovalPolicy->fresh() ?? $leaveApprovalPolicy, $companyId, $stateAttributes);
         });
 
@@ -237,19 +240,38 @@ class LeaveApprovalPolicyController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $leaveApprovalPolicy->company_id === $companyId, 404);
 
-        if ($leaveApprovalPolicy->is_default) {
+        try {
+            DB::transaction(function () use ($leaveApprovalPolicy, $companyId): void {
+                Company::query()
+                    ->whereKey($companyId)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $policy = LeaveApprovalPolicy::query()
+                    ->whereKey($leaveApprovalPolicy->id)
+                    ->where('company_id', $companyId)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($policy->is_default) {
+                    throw ValidationException::withMessages([
+                        'policy' => 'The company default leave approval policy cannot be deleted.',
+                    ]);
+                }
+
+                if (! $policy->isSafelyDeletable()) {
+                    throw ValidationException::withMessages([
+                        'policy' => 'This leave approval policy cannot be deleted because it is assigned to departments or used by leave request approvals.',
+                    ]);
+                }
+
+                $policy->delete();
+            });
+        } catch (ValidationException $exception) {
             return redirect()
                 ->route('attendance.leave-approval-policies.index')
-                ->withErrors(['policy' => 'The company default leave approval policy cannot be deleted.']);
+                ->withErrors($exception->errors());
         }
-
-        if (! $leaveApprovalPolicy->isSafelyDeletable()) {
-            return redirect()
-                ->route('attendance.leave-approval-policies.index')
-                ->withErrors(['policy' => 'This leave approval policy cannot be deleted because it is assigned to departments or used by leave request approvals.']);
-        }
-
-        $leaveApprovalPolicy->delete();
 
         return redirect()
             ->route('attendance.leave-approval-policies.index')
@@ -257,32 +279,21 @@ class LeaveApprovalPolicyController extends Controller
     }
 
     /**
-     * @param  list<array{approver_type: string, approver_employee_id?: int|null, is_required?: bool}>  $steps
-     */
-    private function syncSteps(LeaveApprovalPolicy $policy, int $companyId, array $steps): void
-    {
-        $policy->steps()->delete();
-
-        foreach (array_values($steps) as $index => $step) {
-            $row = new LeaveApprovalPolicyStep;
-            $row->forceFill([
-                'company_id' => $companyId,
-                'leave_approval_policy_id' => $policy->id,
-                'sequence' => $index + 1,
-                'approver_type' => $step['approver_type'],
-                'approver_employee_id' => $step['approver_employee_id'] ?? null,
-                'is_required' => array_key_exists('is_required', $step)
-                    ? (bool) $step['is_required']
-                    : true,
-            ])->save();
-        }
-    }
-
-    /**
      * @return array<string, mixed>
      */
     private function serializePolicy(LeaveApprovalPolicy $policy): array
     {
+        $user = request()->user();
+        $canUpdate = $user?->can('attendance.leave-approval-policies.update') ?? false;
+        $canDeletePermission = $user?->can('attendance.leave-approval-policies.delete') ?? false;
+        $deleteBlockedReason = null;
+
+        if ($policy->is_default) {
+            $deleteBlockedReason = 'The company default leave approval policy cannot be deleted.';
+        } elseif (! $policy->isSafelyDeletable()) {
+            $deleteBlockedReason = 'This leave approval policy cannot be deleted because it is assigned to departments or used by leave request approvals.';
+        }
+
         return [
             'id' => $policy->id,
             'name' => $policy->name,
@@ -303,6 +314,11 @@ class LeaveApprovalPolicyController extends Controller
                 ])
                 ->values()
                 ->all(),
+            'can_edit' => $canUpdate,
+            'can_change_status' => $canUpdate,
+            'can_set_default' => $canUpdate && $policy->status === 'active',
+            'can_delete' => $canDeletePermission && $deleteBlockedReason === null,
+            'delete_blocked_reason' => $deleteBlockedReason,
             'created_at' => $policy->created_at?->toIso8601String(),
             'updated_at' => $policy->updated_at?->toIso8601String(),
         ];

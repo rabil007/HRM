@@ -165,7 +165,7 @@ test('failed update transaction sends no notification', function () {
     Mail::assertNothingQueued();
 });
 
-test('update notification falls back to submitted template when updated template is disabled', function () {
+test('update notification does not fall back when updated template is disabled', function () {
     EmailTemplatesSeeder::seedLeaveRequestSubmittedTemplate();
     EmailTemplatesSeeder::seedLeaveRequestUpdatedTemplate()->update(['enabled' => false]);
 
@@ -200,5 +200,5 @@ test('update notification falls back to submitted template when updated template
         'reason' => 'Updated dates',
     ])->assertRedirect();
 
-    Mail::assertQueued(LeaveRequestSubmittedMail::class, 1);
+    Mail::assertNothingQueued();
 });

@@ -23,17 +23,9 @@ final class LeaveRequestAuthorization
         return $this->visibility->canAccess($leaveRequest, $user, $companyId);
     }
 
-    public function canEdit(LeaveRequest $leaveRequest, ?User $user, int $companyId): bool
+    public function canEdit(LeaveRequest $leaveRequest, ?User $user, int $companyId, ?int $linkedEmployeeId = null): bool
     {
-        if (! $this->passesCompanyAndMutationPermission($leaveRequest, $user, $companyId, 'attendance.leave-requests.update')) {
-            return false;
-        }
-
-        if ($leaveRequest->status !== 'pending') {
-            return false;
-        }
-
-        if (! $this->isOwnerOrViewAllAdmin($leaveRequest, $user, $companyId)) {
+        if (! $this->canAttemptEdit($leaveRequest, $user, $companyId, $linkedEmployeeId)) {
             return false;
         }
 
@@ -45,7 +37,7 @@ final class LeaveRequestAuthorization
     /**
      * Structural authority to attempt an edit (owner/admin). Business state is enforced in the action.
      */
-    public function canAttemptEdit(LeaveRequest $leaveRequest, ?User $user, int $companyId): bool
+    public function canAttemptEdit(LeaveRequest $leaveRequest, ?User $user, int $companyId, ?int $linkedEmployeeId = null): bool
     {
         if (! $this->passesCompanyAndMutationPermission($leaveRequest, $user, $companyId, 'attendance.leave-requests.update')) {
             return false;
@@ -55,10 +47,10 @@ final class LeaveRequestAuthorization
             return false;
         }
 
-        return $this->isOwnerOrViewAllAdmin($leaveRequest, $user, $companyId);
+        return $this->isOwnerOrViewAllAdmin($leaveRequest, $user, $companyId, $linkedEmployeeId);
     }
 
-    public function canCancel(LeaveRequest $leaveRequest, ?User $user, int $companyId): bool
+    public function canCancel(LeaveRequest $leaveRequest, ?User $user, int $companyId, ?int $linkedEmployeeId = null): bool
     {
         if (! $this->passesCompanyAndMutationPermission($leaveRequest, $user, $companyId, 'attendance.leave-requests.update')) {
             return false;
@@ -68,10 +60,24 @@ final class LeaveRequestAuthorization
             return false;
         }
 
-        return $this->isOwnerOrViewAllAdmin($leaveRequest, $user, $companyId);
+        return $this->isOwnerOrViewAllAdmin($leaveRequest, $user, $companyId, $linkedEmployeeId);
     }
 
-    public function canDelete(LeaveRequest $leaveRequest, ?User $user, int $companyId): bool
+    public function canDelete(LeaveRequest $leaveRequest, ?User $user, int $companyId, ?int $linkedEmployeeId = null): bool
+    {
+        if (! $this->canAttemptDelete($leaveRequest, $user, $companyId, $linkedEmployeeId)) {
+            return false;
+        }
+
+        // Presentation flag: hide delete once approval has started. Mutation actions
+        // still re-check under lock and return a validation error with a clear message.
+        return ! $this->approvalProcessHasStarted($leaveRequest, $companyId);
+    }
+
+    /**
+     * Structural authority to attempt a delete (owner/admin). Business state is enforced in the action.
+     */
+    public function canAttemptDelete(LeaveRequest $leaveRequest, ?User $user, int $companyId, ?int $linkedEmployeeId = null): bool
     {
         if (! $this->passesCompanyAndMutationPermission($leaveRequest, $user, $companyId, 'attendance.leave-requests.delete')) {
             return false;
@@ -81,7 +87,7 @@ final class LeaveRequestAuthorization
             return false;
         }
 
-        return $this->isOwnerOrViewAllAdmin($leaveRequest, $user, $companyId);
+        return $this->isOwnerOrViewAllAdmin($leaveRequest, $user, $companyId, $linkedEmployeeId);
     }
 
     public function canApproveCurrentStep(LeaveRequest $leaveRequest, ?User $user, int $companyId): bool
@@ -94,7 +100,7 @@ final class LeaveRequestAuthorization
             return false;
         }
 
-        if (! $user->can('attendance.leave-requests.approve')) {
+        if (! $user->can('attendance.leave-requests.view') || ! $user->can('attendance.leave-requests.approve')) {
             return false;
         }
 
@@ -134,7 +140,7 @@ final class LeaveRequestAuthorization
     public function assertCanDelete(LeaveRequest $leaveRequest, ?User $user, int $companyId): void
     {
         $this->assertCanView($leaveRequest, $user, $companyId);
-        abort_unless($this->canDelete($leaveRequest, $user, $companyId), 403);
+        abort_unless($this->canAttemptDelete($leaveRequest, $user, $companyId), 403);
     }
 
     /**
@@ -145,12 +151,12 @@ final class LeaveRequestAuthorization
      *     can_approve_current_step: bool,
      * }
      */
-    public function capabilities(LeaveRequest $leaveRequest, ?User $user, int $companyId): array
+    public function capabilities(LeaveRequest $leaveRequest, ?User $user, int $companyId, ?int $linkedEmployeeId = null): array
     {
         return [
-            'can_edit' => $this->canEdit($leaveRequest, $user, $companyId),
-            'can_cancel' => $this->canCancel($leaveRequest, $user, $companyId),
-            'can_delete' => $this->canDelete($leaveRequest, $user, $companyId),
+            'can_edit' => $this->canEdit($leaveRequest, $user, $companyId, $linkedEmployeeId),
+            'can_cancel' => $this->canCancel($leaveRequest, $user, $companyId, $linkedEmployeeId),
+            'can_delete' => $this->canDelete($leaveRequest, $user, $companyId, $linkedEmployeeId),
             'can_approve_current_step' => $this->canApproveCurrentStep($leaveRequest, $user, $companyId),
         ];
     }
@@ -185,13 +191,13 @@ final class LeaveRequestAuthorization
         return $user->can($permission);
     }
 
-    private function isOwnerOrViewAllAdmin(LeaveRequest $leaveRequest, ?User $user, int $companyId): bool
+    private function isOwnerOrViewAllAdmin(LeaveRequest $leaveRequest, ?User $user, int $companyId, ?int $linkedEmployeeId = null): bool
     {
         if ($user === null) {
             return false;
         }
 
-        $employeeId = $this->visibility->linkedEmployeeId($user, $companyId);
+        $employeeId = $linkedEmployeeId ?? $this->visibility->linkedEmployeeId($user, $companyId);
 
         if ($employeeId !== null && (int) $leaveRequest->employee_id === $employeeId) {
             return true;

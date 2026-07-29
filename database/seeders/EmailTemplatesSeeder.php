@@ -13,12 +13,32 @@ class EmailTemplatesSeeder extends Seeder
         self::seedPayslipDeliveryTemplate();
         self::seedLeaveRequestSubmittedTemplate();
         self::seedLeaveRequestUpdatedTemplate();
+        self::seedLeaveRequestApproverActionRequiredTemplate();
         self::seedLeaveRequestApprovedTemplate();
         self::seedLeaveRequestRejectedTemplate();
         self::seedPasswordResetTemplate();
         self::seedBulkSalaryDeclarationTemplate();
         self::seedBulkSalaryDeclarationSignReminderTemplate();
         self::seedBulkSalaryCertificateTemplate();
+    }
+
+    /**
+     * Create missing leave email templates without overwriting administrator customizations.
+     *
+     * @param  array<string, mixed>  $defaults
+     */
+    private static function seedLeaveTemplateIfMissing(string $slug, array $defaults): EmailTemplate
+    {
+        $existing = EmailTemplate::query()->where('slug', $slug)->first();
+
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        return EmailTemplate::query()->create([
+            'slug' => $slug,
+            ...$defaults,
+        ]);
     }
 
     public static function seedPayslipDeliveryTemplate(): EmailTemplate
@@ -47,84 +67,83 @@ class EmailTemplatesSeeder extends Seeder
 
     public static function seedLeaveRequestSubmittedTemplate(): EmailTemplate
     {
-        $template = EmailTemplate::query()->updateOrCreate(
-            ['slug' => 'leave_request_submitted'],
-            [
-                'label' => 'Leave request submitted',
-                'category' => EmailTemplateCategory::Hr,
-                'to_preset' => null,
-                'cc_preset' => null,
-                'dispatch_at' => null,
-                'subject' => 'New leave request — {{employee_name}} ({{leave_type}})',
-                'body_html' => self::leaveRequestSubmittedBody(),
-                'enabled' => true,
-                'sort_order' => 0,
-            ],
-        );
+        $template = self::seedLeaveTemplateIfMissing('leave_request_submitted', [
+            'label' => 'Leave request submitted',
+            'category' => EmailTemplateCategory::Hr,
+            'to_preset' => null,
+            'cc_preset' => null,
+            'dispatch_at' => null,
+            'subject' => 'New leave request — {{employee_name}} ({{leave_type}})',
+            'body_html' => self::leaveRequestSubmittedBody(),
+            'enabled' => true,
+            'sort_order' => 0,
+        ]);
 
         if (! $template->is_default) {
             $template->markAsDefaultForCategory();
         }
 
-        return $template->fresh();
+        return $template->fresh() ?? $template;
     }
 
     public static function seedLeaveRequestUpdatedTemplate(): EmailTemplate
     {
-        return EmailTemplate::query()->updateOrCreate(
-            ['slug' => 'leave_request_updated'],
-            [
-                'label' => 'Leave request updated',
-                'category' => EmailTemplateCategory::Hr,
-                'to_preset' => null,
-                'cc_preset' => null,
-                'dispatch_at' => null,
-                'subject' => 'Leave request updated — {{employee_name}} ({{leave_type}})',
-                'body_html' => self::leaveRequestUpdatedBody(),
-                'enabled' => true,
-                'sort_order' => 1,
-            ],
-        )->fresh();
+        return self::seedLeaveTemplateIfMissing('leave_request_updated', [
+            'label' => 'Leave request updated',
+            'category' => EmailTemplateCategory::Hr,
+            'to_preset' => null,
+            'cc_preset' => null,
+            'dispatch_at' => null,
+            'subject' => 'Leave request updated — {{employee_name}} ({{leave_type}})',
+            'body_html' => self::leaveRequestUpdatedBody(),
+            'enabled' => true,
+            'sort_order' => 1,
+        ]);
+    }
+
+    public static function seedLeaveRequestApproverActionRequiredTemplate(): EmailTemplate
+    {
+        return self::seedLeaveTemplateIfMissing('leave_request_approver_action_required', [
+            'label' => 'Leave request approver action required',
+            'category' => EmailTemplateCategory::Hr,
+            'to_preset' => null,
+            'cc_preset' => null,
+            'dispatch_at' => null,
+            'subject' => 'Leave approval required — {{employee_name}} ({{leave_type}})',
+            'body_html' => self::leaveRequestApproverActionRequiredBody(),
+            'enabled' => true,
+            'sort_order' => 2,
+        ]);
     }
 
     public static function seedLeaveRequestApprovedTemplate(): EmailTemplate
     {
-        $template = EmailTemplate::query()->updateOrCreate(
-            ['slug' => 'leave_request_approved'],
-            [
-                'label' => 'Leave request approved',
-                'category' => EmailTemplateCategory::Hr,
-                'to_preset' => null,
-                'cc_preset' => null,
-                'dispatch_at' => null,
-                'subject' => 'Leave request approved — {{leave_type}}',
-                'body_html' => self::leaveRequestApprovedBody(),
-                'enabled' => true,
-                'sort_order' => 1,
-            ],
-        );
-
-        return $template->fresh();
+        return self::seedLeaveTemplateIfMissing('leave_request_approved', [
+            'label' => 'Leave request approved',
+            'category' => EmailTemplateCategory::Hr,
+            'to_preset' => null,
+            'cc_preset' => null,
+            'dispatch_at' => null,
+            'subject' => 'Leave request approved — {{leave_type}}',
+            'body_html' => self::leaveRequestApprovedBody(),
+            'enabled' => true,
+            'sort_order' => 3,
+        ]);
     }
 
     public static function seedLeaveRequestRejectedTemplate(): EmailTemplate
     {
-        $template = EmailTemplate::query()->updateOrCreate(
-            ['slug' => 'leave_request_rejected'],
-            [
-                'label' => 'Leave request declined',
-                'category' => EmailTemplateCategory::Hr,
-                'to_preset' => null,
-                'cc_preset' => null,
-                'dispatch_at' => null,
-                'subject' => 'Leave request declined — {{leave_type}}',
-                'body_html' => self::leaveRequestRejectedBody(),
-                'enabled' => true,
-                'sort_order' => 2,
-            ],
-        );
-
-        return $template->fresh();
+        return self::seedLeaveTemplateIfMissing('leave_request_rejected', [
+            'label' => 'Leave request declined',
+            'category' => EmailTemplateCategory::Hr,
+            'to_preset' => null,
+            'cc_preset' => null,
+            'dispatch_at' => null,
+            'subject' => 'Leave request declined — {{leave_type}}',
+            'body_html' => self::leaveRequestRejectedBody(),
+            'enabled' => true,
+            'sort_order' => 4,
+        ]);
     }
 
     private static function payslipDeliveryBody(): string
@@ -159,6 +178,19 @@ TEXT;
     {
         return <<<'TEXT'
 A leave request assigned to you was edited and still requires your approval.
+
+Employee: {{employee_name}}
+Leave type: {{leave_type}}
+Dates: {{start_date}} to {{end_date}}
+Total days: {{total_days}}
+Reason: {{reason}}
+TEXT;
+    }
+
+    private static function leaveRequestApproverActionRequiredBody(): string
+    {
+        return <<<'TEXT'
+A leave request now requires your approval.
 
 Employee: {{employee_name}}
 Leave type: {{leave_type}}

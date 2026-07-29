@@ -912,6 +912,8 @@ test('leave request approval queues approved email when template is enabled', fu
         'total_days' => 3.0,
     ]);
 
+    app(LeaveBalanceManager::class)->reserveLeaveRequest($leaveRequest);
+
     LeaveRequestApproval::factory()->create([
         'company_id' => $company->id,
         'leave_request_id' => $leaveRequest->id,
@@ -957,6 +959,8 @@ test('leave request rejection queues rejected email with reason when template is
         'status' => 'pending',
         'total_days' => 3.0,
     ]);
+
+    app(LeaveBalanceManager::class)->reserveLeaveRequest($leaveRequest);
 
     LeaveRequestApproval::factory()->create([
         'company_id' => $company->id,

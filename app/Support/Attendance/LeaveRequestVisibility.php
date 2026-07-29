@@ -137,7 +137,7 @@ final class LeaveRequestVisibility
             return false;
         }
 
-        if (! $user->can('attendance.leave-requests.approve')) {
+        if (! $user->can('attendance.leave-requests.view') || ! $user->can('attendance.leave-requests.approve')) {
             return false;
         }
 

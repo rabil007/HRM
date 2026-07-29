@@ -41,7 +41,10 @@ class UpdateDepartmentRequest extends FormRequest
                 'nullable',
                 'integer',
                 Rule::exists('leave_approval_policies', 'id')->where(
-                    fn ($q) => $q->where('company_id', $companyId)->whereNull('deleted_at'),
+                    fn ($q) => $q
+                        ->where('company_id', $companyId)
+                        ->where('status', 'active')
+                        ->whereNull('deleted_at'),
                 ),
             ],
             'name' => ['required', 'string', 'max:200'],

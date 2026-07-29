@@ -6,7 +6,7 @@ use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
-final class LeaveRequestAttachments
+class LeaveRequestAttachments
 {
     /**
      * @return list<array{path: string, name: string, size: int, mime: string|null}>

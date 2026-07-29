@@ -94,6 +94,7 @@ class LeaveRequestController extends Controller
             $leaveRequest,
             $user,
             $companyId,
+            linkedEmployeeId: $linkedEmployeeId,
         ));
 
         $employeesQuery = Employee::query()
@@ -200,7 +201,7 @@ class LeaveRequestController extends Controller
         }
 
         return Inertia::render('attendance/leave-request', [
-            'leave_request' => $this->serializeLeaveRequest($leaveRequest, $user, $companyId, includeApprovals: true),
+            'leave_request' => $this->serializeLeaveRequest($leaveRequest, $user, $companyId, includeApprovals: true, linkedEmployeeId: $linkedEmployeeId),
             'employees' => $employeesQuery->get(['id', 'employee_no', 'name']),
             'leave_types' => LeaveType::query()
                 ->where('company_id', $companyId)
@@ -235,27 +236,22 @@ class LeaveRequestController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
 
         try {
-            $leaveRequest = $submitWithApprovals->handle($companyId, null, [
-                'employee_id' => $data['employee_id'],
-                'leave_type_id' => $data['leave_type_id'],
-                'start_date' => $data['start_date'],
-                'end_date' => $data['end_date'],
-                'total_days' => $calculateDays($data['start_date'], $data['end_date']),
-                'reason' => $data['reason'] ?? null,
-            ]);
+            $submitWithApprovals->handle(
+                companyId: $companyId,
+                existing: null,
+                attributes: [
+                    'employee_id' => $data['employee_id'],
+                    'leave_type_id' => $data['leave_type_id'],
+                    'start_date' => $data['start_date'],
+                    'end_date' => $data['end_date'],
+                    'total_days' => $calculateDays($data['start_date'], $data['end_date']),
+                    'reason' => $data['reason'] ?? null,
+                ],
+                attachment: $request->file('attachment'),
+            );
         } catch (RuntimeException $exception) {
             throw ValidationException::withMessages([
                 'leave_request' => $exception->getMessage(),
-            ]);
-        }
-
-        if ($request->hasFile('attachment')) {
-            $leaveRequest->update([
-                'attachments' => $this->attachments->store(
-                    $request->file('attachment'),
-                    $companyId,
-                    $leaveRequest->id,
-                ),
             ]);
         }
 
@@ -390,9 +386,10 @@ class LeaveRequestController extends Controller
         mixed $user = null,
         ?int $companyId = null,
         bool $includeApprovals = false,
+        ?int $linkedEmployeeId = null,
     ): array {
         $capabilities = $companyId !== null
-            ? $this->authorization->capabilities($leaveRequest, $user, $companyId)
+            ? $this->authorization->capabilities($leaveRequest, $user, $companyId, $linkedEmployeeId)
             : [
                 'can_edit' => false,
                 'can_cancel' => false,

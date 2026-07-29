@@ -5,10 +5,12 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
+use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\LeaveBalanceManager;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -73,18 +75,25 @@ function makeIndexQueryCountFixtures(): array
 
 function seedLeaveRequestsWithApprovals(Company $company, Employee $employee, LeaveType $leaveType, int $count): void
 {
+    $existingCount = LeaveRequest::query()
+        ->where('company_id', $company->id)
+        ->where('employee_id', $employee->id)
+        ->count();
+
     for ($index = 0; $index < $count; $index++) {
-        $day = str_pad((string) (10 + $index), 2, '0', STR_PAD_LEFT);
+        $date = CarbonImmutable::parse('2026-01-01')
+            ->addDays($existingCount + $index)
+            ->toDateString();
 
         app(SubmitLeaveRequestWithApprovals::class)->handle(
             companyId: (int) $company->id,
             attributes: [
                 'employee_id' => $employee->id,
                 'leave_type_id' => $leaveType->id,
-                'start_date' => "2026-06-{$day}",
-                'end_date' => "2026-06-{$day}",
+                'start_date' => $date,
+                'end_date' => $date,
                 'total_days' => 1,
-                'reason' => "Request {$index}",
+                'reason' => "Request {$existingCount}-{$index}",
             ],
             reserveBalance: false,
             notify: false,

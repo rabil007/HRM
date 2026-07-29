@@ -4,7 +4,6 @@ import { useState } from 'react';
 import {
     destroy,
     index,
-    moveStep as moveStepAction,
     setDefault as setDefaultAction,
     store,
     update,
@@ -154,29 +153,12 @@ export function LeaveApprovalPoliciesContent({
             return;
         }
 
+        // Draft-only reorder — persist only when the user saves the policy form.
         const step = steps[index];
         const neighbor = steps[swapWith];
         steps[index] = neighbor;
         steps[swapWith] = step;
         form.setData('steps', steps);
-
-        if (currentPolicy && step?.id) {
-            router.put(
-                moveStepAction.url({
-                    leave_approval_policy: currentPolicy.id,
-                    step: step.id,
-                }),
-                { direction },
-                {
-                    preserveScroll: true,
-                    preserveState: true,
-                    onError: () =>
-                        toast.error(
-                            'Failed to reorder step. Please try again.',
-                        ),
-                },
-            );
-        }
     };
 
     const submit = () => {

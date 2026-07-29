@@ -4,9 +4,15 @@ namespace App\Support\Attendance\Actions;
 
 use App\Models\Employee;
 use App\Models\LeaveRequest;
+use App\Models\LeaveType;
+use App\Support\Attendance\AssertLeaveRequestOverlap;
+use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveBalanceManager;
+use App\Support\Attendance\LeaveRequestAttachments;
 use App\Support\Attendance\ResolveLeaveApprovalChain;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
 
@@ -15,19 +21,24 @@ final class SubmitLeaveRequestWithApprovals
     public function __construct(
         private ResolveLeaveApprovalChain $resolveChain,
         private LeaveBalanceManager $leaveBalances,
+        private CalculateLeaveRequestDays $calculateDays,
+        private AssertLeaveRequestOverlap $assertOverlap,
+        private LeaveRequestAttachments $attachments,
         private SendLeaveRequestSubmittedEmail $sendSubmittedEmail,
     ) {}
 
     /**
-     * Create a pending leave request (or accept an existing one), persist its approval
-     * snapshot, reserve balance, and optionally notify the first pending approver after commit.
+     * Atomically create a pending leave request with overlap/balance revalidation,
+     * approval snapshot, optional attachment, and post-commit notification.
+     *
+     * Client-supplied company_id is ignored — only the trusted $companyId is used.
      *
      * @param  array{
      *     employee_id: int,
      *     leave_type_id: int,
      *     start_date: string,
      *     end_date: string,
-     *     total_days: float|int|string,
+     *     total_days?: float|int|string,
      *     reason?: string|null,
      *     attachments?: mixed,
      * }|null  $attributes
@@ -38,61 +49,155 @@ final class SubmitLeaveRequestWithApprovals
         ?array $attributes = null,
         bool $reserveBalance = true,
         bool $notify = true,
+        ?UploadedFile $attachment = null,
     ): LeaveRequest {
-        $leaveRequest = DB::transaction(function () use ($companyId, $existing, $attributes, $reserveBalance): LeaveRequest {
-            if ($existing !== null) {
-                $leaveRequest = LeaveRequest::query()
-                    ->whereKey($existing->id)
+        $storedAttachments = null;
+
+        try {
+            $leaveRequest = DB::transaction(function () use (
+                $companyId,
+                $existing,
+                $attributes,
+                $reserveBalance,
+                $attachment,
+                &$storedAttachments,
+            ): LeaveRequest {
+                if ($existing !== null) {
+                    $leaveRequest = LeaveRequest::query()
+                        ->whereKey($existing->id)
+                        ->where('company_id', $companyId)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
+                    if ($leaveRequest->status !== 'pending') {
+                        throw new RuntimeException('Only pending leave requests can receive an approval chain.');
+                    }
+
+                    if ($leaveRequest->approvals()->exists()) {
+                        throw new RuntimeException('This leave request already has an approval chain.');
+                    }
+
+                    $employeeId = (int) $leaveRequest->employee_id;
+                    $leaveTypeId = (int) $leaveRequest->leave_type_id;
+                    $startDate = (string) $leaveRequest->start_date?->toDateString();
+                    $endDate = (string) $leaveRequest->end_date?->toDateString();
+                    $totalDays = (float) $leaveRequest->total_days;
+                    $reason = $leaveRequest->reason;
+                } else {
+                    if ($attributes === null) {
+                        throw new RuntimeException('Leave request attributes are required when creating a new request.');
+                    }
+
+                    $employeeId = (int) $attributes['employee_id'];
+                    $leaveTypeId = (int) $attributes['leave_type_id'];
+                    $startDate = (string) $attributes['start_date'];
+                    $endDate = (string) $attributes['end_date'];
+                    $totalDays = isset($attributes['total_days'])
+                        ? (float) $attributes['total_days']
+                        : ($this->calculateDays)($startDate, $endDate);
+                    $reason = $attributes['reason'] ?? null;
+                }
+
+                $employee = Employee::query()
                     ->where('company_id', $companyId)
+                    ->whereKey($employeeId)
+                    ->where('status', 'active')
                     ->lockForUpdate()
-                    ->firstOrFail();
+                    ->first();
 
-                if ($leaveRequest->status !== 'pending') {
-                    throw new RuntimeException('Only pending leave requests can receive an approval chain.');
+                if ($employee === null) {
+                    throw ValidationException::withMessages([
+                        'employee_id' => 'The selected employee is invalid or inactive for this company.',
+                    ]);
                 }
 
-                if ($leaveRequest->approvals()->exists()) {
-                    throw new RuntimeException('This leave request already has an approval chain.');
-                }
-            } else {
-                if ($attributes === null) {
-                    throw new RuntimeException('Leave request attributes are required when creating a new request.');
-                }
-
-                $leaveRequest = new LeaveRequest;
-                $leaveRequest->forceFill([
-                    'company_id' => $companyId,
-                    'employee_id' => $attributes['employee_id'],
-                    'leave_type_id' => $attributes['leave_type_id'],
-                    'start_date' => $attributes['start_date'],
-                    'end_date' => $attributes['end_date'],
-                    'total_days' => $attributes['total_days'],
-                    'reason' => $attributes['reason'] ?? null,
-                    'attachments' => $attributes['attachments'] ?? null,
-                    'status' => 'pending',
-                ])->save();
-
-                $leaveRequest = LeaveRequest::query()
-                    ->whereKey($leaveRequest->id)
+                $leaveType = LeaveType::query()
                     ->where('company_id', $companyId)
-                    ->lockForUpdate()
-                    ->firstOrFail();
+                    ->whereKey($leaveTypeId)
+                    ->where('status', 'active')
+                    ->first();
+
+                if ($leaveType === null) {
+                    throw ValidationException::withMessages([
+                        'leave_type_id' => 'The selected leave type is invalid or inactive for this company.',
+                    ]);
+                }
+
+                if ($startDate === '' || $endDate === '' || $startDate > $endDate) {
+                    throw ValidationException::withMessages([
+                        'start_date' => 'A valid leave date range is required.',
+                    ]);
+                }
+
+                $this->assertOverlap->handle(
+                    companyId: $companyId,
+                    employeeId: $employeeId,
+                    startDate: $startDate,
+                    endDate: $endDate,
+                    excludeLeaveRequestId: $existing?->id,
+                );
+
+                try {
+                    $chain = $this->resolveChain->handle($employee, $companyId);
+                } catch (RuntimeException $exception) {
+                    throw ValidationException::withMessages([
+                        'leave_request' => $exception->getMessage(),
+                    ]);
+                }
+
+                if ($reserveBalance) {
+                    $this->leaveBalances->reserveIfAvailable(
+                        companyId: $companyId,
+                        employeeId: $employeeId,
+                        leaveTypeId: $leaveTypeId,
+                        startDate: $startDate,
+                        endDate: $endDate,
+                    );
+                }
+
+                if ($existing === null) {
+                    $leaveRequest = new LeaveRequest;
+                    $leaveRequest->forceFill([
+                        'company_id' => $companyId,
+                        'employee_id' => $employeeId,
+                        'leave_type_id' => $leaveTypeId,
+                        'start_date' => $startDate,
+                        'end_date' => $endDate,
+                        'total_days' => $totalDays,
+                        'reason' => $reason,
+                        'attachments' => null,
+                        'status' => 'pending',
+                    ])->save();
+
+                    $leaveRequest = LeaveRequest::query()
+                        ->whereKey($leaveRequest->id)
+                        ->where('company_id', $companyId)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                }
+
+                if ($attachment !== null) {
+                    $storedAttachments = $this->attachments->store(
+                        $attachment,
+                        $companyId,
+                        (int) $leaveRequest->id,
+                    );
+                    $leaveRequest->forceFill([
+                        'attachments' => $storedAttachments,
+                    ])->save();
+                }
+
+                $this->resolveChain->persistSnapshot($leaveRequest, $chain);
+
+                return $leaveRequest->fresh(['approvals', 'employee', 'leaveType']) ?? $leaveRequest;
+            });
+        } catch (Throwable $exception) {
+            if ($storedAttachments !== null) {
+                $this->attachments->deleteFromStorage($storedAttachments);
             }
 
-            $employee = Employee::query()
-                ->where('company_id', $companyId)
-                ->whereKey((int) $leaveRequest->employee_id)
-                ->firstOrFail();
-
-            $chain = $this->resolveChain->handle($employee, $companyId);
-            $this->resolveChain->persistSnapshot($leaveRequest, $chain);
-
-            if ($reserveBalance) {
-                $this->leaveBalances->reserveLeaveRequest($leaveRequest->fresh() ?? $leaveRequest);
-            }
-
-            return $leaveRequest->fresh(['approvals', 'employee', 'leaveType']) ?? $leaveRequest;
-        });
+            throw $exception;
+        }
 
         if ($notify) {
             DB::afterCommit(function () use ($leaveRequest): void {

@@ -3,13 +3,13 @@
 namespace App\Models;
 
 use App\Models\Concerns\LogsActivityWithCompany;
+use App\Support\Attendance\Actions\UpdateLeaveApprovalPolicyState;
 use Database\Factories\LeaveApprovalPolicyFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Support\LogOptions;
 
 class LeaveApprovalPolicy extends Model
@@ -91,24 +91,11 @@ class LeaveApprovalPolicy extends Model
 
     public function markAsCompanyDefault(): void
     {
-        DB::transaction(function (): void {
-            // Lock a stable company-owned row so concurrent default switches serialize.
-            Company::query()
-                ->whereKey($this->company_id)
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            self::query()
-                ->where('company_id', $this->company_id)
-                ->whereKeyNot($this->id)
-                ->where('is_default', true)
-                ->update(['is_default' => false]);
-
-            $this->forceFill([
-                'is_default' => true,
-                'status' => 'active',
-            ])->save();
-        });
+        app(UpdateLeaveApprovalPolicyState::class)->markAsDefault(
+            $this,
+            (int) $this->company_id,
+            null,
+        );
     }
 
     public function isSafelyDeletable(): bool

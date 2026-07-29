@@ -48,16 +48,33 @@ final class RejectLeaveRequestStep
                 abort(403);
             }
 
-            $pendingStep = LeaveRequestApproval::query()
+            $allApprovals = LeaveRequestApproval::query()
                 ->where('company_id', $companyId)
                 ->where('leave_request_id', $leaveRequest->id)
-                ->where('status', LeaveRequestApprovalStatus::Pending)
-                ->where('approver_user_id', $actor->id)
                 ->orderBy('sequence')
                 ->lockForUpdate()
-                ->first();
+                ->get();
 
-            if ($pendingStep === null) {
+            $pendingSteps = $allApprovals->filter(
+                function (LeaveRequestApproval $approval): bool {
+                    $status = $approval->status instanceof LeaveRequestApprovalStatus
+                        ? $approval->status
+                        : LeaveRequestApprovalStatus::tryFrom((string) $approval->status);
+
+                    return $status === LeaveRequestApprovalStatus::Pending;
+                },
+            )->values();
+
+            if ($pendingSteps->count() !== 1) {
+                throw ValidationException::withMessages([
+                    'leave_request' => 'This leave request has a corrupted approval workflow (expected exactly one pending step). Contact an administrator.',
+                ]);
+            }
+
+            /** @var LeaveRequestApproval $pendingStep */
+            $pendingStep = $pendingSteps->first();
+
+            if ((int) $pendingStep->approver_user_id !== (int) $actor->id) {
                 throw ValidationException::withMessages([
                     'leave_request' => 'There is no pending approval step assigned to you for this leave request.',
                 ]);

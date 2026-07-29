@@ -649,15 +649,21 @@ Track attendance records, leave types and balances, leave requests, multi-step l
 
 Companies configure ordered approval policies (`LeaveApprovalPolicy` + `LeaveApprovalPolicyStep`) with approver types: department manager, parent manager, HR approver, and specific employee. Departments may assign a policy directly or inherit one; otherwise the company default policy applies. Company HR/fallback approvers live in `CompanyLeaveApprovalSetting`. The company default policy must remain active; default switches lock the company row and stay company-scoped.
 
-On submit, `SubmitLeaveRequestWithApprovals` snapshots the resolved chain into `leave_request_approvals` (including policy id/name and step label provenance). Approvers act only on their pending step (`ApproveLeaveRequestStep` / `RejectLeaveRequestStep`); `attendance.leave-requests.approve` alone does not authorize unrelated requests. `attendance.leave-requests.view_all` is required to list/manage all employees’ requests.
+On submit, `SubmitLeaveRequestWithApprovals` atomically validates the active employee/leave type, serializes concurrent same-employee submissions under an employee row lock, re-checks date overlap, reserves balance under year-row locks, stores attachments inside the same transaction, and snapshots the resolved chain into `leave_request_approvals` (including policy id/name and step label provenance). Notifications queue only after commit; attachment or policy failure rolls everything back.
 
-Pending leave requests may be edited only before any approval step has acted. Pre-action edits run in a transaction, rebuild the unacted approval snapshot, write a company-scoped audit entry for the chain rebuild, and always notify the newly resolved current pending approver after commit (even when the approver user is unchanged). After approval starts, updates are rejected.
+Approvers act only on the single current pending step (`ApproveLeaveRequestStep` / `RejectLeaveRequestStep`). Actionable approvers must have an active employee, linked active user, active company membership, and both `attendance.leave-requests.view` and `attendance.leave-requests.approve`. `attendance.leave-requests.view_all` is required to list/manage all employees’ requests.
+
+Pending leave requests may be edited only before any approval step has acted. Pre-action edits are no-op safe, re-check overlap under lock, replace balance reservations with same-key credit only, rebuild the unacted approval snapshot, write a company-scoped audit entry for real edits, and notify the newly resolved current pending approver after commit. After approval starts, updates are rejected.
 
 List scopes: `my`, `awaiting_my_approval` (current pending steps), `assigned_to_me` (current and historical assignments; does not grant approve rights), and `all` (requires `view_all`).
+
+Balance operations use focused methods (`reserveIfAvailable`, `releasePendingReservation`, `convertPendingToUsed`, `replacePendingReservation`, `synchronizeBalanceKey`). Approval conversion fails if the pending reservation is missing rather than increasing used alone.
 
 Backfill (`leave-approvals:backfill`) is non-destructive: existing approval rows are never deleted or replaced (`--force` only warns and skips). Dry-run performs no writes (settings resolution is read-only) and reports **Would create** separately from **Created**. Approver emails require explicit `--notify`, are never sent in dry-run, and increment **Notifications scheduled** only when scheduling is actually attempted for an actionable pending approver.
 
 Assigned approvers may view a request and act on their current pending step only. Edit, cancel, and delete require ownership (linked employee) or `view_all` plus the matching mutation permission. Direct deletion is rejected once any approval step has been acted; cancel preserves completed approval history.
+
+`SetCurrentCompany` only activates active companies with an active `company_user` membership (or the legacy home-company path when no pivot row exists). EmailTemplatesSeeder creates missing leave templates without overwriting administrator subject/body/enabled/preset customizations, including `leave_request_updated` and `leave_request_approver_action_required`.
 
 ### Production rollout (leave approvals)
 
@@ -670,14 +676,14 @@ Assigned approvers may view a request and act on their current pending step only
    - `attendance.leave-approval-settings.view|update`
 4. Configure one active company default policy and/or department policies.
 5. Configure HR/fallback approvers where used.
-6. Confirm every actionable approver has: active employee, linked active user, active company membership, and leave-request approve permission.
+6. Confirm every actionable approver has: active employee, linked active user, active company membership, and leave-request **view + approve** permissions.
 7. Run `php artisan leave-approvals:backfill --dry-run --company=<id>` and review configuration failures.
 8. Run backfill without notifications.
 9. Use `--notify` only when intentionally sending action-required mail.
 10. Verify leave balances after rollout.
 11. Perform a manager-only and multi-step approval smoke test.
 
-Also seed email templates when deploying notification changes: `php artisan db:seed --class=EmailTemplatesSeeder` (includes `leave_request_updated`).
+Also seed email templates when deploying notification changes: `php artisan db:seed --class=EmailTemplatesSeeder` (creates missing leave templates including `leave_request_updated` and `leave_request_approver_action_required` without overwriting admin customizations).
 
 ### Main artifacts
 

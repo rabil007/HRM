@@ -324,7 +324,15 @@ export default function LeaveRequestDetails({
                     <CardContent className="space-y-0 p-0">
                         <div className="divide-y divide-border dark:divide-white/5">
                             <Field
-                                label="Approver"
+                                label={
+                                    leave_request.status === 'approved'
+                                        ? 'Approved by'
+                                        : leave_request.status === 'rejected'
+                                          ? 'Rejected by'
+                                          : leave_request.status === 'cancelled'
+                                            ? 'Cancelled by'
+                                            : 'Decision actor'
+                                }
                                 value={leave_request.approver?.name ?? '—'}
                             />
                             <Field

@@ -132,14 +132,16 @@ export function LeaveApprovalPolicyCard({
                                 <Pencil className="h-4 w-4" />
                             </Button>
                         ) : null}
-                        {canDelete && !policy.is_default ? (
+                        {canDelete &&
+                        policy.can_delete !== false &&
+                        !policy.is_default ? (
                             <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive"
                                 onClick={() => onDelete(policy)}
-                                title="Delete"
+                                title={policy.delete_blocked_reason ?? 'Delete'}
                             >
                                 <Trash2 className="h-4 w-4" />
                             </Button>

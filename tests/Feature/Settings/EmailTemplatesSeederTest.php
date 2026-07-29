@@ -27,6 +27,8 @@ test('email templates seeder is idempotent', function () {
 
     expect(EmailTemplate::query()->where('slug', 'payslip_delivery')->count())->toBe(1)
         ->and(EmailTemplate::query()->where('slug', 'leave_request_submitted')->count())->toBe(1)
+        ->and(EmailTemplate::query()->where('slug', 'leave_request_updated')->count())->toBe(1)
+        ->and(EmailTemplate::query()->where('slug', 'leave_request_approver_action_required')->count())->toBe(1)
         ->and(EmailTemplate::query()->where('slug', 'leave_request_approved')->count())->toBe(1)
         ->and(EmailTemplate::query()->where('slug', 'leave_request_rejected')->count())->toBe(1);
 });
