@@ -651,11 +651,33 @@ Companies configure ordered approval policies (`LeaveApprovalPolicy` + `LeaveApp
 
 On submit, `SubmitLeaveRequestWithApprovals` snapshots the resolved chain into `leave_request_approvals` (including policy id/name and step label provenance). Approvers act only on their pending step (`ApproveLeaveRequestStep` / `RejectLeaveRequestStep`); `attendance.leave-requests.approve` alone does not authorize unrelated requests. `attendance.leave-requests.view_all` is required to list/manage all employees’ requests.
 
-Pending leave requests may be edited only before any approval step has acted. Pre-action edits run in a transaction, rebuild the unacted approval snapshot, and notify the newly resolved first approver when it changes. After approval starts, updates are rejected.
+Pending leave requests may be edited only before any approval step has acted. Pre-action edits run in a transaction, rebuild the unacted approval snapshot, write a company-scoped audit entry for the chain rebuild, and always notify the newly resolved current pending approver after commit (even when the approver user is unchanged). After approval starts, updates are rejected.
 
 List scopes: `my`, `awaiting_my_approval` (current pending steps), `assigned_to_me` (current and historical assignments; does not grant approve rights), and `all` (requires `view_all`).
 
-Backfill (`leave-approvals:backfill`) is non-destructive: existing approval rows are never deleted or replaced (`--force` only warns and skips). Dry-run performs no writes (settings resolution is read-only). Approver emails require explicit `--notify` and are never sent in dry-run.
+Backfill (`leave-approvals:backfill`) is non-destructive: existing approval rows are never deleted or replaced (`--force` only warns and skips). Dry-run performs no writes (settings resolution is read-only) and reports **Would create** separately from **Created**. Approver emails require explicit `--notify`, are never sent in dry-run, and increment **Notifications scheduled** only when scheduling is actually attempted for an actionable pending approver.
+
+Assigned approvers may view a request and act on their current pending step only. Edit, cancel, and delete require ownership (linked employee) or `view_all` plus the matching mutation permission. Direct deletion is rejected once any approval step has been acted; cancel preserves completed approval history.
+
+### Production rollout (leave approvals)
+
+1. Run migrations.
+2. Seed permissions: `php artisan db:seed --class=PermissionsSeeder`  
+   Permission seeding creates permission records but **does not** assign them to existing company roles.
+3. Assign new permissions to existing company roles (Organization → Roles):
+   - `attendance.leave-requests.view_all`
+   - `attendance.leave-approval-policies.*`
+   - `attendance.leave-approval-settings.view|update`
+4. Configure one active company default policy and/or department policies.
+5. Configure HR/fallback approvers where used.
+6. Confirm every actionable approver has: active employee, linked active user, active company membership, and leave-request approve permission.
+7. Run `php artisan leave-approvals:backfill --dry-run --company=<id>` and review configuration failures.
+8. Run backfill without notifications.
+9. Use `--notify` only when intentionally sending action-required mail.
+10. Verify leave balances after rollout.
+11. Perform a manager-only and multi-step approval smoke test.
+
+Also seed email templates when deploying notification changes: `php artisan db:seed --class=EmailTemplatesSeeder` (includes `leave_request_updated`).
 
 ### Main artifacts
 

@@ -127,7 +127,88 @@ test('policy index employee options include actionable warnings and stay company
 
                 return is_array($match)
                     && ($match['actionable'] ?? false) === true
+                    && ($match['has_active_company_membership'] ?? false) === true
                     && array_key_exists('warnings', $match)
                     && array_key_exists('has_leave_request_approve_permission', $match);
             }));
+});
+
+test('inactive company membership makes approver non-actionable', function () {
+    ['company' => $company] = makeApproverOptionFixtures();
+    ['employee' => $approver, 'user' => $approverUser] = makeActionableApprover($company, [
+        'name' => 'Inactive Membership',
+    ]);
+
+    DB::table('company_user')
+        ->where('company_id', $company->id)
+        ->where('user_id', $approverUser->id)
+        ->update(['status' => 'inactive']);
+
+    $presented = app(PresentLeaveApproverOption::class)->present($approver, (int) $company->id);
+
+    expect($presented['has_active_company_membership'])->toBeFalse()
+        ->and($presented['actionable'])->toBeFalse()
+        ->and($presented['warnings'])->not->toBeEmpty();
+});
+
+test('selected inactive employee remains visible via forCompany includeEmployeeIds', function () {
+    ['company' => $company] = makeApproverOptionFixtures();
+
+    $inactive = Employee::factory()->forCompany($company)->create([
+        'status' => 'inactive',
+        'name' => 'Inactive Selected',
+        'user_id' => null,
+    ]);
+
+    $options = app(PresentLeaveApproverOption::class)->forCompany(
+        (int) $company->id,
+        activeOnly: true,
+        includeEmployeeIds: [$inactive->id],
+    );
+
+    $match = collect($options)->firstWhere('id', $inactive->id);
+
+    expect($match)->not->toBeNull()
+        ->and($match['name'])->toBe('Inactive Selected')
+        ->and($match['employee_status'])->toBe('inactive');
+});
+
+test('foreign company employees never appear in forCompany approver options', function () {
+    ['company' => $company] = makeApproverOptionFixtures();
+
+    $otherCountry = Country::query()->create([
+        'code' => 'FO'.fake()->unique()->numerify('##'),
+        'name' => 'Foreign Optionland',
+        'dial_code' => '+993',
+        'is_active' => true,
+    ]);
+    $otherCurrency = Currency::query()->create([
+        'code' => 'FO'.fake()->unique()->numerify('##'),
+        'name' => 'Foreign Option Currency',
+        'symbol' => 'F$',
+        'is_active' => true,
+    ]);
+    $otherCompany = Company::query()->create([
+        'name' => 'Foreign Option Co',
+        'slug' => 'fo-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $otherCountry->id,
+        'currency_id' => $otherCurrency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    Employee::factory()->forCompany($otherCompany)->create([
+        'status' => 'active',
+        'name' => 'Foreign Only Employee',
+    ]);
+
+    ['employee' => $local] = makeActionableApprover($company, ['name' => 'Local Approver']);
+
+    $options = app(PresentLeaveApproverOption::class)->forCompany((int) $company->id);
+
+    expect(collect($options)->pluck('name')->all())
+        ->toContain('Local Approver')
+        ->not->toContain('Foreign Only Employee');
 });

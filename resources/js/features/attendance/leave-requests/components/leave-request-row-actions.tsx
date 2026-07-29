@@ -1,11 +1,11 @@
 import { Ban, Check, Eye, Pencil, Trash2, X } from 'lucide-react';
+import { show as leaveRequestShow } from '@/actions/App/Http/Controllers/Attendance/LeaveRequestController';
 import { TableRowActions } from '@/components/table-row-actions';
 import type { TableRowActionItem } from '@/components/table-row-actions';
 import type { LeaveRequest, LeaveRequestPermissions } from '../types';
 
 export function LeaveRequestRowActions({
     leaveRequest,
-    can,
     onEdit,
     onDelete,
     onApprove,
@@ -24,18 +24,17 @@ export function LeaveRequestRowActions({
     className?: string;
     wrapped?: boolean;
 }) {
-    const isPending = leaveRequest.status === 'pending';
-    const canModify =
-        isPending && can.update && leaveRequest.can_edit !== false;
-    const canRemove =
-        (isPending || leaveRequest.status === 'cancelled') && can.delete;
+    const canModify = Boolean(leaveRequest.can_edit);
+    const canRemove = Boolean(leaveRequest.can_delete);
+    const canCancelRequest = Boolean(leaveRequest.can_cancel);
     const canActOnCurrentStep = Boolean(leaveRequest.can_approve_current_step);
+    const isPending = leaveRequest.status === 'pending';
 
     const actions: TableRowActionItem[] = [
         {
             label: 'View',
             icon: Eye,
-            href: `/attendance/leave-requests/${leaveRequest.id}`,
+            href: leaveRequestShow.url(leaveRequest.id),
         },
         {
             label: 'Approve',
@@ -55,7 +54,7 @@ export function LeaveRequestRowActions({
             label: 'Cancel',
             icon: Ban,
             onClick: () => onCancel(leaveRequest),
-            hidden: !(isPending && can.update),
+            hidden: !canCancelRequest,
         },
         {
             label: 'Edit',

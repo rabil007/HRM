@@ -2,6 +2,13 @@ import { router, useForm } from '@inertiajs/react';
 import { Filter, Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import {
+    approve as leaveRequestApprove,
+    destroy as leaveRequestDestroy,
+    index as leaveRequestIndex,
+    store as leaveRequestStore,
+    update as leaveRequestUpdate,
+} from '@/actions/App/Http/Controllers/Attendance/LeaveRequestController';
+import {
     OrganizationDataTable,
     DataTableHead,
     DataTableHeaderRow,
@@ -76,7 +83,7 @@ export function LeaveRequestsContent({
     can: LeaveRequestPermissions;
 }) {
     const list = useServerPaginationFilters({
-        url: '/attendance/leave-requests',
+        url: leaveRequestIndex.url(),
         search: initialSearch,
         filters: initialFilters,
         pagination,
@@ -156,7 +163,7 @@ export function LeaveRequestsContent({
             return;
         }
 
-        router.delete(`/attendance/leave-requests/${currentLeaveRequest.id}`, {
+        router.delete(leaveRequestDestroy.url(currentLeaveRequest.id), {
             onFinish: () => {
                 setIsDeleteOpen(false);
                 setCurrentLeaveRequest(null);
@@ -166,7 +173,7 @@ export function LeaveRequestsContent({
 
     const approve = (leaveRequest: LeaveRequest) => {
         router.put(
-            `/attendance/leave-requests/${leaveRequest.id}/approve`,
+            leaveRequestApprove.url(leaveRequest.id),
             {},
             {
                 preserveScroll: true,
@@ -198,15 +205,12 @@ export function LeaveRequestsContent({
         };
 
         if (currentLeaveRequest) {
-            form.put(
-                `/attendance/leave-requests/${currentLeaveRequest.id}`,
-                options,
-            );
+            form.put(leaveRequestUpdate.url(currentLeaveRequest.id), options);
 
             return;
         }
 
-        form.post('/attendance/leave-requests', options);
+        form.post(leaveRequestStore.url(), options);
     };
 
     const handleFiltersChange = (next: LeaveRequestFilters) => {

@@ -250,8 +250,7 @@ test('approved leave requests cannot be updated', function () {
 
     $this->from('/attendance/leave-requests')
         ->put("/attendance/leave-requests/{$leaveRequest->id}", validLeaveRequestPayload($employee, $leaveType))
-        ->assertRedirect(route('attendance.leave-requests.index'))
-        ->assertSessionHasErrors('leave_request');
+        ->assertForbidden();
 });
 
 test('users cannot update leave requests from another company', function () {

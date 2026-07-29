@@ -424,6 +424,7 @@ export function LeaveApprovalPolicyFormSheet({
                                                                         step.approver_employee_id,
                                                                     ),
                                                             );
+
                                                         if (
                                                             !selected ||
                                                             !selected.warnings

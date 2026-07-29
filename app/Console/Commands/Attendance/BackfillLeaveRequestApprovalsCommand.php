@@ -2,15 +2,20 @@
 
 namespace App\Console\Commands\Attendance;
 
+use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\Company;
 use App\Models\CompanyLeaveApprovalSetting;
+use App\Models\EmailTemplate;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\LeaveApprovalPolicyStep;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
+use App\Support\Attendance\Actions\SendLeaveRequestSubmittedEmail;
 use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\ResolveLeaveApprovalChain;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Throwable;
 
@@ -30,7 +35,7 @@ class BackfillLeaveRequestApprovalsCommand extends Command
     {
         $dryRun = (bool) $this->option('dry-run');
         $force = (bool) $this->option('force');
-        $notify = (bool) $this->option('notify') && ! $dryRun;
+        $notifyRequested = (bool) $this->option('notify') && ! $dryRun;
         $fillMetadata = (bool) $this->option('fill-snapshot-metadata');
         $companyOption = $this->option('company');
         $requestOption = $this->option('request');
@@ -57,26 +62,28 @@ class BackfillLeaveRequestApprovalsCommand extends Command
         $inspected = 0;
         $eligible = 0;
         $created = 0;
+        $wouldCreate = 0;
         $skippedExisting = 0;
         $skippedNonPending = 0;
         $failedConfiguration = 0;
         $failedProcessing = 0;
-        $notifications = 0;
+        $notificationsScheduled = 0;
         $metadataFilled = 0;
 
         $query->chunkById(100, function ($leaveRequests) use (
             $submitWithApprovals,
             $dryRun,
-            $notify,
+            $notifyRequested,
             $fillMetadata,
             &$inspected,
             &$eligible,
             &$created,
+            &$wouldCreate,
             &$skippedExisting,
             &$skippedNonPending,
             &$failedConfiguration,
             &$failedProcessing,
-            &$notifications,
+            &$notificationsScheduled,
             &$metadataFilled,
         ): void {
             foreach ($leaveRequests as $leaveRequest) {
@@ -84,7 +91,13 @@ class BackfillLeaveRequestApprovalsCommand extends Command
                 $inspected++;
 
                 if ($fillMetadata && $leaveRequest->approvals->isNotEmpty()) {
-                    $metadataFilled += $this->fillMissingSnapshotMetadata($leaveRequest, $dryRun);
+                    try {
+                        $metadataFilled += $this->fillMissingSnapshotMetadata($leaveRequest, $dryRun);
+                    } catch (Throwable $exception) {
+                        $this->error("Metadata #{$leaveRequest->id}: {$exception->getMessage()}");
+                        report($exception);
+                        $failedProcessing++;
+                    }
                 }
 
                 if ($leaveRequest->status !== 'pending') {
@@ -105,16 +118,14 @@ class BackfillLeaveRequestApprovalsCommand extends Command
                     continue;
                 }
 
-                $eligible++;
-
                 if ($dryRun) {
                     try {
-                        // Read-only resolution must not create settings rows.
                         CompanyLeaveApprovalSetting::findForCompany((int) $leaveRequest->company_id);
                         app(ResolveLeaveApprovalChain::class)
                             ->handle($leaveRequest->employee, (int) $leaveRequest->company_id);
                         $this->info("Dry-run #{$leaveRequest->id}: would create approval chain.");
-                        $created++;
+                        $eligible++;
+                        $wouldCreate++;
                     } catch (RuntimeException $exception) {
                         $this->error("Dry-run #{$leaveRequest->id}: {$exception->getMessage()}");
                         $failedConfiguration++;
@@ -127,31 +138,37 @@ class BackfillLeaveRequestApprovalsCommand extends Command
                 }
 
                 try {
+                    $scopedCompanyId = (int) $leaveRequest->company_id;
                     $beforeApprovalCount = LeaveRequestApproval::query()
+                        ->where('company_id', $scopedCompanyId)
                         ->where('leave_request_id', $leaveRequest->id)
                         ->count();
 
                     $submitWithApprovals->handle(
-                        companyId: (int) $leaveRequest->company_id,
+                        companyId: $scopedCompanyId,
                         existing: $leaveRequest,
                         attributes: null,
                         reserveBalance: false,
-                        notify: $notify,
+                        notify: false,
                     );
 
-                    $afterApprovalCount = LeaveRequestApproval::query()
+                    $afterApprovals = LeaveRequestApproval::query()
+                        ->where('company_id', $scopedCompanyId)
                         ->where('leave_request_id', $leaveRequest->id)
-                        ->count();
+                        ->orderBy('sequence')
+                        ->with('approverEmployee.user:id,email')
+                        ->get();
 
-                    if ($afterApprovalCount <= $beforeApprovalCount) {
+                    if ($afterApprovals->count() <= $beforeApprovalCount) {
                         throw new RuntimeException('Approval snapshot was not created.');
                     }
 
                     $this->info("Backfilled #{$leaveRequest->id}.");
+                    $eligible++;
                     $created++;
 
-                    if ($notify) {
-                        $notifications++;
+                    if ($notifyRequested && $this->scheduleApproverNotification($leaveRequest->fresh(['approvals.approverEmployee.user', 'employee', 'leaveType', 'company']) ?? $leaveRequest, $afterApprovals)) {
+                        $notificationsScheduled++;
                     }
                 } catch (RuntimeException $exception) {
                     $this->error("Failed #{$leaveRequest->id}: {$exception->getMessage()}");
@@ -171,11 +188,12 @@ class BackfillLeaveRequestApprovalsCommand extends Command
                 ['Inspected', $inspected],
                 ['Eligible', $eligible],
                 ['Created', $created],
+                ['Would create', $wouldCreate],
                 ['Skipped existing', $skippedExisting],
                 ['Skipped non-pending', $skippedNonPending],
                 ['Failed configuration', $failedConfiguration],
                 ['Failed processing', $failedProcessing],
-                ['Notifications', $notifications],
+                ['Notifications scheduled', $notificationsScheduled],
                 ['Snapshot metadata filled', $metadataFilled],
                 ['Mode', $dryRun ? 'dry-run' : 'write'],
             ],
@@ -184,9 +202,72 @@ class BackfillLeaveRequestApprovalsCommand extends Command
         return ($failedConfiguration + $failedProcessing) > 0 ? self::FAILURE : self::SUCCESS;
     }
 
+    /**
+     * @param  Collection<int, LeaveRequestApproval>  $approvals
+     */
+    private function scheduleApproverNotification(LeaveRequest $leaveRequest, $approvals): bool
+    {
+        $pending = $approvals->first(
+            fn (LeaveRequestApproval $approval): bool => $approval->status === LeaveRequestApprovalStatus::Pending,
+        );
+
+        if ($pending === null) {
+            return false;
+        }
+
+        $pending->loadMissing('approverEmployee.user:id,email');
+        $email = $this->approverEmail($pending);
+
+        if ($email === '') {
+            return false;
+        }
+
+        $template = EmailTemplate::query()
+            ->where('slug', 'leave_request_submitted')
+            ->where('enabled', true)
+            ->first();
+
+        if ($template === null) {
+            return false;
+        }
+
+        try {
+            app(SendLeaveRequestSubmittedEmail::class)
+                ->handle($leaveRequest);
+
+            return true;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return false;
+        }
+    }
+
+    private function approverEmail(LeaveRequestApproval $approval): string
+    {
+        $employee = $approval->approverEmployee;
+
+        if ($employee === null) {
+            return '';
+        }
+
+        if (filled($employee->work_email)) {
+            return (string) $employee->work_email;
+        }
+
+        if (filled($employee->personal_email)) {
+            return (string) $employee->personal_email;
+        }
+
+        return (string) ($employee->user?->email ?? '');
+    }
+
     private function fillMissingSnapshotMetadata(LeaveRequest $leaveRequest, bool $dryRun): int
     {
         $filled = 0;
+        $companyId = (int) $leaveRequest->company_id;
+
+        $updatesByApprovalId = [];
 
         foreach ($leaveRequest->approvals as $approval) {
             /** @var LeaveRequestApproval $approval */
@@ -201,7 +282,7 @@ class BackfillLeaveRequestApprovalsCommand extends Command
 
             if (($needsPolicy || $needsLabel) && $approval->policy_step_id !== null) {
                 $step = LeaveApprovalPolicyStep::query()
-                    ->where('company_id', $leaveRequest->company_id)
+                    ->where('company_id', $companyId)
                     ->whereKey($approval->policy_step_id)
                     ->with('policy')
                     ->first();
@@ -227,7 +308,7 @@ class BackfillLeaveRequestApprovalsCommand extends Command
 
             if ($needsPolicy && blank($updates['policy_name'] ?? null) && $approval->policy_id !== null) {
                 $policyName = LeaveApprovalPolicy::query()
-                    ->where('company_id', $leaveRequest->company_id)
+                    ->where('company_id', $companyId)
                     ->whereKey($approval->policy_id)
                     ->value('name');
 
@@ -247,7 +328,6 @@ class BackfillLeaveRequestApprovalsCommand extends Command
                 continue;
             }
 
-            // Never overwrite non-null historical snapshot fields.
             $safeUpdates = [];
             foreach ($updates as $key => $value) {
                 if (blank($approval->{$key})) {
@@ -259,9 +339,41 @@ class BackfillLeaveRequestApprovalsCommand extends Command
                 continue;
             }
 
-            $approval->forceFill($safeUpdates)->save();
-            $filled++;
+            $updatesByApprovalId[(int) $approval->id] = $safeUpdates;
         }
+
+        if ($dryRun || $updatesByApprovalId === []) {
+            return $filled;
+        }
+
+        DB::transaction(function () use ($leaveRequest, $companyId, $updatesByApprovalId, &$filled): void {
+            foreach ($updatesByApprovalId as $approvalId => $safeUpdates) {
+                $approval = LeaveRequestApproval::query()
+                    ->where('company_id', $companyId)
+                    ->where('leave_request_id', $leaveRequest->id)
+                    ->whereKey($approvalId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($approval === null) {
+                    continue;
+                }
+
+                $finalUpdates = [];
+                foreach ($safeUpdates as $key => $value) {
+                    if (blank($approval->{$key})) {
+                        $finalUpdates[$key] = $value;
+                    }
+                }
+
+                if ($finalUpdates === []) {
+                    continue;
+                }
+
+                $approval->forceFill($finalUpdates)->save();
+                $filled++;
+            }
+        });
 
         return $filled;
     }

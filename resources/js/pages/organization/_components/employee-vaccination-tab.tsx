@@ -244,7 +244,9 @@ export function EmployeeVaccinationTab({
                                     className="h-8 gap-1.5 text-xs"
                                     type="button"
                                     disabled={!canImportRecords}
-                                    onClick={() => setVaccinationImportOpen(true)}
+                                    onClick={() =>
+                                        setVaccinationImportOpen(true)
+                                    }
                                 >
                                     Import CSV
                                 </Button>

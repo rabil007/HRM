@@ -2,6 +2,12 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { FileText } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import {
+    approve as leaveRequestApprove,
+    destroy as leaveRequestDestroy,
+    index as leaveRequestIndex,
+    update as leaveRequestUpdate,
+} from '@/actions/App/Http/Controllers/Attendance/LeaveRequestController';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
@@ -162,7 +168,7 @@ export default function LeaveRequestDetails({
     const [isCancelOpen, setIsCancelOpen] = useState(false);
     const form = useForm(leaveRequestToFormData(leave_request));
 
-    const canModify = leave_request.status === 'pending' && can.update;
+    const canModify = Boolean(leave_request.can_edit);
 
     const submit = () => {
         if (!form.data.employee_id) {
@@ -177,7 +183,7 @@ export default function LeaveRequestDetails({
             return;
         }
 
-        form.put(`/attendance/leave-requests/${leave_request.id}`, {
+        form.put(leaveRequestUpdate.url(leave_request.id), {
             preserveScroll: true,
             forceFormData: true,
             onSuccess: () => setEditOpen(false),
@@ -186,7 +192,7 @@ export default function LeaveRequestDetails({
 
     const approve = () => {
         router.put(
-            `/attendance/leave-requests/${leave_request.id}/approve`,
+            leaveRequestApprove.url(leave_request.id),
             {},
             {
                 preserveScroll: true,
@@ -216,7 +222,7 @@ export default function LeaveRequestDetails({
                 kicker="Attendance"
                 title={leave_request.employee?.name ?? 'Leave request'}
                 description={`${leave_request.leave_type?.name ?? '—'} • ${formatDisplayDate(leave_request.start_date)} — ${formatDisplayDate(leave_request.end_date)}`}
-                backHref="/attendance/leave-requests"
+                backHref={leaveRequestIndex.url()}
                 backLabel="Back to leave requests"
                 actions={
                     <LeaveRequestRowActions
@@ -418,13 +424,9 @@ export default function LeaveRequestDetails({
                 onOpenChange={setIsDeleteOpen}
                 leaveRequest={leave_request}
                 onConfirm={() => {
-                    router.delete(
-                        `/attendance/leave-requests/${leave_request.id}`,
-                        {
-                            onSuccess: () =>
-                                router.visit('/attendance/leave-requests'),
-                        },
-                    );
+                    router.delete(leaveRequestDestroy.url(leave_request.id), {
+                        onSuccess: () => router.visit(leaveRequestIndex.url()),
+                    });
                 }}
             />
 

@@ -17,12 +17,13 @@ use App\Models\LeaveType;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\Attendance\Actions\ApproveLeaveRequestStep;
 use App\Support\Attendance\Actions\CancelLeaveRequestWorkflow;
+use App\Support\Attendance\Actions\DeleteLeaveRequest;
 use App\Support\Attendance\Actions\RejectLeaveRequestStep;
 use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\Actions\UpdateLeaveRequestWithApprovals;
 use App\Support\Attendance\CalculateLeaveRequestDays;
-use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAttachments;
+use App\Support\Attendance\LeaveRequestAuthorization;
 use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Database\Eloquent\Builder;
@@ -40,7 +41,7 @@ class LeaveRequestController extends Controller
     public function __construct(
         private LeaveRequestAttachments $attachments,
         private LeaveRequestVisibility $visibility,
-        private LeaveBalanceManager $leaveBalances,
+        private LeaveRequestAuthorization $authorization,
     ) {}
 
     public function index(Request $request): Response
@@ -167,7 +168,7 @@ class LeaveRequestController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $user = $request->user();
 
-        $this->visibility->assertCanAccess($leaveRequest, $user, $companyId);
+        $this->authorization->assertCanView($leaveRequest, $user, $companyId);
 
         $leaveRequest->load([
             'employee:id,company_id,employee_no,name',
@@ -219,7 +220,7 @@ class LeaveRequestController extends Controller
                 'update' => $user?->can('attendance.leave-requests.update') ?? false,
                 'delete' => $user?->can('attendance.leave-requests.delete') ?? false,
                 'approve' => $user?->can('attendance.leave-requests.approve') ?? false,
-                'approve_current_step' => $this->visibility->canApproveCurrentStep($leaveRequest, $user, $companyId),
+                'approve_current_step' => $this->authorization->canApproveCurrentStep($leaveRequest, $user, $companyId),
                 'view_all' => $canViewAll,
             ],
         ]);
@@ -269,7 +270,7 @@ class LeaveRequestController extends Controller
         UpdateLeaveRequestWithApprovals $updateWithApprovals,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $this->visibility->assertCanAccess($leaveRequest, $request->user(), $companyId);
+        $this->authorization->assertCanEdit($leaveRequest, $request->user(), $companyId);
 
         $data = $request->validated();
 
@@ -286,6 +287,7 @@ class LeaveRequestController extends Controller
                 ],
                 newAttachment: $request->file('attachment'),
                 removeAttachment: $request->boolean('remove_attachment'),
+                actor: $request->user(),
             );
         } catch (ValidationException $exception) {
             throw $exception;
@@ -300,22 +302,20 @@ class LeaveRequestController extends Controller
             ->with('success', 'Leave request updated successfully.');
     }
 
-    public function destroy(LeaveRequest $leaveRequest): RedirectResponse
-    {
+    public function destroy(
+        LeaveRequest $leaveRequest,
+        DeleteLeaveRequest $deleteLeaveRequest,
+    ): RedirectResponse {
         $companyId = (int) request()->attributes->get('current_company_id');
-        $this->visibility->assertCanAccess($leaveRequest, request()->user(), $companyId);
+        $this->authorization->assertCanDelete($leaveRequest, request()->user(), $companyId);
 
-        if (! in_array($leaveRequest->status, ['pending', 'cancelled'], true)) {
+        try {
+            $deleteLeaveRequest->handle($leaveRequest, $companyId);
+        } catch (ValidationException $exception) {
             return redirect()
                 ->route('attendance.leave-requests.index')
-                ->withErrors(['leave_request' => 'Only pending or cancelled leave requests can be deleted.']);
+                ->withErrors($exception->errors());
         }
-
-        if ($leaveRequest->status === 'pending') {
-            $this->leaveBalances->releaseLeaveRequest($leaveRequest);
-        }
-
-        $leaveRequest->delete();
 
         return redirect()
             ->route('attendance.leave-requests.index')
@@ -328,7 +328,7 @@ class LeaveRequestController extends Controller
         ApproveLeaveRequestStep $approveStep,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $this->visibility->assertCanAccess($leaveRequest, $request->user(), $companyId);
+        $this->authorization->assertCanView($leaveRequest, $request->user(), $companyId);
 
         $approveStep->handle(
             $leaveRequest,
@@ -348,7 +348,7 @@ class LeaveRequestController extends Controller
         RejectLeaveRequestStep $rejectStep,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $this->visibility->assertCanAccess($leaveRequest, $request->user(), $companyId);
+        $this->authorization->assertCanView($leaveRequest, $request->user(), $companyId);
 
         $rejectStep->handle(
             $leaveRequest,
@@ -368,7 +368,7 @@ class LeaveRequestController extends Controller
         CancelLeaveRequestWorkflow $cancelWorkflow,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $this->visibility->assertCanAccess($leaveRequest, $request->user(), $companyId);
+        $this->authorization->assertCanCancel($leaveRequest, $request->user(), $companyId);
 
         $cancelWorkflow->handle(
             $leaveRequest,
@@ -391,6 +391,15 @@ class LeaveRequestController extends Controller
         ?int $companyId = null,
         bool $includeApprovals = false,
     ): array {
+        $capabilities = $companyId !== null
+            ? $this->authorization->capabilities($leaveRequest, $user, $companyId)
+            : [
+                'can_edit' => false,
+                'can_cancel' => false,
+                'can_delete' => false,
+                'can_approve_current_step' => false,
+            ];
+
         $payload = [
             'id' => $leaveRequest->id,
             'employee' => $leaveRequest->employee ? [
@@ -418,10 +427,10 @@ class LeaveRequestController extends Controller
             ] : null,
             'created_at' => $leaveRequest->created_at?->toIso8601String(),
             'attachments' => $this->attachments->serializeForFrontend($leaveRequest->attachments, $leaveRequest->id),
-            'can_approve_current_step' => $companyId !== null
-                ? $this->visibility->canApproveCurrentStep($leaveRequest, $user, $companyId)
-                : false,
-            'can_edit' => $this->canEditLeaveRequest($leaveRequest),
+            'can_approve_current_step' => $capabilities['can_approve_current_step'],
+            'can_edit' => $capabilities['can_edit'],
+            'can_cancel' => $capabilities['can_cancel'],
+            'can_delete' => $capabilities['can_delete'],
         ];
 
         if ($includeApprovals || $leaveRequest->relationLoaded('approvals')) {
@@ -432,26 +441,6 @@ class LeaveRequestController extends Controller
         }
 
         return $payload;
-    }
-
-    private function canEditLeaveRequest(LeaveRequest $leaveRequest): bool
-    {
-        if ($leaveRequest->status !== 'pending') {
-            return false;
-        }
-
-        $hasStarted = LeaveRequestApproval::query()
-            ->where('company_id', (int) $leaveRequest->company_id)
-            ->where('leave_request_id', $leaveRequest->id)
-            ->whereIn('status', [
-                LeaveRequestApprovalStatus::Approved->value,
-                LeaveRequestApprovalStatus::Rejected->value,
-                LeaveRequestApprovalStatus::Skipped->value,
-                LeaveRequestApprovalStatus::Cancelled->value,
-            ])
-            ->exists();
-
-        return ! $hasStarted;
     }
 
     /**

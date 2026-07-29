@@ -77,6 +77,8 @@ export type LeaveRequest = {
     attachments: LeaveRequestAttachment[];
     can_approve_current_step?: boolean;
     can_edit?: boolean;
+    can_cancel?: boolean;
+    can_delete?: boolean;
     approvals?: LeaveRequestApproval[];
 };
 

@@ -9,7 +9,7 @@ use App\Http\Requests\Attendance\UpdateLeaveApprovalPolicyRequest;
 use App\Http\Requests\Attendance\UpdateLeaveApprovalPolicyStatusRequest;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\LeaveApprovalPolicyStep;
-use App\Support\Attendance\AssertLeaveApprovalPolicyDefaultInvariant;
+use App\Support\Attendance\Actions\UpdateLeaveApprovalPolicyState;
 use App\Support\Attendance\PresentLeaveApproverOption;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
@@ -25,7 +25,7 @@ class LeaveApprovalPolicyController extends Controller
 
     public function __construct(
         private PresentLeaveApproverOption $presentApproverOption,
-        private AssertLeaveApprovalPolicyDefaultInvariant $defaultInvariant,
+        private UpdateLeaveApprovalPolicyState $policyState,
     ) {}
 
     public function index(Request $request): Response
@@ -50,6 +50,14 @@ class LeaveApprovalPolicyController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
+        $selectedEmployeeIds = $paginator->getCollection()
+            ->flatMap(fn (LeaveApprovalPolicy $policy) => $policy->steps->pluck('approver_employee_id'))
+            ->filter()
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
         $policies = $paginator->through(fn (LeaveApprovalPolicy $policy) => $this->serializePolicy($policy));
 
         return Inertia::render('attendance/leave-approval-policies', [
@@ -65,7 +73,11 @@ class LeaveApprovalPolicyController extends Controller
                 ])
                 ->values()
                 ->all(),
-            'employees' => $this->presentApproverOption->forCompany($companyId),
+            'employees' => $this->presentApproverOption->forCompany(
+                $companyId,
+                activeOnly: true,
+                includeEmployeeIds: $selectedEmployeeIds,
+            ),
             'can' => [
                 'create' => $user?->can('attendance.leave-approval-policies.create') ?? false,
                 'update' => $user?->can('attendance.leave-approval-policies.update') ?? false,
@@ -81,10 +93,9 @@ class LeaveApprovalPolicyController extends Controller
         $data = $request->validated();
         $userId = $request->user()?->id;
 
-        $this->defaultInvariant->assertForCreate($data);
-
         DB::transaction(function () use ($companyId, $data, $userId): void {
-            $policy = LeaveApprovalPolicy::query()->create([
+            $policy = new LeaveApprovalPolicy;
+            $policy->forceFill([
                 'company_id' => $companyId,
                 'name' => $data['name'],
                 'description' => $data['description'] ?? null,
@@ -92,13 +103,12 @@ class LeaveApprovalPolicyController extends Controller
                 'status' => $data['status'] ?? 'active',
                 'created_by' => $userId,
                 'updated_by' => $userId,
-            ]);
+            ])->save();
 
             $this->syncSteps($policy, $companyId, $data['steps']);
 
             if (! empty($data['is_default'])) {
-                $this->defaultInvariant->assertCanBecomeDefault($policy);
-                $policy->markAsCompanyDefault();
+                $this->policyState->markAsDefault($policy, $companyId, $userId);
             }
         });
 
@@ -115,24 +125,20 @@ class LeaveApprovalPolicyController extends Controller
         $data = $request->validated();
         $userId = $request->user()?->id;
 
-        $this->defaultInvariant->assertForUpdate($leaveApprovalPolicy, $data);
+        $stateAttributes = [
+            'name' => $data['name'],
+            'description' => $data['description'] ?? null,
+            'status' => $data['status'] ?? $leaveApprovalPolicy->status,
+            'updated_by' => $userId,
+        ];
 
-        DB::transaction(function () use ($leaveApprovalPolicy, $companyId, $data, $userId): void {
-            $leaveApprovalPolicy->update([
-                'name' => $data['name'],
-                'description' => $data['description'] ?? null,
-                'status' => $data['status'] ?? $leaveApprovalPolicy->status,
-                'updated_by' => $userId,
-            ]);
+        if (array_key_exists('is_default', $data)) {
+            $stateAttributes['is_default'] = (bool) $data['is_default'];
+        }
 
+        DB::transaction(function () use ($leaveApprovalPolicy, $companyId, $data, $stateAttributes): void {
             $this->syncSteps($leaveApprovalPolicy, $companyId, $data['steps']);
-
-            if (! empty($data['is_default'])) {
-                $this->defaultInvariant->assertCanBecomeDefault($leaveApprovalPolicy);
-                $leaveApprovalPolicy->markAsCompanyDefault();
-            } elseif (array_key_exists('is_default', $data) && ! $data['is_default'] && $leaveApprovalPolicy->is_default) {
-                $leaveApprovalPolicy->forceFill(['is_default' => false])->save();
-            }
+            $this->policyState->handle($leaveApprovalPolicy->fresh() ?? $leaveApprovalPolicy, $companyId, $stateAttributes);
         });
 
         return redirect()
@@ -145,16 +151,12 @@ class LeaveApprovalPolicyController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $leaveApprovalPolicy->company_id === $companyId, 404);
 
-        $status = $request->validated('status');
-
-        if ($status === 'inactive') {
-            $this->defaultInvariant->assertCanDeactivate($leaveApprovalPolicy);
-        }
-
-        $leaveApprovalPolicy->update([
-            'status' => $status,
-            'updated_by' => $request->user()?->id,
-        ]);
+        $this->policyState->updateStatus(
+            $leaveApprovalPolicy,
+            $companyId,
+            $request->validated('status'),
+            $request->user()?->id,
+        );
 
         return redirect()
             ->route('attendance.leave-approval-policies.index')
@@ -166,10 +168,11 @@ class LeaveApprovalPolicyController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $leaveApprovalPolicy->company_id === $companyId, 404);
 
-        $this->defaultInvariant->assertCanBecomeDefault($leaveApprovalPolicy);
-
-        $leaveApprovalPolicy->markAsCompanyDefault();
-        $leaveApprovalPolicy->forceFill(['updated_by' => $request->user()?->id])->save();
+        $this->policyState->markAsDefault(
+            $leaveApprovalPolicy,
+            $companyId,
+            $request->user()?->id,
+        );
 
         return redirect()
             ->route('attendance.leave-approval-policies.index')
@@ -261,7 +264,8 @@ class LeaveApprovalPolicyController extends Controller
         $policy->steps()->delete();
 
         foreach (array_values($steps) as $index => $step) {
-            LeaveApprovalPolicyStep::query()->create([
+            $row = new LeaveApprovalPolicyStep;
+            $row->forceFill([
                 'company_id' => $companyId,
                 'leave_approval_policy_id' => $policy->id,
                 'sequence' => $index + 1,
@@ -270,7 +274,7 @@ class LeaveApprovalPolicyController extends Controller
                 'is_required' => array_key_exists('is_required', $step)
                     ? (bool) $step['is_required']
                     : true,
-            ]);
+            ])->save();
         }
     }
 

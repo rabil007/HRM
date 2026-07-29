@@ -2,10 +2,12 @@
 
 namespace App\Support\Attendance\Actions;
 
+use App\Enums\LeaveApprovalApproverType;
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
+use App\Models\User;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAttachments;
@@ -25,7 +27,7 @@ final class UpdateLeaveRequestWithApprovals
         private LeaveBalanceManager $leaveBalances,
         private CalculateLeaveRequestDays $calculateDays,
         private LeaveRequestAttachments $attachments,
-        private SendLeaveRequestSubmittedEmail $sendSubmittedEmail,
+        private SendLeaveRequestUpdatedEmail $sendUpdatedEmail,
     ) {}
 
     /**
@@ -43,15 +45,14 @@ final class UpdateLeaveRequestWithApprovals
         array $attributes,
         ?UploadedFile $newAttachment = null,
         bool $removeAttachment = false,
+        ?User $actor = null,
     ): LeaveRequest {
         if ((int) $leaveRequest->company_id !== $companyId) {
             abort(404);
         }
 
-        $previousApproverUserId = null;
-        $oldAttachments = $leaveRequest->attachments;
         $storedAttachments = null;
-        $shouldDeleteOldAttachments = false;
+        $previousAttachmentsToDelete = null;
 
         if ($newAttachment !== null) {
             $storedAttachments = $this->attachments->store(
@@ -59,10 +60,6 @@ final class UpdateLeaveRequestWithApprovals
                 $companyId,
                 (int) $leaveRequest->id,
             );
-            $shouldDeleteOldAttachments = true;
-        } elseif ($removeAttachment) {
-            $storedAttachments = null;
-            $shouldDeleteOldAttachments = true;
         }
 
         try {
@@ -73,7 +70,8 @@ final class UpdateLeaveRequestWithApprovals
                 $storedAttachments,
                 $newAttachment,
                 $removeAttachment,
-                &$previousApproverUserId,
+                $actor,
+                &$previousAttachmentsToDelete,
             ): LeaveRequest {
                 $locked = LeaveRequest::query()
                     ->whereKey($leaveRequest->id)
@@ -100,10 +98,20 @@ final class UpdateLeaveRequestWithApprovals
                     ]);
                 }
 
-                $previousPending = $approvals->first(
-                    fn (LeaveRequestApproval $approval): bool => $approval->status === LeaveRequestApprovalStatus::Pending,
-                );
-                $previousApproverUserId = $previousPending?->approver_user_id;
+                $previousApprovalSnapshot = $this->serializeApprovalsForAudit($approvals);
+                $previousRequestSnapshot = [
+                    'employee_id' => (int) $locked->employee_id,
+                    'leave_type_id' => (int) $locked->leave_type_id,
+                    'start_date' => $locked->start_date?->toDateString(),
+                    'end_date' => $locked->end_date?->toDateString(),
+                    'total_days' => (string) $locked->total_days,
+                    'reason' => $locked->reason,
+                ];
+
+                // Capture attachment state from the locked model, not the stale route model.
+                if ($newAttachment !== null || $removeAttachment) {
+                    $previousAttachmentsToDelete = $locked->attachments;
+                }
 
                 $this->leaveBalances->replacePendingLeaveRequest($locked, [
                     'employee_id' => $attributes['employee_id'],
@@ -122,7 +130,7 @@ final class UpdateLeaveRequestWithApprovals
                 ];
 
                 if ($newAttachment !== null || $removeAttachment) {
-                    $payload['attachments'] = $storedAttachments;
+                    $payload['attachments'] = $newAttachment !== null ? $storedAttachments : null;
                 }
 
                 $locked->fill($payload)->save();
@@ -165,7 +173,18 @@ final class UpdateLeaveRequestWithApprovals
                     ]);
                 }
 
-                return $locked->fresh(['approvals', 'employee', 'leaveType', 'company']) ?? $locked;
+                $fresh = $locked->fresh(['approvals', 'employee', 'leaveType', 'company']) ?? $locked;
+
+                $this->logChainRebuild(
+                    leaveRequest: $fresh,
+                    companyId: $companyId,
+                    actor: $actor,
+                    previousApprovals: $previousApprovalSnapshot,
+                    previousRequest: $previousRequestSnapshot,
+                    newApprovals: $this->serializeApprovalsForAudit($fresh->approvals),
+                );
+
+                return $fresh;
             });
         } catch (Throwable $exception) {
             if ($newAttachment !== null && $storedAttachments !== null) {
@@ -175,25 +194,17 @@ final class UpdateLeaveRequestWithApprovals
             throw $exception;
         }
 
-        if ($shouldDeleteOldAttachments) {
-            $this->attachments->deleteFromStorage($oldAttachments);
+        if ($previousAttachmentsToDelete !== null) {
+            $this->attachments->deleteFromStorage($previousAttachmentsToDelete);
         }
 
-        $newPending = $updated->approvals
-            ->first(fn (LeaveRequestApproval $approval): bool => $approval->status === LeaveRequestApprovalStatus::Pending);
-
-        $shouldNotify = $newPending !== null
-            && (int) $newPending->approver_user_id !== (int) $previousApproverUserId;
-
-        if ($shouldNotify) {
-            DB::afterCommit(function () use ($updated): void {
-                try {
-                    $this->sendSubmittedEmail->handle($updated->fresh() ?? $updated);
-                } catch (Throwable $exception) {
-                    report($exception);
-                }
-            });
-        }
+        DB::afterCommit(function () use ($updated): void {
+            try {
+                $this->sendUpdatedEmail->handle($updated->fresh(['approvals.approverEmployee.user', 'employee.department', 'leaveType', 'company']) ?? $updated);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        });
 
         return $updated;
     }
@@ -214,5 +225,77 @@ final class UpdateLeaveRequestWithApprovals
         }
 
         return false;
+    }
+
+    /**
+     * @param  iterable<int, LeaveRequestApproval>  $approvals
+     * @return list<array<string, mixed>>
+     */
+    private function serializeApprovalsForAudit(iterable $approvals): array
+    {
+        $rows = [];
+
+        foreach ($approvals as $approval) {
+            $approverType = $approval->approver_type;
+
+            $rows[] = [
+                'sequence' => (int) $approval->sequence,
+                'approver_type' => $approverType instanceof LeaveApprovalApproverType
+                    ? $approverType->value
+                    : (string) $approverType,
+                'approver_employee_id' => $approval->approver_employee_id !== null
+                    ? (int) $approval->approver_employee_id
+                    : null,
+                'approver_user_id' => $approval->approver_user_id !== null
+                    ? (int) $approval->approver_user_id
+                    : null,
+                'source_department_id' => $approval->source_department_id !== null
+                    ? (int) $approval->source_department_id
+                    : null,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $previousApprovals
+     * @param  array<string, mixed>  $previousRequest
+     * @param  list<array<string, mixed>>  $newApprovals
+     */
+    private function logChainRebuild(
+        LeaveRequest $leaveRequest,
+        int $companyId,
+        ?User $actor,
+        array $previousApprovals,
+        array $previousRequest,
+        array $newApprovals,
+    ): void {
+        $logger = activity()
+            ->performedOn($leaveRequest)
+            ->withProperties([
+                'event' => 'leave_approval_chain_rebuilt',
+                'company_id' => $companyId,
+                'leave_request_id' => (int) $leaveRequest->id,
+                'reason' => 'request edited before approval',
+                'previous_approvals' => $previousApprovals,
+                'new_approvals' => $newApprovals,
+                'previous_request' => $previousRequest,
+                'new_request' => [
+                    'employee_id' => (int) $leaveRequest->employee_id,
+                    'leave_type_id' => (int) $leaveRequest->leave_type_id,
+                    'start_date' => $leaveRequest->start_date?->toDateString(),
+                    'end_date' => $leaveRequest->end_date?->toDateString(),
+                    'total_days' => (string) $leaveRequest->total_days,
+                    'reason' => $leaveRequest->reason,
+                ],
+            ]);
+
+        if ($actor !== null) {
+            $logger->causedBy($actor);
+        }
+
+        $activity = $logger->log('Leave request approval chain rebuilt before approval');
+        $activity->forceFill(['company_id' => $companyId])->save();
     }
 }

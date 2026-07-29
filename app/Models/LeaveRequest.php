@@ -25,7 +25,6 @@ class LeaveRequest extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'company_id',
         'employee_id',
         'leave_type_id',
         'start_date',

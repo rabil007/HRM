@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\LeaveBalance;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -55,26 +56,7 @@ final class LeaveBalanceManager
 
     public function findOrCreateBalance(int $companyId, int $employeeId, LeaveType $leaveType, int $year): LeaveBalance
     {
-        $balance = LeaveBalance::query()->firstOrCreate(
-            [
-                'company_id' => $companyId,
-                'employee_id' => $employeeId,
-                'leave_type_id' => $leaveType->id,
-                'year' => $year,
-            ],
-            [
-                'entitled_days' => $leaveType->days_per_year,
-                'carried_days' => 0,
-                'used_days' => 0,
-                'pending_days' => 0,
-            ],
-        );
-
-        if ($balance->wasRecentlyCreated) {
-            $balance->refresh();
-        }
-
-        return $balance;
+        return $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: false);
     }
 
     public function reserveLeaveRequest(LeaveRequest $leaveRequest): void
@@ -83,7 +65,7 @@ final class LeaveBalanceManager
             return;
         }
 
-        $this->adjustBucketsForRequest($leaveRequest, 'pending_days', 1.0);
+        $this->adjustBucketsForRequest($leaveRequest, ['pending_days' => 1.0]);
     }
 
     public function releaseLeaveRequest(LeaveRequest $leaveRequest): void
@@ -92,13 +74,15 @@ final class LeaveBalanceManager
             return;
         }
 
-        $this->adjustBucketsForRequest($leaveRequest, 'pending_days', -1.0);
+        $this->adjustBucketsForRequest($leaveRequest, ['pending_days' => -1.0]);
     }
 
     public function approveLeaveRequest(LeaveRequest $leaveRequest): void
     {
-        $this->adjustBucketsForRequest($leaveRequest, 'pending_days', -1.0);
-        $this->adjustBucketsForRequest($leaveRequest, 'used_days', 1.0);
+        $this->adjustBucketsForRequest($leaveRequest, [
+            'pending_days' => -1.0,
+            'used_days' => 1.0,
+        ]);
     }
 
     /**
@@ -154,7 +138,7 @@ final class LeaveBalanceManager
                 continue;
             }
 
-            $balance = $this->findOrCreateBalance($companyId, $employeeId, $leaveType, $year);
+            $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: DB::transactionLevel() > 0);
             $available = (float) $balance->remaining_days;
 
             if ($ignore !== null && $ignore->status === 'pending') {
@@ -363,7 +347,7 @@ final class LeaveBalanceManager
         return $total;
     }
 
-    private function adjustBucketsForRequest(LeaveRequest $leaveRequest, string $bucket, float $direction): void
+    private function adjustBucketsForRequest(LeaveRequest $leaveRequest, array $bucketDirections): void
     {
         $companyId = (int) $leaveRequest->company_id;
         $employeeId = (int) $leaveRequest->employee_id;
@@ -371,7 +355,7 @@ final class LeaveBalanceManager
         $startDate = $leaveRequest->start_date?->toDateString();
         $endDate = $leaveRequest->end_date?->toDateString();
 
-        if ($startDate === null || $endDate === null) {
+        if ($startDate === null || $endDate === null || $bucketDirections === []) {
             return;
         }
 
@@ -381,21 +365,109 @@ final class LeaveBalanceManager
             return;
         }
 
-        DB::transaction(function () use ($companyId, $employeeId, $leaveType, $startDate, $endDate, $bucket, $direction): void {
+        $run = function () use ($companyId, $employeeId, $leaveType, $startDate, $endDate, $bucketDirections): void {
             foreach ($this->daysByYear($startDate, $endDate) as $year => $days) {
                 if ($days <= 0) {
                     continue;
                 }
 
-                $balance = $this->findOrCreateBalance($companyId, $employeeId, $leaveType, $year);
-                $delta = $days * $direction;
-                $nextValue = max(0, (float) $balance->{$bucket} + $delta);
+                $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: true);
 
-                $balance->forceFill([
-                    $bucket => $nextValue,
-                ])->save();
+                foreach ($bucketDirections as $bucket => $direction) {
+                    $delta = $days * (float) $direction;
+                    $current = (float) $balance->{$bucket};
+                    $nextValue = $current + $delta;
+
+                    // Idempotent release/approve reductions when the bucket is already empty.
+                    if ($delta < 0 && $current <= 0.0001) {
+                        continue;
+                    }
+
+                    if ($nextValue < -0.0001) {
+                        throw new RuntimeException(sprintf(
+                            'Leave balance for %s (%d) cannot go negative on %s (current %.2f, delta %.2f).',
+                            $leaveType->name,
+                            $year,
+                            $bucket,
+                            $current,
+                            $delta,
+                        ));
+                    }
+
+                    $balance->forceFill([
+                        $bucket => max(0, $nextValue),
+                    ]);
+                }
+
+                $balance->save();
             }
-        });
+        };
+
+        if (DB::transactionLevel() > 0) {
+            $run();
+
+            return;
+        }
+
+        DB::transaction($run);
+    }
+
+    private function lockedBalance(
+        int $companyId,
+        int $employeeId,
+        LeaveType $leaveType,
+        int $year,
+        bool $lock,
+    ): LeaveBalance {
+        $query = LeaveBalance::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employeeId)
+            ->where('leave_type_id', $leaveType->id)
+            ->where('year', $year);
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        $balance = $query->first();
+
+        if ($balance !== null) {
+            return $balance;
+        }
+
+        try {
+            $created = LeaveBalance::query()->create([
+                'company_id' => $companyId,
+                'employee_id' => $employeeId,
+                'leave_type_id' => $leaveType->id,
+                'year' => $year,
+                'entitled_days' => $leaveType->days_per_year,
+                'carried_days' => 0,
+                'used_days' => 0,
+                'pending_days' => 0,
+            ]);
+
+            if (! $lock) {
+                return $created;
+            }
+
+            return LeaveBalance::query()
+                ->whereKey($created->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+        } catch (UniqueConstraintViolationException) {
+            $retry = LeaveBalance::query()
+                ->where('company_id', $companyId)
+                ->where('employee_id', $employeeId)
+                ->where('leave_type_id', $leaveType->id)
+                ->where('year', $year);
+
+            if ($lock) {
+                $retry->lockForUpdate();
+            }
+
+            return $retry->firstOrFail();
+        }
     }
 
     /**

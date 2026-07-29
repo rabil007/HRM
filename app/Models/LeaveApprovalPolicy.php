@@ -119,7 +119,11 @@ class LeaveApprovalPolicy extends Model
 
         return ! LeaveRequestApproval::query()
             ->where('company_id', $this->company_id)
-            ->whereHas('policyStep', fn ($query) => $query->where('leave_approval_policy_id', $this->id))
+            ->where(function ($query): void {
+                $query
+                    ->where('policy_id', $this->id)
+                    ->orWhereHas('policyStep', fn ($stepQuery) => $stepQuery->where('leave_approval_policy_id', $this->id));
+            })
             ->exists();
     }
 }

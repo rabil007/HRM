@@ -1,4 +1,5 @@
 import { useForm } from '@inertiajs/react';
+import { reject as leaveRequestReject } from '@/actions/App/Http/Controllers/Attendance/LeaveRequestController';
 import {
     AlertDialog,
     AlertDialogCancel,
@@ -33,7 +34,7 @@ export function LeaveRequestRejectDialog({
             return;
         }
 
-        form.put(`/attendance/leave-requests/${leaveRequest.id}/reject`, {
+        form.put(leaveRequestReject.url(leaveRequest.id), {
             preserveScroll: true,
             onSuccess: () => {
                 form.reset();

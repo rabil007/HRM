@@ -33,6 +33,15 @@ class LeaveApprovalSettingController extends Controller
             ? $this->presentApproverOption->present($settings->fallbackApprover, $companyId)
             : null;
 
+        $includeEmployeeIds = array_values(array_filter([
+            $settings->default_hr_approver_employee_id !== null
+                ? (int) $settings->default_hr_approver_employee_id
+                : null,
+            $settings->fallback_approver_employee_id !== null
+                ? (int) $settings->fallback_approver_employee_id
+                : null,
+        ]));
+
         return Inertia::render('attendance/leave-approval-settings', [
             'settings' => [
                 'default_hr_approver_employee_id' => $settings->default_hr_approver_employee_id,
@@ -40,7 +49,11 @@ class LeaveApprovalSettingController extends Controller
                 'default_hr_approver' => $defaultHr,
                 'fallback_approver' => $fallback,
             ],
-            'employees' => $this->presentApproverOption->forCompany($companyId),
+            'employees' => $this->presentApproverOption->forCompany(
+                $companyId,
+                activeOnly: true,
+                includeEmployeeIds: $includeEmployeeIds,
+            ),
             'warnings' => [
                 'default_hr_approver' => $defaultHr['warnings'] ?? [],
                 'fallback_approver' => $fallback['warnings'] ?? [],

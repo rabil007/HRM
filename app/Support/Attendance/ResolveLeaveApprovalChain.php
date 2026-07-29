@@ -96,7 +96,7 @@ final class ResolveLeaveApprovalChain
             if (! $this->isActionable($candidate['employee'], $companyId, $requesterId)) {
                 if ($step->is_required) {
                     throw new RuntimeException(sprintf(
-                        'Required approval step "%s" resolved to an employee who is not an actionable approver (active employee, linked active user, and leave-request approve permission).',
+                        'Required approval step "%s" resolved to an employee who is not an actionable approver (active employee, linked active user, active company membership, and leave-request approve permission).',
                         $step->approver_type->label(),
                     ));
                 }
@@ -402,6 +402,15 @@ final class ResolveLeaveApprovalChain
             : $employee->user()->first(['id', 'name', 'email', 'status']);
 
         if ($user === null || $user->status !== 'active') {
+            return false;
+        }
+
+        $hasActiveMembership = $user->companies()
+            ->whereKey($companyId)
+            ->wherePivot('status', 'active')
+            ->exists();
+
+        if (! $hasActiveMembership) {
             return false;
         }
 

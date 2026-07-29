@@ -262,3 +262,184 @@ test('backfill is idempotent and notify is explicit', function () {
     expect($leaveRequest->fresh()->approvals)->toHaveCount(1);
     Mail::assertNothingQueued();
 });
+
+test('dry-run output includes Would create and leaves Created at zero', function () {
+    ['company' => $company] = makeBackfillCompany();
+    $managed = makeManagedDepartment($company);
+    ensureDefaultLeaveApprovalPolicy($company);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'department_id' => $managed['department']->id,
+    ]);
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active', 'days_per_year' => 30]);
+
+    $leaveRequest = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'total_days' => 3,
+        'status' => 'pending',
+    ]);
+
+    $this->artisan('leave-approvals:backfill', [
+        '--company' => $company->id,
+        '--request' => $leaveRequest->id,
+        '--dry-run' => true,
+    ])
+        ->expectsOutputToContain('Would create')
+        ->expectsOutputToContain('| Created')
+        ->assertSuccessful();
+
+    expect($leaveRequest->fresh()->approvals)->toHaveCount(0);
+});
+
+test('notify without usable template does not inflate notifications scheduled count', function () {
+    ['company' => $company] = makeBackfillCompany();
+    $managed = makeManagedDepartment($company);
+    ensureDefaultLeaveApprovalPolicy($company);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'department_id' => $managed['department']->id,
+        'work_email' => 'backfill-employee@example.com',
+    ]);
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active', 'days_per_year' => 30]);
+
+    $leaveRequest = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'total_days' => 3,
+        'status' => 'pending',
+    ]);
+
+    EmailTemplate::query()->where('slug', 'leave_request_submitted')->update(['enabled' => false]);
+
+    Mail::fake();
+
+    $this->artisan('leave-approvals:backfill', [
+        '--company' => $company->id,
+        '--request' => $leaveRequest->id,
+        '--notify' => true,
+    ])
+        ->expectsOutputToContain('| Notifications scheduled')
+        ->assertSuccessful();
+
+    Mail::assertNothingQueued();
+    expect($leaveRequest->fresh()->approvals)->toHaveCount(1);
+});
+
+test('notify with usable template increments notifications scheduled', function () {
+    ['company' => $company] = makeBackfillCompany();
+    $managed = makeManagedDepartment($company);
+    ensureDefaultLeaveApprovalPolicy($company);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'department_id' => $managed['department']->id,
+        'work_email' => 'backfill-notify@example.com',
+    ]);
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active', 'days_per_year' => 30]);
+
+    $leaveRequest = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'total_days' => 3,
+        'status' => 'pending',
+    ]);
+
+    EmailTemplate::query()->updateOrCreate(
+        ['slug' => 'leave_request_submitted'],
+        [
+            'name' => 'Leave request submitted',
+            'subject' => 'Leave request',
+            'body_html' => 'Hello',
+            'enabled' => true,
+            'to_preset' => null,
+            'cc_preset' => null,
+            'include_company_footer' => false,
+        ],
+    );
+
+    Mail::fake();
+
+    $this->artisan('leave-approvals:backfill', [
+        '--company' => $company->id,
+        '--request' => $leaveRequest->id,
+        '--notify' => true,
+    ])
+        ->expectsOutputToContain('| Notifications scheduled')
+        ->assertSuccessful();
+
+    Mail::assertQueued(LeaveRequestSubmittedMail::class, 1);
+});
+
+test('metadata fill failure on one request does not block backfill on another eligible request', function () {
+    ['company' => $company] = makeBackfillCompany();
+    $managed = makeManagedDepartment($company);
+    ensureDefaultLeaveApprovalPolicy($company);
+
+    $eligibleEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'department_id' => $managed['department']->id,
+    ]);
+    $blockedEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'department_id' => $managed['department']->id,
+    ]);
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active', 'days_per_year' => 30]);
+
+    $eligibleRequest = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $eligibleEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'total_days' => 3,
+        'status' => 'pending',
+    ]);
+
+    $blockedRequest = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $blockedEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-07-10',
+        'end_date' => '2026-07-12',
+        'total_days' => 3,
+        'status' => 'pending',
+    ]);
+
+    $approval = new LeaveRequestApproval;
+    $approval->forceFill([
+        'company_id' => $company->id,
+        'leave_request_id' => $blockedRequest->id,
+        'sequence' => 1,
+        'approver_type' => LeaveApprovalApproverType::DepartmentManager,
+        'approver_employee_id' => $managed['manager']->id,
+        'approver_user_id' => $managed['managerUser']->id,
+        'policy_step_id' => null,
+        'policy_id' => null,
+        'policy_name' => null,
+        'policy_step_label' => null,
+        'status' => LeaveRequestApprovalStatus::Pending,
+        'is_required' => true,
+    ])->save();
+
+    Mail::fake();
+
+    $this->artisan('leave-approvals:backfill', [
+        '--company' => $company->id,
+        '--fill-snapshot-metadata' => true,
+    ])->assertSuccessful();
+
+    expect($eligibleRequest->fresh()->approvals)->toHaveCount(1)
+        ->and($blockedRequest->fresh()->approvals)->toHaveCount(1);
+});

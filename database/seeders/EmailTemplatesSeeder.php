@@ -12,6 +12,7 @@ class EmailTemplatesSeeder extends Seeder
     {
         self::seedPayslipDeliveryTemplate();
         self::seedLeaveRequestSubmittedTemplate();
+        self::seedLeaveRequestUpdatedTemplate();
         self::seedLeaveRequestApprovedTemplate();
         self::seedLeaveRequestRejectedTemplate();
         self::seedPasswordResetTemplate();
@@ -66,6 +67,24 @@ class EmailTemplatesSeeder extends Seeder
         }
 
         return $template->fresh();
+    }
+
+    public static function seedLeaveRequestUpdatedTemplate(): EmailTemplate
+    {
+        return EmailTemplate::query()->updateOrCreate(
+            ['slug' => 'leave_request_updated'],
+            [
+                'label' => 'Leave request updated',
+                'category' => EmailTemplateCategory::Hr,
+                'to_preset' => null,
+                'cc_preset' => null,
+                'dispatch_at' => null,
+                'subject' => 'Leave request updated — {{employee_name}} ({{leave_type}})',
+                'body_html' => self::leaveRequestUpdatedBody(),
+                'enabled' => true,
+                'sort_order' => 1,
+            ],
+        )->fresh();
     }
 
     public static function seedLeaveRequestApprovedTemplate(): EmailTemplate
@@ -133,6 +152,19 @@ A new leave request has been submitted and is pending your review.
 Employee: {{employee_name}}
 Leave type: {{leave_type}}
 Dates: {{start_date}} to {{end_date}}
+TEXT;
+    }
+
+    private static function leaveRequestUpdatedBody(): string
+    {
+        return <<<'TEXT'
+A leave request assigned to you was edited and still requires your approval.
+
+Employee: {{employee_name}}
+Leave type: {{leave_type}}
+Dates: {{start_date}} to {{end_date}}
+Total days: {{total_days}}
+Reason: {{reason}}
 TEXT;
     }
 
