@@ -32,7 +32,7 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 | Bulk documents / signatures | `bulk_documents.view|generate|delete|email`, `bulk_documents.signatures.review` |
 | Crew operations | `crew_operations.overview.view`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*`, `crew_operations.assignments.*`, `crew_operations.movements.perform`, `crew_operations.corrections.view|request|approve|override` |
 | Reports | `reports.crew_movement_history.view|export` |
-| Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` (incl. `view_all`; approve is step-scoped; `assigned_to_me` is historical assignment visibility only), `attendance.leave-approval-policies.*`, `attendance.leave-approval-settings.view|update` |
+| Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` (incl. `view_all` and privileged `delete_any`; approve is step-scoped; `assigned_to_me` is historical assignment visibility only), `attendance.leave-approval-policies.*`, `attendance.leave-approval-settings.view|update` |
 | Payroll | `payroll.overview.view`, `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, `payroll.payslips.*`, `payroll.wps.export` |
 | Hikvision | `hikvision.persons.*`, `hikvision.devices.*`, `hikvision.events.*`, `hikvision.webhook.manage` |
 | Employee profile templates | `employee_profile_templates.view|create|update|delete` |
@@ -52,6 +52,15 @@ Crew timesheet timeline workflow permissions (Phase 1C–1D):
 | `payroll.crew_timesheets.approve` | Approve a submitted preparation, or approve a submitted Manual/Import timesheet |
 | `payroll.crew_timesheets.return` | Return a submitted preparation or Manual/Import timesheet with notes |
 | `payroll.crew_timesheets.apply_approved` | Apply an approved preparation to crew timesheets |
+
+## Leave request deletion
+
+| Permission | Capability |
+|------------|------------|
+| `attendance.leave-requests.delete` | Ordinary soft-delete of **pending or cancelled** requests owned by the linked employee (or when combined with `view_all`). Blocked once any approval step has been acted; cancels should be used instead to preserve history. |
+| `attendance.leave-requests.delete_any` | Privileged administrative **void and remove**. Requires `view` + `view_all` + `delete_any`. Soft-deletes the request in any workflow status, reverses balance (pending → release pending; approved → reverse used; rejected/cancelled → no balance change), cancels open approval steps while preserving completed history, keeps attachments on disk, and writes a company-scoped audit event. |
+
+Ordinary `delete` must never be broadened to cover approved or mid-approval requests. Administrative deletion uses route `attendance.leave-requests.administrative-destroy` and row capability `can_administratively_delete`.
 
 ## Employee and document details
 

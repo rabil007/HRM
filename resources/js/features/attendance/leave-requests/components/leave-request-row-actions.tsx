@@ -1,4 +1,4 @@
-import { Ban, Check, Eye, Pencil, Trash2, X } from 'lucide-react';
+import { Ban, Check, Eye, Pencil, ShieldAlert, Trash2, X } from 'lucide-react';
 import { show as leaveRequestShow } from '@/actions/App/Http/Controllers/Attendance/LeaveRequestController';
 import { TableRowActions } from '@/components/table-row-actions';
 import type { TableRowActionItem } from '@/components/table-row-actions';
@@ -8,6 +8,7 @@ export function LeaveRequestRowActions({
     leaveRequest,
     onEdit,
     onDelete,
+    onAdministrativeDelete,
     onApprove,
     onReject,
     onCancel,
@@ -18,6 +19,7 @@ export function LeaveRequestRowActions({
     can: LeaveRequestPermissions;
     onEdit: (leaveRequest: LeaveRequest) => void;
     onDelete: (leaveRequest: LeaveRequest) => void;
+    onAdministrativeDelete?: (leaveRequest: LeaveRequest) => void;
     onApprove: (leaveRequest: LeaveRequest) => void;
     onReject: (leaveRequest: LeaveRequest) => void;
     onCancel: (leaveRequest: LeaveRequest) => void;
@@ -26,6 +28,9 @@ export function LeaveRequestRowActions({
 }) {
     const canModify = Boolean(leaveRequest.can_edit);
     const canRemove = Boolean(leaveRequest.can_delete);
+    const canAdministrativelyDelete = Boolean(
+        leaveRequest.can_administratively_delete,
+    );
     const canCancelRequest = Boolean(leaveRequest.can_cancel);
     const canActOnCurrentStep = Boolean(leaveRequest.can_approve_current_step);
     const isPending = leaveRequest.status === 'pending';
@@ -68,6 +73,13 @@ export function LeaveRequestRowActions({
             variant: 'danger',
             onClick: () => onDelete(leaveRequest),
             hidden: !canRemove,
+        },
+        {
+            label: 'Void and remove',
+            icon: ShieldAlert,
+            variant: 'danger',
+            onClick: () => onAdministrativeDelete?.(leaveRequest),
+            hidden: !canAdministrativelyDelete || !onAdministrativeDelete,
         },
     ];
 

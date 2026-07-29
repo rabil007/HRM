@@ -90,6 +90,25 @@ final class LeaveRequestAuthorization
         return $this->isOwnerOrViewAllAdmin($leaveRequest, $user, $companyId, $linkedEmployeeId);
     }
 
+    /**
+     * Privileged administrative void-and-remove for any workflow status.
+     * Requires view + view_all + delete_any; never granted by ordinary delete alone.
+     */
+    public function canAdministrativelyDelete(LeaveRequest $leaveRequest, ?User $user, int $companyId): bool
+    {
+        if ($user === null || (int) $leaveRequest->company_id !== $companyId) {
+            return false;
+        }
+
+        if ($leaveRequest->trashed()) {
+            return false;
+        }
+
+        return $user->can('attendance.leave-requests.view')
+            && $user->can('attendance.leave-requests.view_all')
+            && $user->can('attendance.leave-requests.delete_any');
+    }
+
     public function canApproveCurrentStep(LeaveRequest $leaveRequest, ?User $user, int $companyId): bool
     {
         if ($user === null || (int) $leaveRequest->company_id !== $companyId) {
@@ -143,11 +162,21 @@ final class LeaveRequestAuthorization
         abort_unless($this->canAttemptDelete($leaveRequest, $user, $companyId), 403);
     }
 
+    public function assertCanAdministrativelyDelete(LeaveRequest $leaveRequest, ?User $user, int $companyId): void
+    {
+        if ($user === null || (int) $leaveRequest->company_id !== $companyId) {
+            abort(404);
+        }
+
+        abort_unless($this->canAdministrativelyDelete($leaveRequest, $user, $companyId), 403);
+    }
+
     /**
      * @return array{
      *     can_edit: bool,
      *     can_cancel: bool,
      *     can_delete: bool,
+     *     can_administratively_delete: bool,
      *     can_approve_current_step: bool,
      * }
      */
@@ -157,6 +186,7 @@ final class LeaveRequestAuthorization
             'can_edit' => $this->canEdit($leaveRequest, $user, $companyId, $linkedEmployeeId),
             'can_cancel' => $this->canCancel($leaveRequest, $user, $companyId, $linkedEmployeeId),
             'can_delete' => $this->canDelete($leaveRequest, $user, $companyId, $linkedEmployeeId),
+            'can_administratively_delete' => $this->canAdministrativelyDelete($leaveRequest, $user, $companyId),
             'can_approve_current_step' => $this->canApproveCurrentStep($leaveRequest, $user, $companyId),
         ];
     }

@@ -89,6 +89,120 @@ final class LeaveBalanceManager
     }
 
     /**
+     * Subtract the request allocation from used_days for every affected year.
+     * Missing dates, leave type, or insufficient used is workflow corruption.
+     *
+     * @throws RuntimeException
+     */
+    public function releaseUsedAllocation(LeaveRequest $leaveRequest): void
+    {
+        $companyId = (int) $leaveRequest->company_id;
+        $employeeId = (int) $leaveRequest->employee_id;
+        $leaveTypeId = (int) $leaveRequest->leave_type_id;
+        $startDate = $leaveRequest->start_date?->toDateString();
+        $endDate = $leaveRequest->end_date?->toDateString();
+
+        if ($startDate === null || $endDate === null || $startDate === '' || $endDate === '') {
+            throw new RuntimeException('Leave request dates are missing; cannot reverse used leave balance.');
+        }
+
+        $leaveType = LeaveType::query()
+            ->where('company_id', $companyId)
+            ->whereKey($leaveTypeId)
+            ->first();
+
+        if ($leaveType === null) {
+            throw new RuntimeException('The leave type for this request is missing or does not belong to the request company.');
+        }
+
+        $run = function () use ($companyId, $employeeId, $leaveType, $startDate, $endDate): void {
+            $updates = [];
+
+            foreach ($this->daysByYear($startDate, $endDate) as $year => $days) {
+                if ($days <= 0) {
+                    continue;
+                }
+
+                $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: true);
+                $current = (float) $balance->used_days;
+
+                if ($current + 0.0001 < $days) {
+                    throw new RuntimeException(sprintf(
+                        'Cannot reverse leave: used allocation for %s (%d) is missing or insufficient (have %.2f, need %.2f).',
+                        $leaveType->name,
+                        $year,
+                        $current,
+                        $days,
+                    ));
+                }
+
+                $updates[] = [$balance, $current - $days];
+            }
+
+            foreach ($updates as [$balance, $usedDays]) {
+                $balance->forceFill([
+                    'used_days' => $usedDays,
+                ])->save();
+            }
+        };
+
+        $this->runInTransaction($run);
+    }
+
+    /**
+     * Lock and snapshot allocation balances for the request date span in deterministic year order.
+     *
+     * @return list<array{
+     *     year: int,
+     *     days: float,
+     *     pending_days: float,
+     *     used_days: float,
+     *     remaining_days: float
+     * }>
+     */
+    public function snapshotAllocationBalances(LeaveRequest $leaveRequest, bool $lock = true): array
+    {
+        $companyId = (int) $leaveRequest->company_id;
+        $employeeId = (int) $leaveRequest->employee_id;
+        $leaveTypeId = (int) $leaveRequest->leave_type_id;
+        $startDate = $leaveRequest->start_date?->toDateString();
+        $endDate = $leaveRequest->end_date?->toDateString();
+
+        if ($startDate === null || $endDate === null || $startDate === '' || $endDate === '') {
+            throw new RuntimeException('Leave request dates are missing; cannot snapshot leave balances.');
+        }
+
+        $leaveType = LeaveType::query()
+            ->where('company_id', $companyId)
+            ->whereKey($leaveTypeId)
+            ->first();
+
+        if ($leaveType === null) {
+            throw new RuntimeException('The leave type for this request is missing or does not belong to the request company.');
+        }
+
+        $snapshots = [];
+
+        foreach ($this->daysByYear($startDate, $endDate) as $year => $days) {
+            if ($days <= 0) {
+                continue;
+            }
+
+            $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, (int) $year, lock: $lock);
+
+            $snapshots[] = [
+                'year' => (int) $year,
+                'days' => (float) $days,
+                'pending_days' => (float) $balance->pending_days,
+                'used_days' => (float) $balance->used_days,
+                'remaining_days' => (float) $balance->remaining_days,
+            ];
+        }
+
+        return $snapshots;
+    }
+
+    /**
      * @param  array{
      *     employee_id: int,
      *     leave_type_id: int,

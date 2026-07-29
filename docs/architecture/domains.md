@@ -661,7 +661,9 @@ Balance operations use focused methods (`reserveIfAvailable`, `releasePendingRes
 
 Backfill (`leave-approvals:backfill`) is non-destructive: existing approval rows are never deleted or replaced (`--force` only warns and skips). Dry-run performs no writes (settings resolution is read-only) and reports **Would create** separately from **Created**. Approver emails require explicit `--notify`, are never sent in dry-run, and increment **Notifications scheduled** only when scheduling is actually attempted for an actionable pending approver.
 
-Assigned approvers may view a request and act on their current pending step only. Edit, cancel, and delete require ownership (linked employee) or `view_all` plus the matching mutation permission. Direct deletion is rejected once any approval step has been acted; cancel preserves completed approval history.
+Assigned approvers may view a request and act on their current pending step only. Edit, cancel, and ordinary delete require ownership (linked employee) or `view_all` plus the matching mutation permission. Direct deletion is rejected once any approval step has been acted; cancel preserves completed approval history.
+
+Privileged administrators with `attendance.leave-requests.view` + `view_all` + `delete_any` may **void and remove** a request in any status via `AdministrativelyDeleteLeaveRequest`. That path soft-deletes the request, records the prior status and reason, reverses balance exactly once (pending release / approved used reversal / no mutation for rejected or cancelled), cancels only open approval steps, preserves completed approvals/comments/provenance and attachment files, and writes a company-scoped audit activity visible to `audit.view`.
 
 `SetCurrentCompany` only activates active companies with an active `company_user` membership (or the legacy home-company path when no pivot row exists). EmailTemplatesSeeder creates missing leave templates without overwriting administrator subject/body/enabled/preset customizations, including `leave_request_updated` and `leave_request_approver_action_required`.
 
@@ -672,6 +674,7 @@ Assigned approvers may view a request and act on their current pending step only
    Permission seeding creates permission records but **does not** assign them to existing company roles.
 3. Assign new permissions to existing company roles (Organization → Roles):
    - `attendance.leave-requests.view_all`
+   - `attendance.leave-requests.delete_any` (only for trusted HR/system administrators who may void requests)
    - `attendance.leave-approval-policies.*`
    - `attendance.leave-approval-settings.view|update`
 4. Configure one active company default policy and/or department policies.
@@ -696,7 +699,7 @@ Also seed email templates when deploying notification changes: `php artisan db:s
 - `attendance.overview.view`
 - `attendance.records.view|create|update|delete|manage`
 - `attendance.types.view|create|update|delete`
-- `attendance.leave-requests.view|view_all|create|update|delete|approve`
+- `attendance.leave-requests.view|view_all|create|update|delete|delete_any|approve`
 - `attendance.leave-approval-policies.view|create|update|delete`
 - `attendance.leave-approval-settings.view|update`
 

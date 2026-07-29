@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Attendance;
 use App\Enums\LeaveApprovalApproverType;
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Attendance\AdministrativelyDeleteLeaveRequestRequest;
 use App\Http\Requests\Attendance\ApproveLeaveRequestRequest;
 use App\Http\Requests\Attendance\CancelLeaveRequestRequest;
 use App\Http\Requests\Attendance\RejectLeaveRequestRequest;
@@ -15,6 +16,7 @@ use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
 use App\Models\LeaveType;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Attendance\Actions\AdministrativelyDeleteLeaveRequest;
 use App\Support\Attendance\Actions\ApproveLeaveRequestStep;
 use App\Support\Attendance\Actions\CancelLeaveRequestWorkflow;
 use App\Support\Attendance\Actions\DeleteLeaveRequest;
@@ -331,6 +333,37 @@ class LeaveRequestController extends Controller
             ->with('success', 'Leave request deleted successfully.');
     }
 
+    public function administrativeDestroy(
+        AdministrativelyDeleteLeaveRequestRequest $request,
+        LeaveRequest $leaveRequest,
+        AdministrativelyDeleteLeaveRequest $administrativelyDelete,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+
+        try {
+            $administrativelyDelete->handle(
+                leaveRequest: $leaveRequest,
+                companyId: $companyId,
+                actor: $request->user(),
+                reason: (string) $request->validated('administrative_deletion_reason'),
+            );
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (RuntimeException $exception) {
+            if ($exception instanceof HttpExceptionInterface) {
+                throw $exception;
+            }
+
+            throw ValidationException::withMessages([
+                'leave_request' => $exception->getMessage(),
+            ]);
+        }
+
+        return redirect()
+            ->route('attendance.leave-requests.index')
+            ->with('success', 'Leave request voided, balance restored and record removed successfully.');
+    }
+
     public function approve(
         ApproveLeaveRequestRequest $request,
         LeaveRequest $leaveRequest,
@@ -437,6 +470,7 @@ class LeaveRequestController extends Controller
                 'can_edit' => false,
                 'can_cancel' => false,
                 'can_delete' => false,
+                'can_administratively_delete' => false,
                 'can_approve_current_step' => false,
             ];
 
@@ -471,6 +505,7 @@ class LeaveRequestController extends Controller
             'can_edit' => $capabilities['can_edit'],
             'can_cancel' => $capabilities['can_cancel'],
             'can_delete' => $capabilities['can_delete'],
+            'can_administratively_delete' => $capabilities['can_administratively_delete'],
         ];
 
         if ($includeApprovals || $leaveRequest->relationLoaded('approvals')) {

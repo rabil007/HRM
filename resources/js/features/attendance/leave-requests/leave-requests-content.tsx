@@ -37,6 +37,7 @@ import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
+import { LeaveRequestAdministrativeDeleteDialog } from './components/leave-request-administrative-delete-dialog';
 import { LeaveRequestCancelDialog } from './components/leave-request-cancel-dialog';
 import { LeaveRequestCard } from './components/leave-request-card';
 import { LeaveRequestDeleteDialog } from './components/leave-request-delete-dialog';
@@ -94,6 +95,8 @@ export function LeaveRequestsContent({
     );
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isAdministrativeDeleteOpen, setIsAdministrativeDeleteOpen] =
+        useState(false);
     const [isRejectOpen, setIsRejectOpen] = useState(false);
     const [isCancelOpen, setIsCancelOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -146,6 +149,11 @@ export function LeaveRequestsContent({
     const handleDelete = (leaveRequest: LeaveRequest) => {
         setCurrentLeaveRequest(leaveRequest);
         setIsDeleteOpen(true);
+    };
+
+    const handleAdministrativeDelete = (leaveRequest: LeaveRequest) => {
+        setCurrentLeaveRequest(leaveRequest);
+        setIsAdministrativeDeleteOpen(true);
     };
 
     const handleReject = (leaveRequest: LeaveRequest) => {
@@ -381,6 +389,7 @@ export function LeaveRequestsContent({
                             can={can}
                             onEdit={handleEdit}
                             onDelete={handleDelete}
+                            onAdministrativeDelete={handleAdministrativeDelete}
                             onApprove={approve}
                             onReject={handleReject}
                             onCancel={handleCancel}
@@ -464,6 +473,9 @@ export function LeaveRequestsContent({
                                         can={can}
                                         onEdit={handleEdit}
                                         onDelete={handleDelete}
+                                        onAdministrativeDelete={
+                                            handleAdministrativeDelete
+                                        }
                                         onApprove={approve}
                                         onReject={handleReject}
                                         onCancel={handleCancel}
@@ -516,6 +528,13 @@ export function LeaveRequestsContent({
                 onOpenChange={setIsDeleteOpen}
                 leaveRequest={currentLeaveRequest}
                 onConfirm={confirmDelete}
+            />
+
+            <LeaveRequestAdministrativeDeleteDialog
+                open={isAdministrativeDeleteOpen}
+                onOpenChange={setIsAdministrativeDeleteOpen}
+                leaveRequest={currentLeaveRequest}
+                onSuccess={() => setCurrentLeaveRequest(null)}
             />
 
             <LeaveRequestRejectDialog

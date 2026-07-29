@@ -880,6 +880,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:attendance.leave-requests.delete')
         ->name('attendance.leave-requests.destroy');
 
+    Route::delete('attendance/leave-requests/{leave_request}/administrative', [LeaveRequestController::class, 'administrativeDestroy'])
+        ->middleware('can:attendance.leave-requests.delete_any')
+        ->name('attendance.leave-requests.administrative-destroy');
+
     Route::put('attendance/leave-requests/{leave_request}/approve', [LeaveRequestController::class, 'approve'])
         ->middleware('can:attendance.leave-requests.approve')
         ->name('attendance.leave-requests.approve');

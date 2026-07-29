@@ -17,6 +17,7 @@ export function LeaveRequestCard({
     can,
     onEdit,
     onDelete,
+    onAdministrativeDelete,
     onApprove,
     onReject,
     onCancel,
@@ -25,6 +26,7 @@ export function LeaveRequestCard({
     can: LeaveRequestPermissions;
     onEdit: (leaveRequest: LeaveRequest) => void;
     onDelete: (leaveRequest: LeaveRequest) => void;
+    onAdministrativeDelete?: (leaveRequest: LeaveRequest) => void;
     onApprove: (leaveRequest: LeaveRequest) => void;
     onReject: (leaveRequest: LeaveRequest) => void;
     onCancel: (leaveRequest: LeaveRequest) => void;
@@ -117,6 +119,7 @@ export function LeaveRequestCard({
                         can={can}
                         onEdit={onEdit}
                         onDelete={onDelete}
+                        onAdministrativeDelete={onAdministrativeDelete}
                         onApprove={onApprove}
                         onReject={onReject}
                         onCancel={onCancel}

@@ -14,6 +14,7 @@ import type { RecentActivityItem } from '@/components/recent-activity-card';
 import { RecentActivityCard } from '@/components/recent-activity-card';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { LeaveRequestAdministrativeDeleteDialog } from '@/features/attendance/leave-requests/components/leave-request-administrative-delete-dialog';
 import { LeaveRequestCancelDialog } from '@/features/attendance/leave-requests/components/leave-request-cancel-dialog';
 import { LeaveRequestDeleteDialog } from '@/features/attendance/leave-requests/components/leave-request-delete-dialog';
 import { LeaveRequestFormSheet } from '@/features/attendance/leave-requests/components/leave-request-form-sheet';
@@ -164,6 +165,8 @@ export default function LeaveRequestDetails({
 }) {
     const [editOpen, setEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isAdministrativeDeleteOpen, setIsAdministrativeDeleteOpen] =
+        useState(false);
     const [isRejectOpen, setIsRejectOpen] = useState(false);
     const [isCancelOpen, setIsCancelOpen] = useState(false);
     const form = useForm(leaveRequestToFormData(leave_request));
@@ -230,6 +233,9 @@ export default function LeaveRequestDetails({
                         can={can}
                         onEdit={() => setEditOpen(true)}
                         onDelete={() => setIsDeleteOpen(true)}
+                        onAdministrativeDelete={() =>
+                            setIsAdministrativeDeleteOpen(true)
+                        }
                         onApprove={approve}
                         onReject={reject}
                         onCancel={cancel}
@@ -436,6 +442,13 @@ export default function LeaveRequestDetails({
                         onSuccess: () => router.visit(leaveRequestIndex.url()),
                     });
                 }}
+            />
+
+            <LeaveRequestAdministrativeDeleteDialog
+                open={isAdministrativeDeleteOpen}
+                onOpenChange={setIsAdministrativeDeleteOpen}
+                leaveRequest={leave_request}
+                onSuccess={() => router.visit(leaveRequestIndex.url())}
             />
 
             <LeaveRequestRejectDialog

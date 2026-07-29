@@ -79,6 +79,7 @@ export type LeaveRequest = {
     can_edit?: boolean;
     can_cancel?: boolean;
     can_delete?: boolean;
+    can_administratively_delete?: boolean;
     approvals?: LeaveRequestApproval[];
 };
 

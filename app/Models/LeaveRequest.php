@@ -44,6 +44,7 @@ class LeaveRequest extends Model
             'employee_id' => 'integer',
             'leave_type_id' => 'integer',
             'approved_by' => 'integer',
+            'administratively_deleted_by' => 'integer',
             'start_date' => 'date',
             'end_date' => 'date',
             'decided_at' => 'datetime',
@@ -67,6 +68,9 @@ class LeaveRequest extends Model
                 'status',
                 'rejection_reason',
                 'cancellation_reason',
+                'status_before_administrative_deletion',
+                'administrative_deletion_reason',
+                'administratively_deleted_by',
                 'decided_at',
             ])
             ->logOnlyDirty();
@@ -90,6 +94,11 @@ class LeaveRequest extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function administrativelyDeletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'administratively_deleted_by');
     }
 
     public function approvals(): HasMany
