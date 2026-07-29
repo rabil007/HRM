@@ -177,6 +177,8 @@ test('first leave request succeeds when employee has no pre-provisioned balance'
 
     expect(LeaveBalance::query()->where('employee_id', $employee->id)->count())->toBe(0);
 
+    prepareLeaveRequestApprovalContext($company, $employee);
+
     $this->actingAs($user);
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.view',

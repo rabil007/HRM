@@ -65,6 +65,7 @@ function grantCalendarAccess(User $user, Company $company): void
 {
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.view',
+        'attendance.leave-requests.view_all',
         'attendance.leave-requests.approve',
     ]);
 }

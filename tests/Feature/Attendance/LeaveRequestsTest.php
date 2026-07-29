@@ -7,7 +7,6 @@ use App\Mail\LeaveRequestSubmittedMail;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
-use App\Models\Department;
 use App\Models\EmailTemplate;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
@@ -60,20 +59,6 @@ function makeLeaveRequestsFixtures(): array
     ]);
 
     return ['user' => $user, 'company' => $company];
-}
-
-/**
- * Prepare a default manager-only policy and attach the employee to a managed department.
- *
- * @return array{manager: Employee, managerUser: User, department: Department}
- */
-function prepareLeaveRequestApprovalContext(Company $company, Employee $employee): array
-{
-    $managed = makeManagedDepartment($company);
-    ensureDefaultLeaveApprovalPolicy($company);
-    $employee->update(['department_id' => $managed['department']->id]);
-
-    return $managed;
 }
 
 /**

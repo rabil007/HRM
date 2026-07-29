@@ -151,6 +151,7 @@ test('attendance calendar shows empty legend for approver without linked employe
 
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.view',
+        'attendance.leave-requests.view_all',
         'attendance.leave-requests.approve',
     ]);
 
@@ -263,7 +264,7 @@ test('attendance calendar only includes approved leave requests', function () {
             ->where('approved_leaves.0.start_date', '2026-04-01'));
 });
 
-test('users without approve permission only see their own approved leaves on calendar', function () {
+test('users without view_all permission only see their own approved leaves on calendar', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
     ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
     ['employee' => $otherEmployee] = makeAttendanceCalendarActors($company);
@@ -304,7 +305,7 @@ test('users without approve permission only see their own approved leaves on cal
             ->where('approved_leaves.0.employee.id', $ownEmployee->id));
 });
 
-test('users with approve permission default to their own approved leaves on calendar', function () {
+test('users with view_all permission default to their own approved leaves on calendar', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
     ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
     ['employee' => $otherEmployee] = makeAttendanceCalendarActors($company);
@@ -314,6 +315,7 @@ test('users with approve permission default to their own approved leaves on cale
 
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.view',
+        'attendance.leave-requests.view_all',
         'attendance.leave-requests.approve',
     ]);
 
@@ -361,6 +363,7 @@ test('calendar employee dropdown only lists employees with leave requests', func
 
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.view',
+        'attendance.leave-requests.view_all',
         'attendance.leave-requests.approve',
     ]);
 
@@ -394,6 +397,7 @@ test('calendar honors employee_id for inactive employees without leave requests'
 
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.view',
+        'attendance.leave-requests.view_all',
         'attendance.leave-requests.approve',
     ]);
 
@@ -409,10 +413,12 @@ test('calendar honors employee_id for inactive employees without leave requests'
         'decided_at' => now(),
     ]);
 
-    $this->get(route('attendance.calendar.index', [
+    $response = $this->get(route('attendance.calendar.index', [
         'year' => 2026,
         'employee_id' => $inactiveEmployee->id,
-    ]))
+    ]));
+
+    $response
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('selected_employee_id', $inactiveEmployee->id)
@@ -420,10 +426,14 @@ test('calendar honors employee_id for inactive employees without leave requests'
             ->where('selected_employee.name', 'Alice Tech')
             ->has('approved_leaves', 0)
             ->where('pending_request_count', 0)
-            ->where('employees.0.id', $inactiveEmployee->id));
+            ->has('employees', 2));
+
+    $employeeIds = collect($response->original->getData()['page']['props']['employees'])->pluck('id')->all();
+
+    expect($employeeIds)->toContain($inactiveEmployee->id);
 });
 
-test('users without approve permission cannot view another employee via employee_id query', function () {
+test('users without view_all permission cannot view another employee via employee_id query', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
     ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
     ['employee' => $otherEmployee] = makeAttendanceCalendarActors($company);
@@ -498,6 +508,7 @@ test('attendance calendar exposes create form props for users with create permis
 
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.view',
+        'attendance.leave-requests.view_all',
         'attendance.leave-requests.create',
         'attendance.leave-requests.approve',
     ]);
@@ -509,6 +520,7 @@ test('attendance calendar exposes create form props for users with create permis
         ->assertInertia(fn (Assert $page) => $page
             ->where('can.create', true)
             ->where('can.approve', true)
+            ->where('can.view_all', true)
             ->where('selected_employee_id', $employee->id)
             ->has('form_leave_types', 2)
             ->has('form_employees', 2));
@@ -535,7 +547,7 @@ test('attendance calendar hides create form props without create permission', fu
             ->has('form_employees', 0));
 });
 
-test('attendance calendar form employees are limited to linked employee for non approvers', function () {
+test('attendance calendar form employees are limited to linked employee without view_all', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
     ['employee' => $employee] = makeAttendanceCalendarActors($company);
     Employee::factory()->forCompany($company)->create(['status' => 'active']);

@@ -64,7 +64,7 @@ class AttendanceCalendarController extends Controller
 
         $employees = $this->calendarEmployeeOptions($companyId, $selectedEmployeeId, $canSelectEmployee);
         $selectedEmployee = $this->selectedEmployeePayload($companyId, $selectedEmployeeId);
-        $canApprove = $this->visibility->canViewAll($user);
+        $canApprove = $user?->can('attendance.leave-requests.approve') ?? false;
 
         return Inertia::render('attendance/calendar', [
             'year' => $year,
@@ -77,7 +77,7 @@ class AttendanceCalendarController extends Controller
             'selected_employee' => $selectedEmployee,
             'employees' => $employees,
             'can_select_employee' => $canSelectEmployee,
-            'form_employees' => $this->formEmployeeOptions($companyId, $user, $canApprove, $linkedEmployeeId),
+            'form_employees' => $this->formEmployeeOptions($companyId, $user, $canSelectEmployee, $linkedEmployeeId),
             'form_leave_types' => LeaveType::query()
                 ->where('company_id', $companyId)
                 ->where('status', 'active')
@@ -86,6 +86,7 @@ class AttendanceCalendarController extends Controller
             'can' => [
                 'create' => $user?->can('attendance.leave-requests.create') ?? false,
                 'approve' => $canApprove,
+                'view_all' => $canSelectEmployee,
             ],
             'today_timeline' => $this->todayAttendanceTimeline->forEmployee(
                 $companyId,
@@ -109,7 +110,7 @@ class AttendanceCalendarController extends Controller
     /**
      * @return list<array{id: int, employee_no: string|null, name: string}>
      */
-    private function formEmployeeOptions(int $companyId, ?User $user, bool $canApprove, ?int $linkedEmployeeId): array
+    private function formEmployeeOptions(int $companyId, ?User $user, bool $canViewAll, ?int $linkedEmployeeId): array
     {
         if (! ($user?->can('attendance.leave-requests.create') ?? false)) {
             return [];
@@ -120,7 +121,7 @@ class AttendanceCalendarController extends Controller
             ->where('status', 'active')
             ->orderBy('name');
 
-        if (! $canApprove) {
+        if (! $canViewAll) {
             $employeesQuery->when(
                 $linkedEmployeeId !== null,
                 fn ($query) => $query->whereKey($linkedEmployeeId),

@@ -67,12 +67,13 @@ test('production mock drill: full leave balance lifecycle with carry forward', f
         'user_id' => $hrUser->id,
     ]);
 
+    $approvalContext = prepareLeaveRequestApprovalContext($company, $employee);
+
     grantCompanyPermissions($hrUser, $company, [
         'attendance.types.create',
         'attendance.leave-requests.view',
         'attendance.leave-requests.create',
         'attendance.leave-requests.update',
-        'attendance.leave-requests.approve',
         'attendance.leave-requests.delete',
     ]);
 
@@ -138,9 +139,12 @@ test('production mock drill: full leave balance lifecycle with carry forward', f
             'reason' => 'Too many days',
         ])->assertSessionHasErrors('leave_type_id');
 
-    // Step 4: HR approves the 5-day request
-    $this->put("/attendance/leave-requests/{$pendingRequest->id}/approve")
+    // Step 4: Assigned department manager approves the 5-day request
+    $this->actingAs($approvalContext['managerUser'])
+        ->put("/attendance/leave-requests/{$pendingRequest->id}/approve")
         ->assertRedirect(route('attendance.leave-requests.index'));
+
+    $this->actingAs($hrUser);
 
     $afterApproval = $initialBalance->fresh();
     expect($pendingRequest->fresh()->status)->toBe('approved')
@@ -201,25 +205,27 @@ test('production mock drill: full leave balance lifecycle with carry forward', f
         ->and($legend[0]['remaining_days'])->toBe(25.0);
 
     // Step 10: Reject flow releases pending days
-    $rejectable = LeaveRequest::query()->create([
-        'company_id' => $company->id,
+    $this->post('/attendance/leave-requests', [
         'employee_id' => $employee->id,
         'leave_type_id' => $annualLeave->id,
         'start_date' => '2026-08-01',
         'end_date' => '2026-08-02',
-        'total_days' => 2,
-        'status' => 'pending',
-    ]);
-
-    app(LeaveBalanceManager::class)->reserveLeaveRequest($rejectable);
-
-    expect((float) $initialBalance->fresh()->pending_days)->toBe(2.0);
-
-    grantCompanyPermissions($hrUser, $company, ['attendance.leave-requests.approve']);
-
-    $this->put("/attendance/leave-requests/{$rejectable->id}/reject", [
-        'rejection_reason' => 'Coverage needed',
+        'reason' => 'Short leave',
     ])->assertRedirect(route('attendance.leave-requests.index'));
+
+    $rejectable = LeaveRequest::query()
+        ->where('employee_id', $employee->id)
+        ->where('status', 'pending')
+        ->latest('id')
+        ->first();
+
+    expect($rejectable)->not->toBeNull()
+        ->and((float) $initialBalance->fresh()->pending_days)->toBe(2.0);
+
+    $this->actingAs($approvalContext['managerUser'])
+        ->put("/attendance/leave-requests/{$rejectable->id}/reject", [
+            'rejection_reason' => 'Coverage needed',
+        ])->assertRedirect(route('attendance.leave-requests.index'));
 
     expect($rejectable->fresh()->status)->toBe('rejected')
         ->and((float) $initialBalance->fresh()->pending_days)->toBe(0.0)

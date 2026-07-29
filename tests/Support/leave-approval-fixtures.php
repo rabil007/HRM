@@ -143,3 +143,17 @@ function configureCompanyLeaveApprovalSettings(
 
     return $settings->fresh();
 }
+
+/**
+ * Prepare a default manager-only policy and attach the employee to a managed department.
+ *
+ * @return array{manager: Employee, managerUser: User, department: Department}
+ */
+function prepareLeaveRequestApprovalContext(Company $company, Employee $employee): array
+{
+    $managed = makeManagedDepartment($company);
+    ensureDefaultLeaveApprovalPolicy($company);
+    $employee->update(['department_id' => $managed['department']->id]);
+
+    return $managed;
+}
