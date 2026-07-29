@@ -168,14 +168,28 @@ export function LeaveApprovalPoliciesContent({
             is_default: form.data.is_default,
             status: form.data.status,
             steps: form.data.steps.map(
-                ({ approver_type, approver_employee_id, is_required }) => ({
-                    approver_type,
-                    approver_employee_id:
-                        approver_employee_id === ''
-                            ? null
-                            : approver_employee_id,
-                    is_required,
-                }),
+                ({ id, approver_type, approver_employee_id, is_required }) => {
+                    const step: {
+                        id?: number;
+                        approver_type: string;
+                        approver_employee_id: number | null;
+                        is_required: boolean;
+                    } = {
+                        approver_type,
+                        approver_employee_id:
+                            approver_employee_id === ''
+                                ? null
+                                : Number(approver_employee_id),
+                        is_required,
+                    };
+
+                    // Preserve step identity on update only; create rejects step IDs.
+                    if (currentPolicy && id != null) {
+                        step.id = id;
+                    }
+
+                    return step;
+                },
             ),
         };
 
@@ -243,8 +257,6 @@ export function LeaveApprovalPoliciesContent({
                         <LeaveApprovalPolicyCard
                             key={policy.id}
                             policy={policy}
-                            canUpdate={can.update}
-                            canDelete={can.delete}
                             onEdit={handleEdit}
                             onDelete={handleDelete}
                             onToggleStatus={toggleStatus}
@@ -298,7 +310,7 @@ export function LeaveApprovalPoliciesContent({
                                         >
                                             Default
                                         </Badge>
-                                    ) : can.update ? (
+                                    ) : policy.can_set_default === true ? (
                                         <Button
                                             type="button"
                                             variant="ghost"
@@ -318,7 +330,8 @@ export function LeaveApprovalPoliciesContent({
                                         <Switch
                                             checked={policy.status === 'active'}
                                             disabled={
-                                                !can.update || policy.is_default
+                                                policy.can_change_status !==
+                                                    true || policy.is_default
                                             }
                                             onCheckedChange={(checked) =>
                                                 toggleStatus(policy, checked)
@@ -334,13 +347,12 @@ export function LeaveApprovalPoliciesContent({
                                 >
                                     <ListTableCrudActions
                                         onEdit={
-                                            can.update
+                                            policy.can_edit === true
                                                 ? () => handleEdit(policy)
                                                 : undefined
                                         }
                                         onDelete={
-                                            can.delete &&
-                                            policy.can_delete !== false
+                                            policy.can_delete === true
                                                 ? () => handleDelete(policy)
                                                 : undefined
                                         }

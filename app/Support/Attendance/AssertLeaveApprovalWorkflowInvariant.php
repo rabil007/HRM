@@ -3,9 +3,11 @@
 namespace App\Support\Attendance;
 
 use App\Enums\LeaveRequestApprovalStatus;
+use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
 use App\Models\User;
+use App\Support\Companies\ResolveCompanyAccess;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -14,6 +16,10 @@ use Illuminate\Validation\ValidationException;
  */
 final class AssertLeaveApprovalWorkflowInvariant
 {
+    public function __construct(
+        private ResolveCompanyAccess $companyAccess,
+    ) {}
+
     /**
      * @param  Collection<int, LeaveRequestApproval>  $approvals  Locked, ordered by sequence
      *
@@ -53,6 +59,8 @@ final class AssertLeaveApprovalWorkflowInvariant
                 'leave_request' => 'This leave request has a corrupted approval workflow (optional step cannot be pending).',
             ]);
         }
+
+        $this->assertPendingApproverIntegrity($leaveRequest, $pendingStep);
 
         $seenPending = false;
         $seenApproverEmployeeIds = [];
@@ -97,13 +105,9 @@ final class AssertLeaveApprovalWorkflowInvariant
                     ]);
                 }
 
-                if (! $step->is_required && ! in_array($status, [
-                    LeaveRequestApprovalStatus::Skipped,
-                    LeaveRequestApprovalStatus::Approved,
-                    LeaveRequestApprovalStatus::Cancelled,
-                ], true)) {
+                if (! $step->is_required && $status !== LeaveRequestApprovalStatus::Skipped) {
                     throw ValidationException::withMessages([
-                        'leave_request' => 'This leave request has a corrupted approval workflow (unexpected earlier optional step status).',
+                        'leave_request' => 'This leave request has a corrupted approval workflow (leading optional steps must be skipped).',
                     ]);
                 }
 
@@ -159,6 +163,47 @@ final class AssertLeaveApprovalWorkflowInvariant
         if ($open !== null) {
             throw ValidationException::withMessages([
                 'leave_request' => 'This leave request has a corrupted approval workflow (terminal request still has open steps).',
+            ]);
+        }
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function assertPendingApproverIntegrity(LeaveRequest $leaveRequest, LeaveRequestApproval $pendingStep): void
+    {
+        if ($pendingStep->approver_employee_id === null || $pendingStep->approver_user_id === null) {
+            throw ValidationException::withMessages([
+                'leave_request' => 'This leave request has a corrupted approval workflow (pending step is missing approver identity).',
+            ]);
+        }
+
+        $companyId = (int) $leaveRequest->company_id;
+        $approverEmployeeId = (int) $pendingStep->approver_employee_id;
+        $approverUserId = (int) $pendingStep->approver_user_id;
+
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($approverEmployeeId)
+            ->first(['id', 'company_id', 'user_id']);
+
+        if ($employee === null) {
+            throw ValidationException::withMessages([
+                'leave_request' => 'This leave request has a corrupted approval workflow (approver employee is not in the request company).',
+            ]);
+        }
+
+        if ($employee->user_id === null || (int) $employee->user_id !== $approverUserId) {
+            throw ValidationException::withMessages([
+                'leave_request' => 'This leave request has a corrupted approval workflow (approver user does not match the linked employee).',
+            ]);
+        }
+
+        $user = User::query()->whereKey($approverUserId)->first();
+
+        if ($user === null || ! $this->companyAccess->hasAccessibleMembership($user, $companyId)) {
+            throw ValidationException::withMessages([
+                'leave_request' => 'This leave request has a corrupted approval workflow (approver lacks accessible company membership).',
             ]);
         }
     }

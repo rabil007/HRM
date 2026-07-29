@@ -6,14 +6,21 @@ use App\Models\Company;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\LeaveApprovalPolicyStep;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Diff-based policy step synchronization under company + policy locks.
+ * Existing steps are matched by stable ID so reordering preserves identity.
  */
 final class SyncLeaveApprovalPolicySteps
 {
     /**
-     * @param  list<array{approver_type: string, approver_employee_id?: int|null, is_required?: bool}>  $steps
+     * @param  list<array{
+     *     id?: int|null,
+     *     approver_type: string,
+     *     approver_employee_id?: int|null,
+     *     is_required?: bool
+     * }>  $steps
      */
     public function handle(LeaveApprovalPolicy $policy, int $companyId, array $steps): void
     {
@@ -35,20 +42,24 @@ final class SyncLeaveApprovalPolicySteps
                 ->orderBy('sequence')
                 ->lockForUpdate()
                 ->get()
-                ->values();
+                ->keyBy(fn (LeaveApprovalPolicyStep $step): int => (int) $step->id);
+
+            // Move existing sequences out of the unique (policy_id, sequence) range
+            // so reordering by ID cannot collide mid-sync.
+            $sequenceOffset = 10000;
+            foreach ($existing as $existingStep) {
+                $existingStep->forceFill([
+                    'sequence' => $sequenceOffset + (int) $existingStep->sequence,
+                ])->save();
+            }
 
             $desired = array_values($steps);
-            $max = max($existing->count(), count($desired));
+            $submittedIds = [];
 
-            for ($index = 0; $index < $max; $index++) {
-                $desiredStep = $desired[$index] ?? null;
-                $existingStep = $existing->get($index);
-
-                if ($desiredStep === null) {
-                    $existingStep?->delete();
-
-                    continue;
-                }
+            foreach ($desired as $index => $desiredStep) {
+                $stepId = isset($desiredStep['id']) && $desiredStep['id'] !== null && $desiredStep['id'] !== ''
+                    ? (int) $desiredStep['id']
+                    : null;
 
                 $payload = [
                     'company_id' => $companyId,
@@ -61,14 +72,34 @@ final class SyncLeaveApprovalPolicySteps
                         : true,
                 ];
 
-                if ($existingStep !== null) {
-                    $existingStep->forceFill($payload)->save();
+                if ($stepId === null) {
+                    $row = new LeaveApprovalPolicyStep;
+                    $row->forceFill($payload)->save();
 
                     continue;
                 }
 
-                $row = new LeaveApprovalPolicyStep;
-                $row->forceFill($payload)->save();
+                if (isset($submittedIds[$stepId])) {
+                    throw ValidationException::withMessages([
+                        "steps.{$index}.id" => 'Duplicate approval step IDs are not allowed.',
+                    ]);
+                }
+                $submittedIds[$stepId] = true;
+
+                $existingStep = $existing->get($stepId);
+
+                if ($existingStep === null) {
+                    throw ValidationException::withMessages([
+                        "steps.{$index}.id" => 'The selected approval step is invalid for this policy.',
+                    ]);
+                }
+
+                $existingStep->forceFill($payload)->save();
+                $existing->forget($stepId);
+            }
+
+            foreach ($existing as $orphan) {
+                $orphan->delete();
             }
         });
     }

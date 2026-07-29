@@ -5,11 +5,13 @@ namespace App\Support\Attendance\Actions;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
+use App\Support\Attendance\AssertLeaveApprovalWorkflowInvariant;
 use App\Support\Attendance\AssertLeaveRequestOverlap;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAttachments;
 use App\Support\Attendance\ResolveLeaveApprovalChain;
+use App\Support\Attendance\ValidateLeaveRequestDateRange;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -24,6 +26,8 @@ final class SubmitLeaveRequestWithApprovals
         private CalculateLeaveRequestDays $calculateDays,
         private AssertLeaveRequestOverlap $assertOverlap,
         private LeaveRequestAttachments $attachments,
+        private ValidateLeaveRequestDateRange $validateDateRange,
+        private AssertLeaveApprovalWorkflowInvariant $assertInvariant,
         private SendLeaveRequestSubmittedEmail $sendSubmittedEmail,
     ) {}
 
@@ -90,8 +94,12 @@ final class SubmitLeaveRequestWithApprovals
 
                     $employeeId = (int) $attributes['employee_id'];
                     $leaveTypeId = (int) $attributes['leave_type_id'];
-                    $startDate = (string) $attributes['start_date'];
-                    $endDate = (string) $attributes['end_date'];
+                    $dates = $this->validateDateRange->handle(
+                        $attributes['start_date'] ?? null,
+                        $attributes['end_date'] ?? null,
+                    );
+                    $startDate = $dates['start_date'];
+                    $endDate = $dates['end_date'];
                     // Domain-authoritative: ignore any caller-supplied total_days.
                     $totalDays = ($this->calculateDays)($startDate, $endDate);
                     $reason = $attributes['reason'] ?? null;
@@ -119,12 +127,6 @@ final class SubmitLeaveRequestWithApprovals
                 if ($leaveType === null) {
                     throw ValidationException::withMessages([
                         'leave_type_id' => 'The selected leave type is invalid or inactive for this company.',
-                    ]);
-                }
-
-                if ($startDate === '' || $endDate === '' || $startDate > $endDate) {
-                    throw ValidationException::withMessages([
-                        'start_date' => 'A valid leave date range is required.',
                     ]);
                 }
 
@@ -188,7 +190,10 @@ final class SubmitLeaveRequestWithApprovals
 
                 $this->resolveChain->persistSnapshot($leaveRequest, $chain);
 
-                return $leaveRequest->fresh(['approvals', 'employee', 'leaveType']) ?? $leaveRequest;
+                $fresh = $leaveRequest->fresh(['approvals', 'employee', 'leaveType']) ?? $leaveRequest;
+                $this->assertInvariant->forPendingRequest($fresh, $fresh->approvals);
+
+                return $fresh;
             });
         } catch (Throwable $exception) {
             if ($storedAttachments !== null) {

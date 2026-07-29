@@ -81,7 +81,7 @@ test('approval snapshot stores policy provenance and survives policy step recrea
     $originalPolicyName = $approval->policy_name;
     $originalLabel = $approval->policy_step_label;
 
-    // Diff-based policy step sync preserves step IDs for unchanged positions.
+    // Diff-based policy step sync preserves step IDs when submitted.
     // Snapshot provenance fields on the approval row must remain frozen.
     $user = User::factory()->create();
     DB::table('company_user')->insert([
@@ -103,6 +103,7 @@ test('approval snapshot stores policy provenance and survives policy step recrea
             'status' => 'active',
             'steps' => [
                 [
+                    'id' => $originalStepId,
                     'approver_type' => LeaveApprovalApproverType::DepartmentManager->value,
                     'is_required' => true,
                 ],

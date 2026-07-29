@@ -9,11 +9,13 @@ use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\AssertLeaveApprovalWorkflowInvariant;
 use App\Support\Attendance\AssertLeaveRequestOverlap;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAttachments;
 use App\Support\Attendance\ResolveLeaveApprovalChain;
+use App\Support\Attendance\ValidateLeaveRequestDateRange;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -30,6 +32,8 @@ final class UpdateLeaveRequestWithApprovals
         private CalculateLeaveRequestDays $calculateDays,
         private AssertLeaveRequestOverlap $assertOverlap,
         private LeaveRequestAttachments $attachments,
+        private ValidateLeaveRequestDateRange $validateDateRange,
+        private AssertLeaveApprovalWorkflowInvariant $assertInvariant,
         private SendLeaveRequestUpdatedEmail $sendUpdatedEmail,
     ) {}
 
@@ -97,32 +101,12 @@ final class UpdateLeaveRequestWithApprovals
 
                 $employeeId = (int) $attributes['employee_id'];
                 $leaveTypeId = (int) $attributes['leave_type_id'];
-                $startDate = trim((string) ($attributes['start_date'] ?? ''));
-                $endDate = trim((string) ($attributes['end_date'] ?? ''));
-
-                if ($startDate === '' || $endDate === '') {
-                    throw ValidationException::withMessages([
-                        'start_date' => 'A valid leave date range is required.',
-                    ]);
-                }
-
-                if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate) || strtotime($startDate) === false) {
-                    throw ValidationException::withMessages([
-                        'start_date' => 'The start date is invalid.',
-                    ]);
-                }
-
-                if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate) || strtotime($endDate) === false) {
-                    throw ValidationException::withMessages([
-                        'end_date' => 'The end date is invalid.',
-                    ]);
-                }
-
-                if ($startDate > $endDate) {
-                    throw ValidationException::withMessages([
-                        'start_date' => 'The start date must be on or before the end date.',
-                    ]);
-                }
+                $dates = $this->validateDateRange->handle(
+                    $attributes['start_date'] ?? null,
+                    $attributes['end_date'] ?? null,
+                );
+                $startDate = $dates['start_date'];
+                $endDate = $dates['end_date'];
 
                 $reason = array_key_exists('reason', $attributes)
                     ? ($attributes['reason'] ?? null)
@@ -249,6 +233,7 @@ final class UpdateLeaveRequestWithApprovals
                 }
 
                 $fresh = $locked->fresh(['approvals', 'employee', 'leaveType', 'company']) ?? $locked;
+                $this->assertInvariant->forPendingRequest($fresh, $fresh->approvals);
 
                 $this->logChainRebuild(
                     leaveRequest: $fresh,

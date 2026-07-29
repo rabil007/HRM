@@ -23,7 +23,7 @@ class UpdateLeaveApprovalPolicyRequest extends FormRequest
     {
         $companyId = (int) $this->attributes->get('current_company_id');
 
-        return $this->leaveApprovalPolicyRules($companyId);
+        return $this->leaveApprovalPolicyRules($companyId, allowStepIds: true);
     }
 
     public function withValidator(Validator $validator): void

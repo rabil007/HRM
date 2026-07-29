@@ -161,7 +161,8 @@ final class ResolveLeaveApprovalChain
 
     /**
      * Persist a resolved approval snapshot onto a leave request.
-     * First required step becomes pending; remaining steps wait.
+     * Optional steps before the first required step are skipped immediately;
+     * the first required step becomes pending; later steps wait.
      *
      * @return list<LeaveRequestApproval>
      */
@@ -170,9 +171,27 @@ final class ResolveLeaveApprovalChain
         $companyId = (int) $leaveRequest->company_id;
         $created = [];
         $pendingAssigned = false;
+        $actedAt = now();
 
         foreach ($chain->steps as $resolvedStep) {
+            if (! $pendingAssigned && ! $resolvedStep->isRequired) {
+                $created[] = LeaveRequestApproval::query()->create([
+                    ...$resolvedStep->toPersistenceArray(
+                        companyId: $companyId,
+                        leaveRequestId: (int) $leaveRequest->id,
+                        policyId: (int) $chain->policy->id,
+                        policyName: (string) $chain->policy->name,
+                    ),
+                    'status' => LeaveRequestApprovalStatus::Skipped,
+                    'acted_at' => $actedAt,
+                    'comments' => null,
+                ]);
+
+                continue;
+            }
+
             $status = LeaveRequestApprovalStatus::Waiting;
+            $stepActedAt = null;
 
             if (! $pendingAssigned && $resolvedStep->isRequired) {
                 $status = LeaveRequestApprovalStatus::Pending;
@@ -187,7 +206,7 @@ final class ResolveLeaveApprovalChain
                     policyName: (string) $chain->policy->name,
                 ),
                 'status' => $status,
-                'acted_at' => null,
+                'acted_at' => $stepActedAt,
                 'comments' => null,
             ]);
         }

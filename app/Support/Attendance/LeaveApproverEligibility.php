@@ -8,7 +8,6 @@ use App\Support\Companies\ResolveCompanyAccess;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Single source of truth for whether an employee is an actionable leave approver.
@@ -18,7 +17,6 @@ use Spatie\Permission\PermissionRegistrar;
 final class LeaveApproverEligibility
 {
     public function __construct(
-        private PermissionRegistrar $permissionRegistrar,
         private ResolveCompanyAccess $companyAccess,
     ) {}
 

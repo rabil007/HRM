@@ -3,11 +3,16 @@
 use App\Enums\LeaveApprovalApproverType;
 use App\Models\Company;
 use App\Models\CompanyLeaveApprovalSetting;
+use App\Models\Country;
+use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveApprovalPolicy;
 use App\Models\LeaveRequest;
+use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
+use App\Support\Attendance\LeaveBalanceManager;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -170,4 +175,86 @@ function prepareLeaveRequestApprovalContext(Company $company, Employee $employee
     $employee->update(['department_id' => $managed['department']->id]);
 
     return $managed;
+}
+
+/**
+ * @return array{
+ *     company: Company,
+ *     employee: Employee,
+ *     leaveType: LeaveType,
+ *     managerUser: User,
+ *     managerEmployee: Employee
+ * }
+ */
+function makeFinalCorrectionContext(int $daysPerYear = 30): array
+{
+    $country = Country::query()->create([
+        'code' => 'FC'.fake()->unique()->numerify('##'),
+        'name' => 'Final Correctionland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+    $currency = Currency::query()->create([
+        'code' => 'FC'.fake()->unique()->numerify('##'),
+        'name' => 'Final Correction Currency',
+        'symbol' => 'F$',
+        'is_active' => true,
+    ]);
+    $company = Company::query()->create([
+        'name' => 'Final Correction Co',
+        'slug' => 'fc-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $managed = makeManagedDepartment($company);
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'department_id' => $managed['department']->id,
+        'work_email' => 'employee-fc@example.com',
+    ]);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => $daysPerYear,
+    ]);
+
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $employee->id, 2026);
+
+    return [
+        'company' => $company,
+        'employee' => $employee,
+        'leaveType' => $leaveType,
+        'managerUser' => $managed['managerUser'],
+        'managerEmployee' => $managed['manager'],
+    ];
+}
+
+/**
+ * @param  array{
+ *     company: Company,
+ *     employee: Employee,
+ *     leaveType: LeaveType
+ * }  $context
+ */
+function submitPendingLeave(array $context, string $start, string $end, string $reason = 'Leave'): LeaveRequest
+{
+    return app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $context['company']->id,
+        attributes: [
+            'employee_id' => $context['employee']->id,
+            'leave_type_id' => $context['leaveType']->id,
+            'start_date' => $start,
+            'end_date' => $end,
+            'reason' => $reason,
+        ],
+        notify: false,
+    );
 }

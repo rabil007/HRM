@@ -13,21 +13,22 @@ import type { LeaveApprovalPolicy } from '../types';
 
 export function LeaveApprovalPolicyCard({
     policy,
-    canUpdate,
-    canDelete,
     onEdit,
     onDelete,
     onToggleStatus,
     onSetDefault,
 }: {
     policy: LeaveApprovalPolicy;
-    canUpdate: boolean;
-    canDelete: boolean;
     onEdit: (policy: LeaveApprovalPolicy) => void;
     onDelete: (policy: LeaveApprovalPolicy) => void;
     onToggleStatus: (policy: LeaveApprovalPolicy, enabled: boolean) => void;
     onSetDefault: (policy: LeaveApprovalPolicy) => void;
 }) {
+    const canEdit = policy.can_edit === true;
+    const canChangeStatus = policy.can_change_status === true;
+    const canSetDefault = policy.can_set_default === true;
+    const canDelete = policy.can_delete === true;
+
     const statusClass =
         policy.status === 'active'
             ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-200'
@@ -97,7 +98,7 @@ export function LeaveApprovalPolicyCard({
                     <div className="flex items-center gap-2 pl-1.5">
                         <Switch
                             checked={policy.status === 'active'}
-                            disabled={!canUpdate || policy.is_default}
+                            disabled={!canChangeStatus || policy.is_default}
                             onCheckedChange={(checked) =>
                                 onToggleStatus(policy, checked)
                             }
@@ -108,7 +109,7 @@ export function LeaveApprovalPolicyCard({
                     </div>
 
                     <div className="flex items-center justify-end gap-1">
-                        {canUpdate && !policy.is_default ? (
+                        {canSetDefault && !policy.is_default ? (
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -120,7 +121,7 @@ export function LeaveApprovalPolicyCard({
                                 <Star className="h-4 w-4" />
                             </Button>
                         ) : null}
-                        {canUpdate ? (
+                        {canEdit ? (
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -132,9 +133,7 @@ export function LeaveApprovalPolicyCard({
                                 <Pencil className="h-4 w-4" />
                             </Button>
                         ) : null}
-                        {canDelete &&
-                        policy.can_delete !== false &&
-                        !policy.is_default ? (
+                        {canDelete && !policy.is_default ? (
                             <Button
                                 type="button"
                                 variant="ghost"

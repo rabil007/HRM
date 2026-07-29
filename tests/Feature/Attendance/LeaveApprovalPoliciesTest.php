@@ -281,11 +281,13 @@ test('immediate move step endpoint is removed and save persists step order', fun
         'is_default' => false,
         'steps' => [
             [
+                'id' => $second->id,
                 'approver_type' => LeaveApprovalApproverType::HrApprover->value,
                 'approver_employee_id' => null,
                 'is_required' => true,
             ],
             [
+                'id' => $first->id,
                 'approver_type' => LeaveApprovalApproverType::DepartmentManager->value,
                 'approver_employee_id' => null,
                 'is_required' => true,
@@ -295,7 +297,9 @@ test('immediate move step endpoint is removed and save persists step order', fun
 
     $ordered = $policy->fresh()->steps()->orderBy('sequence')->get();
     expect($ordered)->toHaveCount(2)
+        ->and((int) $ordered[0]->id)->toBe((int) $second->id)
         ->and($ordered[0]->approver_type->value)->toBe(LeaveApprovalApproverType::HrApprover->value)
+        ->and((int) $ordered[1]->id)->toBe((int) $first->id)
         ->and($ordered[1]->approver_type->value)->toBe(LeaveApprovalApproverType::DepartmentManager->value);
 });
 

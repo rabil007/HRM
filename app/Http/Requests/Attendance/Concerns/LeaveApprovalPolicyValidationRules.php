@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Attendance\Concerns;
 
 use App\Enums\LeaveApprovalApproverType;
+use App\Models\LeaveApprovalPolicy;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -11,9 +12,9 @@ trait LeaveApprovalPolicyValidationRules
     /**
      * @return array<string, mixed>
      */
-    protected function leaveApprovalPolicyRules(int $companyId): array
+    protected function leaveApprovalPolicyRules(int $companyId, bool $allowStepIds = false): array
     {
-        return [
+        $rules = [
             'name' => ['required', 'string', 'max:200'],
             'description' => ['nullable', 'string', 'max:5000'],
             'is_default' => ['sometimes', 'boolean'],
@@ -29,6 +30,27 @@ trait LeaveApprovalPolicyValidationRules
             ],
             'steps.*.is_required' => ['sometimes', 'boolean'],
         ];
+
+        if ($allowStepIds) {
+            $policy = $this->route('leave_approval_policy');
+            $policyId = $policy instanceof LeaveApprovalPolicy
+                ? (int) $policy->id
+                : (int) $policy;
+
+            $rules['steps.*.id'] = [
+                'nullable',
+                'integer',
+                Rule::exists('leave_approval_policy_steps', 'id')->where(
+                    fn ($query) => $query
+                        ->where('company_id', $companyId)
+                        ->where('leave_approval_policy_id', $policyId),
+                ),
+            ];
+        } else {
+            $rules['steps.*.id'] = ['prohibited'];
+        }
+
+        return $rules;
     }
 
     protected function withLeaveApprovalPolicyStepValidator(Validator $validator, int $companyId): void
@@ -47,6 +69,7 @@ trait LeaveApprovalPolicyValidationRules
             }
 
             $hasRequired = false;
+            $seenStepIds = [];
 
             foreach (array_values($steps) as $index => $step) {
                 if (! is_array($step)) {
@@ -61,6 +84,19 @@ trait LeaveApprovalPolicyValidationRules
 
                 if ($isRequired) {
                     $hasRequired = true;
+                }
+
+                if (array_key_exists('id', $step) && $step['id'] !== null && $step['id'] !== '') {
+                    $stepId = (int) $step['id'];
+
+                    if (isset($seenStepIds[$stepId])) {
+                        $validator->errors()->add(
+                            "steps.{$index}.id",
+                            'Duplicate approval step IDs are not allowed.',
+                        );
+                    }
+
+                    $seenStepIds[$stepId] = true;
                 }
 
                 if ($type === null) {

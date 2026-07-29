@@ -41,15 +41,24 @@ final class CancelLeaveRequestWorkflow
                 ]);
             }
 
-            LeaveRequestApproval::query()
+            $allApprovals = LeaveRequestApproval::query()
                 ->where('company_id', $companyId)
                 ->where('leave_request_id', $leaveRequest->id)
-                ->whereIn('status', [
-                    LeaveRequestApprovalStatus::Waiting->value,
-                    LeaveRequestApprovalStatus::Pending->value,
-                ])
+                ->orderBy('sequence')
                 ->lockForUpdate()
-                ->get()
+                ->get();
+
+            $this->assertInvariant->forPendingRequest($leaveRequest, $allApprovals);
+
+            $allApprovals
+                ->filter(function (LeaveRequestApproval $step): bool {
+                    $status = $step->status instanceof LeaveRequestApprovalStatus
+                        ? $step->status
+                        : LeaveRequestApprovalStatus::tryFrom((string) $step->status);
+
+                    return $status === LeaveRequestApprovalStatus::Waiting
+                        || $status === LeaveRequestApprovalStatus::Pending;
+                })
                 ->each(function (LeaveRequestApproval $step): void {
                     $step->forceFill([
                         'status' => LeaveRequestApprovalStatus::Cancelled,

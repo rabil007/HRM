@@ -288,6 +288,7 @@ final class LeaveBalanceManager
 
     /**
      * Release the old pending reservation and reserve the replacement under the same outer transaction.
+     * All affected balance keys are locked in a deterministic order before any mutation.
      *
      * @param  array{
      *     employee_id: int,
@@ -299,18 +300,182 @@ final class LeaveBalanceManager
     public function replacePendingReservation(LeaveRequest $leaveRequest, array $replacement): void
     {
         $run = function () use ($leaveRequest, $replacement): void {
-            $this->releasePendingReservation($leaveRequest);
+            $companyId = (int) $leaveRequest->company_id;
+            $oldEmployeeId = (int) $leaveRequest->employee_id;
+            $oldLeaveTypeId = (int) $leaveRequest->leave_type_id;
+            $oldStartDate = $leaveRequest->start_date?->toDateString();
+            $oldEndDate = $leaveRequest->end_date?->toDateString();
 
-            $this->reserveIfAvailable(
-                companyId: (int) $leaveRequest->company_id,
-                employeeId: $replacement['employee_id'],
-                leaveTypeId: $replacement['leave_type_id'],
-                startDate: $replacement['start_date'],
-                endDate: $replacement['end_date'],
-            );
+            if ($oldStartDate === null || $oldEndDate === null || $oldStartDate === '' || $oldEndDate === '') {
+                throw new RuntimeException('Leave request dates are missing; cannot replace balance reservation.');
+            }
+
+            $newEmployeeId = (int) $replacement['employee_id'];
+            $newLeaveTypeId = (int) $replacement['leave_type_id'];
+            $newStartDate = (string) $replacement['start_date'];
+            $newEndDate = (string) $replacement['end_date'];
+
+            if ($newStartDate === '' || $newEndDate === '') {
+                throw new RuntimeException('Leave request dates are required to reserve balance.');
+            }
+
+            $oldLeaveType = LeaveType::query()
+                ->where('company_id', $companyId)
+                ->whereKey($oldLeaveTypeId)
+                ->first();
+
+            if ($oldLeaveType === null) {
+                throw new RuntimeException('The leave type for this request is missing or does not belong to the request company.');
+            }
+
+            $newLeaveType = LeaveType::query()
+                ->where('company_id', $companyId)
+                ->whereKey($newLeaveTypeId)
+                ->where('status', 'active')
+                ->first();
+
+            if ($newLeaveType === null) {
+                throw new RuntimeException('The selected leave type is invalid.');
+            }
+
+            $oldByYear = $this->daysByYear($oldStartDate, $oldEndDate);
+            $newByYear = $this->daysByYear($newStartDate, $newEndDate);
+
+            /** @var array<string, array{company_id: int, employee_id: int, leave_type_id: int, year: int, leave_type: LeaveType}> $lockTargets */
+            $lockTargets = [];
+
+            foreach ($oldByYear as $year => $days) {
+                if ($days <= 0) {
+                    continue;
+                }
+
+                $key = $this->balanceLockKey($companyId, $oldEmployeeId, $oldLeaveTypeId, (int) $year);
+                $lockTargets[$key] = [
+                    'company_id' => $companyId,
+                    'employee_id' => $oldEmployeeId,
+                    'leave_type_id' => $oldLeaveTypeId,
+                    'year' => (int) $year,
+                    'leave_type' => $oldLeaveType,
+                ];
+            }
+
+            foreach ($newByYear as $year => $days) {
+                if ($days <= 0) {
+                    continue;
+                }
+
+                $key = $this->balanceLockKey($companyId, $newEmployeeId, $newLeaveTypeId, (int) $year);
+                $lockTargets[$key] = [
+                    'company_id' => $companyId,
+                    'employee_id' => $newEmployeeId,
+                    'leave_type_id' => $newLeaveTypeId,
+                    'year' => (int) $year,
+                    'leave_type' => $newLeaveType,
+                ];
+            }
+
+            uksort($lockTargets, function (string $left, string $right) use ($lockTargets): int {
+                $a = $lockTargets[$left];
+                $b = $lockTargets[$right];
+
+                return [$a['company_id'], $a['employee_id'], $a['leave_type_id'], $a['year']]
+                    <=> [$b['company_id'], $b['employee_id'], $b['leave_type_id'], $b['year']];
+            });
+
+            /** @var array<string, LeaveBalance> $lockedBalances */
+            $lockedBalances = [];
+
+            foreach ($lockTargets as $key => $target) {
+                $lockedBalances[$key] = $this->lockedBalance(
+                    $target['company_id'],
+                    $target['employee_id'],
+                    $target['leave_type'],
+                    $target['year'],
+                    lock: true,
+                );
+            }
+
+            foreach ($oldByYear as $year => $days) {
+                if ($days <= 0) {
+                    continue;
+                }
+
+                $key = $this->balanceLockKey($companyId, $oldEmployeeId, $oldLeaveTypeId, (int) $year);
+                $balance = $lockedBalances[$key];
+                $current = (float) $balance->pending_days;
+
+                if ($current + 0.0001 < $days) {
+                    throw new RuntimeException(sprintf(
+                        'Cannot release leave: pending reservation for %s (%d) is missing or insufficient (have %.2f, need %.2f).',
+                        $oldLeaveType->name,
+                        $year,
+                        $current,
+                        $days,
+                    ));
+                }
+            }
+
+            foreach ($newByYear as $year => $days) {
+                if ($days <= 0) {
+                    continue;
+                }
+
+                $key = $this->balanceLockKey($companyId, $newEmployeeId, $newLeaveTypeId, (int) $year);
+                $balance = $lockedBalances[$key];
+                $available = (float) $balance->remaining_days;
+                $oldDaysOnSameKey = 0.0;
+
+                if (
+                    $oldEmployeeId === $newEmployeeId
+                    && $oldLeaveTypeId === $newLeaveTypeId
+                    && isset($oldByYear[$year])
+                    && $oldByYear[$year] > 0
+                ) {
+                    $oldDaysOnSameKey = (float) $oldByYear[$year];
+                    $available += $oldDaysOnSameKey;
+                }
+
+                if ($available + 0.0001 < $days) {
+                    throw new RuntimeException(sprintf(
+                        'Insufficient %s balance for %d. Only %.1f day(s) remaining.',
+                        $newLeaveType->name,
+                        $year,
+                        max(0, $available),
+                    ));
+                }
+            }
+
+            foreach ($oldByYear as $year => $days) {
+                if ($days <= 0) {
+                    continue;
+                }
+
+                $key = $this->balanceLockKey($companyId, $oldEmployeeId, $oldLeaveTypeId, (int) $year);
+                $balance = $lockedBalances[$key];
+                $balance->forceFill([
+                    'pending_days' => (float) $balance->pending_days - $days,
+                ])->save();
+            }
+
+            foreach ($newByYear as $year => $days) {
+                if ($days <= 0) {
+                    continue;
+                }
+
+                $key = $this->balanceLockKey($companyId, $newEmployeeId, $newLeaveTypeId, (int) $year);
+                $balance = $lockedBalances[$key];
+                $balance->forceFill([
+                    'pending_days' => (float) $balance->pending_days + $days,
+                ])->save();
+            }
         };
 
         $this->runInTransaction($run);
+    }
+
+    private function balanceLockKey(int $companyId, int $employeeId, int $leaveTypeId, int $year): string
+    {
+        return implode(':', [$companyId, $employeeId, $leaveTypeId, $year]);
     }
 
     /**
