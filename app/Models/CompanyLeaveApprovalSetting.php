@@ -68,6 +68,30 @@ class CompanyLeaveApprovalSetting extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
+    /**
+     * Read-only settings lookup for workflow resolution.
+     * Does not create a database row when settings are missing.
+     */
+    public static function findForCompany(int $companyId): self
+    {
+        $existing = self::query()
+            ->where('company_id', $companyId)
+            ->first();
+
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        return new self([
+            'company_id' => $companyId,
+            'default_hr_approver_employee_id' => null,
+            'fallback_approver_employee_id' => null,
+        ]);
+    }
+
+    /**
+     * Persistable settings row for the settings management UI / explicit writes.
+     */
     public static function forCompany(int $companyId): self
     {
         return self::query()->firstOrCreate(

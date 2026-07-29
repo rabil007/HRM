@@ -106,7 +106,8 @@ function ApprovalTimeline({
                                 ) : null}
                             </div>
                             <div className="text-sm font-semibold">
-                                {approval.approver_type_label ??
+                                {approval.policy_step_label ??
+                                    approval.approver_type_label ??
                                     approval.approver_type}
                             </div>
                             <div className="text-sm text-muted-foreground">
@@ -115,6 +116,11 @@ function ApprovalTimeline({
                                     ? ` • ${approval.source_department.name}`
                                     : ''}
                             </div>
+                            {approval.policy_name ? (
+                                <div className="text-xs text-muted-foreground/70">
+                                    Policy: {approval.policy_name}
+                                </div>
+                            ) : null}
                             {approval.comments?.trim() ? (
                                 <p className="text-xs text-muted-foreground/80">
                                     {approval.comments}

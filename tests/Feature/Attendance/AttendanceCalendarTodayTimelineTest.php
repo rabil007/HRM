@@ -5,7 +5,6 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
-use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
 use Carbon\Carbon;
@@ -260,7 +259,7 @@ test('today_timeline sets is_on_leave true when employee has approved leave toda
     linkHikvisionPersonToUserCompany($employee, 'timeline-person-leave');
 
     $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active']);
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,

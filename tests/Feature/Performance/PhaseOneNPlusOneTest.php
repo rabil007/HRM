@@ -6,7 +6,6 @@ use App\Models\AppSetting;
 use App\Models\CrewAssignment;
 use App\Models\Department;
 use App\Models\Employee;
-use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\PayrollPeriod;
 use App\Models\Rank;
@@ -196,7 +195,7 @@ test('payroll board loads office leave only for paginated employees', function (
     ]);
 
     foreach ([$firstEmployee, $secondEmployee] as $employee) {
-        LeaveRequest::query()->create([
+        createLeaveRequestRecord([
             'company_id' => $company->id,
             'employee_id' => $employee->id,
             'leave_type_id' => $leaveType->id,

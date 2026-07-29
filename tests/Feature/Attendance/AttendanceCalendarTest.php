@@ -4,7 +4,6 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
-use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Attendance\LeaveBalanceManager;
@@ -74,7 +73,7 @@ test('authorized users can view attendance calendar page', function () {
 
     grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -105,7 +104,7 @@ test('attendance calendar legend includes leave type balance for linked employee
 
     grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -117,7 +116,7 @@ test('attendance calendar legend includes leave type balance for linked employee
         'decided_at' => now(),
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -155,7 +154,7 @@ test('attendance calendar shows empty legend for approver without linked employe
         'attendance.leave-requests.approve',
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -198,7 +197,7 @@ test('attendance calendar exposes pending request count for selected year', func
 
     grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -208,7 +207,7 @@ test('attendance calendar exposes pending request count for selected year', func
         'status' => 'pending',
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -234,7 +233,7 @@ test('attendance calendar only includes approved leave requests', function () {
     $statuses = ['pending', 'rejected', 'cancelled'];
 
     foreach ($statuses as $status) {
-        LeaveRequest::query()->create([
+        createLeaveRequestRecord([
             'company_id' => $company->id,
             'employee_id' => $employee->id,
             'leave_type_id' => $leaveType->id,
@@ -245,7 +244,7 @@ test('attendance calendar only includes approved leave requests', function () {
         ]);
     }
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -274,7 +273,7 @@ test('users without view_all permission only see their own approved leaves on ca
 
     grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $ownEmployee->id,
         'leave_type_id' => $leaveType->id,
@@ -286,7 +285,7 @@ test('users without view_all permission only see their own approved leaves on ca
         'decided_at' => now(),
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $otherEmployee->id,
         'leave_type_id' => $leaveType->id,
@@ -320,7 +319,7 @@ test('users with view_all permission default to their own approved leaves on cal
     ]);
 
     foreach ([$ownEmployee, $otherEmployee] as $employee) {
-        LeaveRequest::query()->create([
+        createLeaveRequestRecord([
             'company_id' => $company->id,
             'employee_id' => $employee->id,
             'leave_type_id' => $leaveType->id,
@@ -367,7 +366,7 @@ test('calendar employee dropdown only lists employees with leave requests', func
         'attendance.leave-requests.approve',
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employeeWithRequest->id,
         'leave_type_id' => $leaveType->id,
@@ -401,7 +400,7 @@ test('calendar honors employee_id for inactive employees without leave requests'
         'attendance.leave-requests.approve',
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $linkedEmployee->id,
         'leave_type_id' => $leaveType->id,
@@ -444,7 +443,7 @@ test('users without view_all permission cannot view another employee via employe
     grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
 
     foreach ([$ownEmployee, $otherEmployee] as $employee) {
-        LeaveRequest::query()->create([
+        createLeaveRequestRecord([
             'company_id' => $company->id,
             'employee_id' => $employee->id,
             'leave_type_id' => $leaveType->id,
@@ -477,7 +476,7 @@ test('cross year approved leave appears in both years on calendar', function () 
 
     grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,

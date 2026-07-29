@@ -32,7 +32,7 @@ Assign permissions through **Organization → Roles & permissions** (`/organizat
 | Bulk documents / signatures | `bulk_documents.view|generate|delete|email`, `bulk_documents.signatures.review` |
 | Crew operations | `crew_operations.overview.view`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*`, `crew_operations.assignments.*`, `crew_operations.movements.perform`, `crew_operations.corrections.view|request|approve|override` |
 | Reports | `reports.crew_movement_history.view|export` |
-| Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` (incl. `view_all`), `attendance.leave-approval-policies.*`, `attendance.leave-approval-settings.view|update` |
+| Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` (incl. `view_all`; approve is step-scoped; `assigned_to_me` is historical assignment visibility only), `attendance.leave-approval-policies.*`, `attendance.leave-approval-settings.view|update` |
 | Payroll | `payroll.overview.view`, `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, `payroll.payslips.*`, `payroll.wps.export` |
 | Hikvision | `hikvision.persons.*`, `hikvision.devices.*`, `hikvision.events.*`, `hikvision.webhook.manage` |
 | Employee profile templates | `employee_profile_templates.view|create|update|delete` |

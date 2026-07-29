@@ -4,7 +4,11 @@ export type LeaveRequestStatus =
     | 'rejected'
     | 'cancelled';
 
-export type LeaveRequestScope = 'my' | 'awaiting_my_approval' | 'all';
+export type LeaveRequestScope =
+    | 'my'
+    | 'awaiting_my_approval'
+    | 'assigned_to_me'
+    | 'all';
 
 export type LeaveRequestEmployeeOption = {
     id: number;
@@ -51,6 +55,9 @@ export type LeaveRequestApproval = {
     } | null;
     approver_user: { id: number; name: string } | null;
     source_department: { id: number; name: string } | null;
+    policy_id?: number | null;
+    policy_name?: string | null;
+    policy_step_label?: string | null;
 };
 
 export type LeaveRequest = {
@@ -69,6 +76,7 @@ export type LeaveRequest = {
     created_at: string | null;
     attachments: LeaveRequestAttachment[];
     can_approve_current_step?: boolean;
+    can_edit?: boolean;
     approvals?: LeaveRequestApproval[];
 };
 

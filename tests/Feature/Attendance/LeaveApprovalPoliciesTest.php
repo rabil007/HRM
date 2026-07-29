@@ -128,10 +128,74 @@ test('default policy cannot be deleted or deactivated', function () {
         'status' => 'inactive',
     ])->assertSessionHasErrors('status');
 
+    $this->put("/attendance/leave-approval-policies/{$policy->id}", [
+        'name' => $policy->name,
+        'description' => $policy->description,
+        'is_default' => true,
+        'status' => 'inactive',
+        'steps' => [
+            [
+                'approver_type' => LeaveApprovalApproverType::DepartmentManager->value,
+                'is_required' => true,
+            ],
+        ],
+    ])->assertSessionHasErrors('status');
+
+    expect($policy->fresh()->status)->toBe('active')
+        ->and($policy->fresh()->is_default)->toBeTrue();
+
     $this->delete("/attendance/leave-approval-policies/{$policy->id}")
         ->assertSessionHasErrors('policy');
 
     expect($policy->fresh())->not->toBeNull();
+});
+
+test('set default only affects the active company', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveApprovalPolicyFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-approval-policies.update',
+    ]);
+
+    $companyDefault = ensureDefaultLeaveApprovalPolicy($company);
+    $companyOther = LeaveApprovalPolicy::factory()
+        ->forCompany($company)
+        ->withDepartmentManagerStep()
+        ->create(['is_default' => false, 'name' => 'Company B policy candidate']);
+
+    $otherCountry = Country::query()->create([
+        'code' => 'AQ'.fake()->unique()->numerify('##'),
+        'name' => 'Other Policyland',
+        'dial_code' => '+998',
+        'is_active' => true,
+    ]);
+    $otherCurrency = Currency::query()->create([
+        'code' => 'AQ'.fake()->unique()->numerify('##'),
+        'name' => 'Other Policy Currency',
+        'symbol' => 'Q$',
+        'is_active' => true,
+    ]);
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Policy Co',
+        'slug' => 'aq-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $otherCountry->id,
+        'currency_id' => $otherCurrency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+    $otherDefault = ensureDefaultLeaveApprovalPolicy($otherCompany);
+
+    $this->put("/attendance/leave-approval-policies/{$companyOther->id}/default")
+        ->assertRedirect(route('attendance.leave-approval-policies.index'));
+
+    expect($companyDefault->fresh()->is_default)->toBeFalse()
+        ->and($companyOther->fresh()->is_default)->toBeTrue()
+        ->and($otherDefault->fresh()->is_default)->toBeTrue()
+        ->and(LeaveApprovalPolicy::query()->where('company_id', $company->id)->where('is_default', true)->count())->toBe(1)
+        ->and(LeaveApprovalPolicy::query()->where('company_id', $otherCompany->id)->where('is_default', true)->count())->toBe(1);
 });
 
 test('policy assigned to a department cannot be deleted', function () {

@@ -27,6 +27,9 @@ class LeaveRequestApproval extends Model
         'approver_user_id',
         'source_department_id',
         'policy_step_id',
+        'policy_id',
+        'policy_name',
+        'policy_step_label',
         'status',
         'is_required',
         'acted_at',
@@ -47,6 +50,7 @@ class LeaveRequestApproval extends Model
             'approver_user_id' => 'integer',
             'source_department_id' => 'integer',
             'policy_step_id' => 'integer',
+            'policy_id' => 'integer',
             'status' => LeaveRequestApprovalStatus::class,
             'is_required' => 'boolean',
             'acted_at' => 'datetime',
@@ -65,6 +69,9 @@ class LeaveRequestApproval extends Model
                 'approver_user_id',
                 'source_department_id',
                 'policy_step_id',
+                'policy_id',
+                'policy_name',
+                'policy_step_label',
                 'status',
                 'is_required',
                 'acted_at',
@@ -101,5 +108,10 @@ class LeaveRequestApproval extends Model
     public function policyStep(): BelongsTo
     {
         return $this->belongsTo(LeaveApprovalPolicyStep::class, 'policy_step_id');
+    }
+
+    public function policy(): BelongsTo
+    {
+        return $this->belongsTo(LeaveApprovalPolicy::class, 'policy_id');
     }
 }

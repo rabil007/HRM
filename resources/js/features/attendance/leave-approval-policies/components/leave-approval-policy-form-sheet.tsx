@@ -394,7 +394,12 @@ export function LeaveApprovalPolicyFormSheet({
                                                                 >
                                                                     {employee.employee_no
                                                                         ? `${employee.employee_no} — ${employee.name}`
-                                                                        : employee.name}
+                                                                        : (employee.name ??
+                                                                          'Employee')}
+                                                                    {employee.actionable ===
+                                                                    false
+                                                                        ? ' (not actionable)'
+                                                                        : ''}
                                                                 </AppSelectItem>
                                                             ),
                                                         )}
@@ -410,6 +415,43 @@ export function LeaveApprovalPolicyFormSheet({
                                                             }
                                                         </div>
                                                     ) : null}
+                                                    {(() => {
+                                                        const selected =
+                                                            employees.find(
+                                                                (employee) =>
+                                                                    employee.id ===
+                                                                    Number(
+                                                                        step.approver_employee_id,
+                                                                    ),
+                                                            );
+                                                        if (
+                                                            !selected ||
+                                                            !selected.warnings
+                                                                ?.length
+                                                        ) {
+                                                            return null;
+                                                        }
+
+                                                        return (
+                                                            <div className="space-y-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+                                                                {selected.warnings.map(
+                                                                    (
+                                                                        warning,
+                                                                    ) => (
+                                                                        <p
+                                                                            key={
+                                                                                warning
+                                                                            }
+                                                                        >
+                                                                            {
+                                                                                warning
+                                                                            }
+                                                                        </p>
+                                                                    ),
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
                                             ) : null}
 

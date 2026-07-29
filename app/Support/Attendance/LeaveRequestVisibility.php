@@ -84,6 +84,22 @@ final class LeaveRequestVisibility
             });
     }
 
+    /**
+     * Current and historical approval assignments for the actor.
+     *
+     * @param  Builder<LeaveRequest>  $query
+     */
+    public function applyAssignedToMeScope(Builder $query, User $user, int $companyId): void
+    {
+        $query
+            ->where('company_id', $companyId)
+            ->whereHas('approvals', function (Builder $approvals) use ($user, $companyId): void {
+                $approvals
+                    ->where('company_id', $companyId)
+                    ->where('approver_user_id', $user->id);
+            });
+    }
+
     public function canAccess(LeaveRequest $leaveRequest, ?User $user, int $companyId): bool
     {
         if ((int) $leaveRequest->company_id !== $companyId) {

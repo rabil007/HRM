@@ -253,7 +253,7 @@ test('view_all can list all leave requests while approve alone cannot', function
 
     ['employee' => $employee, 'leaveType' => $leaveType] = makeWorkflowActors($company, $managed['department']);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -302,7 +302,7 @@ test('approve permission alone cannot approve an unrelated leave request', funct
 
     ['employee' => $employee, 'leaveType' => $leaveType] = makeWorkflowActors($company, $managed['department']);
 
-    $leaveRequest = LeaveRequest::query()->create([
+    $leaveRequest = createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -352,7 +352,7 @@ test('rejection cancels remaining steps and queues decided email', function () {
     ['employee' => $employee, 'leaveType' => $leaveType] = makeWorkflowActors($company, $managed['department']);
     $employee->update(['work_email' => 'employee@example.com']);
 
-    $leaveRequest = LeaveRequest::query()->create([
+    $leaveRequest = createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -402,7 +402,7 @@ test('awaiting_my_approval scope lists only pending steps for the actor', functi
     $managed = makeManagedDepartment($company);
     ['employee' => $employee, 'leaveType' => $leaveType] = makeWorkflowActors($company, $managed['department']);
 
-    $mine = LeaveRequest::query()->create([
+    $mine = createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -412,7 +412,7 @@ test('awaiting_my_approval scope lists only pending steps for the actor', functi
         'status' => 'pending',
     ]);
 
-    $other = LeaveRequest::query()->create([
+    $other = createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -446,4 +446,70 @@ test('awaiting_my_approval scope lists only pending steps for the actor', functi
         ->assertInertia(fn ($page) => $page
             ->has('leave_requests', 1)
             ->where('leave_requests.0.id', $mine->id));
+});
+
+test('assigned_to_me includes historical approvals without granting action rights', function () {
+    ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company);
+    ['employee' => $hr, 'user' => $hrUser] = makeActionableApprover($company, [
+        'name' => 'HR Actor',
+        'work_email' => 'hr-assigned@example.com',
+    ]);
+    configureCompanyLeaveApprovalSettings($company, $hr);
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+        ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
+    ]);
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeWorkflowActors($company, $managed['department']);
+
+    $historical = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-05-01',
+        'end_date' => '2026-05-02',
+        'total_days' => 2,
+        'status' => 'pending',
+    ]);
+
+    LeaveRequestApproval::factory()->create([
+        'company_id' => $company->id,
+        'leave_request_id' => $historical->id,
+        'sequence' => 1,
+        'approver_employee_id' => $managed['manager']->id,
+        'approver_user_id' => $managed['managerUser']->id,
+        'status' => LeaveRequestApprovalStatus::Approved,
+        'acted_at' => now(),
+    ]);
+    LeaveRequestApproval::factory()->create([
+        'company_id' => $company->id,
+        'leave_request_id' => $historical->id,
+        'sequence' => 2,
+        'approver_type' => LeaveApprovalApproverType::HrApprover,
+        'approver_employee_id' => $hr->id,
+        'approver_user_id' => $hrUser->id,
+        'status' => LeaveRequestApprovalStatus::Pending,
+    ]);
+
+    grantCompanyPermissions($managed['managerUser'], $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.approve',
+    ]);
+
+    $this->actingAs($managed['managerUser']);
+    $this->withSession(['current_company_id' => $company->id])
+        ->get('/attendance/leave-requests?scope=assigned_to_me')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('leave_requests', 1)
+            ->where('leave_requests.0.id', $historical->id)
+            ->where('leave_requests.0.can_approve_current_step', false));
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get('/attendance/leave-requests?scope=awaiting_my_approval')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->has('leave_requests', 0));
+
+    $this->put("/attendance/leave-requests/{$historical->id}/approve")
+        ->assertForbidden();
 });

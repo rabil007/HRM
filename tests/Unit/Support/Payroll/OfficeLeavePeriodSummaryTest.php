@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Employee;
-use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Payroll\CountLeaveDaysInRange;
@@ -29,7 +28,7 @@ test('office leave period summary aggregates approved leave by employee and type
         'status' => 'active',
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $annualLeave->id,
@@ -39,7 +38,7 @@ test('office leave period summary aggregates approved leave by employee and type
         'status' => 'approved',
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $sickLeave->id,
@@ -49,7 +48,7 @@ test('office leave period summary aggregates approved leave by employee and type
         'status' => 'approved',
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $annualLeave->id,

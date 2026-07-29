@@ -647,9 +647,15 @@ Track attendance records, leave types and balances, leave requests, multi-step l
 
 ### Leave approval policies
 
-Companies configure ordered approval policies (`LeaveApprovalPolicy` + `LeaveApprovalPolicyStep`) with approver types: department manager, parent manager, HR approver, and specific employee. Departments may assign a policy directly or inherit one; otherwise the company default policy applies. Company HR/fallback approvers live in `CompanyLeaveApprovalSetting`.
+Companies configure ordered approval policies (`LeaveApprovalPolicy` + `LeaveApprovalPolicyStep`) with approver types: department manager, parent manager, HR approver, and specific employee. Departments may assign a policy directly or inherit one; otherwise the company default policy applies. Company HR/fallback approvers live in `CompanyLeaveApprovalSetting`. The company default policy must remain active; default switches lock the company row and stay company-scoped.
 
-On submit, `SubmitLeaveRequestWithApprovals` snapshots the resolved chain into `leave_request_approvals`. Approvers act only on their pending step (`ApproveLeaveRequestStep` / `RejectLeaveRequestStep`); `attendance.leave-requests.approve` alone does not authorize unrelated requests. `attendance.leave-requests.view_all` is required to list/manage all employees’ requests.
+On submit, `SubmitLeaveRequestWithApprovals` snapshots the resolved chain into `leave_request_approvals` (including policy id/name and step label provenance). Approvers act only on their pending step (`ApproveLeaveRequestStep` / `RejectLeaveRequestStep`); `attendance.leave-requests.approve` alone does not authorize unrelated requests. `attendance.leave-requests.view_all` is required to list/manage all employees’ requests.
+
+Pending leave requests may be edited only before any approval step has acted. Pre-action edits run in a transaction, rebuild the unacted approval snapshot, and notify the newly resolved first approver when it changes. After approval starts, updates are rejected.
+
+List scopes: `my`, `awaiting_my_approval` (current pending steps), `assigned_to_me` (current and historical assignments; does not grant approve rights), and `all` (requires `view_all`).
+
+Backfill (`leave-approvals:backfill`) is non-destructive: existing approval rows are never deleted or replaced (`--force` only warns and skips). Dry-run performs no writes (settings resolution is read-only). Approver emails require explicit `--notify` and are never sent in dry-run.
 
 ### Main artifacts
 

@@ -5,7 +5,6 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
-use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -146,7 +145,7 @@ test('attendance overview summary contains correct structure', function () {
         'status' => 'active',
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,

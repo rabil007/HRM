@@ -20,7 +20,7 @@ final class SubmitLeaveRequestWithApprovals
 
     /**
      * Create a pending leave request (or accept an existing one), persist its approval
-     * snapshot, reserve balance, and notify the first pending approver after commit.
+     * snapshot, reserve balance, and optionally notify the first pending approver after commit.
      *
      * @param  array{
      *     employee_id: int,
@@ -37,6 +37,7 @@ final class SubmitLeaveRequestWithApprovals
         ?LeaveRequest $existing = null,
         ?array $attributes = null,
         bool $reserveBalance = true,
+        bool $notify = true,
     ): LeaveRequest {
         $leaveRequest = DB::transaction(function () use ($companyId, $existing, $attributes, $reserveBalance): LeaveRequest {
             if ($existing !== null) {
@@ -58,7 +59,8 @@ final class SubmitLeaveRequestWithApprovals
                     throw new RuntimeException('Leave request attributes are required when creating a new request.');
                 }
 
-                $leaveRequest = LeaveRequest::query()->create([
+                $leaveRequest = new LeaveRequest;
+                $leaveRequest->forceFill([
                     'company_id' => $companyId,
                     'employee_id' => $attributes['employee_id'],
                     'leave_type_id' => $attributes['leave_type_id'],
@@ -68,7 +70,7 @@ final class SubmitLeaveRequestWithApprovals
                     'reason' => $attributes['reason'] ?? null,
                     'attachments' => $attributes['attachments'] ?? null,
                     'status' => 'pending',
-                ]);
+                ])->save();
 
                 $leaveRequest = LeaveRequest::query()
                     ->whereKey($leaveRequest->id)
@@ -92,13 +94,15 @@ final class SubmitLeaveRequestWithApprovals
             return $leaveRequest->fresh(['approvals', 'employee', 'leaveType']) ?? $leaveRequest;
         });
 
-        DB::afterCommit(function () use ($leaveRequest): void {
-            try {
-                $this->sendSubmittedEmail->handle($leaveRequest->fresh() ?? $leaveRequest);
-            } catch (Throwable $exception) {
-                report($exception);
-            }
-        });
+        if ($notify) {
+            DB::afterCommit(function () use ($leaveRequest): void {
+                try {
+                    $this->sendSubmittedEmail->handle($leaveRequest->fresh() ?? $leaveRequest);
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
+            });
+        }
 
         return $leaveRequest;
     }

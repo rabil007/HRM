@@ -19,6 +19,7 @@ use App\Support\Attendance\Actions\ApproveLeaveRequestStep;
 use App\Support\Attendance\Actions\CancelLeaveRequestWorkflow;
 use App\Support\Attendance\Actions\RejectLeaveRequestStep;
 use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
+use App\Support\Attendance\Actions\UpdateLeaveRequestWithApprovals;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAttachments;
@@ -65,7 +66,13 @@ class LeaveRequestController extends Controller
                 'employee:id,company_id,employee_no,name',
                 'leaveType:id,company_id,name,code,color',
                 'approver:id,name',
-                'approvals' => fn ($query) => $query->orderBy('sequence'),
+                'approvals' => fn ($query) => $query
+                    ->orderBy('sequence')
+                    ->with([
+                        'approverEmployee:id,name,employee_no',
+                        'approverUser:id,name',
+                        'sourceDepartment:id,name',
+                    ]),
             ])
             ->where('company_id', $companyId)
             ->tap(fn ($query) => $this->applyScopeFilter($query, $scope, $user, $companyId, $linkedEmployeeId, $canViewAll))
@@ -259,36 +266,34 @@ class LeaveRequestController extends Controller
     public function update(
         UpdateLeaveRequestRequest $request,
         LeaveRequest $leaveRequest,
-        CalculateLeaveRequestDays $calculateDays,
+        UpdateLeaveRequestWithApprovals $updateWithApprovals,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         $this->visibility->assertCanAccess($leaveRequest, $request->user(), $companyId);
 
-        if ($leaveRequest->status !== 'pending') {
-            return redirect()
-                ->route('attendance.leave-requests.index')
-                ->withErrors(['leave_request' => 'Only pending leave requests can be updated.']);
-        }
-
         $data = $request->validated();
 
-        $attachmentPayload = $this->resolveAttachmentUpdate($request, $leaveRequest, $companyId);
-
-        $this->leaveBalances->replacePendingLeaveRequest($leaveRequest, [
-            'employee_id' => $data['employee_id'],
-            'leave_type_id' => $data['leave_type_id'],
-            'start_date' => $data['start_date'],
-            'end_date' => $data['end_date'],
-        ]);
-
-        $leaveRequest->update(array_merge([
-            'employee_id' => $data['employee_id'],
-            'leave_type_id' => $data['leave_type_id'],
-            'start_date' => $data['start_date'],
-            'end_date' => $data['end_date'],
-            'total_days' => $calculateDays($data['start_date'], $data['end_date']),
-            'reason' => $data['reason'] ?? null,
-        ], $attachmentPayload));
+        try {
+            $updateWithApprovals->handle(
+                leaveRequest: $leaveRequest,
+                companyId: $companyId,
+                attributes: [
+                    'employee_id' => $data['employee_id'],
+                    'leave_type_id' => $data['leave_type_id'],
+                    'start_date' => $data['start_date'],
+                    'end_date' => $data['end_date'],
+                    'reason' => $data['reason'] ?? null,
+                ],
+                newAttachment: $request->file('attachment'),
+                removeAttachment: $request->boolean('remove_attachment'),
+            );
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (RuntimeException $exception) {
+            throw ValidationException::withMessages([
+                'leave_request' => $exception->getMessage(),
+            ]);
+        }
 
         return redirect()
             ->route('attendance.leave-requests.index')
@@ -416,6 +421,7 @@ class LeaveRequestController extends Controller
             'can_approve_current_step' => $companyId !== null
                 ? $this->visibility->canApproveCurrentStep($leaveRequest, $user, $companyId)
                 : false,
+            'can_edit' => $this->canEditLeaveRequest($leaveRequest),
         ];
 
         if ($includeApprovals || $leaveRequest->relationLoaded('approvals')) {
@@ -426,6 +432,26 @@ class LeaveRequestController extends Controller
         }
 
         return $payload;
+    }
+
+    private function canEditLeaveRequest(LeaveRequest $leaveRequest): bool
+    {
+        if ($leaveRequest->status !== 'pending') {
+            return false;
+        }
+
+        $hasStarted = LeaveRequestApproval::query()
+            ->where('company_id', (int) $leaveRequest->company_id)
+            ->where('leave_request_id', $leaveRequest->id)
+            ->whereIn('status', [
+                LeaveRequestApprovalStatus::Approved->value,
+                LeaveRequestApprovalStatus::Rejected->value,
+                LeaveRequestApprovalStatus::Skipped->value,
+                LeaveRequestApprovalStatus::Cancelled->value,
+            ])
+            ->exists();
+
+        return ! $hasStarted;
     }
 
     /**
@@ -463,6 +489,9 @@ class LeaveRequestController extends Controller
                 'id' => $approval->sourceDepartment->id,
                 'name' => $approval->sourceDepartment->name,
             ] : null,
+            'policy_id' => $approval->policy_id,
+            'policy_name' => $approval->policy_name,
+            'policy_step_label' => $approval->policy_step_label,
         ];
     }
 
@@ -470,7 +499,7 @@ class LeaveRequestController extends Controller
     {
         $scope = trim((string) $request->query('scope', 'my'));
 
-        return in_array($scope, ['my', 'awaiting_my_approval', 'all'], true)
+        return in_array($scope, ['my', 'awaiting_my_approval', 'assigned_to_me', 'all'], true)
             ? $scope
             : 'my';
     }
@@ -502,6 +531,18 @@ class LeaveRequestController extends Controller
             return;
         }
 
+        if ($scope === 'assigned_to_me') {
+            if ($user === null) {
+                $query->whereRaw('1 = 0');
+
+                return;
+            }
+
+            $this->visibility->applyAssignedToMeScope($query, $user, $companyId);
+
+            return;
+        }
+
         // Default / my
         if ($linkedEmployeeId === null) {
             $query->whereRaw('1 = 0');
@@ -510,31 +551,5 @@ class LeaveRequestController extends Controller
         }
 
         $query->where('employee_id', $linkedEmployeeId);
-    }
-
-    /**
-     * @return array{attachments?: list<array<string, mixed>>|null}
-     */
-    private function resolveAttachmentUpdate(Request $request, LeaveRequest $leaveRequest, int $companyId): array
-    {
-        if ($request->hasFile('attachment')) {
-            $this->attachments->deleteFromStorage($leaveRequest->attachments);
-
-            return [
-                'attachments' => $this->attachments->store(
-                    $request->file('attachment'),
-                    $companyId,
-                    $leaveRequest->id,
-                ),
-            ];
-        }
-
-        if ($request->boolean('remove_attachment')) {
-            $this->attachments->deleteFromStorage($leaveRequest->attachments);
-
-            return ['attachments' => null];
-        }
-
-        return [];
     }
 }

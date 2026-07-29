@@ -236,7 +236,7 @@ test('approved leave requests cannot be updated', function () {
         'attendance.leave-requests.update',
     ]);
 
-    $leaveRequest = LeaveRequest::query()->create([
+    $leaveRequest = createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -270,7 +270,7 @@ test('users cannot update leave requests from another company', function () {
     ['employee' => $otherEmployee, 'leaveType' => $otherLeaveType] = makeLeaveRequestActors($otherCompany);
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
 
-    $leaveRequest = LeaveRequest::query()->create([
+    $leaveRequest = createLeaveRequestRecord([
         'company_id' => $otherCompany->id,
         'employee_id' => $otherEmployee->id,
         'leave_type_id' => $otherLeaveType->id,
@@ -379,7 +379,7 @@ test('users without approve permission only see their own leave requests', funct
 
     $ownEmployee->update(['user_id' => $user->id]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $ownEmployee->id,
         'leave_type_id' => $leaveType->id,
@@ -389,7 +389,7 @@ test('users without approve permission only see their own leave requests', funct
         'status' => 'pending',
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $otherEmployee->id,
         'leave_type_id' => $leaveType->id,
@@ -417,7 +417,7 @@ test('users with view_all permission see all leave requests', function () {
 
     $ownEmployee->update(['user_id' => $user->id]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $ownEmployee->id,
         'leave_type_id' => $leaveType->id,
@@ -427,7 +427,7 @@ test('users with view_all permission see all leave requests', function () {
         'status' => 'pending',
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $otherEmployee->id,
         'leave_type_id' => $leaveType->id,
@@ -456,7 +456,7 @@ test('authorized users can view leave request detail page', function () {
 
     grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
 
-    $leaveRequest = LeaveRequest::query()->create([
+    $leaveRequest = createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -481,7 +481,7 @@ test('users without approve permission cannot view other employees leave request
 
     $ownEmployee->update(['user_id' => $user->id]);
 
-    $otherLeaveRequest = LeaveRequest::query()->create([
+    $otherLeaveRequest = createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $otherEmployee->id,
         'leave_type_id' => $leaveType->id,
@@ -501,7 +501,7 @@ test('users with view_all permission can view any leave request detail page', fu
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
 
-    $leaveRequest = LeaveRequest::query()->create([
+    $leaveRequest = createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -531,7 +531,7 @@ test('leave request show page hides recent activity without audit permission', f
 
     grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
 
-    $leaveRequest = LeaveRequest::query()->create([
+    $leaveRequest = createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -559,7 +559,7 @@ test('leave request show page exposes recent activity with audit permission', fu
         'audit.view',
     ]);
 
-    $leaveRequest = LeaveRequest::query()->create([
+    $leaveRequest = createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -631,7 +631,7 @@ test('leave requests cannot overlap pending or approved dates for the same emplo
 
     prepareLeaveRequestApprovalContext($company, $employee);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -651,7 +651,7 @@ test('leave requests cannot overlap pending or approved dates for the same emplo
 
     $response->assertSessionHasErrors('start_date');
 
-    $pendingRequest = LeaveRequest::query()->create([
+    $pendingRequest = createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $otherLeaveType->id,
@@ -678,7 +678,7 @@ test('leave requests may reuse dates when prior requests are rejected or cancell
 
     grantCompanyPermissions($user, $company, ['attendance.leave-requests.create']);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -706,7 +706,7 @@ test('users without approve permission cannot manage other employees leave reque
 
     $ownEmployee->update(['user_id' => $user->id]);
 
-    $otherLeaveRequest = LeaveRequest::query()->create([
+    $otherLeaveRequest = createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $otherEmployee->id,
         'leave_type_id' => $leaveType->id,
@@ -903,7 +903,7 @@ test('leave request approval queues approved email when template is enabled', fu
         'enabled' => true,
     ]);
 
-    $leaveRequest = LeaveRequest::query()->create([
+    $leaveRequest = createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -949,7 +949,7 @@ test('leave request rejection queues rejected email with reason when template is
         'enabled' => true,
     ]);
 
-    $leaveRequest = LeaveRequest::query()->create([
+    $leaveRequest = createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,

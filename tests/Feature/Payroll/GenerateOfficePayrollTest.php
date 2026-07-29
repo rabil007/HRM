@@ -7,7 +7,6 @@ use App\Models\Bank;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
-use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
@@ -231,7 +230,7 @@ test('office payroll generation stores leave days from approved requests in peri
         'status' => 'active',
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -453,7 +452,7 @@ test('payroll show includes office payroll records and leave usage on employees 
         'is_primary' => true,
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,

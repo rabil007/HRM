@@ -28,11 +28,22 @@ final class ResolvedLeaveApprovalStep
      *     approver_user_id: int,
      *     source_department_id: int|null,
      *     policy_step_id: int|null,
+     *     policy_id: int|null,
+     *     policy_name: string|null,
+     *     policy_step_label: string|null,
      *     is_required: bool,
      * }
      */
-    public function toPersistenceArray(int $companyId, int $leaveRequestId): array
-    {
+    public function toPersistenceArray(
+        int $companyId,
+        int $leaveRequestId,
+        ?int $policyId = null,
+        ?string $policyName = null,
+    ): array {
+        $stepLabel = $this->policyStep !== null
+            ? sprintf('Step %d: %s', $this->sequence, $this->approverType->label())
+            : $this->approverType->label();
+
         return [
             'company_id' => $companyId,
             'leave_request_id' => $leaveRequestId,
@@ -46,6 +57,9 @@ final class ResolvedLeaveApprovalStep
             'policy_step_id' => $this->policyStep?->id !== null
                 ? (int) $this->policyStep->id
                 : null,
+            'policy_id' => $policyId,
+            'policy_name' => $policyName,
+            'policy_step_label' => $stepLabel,
             'is_required' => $this->isRequired,
         ];
     }

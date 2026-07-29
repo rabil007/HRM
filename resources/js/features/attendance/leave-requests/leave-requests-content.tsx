@@ -111,6 +111,7 @@ export function LeaveRequestsContent({
     }> = [
         { value: 'my', label: 'My' },
         { value: 'awaiting_my_approval', label: 'Awaiting My Approval' },
+        { value: 'assigned_to_me', label: 'Assigned to Me' },
         ...(can.view_all ? ([{ value: 'all', label: 'All' }] as const) : []),
     ];
 

@@ -57,7 +57,7 @@ final class ResolveLeaveApprovalChain
             ));
         }
 
-        $settings = CompanyLeaveApprovalSetting::forCompany($companyId);
+        $settings = CompanyLeaveApprovalSetting::findForCompany($companyId);
         $managementChain = ResolveDepartmentManagementChain::forEmployee($employee);
         $requesterId = (int) $employee->id;
         $usedManagerEmployeeIds = [];
@@ -181,7 +181,12 @@ final class ResolveLeaveApprovalChain
             }
 
             $created[] = LeaveRequestApproval::query()->create([
-                ...$resolvedStep->toPersistenceArray($companyId, (int) $leaveRequest->id),
+                ...$resolvedStep->toPersistenceArray(
+                    companyId: $companyId,
+                    leaveRequestId: (int) $leaveRequest->id,
+                    policyId: (int) $chain->policy->id,
+                    policyName: (string) $chain->policy->name,
+                ),
                 'status' => $status,
                 'acted_at' => null,
                 'comments' => null,

@@ -19,7 +19,21 @@ class LeaveRequest extends Model
     use LogsActivityWithCompany;
     use SoftDeletes;
 
-    protected $guarded = [];
+    /**
+     * Mutable request fields only. Workflow/ownership fields use forceFill().
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'company_id',
+        'employee_id',
+        'leave_type_id',
+        'start_date',
+        'end_date',
+        'total_days',
+        'reason',
+        'attachments',
+    ];
 
     /**
      * @return array<string, string>
@@ -27,6 +41,10 @@ class LeaveRequest extends Model
     protected function casts(): array
     {
         return [
+            'company_id' => 'integer',
+            'employee_id' => 'integer',
+            'leave_type_id' => 'integer',
+            'approved_by' => 'integer',
             'start_date' => 'date',
             'end_date' => 'date',
             'decided_at' => 'datetime',

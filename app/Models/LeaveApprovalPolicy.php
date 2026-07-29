@@ -92,11 +92,16 @@ class LeaveApprovalPolicy extends Model
     public function markAsCompanyDefault(): void
     {
         DB::transaction(function (): void {
+            // Lock a stable company-owned row so concurrent default switches serialize.
+            Company::query()
+                ->whereKey($this->company_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             self::query()
                 ->where('company_id', $this->company_id)
                 ->whereKeyNot($this->id)
                 ->where('is_default', true)
-                ->lockForUpdate()
                 ->update(['is_default' => false]);
 
             $this->forceFill([

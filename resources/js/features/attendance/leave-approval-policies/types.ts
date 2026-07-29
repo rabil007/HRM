@@ -14,7 +14,13 @@ export type LeaveApprovalApproverTypeOption = {
 export type LeaveApprovalPolicyEmployeeOption = {
     id: number;
     employee_no: string | null;
-    name: string;
+    name: string | null;
+    employee_status?: string | null;
+    has_linked_user?: boolean;
+    linked_user_active?: boolean;
+    has_leave_request_approve_permission?: boolean;
+    actionable?: boolean;
+    warnings?: string[];
 };
 
 export type LeaveApprovalPolicyStep = {

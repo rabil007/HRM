@@ -5,7 +5,6 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\LeaveBalance;
-use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Attendance\LeaveBalanceManager;
@@ -128,7 +127,7 @@ test('sync command rebuilds used and pending days from leave requests', function
         'status' => 'active',
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
@@ -140,7 +139,7 @@ test('sync command rebuilds used and pending days from leave requests', function
         'decided_at' => now(),
     ]);
 
-    LeaveRequest::query()->create([
+    createLeaveRequestRecord([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,

@@ -6,11 +6,25 @@ use App\Models\CompanyLeaveApprovalSetting;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveApprovalPolicy;
+use App\Models\LeaveRequest;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
+
+/**
+ * Create a leave request including guarded workflow fields (status, approved_by, etc.).
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function createLeaveRequestRecord(array $attributes): LeaveRequest
+{
+    $leaveRequest = new LeaveRequest;
+    $leaveRequest->forceFill($attributes)->save();
+
+    return $leaveRequest->refresh();
+}
 
 /**
  * Ensure the company has an active default leave approval policy.

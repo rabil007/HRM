@@ -25,7 +25,8 @@ export function LeaveRequestRowActions({
     wrapped?: boolean;
 }) {
     const isPending = leaveRequest.status === 'pending';
-    const canModify = isPending && can.update;
+    const canModify =
+        isPending && can.update && leaveRequest.can_edit !== false;
     const canRemove =
         (isPending || leaveRequest.status === 'cancelled') && can.delete;
     const canActOnCurrentStep = Boolean(leaveRequest.can_approve_current_step);

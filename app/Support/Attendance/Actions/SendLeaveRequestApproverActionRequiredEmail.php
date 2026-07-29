@@ -87,15 +87,17 @@ final class SendLeaveRequestApproverActionRequiredEmail
      */
     private function resolveRecipients(EmailTemplate $template, LeaveRequest $leaveRequest): array
     {
+        $toPreset = CommaSeparatedEmailList::parse($template->to_preset);
         $ccPreset = CommaSeparatedEmailList::parse($template->cc_preset);
         $pendingApproverEmail = $this->resolveFirstPendingApproverEmail($leaveRequest);
 
         if ($pendingApproverEmail === '') {
-            return ['to' => '', 'cc' => $ccPreset];
+            return ['to' => '', 'cc' => []];
         }
 
-        $cc = collect($ccPreset)
-            ->filter(fn (string $email) => $email !== '' && strcasecmp($email, $pendingApproverEmail) !== 0)
+        $cc = collect([...$toPreset, ...$ccPreset])
+            ->filter(fn (string $email) => $email !== '')
+            ->filter(fn (string $email) => strcasecmp($email, $pendingApproverEmail) !== 0)
             ->unique(fn (string $email) => strtolower($email))
             ->values()
             ->all();

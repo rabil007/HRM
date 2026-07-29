@@ -75,12 +75,15 @@ final class SendLeaveRequestSubmittedEmail
      */
     private function resolveRecipients(EmailTemplate $template, LeaveRequest $leaveRequest): array
     {
+        $toPreset = CommaSeparatedEmailList::parse($template->to_preset);
         $ccPreset = CommaSeparatedEmailList::parse($template->cc_preset);
         $pendingApproverEmail = $this->resolveFirstPendingApproverEmail($leaveRequest);
 
         if ($pendingApproverEmail !== '') {
-            $cc = collect($ccPreset)
-                ->filter(fn (string $email) => $email !== '' && strcasecmp($email, $pendingApproverEmail) !== 0)
+            // Workflow-backed: pending approver is primary To; template presets are FYI CC.
+            $cc = collect([...$toPreset, ...$ccPreset])
+                ->filter(fn (string $email) => $email !== '')
+                ->filter(fn (string $email) => strcasecmp($email, $pendingApproverEmail) !== 0)
                 ->unique(fn (string $email) => strtolower($email))
                 ->values()
                 ->all();
@@ -92,7 +95,6 @@ final class SendLeaveRequestSubmittedEmail
         }
 
         // Legacy fallback when no approval snapshot exists yet.
-        $toPreset = CommaSeparatedEmailList::parse($template->to_preset);
         $managerEmail = $this->resolveManagerEmail($leaveRequest);
 
         $merged = collect([...$toPreset, $managerEmail])
@@ -105,9 +107,17 @@ final class SendLeaveRequestSubmittedEmail
             return ['to' => '', 'cc' => $ccPreset];
         }
 
+        $primary = $merged[0];
+        $cc = collect([...array_slice($merged, 1), ...$ccPreset])
+            ->filter(fn (string $email) => $email !== '')
+            ->filter(fn (string $email) => strcasecmp($email, $primary) !== 0)
+            ->unique(fn (string $email) => strtolower($email))
+            ->values()
+            ->all();
+
         return [
-            'to' => $merged[0],
-            'cc' => array_values(array_unique([...array_slice($merged, 1), ...$ccPreset], SORT_REGULAR)),
+            'to' => $primary,
+            'cc' => $cc,
         ];
     }
 
