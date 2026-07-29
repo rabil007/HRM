@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Attendance;
 
+use App\Enums\LeaveApprovalApproverType;
+use App\Enums\LeaveRequestApprovalStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Attendance\ApproveLeaveRequestRequest;
 use App\Http\Requests\Attendance\CancelLeaveRequestRequest;
@@ -10,19 +12,25 @@ use App\Http\Requests\Attendance\StoreLeaveRequestRequest;
 use App\Http\Requests\Attendance\UpdateLeaveRequestRequest;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
+use App\Models\LeaveRequestApproval;
 use App\Models\LeaveType;
 use App\Support\Activity\RecentActivityQuery;
-use App\Support\Attendance\Actions\SendLeaveRequestDecidedEmail;
-use App\Support\Attendance\Actions\SendLeaveRequestSubmittedEmail;
+use App\Support\Attendance\Actions\ApproveLeaveRequestStep;
+use App\Support\Attendance\Actions\CancelLeaveRequestWorkflow;
+use App\Support\Attendance\Actions\RejectLeaveRequestStep;
+use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAttachments;
 use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Pagination\ResolvesPerPage;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 class LeaveRequestController extends Controller
 {
@@ -42,17 +50,25 @@ class LeaveRequestController extends Controller
         $status = trim((string) $request->query('status', ''));
         $employeeId = trim((string) $request->query('employee_id', ''));
         $leaveTypeId = trim((string) $request->query('leave_type_id', ''));
+        $scope = $this->resolveScope($request);
 
         $user = $request->user();
+        $canViewAll = $this->visibility->canViewAll($user);
+        $linkedEmployeeId = $this->visibility->linkedEmployeeId($user, $companyId);
+
+        if ($scope === 'all' && ! $canViewAll) {
+            $scope = 'my';
+        }
 
         $paginator = LeaveRequest::query()
             ->with([
                 'employee:id,company_id,employee_no,name',
                 'leaveType:id,company_id,name,code,color',
                 'approver:id,name',
+                'approvals' => fn ($query) => $query->orderBy('sequence'),
             ])
             ->where('company_id', $companyId)
-            ->tap(fn ($query) => $this->visibility->applyIndexScope($query, $user, $companyId))
+            ->tap(fn ($query) => $this->applyScopeFilter($query, $scope, $user, $companyId, $linkedEmployeeId, $canViewAll))
             ->when($status, fn ($query) => $query->where('status', $status))
             ->when($employeeId, fn ($query) => $query->where('employee_id', $employeeId))
             ->when($leaveTypeId, fn ($query) => $query->where('leave_type_id', $leaveTypeId))
@@ -66,10 +82,11 @@ class LeaveRequestController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        $leaveRequests = $paginator->through(fn (LeaveRequest $leaveRequest) => $this->serializeLeaveRequest($leaveRequest));
-
-        $canViewAll = $this->visibility->canViewAll($user);
-        $linkedEmployeeId = $this->visibility->linkedEmployeeId($user, $companyId);
+        $leaveRequests = $paginator->through(fn (LeaveRequest $leaveRequest) => $this->serializeLeaveRequest(
+            $leaveRequest,
+            $user,
+            $companyId,
+        ));
 
         $employeesQuery = Employee::query()
             ->where('company_id', $companyId)
@@ -86,7 +103,7 @@ class LeaveRequestController extends Controller
 
         $countsQuery = LeaveRequest::query()
             ->where('company_id', $companyId)
-            ->tap(fn ($query) => $this->visibility->applyIndexScope($query, $user, $companyId))
+            ->tap(fn ($query) => $this->applyScopeFilter($query, $scope, $user, $companyId, $linkedEmployeeId, $canViewAll))
             ->when($employeeId, fn ($query) => $query->where('employee_id', $employeeId))
             ->when($leaveTypeId, fn ($query) => $query->where('leave_type_id', $leaveTypeId))
             ->when($search, function ($query) use ($search) {
@@ -119,6 +136,7 @@ class LeaveRequestController extends Controller
                 'status' => $status,
                 'employee_id' => $employeeId,
                 'leave_type_id' => $leaveTypeId,
+                'scope' => $scope,
             ],
             'employees' => $employeesQuery->get(['id', 'employee_no', 'name']),
             'linked_employee_id' => $linkedEmployeeId,
@@ -132,6 +150,7 @@ class LeaveRequestController extends Controller
                 'update' => $user?->can('attendance.leave-requests.update') ?? false,
                 'delete' => $user?->can('attendance.leave-requests.delete') ?? false,
                 'approve' => $user?->can('attendance.leave-requests.approve') ?? false,
+                'view_all' => $canViewAll,
             ],
         ]);
     }
@@ -147,6 +166,13 @@ class LeaveRequestController extends Controller
             'employee:id,company_id,employee_no,name',
             'leaveType:id,company_id,name,code,color',
             'approver:id,name',
+            'approvals' => fn ($query) => $query
+                ->orderBy('sequence')
+                ->with([
+                    'approverEmployee:id,name,employee_no',
+                    'approverUser:id,name',
+                    'sourceDepartment:id,name',
+                ]),
         ]);
 
         $canViewAll = $this->visibility->canViewAll($user);
@@ -166,7 +192,7 @@ class LeaveRequestController extends Controller
         }
 
         return Inertia::render('attendance/leave-request', [
-            'leave_request' => $this->serializeLeaveRequest($leaveRequest),
+            'leave_request' => $this->serializeLeaveRequest($leaveRequest, $user, $companyId, includeApprovals: true),
             'employees' => $employeesQuery->get(['id', 'employee_no', 'name']),
             'leave_types' => LeaveType::query()
                 ->where('company_id', $companyId)
@@ -186,25 +212,34 @@ class LeaveRequestController extends Controller
                 'update' => $user?->can('attendance.leave-requests.update') ?? false,
                 'delete' => $user?->can('attendance.leave-requests.delete') ?? false,
                 'approve' => $user?->can('attendance.leave-requests.approve') ?? false,
+                'approve_current_step' => $this->visibility->canApproveCurrentStep($leaveRequest, $user, $companyId),
+                'view_all' => $canViewAll,
             ],
         ]);
     }
 
-    public function store(StoreLeaveRequestRequest $request, CalculateLeaveRequestDays $calculateDays): RedirectResponse
-    {
+    public function store(
+        StoreLeaveRequestRequest $request,
+        CalculateLeaveRequestDays $calculateDays,
+        SubmitLeaveRequestWithApprovals $submitWithApprovals,
+    ): RedirectResponse {
         $data = $request->validated();
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        $leaveRequest = LeaveRequest::query()->create([
-            'company_id' => $companyId,
-            'employee_id' => $data['employee_id'],
-            'leave_type_id' => $data['leave_type_id'],
-            'start_date' => $data['start_date'],
-            'end_date' => $data['end_date'],
-            'total_days' => $calculateDays($data['start_date'], $data['end_date']),
-            'reason' => $data['reason'] ?? null,
-            'status' => 'pending',
-        ]);
+        try {
+            $leaveRequest = $submitWithApprovals->handle($companyId, null, [
+                'employee_id' => $data['employee_id'],
+                'leave_type_id' => $data['leave_type_id'],
+                'start_date' => $data['start_date'],
+                'end_date' => $data['end_date'],
+                'total_days' => $calculateDays($data['start_date'], $data['end_date']),
+                'reason' => $data['reason'] ?? null,
+            ]);
+        } catch (RuntimeException $exception) {
+            throw ValidationException::withMessages([
+                'leave_request' => $exception->getMessage(),
+            ]);
+        }
 
         if ($request->hasFile('attachment')) {
             $leaveRequest->update([
@@ -214,14 +249,6 @@ class LeaveRequestController extends Controller
                     $leaveRequest->id,
                 ),
             ]);
-        }
-
-        $this->leaveBalances->reserveLeaveRequest($leaveRequest->fresh());
-
-        try {
-            app(SendLeaveRequestSubmittedEmail::class)->handle($leaveRequest->fresh());
-        } catch (\Throwable $exception) {
-            report($exception);
         }
 
         return redirect()
@@ -290,80 +317,60 @@ class LeaveRequestController extends Controller
             ->with('success', 'Leave request deleted successfully.');
     }
 
-    public function approve(ApproveLeaveRequestRequest $request, LeaveRequest $leaveRequest): RedirectResponse
-    {
+    public function approve(
+        ApproveLeaveRequestRequest $request,
+        LeaveRequest $leaveRequest,
+        ApproveLeaveRequestStep $approveStep,
+    ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         $this->visibility->assertCanAccess($leaveRequest, $request->user(), $companyId);
 
-        if ($leaveRequest->status !== 'pending') {
-            return redirect()
-                ->route('attendance.leave-requests.index')
-                ->withErrors(['leave_request' => 'Only pending leave requests can be approved.']);
-        }
-
-        $this->leaveBalances->approveLeaveRequest($leaveRequest);
-
-        $leaveRequest->update([
-            'status' => 'approved',
-            'approved_by' => $request->user()?->id,
-            'decided_at' => now(),
-            'rejection_reason' => null,
-            'cancellation_reason' => null,
-        ]);
-
-        app(SendLeaveRequestDecidedEmail::class)->handle($leaveRequest->fresh());
+        $approveStep->handle(
+            $leaveRequest,
+            $request->user(),
+            $companyId,
+            $request->validated('comments'),
+        );
 
         return redirect()
             ->route('attendance.leave-requests.index')
             ->with('success', 'Leave request approved successfully.');
     }
 
-    public function reject(RejectLeaveRequestRequest $request, LeaveRequest $leaveRequest): RedirectResponse
-    {
+    public function reject(
+        RejectLeaveRequestRequest $request,
+        LeaveRequest $leaveRequest,
+        RejectLeaveRequestStep $rejectStep,
+    ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         $this->visibility->assertCanAccess($leaveRequest, $request->user(), $companyId);
 
-        if ($leaveRequest->status !== 'pending') {
-            return redirect()
-                ->route('attendance.leave-requests.index')
-                ->withErrors(['leave_request' => 'Only pending leave requests can be rejected.']);
-        }
-
-        $this->leaveBalances->releaseLeaveRequest($leaveRequest);
-
-        $leaveRequest->update([
-            'status' => 'rejected',
-            'approved_by' => $request->user()?->id,
-            'decided_at' => now(),
-            'rejection_reason' => $request->validated('rejection_reason'),
-        ]);
-
-        app(SendLeaveRequestDecidedEmail::class)->handle($leaveRequest->fresh());
+        $rejectStep->handle(
+            $leaveRequest,
+            $request->user(),
+            $companyId,
+            $request->validated('rejection_reason'),
+        );
 
         return redirect()
             ->route('attendance.leave-requests.index')
             ->with('success', 'Leave request rejected successfully.');
     }
 
-    public function cancel(CancelLeaveRequestRequest $request, LeaveRequest $leaveRequest): RedirectResponse
-    {
+    public function cancel(
+        CancelLeaveRequestRequest $request,
+        LeaveRequest $leaveRequest,
+        CancelLeaveRequestWorkflow $cancelWorkflow,
+    ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         $this->visibility->assertCanAccess($leaveRequest, $request->user(), $companyId);
 
-        if ($leaveRequest->status !== 'pending') {
-            return redirect()
-                ->route('attendance.leave-requests.index')
-                ->withErrors(['leave_request' => 'Only pending leave requests can be cancelled.']);
-        }
-
-        $this->leaveBalances->releaseLeaveRequest($leaveRequest);
-
-        $leaveRequest->update([
-            'status' => 'cancelled',
-            'approved_by' => $request->user()?->id,
-            'decided_at' => now(),
-            'cancellation_reason' => $request->validated('cancellation_reason'),
-        ]);
+        $cancelWorkflow->handle(
+            $leaveRequest,
+            $request->user(),
+            $companyId,
+            $request->validated('cancellation_reason'),
+        );
 
         return redirect()
             ->route('attendance.leave-requests.index')
@@ -373,9 +380,13 @@ class LeaveRequestController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function serializeLeaveRequest(LeaveRequest $leaveRequest): array
-    {
-        return [
+    private function serializeLeaveRequest(
+        LeaveRequest $leaveRequest,
+        mixed $user = null,
+        ?int $companyId = null,
+        bool $includeApprovals = false,
+    ): array {
+        $payload = [
             'id' => $leaveRequest->id,
             'employee' => $leaveRequest->employee ? [
                 'id' => $leaveRequest->employee->id,
@@ -402,7 +413,103 @@ class LeaveRequestController extends Controller
             ] : null,
             'created_at' => $leaveRequest->created_at?->toIso8601String(),
             'attachments' => $this->attachments->serializeForFrontend($leaveRequest->attachments, $leaveRequest->id),
+            'can_approve_current_step' => $companyId !== null
+                ? $this->visibility->canApproveCurrentStep($leaveRequest, $user, $companyId)
+                : false,
         ];
+
+        if ($includeApprovals || $leaveRequest->relationLoaded('approvals')) {
+            $payload['approvals'] = $leaveRequest->approvals
+                ->map(fn (LeaveRequestApproval $approval) => $this->serializeApproval($approval))
+                ->values()
+                ->all();
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeApproval(LeaveRequestApproval $approval): array
+    {
+        $approverType = $approval->approver_type;
+
+        return [
+            'id' => $approval->id,
+            'sequence' => $approval->sequence,
+            'approver_type' => $approverType instanceof LeaveApprovalApproverType
+                ? $approverType->value
+                : $approverType,
+            'approver_type_label' => $approverType instanceof LeaveApprovalApproverType
+                ? $approverType->label()
+                : null,
+            'status' => $approval->status instanceof LeaveRequestApprovalStatus
+                ? $approval->status->value
+                : $approval->status,
+            'is_required' => (bool) $approval->is_required,
+            'acted_at' => $approval->acted_at?->toIso8601String(),
+            'comments' => $approval->comments,
+            'approver_employee' => $approval->approverEmployee ? [
+                'id' => $approval->approverEmployee->id,
+                'name' => $approval->approverEmployee->name,
+                'employee_no' => $approval->approverEmployee->employee_no,
+            ] : null,
+            'approver_user' => $approval->approverUser ? [
+                'id' => $approval->approverUser->id,
+                'name' => $approval->approverUser->name,
+            ] : null,
+            'source_department' => $approval->sourceDepartment ? [
+                'id' => $approval->sourceDepartment->id,
+                'name' => $approval->sourceDepartment->name,
+            ] : null,
+        ];
+    }
+
+    private function resolveScope(Request $request): string
+    {
+        $scope = trim((string) $request->query('scope', 'my'));
+
+        return in_array($scope, ['my', 'awaiting_my_approval', 'all'], true)
+            ? $scope
+            : 'my';
+    }
+
+    /**
+     * @param  Builder<LeaveRequest>  $query
+     */
+    private function applyScopeFilter(
+        $query,
+        string $scope,
+        mixed $user,
+        int $companyId,
+        ?int $linkedEmployeeId,
+        bool $canViewAll,
+    ): void {
+        if ($scope === 'all' && $canViewAll) {
+            return;
+        }
+
+        if ($scope === 'awaiting_my_approval') {
+            if ($user === null) {
+                $query->whereRaw('1 = 0');
+
+                return;
+            }
+
+            $this->visibility->applyAwaitingMyApprovalScope($query, $user, $companyId);
+
+            return;
+        }
+
+        // Default / my
+        if ($linkedEmployeeId === null) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->where('employee_id', $linkedEmployeeId);
     }
 
     /**

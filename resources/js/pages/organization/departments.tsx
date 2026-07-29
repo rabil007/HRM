@@ -4,6 +4,7 @@ import type {
     Branch,
     Department,
     DepartmentParentOption,
+    LeaveApprovalPolicyOption,
     Manager,
 } from '@/features/organization/departments/types';
 import type { PaginationMeta } from '@/types/pagination';
@@ -17,6 +18,7 @@ export default function Departments({
     branches,
     parents,
     managers,
+    leave_approval_policies = [],
 }: {
     departments: Department[];
     all_departments: any[];
@@ -33,6 +35,7 @@ export default function Departments({
     branches: Branch[];
     parents: DepartmentParentOption[];
     managers: Manager[];
+    leave_approval_policies?: LeaveApprovalPolicyOption[];
 }) {
     return (
         <>
@@ -46,6 +49,7 @@ export default function Departments({
                 branches={branches}
                 parents={parents}
                 managers={managers}
+                leave_approval_policies={leave_approval_policies}
             />
         </>
     );

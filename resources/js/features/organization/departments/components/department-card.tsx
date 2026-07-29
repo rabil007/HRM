@@ -64,12 +64,25 @@ export function DepartmentCard({
                                     Parent: {department.parent.name}
                                 </Badge>
                             ) : null}
-                            {!department.parent && department.manager?.name ? (
+                            {department.manager?.name ? (
                                 <Badge
                                     variant="secondary"
                                     className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5"
                                 >
                                     Manager: {department.manager.name}
+                                    {department.manager_assignment?.type ===
+                                    'inherited'
+                                        ? ' (inherited)'
+                                        : ''}
+                                </Badge>
+                            ) : null}
+                            {department.leave_approval_policy?.name ? (
+                                <Badge
+                                    variant="secondary"
+                                    className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider text-muted-foreground uppercase dark:border-white/10 dark:bg-white/5"
+                                >
+                                    Policy:{' '}
+                                    {department.leave_approval_policy.name}
                                 </Badge>
                             ) : null}
                         </div>

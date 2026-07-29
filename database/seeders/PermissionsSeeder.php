@@ -50,10 +50,19 @@ class PermissionsSeeder extends Seeder
             'attendance.types.delete',
 
             'attendance.leave-requests.view',
+            'attendance.leave-requests.view_all',
             'attendance.leave-requests.create',
             'attendance.leave-requests.update',
             'attendance.leave-requests.delete',
             'attendance.leave-requests.approve',
+
+            'attendance.leave-approval-policies.view',
+            'attendance.leave-approval-policies.create',
+            'attendance.leave-approval-policies.update',
+            'attendance.leave-approval-policies.delete',
+
+            'attendance.leave-approval-settings.view',
+            'attendance.leave-approval-settings.update',
 
             'attendance.records.view',
             'attendance.records.create',

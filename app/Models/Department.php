@@ -30,6 +30,7 @@ class Department extends Model
                 'code',
                 'parent_id',
                 'manager_id',
+                'leave_approval_policy_id',
                 'status',
             ])
             ->logOnlyDirty();
@@ -58,6 +59,11 @@ class Department extends Model
     public function manager(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'manager_id');
+    }
+
+    public function leaveApprovalPolicy(): BelongsTo
+    {
+        return $this->belongsTo(LeaveApprovalPolicy::class, 'leave_approval_policy_id');
     }
 
     public function employees(): HasMany

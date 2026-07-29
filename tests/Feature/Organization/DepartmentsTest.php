@@ -164,7 +164,7 @@ test('authenticated users can create, update, and delete a department', function
 
     $this->assertDatabaseHas('departments', [
         'id' => $departmentId,
-        'manager_id' => null,
+        'manager_id' => $manager->id,
         'name' => 'HR Updated',
         'status' => 'inactive',
     ]);
@@ -285,7 +285,7 @@ test('parent departments can have a manager assigned', function () {
     ]);
 });
 
-test('child departments cannot keep a manager assignment', function () {
+test('child departments may have a direct manager assignment', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -315,8 +315,8 @@ test('child departments cannot keep a manager assignment', function () {
     ]);
 
     $manager = Employee::factory()->forCompany($company)->create([
-        'name' => 'Blocked Manager',
-        'employee_no' => 'BM100',
+        'name' => 'Child Manager',
+        'employee_no' => 'CM100',
     ]);
 
     $parent = Department::query()->create([
@@ -341,7 +341,7 @@ test('child departments cannot keep a manager assignment', function () {
     $this->assertDatabaseHas('departments', [
         'id' => $childId,
         'parent_id' => $parent->id,
-        'manager_id' => null,
+        'manager_id' => $manager->id,
     ]);
 
     $parentManager = Employee::factory()->forCompany($company)->create([
@@ -368,8 +368,69 @@ test('child departments cannot keep a manager assignment', function () {
     $this->assertDatabaseHas('departments', [
         'id' => $parentWithManager->id,
         'parent_id' => $parent->id,
-        'manager_id' => null,
+        'manager_id' => $parentManager->id,
     ]);
+});
+
+test('department cannot be its own parent or create a circular hierarchy', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'CYC',
+        'name' => 'Cycleland',
+        'dial_code' => '+998',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'CYC',
+        'name' => 'Cycle Currency',
+        'symbol' => 'C$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Cycle Co',
+        'slug' => 'cycle-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $office = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF',
+        'status' => 'active',
+    ]);
+
+    $accounts = Department::query()->create([
+        'company_id' => $company->id,
+        'parent_id' => $office->id,
+        'name' => 'Accounts',
+        'code' => 'ACC',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['departments.update']);
+
+    $this->put("/organization/departments/{$office->id}", [
+        'parent_id' => $office->id,
+        'name' => 'Office',
+        'code' => 'OFF',
+        'status' => 'active',
+    ])->assertSessionHasErrors('parent_id');
+
+    $this->put("/organization/departments/{$office->id}", [
+        'parent_id' => $accounts->id,
+        'name' => 'Office',
+        'code' => 'OFF',
+        'status' => 'active',
+    ])->assertSessionHasErrors('parent_id');
 });
 
 test('departments page lists employees as manager options', function () {

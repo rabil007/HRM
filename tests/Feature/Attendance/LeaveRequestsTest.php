@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\LeaveApprovalApproverType;
+use App\Enums\LeaveRequestApprovalStatus;
 use App\Mail\LeaveRequestDecidedMail;
 use App\Mail\LeaveRequestSubmittedMail;
 use App\Models\Company;
@@ -9,6 +11,7 @@ use App\Models\Department;
 use App\Models\EmailTemplate;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
+use App\Models\LeaveRequestApproval;
 use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Attendance\LeaveBalanceManager;
@@ -60,6 +63,20 @@ function makeLeaveRequestsFixtures(): array
 }
 
 /**
+ * Prepare a default manager-only policy and attach the employee to a managed department.
+ *
+ * @return array{manager: Employee, managerUser: User, department: Department}
+ */
+function prepareLeaveRequestApprovalContext(Company $company, Employee $employee): array
+{
+    $managed = makeManagedDepartment($company);
+    ensureDefaultLeaveApprovalPolicy($company);
+    $employee->update(['department_id' => $managed['department']->id]);
+
+    return $managed;
+}
+
+/**
  * @return array{employee: Employee, leaveType: LeaveType}
  */
 function makeLeaveRequestActors(Company $company, int $year = 2026): array
@@ -97,6 +114,7 @@ test('authorized users can view create update and delete leave requests', functi
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
     $employee->update(['user_id' => $user->id]);
+    prepareLeaveRequestApprovalContext($company, $employee);
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, [
@@ -114,7 +132,8 @@ test('authorized users can view create update and delete leave requests', functi
     $leaveRequest = LeaveRequest::query()->where('employee_id', $employee->id)->first();
     expect($leaveRequest)->not->toBeNull()
         ->and((float) $leaveRequest->total_days)->toBe(3.0)
-        ->and($leaveRequest->status)->toBe('pending');
+        ->and($leaveRequest->status)->toBe('pending')
+        ->and($leaveRequest->approvals)->not->toBeEmpty();
 
     $this->put("/attendance/leave-requests/{$leaveRequest->id}", validLeaveRequestPayload($employee, $leaveType, [
         'start_date' => '2026-06-10',
@@ -134,25 +153,28 @@ test('authorized users can view create update and delete leave requests', functi
 test('leave requests can be approved rejected and cancelled', function () {
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['user_id' => $user->id]);
+    $managed = prepareLeaveRequestApprovalContext($company, $employee);
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.create',
         'attendance.leave-requests.update',
-        'attendance.leave-requests.approve',
     ]);
 
     $this->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType));
 
     $leaveRequest = LeaveRequest::query()->where('employee_id', $employee->id)->firstOrFail();
 
+    $this->actingAs($managed['managerUser']);
     $this->put("/attendance/leave-requests/{$leaveRequest->id}/approve")
         ->assertRedirect(route('attendance.leave-requests.index'));
 
     expect($leaveRequest->fresh()->status)->toBe('approved')
-        ->and($leaveRequest->fresh()->approved_by)->toBe($user->id)
+        ->and($leaveRequest->fresh()->approved_by)->toBe($managed['managerUser']->id)
         ->and($leaveRequest->fresh()->decided_at)->not->toBeNull();
 
+    $this->actingAs($user);
     $this->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType, [
         'start_date' => '2026-07-01',
         'end_date' => '2026-07-02',
@@ -160,6 +182,7 @@ test('leave requests can be approved rejected and cancelled', function () {
 
     $rejectable = LeaveRequest::query()->where('status', 'pending')->latest('id')->firstOrFail();
 
+    $this->actingAs($managed['managerUser']);
     $this->from('/attendance/leave-requests')
         ->put("/attendance/leave-requests/{$rejectable->id}/reject", [
             'rejection_reason' => 'Insufficient staffing',
@@ -169,6 +192,7 @@ test('leave requests can be approved rejected and cancelled', function () {
     expect($rejectable->fresh()->status)->toBe('rejected')
         ->and($rejectable->fresh()->rejection_reason)->toBe('Insufficient staffing');
 
+    $this->actingAs($user);
     $this->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType, [
         'start_date' => '2026-08-01',
         'end_date' => '2026-08-02',
@@ -189,24 +213,27 @@ test('leave requests can be approved rejected and cancelled', function () {
 test('reject and cancel require a reason', function () {
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['user_id' => $user->id]);
+    $managed = prepareLeaveRequestApprovalContext($company, $employee);
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.create',
         'attendance.leave-requests.update',
-        'attendance.leave-requests.approve',
     ]);
 
     $this->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType));
 
     $leaveRequest = LeaveRequest::query()->where('employee_id', $employee->id)->firstOrFail();
 
+    $this->actingAs($managed['managerUser']);
     $this->from('/attendance/leave-requests')
         ->put("/attendance/leave-requests/{$leaveRequest->id}/reject", [
             'rejection_reason' => '',
         ])
         ->assertSessionHasErrors('rejection_reason');
 
+    $this->actingAs($user);
     $this->from('/attendance/leave-requests')
         ->put("/attendance/leave-requests/{$leaveRequest->id}/cancel", [
             'cancellation_reason' => '   ',
@@ -217,11 +244,11 @@ test('reject and cancel require a reason', function () {
 test('approved leave requests cannot be updated', function () {
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['user_id' => $user->id]);
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.update',
-        'attendance.leave-requests.approve',
     ]);
 
     $leaveRequest = LeaveRequest::query()->create([
@@ -324,6 +351,7 @@ test('leave requests can store download and remove optional attachments', functi
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
     $employee->update(['user_id' => $user->id]);
+    prepareLeaveRequestApprovalContext($company, $employee);
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, [
@@ -397,7 +425,7 @@ test('users without approve permission only see their own leave requests', funct
             ->where('linked_employee_id', $ownEmployee->id));
 });
 
-test('users with approve permission see all leave requests', function () {
+test('users with view_all permission see all leave requests', function () {
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
     ['employee' => $otherEmployee] = makeLeaveRequestActors($company);
@@ -427,10 +455,10 @@ test('users with approve permission see all leave requests', function () {
     $this->actingAs($user);
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.view',
-        'attendance.leave-requests.approve',
+        'attendance.leave-requests.view_all',
     ]);
 
-    $this->get('/attendance/leave-requests')
+    $this->get('/attendance/leave-requests?scope=all')
         ->assertOk()
         ->assertInertia(fn ($page) => $page->has('leave_requests', 2));
 });
@@ -484,7 +512,7 @@ test('users without approve permission cannot view other employees leave request
     $this->get(route('attendance.leave-requests.show', $otherLeaveRequest))->assertNotFound();
 });
 
-test('users with approve permission can view any leave request detail page', function () {
+test('users with view_all permission can view any leave request detail page', function () {
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
 
@@ -501,7 +529,7 @@ test('users with approve permission can view any leave request detail page', fun
     $this->actingAs($user);
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.view',
-        'attendance.leave-requests.approve',
+        'attendance.leave-requests.view_all',
     ]);
 
     $this->get(route('attendance.leave-requests.show', $leaveRequest))
@@ -564,7 +592,7 @@ test('leave request show page exposes recent activity with audit permission', fu
             ->where('recent_activity.0.event', 'created'));
 });
 
-test('leave request form only exposes linked employee without approve permission', function () {
+test('leave request form only exposes linked employee without view_all permission', function () {
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
     ['employee' => $otherEmployee] = makeLeaveRequestActors($company);
@@ -586,7 +614,7 @@ test('leave request form only exposes linked employee without approve permission
             ->where('can.approve', false));
 });
 
-test('leave request form exposes all employees with approve permission', function () {
+test('leave request form exposes all employees with view_all permission', function () {
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     makeLeaveRequestActors($company);
     makeLeaveRequestActors($company);
@@ -594,13 +622,13 @@ test('leave request form exposes all employees with approve permission', functio
 
     grantCompanyPermissions($user, $company, [
         'attendance.leave-requests.view',
-        'attendance.leave-requests.approve',
+        'attendance.leave-requests.view_all',
     ]);
 
     $this->get('/attendance/leave-requests')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('can.approve', true)
+            ->where('can.view_all', true)
             ->has('employees', 2));
 });
 
@@ -615,6 +643,8 @@ test('leave requests cannot overlap pending or approved dates for the same emplo
         'attendance.leave-requests.create',
         'attendance.leave-requests.update',
     ]);
+
+    prepareLeaveRequestApprovalContext($company, $employee);
 
     LeaveRequest::query()->create([
         'company_id' => $company->id,
@@ -658,6 +688,7 @@ test('leave requests may reuse dates when prior requests are rejected or cancell
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
     $employee->update(['user_id' => $user->id]);
+    prepareLeaveRequestApprovalContext($company, $employee);
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, ['attendance.leave-requests.create']);
@@ -735,6 +766,7 @@ test('leave request creation queues submitted email when template is enabled', f
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
     $employee->update(['user_id' => $user->id, 'name' => 'Alice Crew']);
+    prepareLeaveRequestApprovalContext($company, $employee);
 
     configureLeaveRequestSubmittedTemplate([
         'to_preset' => 'hr@example.com',
@@ -752,7 +784,7 @@ test('leave request creation queues submitted email when template is enabled', f
         ->assertRedirect(route('attendance.leave-requests.index'));
 
     Mail::assertQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail) use ($leaveType) {
-        return $mail->hasTo('hr@example.com')
+        return $mail->hasTo('dept-manager@example.com')
             && str_contains($mail->subjectLine, 'Alice Crew')
             && str_contains($mail->subjectLine, $leaveType->name)
             && $mail->employeeName === 'Alice Crew'
@@ -760,32 +792,17 @@ test('leave request creation queues submitted email when template is enabled', f
     });
 });
 
-test('leave request submitted email includes department manager address', function () {
+test('leave request submitted email goes to pending approver', function () {
     Mail::fake();
 
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
-
-    $manager = Employee::factory()->forCompany($company)->create([
-        'work_email' => 'manager@example.com',
-        'name' => 'Line Manager',
-    ]);
-
-    $department = Department::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Engineering',
-        'code' => 'ENG',
-        'manager_id' => $manager->id,
-        'status' => 'active',
-    ]);
-
-    $employee->update([
-        'department_id' => $department->id,
-        'user_id' => $user->id,
-    ]);
+    $employee->update(['user_id' => $user->id]);
+    prepareLeaveRequestApprovalContext($company, $employee);
 
     configureLeaveRequestSubmittedTemplate([
         'to_preset' => 'hr@example.com',
+        'cc_preset' => 'hr@example.com',
         'enabled' => true,
     ]);
 
@@ -800,8 +817,8 @@ test('leave request submitted email includes department manager address', functi
         ->assertRedirect(route('attendance.leave-requests.index'));
 
     Mail::assertQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail) {
-        return $mail->hasTo('hr@example.com')
-            && $mail->hasCc('manager@example.com');
+        return $mail->hasTo('dept-manager@example.com')
+            && $mail->hasCc('hr@example.com');
     });
 });
 
@@ -811,6 +828,7 @@ test('leave request submitted email is not queued when template is disabled', fu
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
     $employee->update(['user_id' => $user->id]);
+    prepareLeaveRequestApprovalContext($company, $employee);
 
     configureLeaveRequestSubmittedTemplate([
         'to_preset' => 'hr@example.com',
@@ -837,10 +855,15 @@ test('leave request submitted email is not queued when no recipients are availab
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
     $employee->update([
         'user_id' => $user->id,
-        'department_id' => null,
         'work_email' => null,
         'personal_email' => null,
     ]);
+    $managed = prepareLeaveRequestApprovalContext($company, $employee);
+    $managed['manager']->update(['work_email' => null, 'personal_email' => null]);
+    $managed['managerUser']->update(['email' => 'noreply-empty@example.invalid']);
+    // Clear actionable emails after chain creation by updating manager emails post-submit is hard;
+    // instead wipe manager emails before submit so pending approver has no usable address.
+    $managed['managerUser']->forceFill(['email' => ''])->save();
 
     configureLeaveRequestSubmittedTemplate([
         'to_preset' => null,
@@ -889,14 +912,10 @@ test('leave request approval queues approved email when template is enabled', fu
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
     $employee->update(['work_email' => 'employee@example.com', 'name' => 'Alice Crew']);
+    $managed = prepareLeaveRequestApprovalContext($company, $employee);
 
     configureLeaveRequestApprovedTemplate([
         'enabled' => true,
-    ]);
-
-    $this->actingAs($user);
-    grantCompanyPermissions($user, $company, [
-        'attendance.leave-requests.approve',
     ]);
 
     $leaveRequest = LeaveRequest::query()->create([
@@ -909,6 +928,18 @@ test('leave request approval queues approved email when template is enabled', fu
         'total_days' => 3.0,
     ]);
 
+    LeaveRequestApproval::factory()->create([
+        'company_id' => $company->id,
+        'leave_request_id' => $leaveRequest->id,
+        'sequence' => 1,
+        'approver_type' => LeaveApprovalApproverType::DepartmentManager,
+        'approver_employee_id' => $managed['manager']->id,
+        'approver_user_id' => $managed['managerUser']->id,
+        'status' => LeaveRequestApprovalStatus::Pending,
+        'is_required' => true,
+    ]);
+
+    $this->actingAs($managed['managerUser']);
     $this->withSession(['current_company_id' => $company->id])
         ->put("/attendance/leave-requests/{$leaveRequest->id}/approve")
         ->assertRedirect(route('attendance.leave-requests.index'));
@@ -927,14 +958,10 @@ test('leave request rejection queues rejected email with reason when template is
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
     $employee->update(['work_email' => 'employee@example.com', 'name' => 'Alice Crew']);
+    $managed = prepareLeaveRequestApprovalContext($company, $employee);
 
     configureLeaveRequestRejectedTemplate([
         'enabled' => true,
-    ]);
-
-    $this->actingAs($user);
-    grantCompanyPermissions($user, $company, [
-        'attendance.leave-requests.approve',
     ]);
 
     $leaveRequest = LeaveRequest::query()->create([
@@ -947,6 +974,18 @@ test('leave request rejection queues rejected email with reason when template is
         'total_days' => 3.0,
     ]);
 
+    LeaveRequestApproval::factory()->create([
+        'company_id' => $company->id,
+        'leave_request_id' => $leaveRequest->id,
+        'sequence' => 1,
+        'approver_type' => LeaveApprovalApproverType::DepartmentManager,
+        'approver_employee_id' => $managed['manager']->id,
+        'approver_user_id' => $managed['managerUser']->id,
+        'status' => LeaveRequestApprovalStatus::Pending,
+        'is_required' => true,
+    ]);
+
+    $this->actingAs($managed['managerUser']);
     $this->withSession(['current_company_id' => $company->id])
         ->put("/attendance/leave-requests/{$leaveRequest->id}/reject", [
             'rejection_reason' => 'Resource planning constraints',

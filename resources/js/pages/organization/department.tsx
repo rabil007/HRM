@@ -13,7 +13,10 @@ import type {
     Department as SheetDepartment,
     DepartmentFormData,
     DepartmentParentOption,
+    LeaveApprovalPolicyAssignment,
+    LeaveApprovalPolicyOption,
     Manager,
+    ManagerAssignment,
 } from '@/features/organization/departments/types';
 import {
     formatDisplayDate,
@@ -28,6 +31,10 @@ type Department = {
     branch: { id: number; name: string | null } | null;
     parent: { id: number; name: string | null } | null;
     manager: { id: number; name: string | null } | null;
+    manager_assignment?: ManagerAssignment;
+    leave_approval_policy_id?: number | null;
+    leave_approval_policy?: { id: number; name: string } | null;
+    leave_approval_policy_assignment?: LeaveApprovalPolicyAssignment;
     name: string;
     code: string | null;
     status: 'active' | 'inactive';
@@ -110,6 +117,7 @@ export default function DepartmentDetails({
     branches,
     parents,
     managers,
+    leave_approval_policies = [],
     recent_activity,
     can_view_audit,
 }: {
@@ -119,6 +127,7 @@ export default function DepartmentDetails({
     branches: Branch[];
     parents: DepartmentParentOption[];
     managers: Manager[];
+    leave_approval_policies?: LeaveApprovalPolicyOption[];
     recent_activity: ActivityItem[];
     can_view_audit: boolean;
 }) {
@@ -130,7 +139,11 @@ export default function DepartmentDetails({
     const form = useForm<DepartmentFormData>({
         branch_id: department.branch?.id ?? '',
         parent_id: department.parent?.id ?? '',
-        manager_id: department.manager?.id ?? '',
+        manager_id:
+            department.manager_assignment?.type === 'direct'
+                ? (department.manager?.id ?? '')
+                : '',
+        leave_approval_policy_id: department.leave_approval_policy_id ?? '',
         name: department.name ?? '',
         code: department.code ?? '',
         status: department.status ?? 'active',
@@ -161,6 +174,11 @@ export default function DepartmentDetails({
                       name: department.manager.name ?? null,
                   }
                 : null,
+            manager_assignment: department.manager_assignment,
+            leave_approval_policy_id: department.leave_approval_policy_id,
+            leave_approval_policy: department.leave_approval_policy,
+            leave_approval_policy_assignment:
+                department.leave_approval_policy_assignment,
             name: department.name,
             code: department.code,
             status: department.status,
@@ -229,12 +247,30 @@ export default function DepartmentDetails({
                                 label="Parent"
                                 value={department.parent?.name ?? '—'}
                             />
-                            {!department.parent ? (
-                                <Field
-                                    label="Manager"
-                                    value={department.manager?.name ?? '—'}
-                                />
-                            ) : null}
+                            <Field
+                                label="Manager"
+                                value={department.manager?.name ?? '—'}
+                            />
+                            <Field
+                                label="Manager assignment"
+                                value={
+                                    department.manager_assignment?.label ?? '—'
+                                }
+                            />
+                            <Field
+                                label="Leave approval policy"
+                                value={
+                                    department.leave_approval_policy?.name ??
+                                    '—'
+                                }
+                            />
+                            <Field
+                                label="Policy assignment"
+                                value={
+                                    department.leave_approval_policy_assignment
+                                        ?.label ?? '—'
+                                }
+                            />
                             <Field
                                 label="Code"
                                 value={department.code ?? '—'}
@@ -525,6 +561,7 @@ export default function DepartmentDetails({
                 branches={branches}
                 parents={parents}
                 managers={managers}
+                leaveApprovalPolicies={leave_approval_policies}
                 form={form}
                 onSubmit={submit}
             />

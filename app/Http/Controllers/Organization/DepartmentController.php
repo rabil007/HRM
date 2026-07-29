@@ -12,8 +12,10 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\LeaveApprovalPolicy;
 use App\Models\Position;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Departments\PresentDepartmentEffectiveFields;
 use App\Support\Employees\EmployeeFormOptions;
 use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -53,11 +55,19 @@ class DepartmentController extends Controller
 
         $managers = EmployeeFormOptions::managersForSelect($companyId);
 
+        $leaveApprovalPolicies = LeaveApprovalPolicy::query()
+            ->where('company_id', $companyId)
+            ->where('status', 'active')
+            ->orderByDesc('is_default')
+            ->orderBy('name')
+            ->get(['id', 'name', 'is_default']);
+
         $paginator = Department::query()
             ->with([
                 'branch:id,name',
                 'parent:id,name',
                 'manager:id,name,employee_no',
+                'leaveApprovalPolicy:id,name',
             ])
             ->where('company_id', $companyId)
             ->when($id, fn ($q) => $q->where('id', $id))
@@ -78,35 +88,46 @@ class DepartmentController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        $departments = $paginator->through(fn (Department $department) => [
-            'id' => $department->id,
-            'company' => [
-                'id' => $department->company_id,
-                'name' => null,
-            ],
-            'branch' => $department->branch_id ? [
-                'id' => $department->branch_id,
-                'name' => $department->branch?->name,
-            ] : null,
-            'parent' => $department->parent_id ? [
-                'id' => $department->parent_id,
-                'name' => $department->parent?->name,
-            ] : null,
-            'manager' => $department->manager_id ? [
-                'id' => $department->manager_id,
-                'name' => $department->manager?->name,
-            ] : null,
-            'name' => $department->name,
-            'code' => $department->code,
-            'status' => $department->status,
-            'created_at' => $department->created_at,
-        ]);
+        $departmentsById = Department::query()
+            ->where('company_id', $companyId)
+            ->get(['id', 'company_id', 'parent_id', 'manager_id', 'leave_approval_policy_id', 'name'])
+            ->keyBy('id');
+
+        $departments = $paginator->through(function (Department $department) use ($departmentsById, $companyId) {
+            $effective = PresentDepartmentEffectiveFields::forDepartment($department, $departmentsById, $companyId);
+
+            return [
+                'id' => $department->id,
+                'company' => [
+                    'id' => $department->company_id,
+                    'name' => null,
+                ],
+                'branch' => $department->branch_id ? [
+                    'id' => $department->branch_id,
+                    'name' => $department->branch?->name,
+                ] : null,
+                'parent' => $department->parent_id ? [
+                    'id' => $department->parent_id,
+                    'name' => $department->parent?->name,
+                ] : null,
+                'manager' => $effective['manager'],
+                'manager_assignment' => $effective['manager_assignment'],
+                'leave_approval_policy_id' => $department->leave_approval_policy_id,
+                'leave_approval_policy' => $effective['leave_approval_policy'],
+                'leave_approval_policy_assignment' => $effective['leave_approval_policy_assignment'],
+                'name' => $department->name,
+                'code' => $department->code,
+                'status' => $department->status,
+                'created_at' => $department->created_at,
+            ];
+        });
 
         $allDepartments = Department::query()
             ->with([
                 'branch:id,name',
                 'parent:id,name',
                 'manager:id,name,employee_no',
+                'leaveApprovalPolicy:id,name',
             ])
             ->where('company_id', $companyId)
             ->when($id, fn ($q) => $q->where('id', $id))
@@ -126,23 +147,27 @@ class DepartmentController extends Controller
             ->withCount(['positions', 'employees as users_count'])
             ->orderBy('name')
             ->get()
-            ->map(fn ($department) => [
-                'id' => $department->id,
-                'parent_id' => $department->parent_id,
-                'name' => $department->name,
-                'code' => $department->code,
-                'status' => $department->status,
-                'manager' => $department->manager_id ? [
-                    'id' => $department->manager_id,
-                    'name' => $department->manager?->name,
-                ] : null,
-                'branch' => $department->branch_id ? [
-                    'id' => $department->branch_id,
-                    'name' => $department->branch?->name,
-                ] : null,
-                'positions_count' => $department->positions_count,
-                'users_count' => $department->users_count,
-            ]);
+            ->map(function ($department) use ($departmentsById, $companyId) {
+                $effective = PresentDepartmentEffectiveFields::forDepartment($department, $departmentsById, $companyId);
+
+                return [
+                    'id' => $department->id,
+                    'parent_id' => $department->parent_id,
+                    'name' => $department->name,
+                    'code' => $department->code,
+                    'status' => $department->status,
+                    'manager' => $effective['manager'],
+                    'manager_assignment' => $effective['manager_assignment'],
+                    'leave_approval_policy' => $effective['leave_approval_policy'],
+                    'leave_approval_policy_assignment' => $effective['leave_approval_policy_assignment'],
+                    'branch' => $department->branch_id ? [
+                        'id' => $department->branch_id,
+                        'name' => $department->branch?->name,
+                    ] : null,
+                    'positions_count' => $department->positions_count,
+                    'users_count' => $department->users_count,
+                ];
+            });
 
         return Inertia::render('organization/departments', [
             'departments' => $departments->items(),
@@ -160,6 +185,7 @@ class DepartmentController extends Controller
             'branches' => $branches,
             'parents' => $parents,
             'managers' => $managers,
+            'leave_approval_policies' => $leaveApprovalPolicies,
         ]);
     }
 
@@ -190,11 +216,26 @@ class DepartmentController extends Controller
 
         $managers = EmployeeFormOptions::managersForSelect($companyId);
 
+        $leaveApprovalPolicies = LeaveApprovalPolicy::query()
+            ->where('company_id', $companyId)
+            ->where('status', 'active')
+            ->orderByDesc('is_default')
+            ->orderBy('name')
+            ->get(['id', 'name', 'is_default']);
+
         $department->load([
             'branch:id,name',
             'parent:id,name',
             'manager:id,name,employee_no',
+            'leaveApprovalPolicy:id,name',
         ]);
+
+        $departmentsById = Department::query()
+            ->where('company_id', $companyId)
+            ->get(['id', 'company_id', 'parent_id', 'manager_id', 'leave_approval_policy_id', 'name'])
+            ->keyBy('id');
+
+        $effective = PresentDepartmentEffectiveFields::forDepartment($department, $departmentsById, $companyId);
 
         $childDepartments = Department::query()
             ->where('company_id', $companyId)
@@ -230,10 +271,11 @@ class DepartmentController extends Controller
                     'id' => $department->parent_id,
                     'name' => $department->parent?->name,
                 ] : null,
-                'manager' => $department->manager_id ? [
-                    'id' => $department->manager_id,
-                    'name' => $department->manager?->name,
-                ] : null,
+                'manager' => $effective['manager'],
+                'manager_assignment' => $effective['manager_assignment'],
+                'leave_approval_policy_id' => $department->leave_approval_policy_id,
+                'leave_approval_policy' => $effective['leave_approval_policy'],
+                'leave_approval_policy_assignment' => $effective['leave_approval_policy_assignment'],
                 'name' => $department->name,
                 'code' => $department->code,
                 'status' => $department->status,
@@ -247,6 +289,7 @@ class DepartmentController extends Controller
             'branches' => $branches,
             'parents' => $parents,
             'managers' => $managers,
+            'leave_approval_policies' => $leaveApprovalPolicies,
             'recent_activity' => RecentActivityQuery::for(
                 $request->user(),
                 $companyId,
@@ -263,17 +306,13 @@ class DepartmentController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $data['company_id'] = $companyId;
 
-        foreach (['code'] as $key) {
+        foreach (['code', 'leave_approval_policy_id'] as $key) {
             if (($data[$key] ?? null) === '') {
                 $data[$key] = null;
             }
         }
 
         $data['status'] = $data['status'] ?? 'active';
-
-        if (! empty($data['parent_id'])) {
-            $data['manager_id'] = null;
-        }
 
         return $this->createOrReturnExistingQuickCreate(
             $request,
@@ -295,17 +334,13 @@ class DepartmentController extends Controller
         $data = $request->validated();
         $data['company_id'] = $companyId;
 
-        foreach (['code'] as $key) {
+        foreach (['code', 'leave_approval_policy_id'] as $key) {
             if (($data[$key] ?? null) === '') {
                 $data[$key] = null;
             }
         }
 
         $data['status'] = $data['status'] ?? 'active';
-
-        if (! empty($data['parent_id'])) {
-            $data['manager_id'] = null;
-        }
 
         $department->update($data);
 

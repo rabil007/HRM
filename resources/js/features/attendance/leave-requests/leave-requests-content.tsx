@@ -44,6 +44,7 @@ import type {
     LeaveRequestEmployeeOption,
     LeaveRequestFilters,
     LeaveRequestPermissions,
+    LeaveRequestScope,
     LeaveRequestTypeOption,
 } from './types';
 
@@ -96,12 +97,22 @@ export function LeaveRequestsContent({
         status: initialFilters.status,
         employee_id: initialFilters.employee_id,
         leave_type_id: initialFilters.leave_type_id,
+        scope: initialFilters.scope ?? 'my',
     };
 
     const activeFiltersCount = [
         initialFilters.employee_id,
         initialFilters.leave_type_id,
     ].filter(Boolean).length;
+
+    const scopeOptions: Array<{
+        value: LeaveRequestScope;
+        label: string;
+    }> = [
+        { value: 'my', label: 'My' },
+        { value: 'awaiting_my_approval', label: 'Awaiting My Approval' },
+        ...(can.view_all ? ([{ value: 'all', label: 'All' }] as const) : []),
+    ];
 
     const form = useForm(defaultLeaveRequestFormData());
 
@@ -218,6 +229,29 @@ export function LeaveRequestsContent({
                     ) : null
                 }
             />
+
+            <div className="mb-4 flex flex-wrap gap-2">
+                {scopeOptions.map((opt) => {
+                    const isActive = filters.scope === opt.value;
+
+                    return (
+                        <Button
+                            key={opt.value}
+                            type="button"
+                            variant={isActive ? 'default' : 'secondary'}
+                            className={cn(
+                                'h-10 rounded-xl px-4',
+                                !isActive && 'glass-card hover:bg-accent',
+                            )}
+                            onClick={() =>
+                                list.applyFilters({ scope: opt.value })
+                            }
+                        >
+                            {opt.label}
+                        </Button>
+                    );
+                })}
+            </div>
 
             {/* Status Counts Filter Cards */}
             <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
@@ -467,6 +501,7 @@ export function LeaveRequestsContent({
                         status: filters.status,
                         employee_id: '',
                         leave_type_id: '',
+                        scope: filters.scope,
                     })
                 }
             />

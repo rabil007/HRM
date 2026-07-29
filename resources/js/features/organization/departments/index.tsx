@@ -39,6 +39,7 @@ import type {
     Department,
     DepartmentFormData,
     DepartmentParentOption,
+    LeaveApprovalPolicyOption,
     Manager,
 } from './types';
 
@@ -51,6 +52,7 @@ export function DepartmentsContent({
     branches,
     parents,
     managers,
+    leave_approval_policies = [],
 }: {
     departments: Department[];
     all_departments: any[];
@@ -67,6 +69,7 @@ export function DepartmentsContent({
     branches: Branch[];
     parents: DepartmentParentOption[];
     managers: Manager[];
+    leave_approval_policies?: LeaveApprovalPolicyOption[];
 }) {
     const list = useServerPaginationFilters({
         url: '/organization/departments',
@@ -100,6 +103,7 @@ export function DepartmentsContent({
         branch_id: '',
         parent_id: '',
         manager_id: '',
+        leave_approval_policy_id: '',
         name: '',
         code: '',
         status: 'active',
@@ -113,6 +117,7 @@ export function DepartmentsContent({
                 branch_id: '',
                 parent_id: '',
                 manager_id: '',
+                leave_approval_policy_id: '',
                 name: '',
                 code: '',
                 status: 'active',
@@ -127,7 +132,12 @@ export function DepartmentsContent({
             form.setData({
                 branch_id: department.branch?.id ?? '',
                 parent_id: department.parent?.id ?? '',
-                manager_id: department.manager?.id ?? '',
+                manager_id:
+                    department.manager_assignment?.type === 'direct'
+                        ? (department.manager?.id ?? '')
+                        : '',
+                leave_approval_policy_id:
+                    department.leave_approval_policy_id ?? '',
                 name: department.name ?? '',
                 code: department.code ?? '',
                 status: department.status ?? 'active',
@@ -248,7 +258,7 @@ export function DepartmentsContent({
                     ))}
                 </div>
             ) : (
-                <OrganizationDataTable minWidth="min-w-[980px]">
+                <OrganizationDataTable minWidth="min-w-[1100px]">
                     <TableHeader>
                         <DataTableHeaderRow>
                             <DataTableHead className="pl-5">
@@ -258,6 +268,7 @@ export function DepartmentsContent({
                             <DataTableHead>Branch</DataTableHead>
                             <DataTableHead>Parent</DataTableHead>
                             <DataTableHead>Manager</DataTableHead>
+                            <DataTableHead>Approval policy</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
                             <DataTableHead className="text-right">
                                 Actions
@@ -290,7 +301,40 @@ export function DepartmentsContent({
                                     {department.parent?.name ?? '—'}
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
-                                    {department.manager?.name ?? '—'}
+                                    <div className="space-y-0.5">
+                                        <div>
+                                            {department.manager?.name ?? '—'}
+                                        </div>
+                                        {department.manager_assignment
+                                            ?.label ? (
+                                            <div className="text-[11px] text-muted-foreground">
+                                                {
+                                                    department
+                                                        .manager_assignment
+                                                        .label
+                                                }
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    <div className="space-y-0.5">
+                                        <div>
+                                            {department.leave_approval_policy
+                                                ?.name ?? '—'}
+                                        </div>
+                                        {department
+                                            .leave_approval_policy_assignment
+                                            ?.label ? (
+                                            <div className="text-[11px] text-muted-foreground">
+                                                {
+                                                    department
+                                                        .leave_approval_policy_assignment
+                                                        .label
+                                                }
+                                            </div>
+                                        ) : null}
+                                    </div>
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     <div
@@ -345,6 +389,7 @@ export function DepartmentsContent({
                 branches={branches}
                 parents={parents}
                 managers={managers}
+                leaveApprovalPolicies={leave_approval_policies}
                 form={form}
                 onSubmit={submit}
             />

@@ -13,6 +13,17 @@ export type DepartmentTreeNode = {
     code: string | null;
     status: string;
     manager: { id: number; name: string } | null;
+    manager_assignment?: {
+        type: string;
+        label: string;
+        source_department: { id: number; name: string } | null;
+    };
+    leave_approval_policy?: { id: number; name: string } | null;
+    leave_approval_policy_assignment?: {
+        type: string;
+        label: string;
+        source_department: { id: number; name: string } | null;
+    };
     branch: { id: number; name: string } | null;
     positions_count: number;
     users_count: number;
@@ -110,7 +121,7 @@ function OrgCard({
                     </div>
 
                     <div className="flex min-h-[70px] flex-col justify-between p-4">
-                        {node.parent_id === null && node.manager ? (
+                        {node.manager ? (
                             <div className="flex flex-col gap-2">
                                 <div className="flex items-center gap-2">
                                     <Avatar className="h-6 w-6">
@@ -122,16 +133,35 @@ function OrgCard({
                                         {node.manager.name}
                                     </span>
                                 </div>
+                                {node.manager_assignment?.label ? (
+                                    <span className="truncate text-[10px] text-muted-foreground">
+                                        {node.manager_assignment.label}
+                                    </span>
+                                ) : null}
+                                {node.leave_approval_policy?.name ? (
+                                    <span className="truncate text-[10px] text-muted-foreground">
+                                        Policy:{' '}
+                                        {node.leave_approval_policy.name}
+                                    </span>
+                                ) : null}
                                 <span className="text-xs font-semibold text-emerald-500 dark:text-emerald-400">
                                     {node.users_count} Employee
                                     {node.users_count !== 1 ? 's' : ''}
                                 </span>
                             </div>
                         ) : (
-                            <span className="text-xs font-semibold text-emerald-500 dark:text-emerald-400">
-                                {node.users_count} Employee
-                                {node.users_count !== 1 ? 's' : ''}
-                            </span>
+                            <div className="flex flex-col gap-2">
+                                {node.leave_approval_policy?.name ? (
+                                    <span className="truncate text-[10px] text-muted-foreground">
+                                        Policy:{' '}
+                                        {node.leave_approval_policy.name}
+                                    </span>
+                                ) : null}
+                                <span className="text-xs font-semibold text-emerald-500 dark:text-emerald-400">
+                                    {node.users_count} Employee
+                                    {node.users_count !== 1 ? 's' : ''}
+                                </span>
+                            </div>
                         )}
                     </div>
 

@@ -2,6 +2,7 @@
 
 namespace App\Support\Attendance\Actions;
 
+use App\Enums\LeaveRequestApprovalStatus;
 use App\Mail\LeaveRequestDecidedMail;
 use App\Models\EmailTemplate;
 use App\Models\Employee;
@@ -31,6 +32,8 @@ final class SendLeaveRequestDecidedEmail
             'employee.user:id,email',
             'leaveType',
             'company',
+            'approvals.approverEmployee:id,name',
+            'approver:id,name',
         ]);
 
         $recipients = $this->resolveRecipients($template, $leaveRequest);
@@ -173,9 +176,6 @@ final class SendLeaveRequestDecidedEmail
     private function buildMailPayload(LeaveRequest $leaveRequest, string $introMessage): array
     {
         $employee = $leaveRequest->employee;
-        $manager = $employee !== null
-            ? ResolveDepartmentEffectiveManager::managerForEmployee($employee)
-            : null;
 
         return [
             'organizationName' => (string) ($leaveRequest->company?->name ?? config('app.name')),
@@ -183,7 +183,7 @@ final class SendLeaveRequestDecidedEmail
             'employeeName' => (string) ($employee?->name ?? '—'),
             'employeeNo' => (string) ($employee?->employee_no ?? ''),
             'departmentName' => (string) ($employee?->department?->name ?? '—'),
-            'managerName' => (string) ($manager?->name ?? '—'),
+            'managerName' => $this->resolveDecidingApproverName($leaveRequest, $employee),
             'leaveType' => (string) ($leaveRequest->leaveType?->name ?? '—'),
             'leaveTypeColor' => $leaveRequest->leaveType?->color,
             'startDate' => $leaveRequest->start_date?->format('d M Y') ?? '—',
@@ -197,9 +197,6 @@ final class SendLeaveRequestDecidedEmail
     private function renderTemplate(string $template, LeaveRequest $leaveRequest): string
     {
         $employee = $leaveRequest->employee;
-        $manager = $employee !== null
-            ? ResolveDepartmentEffectiveManager::managerForEmployee($employee)
-            : null;
 
         $replacements = [
             '{{employee_name}}' => (string) ($employee?->name ?? ''),
@@ -210,12 +207,42 @@ final class SendLeaveRequestDecidedEmail
             '{{end_date}}' => $leaveRequest->end_date?->format('d M Y') ?? '',
             '{{total_days}}' => number_format((float) $leaveRequest->total_days, 1, '.', ''),
             '{{reason}}' => filled($leaveRequest->reason) ? (string) $leaveRequest->reason : '—',
-            '{{manager_name}}' => (string) ($manager?->name ?? '—'),
+            '{{manager_name}}' => $this->resolveDecidingApproverName($leaveRequest, $employee),
             '{{company_name}}' => (string) ($leaveRequest->company?->name ?? ''),
             '{{request_url}}' => route('attendance.leave-requests.show', $leaveRequest),
             '{{rejection_reason}}' => filled($leaveRequest->rejection_reason) ? (string) $leaveRequest->rejection_reason : '—',
         ];
 
         return strtr($template, $replacements);
+    }
+
+    private function resolveDecidingApproverName(LeaveRequest $leaveRequest, ?Employee $employee): string
+    {
+        if ($leaveRequest->approver !== null) {
+            return (string) $leaveRequest->approver->name;
+        }
+
+        if ($leaveRequest->relationLoaded('approvals')) {
+            $acted = $leaveRequest->approvals
+                ->filter(fn ($approval) => in_array(
+                    $approval->status,
+                    [LeaveRequestApprovalStatus::Approved, LeaveRequestApprovalStatus::Rejected],
+                    true,
+                ))
+                ->sortByDesc('sequence')
+                ->first();
+
+            if ($acted?->approverEmployee !== null) {
+                return (string) $acted->approverEmployee->name;
+            }
+        }
+
+        if ($employee === null) {
+            return '—';
+        }
+
+        $manager = ResolveDepartmentEffectiveManager::managerForEmployee($employee);
+
+        return (string) ($manager?->name ?? '—');
     }
 }

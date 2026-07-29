@@ -16,6 +16,8 @@ class ApproveLeaveRequestRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [];
+        return [
+            'comments' => ['nullable', 'string', 'max:5000'],
+        ];
     }
 }

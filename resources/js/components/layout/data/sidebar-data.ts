@@ -29,6 +29,7 @@ import {
     Waves,
     BarChart3,
     FilePenLine,
+    ShieldCheck,
 } from 'lucide-react';
 import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import { dashboard } from '@/routes';
@@ -221,6 +222,11 @@ const baseSidebarData: SidebarData = {
                     icon: CalendarCheck2,
                 },
                 { title: 'Types', url: '/attendance/types', icon: IdCard },
+                {
+                    title: 'Approval policies',
+                    url: '/attendance/leave-approval-policies',
+                    icon: ShieldCheck,
+                },
             ],
         },
         {
@@ -458,6 +464,13 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 : null;
                         case '/attendance/types':
                             return has(permissions, 'attendance.types.view')
+                                ? item
+                                : null;
+                        case '/attendance/leave-approval-policies':
+                            return has(
+                                permissions,
+                                'attendance.leave-approval-policies.view',
+                            )
                                 ? item
                                 : null;
                         case '/attendance/leave-requests':

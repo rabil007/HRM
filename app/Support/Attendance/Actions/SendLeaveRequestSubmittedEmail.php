@@ -2,10 +2,12 @@
 
 namespace App\Support\Attendance\Actions;
 
+use App\Enums\LeaveRequestApprovalStatus;
 use App\Mail\LeaveRequestSubmittedMail;
 use App\Models\EmailTemplate;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
+use App\Models\LeaveRequestApproval;
 use App\Support\Departments\ResolveDepartmentEffectiveManager;
 use App\Support\Email\CommaSeparatedEmailList;
 use Illuminate\Support\Facades\Mail;
@@ -30,6 +32,7 @@ final class SendLeaveRequestSubmittedEmail
             'employee.user:id,email',
             'leaveType',
             'company',
+            'approvals.approverEmployee.user:id,email',
         ]);
 
         $recipients = $this->resolveRecipients($template, $leaveRequest);
@@ -72,8 +75,24 @@ final class SendLeaveRequestSubmittedEmail
      */
     private function resolveRecipients(EmailTemplate $template, LeaveRequest $leaveRequest): array
     {
-        $toPreset = CommaSeparatedEmailList::parse($template->to_preset);
         $ccPreset = CommaSeparatedEmailList::parse($template->cc_preset);
+        $pendingApproverEmail = $this->resolveFirstPendingApproverEmail($leaveRequest);
+
+        if ($pendingApproverEmail !== '') {
+            $cc = collect($ccPreset)
+                ->filter(fn (string $email) => $email !== '' && strcasecmp($email, $pendingApproverEmail) !== 0)
+                ->unique(fn (string $email) => strtolower($email))
+                ->values()
+                ->all();
+
+            return [
+                'to' => $pendingApproverEmail,
+                'cc' => $cc,
+            ];
+        }
+
+        // Legacy fallback when no approval snapshot exists yet.
+        $toPreset = CommaSeparatedEmailList::parse($template->to_preset);
         $managerEmail = $this->resolveManagerEmail($leaveRequest);
 
         $merged = collect([...$toPreset, $managerEmail])
@@ -90,6 +109,33 @@ final class SendLeaveRequestSubmittedEmail
             'to' => $merged[0],
             'cc' => array_values(array_unique([...array_slice($merged, 1), ...$ccPreset], SORT_REGULAR)),
         ];
+    }
+
+    private function resolveFirstPendingApproverEmail(LeaveRequest $leaveRequest): string
+    {
+        $pending = $leaveRequest->relationLoaded('approvals')
+            ? $leaveRequest->approvals
+                ->first(fn (LeaveRequestApproval $approval): bool => $approval->status === LeaveRequestApprovalStatus::Pending)
+            : LeaveRequestApproval::query()
+                ->where('company_id', $leaveRequest->company_id)
+                ->where('leave_request_id', $leaveRequest->id)
+                ->where('status', LeaveRequestApprovalStatus::Pending)
+                ->orderBy('sequence')
+                ->with('approverEmployee.user:id,email')
+                ->first();
+
+        if ($pending === null) {
+            return '';
+        }
+
+        $pending->loadMissing('approverEmployee.user:id,email');
+        $approver = $pending->approverEmployee;
+
+        if ($approver === null) {
+            return '';
+        }
+
+        return $this->employeeEmail($approver);
     }
 
     private function resolveManagerEmail(LeaveRequest $leaveRequest): string
@@ -152,9 +198,7 @@ final class SendLeaveRequestSubmittedEmail
     private function buildMailPayload(LeaveRequest $leaveRequest, string $introMessage): array
     {
         $employee = $leaveRequest->employee;
-        $manager = $employee !== null
-            ? ResolveDepartmentEffectiveManager::managerForEmployee($employee)
-            : null;
+        $managerName = $this->resolveDisplayApproverName($leaveRequest, $employee);
 
         return [
             'organizationName' => (string) ($leaveRequest->company?->name ?? config('app.name')),
@@ -162,7 +206,7 @@ final class SendLeaveRequestSubmittedEmail
             'employeeName' => (string) ($employee?->name ?? '—'),
             'employeeNo' => (string) ($employee?->employee_no ?? ''),
             'departmentName' => (string) ($employee?->department?->name ?? '—'),
-            'managerName' => (string) ($manager?->name ?? '—'),
+            'managerName' => $managerName,
             'leaveType' => (string) ($leaveRequest->leaveType?->name ?? '—'),
             'leaveTypeColor' => $leaveRequest->leaveType?->color,
             'startDate' => $leaveRequest->start_date?->format('d M Y') ?? '—',
@@ -176,9 +220,7 @@ final class SendLeaveRequestSubmittedEmail
     private function renderTemplate(string $template, LeaveRequest $leaveRequest): string
     {
         $employee = $leaveRequest->employee;
-        $manager = $employee !== null
-            ? ResolveDepartmentEffectiveManager::managerForEmployee($employee)
-            : null;
+        $managerName = $this->resolveDisplayApproverName($leaveRequest, $employee);
 
         $replacements = [
             '{{employee_name}}' => (string) ($employee?->name ?? ''),
@@ -189,11 +231,31 @@ final class SendLeaveRequestSubmittedEmail
             '{{end_date}}' => $leaveRequest->end_date?->format('d M Y') ?? '',
             '{{total_days}}' => number_format((float) $leaveRequest->total_days, 1, '.', ''),
             '{{reason}}' => filled($leaveRequest->reason) ? (string) $leaveRequest->reason : '—',
-            '{{manager_name}}' => (string) ($manager?->name ?? '—'),
+            '{{manager_name}}' => $managerName,
             '{{company_name}}' => (string) ($leaveRequest->company?->name ?? ''),
             '{{request_url}}' => route('attendance.leave-requests.show', $leaveRequest),
         ];
 
         return strtr($template, $replacements);
+    }
+
+    private function resolveDisplayApproverName(LeaveRequest $leaveRequest, ?Employee $employee): string
+    {
+        $pending = $leaveRequest->relationLoaded('approvals')
+            ? $leaveRequest->approvals
+                ->first(fn (LeaveRequestApproval $approval): bool => $approval->status === LeaveRequestApprovalStatus::Pending)
+            : null;
+
+        if ($pending?->approverEmployee !== null) {
+            return (string) $pending->approverEmployee->name;
+        }
+
+        if ($employee === null) {
+            return '—';
+        }
+
+        $manager = ResolveDepartmentEffectiveManager::managerForEmployee($employee);
+
+        return (string) ($manager?->name ?? '—');
     }
 }

@@ -1,0 +1,262 @@
+<?php
+
+use App\Enums\LeaveApprovalApproverType;
+use App\Models\Company;
+use App\Models\Country;
+use App\Models\Currency;
+use App\Models\Department;
+use App\Models\Employee;
+use App\Models\LeaveApprovalPolicy;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia as Assert;
+
+/**
+ * @return array{user: User, company: Company}
+ */
+function makeLeaveApprovalPolicyFixtures(): array
+{
+    $user = User::factory()->create();
+    $country = Country::query()->create([
+        'code' => 'AP'.fake()->unique()->numerify('##'),
+        'name' => 'Approval Policyland',
+        'dial_code' => '+997',
+        'is_active' => true,
+    ]);
+    $currency = Currency::query()->create([
+        'code' => 'AP'.fake()->unique()->numerify('##'),
+        'name' => 'Approval Currency',
+        'symbol' => 'A$',
+        'is_active' => true,
+    ]);
+    $company = Company::query()->create([
+        'name' => 'Approval Policy Co',
+        'slug' => 'ap-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    DB::table('company_user')->insert([
+        'company_id' => $company->id,
+        'user_id' => $user->id,
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    return ['user' => $user, 'company' => $company];
+}
+
+test('guests cannot access leave approval policies', function () {
+    $this->get('/attendance/leave-approval-policies')->assertRedirect(route('login'));
+});
+
+test('authorized users can manage leave approval policies', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveApprovalPolicyFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-approval-policies.view',
+        'attendance.leave-approval-policies.create',
+        'attendance.leave-approval-policies.update',
+        'attendance.leave-approval-policies.delete',
+    ]);
+
+    $this->get('/attendance/leave-approval-policies')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('attendance/leave-approval-policies'));
+
+    $this->post('/attendance/leave-approval-policies', [
+        'name' => 'Manager then HR',
+        'description' => 'Standard chain',
+        'is_default' => true,
+        'status' => 'active',
+        'steps' => [
+            [
+                'approver_type' => LeaveApprovalApproverType::DepartmentManager->value,
+                'approver_employee_id' => null,
+                'is_required' => true,
+            ],
+            [
+                'approver_type' => LeaveApprovalApproverType::HrApprover->value,
+                'approver_employee_id' => null,
+                'is_required' => true,
+            ],
+        ],
+    ])->assertRedirect(route('attendance.leave-approval-policies.index'));
+
+    $policy = LeaveApprovalPolicy::query()->where('company_id', $company->id)->first();
+
+    expect($policy)->not->toBeNull()
+        ->and($policy->is_default)->toBeTrue()
+        ->and($policy->steps)->toHaveCount(2);
+
+    $this->put("/attendance/leave-approval-policies/{$policy->id}", [
+        'name' => 'Manager only',
+        'description' => 'Simplified',
+        'is_default' => true,
+        'status' => 'active',
+        'steps' => [
+            [
+                'approver_type' => LeaveApprovalApproverType::DepartmentManager->value,
+                'is_required' => true,
+            ],
+        ],
+    ])->assertRedirect(route('attendance.leave-approval-policies.index'));
+
+    expect($policy->fresh()->name)->toBe('Manager only')
+        ->and($policy->fresh()->steps)->toHaveCount(1);
+});
+
+test('default policy cannot be deleted or deactivated', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveApprovalPolicyFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-approval-policies.view',
+        'attendance.leave-approval-policies.update',
+        'attendance.leave-approval-policies.delete',
+    ]);
+
+    $policy = ensureDefaultLeaveApprovalPolicy($company);
+
+    $this->put("/attendance/leave-approval-policies/{$policy->id}/status", [
+        'status' => 'inactive',
+    ])->assertSessionHasErrors('status');
+
+    $this->delete("/attendance/leave-approval-policies/{$policy->id}")
+        ->assertSessionHasErrors('policy');
+
+    expect($policy->fresh())->not->toBeNull();
+});
+
+test('policy assigned to a department cannot be deleted', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveApprovalPolicyFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-approval-policies.delete',
+    ]);
+
+    $policy = LeaveApprovalPolicy::factory()
+        ->forCompany($company)
+        ->withDepartmentManagerStep()
+        ->create(['is_default' => false]);
+
+    Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Ops',
+        'code' => 'OPS',
+        'leave_approval_policy_id' => $policy->id,
+        'status' => 'active',
+    ]);
+
+    $this->delete("/attendance/leave-approval-policies/{$policy->id}")
+        ->assertSessionHasErrors('policy');
+
+    expect($policy->fresh())->not->toBeNull();
+});
+
+test('set default switches company default policy', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveApprovalPolicyFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-approval-policies.update',
+    ]);
+
+    $first = ensureDefaultLeaveApprovalPolicy($company);
+    $second = LeaveApprovalPolicy::factory()
+        ->forCompany($company)
+        ->withDepartmentManagerStep()
+        ->create(['is_default' => false]);
+
+    $this->put("/attendance/leave-approval-policies/{$second->id}/default")
+        ->assertRedirect(route('attendance.leave-approval-policies.index'));
+
+    expect($first->fresh()->is_default)->toBeFalse()
+        ->and($second->fresh()->is_default)->toBeTrue()
+        ->and($second->fresh()->status)->toBe('active');
+});
+
+test('move step swaps sequence order', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveApprovalPolicyFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-approval-policies.update',
+    ]);
+
+    $policy = LeaveApprovalPolicy::factory()
+        ->forCompany($company)
+        ->withSteps([
+            ['type' => LeaveApprovalApproverType::DepartmentManager],
+            ['type' => LeaveApprovalApproverType::HrApprover],
+        ])
+        ->create();
+
+    $first = $policy->steps()->where('sequence', 1)->first();
+    $second = $policy->steps()->where('sequence', 2)->first();
+
+    $this->put("/attendance/leave-approval-policies/{$policy->id}/steps/{$second->id}/move", [
+        'direction' => 'up',
+    ])->assertRedirect(route('attendance.leave-approval-policies.index'));
+
+    expect($first->fresh()->sequence)->toBe(2)
+        ->and($second->fresh()->sequence)->toBe(1);
+});
+
+test('leave approval settings can be updated with validation warnings', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveApprovalPolicyFixtures();
+    $inactive = Employee::factory()->forCompany($company)->create(['status' => 'inactive', 'user_id' => null]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-approval-settings.view',
+        'attendance.leave-approval-settings.update',
+    ]);
+
+    $this->get('/attendance/leave-approval-settings')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('attendance/leave-approval-settings'));
+
+    $this->put('/attendance/leave-approval-settings', [
+        'default_hr_approver_employee_id' => $inactive->id,
+        'fallback_approver_employee_id' => null,
+    ])
+        ->assertRedirect(route('attendance.leave-approval-settings.edit'))
+        ->assertSessionHas('warning');
+});
+
+test('cross-company leave approval policy is not visible', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveApprovalPolicyFixtures();
+    $other = Company::query()->create([
+        'name' => 'Other Approval Co',
+        'slug' => 'other-ap-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $company->country_id,
+        'currency_id' => $company->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+    $foreign = LeaveApprovalPolicy::factory()->forCompany($other)->withDepartmentManagerStep()->create();
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-approval-policies.view',
+        'attendance.leave-approval-policies.update',
+    ]);
+
+    $this->put("/attendance/leave-approval-policies/{$foreign->id}", [
+        'name' => 'Hacked',
+        'status' => 'active',
+        'steps' => [
+            ['approver_type' => LeaveApprovalApproverType::DepartmentManager->value, 'is_required' => true],
+        ],
+    ])->assertNotFound();
+});

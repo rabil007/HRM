@@ -4,6 +4,8 @@ export type LeaveRequestStatus =
     | 'rejected'
     | 'cancelled';
 
+export type LeaveRequestScope = 'my' | 'awaiting_my_approval' | 'all';
+
 export type LeaveRequestEmployeeOption = {
     id: number;
     employee_no: string | null;
@@ -25,6 +27,32 @@ export type LeaveRequestAttachment = {
     url: string;
 };
 
+export type LeaveRequestApprovalStatus =
+    | 'waiting'
+    | 'pending'
+    | 'approved'
+    | 'rejected'
+    | 'skipped'
+    | 'cancelled';
+
+export type LeaveRequestApproval = {
+    id: number;
+    sequence: number;
+    approver_type: string;
+    approver_type_label: string | null;
+    status: LeaveRequestApprovalStatus | string;
+    is_required: boolean;
+    acted_at: string | null;
+    comments: string | null;
+    approver_employee: {
+        id: number;
+        name: string;
+        employee_no: string | null;
+    } | null;
+    approver_user: { id: number; name: string } | null;
+    source_department: { id: number; name: string } | null;
+};
+
 export type LeaveRequest = {
     id: number;
     employee: LeaveRequestEmployeeOption | null;
@@ -40,6 +68,8 @@ export type LeaveRequest = {
     approver: { id: number; name: string } | null;
     created_at: string | null;
     attachments: LeaveRequestAttachment[];
+    can_approve_current_step?: boolean;
+    approvals?: LeaveRequestApproval[];
 };
 
 export type LeaveRequestFormData = {
@@ -56,6 +86,7 @@ export type LeaveRequestFilters = {
     status: '' | LeaveRequestStatus;
     employee_id: string;
     leave_type_id: string;
+    scope: LeaveRequestScope;
 };
 
 export type LeaveRequestPermissions = {
@@ -63,6 +94,7 @@ export type LeaveRequestPermissions = {
     update: boolean;
     delete: boolean;
     approve: boolean;
+    view_all: boolean;
 };
 
 export const defaultLeaveRequestFormData = (): LeaveRequestFormData => ({

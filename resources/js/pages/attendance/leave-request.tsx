@@ -6,6 +6,7 @@ import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
 import { RecentActivityCard } from '@/components/recent-activity-card';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LeaveRequestCancelDialog } from '@/features/attendance/leave-requests/components/leave-request-cancel-dialog';
 import { LeaveRequestDeleteDialog } from '@/features/attendance/leave-requests/components/leave-request-delete-dialog';
@@ -16,12 +17,14 @@ import { LeaveRequestStatusBadge } from '@/features/attendance/leave-requests/co
 import { leaveRequestToFormData } from '@/features/attendance/leave-requests/types';
 import type {
     LeaveRequest,
+    LeaveRequestApproval,
     LeaveRequestEmployeeOption,
     LeaveRequestPermissions,
     LeaveRequestTypeOption,
 } from '@/features/attendance/leave-requests/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 
 function Field({ label, value }: { label: string; value: ReactNode }) {
     return (
@@ -30,6 +33,102 @@ function Field({ label, value }: { label: string; value: ReactNode }) {
                 {label}
             </div>
             <div className="text-right text-sm font-bold">{value}</div>
+        </div>
+    );
+}
+
+function approvalStatusClass(status: string) {
+    switch (status) {
+        case 'approved':
+            return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200';
+        case 'rejected':
+            return 'border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-200';
+        case 'pending':
+            return 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-200';
+        case 'waiting':
+            return 'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-200';
+        case 'skipped':
+        case 'cancelled':
+            return 'border-border/80 bg-muted/60 text-muted-foreground';
+        default:
+            return 'border-border/80 bg-muted/60 text-muted-foreground';
+    }
+}
+
+function ApprovalTimeline({
+    approvals,
+}: {
+    approvals: LeaveRequestApproval[];
+}) {
+    if (approvals.length === 0) {
+        return (
+            <div className="px-6 py-8 text-sm text-muted-foreground">
+                No approval steps recorded for this request.
+            </div>
+        );
+    }
+
+    return (
+        <div className="divide-y divide-border dark:divide-white/5">
+            {approvals.map((approval) => {
+                const actor =
+                    approval.approver_employee?.name ??
+                    approval.approver_user?.name ??
+                    '—';
+
+                return (
+                    <div
+                        key={approval.id}
+                        className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-start sm:justify-between"
+                    >
+                        <div className="min-w-0 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-bold tracking-wider text-muted-foreground/70 uppercase">
+                                    Step {approval.sequence}
+                                </span>
+                                <Badge
+                                    className={cn(
+                                        'border text-[10px] font-bold tracking-wider uppercase',
+                                        approvalStatusClass(
+                                            String(approval.status),
+                                        ),
+                                    )}
+                                >
+                                    {approval.status}
+                                </Badge>
+                                {!approval.is_required ? (
+                                    <Badge
+                                        variant="secondary"
+                                        className="border-border/60 bg-muted/40 text-[10px] font-bold tracking-wider uppercase"
+                                    >
+                                        Optional
+                                    </Badge>
+                                ) : null}
+                            </div>
+                            <div className="text-sm font-semibold">
+                                {approval.approver_type_label ??
+                                    approval.approver_type}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                                {actor}
+                                {approval.source_department?.name
+                                    ? ` • ${approval.source_department.name}`
+                                    : ''}
+                            </div>
+                            {approval.comments?.trim() ? (
+                                <p className="text-xs text-muted-foreground/80">
+                                    {approval.comments}
+                                </p>
+                            ) : null}
+                        </div>
+                        <div className="shrink-0 text-xs text-muted-foreground/60">
+                            {approval.acted_at
+                                ? formatDisplayDate(approval.acted_at)
+                                : 'Awaiting action'}
+                        </div>
+                    </div>
+                );
+            })}
         </div>
     );
 }
@@ -270,6 +369,22 @@ export default function LeaveRequestDetails({
                     </CardContent>
                 </Card>
             </div>
+
+            <Card className="mt-6 glass-card border-border bg-card dark:border-white/5 dark:bg-white/5">
+                <CardHeader>
+                    <CardTitle className="text-xl font-bold tracking-tight">
+                        Approval timeline
+                    </CardTitle>
+                    <div className="text-sm text-muted-foreground/80">
+                        Multi-step approval progress for this leave request.
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <ApprovalTimeline
+                        approvals={leave_request.approvals ?? []}
+                    />
+                </CardContent>
+            </Card>
 
             {can_view_audit ? (
                 <RecentActivityCard

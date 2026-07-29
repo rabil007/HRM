@@ -6,13 +6,6 @@ use Illuminate\Validation\Rule;
 
 trait ValidatesDepartmentManager
 {
-    protected function prepareForValidation(): void
-    {
-        if (filled($this->input('parent_id'))) {
-            $this->merge(['manager_id' => null]);
-        }
-    }
-
     /**
      * @return array<int, mixed>
      */
@@ -23,8 +16,8 @@ trait ValidatesDepartmentManager
             'integer',
             Rule::exists('employees', 'id')->where(fn ($q) => $q
                 ->where('company_id', $companyId)
-                ->where('status', 'active')),
-            Rule::prohibitedIf(fn () => filled($this->input('parent_id'))),
+                ->where('status', 'active')
+                ->whereNull('deleted_at')),
         ];
     }
 }

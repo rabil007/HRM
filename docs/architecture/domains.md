@@ -205,7 +205,7 @@ Examples (full list in seeder):
 | Documents | `documents.view`, `.download`, `.share`, `.upload`, `.delete` |
 | Contracts / bank / training | `contracts.*`, `bank_accounts.*`, `training.*` |
 | Crew | `crew_operations.deployments.*`, `crew_operations.overview.view`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*` |
-| Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` |
+| Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` (incl. `view_all`), `attendance.leave-approval-policies.*`, `attendance.leave-approval-settings.*` |
 | Payroll | `payroll.overview.view`, `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, payslip and WPS actions |
 | Bulk documents | `bulk_documents.view`, `.generate`, `.delete`, `.email`, `.signatures.review` |
 | Hikvision | `hikvision.persons.*`, `hikvision.devices.*`, `hikvision.events.*`, `hikvision.webhook.manage` |
@@ -643,11 +643,17 @@ Manage employee sea service history from the organization-wide sea services brow
 
 ### Purpose
 
-Track attendance records, leave types and balances, leave requests, approvals, attachments, and calendar views.
+Track attendance records, leave types and balances, leave requests, multi-step leave approvals, attachments, and calendar views.
+
+### Leave approval policies
+
+Companies configure ordered approval policies (`LeaveApprovalPolicy` + `LeaveApprovalPolicyStep`) with approver types: department manager, parent manager, HR approver, and specific employee. Departments may assign a policy directly or inherit one; otherwise the company default policy applies. Company HR/fallback approvers live in `CompanyLeaveApprovalSetting`.
+
+On submit, `SubmitLeaveRequestWithApprovals` snapshots the resolved chain into `leave_request_approvals`. Approvers act only on their pending step (`ApproveLeaveRequestStep` / `RejectLeaveRequestStep`); `attendance.leave-requests.approve` alone does not authorize unrelated requests. `attendance.leave-requests.view_all` is required to list/manage all employees’ requests.
 
 ### Main artifacts
 
-- `AttendanceRecord`, `LeaveType`, `LeaveBalance`, `LeaveRequest`
+- `AttendanceRecord`, `LeaveType`, `LeaveBalance`, `LeaveRequest`, `LeaveApprovalPolicy`, `LeaveApprovalPolicyStep`, `LeaveRequestApproval`, `CompanyLeaveApprovalSetting`
 - Controllers under `app/Http/Controllers/Attendance/`
 - Pages under `resources/js/pages/attendance/`
 
@@ -656,7 +662,9 @@ Track attendance records, leave types and balances, leave requests, approvals, a
 - `attendance.overview.view`
 - `attendance.records.view|create|update|delete|manage`
 - `attendance.types.view|create|update|delete`
-- `attendance.leave-requests.view|create|update|delete|approve`
+- `attendance.leave-requests.view|view_all|create|update|delete|approve`
+- `attendance.leave-approval-policies.view|create|update|delete`
+- `attendance.leave-approval-settings.view|update`
 
 ---
 
@@ -974,7 +982,7 @@ flowchart TB
 | Crew deployments | `/organization/crew-deployments` | `crew-deployments/index`, `show` |
 | Crew operations / planning | `/organization/crew-operations`, `/organization/crew-planning` | `crew-operations/*`, `crew-planning/index` |
 | Vessel manning | `/organization/vessel-manning` | `vessel-manning/index`, `show` |
-| Attendance / leave | `/attendance/*` | `attendance/overview`, `records`, `calendar`, `types`, `leave-requests` |
+| Attendance / leave | `/attendance/*` | `attendance/overview`, `records`, `calendar`, `types`, `leave-requests`, `leave-approval-policies`, `leave-approval-settings` |
 | Payroll | `/payroll/*` | `payroll/overview`, `index`, `show`, `records`, `salary-inputs` |
 | Hikvision | `/hikvision/persons`, `/hikvision/access-events` | `hikvision/persons`, `access-events` |
 | Users | `/organization/users` | `users.tsx`, `user.tsx` |

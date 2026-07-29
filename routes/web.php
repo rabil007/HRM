@@ -4,6 +4,8 @@ use App\Http\Controllers\ApplicationLogController;
 use App\Http\Controllers\Attendance\AttendanceCalendarController;
 use App\Http\Controllers\Attendance\AttendanceOverviewController;
 use App\Http\Controllers\Attendance\AttendanceRecordController;
+use App\Http\Controllers\Attendance\LeaveApprovalPolicyController;
+use App\Http\Controllers\Attendance\LeaveApprovalSettingController;
 use App\Http\Controllers\Attendance\LeaveRequestAttachmentController;
 use App\Http\Controllers\Attendance\LeaveRequestController;
 use App\Http\Controllers\Attendance\LeaveTypeController;
@@ -825,6 +827,42 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('attendance/types/{leave_type}', [LeaveTypeController::class, 'destroy'])
         ->middleware('can:attendance.types.delete')
         ->name('attendance.types.destroy');
+
+    Route::get('attendance/leave-approval-policies', [LeaveApprovalPolicyController::class, 'index'])
+        ->middleware('can:attendance.leave-approval-policies.view')
+        ->name('attendance.leave-approval-policies.index');
+
+    Route::post('attendance/leave-approval-policies', [LeaveApprovalPolicyController::class, 'store'])
+        ->middleware('can:attendance.leave-approval-policies.create')
+        ->name('attendance.leave-approval-policies.store');
+
+    Route::put('attendance/leave-approval-policies/{leave_approval_policy}', [LeaveApprovalPolicyController::class, 'update'])
+        ->middleware('can:attendance.leave-approval-policies.update')
+        ->name('attendance.leave-approval-policies.update');
+
+    Route::put('attendance/leave-approval-policies/{leave_approval_policy}/status', [LeaveApprovalPolicyController::class, 'updateStatus'])
+        ->middleware('can:attendance.leave-approval-policies.update')
+        ->name('attendance.leave-approval-policies.status');
+
+    Route::put('attendance/leave-approval-policies/{leave_approval_policy}/default', [LeaveApprovalPolicyController::class, 'setDefault'])
+        ->middleware('can:attendance.leave-approval-policies.update')
+        ->name('attendance.leave-approval-policies.default');
+
+    Route::put('attendance/leave-approval-policies/{leave_approval_policy}/steps/{step}/move', [LeaveApprovalPolicyController::class, 'moveStep'])
+        ->middleware('can:attendance.leave-approval-policies.update')
+        ->name('attendance.leave-approval-policies.steps.move');
+
+    Route::delete('attendance/leave-approval-policies/{leave_approval_policy}', [LeaveApprovalPolicyController::class, 'destroy'])
+        ->middleware('can:attendance.leave-approval-policies.delete')
+        ->name('attendance.leave-approval-policies.destroy');
+
+    Route::get('attendance/leave-approval-settings', [LeaveApprovalSettingController::class, 'edit'])
+        ->middleware('can:attendance.leave-approval-settings.view')
+        ->name('attendance.leave-approval-settings.edit');
+
+    Route::put('attendance/leave-approval-settings', [LeaveApprovalSettingController::class, 'update'])
+        ->middleware('can:attendance.leave-approval-settings.update')
+        ->name('attendance.leave-approval-settings.update');
 
     Route::get('attendance/leave-requests', [LeaveRequestController::class, 'index'])
         ->middleware('can:attendance.leave-requests.view')

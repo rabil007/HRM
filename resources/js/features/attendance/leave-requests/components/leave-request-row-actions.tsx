@@ -28,6 +28,7 @@ export function LeaveRequestRowActions({
     const canModify = isPending && can.update;
     const canRemove =
         (isPending || leaveRequest.status === 'cancelled') && can.delete;
+    const canActOnCurrentStep = Boolean(leaveRequest.can_approve_current_step);
 
     const actions: TableRowActionItem[] = [
         {
@@ -40,14 +41,14 @@ export function LeaveRequestRowActions({
             icon: Check,
             variant: 'success',
             onClick: () => onApprove(leaveRequest),
-            hidden: !(isPending && can.approve),
+            hidden: !(isPending && canActOnCurrentStep),
         },
         {
             label: 'Reject',
             icon: X,
             variant: 'danger',
             onClick: () => onReject(leaveRequest),
-            hidden: !(isPending && can.approve),
+            hidden: !(isPending && canActOnCurrentStep),
         },
         {
             label: 'Cancel',

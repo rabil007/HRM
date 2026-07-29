@@ -15,6 +15,7 @@ import type {
     Department,
     DepartmentFormData,
     DepartmentParentOption,
+    LeaveApprovalPolicyOption,
     Manager,
 } from '../types';
 
@@ -25,6 +26,7 @@ export function DepartmentFormSheet({
     branches,
     parents,
     managers,
+    leaveApprovalPolicies = [],
     form,
     onSubmit,
 }: {
@@ -34,12 +36,12 @@ export function DepartmentFormSheet({
     branches: Branch[];
     parents: DepartmentParentOption[];
     managers: Manager[];
+    leaveApprovalPolicies?: LeaveApprovalPolicyOption[];
     form: InertiaFormProps<DepartmentFormData>;
     onSubmit: () => void;
 }) {
     const availableBranches = branches ?? [];
     const availableParents = parents ?? [];
-    const canAssignManager = !form.data.parent_id;
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -185,17 +187,12 @@ export function DepartmentFormSheet({
                             </Label>
                             <AppSelect
                                 value={String(form.data.parent_id ?? '')}
-                                onValueChange={(v) => {
-                                    const parentId = v ? Number(v) : '';
-
-                                    form.setData((data) => ({
-                                        ...data,
-                                        parent_id: parentId,
-                                        manager_id: parentId
-                                            ? ''
-                                            : data.manager_id,
-                                    }));
-                                }}
+                                onValueChange={(v) =>
+                                    form.setData(
+                                        'parent_id',
+                                        v ? Number(v) : '',
+                                    )
+                                }
                                 variant="card"
                                 placeholder="No parent"
                             >
@@ -218,52 +215,93 @@ export function DepartmentFormSheet({
                             ) : null}
                         </div>
 
-                        {canAssignManager ? (
-                            <div className="space-y-2">
-                                <Label
-                                    htmlFor="manager_id"
-                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
-                                >
-                                    Manager (optional)
-                                </Label>
-                                <AppSelect
-                                    value={String(form.data.manager_id ?? '')}
-                                    onValueChange={(v) =>
-                                        form.setData(
-                                            'manager_id',
-                                            v ? Number(v) : '',
-                                        )
-                                    }
-                                    variant="card"
-                                    placeholder="No manager"
-                                >
-                                    <AppSelectItem value="">
-                                        No manager
+                        <div className="space-y-2">
+                            <Label
+                                htmlFor="manager_id"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
+                                Manager (optional)
+                            </Label>
+                            <AppSelect
+                                value={String(form.data.manager_id ?? '')}
+                                onValueChange={(v) =>
+                                    form.setData(
+                                        'manager_id',
+                                        v ? Number(v) : '',
+                                    )
+                                }
+                                variant="card"
+                                placeholder="No manager"
+                            >
+                                <AppSelectItem value="">
+                                    No manager
+                                </AppSelectItem>
+                                {managers.map((manager) => (
+                                    <AppSelectItem
+                                        key={manager.id}
+                                        value={String(manager.id)}
+                                    >
+                                        {manager.employee_no
+                                            ? `${manager.employee_no} — ${manager.name}`
+                                            : manager.name}
                                     </AppSelectItem>
-                                    {managers.map((manager) => (
-                                        <AppSelectItem
-                                            key={manager.id}
-                                            value={String(manager.id)}
-                                        >
-                                            {manager.employee_no
-                                                ? `${manager.employee_no} — ${manager.name}`
-                                                : manager.name}
-                                        </AppSelectItem>
-                                    ))}
-                                </AppSelect>
-                                {form.errors.manager_id ? (
-                                    <div className="text-xs font-medium text-destructive">
-                                        {form.errors.manager_id}
-                                    </div>
-                                ) : null}
-                            </div>
-                        ) : (
+                                ))}
+                            </AppSelect>
                             <p className="text-xs text-muted-foreground">
-                                Managers can only be assigned to parent
-                                departments. Remove the parent department to
-                                assign a manager.
+                                Leave blank to inherit the nearest ancestor
+                                manager.
                             </p>
-                        )}
+                            {form.errors.manager_id ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.manager_id}
+                                </div>
+                            ) : null}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label
+                                htmlFor="leave_approval_policy_id"
+                                className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                            >
+                                Leave approval policy (optional)
+                            </Label>
+                            <AppSelect
+                                value={String(
+                                    form.data.leave_approval_policy_id ?? '',
+                                )}
+                                onValueChange={(v) =>
+                                    form.setData(
+                                        'leave_approval_policy_id',
+                                        v ? Number(v) : '',
+                                    )
+                                }
+                                variant="card"
+                                placeholder="Inherit / company default"
+                            >
+                                <AppSelectItem value="">
+                                    Inherit / company default
+                                </AppSelectItem>
+                                {leaveApprovalPolicies.map((policy) => (
+                                    <AppSelectItem
+                                        key={policy.id}
+                                        value={String(policy.id)}
+                                    >
+                                        {policy.is_default
+                                            ? `${policy.name} (default)`
+                                            : policy.name}
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+                            <p className="text-xs text-muted-foreground">
+                                Leave blank to inherit from a parent or use the
+                                company default policy.
+                            </p>
+                            {form.errors.leave_approval_policy_id ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.leave_approval_policy_id}
+                                </div>
+                            ) : null}
+                        </div>
                     </div>
                 </div>
 
