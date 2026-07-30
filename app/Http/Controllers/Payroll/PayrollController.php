@@ -18,13 +18,16 @@ use App\Http\Requests\Organization\Payroll\RevertPayrollPeriodToDraftRequest;
 use App\Http\Requests\Organization\Payroll\RevertPayrollPeriodToProcessingRequest;
 use App\Http\Requests\Organization\Payroll\StorePayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\UpsertCrewTimesheetRequest;
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\CompanyVisaType;
 use App\Models\LeaveType;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Models\Rank;
 use App\Models\SalaryInput;
 use App\Models\SalaryInputType;
+use App\Models\Vessel;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use App\Support\Pagination\ResolvesPerPage;
@@ -416,6 +419,40 @@ class PayrollController extends Controller
             'clearable_timesheet_count' => $payrollPeriod->isCrew() && $payrollPeriod->status === PayrollPeriodStatus::Draft
                 ? $clearableManualImportCrewTimesheetsQuery->count($payrollPeriod, $companyId)
                 : 0,
+            'movement_master_options' => $payrollPeriod->isCrew()
+                ? [
+                    'vessels' => Vessel::query()
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->get(['id', 'name'])
+                        ->map(fn (Vessel $vessel) => [
+                            'id' => $vessel->id,
+                            'name' => $vessel->name,
+                        ])
+                        ->values()
+                        ->all(),
+                    'clients' => Client::query()
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->get(['id', 'name'])
+                        ->map(fn (Client $client) => [
+                            'id' => $client->id,
+                            'name' => $client->name,
+                        ])
+                        ->values()
+                        ->all(),
+                    'ranks' => Rank::query()
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->get(['id', 'name'])
+                        ->map(fn (Rank $rank) => [
+                            'id' => $rank->id,
+                            'name' => $rank->name,
+                        ])
+                        ->values()
+                        ->all(),
+                ]
+                : null,
             'employee_stats' => $employeeStats,
         ]);
     }

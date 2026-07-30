@@ -48,7 +48,7 @@ final class CrewPayrollSalarySheetExporter
             ->where('company_id', $companyId)
             ->where('period_id', $period->id)
             ->whereIn('employee_id', $employeeIds)
-            ->with(['segments.assignment', 'segments.vessel', 'segments.client'])
+            ->with(['segments.assignment', 'segments.vessel', 'segments.client', 'segments.rank'])
             ->get()
             ->keyBy('employee_id');
 
@@ -309,11 +309,12 @@ final class CrewPayrollSalarySheetExporter
             'C' => 'ASSIGNMENT',
             'D' => 'VESSEL',
             'E' => 'CLIENT / PROJECT',
-            'F' => 'CATEGORY',
-            'G' => 'FROM',
-            'H' => 'TO',
-            'I' => 'DAYS',
-            'J' => 'SOURCE',
+            'F' => 'RANK',
+            'G' => 'CATEGORY',
+            'H' => 'FROM',
+            'I' => 'TO',
+            'J' => 'DAYS',
+            'K' => 'SOURCE',
         ];
 
         foreach ($headers as $column => $header) {
@@ -336,11 +337,12 @@ final class CrewPayrollSalarySheetExporter
                 $sheet->setCellValue("C{$row}", $segment->assignment?->assignment_no);
                 $sheet->setCellValue("D{$row}", $segment->vessel?->name);
                 $sheet->setCellValue("E{$row}", $segment->client?->name);
-                $sheet->setCellValue("F{$row}", $segment->pay_category?->label());
-                $sheet->setCellValue("G{$row}", $segment->from_date?->format('d-m-Y'));
-                $sheet->setCellValue("H{$row}", $segment->to_date?->format('d-m-Y'));
-                $sheet->setCellValue("I{$row}", (float) $segment->days);
-                $sheet->setCellValue("J{$row}", $segment->source?->label());
+                $sheet->setCellValue("F{$row}", $segment->rank?->name);
+                $sheet->setCellValue("G{$row}", $segment->pay_category?->label());
+                $sheet->setCellValue("H{$row}", $segment->from_date?->format('d-m-Y'));
+                $sheet->setCellValue("I{$row}", $segment->to_date?->format('d-m-Y'));
+                $sheet->setCellValue("J{$row}", (float) $segment->days);
+                $sheet->setCellValue("K{$row}", $segment->source?->label());
                 $row++;
             }
         }

@@ -10,6 +10,7 @@ import {
 import { EmptyState } from '@/components/empty-state';
 import { Pagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
@@ -75,6 +76,7 @@ export type CrewTimesheetsBoardProps = {
     ) => void;
     savingTimesheetEmployeeIds: number[];
     canEditTimesheets: boolean;
+    onOpenMovementPeriods: (row: CrewPayrollRow) => void;
 };
 
 export function CrewTimesheetsBoard({
@@ -92,6 +94,7 @@ export function CrewTimesheetsBoard({
     onCrewTimesheetChange,
     savingTimesheetEmployeeIds,
     canEditTimesheets,
+    onOpenMovementPeriods,
 }: CrewTimesheetsBoardProps) {
     const allIds = allBoardEmployeeIds;
     const selection = getPayrollBoardSelectionSummary({
@@ -307,6 +310,16 @@ export function CrewTimesheetsBoard({
                                     !isMonthlyCrewRow &&
                                     row.timesheet?.is_operationally_locked ===
                                         true;
+                                const hasMultiplePeriods =
+                                    !isMonthlyCrewRow &&
+                                    row.timesheet?.has_multiple_periods ===
+                                        true;
+                                const showMovementPeriodsControl =
+                                    !isMonthlyCrewRow &&
+                                    (hasMultiplePeriods ||
+                                        (row.timesheet?.segments?.length ?? 0) >
+                                            0 ||
+                                        canEditTimesheets);
 
                                 const isDirty =
                                     !!crewTimesheetDrafts[row.employee.id];
@@ -447,7 +460,8 @@ export function CrewTimesheetsBoard({
                                                         aria-label={`Unpaid leave days for ${row.employee.name}`}
                                                     />
                                                 </div>
-                                            ) : isOperationallyLocked ? (
+                                            ) : isOperationallyLocked ||
+                                              hasMultiplePeriods ? (
                                                 <div className="space-y-2 text-[11px]">
                                                     <OperationalDateRange
                                                         label="Sign-on standby"
@@ -489,6 +503,22 @@ export function CrewTimesheetsBoard({
                                                             true
                                                         }
                                                     />
+                                                    {showMovementPeriodsControl ? (
+                                                        <Button
+                                                            type="button"
+                                                            variant="link"
+                                                            className="h-auto px-0 text-[11px]"
+                                                            onClick={() =>
+                                                                onOpenMovementPeriods(
+                                                                    row,
+                                                                )
+                                                            }
+                                                        >
+                                                            {isOperationallyLocked
+                                                                ? 'View movement periods'
+                                                                : 'Manage movement periods'}
+                                                        </Button>
+                                                    ) : null}
                                                 </div>
                                             ) : (
                                                 <div className="space-y-2">
@@ -540,6 +570,21 @@ export function CrewTimesheetsBoard({
                                                             )
                                                         }
                                                     />
+                                                    {canEditTimesheets ? (
+                                                        <Button
+                                                            type="button"
+                                                            variant="link"
+                                                            className="h-auto px-0 text-[11px]"
+                                                            onClick={() =>
+                                                                onOpenMovementPeriods(
+                                                                    row,
+                                                                )
+                                                            }
+                                                        >
+                                                            Manage movement
+                                                            periods
+                                                        </Button>
+                                                    ) : null}
                                                 </div>
                                             )}
                                         </TableCell>
@@ -555,52 +600,74 @@ export function CrewTimesheetsBoard({
                                                 <span className="text-xs text-muted-foreground">
                                                     —
                                                 </span>
-                                            ) : isOperationallyLocked ? (
-                                                <OperationalDateRange
-                                                    label="Onsite"
-                                                    from={
-                                                        row.timesheet
-                                                            ?.onsite_from
-                                                    }
-                                                    to={
-                                                        row.timesheet?.onsite_to
-                                                    }
-                                                    days={
-                                                        row.timesheet
-                                                            ?.onsite_days
-                                                    }
-                                                    hasMultiplePeriods={
-                                                        row.timesheet
-                                                            ?.onsite_has_multiple_periods ===
-                                                        true
-                                                    }
-                                                />
+                                            ) : isOperationallyLocked ||
+                                              hasMultiplePeriods ? (
+                                                <div className="space-y-2">
+                                                    <OperationalDateRange
+                                                        label="Onsite"
+                                                        from={
+                                                            row.timesheet
+                                                                ?.onsite_from
+                                                        }
+                                                        to={
+                                                            row.timesheet
+                                                                ?.onsite_to
+                                                        }
+                                                        days={
+                                                            row.timesheet
+                                                                ?.onsite_days
+                                                        }
+                                                        hasMultiplePeriods={
+                                                            row.timesheet
+                                                                ?.onsite_has_multiple_periods ===
+                                                            true
+                                                        }
+                                                    />
+                                                    {showMovementPeriodsControl ? (
+                                                        <Button
+                                                            type="button"
+                                                            variant="link"
+                                                            className="h-auto px-0 text-[11px]"
+                                                            onClick={() =>
+                                                                onOpenMovementPeriods(
+                                                                    row,
+                                                                )
+                                                            }
+                                                        >
+                                                            {isOperationallyLocked
+                                                                ? 'View details'
+                                                                : 'Edit periods'}
+                                                        </Button>
+                                                    ) : null}
+                                                </div>
                                             ) : (
-                                                <CrewRangeEditor
-                                                    label="Onsite"
-                                                    from={onsiteFrom}
-                                                    to={onsiteTo}
-                                                    disabled={
-                                                        !canEditTimesheets
-                                                    }
-                                                    activeColorClass="border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                                                    onFromChange={(v) =>
-                                                        onCrewTimesheetChange(
-                                                            row.employee.id,
-                                                            'onsite_from',
-                                                            v,
-                                                            row.timesheet,
-                                                        )
-                                                    }
-                                                    onToChange={(v) =>
-                                                        onCrewTimesheetChange(
-                                                            row.employee.id,
-                                                            'onsite_to',
-                                                            v,
-                                                            row.timesheet,
-                                                        )
-                                                    }
-                                                />
+                                                <div className="space-y-2">
+                                                    <CrewRangeEditor
+                                                        label="Onsite"
+                                                        from={onsiteFrom}
+                                                        to={onsiteTo}
+                                                        disabled={
+                                                            !canEditTimesheets
+                                                        }
+                                                        activeColorClass="border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                                        onFromChange={(v) =>
+                                                            onCrewTimesheetChange(
+                                                                row.employee.id,
+                                                                'onsite_from',
+                                                                v,
+                                                                row.timesheet,
+                                                            )
+                                                        }
+                                                        onToChange={(v) =>
+                                                            onCrewTimesheetChange(
+                                                                row.employee.id,
+                                                                'onsite_to',
+                                                                v,
+                                                                row.timesheet,
+                                                            )
+                                                        }
+                                                    />
+                                                </div>
                                             )}
                                         </TableCell>
 

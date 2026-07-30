@@ -389,3 +389,10 @@ Hardening applied before production use. Manual / Excel and Monthly crew behavio
 - Payroll correction workflow for replacing Applied preparations
 
 Vessel transfer, redeployment, and assignment-based timesheet segments are implemented. See [crew-movement-phases.md](./crew-movement-phases.md) and [payroll.md](../payroll.md).
+
+### Manual / Excel multi-period segments
+
+- Hybrid Manual entry can save an explicit `segments` array (or legacy flat category ranges, which convert to segments).
+- Parent day totals always sync from active segments; multiple segments per category leave parent From/To null (“Multiple periods”).
+- Daily Excel repeated employee rows group into one parent + many segments; employee-level financial values must appear on at most one non-zero row.
+- Calculator and salary export use segment totals when present; Movement Details worksheet lists each segment without duplicating net salary.

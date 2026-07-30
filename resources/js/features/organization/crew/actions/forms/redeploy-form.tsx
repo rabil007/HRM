@@ -77,9 +77,28 @@ export function RedeployForm({
                 </Label>
                 <Select
                     value={startingPhase}
-                    onValueChange={(value) =>
-                        form.setData('starting_phase', value)
-                    }
+                    onValueChange={(value) => {
+                        const next: Partial<typeof form.data> = {
+                            starting_phase: value,
+                        };
+
+                        if (value === 'p0') {
+                            next.vessel_id = null;
+                            next.rank_id = null;
+                            next.client_id = null;
+                            next.company_visa_type_id = null;
+                            next.planned_signoff_at = '';
+                        } else if (
+                            !['p1', 'p2a', 'p3', 'p4'].includes(startingPhase)
+                        ) {
+                            next.vessel_id = context.vessel_id;
+                            next.rank_id = context.rank_id;
+                            next.client_id = context.client_id;
+                            next.company_visa_type_id = context.visa_type_id;
+                        }
+
+                        form.setData({ ...form.data, ...next });
+                    }}
                 >
                     <SelectTrigger id="redeploy-starting-phase">
                         <SelectValue placeholder="Select starting phase..." />
@@ -248,27 +267,32 @@ export function RedeployForm({
                 </>
             ) : null}
 
-            <div className="space-y-2">
-                <Label htmlFor="redeploy-planned-signoff">
-                    Planned Sign-Off (optional)
-                </Label>
-                <Input
-                    id="redeploy-planned-signoff"
-                    type="date"
-                    value={form.data.planned_signoff_at}
-                    min={redeployDate || undefined}
-                    onChange={(event) =>
-                        form.setData('planned_signoff_at', event.target.value)
-                    }
-                />
-                {signoffBeforeRedeploy ? (
-                    <p className="text-sm text-destructive">
-                        The planned sign-off cannot be before the redeployment
-                        date.
-                    </p>
-                ) : null}
-                <InputError message={form.errors.planned_signoff_at} />
-            </div>
+            {startingPhase !== 'p0' ? (
+                <div className="space-y-2">
+                    <Label htmlFor="redeploy-planned-signoff">
+                        Planned Sign-Off (optional)
+                    </Label>
+                    <Input
+                        id="redeploy-planned-signoff"
+                        type="date"
+                        value={form.data.planned_signoff_at}
+                        min={redeployDate || undefined}
+                        onChange={(event) =>
+                            form.setData(
+                                'planned_signoff_at',
+                                event.target.value,
+                            )
+                        }
+                    />
+                    {signoffBeforeRedeploy ? (
+                        <p className="text-sm text-destructive">
+                            The planned sign-off cannot be before the
+                            redeployment date.
+                        </p>
+                    ) : null}
+                    <InputError message={form.errors.planned_signoff_at} />
+                </div>
+            ) : null}
 
             <div className="space-y-2">
                 <Label htmlFor="redeploy-remarks">Remarks (optional)</Label>

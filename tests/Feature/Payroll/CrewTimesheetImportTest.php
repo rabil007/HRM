@@ -101,6 +101,8 @@ test('crew timesheet import parses dd-mm-yyyy dates from excel', function () {
 
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
     ]);
 
     createImportCrewEmployee($company, '2057', 50, 661, 611);
@@ -137,6 +139,8 @@ test('crew timesheet import preview rejects unknown employee numbers', function 
 
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-01-31',
     ]);
 
     $file = makeCrewTimesheetImportFile($company->id, [
@@ -163,6 +167,8 @@ test('crew timesheet import creates timesheets for valid rows', function () {
 
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-01-31',
     ]);
 
     $employee = createImportCrewEmployee($company, '2057', 50, 661, 611);
@@ -208,6 +214,8 @@ test('crew timesheet import stores overtime hours from excel', function () {
 
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-01-31',
     ]);
 
     $employee = createImportCrewEmployee($company, '2057', 50, 661, 611);
@@ -257,6 +265,8 @@ test('crew timesheet import cannot run on approved periods', function () {
 
     $period = PayrollPeriod::factory()->for($company)->approved()->create([
         'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-01-31',
     ]);
 
     createImportCrewEmployee($company, '2057', 50, 661, 611);
@@ -282,6 +292,8 @@ test('crew timesheet import preview rejects invalid template headers', function 
 
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-01-31',
     ]);
 
     $spreadsheet = new Spreadsheet;
@@ -309,6 +321,8 @@ test('crew timesheet import stores remarks from excel', function () {
 
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-01-31',
     ]);
 
     $employee = createImportCrewEmployee($company, '2057', 50, 661, 611);
@@ -357,6 +371,8 @@ test('crew timesheet import stores typed salary input from excel', function () {
 
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-01-31',
     ]);
 
     $employee = createImportCrewEmployee($company, '2057', 50, 661, 611);
@@ -398,6 +414,8 @@ test('crew timesheet import clears typed salary input when column is blank', fun
 
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-01-31',
     ]);
 
     $employee = createImportCrewEmployee($company, '2057', 50, 661, 611);
@@ -443,6 +461,8 @@ test('crew timesheet import accepts roster-only files without salary or remarks 
 
     $period = PayrollPeriod::factory()->for($company)->create([
         'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-01-31',
     ]);
 
     $employee = createImportCrewEmployee($company, '2057', 50, 661, 611);

@@ -151,6 +151,15 @@ Phase 1D applies an Approved preparation to `crew_timesheets`:
 
 Vessel transfer and redeployment create linked assignments so one employee can have multiple exact onsite periods in the same payroll month without inventing phases or duplicating final salary records.
 
+### Manual and Excel movement periods
+
+- Daily Crew manual entry supports a **Movement Periods** editor: one parent `CrewTimesheet` with many `crew_timesheet_segments` (pay category, optional vessel/client/rank, From/To, days, remarks).
+- Employee-level financial fields (`unpaid_leave_days`, overtime, additions, deductions, salary inputs, parent remarks) stay once per employee — not per segment.
+- Overlapping payable calendar dates for the same employee are rejected; consecutive or gapped ranges are allowed.
+- Crew Operations Applied segments remain read-only; Clear Timesheets soft-deletes Manual/Import parents and segments only.
+- Daily Crew Excel may repeat the same employee number once per movement row. Preview groups rows, validates overlaps/period bounds using original Excel row numbers, and rejects duplicated non-zero employee-level amounts (enter once; blanks/zeros on other rows are OK). Monthly Crew duplicate employee rows remain invalid.
+- Payroll generation still produces **one** `PayrollRecord`, payslip, and payment per employee/period. Salary export keeps one consolidated Salary Sheet row and a **Movement Details** worksheet (one row per segment, including rank).
+
 Permissions:
 
 - `payroll.crew_timesheets.prepare`

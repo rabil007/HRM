@@ -58,11 +58,11 @@ Employee Sea Service
 
 ### Transfer Vessel (`transfer_vessel`)
 
-Available from Active P4 On Vessel. Completes the source P4 and assignment at `occurred_at`, syncs sea service and planning for the source, then creates a linked Active assignment (`previous_assignment_id`, `source = vessel_transfer`) that starts directly in active P4 on the destination vessel. Destination vessel must differ. No artificial P5/P6/P0–P3 phases are created. The movement controller redirects to the new assignment.
+Available from Active P4 On Vessel. Completes the source P4 and assignment at `occurred_at`, syncs sea service and planning for the source, then creates a linked Active assignment (`previous_assignment_id`, `source = vessel_transfer`) that starts directly in active P4 on the destination vessel. Destination vessel must start blank in the form, must differ from the source, and is required. Rank/client may default from the current assignment. No artificial P5/P6/P0–P3 phases are created. The movement controller redirects to the new assignment.
 
 ### Redeploy (`redeploy`)
 
-Available from Active P5 or P6. Completes the source phase and assignment, then creates a linked assignment (`source = redeployment`) starting only at the chosen real phase: P0 (Draft + planned), or P1 / P2A / P3 / P4 (Active). Same or different vessel/client is allowed. P4 requires destination vessel and rank. Earlier phases are never invented.
+Available from Active P5 or P6. Completes the source phase and assignment, then creates a linked assignment (`source = redeployment`) starting only at the chosen real phase: P0 (Draft + planned; vessel optional; planned sign-off cleared when not applicable), or P1 / P2A / P3 / P4 (Active; vessel optional except P4 requires vessel and rank). Same or different vessel/client is allowed. Hidden stale destination fields must not be submitted for P0. Earlier phases are never invented.
 
 ### Still unsupported as an immediate movement action
 

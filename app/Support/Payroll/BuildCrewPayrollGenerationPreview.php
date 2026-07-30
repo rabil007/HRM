@@ -132,7 +132,7 @@ final class BuildCrewPayrollGenerationPreview
             ->where('company_id', $companyId)
             ->where('period_id', $period->id)
             ->whereIn('employee_id', $included->pluck('id')->map(intval(...))->all() ?: [0])
-            ->with('preparation')
+            ->with(['preparation', 'segments'])
             ->get()
             ->keyBy(fn (CrewTimesheet $timesheet) => (int) $timesheet->employee_id);
 

@@ -17,6 +17,7 @@ use App\Support\Payroll\Actions\RecalculateCrewPayroll;
 use App\Support\Payroll\Actions\SyncEmployeeSalaryInputsFromImport;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
@@ -185,7 +186,10 @@ final class CrewTimesheetImportOrchestrator
     private function mergeDailyImportRows(array $rows): array
     {
         $segments = [];
-        $overtimeHours = 0.0;
+        $overtimeHours = null;
+        $unpaidLeaveDays = null;
+        $additionalAmount = null;
+        $deductionAmount = null;
         $remarks = [];
         $salaryAmounts = [];
 
@@ -208,28 +212,40 @@ final class CrewTimesheetImportOrchestrator
                     'pay_category' => $category,
                     'from_date' => $from,
                     'to_date' => $to,
-                    'days' => $data[$daysKey] ?? null,
+                    'days' => $data[$daysKey] ?? $this->calculateInclusiveDays(
+                        is_string($from) ? $from : null,
+                        is_string($to) ? $to : null,
+                    ),
                 ];
             }
 
-            $overtimeHours += (float) ($data['overtime_hours'] ?? 0);
+            $overtimeHours = $this->firstEmployeeLevelNumeric($overtimeHours, $data['overtime_hours'] ?? null);
+            $unpaidLeaveDays = $this->firstEmployeeLevelNumeric($unpaidLeaveDays, $data['unpaid_leave_days'] ?? null);
+            $additionalAmount = $this->firstEmployeeLevelNumeric($additionalAmount, $data['additional_amount'] ?? null);
+            $deductionAmount = $this->firstEmployeeLevelNumeric($deductionAmount, $data['deduction_amount'] ?? null);
 
             if (filled($data['remarks'] ?? null)) {
                 $remarks[] = (string) $data['remarks'];
             }
 
             foreach (($row['salary_amounts_by_type_id'] ?? []) as $typeId => $amount) {
-                $salaryAmounts[(int) $typeId] = round(
-                    (float) ($salaryAmounts[(int) $typeId] ?? 0) + (float) $amount,
-                    2,
-                );
+                $normalized = $this->numericOrNull($amount);
+
+                if ($normalized === null || abs($normalized) < 0.00001) {
+                    continue;
+                }
+
+                $salaryAmounts[(int) $typeId] = $normalized;
             }
         }
 
         $timesheetData = [
             'source' => CrewTimesheetSource::Import,
             'segments' => $segments,
-            'overtime_hours' => round($overtimeHours, 2),
+            'unpaid_leave_days' => $unpaidLeaveDays,
+            'overtime_hours' => $overtimeHours ?? 0,
+            'additional_amount' => $additionalAmount ?? 0,
+            'deduction_amount' => $deductionAmount ?? 0,
             'remarks' => $remarks !== [] ? implode("\n", $remarks) : null,
         ];
 
@@ -243,6 +259,17 @@ final class CrewTimesheetImportOrchestrator
             'timesheet_data' => $timesheetData,
             'salary_amounts_by_type_id' => $salaryAmounts,
         ];
+    }
+
+    private function firstEmployeeLevelNumeric(mixed $current, mixed $incoming): mixed
+    {
+        $value = $this->numericOrNull($incoming);
+
+        if ($value === null || abs($value) < 0.00001) {
+            return $current;
+        }
+
+        return $value;
     }
 
     /**
@@ -441,6 +468,10 @@ final class CrewTimesheetImportOrchestrator
             $warnings = array_merge($warnings, $rowWarnings);
         }
 
+        $rows = $this->applyGroupedDailyImportValidation($rows, $period, $typeNamesById);
+        $errors = collect($rows)->flatMap(fn (array $row) => $row['errors'])->values()->all();
+        $warnings = collect($rows)->flatMap(fn (array $row) => $row['warnings'])->values()->all();
+
         $invalidRows = collect($rows)->filter(fn (array $row) => ! empty($row['errors']))->count();
 
         return [
@@ -454,6 +485,219 @@ final class CrewTimesheetImportOrchestrator
                 'warnings' => count($warnings),
             ],
         ];
+    }
+
+    /**
+     * Validate grouped Daily Crew rows (repeated employee numbers) for overlaps,
+     * period bounds, and employee-level financial values entered once.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  array<int, string>  $typeNamesById
+     * @return list<array<string, mixed>>
+     */
+    private function applyGroupedDailyImportValidation(
+        array $rows,
+        PayrollPeriod $period,
+        array $typeNamesById,
+    ): array {
+        $periodStart = $period->start_date?->toDateString();
+        $periodEnd = $period->end_date?->toDateString();
+        $groupedIndexes = [];
+
+        foreach ($rows as $index => $row) {
+            if (($row['row_mode'] ?? null) === 'monthly_crew') {
+                continue;
+            }
+
+            if (($row['employee'] ?? null) === null) {
+                continue;
+            }
+
+            $employeeNo = (string) $row['employee_no'];
+            $groupedIndexes[$employeeNo][] = $index;
+        }
+
+        foreach ($groupedIndexes as $indexes) {
+            /** @var list<array{0: CarbonImmutable, 1: CarbonImmutable, 2: int, 3: int, 4: string}> $ranges */
+            $ranges = [];
+            $overtimeRows = [];
+            $unpaidLeaveRows = [];
+            $additionalRows = [];
+            $deductionRows = [];
+            /** @var array<int, list<int>> $salaryTypeRows */
+            $salaryTypeRows = [];
+
+            foreach ($indexes as $index) {
+                $row = $rows[$index];
+                $rowNumber = (int) $row['row'];
+                $data = $row['timesheet_data'] ?? [];
+
+                foreach ([
+                    'sign_on_standby' => ['sign_on_standby_from', 'sign_on_standby_to'],
+                    'onsite' => ['onsite_from', 'onsite_to'],
+                    'sign_off_standby' => ['sign_off_standby_from', 'sign_off_standby_to'],
+                ] as $label => [$fromKey, $toKey]) {
+                    $from = $data[$fromKey] ?? null;
+                    $to = $data[$toKey] ?? null;
+
+                    if (! filled($from) || ! filled($to)) {
+                        continue;
+                    }
+
+                    try {
+                        $start = CarbonImmutable::parse((string) $from)->startOfDay();
+                        $end = CarbonImmutable::parse((string) $to)->startOfDay();
+                    } catch (\Throwable) {
+                        continue;
+                    }
+
+                    if ($periodStart !== null && $start->toDateString() < $periodStart) {
+                        $rows[$index]['errors'][] = [
+                            'row' => $rowNumber,
+                            'field' => $fromKey,
+                            'message' => 'Operational dates must fall within the payroll period.',
+                        ];
+                    }
+
+                    if ($periodEnd !== null && $end->toDateString() > $periodEnd) {
+                        $rows[$index]['errors'][] = [
+                            'row' => $rowNumber,
+                            'field' => $toKey,
+                            'message' => 'Operational dates must fall within the payroll period.',
+                        ];
+                    }
+
+                    $ranges[] = [$start, $end, $rowNumber, $index, $fromKey];
+                }
+
+                $this->collectEmployeeLevelNumericRows($overtimeRows, $data['overtime_hours'] ?? null, $rowNumber, $index);
+                $this->collectEmployeeLevelNumericRows($unpaidLeaveRows, $data['unpaid_leave_days'] ?? null, $rowNumber, $index);
+                $this->collectEmployeeLevelNumericRows($additionalRows, $data['additional_amount'] ?? null, $rowNumber, $index);
+                $this->collectEmployeeLevelNumericRows($deductionRows, $data['deduction_amount'] ?? null, $rowNumber, $index);
+
+                foreach (($row['salary_amounts_by_type_id'] ?? []) as $typeId => $amount) {
+                    $normalized = $this->numericOrNull($amount);
+
+                    if ($normalized === null || abs($normalized) < 0.00001) {
+                        continue;
+                    }
+
+                    $salaryTypeRows[(int) $typeId][] = $rowNumber;
+                }
+            }
+
+            for ($i = 0; $i < count($ranges); $i++) {
+                for ($j = $i + 1; $j < count($ranges); $j++) {
+                    [$startA, $endA, $rowA, $indexA, $fieldA] = $ranges[$i];
+                    [$startB, $endB, $rowB, $indexB, $fieldB] = $ranges[$j];
+
+                    if ($startA->lte($endB) && $startB->lte($endA)) {
+                        $message = "Movement periods overlap across Excel rows {$rowA} and {$rowB}.";
+                        $rows[$indexA]['errors'][] = [
+                            'row' => $rowA,
+                            'field' => $fieldA,
+                            'message' => $message,
+                        ];
+                        $rows[$indexB]['errors'][] = [
+                            'row' => $rowB,
+                            'field' => $fieldB,
+                            'message' => $message,
+                        ];
+                    }
+                }
+            }
+
+            $this->attachEmployeeLevelDuplicateErrors(
+                $rows,
+                $overtimeRows,
+                'overtime_hours',
+                'Overtime hours',
+            );
+            $this->attachEmployeeLevelDuplicateErrors(
+                $rows,
+                $unpaidLeaveRows,
+                'unpaid_leave_days',
+                'Unpaid leave days',
+            );
+            $this->attachEmployeeLevelDuplicateErrors(
+                $rows,
+                $additionalRows,
+                'additional_amount',
+                'Additional amount',
+            );
+            $this->attachEmployeeLevelDuplicateErrors(
+                $rows,
+                $deductionRows,
+                'deduction_amount',
+                'Deduction amount',
+            );
+
+            foreach ($salaryTypeRows as $typeId => $rowNumbers) {
+                $uniqueRows = array_values(array_unique($rowNumbers));
+
+                if (count($uniqueRows) < 2) {
+                    continue;
+                }
+
+                $typeName = $typeNamesById[$typeId] ?? 'Salary input';
+                $listed = implode(', ', $uniqueRows);
+                $message = "{$typeName} is an employee-level amount and must be entered once for the employee (not once per movement). Non-zero values appear on Excel rows {$listed}.";
+
+                foreach ($indexes as $index) {
+                    if (! in_array((int) $rows[$index]['row'], $uniqueRows, true)) {
+                        continue;
+                    }
+
+                    $rows[$index]['errors'][] = [
+                        'row' => (int) $rows[$index]['row'],
+                        'field' => "salary_input_{$typeId}",
+                        'message' => $message,
+                    ];
+                }
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<array{row: int, index: int}>  $collector
+     */
+    private function collectEmployeeLevelNumericRows(array &$collector, mixed $value, int $rowNumber, int $index): void
+    {
+        $normalized = $this->numericOrNull($value);
+
+        if ($normalized === null || abs($normalized) < 0.00001) {
+            return;
+        }
+
+        $collector[] = ['row' => $rowNumber, 'index' => $index];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @param  list<array{row: int, index: int}>  $occurrences
+     */
+    private function attachEmployeeLevelDuplicateErrors(
+        array &$rows,
+        array $occurrences,
+        string $field,
+        string $label,
+    ): void {
+        if (count($occurrences) < 2) {
+            return;
+        }
+
+        $listed = implode(', ', array_map(fn (array $item): int => $item['row'], $occurrences));
+        $message = "{$label} is an employee-level amount and must be entered once for the employee (not once per movement). Non-zero values appear on Excel rows {$listed}.";
+
+        foreach ($occurrences as $occurrence) {
+            $rows[$occurrence['index']]['errors'][] = [
+                'row' => $occurrence['row'],
+                'field' => $field,
+                'message' => $message,
+            ];
+        }
     }
 
     /**

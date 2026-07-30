@@ -320,3 +320,51 @@ test('cross-company destination vessel references are rejected on transfer', fun
         $user->id,
     ))->toThrow(CrewMovementException::class);
 });
+
+test('redeploy to p0 clears planned sign-off and does not require destination vessel', function () {
+    [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
+    ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
+    $service = transferRedeployService();
+
+    $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2026-07-12 08:00:00',
+        'next_phase' => 'p5',
+    ], $user->id);
+
+    $destination = $service->perform($company->id, $source->id, CrewMovementAction::Redeploy, [
+        'occurred_at' => '2026-07-15 09:00:00',
+        'starting_phase' => 'p0',
+        'planned_signoff_at' => '2026-08-01',
+        'vessel_id' => null,
+        'rank_id' => null,
+        'client_id' => null,
+    ], $user->id);
+
+    expect($destination->status)->toBe(CrewAssignmentStatus::Draft)
+        ->and($destination->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($destination->vessel_id)->toBeNull()
+        ->and($destination->planned_signoff_at)->toBeNull();
+});
+
+test('transfer request rejects source vessel as destination', function () {
+    [$source, $fixtures, $sourceVessel] = makeOnVesselSourceAssignment();
+    ['company' => $company, 'rank' => $rank, 'user' => $user] = $fixtures;
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.update',
+        'crew_operations.movements.perform',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from(route('organization.crew-assignments.show', $source))
+        ->post(route('organization.crew-assignments.perform-action', $source), [
+            'action' => 'transfer_vessel',
+            'occurred_at' => '2026-07-11 12:00:00',
+            'vessel_id' => $sourceVessel->id,
+            'rank_id' => $rank->id,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('vessel_id');
+});

@@ -151,7 +151,7 @@ final class GenerateCrewPayroll
                     'primaryBankAccount',
                     'crewTimesheets' => fn ($query) => $query
                         ->where('period_id', $lockedPeriod->id)
-                        ->with('preparation'),
+                        ->with(['preparation', 'segments']),
                 ])
                 ->orderBy('employees.name')
                 ->get();

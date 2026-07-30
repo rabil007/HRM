@@ -61,11 +61,12 @@ function buildInitialForm(
         planned_start_at: '',
         planned_end_at: '',
         remarks: '',
-        vessel_id: context.vessel_id,
+        vessel_id: action === 'transfer_vessel' ? null : context.vessel_id,
         rank_id: context.rank_id,
         client_id: context.client_id,
         company_visa_type_id: context.visa_type_id,
-        planned_signoff_at: context.planned_signoff_at ?? '',
+        planned_signoff_at:
+            action === 'redeploy' ? '' : (context.planned_signoff_at ?? ''),
         planned_travel_at: '',
         reason: '',
     };
@@ -183,6 +184,14 @@ export function MovementActionDialog({
             if (action === 'travel_home') {
                 delete (payload as { planned_travel_at?: string })
                     .planned_travel_at;
+            }
+
+            if (action === 'redeploy' && data.starting_phase === 'p0') {
+                payload.vessel_id = null;
+                payload.rank_id = null;
+                payload.client_id = null;
+                payload.company_visa_type_id = null;
+                payload.planned_signoff_at = '';
             }
 
             return payload;

@@ -11,6 +11,7 @@ use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetSegment;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Payroll\ApplyManualImportTimesheetAutoApproval;
 use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
 use App\Support\Payroll\SyncCrewTimesheetParentFromSegments;
@@ -263,7 +264,10 @@ final class UpsertCrewTimesheet
                     'pay_category' => $category,
                     'from_date' => $from,
                     'to_date' => $to,
-                    'days' => $segment['days'] ?? null,
+                    'days' => $segment['days'] ?? $this->inclusiveDays(
+                        is_string($from) ? $from : null,
+                        is_string($to) ? $to : null,
+                    ),
                     'vessel_id' => $segment['vessel_id'] ?? null,
                     'client_id' => $segment['client_id'] ?? null,
                     'rank_id' => $segment['rank_id'] ?? null,
@@ -292,7 +296,10 @@ final class UpsertCrewTimesheet
                 'pay_category' => $category,
                 'from_date' => $from,
                 'to_date' => $to,
-                'days' => $data[$daysKey] ?? null,
+                'days' => $data[$daysKey] ?? $this->inclusiveDays(
+                    is_string($from) ? $from : null,
+                    is_string($to) ? $to : null,
+                ),
                 'vessel_id' => null,
                 'client_id' => null,
                 'rank_id' => null,
@@ -301,6 +308,15 @@ final class UpsertCrewTimesheet
         }
 
         return $rows;
+    }
+
+    private function inclusiveDays(?string $from, ?string $to): ?float
+    {
+        if (! filled($from) || ! filled($to)) {
+            return null;
+        }
+
+        return round((new CalculateLeaveRequestDays)($from, $to), 2);
     }
 
     /**
@@ -373,6 +389,18 @@ final class UpsertCrewTimesheet
      */
     private function hasOperationalPayload(array $data): bool
     {
+        if (isset($data['segments']) && is_array($data['segments'])) {
+            foreach ($data['segments'] as $segment) {
+                if (! is_array($segment)) {
+                    continue;
+                }
+
+                if (filled($segment['from_date'] ?? null) && filled($segment['to_date'] ?? null)) {
+                    return true;
+                }
+            }
+        }
+
         foreach ([
             'sign_on_standby_from',
             'sign_on_standby_to',
@@ -467,8 +495,14 @@ final class UpsertCrewTimesheet
      */
     private function assertNoOperationalMutation(array $data, CrewTimesheet $existing): void
     {
+        if (isset($data['segments']) && is_array($data['segments']) && $data['segments'] !== []) {
+            throw ValidationException::withMessages([
+                'segments' => 'Operational Crew Operations timesheet fields cannot be changed after the timeline is Applied.',
+            ]);
+        }
+
         foreach (self::OPERATIONAL_KEYS as $key) {
-            if (! array_key_exists($key, $data)) {
+            if ($key === 'segments' || ! array_key_exists($key, $data)) {
                 continue;
             }
 

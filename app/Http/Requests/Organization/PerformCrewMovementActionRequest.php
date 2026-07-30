@@ -18,6 +18,34 @@ class PerformCrewMovementActionRequest extends FormRequest
         return (bool) $this->user();
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('action') !== 'redeploy') {
+            return;
+        }
+
+        $startingPhase = (string) $this->input('starting_phase');
+        $nullable = [];
+
+        foreach (['vessel_id', 'rank_id', 'client_id', 'company_visa_type_id', 'planned_signoff_at', 'remarks'] as $field) {
+            if ($this->input($field) === '') {
+                $nullable[$field] = null;
+            }
+        }
+
+        if ($startingPhase === CrewPhaseCode::PreMobilisation->value) {
+            $nullable['planned_signoff_at'] = null;
+            $nullable['vessel_id'] = null;
+            $nullable['rank_id'] = null;
+            $nullable['client_id'] = null;
+            $nullable['company_visa_type_id'] = null;
+        }
+
+        if ($nullable !== []) {
+            $this->merge($nullable);
+        }
+    }
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */

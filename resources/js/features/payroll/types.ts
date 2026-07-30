@@ -526,6 +526,17 @@ export type PayrollRecordsSummary = {
     total_overtime_hours: string;
 };
 
+export type MovementMasterOption = {
+    id: number;
+    name: string;
+};
+
+export type MovementMasterOptions = {
+    vessels: MovementMasterOption[];
+    clients: MovementMasterOption[];
+    ranks: MovementMasterOption[];
+};
+
 export type PayrollShowProps = {
     period: PayrollPeriod;
     leave_types?: LeaveTypeColumn[];
@@ -555,6 +566,7 @@ export type PayrollShowProps = {
     crew_timeline_preparation: CrewTimelinePreparationSummary | null;
     crew_timesheet_mode_options: CrewTimesheetModeOption[];
     clearable_timesheet_count: number;
+    movement_master_options?: MovementMasterOptions | null;
 };
 
 function formatAmount(value: string | null | undefined): string {

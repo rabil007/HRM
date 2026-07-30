@@ -679,13 +679,23 @@ final class CrewMovementService
             status: $isDraftStart ? CrewAssignmentStatus::Draft : CrewAssignmentStatus::Active,
             startedAt: $isDraftStart ? null : $occurredAt,
             plannedJoinAt: $occurredAt,
-            vesselId: $destinationVesselId ?? $assignment->vessel_id,
-            rankId: $destinationRankId ?? $assignment->rank_id,
-            clientId: $destinationClientId ?? $assignment->client_id,
-            companyVisaTypeId: $destinationVisaTypeId ?? $assignment->company_visa_type_id,
-            plannedSignoffAt: isset($payload['planned_signoff_at'])
-                ? $this->parseTimestamp($assignment->company_id, (string) $payload['planned_signoff_at'])
-                : null,
+            vesselId: $isDraftStart
+                ? $destinationVesselId
+                : ($destinationVesselId ?? $assignment->vessel_id),
+            rankId: $isDraftStart
+                ? $destinationRankId
+                : ($destinationRankId ?? $assignment->rank_id),
+            clientId: $isDraftStart
+                ? $destinationClientId
+                : ($destinationClientId ?? $assignment->client_id),
+            companyVisaTypeId: $isDraftStart
+                ? $destinationVisaTypeId
+                : ($destinationVisaTypeId ?? $assignment->company_visa_type_id),
+            plannedSignoffAt: $isDraftStart
+                ? null
+                : (isset($payload['planned_signoff_at']) && filled($payload['planned_signoff_at'])
+                    ? $this->parseTimestamp($assignment->company_id, (string) $payload['planned_signoff_at'])
+                    : null),
             remarks: isset($payload['remarks']) ? (string) $payload['remarks'] : null,
             actorId: $actorId,
             startingPhase: $startingPhase,

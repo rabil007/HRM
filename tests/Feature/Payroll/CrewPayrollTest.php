@@ -438,7 +438,10 @@ test('authorized users can upsert crew timesheets for draft periods', function (
         'payroll.crew_timesheets.update',
     ]);
 
-    $period = PayrollPeriod::factory()->for($company)->create();
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
 
     $crewEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
 

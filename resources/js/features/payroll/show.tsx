@@ -96,6 +96,11 @@ const LazyCrewTimesheetImportDialog = lazy(() =>
         default: module.CrewTimesheetImportDialog,
     })),
 );
+const LazyCrewMovementPeriodsDialog = lazy(() =>
+    import('./components/crew-movement-periods-dialog').then((module) => ({
+        default: module.CrewMovementPeriodsDialog,
+    })),
+);
 const LazyClearCrewTimesheetsDialog = lazy(() =>
     import('./components/clear-crew-timesheets-dialog').then((module) => ({
         default: module.ClearCrewTimesheetsDialog,
@@ -180,6 +185,7 @@ export function PayrollShowContent({
     employee_stats,
     crew_timeline_preparation = null,
     clearable_timesheet_count = 0,
+    movement_master_options = null,
 }: PayrollShowProps) {
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -202,6 +208,8 @@ export function PayrollShowContent({
     const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+    const [movementPeriodsRow, setMovementPeriodsRow] =
+        useState<CrewPayrollRow | null>(null);
     const [isClearTimesheetsDialogOpen, setIsClearTimesheetsDialogOpen] =
         useState(false);
     const [isClearingTimesheets, setIsClearingTimesheets] = useState(false);
@@ -1363,6 +1371,7 @@ export function PayrollShowContent({
                                     savingTimesheetEmployeeIds
                                 }
                                 canEditTimesheets={canEditTimesheets}
+                                onOpenMovementPeriods={setMovementPeriodsRow}
                             />
                         </Suspense>
                     ) : (
@@ -1504,6 +1513,29 @@ export function PayrollShowContent({
                         open={isImportDialogOpen}
                         onOpenChange={setIsImportDialogOpen}
                         periodId={period.id}
+                    />
+                </Suspense>
+            ) : null}
+
+            {period.supports_timesheets && movementPeriodsRow !== null ? (
+                <Suspense fallback={null}>
+                    <LazyCrewMovementPeriodsDialog
+                        open={movementPeriodsRow !== null}
+                        onOpenChange={(open) => {
+                            if (!open) {
+                                setMovementPeriodsRow(null);
+                            }
+                        }}
+                        period={period}
+                        row={movementPeriodsRow}
+                        masterOptions={
+                            movement_master_options ?? {
+                                vessels: [],
+                                clients: [],
+                                ranks: [],
+                            }
+                        }
+                        canEdit={canEditTimesheets}
                     />
                 </Suspense>
             ) : null}

@@ -79,12 +79,15 @@ Operational checklist after deploying Crew Movement changes.
 
 ## 10. Transfer, redeploy, and corrections
 
-- [ ] Active P4 exposes Transfer Vessel; destination vessel differs; source stays on original vessel
+- [ ] Active P4 exposes Transfer Vessel; destination vessel starts empty, differs from source, and is required; source stays on original vessel
 - [ ] Transfer creates linked Active P4 assignment with no invented standby/home phases
 - [ ] Separate Planning bars exist for source and destination; completed source P4 creates sea service
 - [ ] Current Crew shows only the new Active assignment; Movement History shows both
-- [ ] Redeploy from P5/P6 starts only at the chosen phase (P0/P1/P2A/P3/P4); same vessel is allowed
+- [ ] Redeploy from P5/P6 starts only at the chosen phase (P0/P1/P2A/P3/P4); same vessel is allowed; P0 clears planned sign-off and hidden destination fields
 - [ ] Movement controller redirects to the new linked assignment after transfer/redeploy
+- [ ] Daily Crew payroll board shows one employee row for multiple movement periods; Movement Periods dialog edits Manual segments; Applied Crew Operations segments are read-only
+- [ ] Daily Crew Excel allows repeated employee rows as separate periods; employee-level overtime/salary amounts are entered once; overlaps fail preview with Excel row numbers
+- [ ] Salary export has one consolidated row plus Movement Details (including rank); Clear Timesheets removes Manual/Import segments only
 - [ ] Movement corrections go through request → approve/reject (not immediate `correct_movement`)
 - [ ] Pending/rejected/cancelled corrections leave official phase dates unchanged
 - [ ] Approved corrections update assignment/phase fields and re-sync planning + completed P4 sea service
