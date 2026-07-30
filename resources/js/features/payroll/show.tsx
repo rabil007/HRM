@@ -36,6 +36,7 @@ import {
     storeTimesheet,
 } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
 import PrepareCrewTimesheetTimelineController from '@/actions/App/Http/Controllers/Payroll/PrepareCrewTimesheetTimelineController';
+import UpdateCrewTimesheetFinancialsController from '@/actions/App/Http/Controllers/Payroll/UpdateCrewTimesheetFinancialsController';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { SearchBar } from '@/components/search-bar';
@@ -261,6 +262,7 @@ export function PayrollShowContent({
     const crewSaveTimersRef = useRef<
         Record<number, ReturnType<typeof setTimeout>>
     >({});
+    const financialSaveGenerationRef = useRef<Record<number, number>>({});
     const isClearingTimesheetsRef = useRef(false);
     const savingTimesheetEmployeeIdsRef = useRef(savingTimesheetEmployeeIds);
 
@@ -313,11 +315,20 @@ export function PayrollShowContent({
             return next;
         });
 
-        scheduleSaveCrewTimesheet(employeeId, initialTimesheet);
+        const mode =
+            field === 'overtime_hours' || field === 'unpaid_leave_days'
+                ? 'financial'
+                : 'operational';
+
+        scheduleSaveCrewTimesheet(employeeId, initialTimesheet, mode);
     };
 
     const saveCrewTimesheet = useCallback(
-        (employeeId: number, initialTimesheet: CrewPayrollRow['timesheet']) => {
+        (
+            employeeId: number,
+            initialTimesheet: CrewPayrollRow['timesheet'],
+            mode: 'financial' | 'operational',
+        ) => {
             if (isClearingTimesheetsRef.current) {
                 return;
             }
@@ -329,6 +340,10 @@ export function PayrollShowContent({
             }
 
             const submittedDraft: CrewTimesheetDraft = { ...current };
+            const timesheetId = initialTimesheet?.id ?? null;
+            const saveGeneration =
+                (financialSaveGenerationRef.current[employeeId] ?? 0) + 1;
+            financialSaveGenerationRef.current[employeeId] = saveGeneration;
 
             setSavingTimesheetEmployeeIds((previous) =>
                 previous.includes(employeeId)
@@ -336,80 +351,136 @@ export function PayrollShowContent({
                     : [...previous, employeeId],
             );
 
-            router.post(
-                storeTimesheet.url(period.id),
-                {
-                    period_id: period.id,
-                    employee_id: employeeId,
-                    sign_on_standby_from: current.sign_on_standby_from || null,
-                    sign_on_standby_to: current.sign_on_standby_to || null,
-                    onsite_from: current.onsite_from || null,
-                    onsite_to: current.onsite_to || null,
-                    sign_off_standby_from:
-                        current.sign_off_standby_from || null,
-                    sign_off_standby_to: current.sign_off_standby_to || null,
-                    unpaid_leave_days: current.unpaid_leave_days || null,
-                    overtime_hours: current.overtime_hours || 0,
-                    additional_amount: initialTimesheet?.additional_amount ?? 0,
-                    deduction_amount: initialTimesheet?.deduction_amount ?? 0,
-                    remarks: initialTimesheet?.remarks ?? null,
-                },
-                {
-                    preserveScroll: true,
-                    preserveState: true,
-                    only: ['rows'],
-                    onFinish: () => {
-                        setSavingTimesheetEmployeeIds((previous) =>
-                            previous.filter((id) => id !== employeeId),
-                        );
+            const finishSaving = (): void => {
+                setSavingTimesheetEmployeeIds((previous) =>
+                    previous.filter((id) => id !== employeeId),
+                );
+            };
+
+            const clearDraftIfUnchanged = (): void => {
+                setCrewTimesheetDrafts((prev) => {
+                    const draft = prev[employeeId];
+
+                    if (!draft) {
+                        return prev;
+                    }
+
+                    if (crewSaveTimersRef.current[employeeId]) {
+                        return prev;
+                    }
+
+                    if (
+                        financialSaveGenerationRef.current[employeeId] !==
+                        saveGeneration
+                    ) {
+                        return prev;
+                    }
+
+                    if (
+                        draft.sign_on_standby_from !==
+                            submittedDraft.sign_on_standby_from ||
+                        draft.sign_on_standby_to !==
+                            submittedDraft.sign_on_standby_to ||
+                        draft.onsite_from !== submittedDraft.onsite_from ||
+                        draft.onsite_to !== submittedDraft.onsite_to ||
+                        draft.sign_off_standby_from !==
+                            submittedDraft.sign_off_standby_from ||
+                        draft.sign_off_standby_to !==
+                            submittedDraft.sign_off_standby_to ||
+                        draft.unpaid_leave_days !==
+                            submittedDraft.unpaid_leave_days ||
+                        draft.overtime_hours !== submittedDraft.overtime_hours
+                    ) {
+                        return prev;
+                    }
+
+                    const next = { ...prev };
+                    delete next[employeeId];
+                    crewTimesheetDraftsRef.current = next;
+
+                    return next;
+                });
+            };
+
+            if (mode === 'financial' && timesheetId !== null) {
+                router.patch(
+                    UpdateCrewTimesheetFinancialsController.url({
+                        payrollPeriod: period.id,
+                        timesheet: timesheetId,
+                    }),
+                    {
+                        unpaid_leave_days: current.unpaid_leave_days || null,
+                        overtime_hours: current.overtime_hours || 0,
+                        additional_amount:
+                            initialTimesheet?.additional_amount ?? 0,
+                        deduction_amount:
+                            initialTimesheet?.deduction_amount ?? 0,
+                        remarks: initialTimesheet?.remarks ?? null,
                     },
-                    onSuccess: () => {
-                        setCrewTimesheetDrafts((prev) => {
-                            const draft = prev[employeeId];
-
-                            if (!draft) {
-                                return prev;
-                            }
-
-                            if (crewSaveTimersRef.current[employeeId]) {
-                                return prev;
-                            }
-
-                            if (
-                                draft.sign_on_standby_from !==
-                                    submittedDraft.sign_on_standby_from ||
-                                draft.sign_on_standby_to !==
-                                    submittedDraft.sign_on_standby_to ||
-                                draft.onsite_from !==
-                                    submittedDraft.onsite_from ||
-                                draft.onsite_to !== submittedDraft.onsite_to ||
-                                draft.sign_off_standby_from !==
-                                    submittedDraft.sign_off_standby_from ||
-                                draft.sign_off_standby_to !==
-                                    submittedDraft.sign_off_standby_to ||
-                                draft.unpaid_leave_days !==
-                                    submittedDraft.unpaid_leave_days ||
-                                draft.overtime_hours !==
-                                    submittedDraft.overtime_hours
-                            ) {
-                                return prev;
-                            }
-
-                            const next = { ...prev };
-                            delete next[employeeId];
-                            crewTimesheetDraftsRef.current = next;
-
-                            return next;
-                        });
+                    {
+                        preserveScroll: true,
+                        preserveState: true,
+                        only: ['rows'],
+                        onFinish: finishSaving,
+                        onSuccess: clearDraftIfUnchanged,
                     },
-                },
-            );
+                );
+
+                return;
+            }
+
+            const payload =
+                mode === 'financial'
+                    ? {
+                          period_id: period.id,
+                          employee_id: employeeId,
+                          unpaid_leave_days: current.unpaid_leave_days || null,
+                          overtime_hours: current.overtime_hours || 0,
+                          additional_amount:
+                              initialTimesheet?.additional_amount ?? 0,
+                          deduction_amount:
+                              initialTimesheet?.deduction_amount ?? 0,
+                          remarks: initialTimesheet?.remarks ?? null,
+                      }
+                    : {
+                          period_id: period.id,
+                          employee_id: employeeId,
+                          sign_on_standby_from:
+                              current.sign_on_standby_from || null,
+                          sign_on_standby_to:
+                              current.sign_on_standby_to || null,
+                          onsite_from: current.onsite_from || null,
+                          onsite_to: current.onsite_to || null,
+                          sign_off_standby_from:
+                              current.sign_off_standby_from || null,
+                          sign_off_standby_to:
+                              current.sign_off_standby_to || null,
+                          unpaid_leave_days: current.unpaid_leave_days || null,
+                          overtime_hours: current.overtime_hours || 0,
+                          additional_amount:
+                              initialTimesheet?.additional_amount ?? 0,
+                          deduction_amount:
+                              initialTimesheet?.deduction_amount ?? 0,
+                          remarks: initialTimesheet?.remarks ?? null,
+                      };
+
+            router.post(storeTimesheet.url(period.id), payload, {
+                preserveScroll: true,
+                preserveState: true,
+                only: ['rows'],
+                onFinish: finishSaving,
+                onSuccess: clearDraftIfUnchanged,
+            });
         },
         [period.id],
     );
 
     const scheduleSaveCrewTimesheet = useCallback(
-        (employeeId: number, initialTimesheet: CrewPayrollRow['timesheet']) => {
+        (
+            employeeId: number,
+            initialTimesheet: CrewPayrollRow['timesheet'],
+            mode: 'financial' | 'operational',
+        ) => {
             if (isClearingTimesheetsRef.current) {
                 return;
             }
@@ -422,8 +493,33 @@ export function PayrollShowContent({
 
             crewSaveTimersRef.current[employeeId] = setTimeout(() => {
                 delete crewSaveTimersRef.current[employeeId];
-                saveCrewTimesheet(employeeId, initialTimesheet);
+                saveCrewTimesheet(employeeId, initialTimesheet, mode);
             }, 800);
+        },
+        [saveCrewTimesheet],
+    );
+
+    const flushPendingFinancialSave = useCallback(
+        async (
+            employeeId: number,
+            initialTimesheet: CrewPayrollRow['timesheet'],
+        ): Promise<void> => {
+            const existingTimer = crewSaveTimersRef.current[employeeId];
+
+            if (existingTimer) {
+                clearTimeout(existingTimer);
+                delete crewSaveTimersRef.current[employeeId];
+                saveCrewTimesheet(employeeId, initialTimesheet, 'financial');
+            }
+
+            const waitStarted = Date.now();
+
+            while (
+                savingTimesheetEmployeeIdsRef.current.includes(employeeId) &&
+                Date.now() - waitStarted < 5000
+            ) {
+                await new Promise((resolve) => setTimeout(resolve, 50));
+            }
         },
         [saveCrewTimesheet],
     );
@@ -1527,7 +1623,13 @@ export function PayrollShowContent({
                             }
                         }}
                         period={period}
-                        row={movementPeriodsRow}
+                        row={
+                            rows.find(
+                                (row) =>
+                                    row.employee.id ===
+                                    movementPeriodsRow.employee.id,
+                            ) ?? movementPeriodsRow
+                        }
                         masterOptions={
                             movement_master_options ?? {
                                 vessels: [],
@@ -1536,6 +1638,26 @@ export function PayrollShowContent({
                             }
                         }
                         canEdit={canEditTimesheets}
+                        onBeforeSave={async () => {
+                            await flushPendingFinancialSave(
+                                movementPeriodsRow.employee.id,
+                                movementPeriodsRow.timesheet,
+                            );
+                        }}
+                        onSaved={() => {
+                            const employeeId = movementPeriodsRow.employee.id;
+                            setCrewTimesheetDrafts((prev) => {
+                                if (!prev[employeeId]) {
+                                    return prev;
+                                }
+
+                                const next = { ...prev };
+                                delete next[employeeId];
+                                crewTimesheetDraftsRef.current = next;
+
+                                return next;
+                            });
+                        }}
                     />
                 </Suspense>
             ) : null}

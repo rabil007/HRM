@@ -139,6 +139,8 @@ use App\Http\Controllers\Payroll\ReturnCrewTimesheetPreparationController;
 use App\Http\Controllers\Payroll\SalaryInputController;
 use App\Http\Controllers\Payroll\SalaryInputTypeController;
 use App\Http\Controllers\Payroll\SubmitCrewTimesheetPreparationController;
+use App\Http\Controllers\Payroll\UpdateCrewTimesheetFinancialsController;
+use App\Http\Controllers\Payroll\UpdateCrewTimesheetSegmentsController;
 use App\Http\Controllers\Payroll\UpdatePayrollPeriodCrewTimesheetModeController;
 use App\Http\Controllers\Payroll\WpsExportController;
 use App\Http\Controllers\Public\DocumentEsign\DownloadDocumentEsignController;
@@ -438,6 +440,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('payroll/{payrollPeriod}/crew-timesheets/manual-import', ClearManualImportCrewTimesheetsController::class)
         ->middleware('can:payroll.crew_timesheets.clear')
         ->name('payroll.crew-timesheets.clear-manual-import');
+    Route::patch('payroll/{payrollPeriod}/timesheets/{timesheet}/financials', UpdateCrewTimesheetFinancialsController::class)
+        ->name('payroll.timesheets.financials');
+    Route::put('payroll/{payrollPeriod}/timesheets/{timesheet}/segments', UpdateCrewTimesheetSegmentsController::class)
+        ->name('payroll.timesheets.segments');
     Route::post('payroll/{payrollPeriod}/timesheets/{timesheet}/submit', [CrewTimesheetApprovalController::class, 'submit'])
         ->middleware('can:payroll.crew_timesheets.submit')
         ->name('payroll.timesheets.submit');

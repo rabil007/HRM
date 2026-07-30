@@ -154,6 +154,30 @@ final class UpsertCrewTimesheet
                 return $this->persistTimesheet($period, $employee, $existing, $attributes);
             }
 
+            $replaceSegments = $this->shouldReplaceSegments($data);
+
+            if (! $replaceSegments) {
+                $attributes = [
+                    'unpaid_leave_days' => array_key_exists('unpaid_leave_days', $data)
+                        ? $data['unpaid_leave_days']
+                        : ($existing?->unpaid_leave_days),
+                    'overtime_hours' => $this->financialValue($data, $existing, 'overtime_hours', 0),
+                    'additional_amount' => $this->financialValue($data, $existing, 'additional_amount', 0),
+                    'deduction_amount' => $this->financialValue($data, $existing, 'deduction_amount', 0),
+                    'remarks' => $this->financialValue($data, $existing, 'remarks', null),
+                    'source' => $existing?->source ?? $source,
+                ];
+
+                if ($this->autoApproval->shouldAutoApprove($source)) {
+                    $attributes = array_merge(
+                        $attributes,
+                        $this->autoApproval->approvalAttributes($approvedByUserId),
+                    );
+                }
+
+                return $this->persistTimesheet($period, $employee, $existing, $attributes);
+            }
+
             $attributes = [
                 'sign_on_standby_from' => $data['sign_on_standby_from'] ?? null,
                 'sign_on_standby_to' => $data['sign_on_standby_to'] ?? null,
@@ -195,6 +219,38 @@ final class UpsertCrewTimesheet
     }
 
     /**
+     * Only replace Manual/Import segments when the caller intentionally submitted
+     * a non-empty segments list or filled flat operational date fields.
+     * Financial-only updates (and blank import rows) must leave segments untouched.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function shouldReplaceSegments(array $data): bool
+    {
+        if (array_key_exists('segments', $data) && is_array($data['segments']) && $data['segments'] !== []) {
+            return true;
+        }
+
+        foreach ([
+            'sign_on_standby_from',
+            'sign_on_standby_to',
+            'sign_on_standby_days',
+            'onsite_from',
+            'onsite_to',
+            'onsite_days',
+            'sign_off_standby_from',
+            'sign_off_standby_to',
+            'sign_off_standby_days',
+        ] as $key) {
+            if (array_key_exists($key, $data) && filled($data[$key])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      */
     private function syncManualImportSegments(
@@ -204,13 +260,25 @@ final class UpsertCrewTimesheet
     ): void {
         $segmentRows = $this->normalizeSegmentRows($data);
 
-        CrewTimesheetSegment::query()
+        $existingQuery = CrewTimesheetSegment::query()
             ->where('company_id', $timesheet->company_id)
             ->where('crew_timesheet_id', $timesheet->id)
             ->whereIn('source', [
                 CrewTimesheetSource::Manual->value,
                 CrewTimesheetSource::Import->value,
-            ])
+            ]);
+
+        if ($segmentRows === []) {
+            if ((clone $existingQuery)->exists()) {
+                throw ValidationException::withMessages([
+                    'segments' => 'At least one valid movement period is required when updating operational dates.',
+                ]);
+            }
+
+            return;
+        }
+
+        $existingQuery
             ->lockForUpdate()
             ->get()
             ->each

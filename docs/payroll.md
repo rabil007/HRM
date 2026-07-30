@@ -155,8 +155,10 @@ Vessel transfer and redeployment create linked assignments so one employee can h
 
 - Daily Crew manual entry supports a **Movement Periods** editor: one parent `CrewTimesheet` with many `crew_timesheet_segments` (pay category, optional vessel/client/rank, From/To, days, remarks).
 - Employee-level financial fields (`unpaid_leave_days`, overtime, additions, deductions, salary inputs, parent remarks) stay once per employee — not per segment.
+- **Financial autosave** (`PATCH …/timesheets/{timesheet}/financials`) is separate from operational segment editing. Changing overtime or other financial fields never deletes or rebuilds movement periods.
+- **Segment replacement** (`PUT …/timesheets/{timesheet}/segments`) requires an explicit non-empty `segments` array. Validation runs before any delete; empty lists are rejected so movement periods cannot be cleared accidentally.
 - Overlapping payable calendar dates for the same employee are rejected; consecutive or gapped ranges are allowed.
-- Crew Operations Applied segments remain read-only; Clear Timesheets soft-deletes Manual/Import parents and segments only.
+- Crew Operations Applied operational data remains locked; financial fields may still update under existing rules. Clear Timesheets soft-deletes Manual/Import parents and segments only.
 - Daily Crew Excel may repeat the same employee number once per movement row. Preview groups rows, validates overlaps/period bounds using original Excel row numbers, and rejects duplicated non-zero employee-level amounts (enter once; blanks/zeros on other rows are OK). Monthly Crew duplicate employee rows remain invalid.
 - Payroll generation still produces **one** `PayrollRecord`, payslip, and payment per employee/period. Salary export keeps one consolidated Salary Sheet row and a **Movement Details** worksheet (one row per segment, including rank).
 

@@ -2,6 +2,7 @@ import { router } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { storeTimesheet } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
+import UpdateCrewTimesheetSegmentsController from '@/actions/App/Http/Controllers/Payroll/UpdateCrewTimesheetSegmentsController';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
@@ -197,6 +198,8 @@ export function CrewMovementPeriodsDialog({
     row,
     masterOptions,
     canEdit,
+    onBeforeSave,
+    onSaved,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -204,6 +207,8 @@ export function CrewMovementPeriodsDialog({
     row: CrewPayrollRow | null;
     masterOptions: MovementMasterOptions;
     canEdit: boolean;
+    onBeforeSave?: () => Promise<void> | void;
+    onSaved?: () => void;
 }) {
     if (!row) {
         return null;
@@ -212,12 +217,14 @@ export function CrewMovementPeriodsDialog({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <CrewMovementPeriodsDialogBody
-                key={`${row.employee.id}-${open ? 'open' : 'closed'}`}
+                key={`${row.employee.id}-${row.timesheet?.id ?? 'new'}-${open ? 'open' : 'closed'}`}
                 period={period}
                 row={row}
                 masterOptions={masterOptions}
                 canEdit={canEdit}
                 onOpenChange={onOpenChange}
+                onBeforeSave={onBeforeSave}
+                onSaved={onSaved}
             />
         </Dialog>
     );
@@ -229,12 +236,16 @@ function CrewMovementPeriodsDialogBody({
     masterOptions,
     canEdit,
     onOpenChange,
+    onBeforeSave,
+    onSaved,
 }: {
     period: PayrollPeriod;
     row: CrewPayrollRow;
     masterOptions: MovementMasterOptions;
     canEdit: boolean;
     onOpenChange: (open: boolean) => void;
+    onBeforeSave?: () => Promise<void> | void;
+    onSaved?: () => void;
 }) {
     const timesheet = row.timesheet ?? null;
     const isLocked = timesheet?.is_operationally_locked === true;
@@ -289,9 +300,61 @@ function CrewMovementPeriodsDialogBody({
         );
     };
 
-    const save = () => {
+    const save = async (): Promise<void> => {
         setProcessing(true);
         setErrors({});
+
+        try {
+            await onBeforeSave?.();
+        } catch {
+            setProcessing(false);
+
+            return;
+        }
+
+        const segmentPayload = segments.map((segment) => ({
+            pay_category: segment.pay_category,
+            vessel_id: segment.vessel_id,
+            client_id: segment.client_id,
+            rank_id: segment.rank_id,
+            from_date: segment.from_date || null,
+            to_date: segment.to_date || null,
+            remarks: segment.remarks || null,
+        }));
+
+        const onError = (pageErrors: Record<string, string>): void => {
+            const next: Record<string, string> = {};
+
+            Object.entries(pageErrors).forEach(([key, message]) => {
+                next[key] = String(message);
+            });
+
+            setErrors(next);
+        };
+
+        if (timesheet?.id) {
+            router.put(
+                UpdateCrewTimesheetSegmentsController.url({
+                    payrollPeriod: period.id,
+                    timesheet: timesheet.id,
+                }),
+                {
+                    segments: segmentPayload,
+                },
+                {
+                    preserveScroll: true,
+                    only: ['rows'],
+                    onFinish: () => setProcessing(false),
+                    onSuccess: () => {
+                        onSaved?.();
+                        onOpenChange(false);
+                    },
+                    onError,
+                },
+            );
+
+            return;
+        }
 
         router.post(
             storeTimesheet.url(period.id),
@@ -303,30 +366,17 @@ function CrewMovementPeriodsDialogBody({
                 additional_amount: timesheet?.additional_amount ?? 0,
                 deduction_amount: timesheet?.deduction_amount ?? 0,
                 remarks: timesheet?.remarks ?? null,
-                segments: segments.map((segment) => ({
-                    pay_category: segment.pay_category,
-                    vessel_id: segment.vessel_id,
-                    client_id: segment.client_id,
-                    rank_id: segment.rank_id,
-                    from_date: segment.from_date || null,
-                    to_date: segment.to_date || null,
-                    remarks: segment.remarks || null,
-                })),
+                segments: segmentPayload,
             },
             {
                 preserveScroll: true,
                 only: ['rows'],
                 onFinish: () => setProcessing(false),
-                onSuccess: () => onOpenChange(false),
-                onError: (pageErrors) => {
-                    const next: Record<string, string> = {};
-
-                    Object.entries(pageErrors).forEach(([key, message]) => {
-                        next[key] = String(message);
-                    });
-
-                    setErrors(next);
+                onSuccess: () => {
+                    onSaved?.();
+                    onOpenChange(false);
                 },
+                onError,
             },
         );
     };
@@ -688,7 +738,13 @@ function CrewMovementPeriodsDialogBody({
                     {editable ? 'Cancel' : 'Close'}
                 </Button>
                 {editable ? (
-                    <Button type="button" onClick={save} disabled={processing}>
+                    <Button
+                        type="button"
+                        onClick={() => {
+                            void save();
+                        }}
+                        disabled={processing}
+                    >
                         {processing ? <Spinner className="mr-2" /> : null}
                         Save movement periods
                     </Button>

@@ -1,0 +1,211 @@
+<?php
+
+namespace App\Http\Requests\Organization\Payroll;
+
+use App\Enums\CrewTimesheetPayCategory;
+use App\Models\PayrollPeriod;
+use App\Support\Attendance\CalculateLeaveRequestDays;
+use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class UpdateCrewTimesheetSegmentsRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return (bool) ($this->user()?->can('payroll.crew_timesheets.create')
+            || $this->user()?->can('payroll.crew_timesheets.update'));
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if (! $this->has('segments') || ! is_array($this->input('segments'))) {
+            return;
+        }
+
+        $segments = [];
+
+        foreach ($this->input('segments') as $segment) {
+            if (! is_array($segment)) {
+                continue;
+            }
+
+            foreach (['from_date', 'to_date', 'remarks'] as $field) {
+                if (($segment[$field] ?? null) === '') {
+                    $segment[$field] = null;
+                }
+            }
+
+            foreach (['vessel_id', 'client_id', 'rank_id'] as $field) {
+                if (($segment[$field] ?? null) === '' || ($segment[$field] ?? null) === null) {
+                    $segment[$field] = null;
+                }
+            }
+
+            $segments[] = $segment;
+        }
+
+        $this->merge(['segments' => $segments]);
+    }
+
+    /**
+     * @return array<string, ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+            'segments' => ['required', 'array', 'min:1'],
+            'segments.*.pay_category' => [
+                'required',
+                'string',
+                Rule::in([
+                    CrewTimesheetPayCategory::SignOnStandby->value,
+                    CrewTimesheetPayCategory::Onsite->value,
+                    CrewTimesheetPayCategory::SignOffStandby->value,
+                ]),
+            ],
+            'segments.*.from_date' => ['required', 'date'],
+            'segments.*.to_date' => ['required', 'date'],
+            'segments.*.days' => ['nullable', 'numeric', 'min:0'],
+            'segments.*.vessel_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('vessels', 'id')->where('is_active', true),
+            ],
+            'segments.*.client_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('clients', 'id')->where('is_active', true),
+            ],
+            'segments.*.rank_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('ranks', 'id')->where('is_active', true),
+            ],
+            'segments.*.remarks' => ['nullable', 'string', 'max:1000'],
+        ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            /** @var PayrollPeriod|null $period */
+            $period = $this->route('payrollPeriod');
+
+            if (! $period instanceof PayrollPeriod) {
+                return;
+            }
+
+            $periodStart = $period->start_date?->toDateString();
+            $periodEnd = $period->end_date?->toDateString();
+
+            /** @var list<array{0: CarbonImmutable, 1: CarbonImmutable, 2: int}> $ranges */
+            $ranges = [];
+
+            foreach (array_values($this->input('segments', [])) as $index => $segment) {
+                if (! is_array($segment)) {
+                    continue;
+                }
+
+                $from = $segment['from_date'] ?? null;
+                $to = $segment['to_date'] ?? null;
+
+                if (! filled($from) || ! filled($to)) {
+                    continue;
+                }
+
+                try {
+                    $start = CarbonImmutable::parse((string) $from)->startOfDay();
+                    $end = CarbonImmutable::parse((string) $to)->startOfDay();
+                } catch (\Throwable) {
+                    continue;
+                }
+
+                if ($end->lt($start)) {
+                    $validator->errors()->add(
+                        "segments.{$index}.to_date",
+                        'The To date must be on or after the From date.',
+                    );
+                }
+
+                if ($periodStart !== null && $start->toDateString() < $periodStart) {
+                    $validator->errors()->add(
+                        "segments.{$index}.from_date",
+                        'Movement period dates must fall within the payroll period.',
+                    );
+                }
+
+                if ($periodEnd !== null && $end->toDateString() > $periodEnd) {
+                    $validator->errors()->add(
+                        "segments.{$index}.to_date",
+                        'Movement period dates must fall within the payroll period.',
+                    );
+                }
+
+                if (array_key_exists('days', $segment) && $segment['days'] !== null && $segment['days'] !== '') {
+                    $expected = round((new CalculateLeaveRequestDays)((string) $from, (string) $to), 2);
+
+                    if (abs((float) $segment['days'] - $expected) > 0.001) {
+                        $validator->errors()->add(
+                            "segments.{$index}.days",
+                            'Movement period days must match the inclusive From/To date range.',
+                        );
+                    }
+                }
+
+                $ranges[] = [$start, $end, $index];
+            }
+
+            for ($i = 0; $i < count($ranges); $i++) {
+                for ($j = $i + 1; $j < count($ranges); $j++) {
+                    [$startA, $endA, $indexA] = $ranges[$i];
+                    [$startB, $endB, $indexB] = $ranges[$j];
+
+                    if ($startA->lte($endB) && $startB->lte($endA)) {
+                        $validator->errors()->add(
+                            "segments.{$indexB}.from_date",
+                            'Movement periods cannot overlap on the same calendar dates.',
+                        );
+                        $validator->errors()->add(
+                            "segments.{$indexA}.from_date",
+                            'Movement periods cannot overlap on the same calendar dates.',
+                        );
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function segments(): array
+    {
+        /** @var list<array<string, mixed>> $segments */
+        $segments = $this->validated('segments');
+
+        return array_map(function (array $segment): array {
+            $from = $segment['from_date'] ?? null;
+            $to = $segment['to_date'] ?? null;
+
+            return [
+                'pay_category' => $segment['pay_category'],
+                'from_date' => $from,
+                'to_date' => $to,
+                'days' => filled($from) && filled($to)
+                    ? round((new CalculateLeaveRequestDays)((string) $from, (string) $to), 2)
+                    : null,
+                'vessel_id' => $segment['vessel_id'] ?? null,
+                'client_id' => $segment['client_id'] ?? null,
+                'rank_id' => $segment['rank_id'] ?? null,
+                'remarks' => $segment['remarks'] ?? null,
+            ];
+        }, $segments);
+    }
+}

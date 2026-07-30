@@ -29,7 +29,6 @@ import {
     recordFieldLabelClass,
 } from '@/pages/organization/_components/record-form-field';
 import { useTemplateRecordFields } from '@/pages/organization/_hooks/use-template-record-fields';
-import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
 import type { TemplateFieldConfig } from '@/pages/organization/employee-page.types';
 
 export function ReplaceDocumentDialog({
@@ -52,8 +51,8 @@ export function ReplaceDocumentDialog({
         clearMissingRequired,
         validateRequired,
     } = useTemplateRecordFields(templateFields, {
-        defaultRequiredFields:
-            TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_documents,
+        // Replace keeps the existing document type; do not require document_type_id.
+        defaultRequiredFields: [],
     });
 
     const replaceForm = useForm({
@@ -387,6 +386,10 @@ export function ReplaceDocumentDialog({
 
                                 if (
                                     !validateRequired({
+                                        document_type_id:
+                                            document.document_type_id,
+                                        title: document.title,
+                                        notes: document.notes,
                                         document_number:
                                             replaceForm.data.document_number,
                                         issue_date: replaceForm.data.issue_date,

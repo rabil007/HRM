@@ -36,6 +36,10 @@ class UpsertCrewTimesheetRequest extends FormRequest
         $normalized = [];
 
         foreach ($nullableFields as $field) {
+            if (! $this->exists($field)) {
+                continue;
+            }
+
             $value = $this->input($field);
 
             if ($value === '' || $value === null) {
@@ -69,7 +73,9 @@ class UpsertCrewTimesheetRequest extends FormRequest
             $normalized['segments'] = $segments;
         }
 
-        $this->merge($normalized);
+        if ($normalized !== []) {
+            $this->merge($normalized);
+        }
     }
 
     /**
@@ -333,12 +339,15 @@ class UpsertCrewTimesheetRequest extends FormRequest
         $validated = $this->validated();
 
         $data = [
-            'unpaid_leave_days' => $validated['unpaid_leave_days'] ?? null,
             'overtime_hours' => $validated['overtime_hours'] ?? 0,
             'additional_amount' => $validated['additional_amount'] ?? 0,
             'deduction_amount' => $validated['deduction_amount'] ?? 0,
             'remarks' => $validated['remarks'] ?? null,
         ];
+
+        if ($this->exists('unpaid_leave_days')) {
+            $data['unpaid_leave_days'] = $validated['unpaid_leave_days'] ?? null;
+        }
 
         if (isset($validated['segments']) && is_array($validated['segments'])) {
             $data['segments'] = array_map(function (array $segment): array {
@@ -363,27 +372,26 @@ class UpsertCrewTimesheetRequest extends FormRequest
             return $data;
         }
 
-        return [
-            ...$data,
-            'sign_on_standby_from' => $validated['sign_on_standby_from'] ?? null,
-            'sign_on_standby_to' => $validated['sign_on_standby_to'] ?? null,
-            'sign_on_standby_days' => $this->inclusiveDays(
-                $validated['sign_on_standby_from'] ?? null,
-                $validated['sign_on_standby_to'] ?? null,
-            ),
-            'onsite_from' => $validated['onsite_from'] ?? null,
-            'onsite_to' => $validated['onsite_to'] ?? null,
-            'onsite_days' => $this->inclusiveDays(
-                $validated['onsite_from'] ?? null,
-                $validated['onsite_to'] ?? null,
-            ),
-            'sign_off_standby_from' => $validated['sign_off_standby_from'] ?? null,
-            'sign_off_standby_to' => $validated['sign_off_standby_to'] ?? null,
-            'sign_off_standby_days' => $this->inclusiveDays(
-                $validated['sign_off_standby_from'] ?? null,
-                $validated['sign_off_standby_to'] ?? null,
-            ),
+        $operationalPairs = [
+            ['sign_on_standby_from', 'sign_on_standby_to', 'sign_on_standby_days'],
+            ['onsite_from', 'onsite_to', 'onsite_days'],
+            ['sign_off_standby_from', 'sign_off_standby_to', 'sign_off_standby_days'],
         ];
+
+        foreach ($operationalPairs as [$fromKey, $toKey, $daysKey]) {
+            if (! $this->exists($fromKey) && ! $this->exists($toKey) && ! $this->exists($daysKey)) {
+                continue;
+            }
+
+            $data[$fromKey] = $validated[$fromKey] ?? null;
+            $data[$toKey] = $validated[$toKey] ?? null;
+            $data[$daysKey] = $this->inclusiveDays(
+                is_string($data[$fromKey] ?? null) ? $data[$fromKey] : null,
+                is_string($data[$toKey] ?? null) ? $data[$toKey] : null,
+            );
+        }
+
+        return $data;
     }
 
     private function inclusiveDays(?string $from, ?string $to): ?float
