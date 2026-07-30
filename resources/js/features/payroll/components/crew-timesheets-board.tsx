@@ -31,7 +31,6 @@ import type {
     PayrollShowFilters,
 } from '../types';
 import { CrewOperationalSourceBadge } from './crew-operational-source-badge';
-import { CrewRangeEditor } from './crew-range-editor';
 import { CrewTimesheetApprovalBadge } from './crew-timesheet-approval-badge';
 import { EmployeeAnalyticsCardsGrid } from './employee-analytics-cards';
 import { OperationalDateRange } from './operational-date-range';
@@ -273,30 +272,6 @@ export function CrewTimesheetsBoard({
 
                                 const currentDraft =
                                     crewTimesheetDrafts[row.employee.id];
-                                const signOnFrom =
-                                    currentDraft?.sign_on_standby_from ??
-                                    row.timesheet?.sign_on_standby_from ??
-                                    '';
-                                const signOnTo =
-                                    currentDraft?.sign_on_standby_to ??
-                                    row.timesheet?.sign_on_standby_to ??
-                                    '';
-                                const onsiteFrom =
-                                    currentDraft?.onsite_from ??
-                                    row.timesheet?.onsite_from ??
-                                    '';
-                                const onsiteTo =
-                                    currentDraft?.onsite_to ??
-                                    row.timesheet?.onsite_to ??
-                                    '';
-                                const signOffFrom =
-                                    currentDraft?.sign_off_standby_from ??
-                                    row.timesheet?.sign_off_standby_from ??
-                                    '';
-                                const signOffTo =
-                                    currentDraft?.sign_off_standby_to ??
-                                    row.timesheet?.sign_off_standby_to ??
-                                    '';
                                 const unpaidLeaveDays =
                                     currentDraft?.unpaid_leave_days ??
                                     row.timesheet?.unpaid_leave_days ??
@@ -310,16 +285,13 @@ export function CrewTimesheetsBoard({
                                     !isMonthlyCrewRow &&
                                     row.timesheet?.is_operationally_locked ===
                                         true;
-                                const hasMultiplePeriods =
-                                    !isMonthlyCrewRow &&
-                                    row.timesheet?.has_multiple_periods ===
-                                        true;
                                 const showMovementPeriodsControl =
                                     !isMonthlyCrewRow &&
-                                    (hasMultiplePeriods ||
+                                    (canEditTimesheets ||
                                         (row.timesheet?.segments?.length ?? 0) >
                                             0 ||
-                                        canEditTimesheets);
+                                        row.timesheet?.has_multiple_periods ===
+                                            true);
 
                                 const isDirty =
                                     !!crewTimesheetDrafts[row.employee.id];
@@ -460,8 +432,7 @@ export function CrewTimesheetsBoard({
                                                         aria-label={`Unpaid leave days for ${row.employee.name}`}
                                                     />
                                                 </div>
-                                            ) : isOperationallyLocked ||
-                                              hasMultiplePeriods ? (
+                                            ) : (
                                                 <div className="space-y-2 text-[11px]">
                                                     <OperationalDateRange
                                                         label="Sign-on standby"
@@ -516,73 +487,7 @@ export function CrewTimesheetsBoard({
                                                         >
                                                             {isOperationallyLocked
                                                                 ? 'View movement periods'
-                                                                : 'Manage movement periods'}
-                                                        </Button>
-                                                    ) : null}
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-2">
-                                                    <CrewRangeEditor
-                                                        label="Sign-on standby"
-                                                        from={signOnFrom}
-                                                        to={signOnTo}
-                                                        disabled={
-                                                            !canEditTimesheets
-                                                        }
-                                                        onFromChange={(v) =>
-                                                            onCrewTimesheetChange(
-                                                                row.employee.id,
-                                                                'sign_on_standby_from',
-                                                                v,
-                                                                row.timesheet,
-                                                            )
-                                                        }
-                                                        onToChange={(v) =>
-                                                            onCrewTimesheetChange(
-                                                                row.employee.id,
-                                                                'sign_on_standby_to',
-                                                                v,
-                                                                row.timesheet,
-                                                            )
-                                                        }
-                                                    />
-                                                    <CrewRangeEditor
-                                                        label="Sign-off standby"
-                                                        from={signOffFrom}
-                                                        to={signOffTo}
-                                                        disabled={
-                                                            !canEditTimesheets
-                                                        }
-                                                        onFromChange={(v) =>
-                                                            onCrewTimesheetChange(
-                                                                row.employee.id,
-                                                                'sign_off_standby_from',
-                                                                v,
-                                                                row.timesheet,
-                                                            )
-                                                        }
-                                                        onToChange={(v) =>
-                                                            onCrewTimesheetChange(
-                                                                row.employee.id,
-                                                                'sign_off_standby_to',
-                                                                v,
-                                                                row.timesheet,
-                                                            )
-                                                        }
-                                                    />
-                                                    {canEditTimesheets ? (
-                                                        <Button
-                                                            type="button"
-                                                            variant="link"
-                                                            className="h-auto px-0 text-[11px]"
-                                                            onClick={() =>
-                                                                onOpenMovementPeriods(
-                                                                    row,
-                                                                )
-                                                            }
-                                                        >
-                                                            Manage movement
-                                                            periods
+                                                                : 'Edit movement periods'}
                                                         </Button>
                                                     ) : null}
                                                 </div>
@@ -600,8 +505,7 @@ export function CrewTimesheetsBoard({
                                                 <span className="text-xs text-muted-foreground">
                                                     —
                                                 </span>
-                                            ) : isOperationallyLocked ||
-                                              hasMultiplePeriods ? (
+                                            ) : (
                                                 <div className="space-y-2">
                                                     <OperationalDateRange
                                                         label="Onsite"
@@ -636,37 +540,9 @@ export function CrewTimesheetsBoard({
                                                         >
                                                             {isOperationallyLocked
                                                                 ? 'View details'
-                                                                : 'Edit periods'}
+                                                                : 'Edit movement periods'}
                                                         </Button>
                                                     ) : null}
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-2">
-                                                    <CrewRangeEditor
-                                                        label="Onsite"
-                                                        from={onsiteFrom}
-                                                        to={onsiteTo}
-                                                        disabled={
-                                                            !canEditTimesheets
-                                                        }
-                                                        activeColorClass="border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                                                        onFromChange={(v) =>
-                                                            onCrewTimesheetChange(
-                                                                row.employee.id,
-                                                                'onsite_from',
-                                                                v,
-                                                                row.timesheet,
-                                                            )
-                                                        }
-                                                        onToChange={(v) =>
-                                                            onCrewTimesheetChange(
-                                                                row.employee.id,
-                                                                'onsite_to',
-                                                                v,
-                                                                row.timesheet,
-                                                            )
-                                                        }
-                                                    />
                                                 </div>
                                             )}
                                         </TableCell>

@@ -154,9 +154,11 @@ Vessel transfer and redeployment create linked assignments so one employee can h
 ### Manual and Excel movement periods
 
 - Daily Crew manual entry supports a **Movement Periods** editor: one parent `CrewTimesheet` with many `crew_timesheet_segments` (pay category, optional vessel/client/rank, From/To, days, remarks).
+- The main payroll board autosaves **financial fields only** (`overtime_hours`, `unpaid_leave_days` where applicable). Movement dates on the board are read-only summaries (including “Multiple periods”); operational edits go only through **Edit movement periods**.
 - Employee-level financial fields (`unpaid_leave_days`, overtime, additions, deductions, salary inputs, parent remarks) stay once per employee — not per segment.
-- **Financial autosave** (`PATCH …/timesheets/{timesheet}/financials`) is separate from operational segment editing. Changing overtime or other financial fields never deletes or rebuilds movement periods.
-- **Segment replacement** (`PUT …/timesheets/{timesheet}/segments`) requires an explicit non-empty `segments` array. Validation runs before any delete; empty lists are rejected so movement periods cannot be cleared accidentally.
+- **Financial autosave** (`PATCH …/timesheets/{timesheet}/financials`) never deletes or rebuilds movement segments. Explicitly submitted empty/`null` remarks clear the saved remark; omitted remarks preserve the existing value.
+- **Segment replacement** (`PUT …/timesheets/{timesheet}/segments`) requires an explicit non-empty `segments` array. Tenant ownership of period/timesheet is confirmed before payload validation (cross-company → 404). Validation runs before any delete; empty lists are rejected.
+- Vessel, Client, and Rank on segments are **global** master-data tables (active-only `exists` checks), not company-owned rows.
 - Overlapping payable calendar dates for the same employee are rejected; consecutive or gapped ranges are allowed.
 - Crew Operations Applied operational data remains locked; financial fields may still update under existing rules. Clear Timesheets soft-deletes Manual/Import parents and segments only.
 - Daily Crew Excel may repeat the same employee number once per movement row. Preview groups rows, validates overlaps/period bounds using original Excel row numbers, and rejects duplicated non-zero employee-level amounts (enter once; blanks/zeros on other rows are OK). Monthly Crew duplicate employee rows remain invalid.

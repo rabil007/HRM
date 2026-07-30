@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization\Payroll;
 
 use App\Enums\CrewTimesheetPayCategory;
+use App\Models\CrewTimesheet;
 use App\Models\PayrollPeriod;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use Carbon\CarbonImmutable;
@@ -15,8 +16,16 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) ($this->user()?->can('payroll.crew_timesheets.create')
-            || $this->user()?->can('payroll.crew_timesheets.update'));
+        $user = $this->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        $this->assertOwnedCrewTimesheetRoute();
+
+        return $user->can('payroll.crew_timesheets.create')
+            || $user->can('payroll.crew_timesheets.update');
     }
 
     protected function prepareForValidation(): void
@@ -55,6 +64,8 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
      */
     public function rules(): array
     {
+        // Vessel, Client, and Rank are intentional global masters (not company-owned).
+        // Scope only to active records — see docs/payroll.md.
         return [
             'segments' => ['required', 'array', 'min:1'],
             'segments.*.pay_category' => [
@@ -207,5 +218,28 @@ class UpdateCrewTimesheetSegmentsRequest extends FormRequest
                 'remarks' => $segment['remarks'] ?? null,
             ];
         }, $segments);
+    }
+
+    private function assertOwnedCrewTimesheetRoute(): void
+    {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
+        if ($companyId <= 0) {
+            abort(404);
+        }
+
+        $period = $this->route('payrollPeriod');
+        $timesheet = $this->route('timesheet');
+
+        if (! $period instanceof PayrollPeriod || ! $timesheet instanceof CrewTimesheet) {
+            abort(404);
+        }
+
+        if ((int) $period->company_id !== $companyId
+            || ! $period->isCrew()
+            || (int) $timesheet->company_id !== $companyId
+            || (int) $timesheet->period_id !== (int) $period->id) {
+            abort(404);
+        }
     }
 }

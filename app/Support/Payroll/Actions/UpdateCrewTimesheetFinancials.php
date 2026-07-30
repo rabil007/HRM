@@ -64,8 +64,9 @@ final class UpdateCrewTimesheetFinancials
 
             $attributes = [];
 
+            // Missing key → preserve; present (including null) → update/clear.
             foreach (['overtime_hours', 'overtime_amount', 'additional_amount', 'deduction_amount', 'remarks'] as $key) {
-                if (array_key_exists($key, $data) && $data[$key] !== null) {
+                if (array_key_exists($key, $data)) {
                     $attributes[$key] = $data[$key];
                 }
             }

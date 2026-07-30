@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { storeTimesheet } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
 import UpdateCrewTimesheetSegmentsController from '@/actions/App/Http/Controllers/Payroll/UpdateCrewTimesheetSegmentsController';
 import InputError from '@/components/input-error';
@@ -217,7 +217,7 @@ export function CrewMovementPeriodsDialog({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <CrewMovementPeriodsDialogBody
-                key={`${row.employee.id}-${row.timesheet?.id ?? 'new'}-${open ? 'open' : 'closed'}`}
+                key={`${row.employee.id}-${open ? 'open' : 'closed'}`}
                 period={period}
                 row={row}
                 masterOptions={masterOptions}
@@ -248,6 +248,12 @@ function CrewMovementPeriodsDialogBody({
     onSaved?: () => void;
 }) {
     const timesheet = row.timesheet ?? null;
+    const rowRef = useRef(row);
+
+    useEffect(() => {
+        rowRef.current = row;
+    }, [row]);
+
     const isLocked = timesheet?.is_operationally_locked === true;
     const editable = canEdit && !isLocked;
     const [segments, setSegments] = useState<DraftSegment[]>(() =>
@@ -306,8 +312,14 @@ function CrewMovementPeriodsDialogBody({
 
         try {
             await onBeforeSave?.();
-        } catch {
+        } catch (error) {
             setProcessing(false);
+            setErrors({
+                financials:
+                    error instanceof Error
+                        ? error.message
+                        : 'Pending financial changes could not be saved. Movement periods were not updated.',
+            });
 
             return;
         }
@@ -332,11 +344,13 @@ function CrewMovementPeriodsDialogBody({
             setErrors(next);
         };
 
-        if (timesheet?.id) {
+        const latestTimesheet = rowRef.current.timesheet ?? timesheet;
+
+        if (latestTimesheet?.id) {
             router.put(
                 UpdateCrewTimesheetSegmentsController.url({
                     payrollPeriod: period.id,
-                    timesheet: timesheet.id,
+                    timesheet: latestTimesheet.id,
                 }),
                 {
                     segments: segmentPayload,
@@ -361,11 +375,6 @@ function CrewMovementPeriodsDialogBody({
             {
                 period_id: period.id,
                 employee_id: row.employee.id,
-                unpaid_leave_days: timesheet?.unpaid_leave_days ?? null,
-                overtime_hours: timesheet?.overtime_hours ?? 0,
-                additional_amount: timesheet?.additional_amount ?? 0,
-                deduction_amount: timesheet?.deduction_amount ?? 0,
-                remarks: timesheet?.remarks ?? null,
                 segments: segmentPayload,
             },
             {
@@ -722,6 +731,7 @@ function CrewMovementPeriodsDialogBody({
                             Add Movement Period
                         </Button>
 
+                        <InputError message={errors.financials} />
                         <InputError message={errors.segments} />
                         <InputError message={errors.employee_id} />
                     </div>

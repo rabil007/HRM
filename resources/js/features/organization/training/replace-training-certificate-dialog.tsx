@@ -30,6 +30,7 @@ import {
     recordFieldLabelClass,
 } from '@/pages/organization/_components/record-form-field';
 import { useTemplateRecordFields } from '@/pages/organization/_hooks/use-template-record-fields';
+import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
 import type {
     TemplateFieldConfig,
     TrainingItem,
@@ -57,8 +58,8 @@ export function ReplaceTrainingCertificateDialog({
         clearMissingRequired,
         validateRequired,
     } = useTemplateRecordFields(templateFields, {
-        // Replace keeps the existing course; do not require course_id.
-        defaultRequiredFields: [],
+        defaultRequiredFields:
+            TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_trainings,
     });
 
     const replaceForm = useForm({
@@ -465,9 +466,6 @@ export function ReplaceTrainingCertificateDialog({
 
                                 if (
                                     !validateRequired({
-                                        course_id: training.course_id,
-                                        certificate_path:
-                                            replaceForm.data.file,
                                         issue_date: replaceForm.data.issue_date,
                                         expiry_date:
                                             replaceForm.data.expiry_date,

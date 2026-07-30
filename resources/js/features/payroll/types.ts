@@ -303,12 +303,6 @@ export type CrewTimesheetFormData = {
 };
 
 export type CrewTimesheetDraft = {
-    sign_on_standby_from: string;
-    sign_on_standby_to: string;
-    onsite_from: string;
-    onsite_to: string;
-    sign_off_standby_from: string;
-    sign_off_standby_to: string;
     unpaid_leave_days: string;
     overtime_hours: string;
 };
@@ -317,12 +311,6 @@ export function buildCrewTimesheetDraft(
     timesheet: CrewTimesheet | null | undefined,
 ): CrewTimesheetDraft {
     return {
-        sign_on_standby_from: timesheet?.sign_on_standby_from ?? '',
-        sign_on_standby_to: timesheet?.sign_on_standby_to ?? '',
-        onsite_from: timesheet?.onsite_from ?? '',
-        onsite_to: timesheet?.onsite_to ?? '',
-        sign_off_standby_from: timesheet?.sign_off_standby_from ?? '',
-        sign_off_standby_to: timesheet?.sign_off_standby_to ?? '',
         unpaid_leave_days: timesheet?.unpaid_leave_days ?? '',
         overtime_hours: timesheet?.overtime_hours ?? '',
     };

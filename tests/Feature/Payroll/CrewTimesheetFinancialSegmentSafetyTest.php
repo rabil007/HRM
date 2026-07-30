@@ -261,6 +261,56 @@ test('missing financial fields preserve existing values', function () {
         ->and($timesheet->remarks)->toBe('keep-me');
 });
 
+test('submitted remarks null clears existing remarks', function () {
+    $fixtures = makeMultiSegmentManualTimesheetFixtures();
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->patch(route('payroll.timesheets.financials', [
+            $fixtures['period'],
+            $fixtures['timesheet'],
+        ]), [
+            'remarks' => null,
+        ])
+        ->assertRedirect();
+
+    expect($fixtures['timesheet']->fresh()->remarks)->toBeNull()
+        ->and((float) $fixtures['timesheet']->fresh()->overtime_hours)->toBe(2.0)
+        ->and($fixtures['timesheet']->fresh()->segments)->toHaveCount(2);
+});
+
+test('empty string remarks clears existing remarks', function () {
+    $fixtures = makeMultiSegmentManualTimesheetFixtures();
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->patch(route('payroll.timesheets.financials', [
+            $fixtures['period'],
+            $fixtures['timesheet'],
+        ]), [
+            'remarks' => '',
+        ])
+        ->assertRedirect();
+
+    expect($fixtures['timesheet']->fresh()->remarks)->toBeNull();
+});
+
+test('omitted remarks preserves existing remarks', function () {
+    $fixtures = makeMultiSegmentManualTimesheetFixtures();
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->patch(route('payroll.timesheets.financials', [
+            $fixtures['period'],
+            $fixtures['timesheet'],
+        ]), [
+            'overtime_hours' => 3,
+        ])
+        ->assertRedirect();
+
+    expect($fixtures['timesheet']->fresh()->remarks)->toBe('keep-me');
+});
+
 test('segment save replaces old manual segments', function () {
     $fixtures = makeMultiSegmentManualTimesheetFixtures();
     $replacementVessel = makeCrewMovementVessel('Replacement');
@@ -603,9 +653,11 @@ test('tenant isolation is enforced for financial and segment routes', function (
             $fixtures['period'],
             $fixtures['timesheet'],
         ]), [
-            'overtime_hours' => 99,
+            // Invalid payload must not surface as 422 for another tenant.
+            'overtime_hours' => 'not-a-number',
         ])
-        ->assertNotFound();
+        ->assertNotFound()
+        ->assertSessionMissing('errors');
 
     $this->actingAs($otherUser)
         ->withSession(['current_company_id' => $otherCompany->id])
@@ -615,16 +667,78 @@ test('tenant isolation is enforced for financial and segment routes', function (
         ]), [
             'segments' => [
                 [
-                    'pay_category' => 'onsite',
-                    'from_date' => '2026-07-01',
-                    'to_date' => '2026-07-05',
+                    'pay_category' => 'invalid-category',
+                    'from_date' => 'not-a-date',
+                    'to_date' => 'also-bad',
                 ],
             ],
         ])
-        ->assertNotFound();
+        ->assertNotFound()
+        ->assertSessionMissing('errors');
 
     expect((float) $fixtures['timesheet']->fresh()->overtime_hours)->toBe(2.0)
         ->and($fixtures['timesheet']->fresh()->segments)->toHaveCount(2);
+});
+
+test('financial-only create via upsert does not create movement segments', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.create',
+        'payroll.crew_timesheets.update',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->hybridTimesheets()->create([
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+    $employee = createCrewEmployeeWithContract($company, 'FS-CREATE-'.uniqid(), 100, 50, 25);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.timesheets.store', $period), [
+            'period_id' => $period->id,
+            'employee_id' => $employee->id,
+            'overtime_hours' => 5,
+        ])
+        ->assertRedirect();
+
+    $timesheet = CrewTimesheet::query()
+        ->where('company_id', $company->id)
+        ->where('employee_id', $employee->id)
+        ->where('period_id', $period->id)
+        ->with('segments')
+        ->first();
+
+    expect($timesheet)->not->toBeNull()
+        ->and((float) $timesheet->overtime_hours)->toBe(5.0)
+        ->and($timesheet->segments)->toHaveCount(0);
+});
+
+test('vessel client and rank masters are global active-only not company-scoped', function () {
+    $fixtures = makeMultiSegmentManualTimesheetFixtures();
+
+    // Global masters remain usable across companies when active.
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->put(route('payroll.timesheets.segments', [
+            $fixtures['period'],
+            $fixtures['timesheet'],
+        ]), [
+            'segments' => [
+                [
+                    'pay_category' => 'onsite',
+                    'vessel_id' => $fixtures['vesselA']->id,
+                    'client_id' => $fixtures['client']->id,
+                    'rank_id' => $fixtures['rank']->id,
+                    'from_date' => '2026-07-01',
+                    'to_date' => '2026-07-08',
+                ],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionDoesntHaveErrors();
+
+    expect($fixtures['timesheet']->fresh()->segments)->toHaveCount(1);
 });
 
 test('upsert financial-only action call leaves segments untouched', function () {
