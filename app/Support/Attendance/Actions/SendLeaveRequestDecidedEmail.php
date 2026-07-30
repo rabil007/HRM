@@ -8,6 +8,7 @@ use App\Models\EmailTemplate;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
+use App\Support\Attendance\LeaveNotificationSettings;
 use App\Support\Departments\ResolveDepartmentEffectiveManager;
 use App\Support\Email\CommaSeparatedEmailList;
 use Illuminate\Support\Facades\Mail;
@@ -16,6 +17,12 @@ final class SendLeaveRequestDecidedEmail
 {
     public function handle(LeaveRequest $leaveRequest): void
     {
+        $notificationSettings = LeaveNotificationSettings::forCompany((int) $leaveRequest->company_id);
+
+        if (! $notificationSettings->shouldNotifyOnFinalDecision()) {
+            return;
+        }
+
         $status = $leaveRequest->status; // 'approved' or 'rejected'
         $slug = $status === 'approved' ? 'leave_request_approved' : 'leave_request_rejected';
 
@@ -38,7 +45,11 @@ final class SendLeaveRequestDecidedEmail
             'approver:id,name',
         ]);
 
-        $recipients = $this->resolveRecipients($template, $leaveRequest);
+        $recipients = $this->resolveRecipients(
+            $template,
+            $leaveRequest,
+            $notificationSettings->shouldCopyDecidingApprover(),
+        );
 
         if ($recipients['to'] === '') {
             return;
@@ -78,12 +89,17 @@ final class SendLeaveRequestDecidedEmail
     /**
      * @return array{to: string, cc: list<string>}
      */
-    private function resolveRecipients(EmailTemplate $template, LeaveRequest $leaveRequest): array
-    {
+    private function resolveRecipients(
+        EmailTemplate $template,
+        LeaveRequest $leaveRequest,
+        bool $copyDecidingApprover,
+    ): array {
         $toPreset = CommaSeparatedEmailList::parse($template->to_preset);
         $ccPreset = CommaSeparatedEmailList::parse($template->cc_preset);
         $employeeEmail = $this->resolveEmployeeEmail($leaveRequest);
-        $snapshotApproverEmail = $this->resolveSnapshotApproverEmail($leaveRequest);
+        $snapshotApproverEmail = $copyDecidingApprover
+            ? $this->resolveSnapshotApproverEmail($leaveRequest)
+            : '';
 
         if ($employeeEmail === '') {
             $cc = collect([...$toPreset, ...$ccPreset, $snapshotApproverEmail])

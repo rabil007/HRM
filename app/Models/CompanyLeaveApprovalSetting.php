@@ -20,6 +20,12 @@ class CompanyLeaveApprovalSetting extends Model
         'company_id',
         'default_hr_approver_employee_id',
         'fallback_approver_employee_id',
+        'email_notifications_enabled',
+        'notify_on_submission',
+        'notify_on_update',
+        'notify_next_approver',
+        'notify_on_final_decision',
+        'copy_deciding_approver',
         'updated_by',
     ];
 
@@ -32,6 +38,12 @@ class CompanyLeaveApprovalSetting extends Model
             'company_id' => 'integer',
             'default_hr_approver_employee_id' => 'integer',
             'fallback_approver_employee_id' => 'integer',
+            'email_notifications_enabled' => 'boolean',
+            'notify_on_submission' => 'boolean',
+            'notify_on_update' => 'boolean',
+            'notify_next_approver' => 'boolean',
+            'notify_on_final_decision' => 'boolean',
+            'copy_deciding_approver' => 'boolean',
             'updated_by' => 'integer',
         ];
     }
@@ -43,6 +55,12 @@ class CompanyLeaveApprovalSetting extends Model
                 'company_id',
                 'default_hr_approver_employee_id',
                 'fallback_approver_employee_id',
+                'email_notifications_enabled',
+                'notify_on_submission',
+                'notify_on_update',
+                'notify_next_approver',
+                'notify_on_final_decision',
+                'copy_deciding_approver',
                 'updated_by',
             ])
             ->logOnlyDirty();
@@ -69,6 +87,30 @@ class CompanyLeaveApprovalSetting extends Model
     }
 
     /**
+     * Default notification preferences when no settings row exists.
+     *
+     * @return array{
+     *     email_notifications_enabled: true,
+     *     notify_on_submission: true,
+     *     notify_on_update: true,
+     *     notify_next_approver: true,
+     *     notify_on_final_decision: true,
+     *     copy_deciding_approver: true,
+     * }
+     */
+    public static function defaultNotificationAttributes(): array
+    {
+        return [
+            'email_notifications_enabled' => true,
+            'notify_on_submission' => true,
+            'notify_on_update' => true,
+            'notify_next_approver' => true,
+            'notify_on_final_decision' => true,
+            'copy_deciding_approver' => true,
+        ];
+    }
+
+    /**
      * Read-only settings lookup for workflow resolution.
      * Does not create a database row when settings are missing.
      */
@@ -86,6 +128,7 @@ class CompanyLeaveApprovalSetting extends Model
             'company_id' => $companyId,
             'default_hr_approver_employee_id' => null,
             'fallback_approver_employee_id' => null,
+            ...self::defaultNotificationAttributes(),
         ]);
     }
 
@@ -99,6 +142,7 @@ class CompanyLeaveApprovalSetting extends Model
             [
                 'default_hr_approver_employee_id' => null,
                 'fallback_approver_employee_id' => null,
+                ...self::defaultNotificationAttributes(),
             ],
         );
     }

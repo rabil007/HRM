@@ -320,6 +320,12 @@ test('leave approval settings can be updated with validation warnings', function
     $this->put('/attendance/leave-approval-settings', [
         'default_hr_approver_employee_id' => $inactive->id,
         'fallback_approver_employee_id' => null,
+        'email_notifications_enabled' => true,
+        'notify_on_submission' => true,
+        'notify_on_update' => true,
+        'notify_next_approver' => true,
+        'notify_on_final_decision' => true,
+        'copy_deciding_approver' => true,
     ])
         ->assertRedirect(route('attendance.leave-approval-settings.edit'))
         ->assertSessionHas('warning');

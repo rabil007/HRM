@@ -23,6 +23,12 @@ class CompanyLeaveApprovalSettingFactory extends Factory
             'company_id' => 0,
             'default_hr_approver_employee_id' => null,
             'fallback_approver_employee_id' => null,
+            'email_notifications_enabled' => true,
+            'notify_on_submission' => true,
+            'notify_on_update' => true,
+            'notify_next_approver' => true,
+            'notify_on_final_decision' => true,
+            'copy_deciding_approver' => true,
             'updated_by' => null,
         ];
     }

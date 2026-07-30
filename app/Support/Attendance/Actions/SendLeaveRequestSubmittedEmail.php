@@ -8,6 +8,7 @@ use App\Models\EmailTemplate;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
+use App\Support\Attendance\LeaveNotificationSettings;
 use App\Support\Departments\ResolveDepartmentEffectiveManager;
 use App\Support\Email\CommaSeparatedEmailList;
 use Illuminate\Support\Facades\Mail;
@@ -18,6 +19,10 @@ final class SendLeaveRequestSubmittedEmail
 
     public function handle(LeaveRequest $leaveRequest): void
     {
+        if (! LeaveNotificationSettings::forCompany((int) $leaveRequest->company_id)->shouldNotifyOnSubmission()) {
+            return;
+        }
+
         $template = EmailTemplate::query()
             ->where('slug', self::TEMPLATE_SLUG)
             ->where('enabled', true)

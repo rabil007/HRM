@@ -9,6 +9,8 @@ import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 
 type EmployeeOption = {
     id: number;
@@ -22,7 +24,76 @@ type LeaveApprovalSettings = {
     fallback_approver_employee_id: number | null;
     default_hr_approver: EmployeeOption | null;
     fallback_approver: EmployeeOption | null;
+    email_notifications_enabled: boolean;
+    notify_on_submission: boolean;
+    notify_on_update: boolean;
+    notify_next_approver: boolean;
+    notify_on_final_decision: boolean;
+    copy_deciding_approver: boolean;
 };
+
+type NotificationSwitchKey =
+    | 'email_notifications_enabled'
+    | 'notify_on_submission'
+    | 'notify_on_update'
+    | 'notify_next_approver'
+    | 'notify_on_final_decision'
+    | 'copy_deciding_approver';
+
+function NotificationSwitchRow({
+    id,
+    label,
+    description,
+    checked,
+    disabled,
+    muted,
+    error,
+    onCheckedChange,
+}: {
+    id: string;
+    label: string;
+    description?: string;
+    checked: boolean;
+    disabled: boolean;
+    muted?: boolean;
+    error?: string;
+    onCheckedChange: (value: boolean) => void;
+}) {
+    return (
+        <div
+            className={cn(
+                'flex items-start justify-between gap-4 rounded-xl border border-border/60 bg-muted/30 px-4 py-3',
+                muted && 'opacity-60',
+            )}
+        >
+            <div className="min-w-0 space-y-1">
+                <Label
+                    htmlFor={id}
+                    className="text-sm font-semibold text-foreground"
+                >
+                    {label}
+                </Label>
+                {description ? (
+                    <p className="text-xs text-muted-foreground/80">
+                        {description}
+                    </p>
+                ) : null}
+                {error ? (
+                    <div className="text-xs font-medium text-destructive">
+                        {error}
+                    </div>
+                ) : null}
+            </div>
+            <Switch
+                id={id}
+                checked={checked}
+                disabled={disabled}
+                onCheckedChange={onCheckedChange}
+                aria-label={label}
+            />
+        </div>
+    );
+}
 
 export default function LeaveApprovalSettings({
     settings,
@@ -43,7 +114,20 @@ export default function LeaveApprovalSettings({
             settings.default_hr_approver_employee_id ?? ('' as number | ''),
         fallback_approver_employee_id:
             settings.fallback_approver_employee_id ?? ('' as number | ''),
+        email_notifications_enabled: settings.email_notifications_enabled,
+        notify_on_submission: settings.notify_on_submission,
+        notify_on_update: settings.notify_on_update,
+        notify_next_approver: settings.notify_next_approver,
+        notify_on_final_decision: settings.notify_on_final_decision,
+        copy_deciding_approver: settings.copy_deciding_approver,
     });
+
+    const emailsEnabled = form.data.email_notifications_enabled;
+    const eventSwitchesDisabled = !can.update || !emailsEnabled;
+
+    const setNotification = (key: NotificationSwitchKey, value: boolean) => {
+        form.setData(key, value);
+    };
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -57,6 +141,12 @@ export default function LeaveApprovalSettings({
                 data.fallback_approver_employee_id === ''
                     ? null
                     : data.fallback_approver_employee_id,
+            email_notifications_enabled: data.email_notifications_enabled,
+            notify_on_submission: data.notify_on_submission,
+            notify_on_update: data.notify_on_update,
+            notify_next_approver: data.notify_next_approver,
+            notify_on_final_decision: data.notify_on_final_decision,
+            copy_deciding_approver: data.copy_deciding_approver,
         }));
 
         form.put(updateLeaveApprovalSettings.url(), {
@@ -71,7 +161,7 @@ export default function LeaveApprovalSettings({
 
             <PageHeader
                 title="Leave approval settings"
-                description="Configure company-wide HR and fallback approvers."
+                description="Configure company-wide approver defaults and leave-request email notifications."
                 right={
                     <Button
                         variant="secondary"
@@ -86,14 +176,14 @@ export default function LeaveApprovalSettings({
                 }
             />
 
-            <Card className="mx-auto max-w-2xl glass-card border-border bg-card dark:border-white/5 dark:bg-white/5">
-                <CardHeader>
-                    <CardTitle className="text-xl font-bold tracking-tight">
-                        Approver defaults
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={submit} className="space-y-6">
+            <form onSubmit={submit} className="mx-auto max-w-2xl space-y-6">
+                <Card className="glass-card border-border bg-card dark:border-white/5 dark:bg-white/5">
+                    <CardHeader>
+                        <CardTitle className="text-xl font-bold tracking-tight">
+                            Approver defaults
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
                         <div className="space-y-2">
                             <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                 Default HR approver
@@ -192,21 +282,114 @@ export default function LeaveApprovalSettings({
                                 </ul>
                             ) : null}
                         </div>
+                    </CardContent>
+                </Card>
 
-                        {can.update ? (
-                            <div className="flex justify-end">
-                                <Button
-                                    type="submit"
-                                    className="h-11 rounded-xl px-6 font-semibold"
-                                    disabled={form.processing}
-                                >
-                                    Save settings
-                                </Button>
-                            </div>
-                        ) : null}
-                    </form>
-                </CardContent>
-            </Card>
+                <Card className="glass-card border-border bg-card dark:border-white/5 dark:bg-white/5">
+                    <CardHeader className="space-y-2">
+                        <CardTitle className="text-xl font-bold tracking-tight">
+                            Email notifications
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground">
+                            These company switches control whether leave-request
+                            emails are sent. Email Templates still control
+                            message content and must also be enabled.
+                        </p>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <NotificationSwitchRow
+                            id="email_notifications_enabled"
+                            label="Enable leave-request email notifications"
+                            description="Master switch for all leave-request emails. Turning this off does not change approval workflow."
+                            checked={form.data.email_notifications_enabled}
+                            disabled={!can.update}
+                            error={form.errors.email_notifications_enabled}
+                            onCheckedChange={(value) =>
+                                setNotification(
+                                    'email_notifications_enabled',
+                                    value,
+                                )
+                            }
+                        />
+
+                        <NotificationSwitchRow
+                            id="notify_on_submission"
+                            label="Notify current approver when a request is submitted"
+                            checked={form.data.notify_on_submission}
+                            disabled={eventSwitchesDisabled}
+                            muted={!emailsEnabled}
+                            error={form.errors.notify_on_submission}
+                            onCheckedChange={(value) =>
+                                setNotification('notify_on_submission', value)
+                            }
+                        />
+
+                        <NotificationSwitchRow
+                            id="notify_on_update"
+                            label="Notify current approver when a request is updated"
+                            checked={form.data.notify_on_update}
+                            disabled={eventSwitchesDisabled}
+                            muted={!emailsEnabled}
+                            error={form.errors.notify_on_update}
+                            onCheckedChange={(value) =>
+                                setNotification('notify_on_update', value)
+                            }
+                        />
+
+                        <NotificationSwitchRow
+                            id="notify_next_approver"
+                            label="Notify the next approver when their approval becomes required"
+                            checked={form.data.notify_next_approver}
+                            disabled={eventSwitchesDisabled}
+                            muted={!emailsEnabled}
+                            error={form.errors.notify_next_approver}
+                            onCheckedChange={(value) =>
+                                setNotification('notify_next_approver', value)
+                            }
+                        />
+
+                        <NotificationSwitchRow
+                            id="notify_on_final_decision"
+                            label="Notify employee when the request is approved or rejected"
+                            checked={form.data.notify_on_final_decision}
+                            disabled={eventSwitchesDisabled}
+                            muted={!emailsEnabled}
+                            error={form.errors.notify_on_final_decision}
+                            onCheckedChange={(value) =>
+                                setNotification(
+                                    'notify_on_final_decision',
+                                    value,
+                                )
+                            }
+                        />
+
+                        <NotificationSwitchRow
+                            id="copy_deciding_approver"
+                            label="Send final-decision copy to the deciding approver"
+                            description="Only applies when final-decision notifications are enabled."
+                            checked={form.data.copy_deciding_approver}
+                            disabled={eventSwitchesDisabled}
+                            muted={!emailsEnabled}
+                            error={form.errors.copy_deciding_approver}
+                            onCheckedChange={(value) =>
+                                setNotification('copy_deciding_approver', value)
+                            }
+                        />
+                    </CardContent>
+                </Card>
+
+                {can.update ? (
+                    <div className="flex justify-end">
+                        <Button
+                            type="submit"
+                            className="h-11 rounded-xl px-6 font-semibold"
+                            disabled={form.processing}
+                        >
+                            Save settings
+                        </Button>
+                    </div>
+                ) : null}
+            </form>
         </Main>
     );
 }

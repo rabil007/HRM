@@ -48,6 +48,12 @@ class LeaveApprovalSettingController extends Controller
                 'fallback_approver_employee_id' => $settings->fallback_approver_employee_id,
                 'default_hr_approver' => $defaultHr,
                 'fallback_approver' => $fallback,
+                'email_notifications_enabled' => (bool) $settings->email_notifications_enabled,
+                'notify_on_submission' => (bool) $settings->notify_on_submission,
+                'notify_on_update' => (bool) $settings->notify_on_update,
+                'notify_next_approver' => (bool) $settings->notify_next_approver,
+                'notify_on_final_decision' => (bool) $settings->notify_on_final_decision,
+                'copy_deciding_approver' => (bool) $settings->copy_deciding_approver,
             ],
             'employees' => $this->presentApproverOption->forCompany(
                 $companyId,
@@ -73,6 +79,12 @@ class LeaveApprovalSettingController extends Controller
         $settings->update([
             'default_hr_approver_employee_id' => $data['default_hr_approver_employee_id'] ?? null,
             'fallback_approver_employee_id' => $data['fallback_approver_employee_id'] ?? null,
+            'email_notifications_enabled' => $data['email_notifications_enabled'],
+            'notify_on_submission' => $data['notify_on_submission'],
+            'notify_on_update' => $data['notify_on_update'],
+            'notify_next_approver' => $data['notify_next_approver'],
+            'notify_on_final_decision' => $data['notify_on_final_decision'],
+            'copy_deciding_approver' => $data['copy_deciding_approver'],
             'updated_by' => $request->user()?->id,
         ]);
 

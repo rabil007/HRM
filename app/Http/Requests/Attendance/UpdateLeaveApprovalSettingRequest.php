@@ -31,6 +31,12 @@ class UpdateLeaveApprovalSettingRequest extends FormRequest
         return [
             'default_hr_approver_employee_id' => $employeeRule,
             'fallback_approver_employee_id' => $employeeRule,
+            'email_notifications_enabled' => ['required', 'boolean'],
+            'notify_on_submission' => ['required', 'boolean'],
+            'notify_on_update' => ['required', 'boolean'],
+            'notify_next_approver' => ['required', 'boolean'],
+            'notify_on_final_decision' => ['required', 'boolean'],
+            'copy_deciding_approver' => ['required', 'boolean'],
         ];
     }
 }
