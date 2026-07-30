@@ -266,11 +266,15 @@ Payable lines only (`sign_on_standby`, `onsite`, `sign_off_standby` with `days >
 
 Per employee (`company_id` + `employee_id` + `period_id`):
 
-- sum days per category
-- earliest `from_date` / latest `to_date` per category
+- create **one parent `CrewTimesheet`**
+- create **one `crew_timesheet_segments` row per payable preparation line**, preserving assignment, phase, exact from/to, and days
+- snapshot vessel / client / rank from the linked assignment onto each segment
+- parent category days = sum of segment days
+- when a category has multiple segments, parent from/to are left **null** (UI shows “Multiple periods”); a single segment mirrors its from/to onto the parent
 - daily crew contracts only; monthly crew employees are skipped
 - excluded / warning-only / zero-day rows do not contribute
 
+Do not collapse separate assignments into one misleading continuous date range on the parent.
 ### CrewTimesheet fields written
 
 - `sign_on_standby_*`, `onsite_*`, `sign_off_standby_*`
@@ -381,8 +385,7 @@ Hardening applied before production use. Manual / Excel and Monthly crew behavio
 
 - Monthly crew movement integration
 - Travel payment configuration
-- Vessel transfer / redeployment
 - Direct editing of generated timeline lines
 - Payroll correction workflow for replacing Applied preparations
 
-See also [crew-movement-phases.md](./crew-movement-phases.md) and [payroll.md](../payroll.md).
+Vessel transfer, redeployment, and assignment-based timesheet segments are implemented. See [crew-movement-phases.md](./crew-movement-phases.md) and [payroll.md](../payroll.md).

@@ -48,6 +48,7 @@ final class CrewPayrollSalarySheetExporter
             ->where('company_id', $companyId)
             ->where('period_id', $period->id)
             ->whereIn('employee_id', $employeeIds)
+            ->with(['segments.assignment', 'segments.vessel', 'segments.client'])
             ->get()
             ->keyBy('employee_id');
 
@@ -86,6 +87,8 @@ final class CrewPayrollSalarySheetExporter
         $lastDataRow = max($rowNumber - 1, self::DATA_START_ROW - 1);
         $this->applyWorksheetFormatting($sheet, $lastDataRow);
         $this->applyMissingHighlights($sheet, $missingCoordinates);
+
+        $this->writeMovementDetailsSheet($spreadsheet, $records, $timesheetsByEmployee);
 
         return $this->saveSpreadsheet($spreadsheet, 'crew-payroll-', $period);
     }
@@ -172,11 +175,35 @@ final class CrewPayrollSalarySheetExporter
             'D' => $this->presentValue($employee->position?->title, ! filled($employee->position?->title)),
             'E' => $this->presentValue($employee->client?->name, ! filled($employee->client?->name)),
             'F' => $this->presentValue($employee->project?->title, ! filled($employee->project?->title)),
-            'G' => $this->presentDate($timesheet?->sign_on_standby_from),
-            'H' => $this->presentDate($timesheet?->sign_off_standby_to),
+            'G' => $this->presentCategoryBoundary(
+                $timesheet?->sign_on_standby_from,
+                $timesheet !== null
+                    && $timesheet->sign_on_standby_from === null
+                    && (float) ($timesheet->sign_on_standby_days ?? 0) > 0
+                    && $timesheet->hasMovementSegments(),
+            ),
+            'H' => $this->presentCategoryBoundary(
+                $timesheet?->sign_off_standby_to,
+                $timesheet !== null
+                    && $timesheet->sign_off_standby_to === null
+                    && (float) ($timesheet->sign_off_standby_days ?? 0) > 0
+                    && $timesheet->hasMovementSegments(),
+            ),
             'I' => $this->presentNumeric($breakdown['total_standby_days'] ?? null),
-            'J' => $this->presentDate($timesheet?->onsite_from),
-            'K' => $this->presentDate($timesheet?->onsite_to),
+            'J' => $this->presentCategoryBoundary(
+                $timesheet?->onsite_from,
+                $timesheet !== null
+                    && $timesheet->onsite_from === null
+                    && (float) ($timesheet->onsite_days ?? 0) > 0
+                    && $timesheet->hasMovementSegments(),
+            ),
+            'K' => $this->presentCategoryBoundary(
+                $timesheet?->onsite_to,
+                $timesheet !== null
+                    && $timesheet->onsite_to === null
+                    && (float) ($timesheet->onsite_days ?? 0) > 0
+                    && $timesheet->hasMovementSegments(),
+            ),
             'L' => $this->presentNumeric($timesheet?->onsite_days ?? $breakdown['onsite_days'] ?? null),
             'M' => $this->presentNumeric($rates['basic_daily'] ?? null),
             'N' => $this->presentNumeric($rates['supplementary_allowance_daily'] ?? null),
@@ -262,6 +289,73 @@ final class CrewPayrollSalarySheetExporter
         $this->applyDaysFormat($sheet, 'I'.self::DATA_START_ROW.':I'.$lastDataRow);
         $this->applyDaysFormat($sheet, 'L'.self::DATA_START_ROW.':L'.$lastDataRow);
         $this->applyMoneyFormat($sheet, 'M'.self::DATA_START_ROW.':T'.$lastDataRow);
+    }
+
+    /**
+     * @param  Collection<int, PayrollRecord>  $records
+     * @param  Collection<int, CrewTimesheet>  $timesheetsByEmployee
+     */
+    private function writeMovementDetailsSheet(
+        Spreadsheet $spreadsheet,
+        Collection $records,
+        Collection $timesheetsByEmployee,
+    ): void {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle('Movement Details');
+
+        $headers = [
+            'A' => 'EMP.NO.',
+            'B' => 'NAME',
+            'C' => 'ASSIGNMENT',
+            'D' => 'VESSEL',
+            'E' => 'CLIENT / PROJECT',
+            'F' => 'CATEGORY',
+            'G' => 'FROM',
+            'H' => 'TO',
+            'I' => 'DAYS',
+            'J' => 'SOURCE',
+        ];
+
+        foreach ($headers as $column => $header) {
+            $sheet->setCellValue("{$column}1", $header);
+        }
+
+        $row = 2;
+
+        foreach ($records as $record) {
+            $employee = $record->employee;
+            $timesheet = $timesheetsByEmployee->get($record->employee_id);
+
+            if ($timesheet === null || $timesheet->segments->isEmpty()) {
+                continue;
+            }
+
+            foreach ($timesheet->segments as $segment) {
+                $sheet->setCellValue("A{$row}", $employee?->employee_no);
+                $sheet->setCellValue("B{$row}", $employee?->name);
+                $sheet->setCellValue("C{$row}", $segment->assignment?->assignment_no);
+                $sheet->setCellValue("D{$row}", $segment->vessel?->name);
+                $sheet->setCellValue("E{$row}", $segment->client?->name);
+                $sheet->setCellValue("F{$row}", $segment->pay_category?->label());
+                $sheet->setCellValue("G{$row}", $segment->from_date?->format('d-m-Y'));
+                $sheet->setCellValue("H{$row}", $segment->to_date?->format('d-m-Y'));
+                $sheet->setCellValue("I{$row}", (float) $segment->days);
+                $sheet->setCellValue("J{$row}", $segment->source?->label());
+                $row++;
+            }
+        }
+    }
+
+    /**
+     * @return array{value: mixed, missing: bool}
+     */
+    private function presentCategoryBoundary(mixed $date, bool $multiplePeriods): array
+    {
+        if ($multiplePeriods) {
+            return $this->presentValue('Multiple', false);
+        }
+
+        return $this->presentDate($date);
     }
 
     /**

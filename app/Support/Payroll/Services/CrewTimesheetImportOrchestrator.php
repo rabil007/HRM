@@ -3,6 +3,7 @@
 namespace App\Support\Payroll\Services;
 
 use App\Enums\ContractSalaryStructure;
+use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
 use App\Imports\CrewTimesheetsImport;
@@ -94,6 +95,7 @@ final class CrewTimesheetImportOrchestrator
         $imported = 0;
         $skipped = 0;
         $managedTypeIds = $parsed['managed_salary_input_type_ids'];
+        $groupedDailyRows = [];
 
         foreach ($evaluation['rows'] as $row) {
             if (! empty($row['errors'])) {
@@ -104,20 +106,56 @@ final class CrewTimesheetImportOrchestrator
 
             /** @var Employee $employee */
             $employee = $row['employee'];
+            $isMonthly = ($row['row_mode'] ?? null) === 'monthly_crew';
 
-            $timesheetData = $row['timesheet_data'];
+            if ($isMonthly) {
+                $this->syncEmployeeSalaryInputsFromImport->handle(
+                    $period,
+                    $employee,
+                    $row['salary_amounts_by_type_id'],
+                    $managedTypeIds,
+                );
+
+                $this->upsertCrewTimesheet->handle(
+                    $period,
+                    $employee,
+                    $row['timesheet_data'],
+                    $importedByUserId,
+                );
+
+                if (PayrollRecord::query()
+                    ->where('company_id', $period->company_id)
+                    ->where('period_id', $period->id)
+                    ->where('employee_id', $employee->id)
+                    ->where('payroll_category', PayrollCategory::Crew)
+                    ->exists()) {
+                    $this->recalculateCrewPayroll->handle($period, $employee->id);
+                }
+
+                $imported++;
+
+                continue;
+            }
+
+            $groupedDailyRows[(int) $employee->id][] = $row;
+        }
+
+        foreach ($groupedDailyRows as $employeeRows) {
+            /** @var Employee $employee */
+            $employee = $employeeRows[0]['employee'];
+            $merged = $this->mergeDailyImportRows($employeeRows);
 
             $this->syncEmployeeSalaryInputsFromImport->handle(
                 $period,
                 $employee,
-                $row['salary_amounts_by_type_id'],
+                $merged['salary_amounts_by_type_id'],
                 $managedTypeIds,
             );
 
             $this->upsertCrewTimesheet->handle(
                 $period,
                 $employee,
-                $timesheetData,
+                $merged['timesheet_data'],
                 $importedByUserId,
             );
 
@@ -130,13 +168,80 @@ final class CrewTimesheetImportOrchestrator
                 $this->recalculateCrewPayroll->handle($period, $employee->id);
             }
 
-            $imported++;
+            $imported += count($employeeRows);
         }
 
         return [
             'imported' => $imported,
             'skipped' => $skipped,
             'errors' => $evaluation['errors'],
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return array{timesheet_data: array<string, mixed>, salary_amounts_by_type_id: array<int, float|int|string|null>}
+     */
+    private function mergeDailyImportRows(array $rows): array
+    {
+        $segments = [];
+        $overtimeHours = 0.0;
+        $remarks = [];
+        $salaryAmounts = [];
+
+        foreach ($rows as $row) {
+            $data = $row['timesheet_data'] ?? [];
+
+            foreach ([
+                CrewTimesheetPayCategory::SignOnStandby->value => ['sign_on_standby_from', 'sign_on_standby_to', 'sign_on_standby_days'],
+                CrewTimesheetPayCategory::Onsite->value => ['onsite_from', 'onsite_to', 'onsite_days'],
+                CrewTimesheetPayCategory::SignOffStandby->value => ['sign_off_standby_from', 'sign_off_standby_to', 'sign_off_standby_days'],
+            ] as $category => [$fromKey, $toKey, $daysKey]) {
+                $from = $data[$fromKey] ?? null;
+                $to = $data[$toKey] ?? null;
+
+                if ($from === null || $to === null || $from === '' || $to === '') {
+                    continue;
+                }
+
+                $segments[] = [
+                    'pay_category' => $category,
+                    'from_date' => $from,
+                    'to_date' => $to,
+                    'days' => $data[$daysKey] ?? null,
+                ];
+            }
+
+            $overtimeHours += (float) ($data['overtime_hours'] ?? 0);
+
+            if (filled($data['remarks'] ?? null)) {
+                $remarks[] = (string) $data['remarks'];
+            }
+
+            foreach (($row['salary_amounts_by_type_id'] ?? []) as $typeId => $amount) {
+                $salaryAmounts[(int) $typeId] = round(
+                    (float) ($salaryAmounts[(int) $typeId] ?? 0) + (float) $amount,
+                    2,
+                );
+            }
+        }
+
+        $timesheetData = [
+            'source' => CrewTimesheetSource::Import,
+            'segments' => $segments,
+            'overtime_hours' => round($overtimeHours, 2),
+            'remarks' => $remarks !== [] ? implode("\n", $remarks) : null,
+        ];
+
+        if (count($rows) === 1) {
+            $timesheetData = array_merge($rows[0]['timesheet_data'], [
+                'segments' => $segments,
+            ]);
+        }
+
+        return [
+            'timesheet_data' => $timesheetData,
+            'salary_amounts_by_type_id' => $salaryAmounts,
         ];
     }
 
@@ -181,11 +286,19 @@ final class CrewTimesheetImportOrchestrator
             $rowWarnings = [];
 
             if (isset($seenEmployeeNumbers[$employeeNo])) {
-                $rowErrors[] = [
-                    'row' => $rowNumber,
-                    'field' => 'employee_no',
-                    'message' => "Duplicate employee number in file (first seen on row {$seenEmployeeNumbers[$employeeNo]}).",
-                ];
+                $priorEmployee = $employeesByNo->get($employeeNo);
+                $priorContract = $priorEmployee !== null
+                    ? $contractsByEmployeeId->get((int) $priorEmployee->id)
+                    : null;
+                $priorIsMonthly = $priorContract?->resolvedSalaryStructure() === ContractSalaryStructure::Monthly;
+
+                if ($priorIsMonthly || $priorContract === null) {
+                    $rowErrors[] = [
+                        'row' => $rowNumber,
+                        'field' => 'employee_no',
+                        'message' => "Duplicate employee number in file (first seen on row {$seenEmployeeNumbers[$employeeNo]}).",
+                    ];
+                }
             } else {
                 $seenEmployeeNumbers[$employeeNo] = $rowNumber;
             }

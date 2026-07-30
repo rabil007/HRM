@@ -142,10 +142,10 @@ final class CrewMovementService
                     $actorId,
                 ),
                 CrewMovementAction::TravelHome => $this->travelHome($assignment, $payload, $actorId),
+                CrewMovementAction::TransferVessel => $this->transferVessel($assignment, $payload, $actorId),
+                CrewMovementAction::Redeploy => $this->redeploy($assignment, $payload, $actorId),
                 CrewMovementAction::CloseAssignment => $this->closeAssignment($assignment, $payload, $actorId),
                 CrewMovementAction::CancelAssignment => $this->cancelAssignment($assignment, $payload, $actorId),
-                CrewMovementAction::TransferVessel,
-                CrewMovementAction::Redeploy,
                 CrewMovementAction::CorrectMovement => throw CrewMovementException::make(
                     sprintf('Action %s is not implemented in this phase.', $action->value),
                     'action_not_implemented',
@@ -484,6 +484,232 @@ final class CrewMovementService
     /**
      * @param  array<string, mixed>  $payload
      */
+    private function transferVessel(CrewAssignment $assignment, array $payload, ?int $actorId): CrewAssignment
+    {
+        $this->assertStatus($assignment, CrewAssignmentStatus::Active);
+        $current = $this->requireCurrentPhase($assignment, CrewPhaseCode::OnVessel);
+        $this->assertPhaseStatus($current, CrewPhaseStatus::Active);
+
+        $this->lockEmployee($assignment->company_id, $assignment->employee_id);
+        $this->lockAssignmentPhases($assignment);
+        $this->assertNoActiveAssignment($assignment->company_id, $assignment->employee_id, $assignment->id);
+
+        $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
+        $destinationVesselId = (int) ($payload['vessel_id'] ?? 0);
+        $destinationRankId = (int) ($payload['rank_id'] ?? 0);
+        $destinationClientId = isset($payload['client_id']) ? (int) $payload['client_id'] : null;
+        $destinationVisaTypeId = isset($payload['company_visa_type_id'])
+            ? (int) $payload['company_visa_type_id']
+            : null;
+
+        if ($destinationVesselId <= 0 || $destinationRankId <= 0) {
+            throw CrewMovementException::make(
+                'Destination vessel and rank are required for vessel transfer.',
+                'transfer_destination_required',
+            );
+        }
+
+        if ($assignment->vessel_id !== null && $destinationVesselId === (int) $assignment->vessel_id) {
+            throw CrewMovementException::make(
+                'Destination vessel must differ from the current vessel.',
+                'transfer_same_vessel',
+            );
+        }
+
+        $this->assertCompanyOwnedMaster($assignment->company_id, Vessel::class, $destinationVesselId, 'vessel');
+        $this->assertCompanyOwnedMaster($assignment->company_id, Rank::class, $destinationRankId, 'rank');
+
+        if ($destinationClientId) {
+            $this->assertCompanyOwnedMaster($assignment->company_id, Client::class, $destinationClientId, 'client');
+        }
+
+        if ($destinationVisaTypeId) {
+            $this->assertCompanyOwnedMaster(
+                $assignment->company_id,
+                CompanyVisaType::class,
+                $destinationVisaTypeId,
+                'visa type',
+            );
+        }
+
+        $sourceVesselId = $assignment->vessel_id;
+
+        $this->completePhase($current, $current->actual_start_at ?? $occurredAt, $occurredAt, $actorId);
+        $this->seaServiceSync->syncFromPhase($current->fresh());
+
+        $assignment->update([
+            'status' => CrewAssignmentStatus::Completed,
+            'closed_at' => $occurredAt,
+            'current_phase_id' => $current->id,
+            'updated_by' => $actorId,
+        ]);
+
+        $source = $this->reloadLocked($assignment->company_id, $assignment->id);
+        $this->invariants->assertValid($source);
+        $this->planningSync->sync($source);
+
+        $destination = $this->createLinkedAssignment(
+            companyId: $assignment->company_id,
+            employeeId: $assignment->employee_id,
+            previousAssignmentId: $assignment->id,
+            source: 'vessel_transfer',
+            status: CrewAssignmentStatus::Active,
+            startedAt: $occurredAt,
+            plannedJoinAt: $occurredAt,
+            vesselId: $destinationVesselId,
+            rankId: $destinationRankId,
+            clientId: $destinationClientId ?? $assignment->client_id,
+            companyVisaTypeId: $destinationVisaTypeId ?? $assignment->company_visa_type_id,
+            plannedSignoffAt: isset($payload['planned_signoff_at'])
+                ? $this->parseTimestamp($assignment->company_id, (string) $payload['planned_signoff_at'])
+                : null,
+            remarks: isset($payload['remarks']) ? (string) $payload['remarks'] : null,
+            actorId: $actorId,
+            startingPhase: CrewPhaseCode::OnVessel,
+            phaseStatus: CrewPhaseStatus::Active,
+            phaseActualStartAt: $occurredAt,
+        );
+
+        $this->invariants->assertValid($destination);
+        $this->logVesselTransferred(
+            $source,
+            $destination,
+            $sourceVesselId,
+            $destinationVesselId,
+            $occurredAt,
+            $actorId,
+        );
+
+        return $destination;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function redeploy(CrewAssignment $assignment, array $payload, ?int $actorId): CrewAssignment
+    {
+        $this->assertStatus($assignment, CrewAssignmentStatus::Active);
+        $current = $this->requireCurrentPhase($assignment);
+        $this->assertPhaseStatus($current, CrewPhaseStatus::Active);
+
+        if (! in_array($current->phase_code, [CrewPhaseCode::DemobStandby, CrewPhaseCode::HomeRedeploy], true)) {
+            throw CrewMovementException::make(
+                'Redeploy is only available from P5 Demobilisation Standby or P6 Home / Redeployment.',
+                'redeploy_invalid_phase',
+            );
+        }
+
+        if (! CrewMovementTransitionMap::canStartLinkedAssignment($current->phase_code)) {
+            throw CrewMovementException::make(
+                'Redeploy cannot start a linked assignment from the current phase.',
+                'redeploy_linked_start_blocked',
+            );
+        }
+
+        $this->lockEmployee($assignment->company_id, $assignment->employee_id);
+        $this->lockAssignmentPhases($assignment);
+        $this->assertNoActiveAssignment($assignment->company_id, $assignment->employee_id, $assignment->id);
+
+        $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
+        $startingPhase = $this->requireNextPhaseCode($payload, [
+            CrewPhaseCode::PreMobilisation,
+            CrewPhaseCode::TravelIn,
+            CrewPhaseCode::JoinStandby,
+            CrewPhaseCode::ReadyToJoin,
+            CrewPhaseCode::OnVessel,
+        ]);
+
+        $destinationVesselId = isset($payload['vessel_id']) ? (int) $payload['vessel_id'] : null;
+        $destinationRankId = isset($payload['rank_id']) ? (int) $payload['rank_id'] : null;
+        $destinationClientId = isset($payload['client_id']) ? (int) $payload['client_id'] : null;
+        $destinationVisaTypeId = isset($payload['company_visa_type_id'])
+            ? (int) $payload['company_visa_type_id']
+            : null;
+
+        if ($startingPhase === CrewPhaseCode::OnVessel) {
+            if ($destinationVesselId === null || $destinationVesselId <= 0
+                || $destinationRankId === null || $destinationRankId <= 0) {
+                throw CrewMovementException::make(
+                    'Destination vessel and rank are required when redeploying directly to On Vessel.',
+                    'redeploy_p4_destination_required',
+                );
+            }
+        }
+
+        if ($destinationVesselId) {
+            $this->assertCompanyOwnedMaster($assignment->company_id, Vessel::class, $destinationVesselId, 'vessel');
+        }
+
+        if ($destinationRankId) {
+            $this->assertCompanyOwnedMaster($assignment->company_id, Rank::class, $destinationRankId, 'rank');
+        }
+
+        if ($destinationClientId) {
+            $this->assertCompanyOwnedMaster($assignment->company_id, Client::class, $destinationClientId, 'client');
+        }
+
+        if ($destinationVisaTypeId) {
+            $this->assertCompanyOwnedMaster(
+                $assignment->company_id,
+                CompanyVisaType::class,
+                $destinationVisaTypeId,
+                'visa type',
+            );
+        }
+
+        $this->completePhase($current, $current->actual_start_at ?? $occurredAt, $occurredAt, $actorId);
+
+        $assignment->update([
+            'status' => CrewAssignmentStatus::Completed,
+            'closed_at' => $occurredAt,
+            'current_phase_id' => $current->id,
+            'updated_by' => $actorId,
+        ]);
+
+        $source = $this->reloadLocked($assignment->company_id, $assignment->id);
+        $this->invariants->assertValid($source);
+        $this->planningSync->sync($source);
+
+        $isDraftStart = $startingPhase === CrewPhaseCode::PreMobilisation;
+        $destination = $this->createLinkedAssignment(
+            companyId: $assignment->company_id,
+            employeeId: $assignment->employee_id,
+            previousAssignmentId: $assignment->id,
+            source: 'redeployment',
+            status: $isDraftStart ? CrewAssignmentStatus::Draft : CrewAssignmentStatus::Active,
+            startedAt: $isDraftStart ? null : $occurredAt,
+            plannedJoinAt: $occurredAt,
+            vesselId: $destinationVesselId ?? $assignment->vessel_id,
+            rankId: $destinationRankId ?? $assignment->rank_id,
+            clientId: $destinationClientId ?? $assignment->client_id,
+            companyVisaTypeId: $destinationVisaTypeId ?? $assignment->company_visa_type_id,
+            plannedSignoffAt: isset($payload['planned_signoff_at'])
+                ? $this->parseTimestamp($assignment->company_id, (string) $payload['planned_signoff_at'])
+                : null,
+            remarks: isset($payload['remarks']) ? (string) $payload['remarks'] : null,
+            actorId: $actorId,
+            startingPhase: $startingPhase,
+            phaseStatus: $isDraftStart ? CrewPhaseStatus::Planned : CrewPhaseStatus::Active,
+            phaseActualStartAt: $isDraftStart ? null : $occurredAt,
+        );
+
+        $this->invariants->assertValid($destination);
+        $this->logCrewRedeployed(
+            $source,
+            $destination,
+            $startingPhase,
+            $destinationVesselId ?? $assignment->vessel_id,
+            $destinationClientId ?? $assignment->client_id,
+            $occurredAt,
+            $actorId,
+        );
+
+        return $destination;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
     private function cancelAssignment(CrewAssignment $assignment, array $payload, ?int $actorId): CrewAssignment
     {
         if ($assignment->status === CrewAssignmentStatus::Completed
@@ -622,6 +848,149 @@ final class CrewMovementService
         ]);
     }
 
+    private function createLinkedAssignment(
+        int $companyId,
+        int $employeeId,
+        int $previousAssignmentId,
+        string $source,
+        CrewAssignmentStatus $status,
+        ?CarbonInterface $startedAt,
+        ?CarbonInterface $plannedJoinAt,
+        ?int $vesselId,
+        ?int $rankId,
+        ?int $clientId,
+        ?int $companyVisaTypeId,
+        ?CarbonInterface $plannedSignoffAt,
+        ?string $remarks,
+        ?int $actorId,
+        CrewPhaseCode $startingPhase,
+        CrewPhaseStatus $phaseStatus,
+        ?CarbonInterface $phaseActualStartAt,
+    ): CrewAssignment {
+        $assignmentNo = $this->numbers->next($companyId);
+
+        $assignment = CrewAssignment::query()->create([
+            'company_id' => $companyId,
+            'assignment_no' => $assignmentNo,
+            'employee_id' => $employeeId,
+            'rank_id' => $rankId,
+            'client_id' => $clientId,
+            'vessel_id' => $vesselId,
+            'company_visa_type_id' => $companyVisaTypeId,
+            'status' => $status,
+            'planned_join_at' => $plannedJoinAt,
+            'planned_signoff_at' => $plannedSignoffAt,
+            'started_at' => $startedAt,
+            'previous_assignment_id' => $previousAssignmentId,
+            'source' => $source,
+            'remarks' => $remarks,
+            'created_by' => $actorId,
+            'updated_by' => $actorId,
+        ]);
+
+        $phase = CrewAssignmentPhase::query()->create([
+            'company_id' => $companyId,
+            'crew_assignment_id' => $assignment->id,
+            'phase_code' => $startingPhase,
+            'sequence' => 1,
+            'status' => $phaseStatus,
+            'planned_end_at' => $plannedSignoffAt,
+            'actual_start_at' => $phaseActualStartAt,
+            'remarks' => $remarks,
+            'started_by' => $phaseStatus === CrewPhaseStatus::Active ? $actorId : null,
+        ]);
+
+        $assignment->update([
+            'current_phase_id' => $phase->id,
+            'updated_by' => $actorId,
+        ]);
+
+        return $this->reloadLocked($companyId, $assignment->id);
+    }
+
+    private function lockEmployee(int $companyId, int $employeeId): Employee
+    {
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employeeId)
+            ->lockForUpdate()
+            ->first();
+
+        if ($employee === null) {
+            throw CrewMovementException::make(
+                'Employee not found in this company.',
+                'employee_not_found',
+            );
+        }
+
+        return $employee;
+    }
+
+    private function lockAssignmentPhases(CrewAssignment $assignment): void
+    {
+        CrewAssignmentPhase::query()
+            ->where('company_id', $assignment->company_id)
+            ->where('crew_assignment_id', $assignment->id)
+            ->lockForUpdate()
+            ->get();
+    }
+
+    private function logVesselTransferred(
+        CrewAssignment $source,
+        CrewAssignment $destination,
+        ?int $sourceVesselId,
+        int $destinationVesselId,
+        CarbonInterface $occurredAt,
+        ?int $actorId,
+    ): void {
+        activity()
+            ->performedOn($destination)
+            ->causedBy($actorId)
+            ->withProperties([
+                'event' => 'crew_vessel_transferred',
+                'company_id' => $source->company_id,
+                'employee_id' => $source->employee_id,
+                'source_assignment_id' => $source->id,
+                'destination_assignment_id' => $destination->id,
+                'source_vessel_id' => $sourceVesselId,
+                'destination_vessel_id' => $destinationVesselId,
+                'occurred_at' => $occurredAt->toDateTimeString(),
+            ])
+            ->tap(function ($activity) use ($source): void {
+                $activity->company_id = $source->company_id;
+            })
+            ->log('Crew vessel transferred');
+    }
+
+    private function logCrewRedeployed(
+        CrewAssignment $source,
+        CrewAssignment $destination,
+        CrewPhaseCode $startingPhase,
+        ?int $destinationVesselId,
+        ?int $destinationClientId,
+        CarbonInterface $occurredAt,
+        ?int $actorId,
+    ): void {
+        activity()
+            ->performedOn($destination)
+            ->causedBy($actorId)
+            ->withProperties([
+                'event' => 'crew_redeployed',
+                'company_id' => $source->company_id,
+                'employee_id' => $source->employee_id,
+                'source_assignment_id' => $source->id,
+                'destination_assignment_id' => $destination->id,
+                'starting_phase' => $startingPhase->value,
+                'destination_vessel_id' => $destinationVesselId,
+                'destination_client_id' => $destinationClientId,
+                'occurred_at' => $occurredAt->toDateTimeString(),
+            ])
+            ->tap(function ($activity) use ($source): void {
+                $activity->company_id = $source->company_id;
+            })
+            ->log('Crew redeployed');
+    }
+
     private function reloadLocked(int $companyId, int $assignmentId): CrewAssignment
     {
         $assignment = CrewAssignment::query()
@@ -721,7 +1090,7 @@ final class CrewMovementService
      */
     private function requireNextPhaseCode(array $payload, array $allowed): CrewPhaseCode
     {
-        $raw = (string) ($payload['next_phase'] ?? '');
+        $raw = (string) ($payload['starting_phase'] ?? $payload['next_phase'] ?? '');
         $code = CrewPhaseCode::tryFrom($raw);
 
         if ($code === null || ! in_array($code, $allowed, true)) {

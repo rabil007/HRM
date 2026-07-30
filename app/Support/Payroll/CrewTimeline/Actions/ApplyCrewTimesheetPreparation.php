@@ -4,13 +4,13 @@ namespace App\Support\Payroll\CrewTimeline\Actions;
 
 use App\Enums\ContractSalaryStructure;
 use App\Enums\CrewTimesheetApprovalStatus;
-use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
 use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\CrewTimesheetPreparationLine;
+use App\Models\CrewTimesheetSegment;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\User;
@@ -19,6 +19,7 @@ use App\Support\Payroll\CrewTimeline\CrewTimelineFreshnessChecker;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationWorkflowGuard;
 use App\Support\Payroll\CrewTimeline\PayableCrewPreparationLines;
 use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
+use App\Support\Payroll\SyncCrewTimesheetParentFromSegments;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -29,6 +30,7 @@ final class ApplyCrewTimesheetPreparation
         private readonly CrewTimesheetPreparationWorkflowGuard $guard,
         private readonly CrewTimelineFreshnessChecker $freshnessChecker,
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
+        private readonly SyncCrewTimesheetParentFromSegments $syncParentFromSegments,
     ) {}
 
     public function handle(
@@ -80,7 +82,10 @@ final class ApplyCrewTimesheetPreparation
             $lines = CrewTimesheetPreparationLine::query()
                 ->where('company_id', $companyId)
                 ->where('crew_timesheet_preparation_id', $preparation->id)
-                ->with(['employee:id,employee_no,name,company_id'])
+                ->with([
+                    'employee:id,employee_no,name,company_id',
+                    'assignment:id,company_id,vessel_id,client_id,rank_id',
+                ])
                 ->lockForUpdate()
                 ->get();
 
@@ -94,8 +99,8 @@ final class ApplyCrewTimesheetPreparation
                 }
             }
 
-            $aggregates = $this->aggregatePayableLines($lines);
-            $employeeIds = array_keys($aggregates);
+            $linesByEmployee = $this->groupPayableLinesByEmployee($lines);
+            $employeeIds = array_keys($linesByEmployee);
 
             $existingTimesheets = CrewTimesheet::withTrashed()
                 ->where('company_id', $companyId)
@@ -120,7 +125,7 @@ final class ApplyCrewTimesheetPreparation
             $warnings = [];
             $changes = [];
 
-            foreach ($aggregates as $employeeId => $aggregate) {
+            foreach ($linesByEmployee as $employeeId => $employeeLines) {
                 $employee = $employees->get($employeeId);
 
                 if ($employee === null || (int) $employee->company_id !== $companyId) {
@@ -154,7 +159,7 @@ final class ApplyCrewTimesheetPreparation
                     continue;
                 }
 
-                $payload = $this->buildOperationalPayload($aggregate, $preparation);
+                $metadataPayload = $this->buildOperationalMetadataPayload($preparation);
                 $existing = $existingTimesheets->get($employeeId);
 
                 if ($existing === null) {
@@ -162,7 +167,16 @@ final class ApplyCrewTimesheetPreparation
                         'company_id' => $companyId,
                         'employee_id' => $employeeId,
                         'period_id' => $period->id,
-                        ...$payload,
+                        ...$metadataPayload,
+                        'sign_on_standby_from' => null,
+                        'sign_on_standby_to' => null,
+                        'sign_on_standby_days' => 0,
+                        'onsite_from' => null,
+                        'onsite_to' => null,
+                        'onsite_days' => 0,
+                        'sign_off_standby_from' => null,
+                        'sign_off_standby_to' => null,
+                        'sign_off_standby_days' => 0,
                         'overtime_hours' => 0,
                         'overtime_amount' => 0,
                         'additional_amount' => 0,
@@ -170,13 +184,9 @@ final class ApplyCrewTimesheetPreparation
                         'remarks' => null,
                     ]);
                     $created++;
-                    $changes[] = [
-                        'employee_id' => $employeeId,
-                        'action' => 'created',
-                        'previous' => null,
-                        'next' => $this->operationalSnapshot($timesheet),
-                        'preserved_financial' => $this->financialSnapshot($timesheet),
-                    ];
+                    $action = 'created';
+                    $previousOperational = null;
+                    $preservedFinancial = $this->financialSnapshot($timesheet);
                 } else {
                     if ($existing->trashed()) {
                         $existing->restore();
@@ -185,18 +195,24 @@ final class ApplyCrewTimesheetPreparation
                     $previousOperational = $this->operationalSnapshot($existing);
                     $preservedFinancial = $this->financialSnapshot($existing);
 
-                    $existing->fill($payload);
+                    $existing->fill($metadataPayload);
                     $existing->save();
-
+                    $timesheet = $existing;
                     $updated++;
-                    $changes[] = [
-                        'employee_id' => $employeeId,
-                        'action' => 'updated',
-                        'previous' => $previousOperational,
-                        'next' => $this->operationalSnapshot($existing),
-                        'preserved_financial' => $preservedFinancial,
-                    ];
+                    $action = 'updated';
                 }
+
+                $this->replaceOperationalSegments($timesheet, $employeeLines, $companyId);
+                $timesheet = $this->syncParentFromSegments->handle($timesheet->fresh() ?? $timesheet);
+
+                $changes[] = [
+                    'employee_id' => $employeeId,
+                    'action' => $action,
+                    'previous' => $previousOperational,
+                    'next' => $this->operationalSnapshot($timesheet),
+                    'preserved_financial' => $preservedFinancial,
+                    'segment_count' => $timesheet->segments->count(),
+                ];
 
                 $applied++;
             }
@@ -306,141 +322,76 @@ final class ApplyCrewTimesheetPreparation
 
     /**
      * @param  Collection<int, CrewTimesheetPreparationLine>  $lines
-     * @return array<int, array{
-     *     sign_on_standby_from: string|null,
-     *     sign_on_standby_to: string|null,
-     *     sign_on_standby_days: float,
-     *     onsite_from: string|null,
-     *     onsite_to: string|null,
-     *     onsite_days: float,
-     *     sign_off_standby_from: string|null,
-     *     sign_off_standby_to: string|null,
-     *     sign_off_standby_days: float
-     * }>
+     * @return array<int, list<CrewTimesheetPreparationLine>>
      */
-    private function aggregatePayableLines(Collection $lines): array
+    private function groupPayableLinesByEmployee(Collection $lines): array
     {
-        /** @var array<int, array<string, mixed>> $aggregates */
-        $aggregates = [];
+        /** @var array<int, list<CrewTimesheetPreparationLine>> $grouped */
+        $grouped = [];
 
         foreach ($lines as $line) {
             if (! PayableCrewPreparationLines::isPayable($line)) {
                 continue;
             }
 
-            $days = (float) $line->days;
-            $employeeId = (int) $line->employee_id;
-
-            if (! isset($aggregates[$employeeId])) {
-                $aggregates[$employeeId] = [
-                    'sign_on_standby_from' => null,
-                    'sign_on_standby_to' => null,
-                    'sign_on_standby_days' => 0.0,
-                    'onsite_from' => null,
-                    'onsite_to' => null,
-                    'onsite_days' => 0.0,
-                    'sign_off_standby_from' => null,
-                    'sign_off_standby_to' => null,
-                    'sign_off_standby_days' => 0.0,
-                ];
-            }
-
-            $from = $line->from_date?->toDateString();
-            $to = $line->to_date?->toDateString();
-
-            match ($line->pay_category) {
-                CrewTimesheetPayCategory::SignOnStandby => $this->accumulate(
-                    $aggregates[$employeeId],
-                    'sign_on_standby',
-                    $from,
-                    $to,
-                    $days,
-                ),
-                CrewTimesheetPayCategory::Onsite => $this->accumulate(
-                    $aggregates[$employeeId],
-                    'onsite',
-                    $from,
-                    $to,
-                    $days,
-                ),
-                CrewTimesheetPayCategory::SignOffStandby => $this->accumulate(
-                    $aggregates[$employeeId],
-                    'sign_off_standby',
-                    $from,
-                    $to,
-                    $days,
-                ),
-                default => null,
-            };
+            $grouped[(int) $line->employee_id][] = $line;
         }
 
-        return array_filter(
-            $aggregates,
-            fn (array $aggregate): bool => $aggregate['sign_on_standby_days'] > 0
-                || $aggregate['onsite_days'] > 0
-                || $aggregate['sign_off_standby_days'] > 0,
-        );
+        return $grouped;
     }
 
     /**
-     * @param  array<string, mixed>  $aggregate
+     * @param  list<CrewTimesheetPreparationLine>  $lines
      */
-    private function accumulate(
-        array &$aggregate,
-        string $prefix,
-        ?string $from,
-        ?string $to,
-        float $days,
+    private function replaceOperationalSegments(
+        CrewTimesheet $timesheet,
+        array $lines,
+        int $companyId,
     ): void {
-        $fromKey = "{$prefix}_from";
-        $toKey = "{$prefix}_to";
-        $daysKey = "{$prefix}_days";
+        CrewTimesheetSegment::query()
+            ->where('company_id', $companyId)
+            ->where('crew_timesheet_id', $timesheet->id)
+            ->whereIn('source', [
+                CrewTimesheetSource::Manual->value,
+                CrewTimesheetSource::Import->value,
+                CrewTimesheetSource::CrewOperations->value,
+            ])
+            ->lockForUpdate()
+            ->get()
+            ->each
+            ->delete();
 
-        if ($from !== null && ($aggregate[$fromKey] === null || $from < $aggregate[$fromKey])) {
-            $aggregate[$fromKey] = $from;
+        $sequence = 1;
+
+        foreach ($lines as $line) {
+            $assignment = $line->assignment;
+
+            CrewTimesheetSegment::query()->create([
+                'company_id' => $companyId,
+                'crew_timesheet_id' => $timesheet->id,
+                'sequence' => $sequence++,
+                'pay_category' => $line->pay_category,
+                'from_date' => $line->from_date,
+                'to_date' => $line->to_date,
+                'days' => $line->days,
+                'source' => CrewTimesheetSource::CrewOperations,
+                'crew_assignment_id' => $line->crew_assignment_id,
+                'crew_assignment_phase_id' => $line->crew_assignment_phase_id,
+                'crew_timesheet_preparation_line_id' => $line->id,
+                'vessel_id' => $assignment?->vessel_id,
+                'client_id' => $assignment?->client_id,
+                'rank_id' => $assignment?->rank_id,
+                'remarks' => $line->remarks,
+            ]);
         }
-
-        if ($to !== null && ($aggregate[$toKey] === null || $to > $aggregate[$toKey])) {
-            $aggregate[$toKey] = $to;
-        }
-
-        $aggregate[$daysKey] = round((float) $aggregate[$daysKey] + $days, 2);
     }
 
     /**
-     * @param  array{
-     *     sign_on_standby_from: string|null,
-     *     sign_on_standby_to: string|null,
-     *     sign_on_standby_days: float,
-     *     onsite_from: string|null,
-     *     onsite_to: string|null,
-     *     onsite_days: float,
-     *     sign_off_standby_from: string|null,
-     *     sign_off_standby_to: string|null,
-     *     sign_off_standby_days: float
-     * }  $aggregate
      * @return array<string, mixed>
      */
-    private function buildOperationalPayload(
-        array $aggregate,
-        CrewTimesheetPreparation $preparation,
-    ): array {
-        $signOnDays = round((float) $aggregate['sign_on_standby_days'], 2);
-        $signOffDays = round((float) $aggregate['sign_off_standby_days'], 2);
-        $onsiteDays = round((float) $aggregate['onsite_days'], 2);
-        $hasSignOn = $signOnDays > 0;
-        $hasSignOff = $signOffDays > 0;
-
+    private function buildOperationalMetadataPayload(CrewTimesheetPreparation $preparation): array
+    {
         return [
-            'sign_on_standby_from' => $hasSignOn ? $aggregate['sign_on_standby_from'] : null,
-            'sign_on_standby_to' => $hasSignOn ? $aggregate['sign_on_standby_to'] : null,
-            'sign_on_standby_days' => $signOnDays,
-            'onsite_from' => $onsiteDays > 0 ? $aggregate['onsite_from'] : null,
-            'onsite_to' => $onsiteDays > 0 ? $aggregate['onsite_to'] : null,
-            'onsite_days' => $onsiteDays,
-            'sign_off_standby_from' => $hasSignOff ? $aggregate['sign_off_standby_from'] : null,
-            'sign_off_standby_to' => $hasSignOff ? $aggregate['sign_off_standby_to'] : null,
-            'sign_off_standby_days' => $signOffDays,
             'source' => CrewTimesheetSource::CrewOperations,
             'approval_status' => CrewTimesheetApprovalStatus::Approved,
             'crew_timesheet_preparation_id' => $preparation->id,

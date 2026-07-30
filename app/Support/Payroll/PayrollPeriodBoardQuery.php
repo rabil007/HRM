@@ -56,7 +56,9 @@ final class PayrollPeriodBoardQuery
                         ->orderByDesc('version'),
                     'salaryComponents',
                 ]),
-                'crewTimesheets' => fn ($timesheetQuery) => $timesheetQuery->where('period_id', $period->id),
+                'crewTimesheets' => fn ($timesheetQuery) => $timesheetQuery
+                    ->where('period_id', $period->id)
+                    ->with(['segments.assignment', 'segments.vessel', 'segments.client', 'segments.rank']),
             ]);
         }
 

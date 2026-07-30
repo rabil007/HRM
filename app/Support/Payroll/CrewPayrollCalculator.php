@@ -2,6 +2,7 @@
 
 namespace App\Support\Payroll;
 
+use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\SalaryComponentCode;
 use App\Enums\SalaryComponentStatus;
 use App\Models\ContractSalaryComponent;
@@ -47,6 +48,21 @@ final class CrewPayrollCalculator
         $signOffStandbyDays = (float) ($timesheet->sign_off_standby_days ?? 0);
         $standbyDays = round($signOnStandbyDays + $signOffStandbyDays, 2);
         $onsiteDays = (float) ($timesheet->onsite_days ?? 0);
+
+        $timesheet->loadMissing(['segments.assignment', 'segments.vessel', 'segments.client', 'segments.rank']);
+        if ($timesheet->segments->isNotEmpty()) {
+            $signOnStandbyDays = (float) $timesheet->segments
+                ->where('pay_category', CrewTimesheetPayCategory::SignOnStandby)
+                ->sum('days');
+            $signOffStandbyDays = (float) $timesheet->segments
+                ->where('pay_category', CrewTimesheetPayCategory::SignOffStandby)
+                ->sum('days');
+            $onsiteDays = (float) $timesheet->segments
+                ->where('pay_category', CrewTimesheetPayCategory::Onsite)
+                ->sum('days');
+            $standbyDays = round($signOnStandbyDays + $signOffStandbyDays, 2);
+        }
+
         $overtimeHours = (float) ($timesheet->overtime_hours ?? 0);
         $hasPayableActivity = $standbyDays > 0 || $onsiteDays > 0 || $overtimeHours > 0;
 
@@ -120,6 +136,23 @@ final class CrewPayrollCalculator
             'lines' => $lines,
             'gross_salary' => $grossSalary,
             'net_salary' => $netSalary,
+            'movement_segments' => $timesheet->segments->map(fn ($segment) => [
+                'id' => $segment->id,
+                'sequence' => $segment->sequence,
+                'pay_category' => $segment->pay_category?->value,
+                'from_date' => $segment->from_date?->toDateString(),
+                'to_date' => $segment->to_date?->toDateString(),
+                'days' => (float) $segment->days,
+                'source' => $segment->source?->value,
+                'crew_assignment_id' => $segment->crew_assignment_id,
+                'assignment_no' => $segment->assignment?->assignment_no,
+                'vessel_id' => $segment->vessel_id,
+                'vessel_name' => $segment->vessel?->name,
+                'client_id' => $segment->client_id,
+                'client_name' => $segment->client?->name,
+                'rank_id' => $segment->rank_id,
+                'rank_name' => $segment->rank?->name,
+            ])->values()->all(),
         ];
 
         return [

@@ -54,15 +54,21 @@ Employee Sea Service
 | `close_assignment` | P6 → Completed |
 | `cancel_assignment` | Draft/Active → Cancelled |
 
-## Unsupported as immediate movement actions
+## Linked assignment actions
+
+### Transfer Vessel (`transfer_vessel`)
+
+Available from Active P4 On Vessel. Completes the source P4 and assignment at `occurred_at`, syncs sea service and planning for the source, then creates a linked Active assignment (`previous_assignment_id`, `source = vessel_transfer`) that starts directly in active P4 on the destination vessel. Destination vessel must differ. No artificial P5/P6/P0–P3 phases are created. The movement controller redirects to the new assignment.
+
+### Redeploy (`redeploy`)
+
+Available from Active P5 or P6. Completes the source phase and assignment, then creates a linked assignment (`source = redeployment`) starting only at the chosen real phase: P0 (Draft + planned), or P1 / P2A / P3 / P4 (Active). Same or different vessel/client is allowed. P4 requires destination vessel and rank. Earlier phases are never invented.
+
+### Still unsupported as an immediate movement action
 
 ```text
-transfer_vessel
-redeploy
 correct_movement
 ```
-
-These return a clear `CrewMovementException` (`action_not_implemented`).
 
 Movement field corrections use a dedicated approval workflow instead of `correct_movement`. See [crew-movement-corrections.md](./crew-movement-corrections.md).
 

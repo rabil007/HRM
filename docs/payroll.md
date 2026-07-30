@@ -143,10 +143,13 @@ Phase 1C adds review, submission, return, and approval:
 Phase 1D applies an Approved preparation to `crew_timesheets`:
 
 - `POST .../apply` with `payroll.crew_timesheets.apply_approved`
-- aggregates payable Sign-On / Onsite / Sign-Off days per employee
+- creates one parent timesheet per employee and one `crew_timesheet_segments` row per payable preparation line
+- preserves exact assignment/vessel/date periods; parent category from/to are null when multiple segments exist for that category
 - preserves overtime, additions, deductions, remarks, and salary inputs
 - sets `source = crew_operations` and locks operational fields while Applied
-- writes only the split `sign_on_standby_*`, `onsite_*`, and `sign_off_standby_*` fields; no legacy standby columns are written or mirrored
+- writes parent day totals from segments; legacy flat from/to columns remain for single-segment and pre-segment rows
+
+Vessel transfer and redeployment create linked assignments so one employee can have multiple exact onsite periods in the same payroll month without inventing phases or duplicating final salary records.
 
 Permissions:
 

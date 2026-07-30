@@ -7,11 +7,13 @@ export function OperationalDateRange({
     from,
     to,
     days,
+    hasMultiplePeriods = false,
 }: {
     label: string;
     from: string | null | undefined;
     to: string | null | undefined;
     days: string | null | undefined;
+    hasMultiplePeriods?: boolean;
 }) {
     const hasDays = days !== null && days !== undefined && days !== '';
     const hasRange = Boolean(from) || Boolean(to);
@@ -21,7 +23,11 @@ export function OperationalDateRange({
             <p className="text-[10px] font-semibold tracking-wide text-muted-foreground/70 uppercase">
                 {label}
             </p>
-            {hasRange ? (
+            {hasMultiplePeriods ? (
+                <p className="text-[11px] font-medium text-foreground/90">
+                    Multiple periods
+                </p>
+            ) : hasRange ? (
                 <p className="font-mono text-[11px] text-foreground/90">
                     {formatDisplayDate(from)} → {formatDisplayDate(to)}
                 </p>

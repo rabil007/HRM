@@ -38,7 +38,7 @@ class CrewMovementActionController extends Controller
         $payload = collect($validated)->except('action')->all();
 
         try {
-            $this->service->perform(
+            $result = $this->service->perform(
                 $companyId,
                 $assignment->id,
                 $action,
@@ -47,7 +47,7 @@ class CrewMovementActionController extends Controller
             );
 
             return redirect()
-                ->route('organization.crew-assignments.show', $assignment)
+                ->route('organization.crew-assignments.show', $result)
                 ->with('success', sprintf('%s completed successfully.', $action->label()));
         } catch (CrewMovementException $e) {
             throw ValidationException::withMessages(['error' => $e->getMessage()]);

@@ -69,19 +69,29 @@ test('approve mobilisation advances draft to travel in', function () {
         ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn);
 });
 
-test('unsupported transfer action is rejected', function () {
+test('transfer vessel redirects to the new destination assignment', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
-    $vessel = makeCrewMovementVessel('Transfer Reject Vessel');
-    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+    $sourceVessel = makeCrewMovementVessel('Transfer Source Vessel');
+    $destinationVessel = makeCrewMovementVessel('Transfer Destination Vessel');
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $sourceVessel);
 
-    $this->actingAs($user)
-        ->from(route('organization.crew-assignments.show', $assignment))
+    $response = $this->actingAs($user)
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
             'action' => CrewMovementAction::TransferVessel->value,
             'occurred_at' => '2026-06-01 08:00:00',
-        ])
-        ->assertRedirect()
-        ->assertSessionHasErrors('error');
+            'vessel_id' => $destinationVessel->id,
+            'rank_id' => $rank->id,
+        ]);
+
+    $destination = CrewAssignment::query()
+        ->where('company_id', $company->id)
+        ->where('employee_id', $employee->id)
+        ->where('previous_assignment_id', $assignment->id)
+        ->first();
+
+    expect($destination)->not->toBeNull();
+
+    $response->assertRedirect(route('organization.crew-assignments.show', $destination));
 });
 
 test('plan signoff does not close on-vessel phase', function () {

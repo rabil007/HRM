@@ -27,8 +27,8 @@ test('available actions for on-vessel exclude cancel', function () {
     expect(CrewMovementAvailableActions::for($assignment))
         ->toContain(CrewMovementAction::PlanSignoff->value)
         ->toContain(CrewMovementAction::ConfirmDisembarkation->value)
-        ->not->toContain(CrewMovementAction::CancelAssignment->value)
-        ->not->toContain(CrewMovementAction::TransferVessel->value);
+        ->toContain(CrewMovementAction::TransferVessel->value)
+        ->not->toContain(CrewMovementAction::CancelAssignment->value);
 });
 
 test('presenter separates planned and actual dates', function () {

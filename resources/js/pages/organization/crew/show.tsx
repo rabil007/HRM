@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 import {
     edit as editAssignment,
     index as crewAssignmentsIndex,
+    show as showAssignment,
 } from '@/routes/organization/crew-assignments';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
 
@@ -395,6 +396,83 @@ export default function CrewAssignmentShow({
                                 />
                             </CardContent>
                         </Card>
+
+                        {assignment.previous_assignment ||
+                        (assignment.next_assignments?.length ?? 0) > 0 ? (
+                            <Card className="border-border/80 dark:border-white/10">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base">
+                                        Linked Assignments
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-0">
+                                    {assignment.previous_assignment ? (
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                                                Previous assignment
+                                            </p>
+                                            <Link
+                                                href={showAssignment.url(
+                                                    assignment
+                                                        .previous_assignment.id,
+                                                )}
+                                                className="text-sm font-medium text-primary hover:underline"
+                                            >
+                                                {
+                                                    assignment
+                                                        .previous_assignment
+                                                        .assignment_no
+                                                }
+                                            </Link>
+                                            <p className="text-xs text-muted-foreground">
+                                                {
+                                                    assignment
+                                                        .previous_assignment
+                                                        .status_label
+                                                }
+                                                {assignment.previous_assignment
+                                                    .vessel_name
+                                                    ? ` · ${assignment.previous_assignment.vessel_name}`
+                                                    : ''}
+                                                {assignment.previous_assignment
+                                                    .closed_at
+                                                    ? ` · Closed ${formatDisplayDate(assignment.previous_assignment.closed_at)}`
+                                                    : ''}
+                                            </p>
+                                        </div>
+                                    ) : null}
+                                    {(assignment.next_assignments ?? []).map(
+                                        (next) => (
+                                            <div
+                                                key={next.id}
+                                                className="space-y-1"
+                                            >
+                                                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                                                    Next assignment
+                                                </p>
+                                                <Link
+                                                    href={showAssignment.url(
+                                                        next.id,
+                                                    )}
+                                                    className="text-sm font-medium text-primary hover:underline"
+                                                >
+                                                    {next.assignment_no}
+                                                </Link>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {next.status_label}
+                                                    {next.vessel_name
+                                                        ? ` · ${next.vessel_name}`
+                                                        : ''}
+                                                    {next.source
+                                                        ? ` · ${next.source}`
+                                                        : ''}
+                                                </p>
+                                            </div>
+                                        ),
+                                    )}
+                                </CardContent>
+                            </Card>
+                        ) : null}
 
                         <Card className="border-border/80 dark:border-white/10">
                             <CardHeader className="pb-3">

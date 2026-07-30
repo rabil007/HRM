@@ -288,19 +288,13 @@ test('assignment closes only from p6 and cancelling p4 is rejected', function ()
     ], $user->id))->toThrow(CrewMovementException::class, 'Assignments on vessel cannot be cancelled directly.');
 });
 
-test('unsupported transfer redeploy and correction actions return clear errors', function () {
+test('correct movement action remains unimplemented while transfer and redeploy are available', function () {
     ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
     $service = crewMovementService();
     $assignment = $service->createDraft($company->id, $employee->id, [], $user->id);
 
-    foreach ([
-        CrewMovementAction::TransferVessel,
-        CrewMovementAction::Redeploy,
-        CrewMovementAction::CorrectMovement,
-    ] as $action) {
-        expect(fn () => $service->perform($company->id, $assignment->id, $action, [], $user->id))
-            ->toThrow(CrewMovementException::class);
-    }
+    expect(fn () => $service->perform($company->id, $assignment->id, CrewMovementAction::CorrectMovement, [], $user->id))
+        ->toThrow(CrewMovementException::class);
 });
 
 test('second active assignment for the same employee is rejected', function () {

@@ -89,7 +89,7 @@ class CurrentCrewQuery
 
         $sort = $filters['sort'] ?? 'created_at';
         $direction = in_array($filters['direction'] ?? 'desc', ['asc', 'desc'], true)
-            ? $filters['direction']
+            ? ($filters['direction'] ?? 'desc')
             : 'desc';
 
         $allowedSorts = [

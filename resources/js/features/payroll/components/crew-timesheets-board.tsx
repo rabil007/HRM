@@ -463,6 +463,11 @@ export function CrewTimesheetsBoard({
                                                             row.timesheet
                                                                 ?.sign_on_standby_days
                                                         }
+                                                        hasMultiplePeriods={
+                                                            row.timesheet
+                                                                ?.sign_on_standby_has_multiple_periods ===
+                                                            true
+                                                        }
                                                     />
                                                     <OperationalDateRange
                                                         label="Sign-off standby"
@@ -477,6 +482,11 @@ export function CrewTimesheetsBoard({
                                                         days={
                                                             row.timesheet
                                                                 ?.sign_off_standby_days
+                                                        }
+                                                        hasMultiplePeriods={
+                                                            row.timesheet
+                                                                ?.sign_off_standby_has_multiple_periods ===
+                                                            true
                                                         }
                                                     />
                                                 </div>
@@ -558,6 +568,11 @@ export function CrewTimesheetsBoard({
                                                     days={
                                                         row.timesheet
                                                             ?.onsite_days
+                                                    }
+                                                    hasMultiplePeriods={
+                                                        row.timesheet
+                                                            ?.onsite_has_multiple_periods ===
+                                                        true
                                                     }
                                                 />
                                             ) : (

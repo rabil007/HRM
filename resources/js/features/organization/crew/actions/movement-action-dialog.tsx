@@ -29,7 +29,9 @@ import { JoinVesselForm } from './forms/join-vessel-form';
 import { MarkReadyForm } from './forms/mark-ready-form';
 import { PlanSignoffForm } from './forms/plan-signoff-form';
 import { RecordArrivalForm } from './forms/record-arrival-form';
+import { RedeployForm } from './forms/redeploy-form';
 import { SendToTrainingForm } from './forms/send-to-training-form';
+import { TransferVesselForm } from './forms/transfer-vessel-form';
 import { TravelHomeForm } from './forms/travel-home-form';
 import { getMovementActionConfig } from './movement-action-config';
 import { MovementContextCard } from './movement-context-card';
@@ -53,6 +55,7 @@ function buildInitialForm(
         action,
         occurred_at: defaultDateTimeLocal(),
         next_phase: nextPhase,
+        starting_phase: action === 'redeploy' ? 'p0' : '',
         provider: '',
         course: '',
         planned_start_at: '',
@@ -108,6 +111,10 @@ function ActionForm({
             return <CloseAssignmentForm {...props} />;
         case 'cancel_assignment':
             return <CancelAssignmentForm {...props} />;
+        case 'transfer_vessel':
+            return <TransferVesselForm {...props} />;
+        case 'redeploy':
+            return <RedeployForm {...props} />;
         default:
             return null;
     }
@@ -203,7 +210,10 @@ export function MovementActionDialog({
     const config = getMovementActionConfig(action);
     const isDestructive = Boolean(config.destructive);
     const isLarge =
-        action === 'join_vessel' || action === 'confirm_disembarkation';
+        action === 'join_vessel' ||
+        action === 'confirm_disembarkation' ||
+        action === 'transfer_vessel' ||
+        action === 'redeploy';
     const cancelLabel = config.keepOpenLabel ?? 'Cancel';
 
     return (

@@ -158,6 +158,28 @@ export type PayrollHubSummary = {
     incomplete_crew_runs: number;
 };
 
+export type CrewTimesheetSegment = {
+    id: number;
+    sequence: number;
+    pay_category: string | null;
+    pay_category_label: string | null;
+    from_date: string | null;
+    to_date: string | null;
+    days: string | null;
+    source: string | null;
+    source_label: string | null;
+    crew_assignment_id: number | null;
+    assignment_no: string | null;
+    crew_assignment_phase_id: number | null;
+    vessel_id: number | null;
+    vessel_name: string | null;
+    client_id: number | null;
+    client_name: string | null;
+    rank_id: number | null;
+    rank_name: string | null;
+    remarks: string | null;
+};
+
 export type CrewTimesheet = {
     id: number;
     period_id: number;
@@ -165,12 +187,17 @@ export type CrewTimesheet = {
     sign_on_standby_from: string | null;
     sign_on_standby_to: string | null;
     sign_on_standby_days: string | null;
+    sign_on_standby_has_multiple_periods?: boolean;
     onsite_from: string | null;
     onsite_to: string | null;
     onsite_days: string | null;
+    onsite_has_multiple_periods?: boolean;
     sign_off_standby_from: string | null;
     sign_off_standby_to: string | null;
     sign_off_standby_days: string | null;
+    sign_off_standby_has_multiple_periods?: boolean;
+    has_multiple_periods?: boolean;
+    segments?: CrewTimesheetSegment[];
     unpaid_leave_days: string | null;
     total_standby_days: number | null;
     total_payable_days: number | null;

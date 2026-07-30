@@ -131,6 +131,24 @@ export interface CrewAssignmentDetail {
     warnings: CrewAssignmentWarning[];
     available_actions: string[];
     planning_assignment_id: number | null;
+    previous_assignment: {
+        id: number;
+        assignment_no: string;
+        status: string;
+        status_label: string;
+        source: string | null;
+        vessel_name: string | null;
+        closed_at: string | null;
+    } | null;
+    next_assignments: Array<{
+        id: number;
+        assignment_no: string;
+        status: string;
+        status_label: string;
+        source: string | null;
+        vessel_name: string | null;
+        started_at: string | null;
+    }>;
     movement_context: CrewMovementContext;
 }
 
@@ -305,6 +323,7 @@ export interface CrewMovementActionFormData {
     action: CrewMovementAction;
     occurred_at: string;
     next_phase: string;
+    starting_phase: string;
     provider: string;
     course: string;
     planned_start_at: string;

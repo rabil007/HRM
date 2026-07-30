@@ -58,12 +58,15 @@ class CrewMovementAvailableActions
                 CrewPhaseCode::OnVessel => [
                     CrewMovementAction::PlanSignoff->value,
                     CrewMovementAction::ConfirmDisembarkation->value,
+                    CrewMovementAction::TransferVessel->value,
                 ],
                 CrewPhaseCode::DemobStandby => [
                     CrewMovementAction::TravelHome->value,
+                    CrewMovementAction::Redeploy->value,
                     CrewMovementAction::CancelAssignment->value,
                 ],
                 CrewPhaseCode::HomeRedeploy => [
+                    CrewMovementAction::Redeploy->value,
                     CrewMovementAction::CloseAssignment->value,
                     CrewMovementAction::CancelAssignment->value,
                 ],

@@ -4,6 +4,7 @@ namespace App\Support\Payroll\Actions;
 
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
+use App\Models\CrewTimesheetSegment;
 use App\Models\PayrollPeriod;
 use App\Models\User;
 use App\Support\Payroll\ClearableManualImportCrewTimesheetsQuery;
@@ -17,7 +18,7 @@ final class ClearManualImportCrewTimesheets
     ) {}
 
     /**
-     * Soft-delete every Manual / Import timesheet in a Draft crew period.
+     * Soft-delete every Manual / Import timesheet (and its segments) in a Draft crew period.
      *
      * @return array{cleared_count: int, cleared_timesheet_ids: list<int>}
      */
@@ -54,6 +55,15 @@ final class ClearManualImportCrewTimesheets
                 if (! $this->clearableQuery->isClearable($timesheet)) {
                     continue;
                 }
+
+                CrewTimesheetSegment::query()
+                    ->where('company_id', $companyId)
+                    ->where('crew_timesheet_id', $timesheet->id)
+                    ->whereIn('source', ['manual', 'import'])
+                    ->lockForUpdate()
+                    ->get()
+                    ->each
+                    ->delete();
 
                 $timesheet->delete();
                 $clearedIds[] = (int) $timesheet->id;

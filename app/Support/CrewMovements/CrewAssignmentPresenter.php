@@ -171,6 +171,30 @@ class CrewAssignmentPresenter
             'warnings' => CrewMovementAttentionQuery::forAssignment($assignment),
             'available_actions' => CrewMovementAvailableActions::for($assignment),
             'planning_assignment_id' => $assignment->planningAssignment?->id,
+            'previous_assignment' => $assignment->previousAssignment ? [
+                'id' => $assignment->previousAssignment->id,
+                'assignment_no' => $assignment->previousAssignment->assignment_no,
+                'status' => $assignment->previousAssignment->status->value,
+                'status_label' => $assignment->previousAssignment->status->label(),
+                'source' => $assignment->previousAssignment->source,
+                'vessel_name' => $assignment->previousAssignment->vessel?->name,
+                'closed_at' => $assignment->previousAssignment->closed_at?->toDateString(),
+            ] : null,
+            'next_assignments' => $assignment->relationLoaded('nextAssignments')
+                ? $assignment->nextAssignments
+                    ->sortBy('id')
+                    ->values()
+                    ->map(fn (CrewAssignment $next): array => [
+                        'id' => $next->id,
+                        'assignment_no' => $next->assignment_no,
+                        'status' => $next->status->value,
+                        'status_label' => $next->status->label(),
+                        'source' => $next->source,
+                        'vessel_name' => $next->vessel?->name,
+                        'started_at' => $next->started_at?->toDateString(),
+                    ])
+                    ->all()
+                : [],
             'movement_context' => self::movementContext($assignment),
         ];
     }

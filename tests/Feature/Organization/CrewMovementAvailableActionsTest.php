@@ -136,18 +136,21 @@ test('available actions match guided menus for every phase', function (CrewPhase
         [
             CrewMovementAction::PlanSignoff->value,
             CrewMovementAction::ConfirmDisembarkation->value,
+            CrewMovementAction::TransferVessel->value,
         ],
     ],
     'p5 demob' => [
         CrewPhaseCode::DemobStandby,
         [
             CrewMovementAction::TravelHome->value,
+            CrewMovementAction::Redeploy->value,
             CrewMovementAction::CancelAssignment->value,
         ],
     ],
     'p6 home' => [
         CrewPhaseCode::HomeRedeploy,
         [
+            CrewMovementAction::Redeploy->value,
             CrewMovementAction::CloseAssignment->value,
             CrewMovementAction::CancelAssignment->value,
         ],

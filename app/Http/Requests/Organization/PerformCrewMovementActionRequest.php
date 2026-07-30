@@ -38,6 +38,8 @@ class PerformCrewMovementActionRequest extends FormRequest
                 'confirm_disembarkation',
                 'start_demob_standby',
                 'travel_home',
+                'transfer_vessel',
+                'redeploy',
                 'close_assignment',
                 'cancel_assignment',
             ], true)), 'nullable', 'date'],
@@ -72,6 +74,45 @@ class PerformCrewMovementActionRequest extends FormRequest
         if ($action === 'join_vessel') {
             $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('is_active', true)];
             $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
+            $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
+            $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)];
+            $baseRules['planned_signoff_at'] = ['nullable', 'date'];
+            $baseRules['remarks'] = ['nullable', 'string', 'max:1000'];
+        }
+
+        if ($action === 'transfer_vessel') {
+            $baseRules['vessel_id'] = ['required', 'integer', Rule::exists('vessels', 'id')->where('is_active', true)];
+            $baseRules['rank_id'] = ['required', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)];
+            $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
+            $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)];
+            $baseRules['planned_signoff_at'] = ['nullable', 'date'];
+            $baseRules['remarks'] = ['nullable', 'string', 'max:1000'];
+        }
+
+        if ($action === 'redeploy') {
+            $baseRules['starting_phase'] = [
+                'required',
+                'string',
+                Rule::in([
+                    CrewPhaseCode::PreMobilisation->value,
+                    CrewPhaseCode::TravelIn->value,
+                    CrewPhaseCode::JoinStandby->value,
+                    CrewPhaseCode::ReadyToJoin->value,
+                    CrewPhaseCode::OnVessel->value,
+                ]),
+            ];
+            $baseRules['vessel_id'] = [
+                Rule::requiredIf(fn () => $this->input('starting_phase') === CrewPhaseCode::OnVessel->value),
+                'nullable',
+                'integer',
+                Rule::exists('vessels', 'id')->where('is_active', true),
+            ];
+            $baseRules['rank_id'] = [
+                Rule::requiredIf(fn () => $this->input('starting_phase') === CrewPhaseCode::OnVessel->value),
+                'nullable',
+                'integer',
+                Rule::exists('ranks', 'id')->where('is_active', true),
+            ];
             $baseRules['client_id'] = ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)];
             $baseRules['company_visa_type_id'] = ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)];
             $baseRules['planned_signoff_at'] = ['nullable', 'date'];
@@ -144,12 +185,37 @@ class PerformCrewMovementActionRequest extends FormRequest
                 }
             }
 
-            if ($action === 'join_vessel' && $this->filled('planned_signoff_at') && $occurredAt !== null) {
+            if (in_array($action, ['join_vessel', 'transfer_vessel', 'redeploy'], true)
+                && $this->filled('planned_signoff_at')
+                && $occurredAt !== null) {
                 $plannedSignoff = Carbon::parse((string) $this->input('planned_signoff_at'), $timezone)->startOfDay();
                 if ($plannedSignoff->lt($occurredAt->copy()->startOfDay())) {
                     $validator->errors()->add(
                         'planned_signoff_at',
                         'The planned sign-off cannot be before the actual vessel join date.',
+                    );
+                }
+            }
+
+            if ($action === 'transfer_vessel' && $occurredAt !== null) {
+                $actualJoin = $assignment->phases
+                    ->filter(fn ($phase) => $phase->phase_code === CrewPhaseCode::OnVessel)
+                    ->sortByDesc('sequence')
+                    ->first()
+                    ?->actual_start_at;
+
+                if ($actualJoin !== null && $occurredAt->lt($actualJoin)) {
+                    $validator->errors()->add(
+                        'occurred_at',
+                        'The transfer cannot occur before the employee joined the vessel.',
+                    );
+                }
+
+                if ($assignment->vessel_id !== null
+                    && (int) $this->input('vessel_id') === (int) $assignment->vessel_id) {
+                    $validator->errors()->add(
+                        'vessel_id',
+                        'Destination vessel must differ from the current vessel.',
                     );
                 }
             }
@@ -207,6 +273,8 @@ class PerformCrewMovementActionRequest extends FormRequest
             'planned_signoff_at.required' => 'Please enter the planned sign-off date.',
             'vessel_id.required' => 'Please select the vessel the employee joins.',
             'rank_id.required' => 'Please select the rank served onboard.',
+            'starting_phase.required' => 'Please choose the starting phase for redeployment.',
+            'starting_phase.in' => 'The selected starting phase is not valid for redeployment.',
         ];
     }
 }

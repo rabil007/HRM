@@ -194,6 +194,36 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
         destructive: true,
         keepOpenLabel: 'Keep Assignment',
     },
+    transfer_vessel: {
+        title: 'Transfer Vessel',
+        description:
+            'Complete the current On Vessel assignment and start a linked assignment directly in P4 on the destination vessel. No standby or travel phases are invented.',
+        occurredAtLabel: 'Actual transfer date and time',
+        submitLabel: 'Transfer Vessel',
+        impactTitle: 'This action will',
+        impactDescription: [
+            'Complete the current P4 On Vessel phase and assignment.',
+            'Create sea service for the completed source P4.',
+            'Create a linked Active assignment on the destination vessel in P4.',
+            'Preserve separate Planning bars for each assignment.',
+            'Redirect to the new destination assignment.',
+        ],
+        fixedNextPhase: 'p4',
+    },
+    redeploy: {
+        title: 'Redeploy',
+        description:
+            'Complete the current demobilisation or home phase and start a linked assignment at the chosen real starting phase. Earlier phases are not invented.',
+        occurredAtLabel: 'Actual redeployment date and time',
+        submitLabel: 'Redeploy',
+        impactTitle: 'This action will',
+        impactDescription: [
+            'Complete the current P5 or P6 phase and assignment.',
+            'Create a linked assignment starting only at the selected phase.',
+            'Allow the same or a different vessel / client.',
+            'Redirect to the new linked assignment.',
+        ],
+    },
 };
 
 export function getMovementActionConfig(

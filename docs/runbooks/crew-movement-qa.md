@@ -77,9 +77,14 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Movement action menu and dialogs usable on mobile
 - [ ] No horizontal overflow on assignment detail
 
-## 10. Unsupported actions
+## 10. Transfer, redeploy, and corrections
 
-- [ ] `transfer_vessel` and `redeploy` return clear validation/safe errors
+- [ ] Active P4 exposes Transfer Vessel; destination vessel differs; source stays on original vessel
+- [ ] Transfer creates linked Active P4 assignment with no invented standby/home phases
+- [ ] Separate Planning bars exist for source and destination; completed source P4 creates sea service
+- [ ] Current Crew shows only the new Active assignment; Movement History shows both
+- [ ] Redeploy from P5/P6 starts only at the chosen phase (P0/P1/P2A/P3/P4); same vessel is allowed
+- [ ] Movement controller redirects to the new linked assignment after transfer/redeploy
 - [ ] Movement corrections go through request → approve/reject (not immediate `correct_movement`)
 - [ ] Pending/rejected/cancelled corrections leave official phase dates unchanged
 - [ ] Approved corrections update assignment/phase fields and re-sync planning + completed P4 sea service

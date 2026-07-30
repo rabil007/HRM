@@ -10,6 +10,7 @@ use Database\Factories\CrewTimesheetFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -111,6 +112,20 @@ class CrewTimesheet extends Model
     public function preparation(): BelongsTo
     {
         return $this->belongsTo(CrewTimesheetPreparation::class, 'crew_timesheet_preparation_id');
+    }
+
+    public function segments(): HasMany
+    {
+        return $this->hasMany(CrewTimesheetSegment::class)->orderBy('sequence');
+    }
+
+    public function hasMovementSegments(): bool
+    {
+        if ($this->relationLoaded('segments')) {
+            return $this->segments->isNotEmpty();
+        }
+
+        return $this->segments()->exists();
     }
 
     public function operationalApprovedBy(): BelongsTo

@@ -4,13 +4,16 @@ namespace App\Support\Payroll\Actions;
 
 use App\Enums\ContractSalaryStructure;
 use App\Enums\CrewTimesheetApprovalStatus;
+use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollCategory;
 use App\Models\CrewTimesheet;
+use App\Models\CrewTimesheetSegment;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Support\Payroll\ApplyManualImportTimesheetAutoApproval;
 use App\Support\Payroll\ResolveCrewContractForPayrollPeriod;
+use App\Support\Payroll\SyncCrewTimesheetParentFromSegments;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -20,6 +23,7 @@ final class UpsertCrewTimesheet
     public function __construct(
         private readonly ResolveCrewContractForPayrollPeriod $resolveContract,
         private readonly ApplyManualImportTimesheetAutoApproval $autoApproval,
+        private readonly SyncCrewTimesheetParentFromSegments $syncParentFromSegments,
     ) {}
 
     private const OPERATIONAL_KEYS = [
@@ -32,6 +36,7 @@ final class UpsertCrewTimesheet
         'sign_off_standby_from',
         'sign_off_standby_to',
         'sign_off_standby_days',
+        'segments',
         'crew_timesheet_preparation_id',
         'operational_approved_by',
         'operational_approved_at',
@@ -177,8 +182,125 @@ final class UpsertCrewTimesheet
                 );
             }
 
-            return $this->persistTimesheet($period, $employee, $existing, $attributes);
+            $timesheet = $this->persistTimesheet($period, $employee, $existing, $attributes);
+
+            if ($isDaily) {
+                $this->syncManualImportSegments($timesheet, $data, $source);
+                $timesheet = $this->syncParentFromSegments->handle($timesheet->fresh() ?? $timesheet);
+            }
+
+            return $timesheet;
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function syncManualImportSegments(
+        CrewTimesheet $timesheet,
+        array $data,
+        CrewTimesheetSource $source,
+    ): void {
+        $segmentRows = $this->normalizeSegmentRows($data);
+
+        CrewTimesheetSegment::query()
+            ->where('company_id', $timesheet->company_id)
+            ->where('crew_timesheet_id', $timesheet->id)
+            ->whereIn('source', [
+                CrewTimesheetSource::Manual->value,
+                CrewTimesheetSource::Import->value,
+            ])
+            ->lockForUpdate()
+            ->get()
+            ->each
+            ->delete();
+
+        $sequence = 1;
+
+        foreach ($segmentRows as $row) {
+            CrewTimesheetSegment::query()->create([
+                'company_id' => $timesheet->company_id,
+                'crew_timesheet_id' => $timesheet->id,
+                'sequence' => $sequence++,
+                'pay_category' => $row['pay_category'],
+                'from_date' => $row['from_date'],
+                'to_date' => $row['to_date'],
+                'days' => $row['days'],
+                'source' => $source,
+                'vessel_id' => $row['vessel_id'] ?? null,
+                'client_id' => $row['client_id'] ?? null,
+                'rank_id' => $row['rank_id'] ?? null,
+                'remarks' => $row['remarks'] ?? null,
+            ]);
+        }
+    }
+
+    /**
+     * Accept either an explicit segments array or the legacy flat category ranges.
+     *
+     * @param  array<string, mixed>  $data
+     * @return list<array<string, mixed>>
+     */
+    private function normalizeSegmentRows(array $data): array
+    {
+        if (isset($data['segments']) && is_array($data['segments']) && $data['segments'] !== []) {
+            $rows = [];
+
+            foreach ($data['segments'] as $segment) {
+                if (! is_array($segment)) {
+                    continue;
+                }
+
+                $from = $segment['from_date'] ?? null;
+                $to = $segment['to_date'] ?? null;
+                $category = $segment['pay_category'] ?? null;
+
+                if ($from === null || $to === null || $category === null) {
+                    continue;
+                }
+
+                $rows[] = [
+                    'pay_category' => $category,
+                    'from_date' => $from,
+                    'to_date' => $to,
+                    'days' => $segment['days'] ?? null,
+                    'vessel_id' => $segment['vessel_id'] ?? null,
+                    'client_id' => $segment['client_id'] ?? null,
+                    'rank_id' => $segment['rank_id'] ?? null,
+                    'remarks' => $segment['remarks'] ?? null,
+                ];
+            }
+
+            return $rows;
+        }
+
+        $rows = [];
+
+        foreach ([
+            CrewTimesheetPayCategory::SignOnStandby->value => ['sign_on_standby_from', 'sign_on_standby_to', 'sign_on_standby_days'],
+            CrewTimesheetPayCategory::Onsite->value => ['onsite_from', 'onsite_to', 'onsite_days'],
+            CrewTimesheetPayCategory::SignOffStandby->value => ['sign_off_standby_from', 'sign_off_standby_to', 'sign_off_standby_days'],
+        ] as $category => [$fromKey, $toKey, $daysKey]) {
+            $from = $data[$fromKey] ?? null;
+            $to = $data[$toKey] ?? null;
+
+            if ($from === null || $to === null || $from === '' || $to === '') {
+                continue;
+            }
+
+            $rows[] = [
+                'pay_category' => $category,
+                'from_date' => $from,
+                'to_date' => $to,
+                'days' => $data[$daysKey] ?? null,
+                'vessel_id' => null,
+                'client_id' => null,
+                'rank_id' => null,
+                'remarks' => null,
+            ];
+        }
+
+        return $rows;
     }
 
     /**

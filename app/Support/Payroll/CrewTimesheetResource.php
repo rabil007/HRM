@@ -4,6 +4,7 @@ namespace App\Support\Payroll;
 
 use App\Enums\ContractSalaryStructure;
 use App\Enums\CrewTimesheetApprovalStatus;
+use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\SalaryPaymentMethod;
 use App\Models\CrewTimesheet;
@@ -21,13 +22,17 @@ final class CrewTimesheetResource
             return null;
         }
 
-        $timesheet->loadMissing('preparation');
+        $timesheet->loadMissing(['preparation', 'segments.assignment', 'segments.vessel', 'segments.client', 'segments.rank']);
         $operationallyLocked = $timesheet->isOperationallyLocked();
         $signOnDays = (float) ($timesheet->sign_on_standby_days ?? 0);
         $signOffDays = (float) ($timesheet->sign_off_standby_days ?? 0);
         $onsiteDays = (float) ($timesheet->onsite_days ?? 0);
         $totalStandbyDays = round($signOnDays + $signOffDays, 2);
         $totalPayableDays = round($signOnDays + $signOffDays + $onsiteDays, 2);
+        $segments = $timesheet->segments;
+        $signOnSegmentCount = $segments->where('pay_category', CrewTimesheetPayCategory::SignOnStandby)->count();
+        $onsiteSegmentCount = $segments->where('pay_category', CrewTimesheetPayCategory::Onsite)->count();
+        $signOffSegmentCount = $segments->where('pay_category', CrewTimesheetPayCategory::SignOffStandby)->count();
 
         return [
             'id' => $timesheet->id,
@@ -36,12 +41,40 @@ final class CrewTimesheetResource
             'sign_on_standby_from' => $timesheet->sign_on_standby_from?->toDateString(),
             'sign_on_standby_to' => $timesheet->sign_on_standby_to?->toDateString(),
             'sign_on_standby_days' => $timesheet->sign_on_standby_days,
+            'sign_on_standby_has_multiple_periods' => $signOnSegmentCount > 1,
             'onsite_from' => $timesheet->onsite_from?->toDateString(),
             'onsite_to' => $timesheet->onsite_to?->toDateString(),
             'onsite_days' => $timesheet->onsite_days,
+            'onsite_has_multiple_periods' => $onsiteSegmentCount > 1,
             'sign_off_standby_from' => $timesheet->sign_off_standby_from?->toDateString(),
             'sign_off_standby_to' => $timesheet->sign_off_standby_to?->toDateString(),
             'sign_off_standby_days' => $timesheet->sign_off_standby_days,
+            'sign_off_standby_has_multiple_periods' => $signOffSegmentCount > 1,
+            'has_multiple_periods' => $segments->count() > 1
+                || $signOnSegmentCount > 1
+                || $onsiteSegmentCount > 1
+                || $signOffSegmentCount > 1,
+            'segments' => $segments->map(fn ($segment) => [
+                'id' => $segment->id,
+                'sequence' => $segment->sequence,
+                'pay_category' => $segment->pay_category?->value,
+                'pay_category_label' => $segment->pay_category?->label(),
+                'from_date' => $segment->from_date?->toDateString(),
+                'to_date' => $segment->to_date?->toDateString(),
+                'days' => $segment->days,
+                'source' => $segment->source?->value,
+                'source_label' => $segment->source?->label(),
+                'crew_assignment_id' => $segment->crew_assignment_id,
+                'assignment_no' => $segment->assignment?->assignment_no,
+                'crew_assignment_phase_id' => $segment->crew_assignment_phase_id,
+                'vessel_id' => $segment->vessel_id,
+                'vessel_name' => $segment->vessel?->name,
+                'client_id' => $segment->client_id,
+                'client_name' => $segment->client?->name,
+                'rank_id' => $segment->rank_id,
+                'rank_name' => $segment->rank?->name,
+                'remarks' => $segment->remarks,
+            ])->values()->all(),
             'unpaid_leave_days' => $timesheet->unpaid_leave_days,
             'total_standby_days' => $totalStandbyDays,
             'total_payable_days' => $totalPayableDays,
