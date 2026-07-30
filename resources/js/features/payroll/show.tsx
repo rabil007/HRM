@@ -258,6 +258,10 @@ export function PayrollShowContent({
     >({});
     const [savingTimesheetEmployeeIds, setSavingTimesheetEmployeeIds] =
         useState<number[]>([]);
+    const [financialAutosaveErrors, setFinancialAutosaveErrors] = useState<
+        Record<number, string>
+    >({});
+    const financialAutosaveErrorsRef = useRef(financialAutosaveErrors);
     const crewTimesheetDraftsRef = useRef(crewTimesheetDrafts);
     const crewSaveTimersRef = useRef<
         Record<number, ReturnType<typeof setTimeout>>
@@ -269,6 +273,10 @@ export function PayrollShowContent({
     useEffect(() => {
         crewTimesheetDraftsRef.current = crewTimesheetDrafts;
     }, [crewTimesheetDrafts]);
+
+    useEffect(() => {
+        financialAutosaveErrorsRef.current = financialAutosaveErrors;
+    }, [financialAutosaveErrors]);
 
     useEffect(() => {
         savingTimesheetEmployeeIdsRef.current = savingTimesheetEmployeeIds;
@@ -288,6 +296,34 @@ export function PayrollShowContent({
         };
     }, []);
 
+    const clearFinancialAutosaveError = useCallback((employeeId: number) => {
+        setFinancialAutosaveErrors((previous) => {
+            if (!(employeeId in previous)) {
+                return previous;
+            }
+
+            const next = { ...previous };
+            delete next[employeeId];
+
+            return next;
+        });
+    }, []);
+
+    const recordFinancialAutosaveError = useCallback(
+        (employeeId: number, error: unknown) => {
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : 'Financial autosave failed.';
+
+            setFinancialAutosaveErrors((previous) => ({
+                ...previous,
+                [employeeId]: message,
+            }));
+        },
+        [],
+    );
+
     const handleCrewTimesheetChange = (
         employeeId: number,
         field: keyof CrewTimesheetDraft,
@@ -297,6 +333,8 @@ export function PayrollShowContent({
         if (isClearingTimesheetsRef.current) {
             return;
         }
+
+        clearFinancialAutosaveError(employeeId);
 
         setCrewTimesheetDrafts((prev) => {
             const existing =
@@ -432,21 +470,42 @@ export function PayrollShowContent({
             };
 
             return new Promise<void>((resolve, reject) => {
+                let settled = false;
+
+                const settleError = (message: string): void => {
+                    if (settled) {
+                        return;
+                    }
+
+                    settled = true;
+                    recordFinancialAutosaveError(
+                        employeeId,
+                        new Error(message),
+                    );
+                    reject(new Error(message));
+                };
+
                 const options = {
                     preserveScroll: true,
                     preserveState: true,
                     only: ['rows'] as string[],
-                    onFinish: finishSaving,
+                    onFinish: () => {
+                        finishSaving();
+
+                        if (!settled) {
+                            settleError('Financial autosave failed.');
+                        }
+                    },
                     onSuccess: () => {
+                        settled = true;
+                        clearFinancialAutosaveError(employeeId);
                         clearDraftIfUnchanged();
                         resolve();
                     },
                     onError: (errors: Record<string, string>) => {
-                        reject(
-                            new Error(
-                                Object.values(errors)[0] ??
-                                    'Financial autosave failed.',
-                            ),
+                        settleError(
+                            Object.values(errors)[0] ??
+                                'Financial autosave failed.',
                         );
                     },
                 };
@@ -475,7 +534,7 @@ export function PayrollShowContent({
                 );
             });
         },
-        [period.id],
+        [clearFinancialAutosaveError, period.id, recordFinancialAutosaveError],
     );
 
     const scheduleFinancialAutosave = useCallback(
@@ -492,10 +551,40 @@ export function PayrollShowContent({
 
             crewSaveTimersRef.current[employeeId] = setTimeout(() => {
                 delete crewSaveTimersRef.current[employeeId];
-                void saveCrewTimesheetFinancials(employeeId, initialTimesheet);
+                void saveCrewTimesheetFinancials(
+                    employeeId,
+                    initialTimesheet,
+                ).catch(() => {
+                    // Draft preserved; error state already recorded for Retry.
+                });
             }, 800);
         },
         [saveCrewTimesheetFinancials],
+    );
+
+    const retryFinancialAutosave = useCallback(
+        (employeeId: number, initialTimesheet: CrewPayrollRow['timesheet']) => {
+            if (isClearingTimesheetsRef.current) {
+                return;
+            }
+
+            const existingTimer = crewSaveTimersRef.current[employeeId];
+
+            if (existingTimer) {
+                clearTimeout(existingTimer);
+                delete crewSaveTimersRef.current[employeeId];
+            }
+
+            clearFinancialAutosaveError(employeeId);
+
+            void saveCrewTimesheetFinancials(
+                employeeId,
+                initialTimesheet,
+            ).catch(() => {
+                // Draft preserved; error state already recorded for Retry.
+            });
+        },
+        [clearFinancialAutosaveError, saveCrewTimesheetFinancials],
     );
 
     const flushPendingFinancialSave = useCallback(
@@ -530,12 +619,21 @@ export function PayrollShowContent({
             }
 
             if (savingTimesheetEmployeeIdsRef.current.includes(employeeId)) {
-                throw new Error(
-                    'Financial autosave is still in progress. Try again.',
-                );
+                const message =
+                    'Financial autosave is still in progress. Try again.';
+                recordFinancialAutosaveError(employeeId, new Error(message));
+
+                throw new Error(message);
+            }
+
+            const pendingError =
+                financialAutosaveErrorsRef.current[employeeId] ?? null;
+
+            if (pendingError) {
+                throw new Error(pendingError);
             }
         },
-        [saveCrewTimesheetFinancials],
+        [recordFinancialAutosaveError, saveCrewTimesheetFinancials],
     );
 
     const cancelPendingCrewTimesheetAutosaves = useCallback(() => {
@@ -545,6 +643,8 @@ export function PayrollShowContent({
         crewSaveTimersRef.current = {};
         crewTimesheetDraftsRef.current = {};
         setCrewTimesheetDrafts({});
+        financialAutosaveErrorsRef.current = {};
+        setFinancialAutosaveErrors({});
     }, []);
 
     const waitForCrewTimesheetAutosavesIdle = useCallback(async () => {
@@ -1479,6 +1579,12 @@ export function PayrollShowContent({
                                 }
                                 savingTimesheetEmployeeIds={
                                     savingTimesheetEmployeeIds
+                                }
+                                financialAutosaveErrors={
+                                    financialAutosaveErrors
+                                }
+                                onRetryFinancialAutosave={
+                                    retryFinancialAutosave
                                 }
                                 canEditTimesheets={canEditTimesheets}
                                 onOpenMovementPeriods={setMovementPeriodsRow}

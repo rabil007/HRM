@@ -9,6 +9,18 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateCrewTimesheetFinancialsRequest extends FormRequest
 {
+    /**
+     * Non-nullable numeric columns on crew_timesheets.
+     *
+     * @var list<string>
+     */
+    private const NON_NULLABLE_NUMERIC_FIELDS = [
+        'overtime_hours',
+        'overtime_amount',
+        'additional_amount',
+        'deduction_amount',
+    ];
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -27,7 +39,19 @@ class UpdateCrewTimesheetFinancialsRequest extends FormRequest
     {
         $normalized = [];
 
-        foreach (['unpaid_leave_days', 'remarks', 'overtime_amount'] as $field) {
+        foreach (self::NON_NULLABLE_NUMERIC_FIELDS as $field) {
+            if (! $this->exists($field)) {
+                continue;
+            }
+
+            $value = $this->input($field);
+
+            if ($value === '' || $value === null) {
+                $normalized[$field] = 0;
+            }
+        }
+
+        foreach (['unpaid_leave_days', 'remarks'] as $field) {
             if ($this->exists($field) && ($this->input($field) === '' || $this->input($field) === null)) {
                 $normalized[$field] = null;
             }
@@ -45,10 +69,10 @@ class UpdateCrewTimesheetFinancialsRequest extends FormRequest
     {
         return [
             'unpaid_leave_days' => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'overtime_hours' => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'overtime_amount' => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'additional_amount' => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'deduction_amount' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'overtime_hours' => ['sometimes', 'numeric', 'min:0'],
+            'overtime_amount' => ['sometimes', 'numeric', 'min:0'],
+            'additional_amount' => ['sometimes', 'numeric', 'min:0'],
+            'deduction_amount' => ['sometimes', 'numeric', 'min:0'],
             'remarks' => ['sometimes', 'nullable', 'string'],
         ];
     }

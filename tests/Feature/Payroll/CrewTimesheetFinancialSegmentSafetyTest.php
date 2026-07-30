@@ -311,6 +311,82 @@ test('omitted remarks preserves existing remarks', function () {
     expect($fixtures['timesheet']->fresh()->remarks)->toBe('keep-me');
 });
 
+test('null overtime_hours is normalized to zero', function () {
+    $fixtures = makeMultiSegmentManualTimesheetFixtures();
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->patch(route('payroll.timesheets.financials', [
+            $fixtures['period'],
+            $fixtures['timesheet'],
+        ]), [
+            'overtime_hours' => null,
+        ])
+        ->assertRedirect();
+
+    expect((float) $fixtures['timesheet']->fresh()->overtime_hours)->toBe(0.0)
+        ->and($fixtures['timesheet']->fresh()->segments)->toHaveCount(2);
+});
+
+test('empty string overtime_hours is normalized to zero', function () {
+    $fixtures = makeMultiSegmentManualTimesheetFixtures();
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->patch(route('payroll.timesheets.financials', [
+            $fixtures['period'],
+            $fixtures['timesheet'],
+        ]), [
+            'overtime_hours' => '',
+        ])
+        ->assertRedirect();
+
+    expect((float) $fixtures['timesheet']->fresh()->overtime_hours)->toBe(0.0);
+});
+
+test('null overtime_amount additional_amount and deduction_amount normalize to zero', function () {
+    $fixtures = makeMultiSegmentManualTimesheetFixtures();
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->patch(route('payroll.timesheets.financials', [
+            $fixtures['period'],
+            $fixtures['timesheet'],
+        ]), [
+            'overtime_amount' => null,
+            'additional_amount' => null,
+            'deduction_amount' => null,
+        ])
+        ->assertRedirect();
+
+    $timesheet = $fixtures['timesheet']->fresh();
+
+    expect((float) $timesheet->overtime_amount)->toBe(0.0)
+        ->and((float) $timesheet->additional_amount)->toBe(0.0)
+        ->and((float) $timesheet->deduction_amount)->toBe(0.0)
+        ->and((float) $timesheet->overtime_hours)->toBe(2.0)
+        ->and($timesheet->segments)->toHaveCount(2);
+});
+
+test('negative numeric financial values are rejected', function () {
+    $fixtures = makeMultiSegmentManualTimesheetFixtures();
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->from(route('payroll.show', $fixtures['period']))
+        ->patch(route('payroll.timesheets.financials', [
+            $fixtures['period'],
+            $fixtures['timesheet'],
+        ]), [
+            'overtime_hours' => -1,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('overtime_hours');
+
+    expect((float) $fixtures['timesheet']->fresh()->overtime_hours)->toBe(2.0)
+        ->and($fixtures['timesheet']->fresh()->segments)->toHaveCount(2);
+});
+
 test('segment save replaces old manual segments', function () {
     $fixtures = makeMultiSegmentManualTimesheetFixtures();
     $replacementVessel = makeCrewMovementVessel('Replacement');

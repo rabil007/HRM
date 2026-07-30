@@ -74,6 +74,11 @@ export type CrewTimesheetsBoardProps = {
         initialTimesheet: CrewPayrollRow['timesheet'],
     ) => void;
     savingTimesheetEmployeeIds: number[];
+    financialAutosaveErrors: Record<number, string>;
+    onRetryFinancialAutosave: (
+        employeeId: number,
+        initialTimesheet: CrewPayrollRow['timesheet'],
+    ) => void;
     canEditTimesheets: boolean;
     onOpenMovementPeriods: (row: CrewPayrollRow) => void;
 };
@@ -92,6 +97,8 @@ export function CrewTimesheetsBoard({
     crewTimesheetDrafts,
     onCrewTimesheetChange,
     savingTimesheetEmployeeIds,
+    financialAutosaveErrors,
+    onRetryFinancialAutosave,
     canEditTimesheets,
     onOpenMovementPeriods,
 }: CrewTimesheetsBoardProps) {
@@ -299,6 +306,9 @@ export function CrewTimesheetsBoard({
                                     savingTimesheetEmployeeIds.includes(
                                         row.employee.id,
                                     );
+                                const saveError =
+                                    financialAutosaveErrors[row.employee.id] ??
+                                    null;
                                 const operationalSource =
                                     row.operational_source ??
                                     (isMonthlyCrewRow
@@ -609,6 +619,32 @@ export function CrewTimesheetsBoard({
                                                     <span className="text-[10px] font-medium text-muted-foreground">
                                                         Saving…
                                                     </span>
+                                                ) : saveError ? (
+                                                    <div className="flex max-w-[11rem] flex-col gap-1">
+                                                        <span
+                                                            className="text-[10px] font-medium text-destructive"
+                                                            role="alert"
+                                                        >
+                                                            Save failed
+                                                        </span>
+                                                        <span className="text-[10px] leading-snug text-destructive/80">
+                                                            {saveError}
+                                                        </span>
+                                                        <Button
+                                                            type="button"
+                                                            variant="link"
+                                                            className="h-auto justify-start px-0 text-[10px]"
+                                                            onClick={() =>
+                                                                onRetryFinancialAutosave(
+                                                                    row.employee
+                                                                        .id,
+                                                                    row.timesheet,
+                                                                )
+                                                            }
+                                                        >
+                                                            Retry
+                                                        </Button>
+                                                    </div>
                                                 ) : isDirty ? (
                                                     <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary/70">
                                                         <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary/60" />

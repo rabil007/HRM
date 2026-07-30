@@ -13,6 +13,16 @@ use Illuminate\Validation\ValidationException;
 
 final class UpdateCrewTimesheetFinancials
 {
+    /**
+     * @var list<string>
+     */
+    private const NON_NULLABLE_NUMERIC_FIELDS = [
+        'overtime_hours',
+        'overtime_amount',
+        'additional_amount',
+        'deduction_amount',
+    ];
+
     public function __construct(
         private readonly ApplyManualImportTimesheetAutoApproval $autoApproval,
     ) {}
@@ -62,19 +72,7 @@ final class UpdateCrewTimesheetFinancials
                 'remarks' => $timesheet->remarks,
             ];
 
-            $attributes = [];
-
-            // Missing key → preserve; present (including null) → update/clear.
-            foreach (['overtime_hours', 'overtime_amount', 'additional_amount', 'deduction_amount', 'remarks'] as $key) {
-                if (array_key_exists($key, $data)) {
-                    $attributes[$key] = $data[$key];
-                }
-            }
-
-            if (! $timesheet->isOperationallyLocked()
-                && array_key_exists('unpaid_leave_days', $data)) {
-                $attributes['unpaid_leave_days'] = $data['unpaid_leave_days'];
-            }
+            $attributes = $this->financialAttributesFrom($data, $timesheet);
 
             $source = $timesheet->resolvedSource() ?? CrewTimesheetSource::Manual;
 
@@ -122,5 +120,54 @@ final class UpdateCrewTimesheetFinancials
 
             return $fresh;
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function financialAttributesFrom(array $data, CrewTimesheet $timesheet): array
+    {
+        $attributes = [];
+
+        foreach (self::NON_NULLABLE_NUMERIC_FIELDS as $key) {
+            if (! array_key_exists($key, $data)) {
+                continue;
+            }
+
+            $attributes[$key] = $this->normalizeNonNullableNumeric($key, $data[$key]);
+        }
+
+        if (array_key_exists('remarks', $data)) {
+            $attributes['remarks'] = $data['remarks'];
+        }
+
+        if (! $timesheet->isOperationallyLocked()
+            && array_key_exists('unpaid_leave_days', $data)) {
+            $attributes['unpaid_leave_days'] = $data['unpaid_leave_days'];
+        }
+
+        return $attributes;
+    }
+
+    private function normalizeNonNullableNumeric(string $key, mixed $value): float|int|string
+    {
+        if ($value === null || $value === '') {
+            return 0;
+        }
+
+        if (! is_numeric($value)) {
+            throw ValidationException::withMessages([
+                $key => "The {$key} must be a number.",
+            ]);
+        }
+
+        if ((float) $value < 0) {
+            throw ValidationException::withMessages([
+                $key => "The {$key} must be at least 0.",
+            ]);
+        }
+
+        return $value;
     }
 }
