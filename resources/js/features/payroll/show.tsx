@@ -33,10 +33,8 @@ import {
     revertToDraft,
     revertToProcessing,
     show,
-    storeTimesheet,
 } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
 import PrepareCrewTimesheetTimelineController from '@/actions/App/Http/Controllers/Payroll/PrepareCrewTimesheetTimelineController';
-import UpdateCrewTimesheetFinancialsController from '@/actions/App/Http/Controllers/Payroll/UpdateCrewTimesheetFinancialsController';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { SearchBar } from '@/components/search-bar';
@@ -63,18 +61,17 @@ import { PayrollShowFiltersSheet } from './components/payroll-show-filters-sheet
 import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
 import { PayrollStatusTimeline } from './components/payroll-status-timeline';
 import { CrewTimelineStatusBadge } from './crew-timeline/crew-timeline-status-badge';
+import { useCrewTimesheetFinancialAutosave } from './hooks/use-crew-timesheet-financial-autosave';
 import { usePayslipGenerationPoll } from './hooks/use-payslip-generation-poll';
 import { pruneExcludedIds } from './lib/payroll-board-selection';
 import type {
     CrewPayrollRow,
-    CrewTimesheetDraft,
     PayrollPeriodStatus,
     PayrollRecordListItem,
     PayrollShowFilters,
     PayrollShowProps,
     SalaryInput,
 } from './types';
-import { buildCrewTimesheetDraft } from './types';
 import { usePayrollShowFilters } from './use-payroll-show-filters';
 
 const LazyOfficeEmployeesTabContent = lazy(() =>
@@ -215,6 +212,54 @@ export function PayrollShowContent({
         useState(false);
     const [isClearingTimesheets, setIsClearingTimesheets] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+    const rowsRef = useRef(rows);
+
+    useEffect(() => {
+        rowsRef.current = rows;
+    }, [rows]);
+
+    const {
+        crewTimesheetDrafts,
+        savingTimesheetEmployeeIds,
+        financialAutosaveErrors,
+        handleCrewTimesheetChange,
+        retryFinancialAutosave,
+        flushPendingFinancialSave,
+        beginClearTimesheets,
+        endClearTimesheets,
+        clearEmployeeDraft,
+    } = useCrewTimesheetFinancialAutosave({
+        periodId: period.id,
+        resolveTimesheet: useCallback(
+            (employeeId: number) =>
+                rowsRef.current.find((row) => row.employee.id === employeeId)
+                    ?.timesheet ?? null,
+            [],
+        ),
+    });
+
+    const handleConfirmClearTimesheets = useCallback(async () => {
+        setIsClearingTimesheets(true);
+
+        await beginClearTimesheets();
+
+        router.delete(clearManualImport.url(period.id), {
+            preserveScroll: true,
+            only: [
+                'rows',
+                'period',
+                'clearable_timesheet_count',
+                'crew_timeline_preparation',
+                'generation_summary',
+            ],
+            onFinish: () => {
+                endClearTimesheets();
+                setIsClearingTimesheets(false);
+                setIsClearTimesheetsDialogOpen(false);
+            },
+        });
+    }, [beginClearTimesheets, endClearTimesheets, period.id]);
+
     const [salaryInputsRecord, setSalaryInputsRecord] =
         useState<PayrollRecordListItem | null>(null);
     const [storedExcludedIds, setExcludedIds] = useState<Set<number>>(
@@ -253,438 +298,6 @@ export function PayrollShowContent({
     const [rowDates, setRowDates] = useState<
         Record<number, { start: string; end: string }>
     >({});
-    const [crewTimesheetDrafts, setCrewTimesheetDrafts] = useState<
-        Record<number, CrewTimesheetDraft>
-    >({});
-    const [savingTimesheetEmployeeIds, setSavingTimesheetEmployeeIds] =
-        useState<number[]>([]);
-    const [financialAutosaveErrors, setFinancialAutosaveErrors] = useState<
-        Record<number, string>
-    >({});
-    const financialAutosaveErrorsRef = useRef(financialAutosaveErrors);
-    const crewTimesheetDraftsRef = useRef(crewTimesheetDrafts);
-    const crewSaveTimersRef = useRef<
-        Record<number, ReturnType<typeof setTimeout>>
-    >({});
-    const financialSaveGenerationRef = useRef<Record<number, number>>({});
-    const isClearingTimesheetsRef = useRef(false);
-    const savingTimesheetEmployeeIdsRef = useRef(savingTimesheetEmployeeIds);
-
-    useEffect(() => {
-        crewTimesheetDraftsRef.current = crewTimesheetDrafts;
-    }, [crewTimesheetDrafts]);
-
-    useEffect(() => {
-        financialAutosaveErrorsRef.current = financialAutosaveErrors;
-    }, [financialAutosaveErrors]);
-
-    useEffect(() => {
-        savingTimesheetEmployeeIdsRef.current = savingTimesheetEmployeeIds;
-    }, [savingTimesheetEmployeeIds]);
-
-    useEffect(() => {
-        isClearingTimesheetsRef.current = isClearingTimesheets;
-    }, [isClearingTimesheets]);
-
-    useEffect(() => {
-        const timers = crewSaveTimersRef.current;
-
-        return () => {
-            Object.values(timers).forEach((timer) => {
-                clearTimeout(timer);
-            });
-        };
-    }, []);
-
-    const clearFinancialAutosaveError = useCallback((employeeId: number) => {
-        setFinancialAutosaveErrors((previous) => {
-            if (!(employeeId in previous)) {
-                return previous;
-            }
-
-            const next = { ...previous };
-            delete next[employeeId];
-
-            return next;
-        });
-    }, []);
-
-    const recordFinancialAutosaveError = useCallback(
-        (employeeId: number, error: unknown) => {
-            const message =
-                error instanceof Error
-                    ? error.message
-                    : 'Financial autosave failed.';
-
-            setFinancialAutosaveErrors((previous) => ({
-                ...previous,
-                [employeeId]: message,
-            }));
-        },
-        [],
-    );
-
-    const handleCrewTimesheetChange = (
-        employeeId: number,
-        field: keyof CrewTimesheetDraft,
-        val: string,
-        initialTimesheet: CrewPayrollRow['timesheet'],
-    ) => {
-        if (isClearingTimesheetsRef.current) {
-            return;
-        }
-
-        clearFinancialAutosaveError(employeeId);
-
-        setCrewTimesheetDrafts((prev) => {
-            const existing =
-                prev[employeeId] ?? buildCrewTimesheetDraft(initialTimesheet);
-
-            const next = {
-                ...prev,
-                [employeeId]: {
-                    ...existing,
-                    [field]: val,
-                },
-            };
-
-            crewTimesheetDraftsRef.current = next;
-
-            return next;
-        });
-
-        scheduleFinancialAutosave(employeeId, initialTimesheet);
-    };
-
-    const buildChangedFinancialPayload = (
-        current: CrewTimesheetDraft,
-        initialTimesheet: CrewPayrollRow['timesheet'],
-    ): Record<string, number | string | null> => {
-        const payload: Record<string, number | string | null> = {};
-        const initialDraft = buildCrewTimesheetDraft(initialTimesheet);
-
-        if (current.overtime_hours !== initialDraft.overtime_hours) {
-            payload.overtime_hours =
-                current.overtime_hours === ''
-                    ? 0
-                    : Number(current.overtime_hours);
-        }
-
-        if (current.unpaid_leave_days !== initialDraft.unpaid_leave_days) {
-            payload.unpaid_leave_days =
-                current.unpaid_leave_days === ''
-                    ? null
-                    : Number(current.unpaid_leave_days);
-        }
-
-        return payload;
-    };
-
-    const saveCrewTimesheetFinancials = useCallback(
-        (
-            employeeId: number,
-            initialTimesheet: CrewPayrollRow['timesheet'],
-        ): Promise<void> => {
-            if (isClearingTimesheetsRef.current) {
-                return Promise.resolve();
-            }
-
-            const current = crewTimesheetDraftsRef.current[employeeId];
-
-            if (!current) {
-                return Promise.resolve();
-            }
-
-            const payload = buildChangedFinancialPayload(
-                current,
-                initialTimesheet,
-            );
-
-            if (Object.keys(payload).length === 0) {
-                setCrewTimesheetDrafts((prev) => {
-                    if (!prev[employeeId]) {
-                        return prev;
-                    }
-
-                    const next = { ...prev };
-                    delete next[employeeId];
-                    crewTimesheetDraftsRef.current = next;
-
-                    return next;
-                });
-
-                return Promise.resolve();
-            }
-
-            const submittedDraft: CrewTimesheetDraft = { ...current };
-            const timesheetId = initialTimesheet?.id ?? null;
-            const saveGeneration =
-                (financialSaveGenerationRef.current[employeeId] ?? 0) + 1;
-            financialSaveGenerationRef.current[employeeId] = saveGeneration;
-
-            setSavingTimesheetEmployeeIds((previous) =>
-                previous.includes(employeeId)
-                    ? previous
-                    : [...previous, employeeId],
-            );
-
-            const finishSaving = (): void => {
-                setSavingTimesheetEmployeeIds((previous) =>
-                    previous.filter((id) => id !== employeeId),
-                );
-            };
-
-            const clearDraftIfUnchanged = (): void => {
-                setCrewTimesheetDrafts((prev) => {
-                    const draft = prev[employeeId];
-
-                    if (!draft) {
-                        return prev;
-                    }
-
-                    if (crewSaveTimersRef.current[employeeId]) {
-                        return prev;
-                    }
-
-                    if (
-                        financialSaveGenerationRef.current[employeeId] !==
-                        saveGeneration
-                    ) {
-                        return prev;
-                    }
-
-                    if (
-                        draft.unpaid_leave_days !==
-                            submittedDraft.unpaid_leave_days ||
-                        draft.overtime_hours !== submittedDraft.overtime_hours
-                    ) {
-                        return prev;
-                    }
-
-                    const next = { ...prev };
-                    delete next[employeeId];
-                    crewTimesheetDraftsRef.current = next;
-
-                    return next;
-                });
-            };
-
-            return new Promise<void>((resolve, reject) => {
-                let settled = false;
-
-                const settleError = (message: string): void => {
-                    if (settled) {
-                        return;
-                    }
-
-                    settled = true;
-                    recordFinancialAutosaveError(
-                        employeeId,
-                        new Error(message),
-                    );
-                    reject(new Error(message));
-                };
-
-                const options = {
-                    preserveScroll: true,
-                    preserveState: true,
-                    only: ['rows'] as string[],
-                    onFinish: () => {
-                        finishSaving();
-
-                        if (!settled) {
-                            settleError('Financial autosave failed.');
-                        }
-                    },
-                    onSuccess: () => {
-                        settled = true;
-                        clearFinancialAutosaveError(employeeId);
-                        clearDraftIfUnchanged();
-                        resolve();
-                    },
-                    onError: (errors: Record<string, string>) => {
-                        settleError(
-                            Object.values(errors)[0] ??
-                                'Financial autosave failed.',
-                        );
-                    },
-                };
-
-                if (timesheetId !== null) {
-                    router.patch(
-                        UpdateCrewTimesheetFinancialsController.url({
-                            payrollPeriod: period.id,
-                            timesheet: timesheetId,
-                        }),
-                        payload,
-                        options,
-                    );
-
-                    return;
-                }
-
-                router.post(
-                    storeTimesheet.url(period.id),
-                    {
-                        period_id: period.id,
-                        employee_id: employeeId,
-                        ...payload,
-                    },
-                    options,
-                );
-            });
-        },
-        [clearFinancialAutosaveError, period.id, recordFinancialAutosaveError],
-    );
-
-    const scheduleFinancialAutosave = useCallback(
-        (employeeId: number, initialTimesheet: CrewPayrollRow['timesheet']) => {
-            if (isClearingTimesheetsRef.current) {
-                return;
-            }
-
-            const existingTimer = crewSaveTimersRef.current[employeeId];
-
-            if (existingTimer) {
-                clearTimeout(existingTimer);
-            }
-
-            crewSaveTimersRef.current[employeeId] = setTimeout(() => {
-                delete crewSaveTimersRef.current[employeeId];
-                void saveCrewTimesheetFinancials(
-                    employeeId,
-                    initialTimesheet,
-                ).catch(() => {
-                    // Draft preserved; error state already recorded for Retry.
-                });
-            }, 800);
-        },
-        [saveCrewTimesheetFinancials],
-    );
-
-    const retryFinancialAutosave = useCallback(
-        (employeeId: number, initialTimesheet: CrewPayrollRow['timesheet']) => {
-            if (isClearingTimesheetsRef.current) {
-                return;
-            }
-
-            const existingTimer = crewSaveTimersRef.current[employeeId];
-
-            if (existingTimer) {
-                clearTimeout(existingTimer);
-                delete crewSaveTimersRef.current[employeeId];
-            }
-
-            clearFinancialAutosaveError(employeeId);
-
-            void saveCrewTimesheetFinancials(
-                employeeId,
-                initialTimesheet,
-            ).catch(() => {
-                // Draft preserved; error state already recorded for Retry.
-            });
-        },
-        [clearFinancialAutosaveError, saveCrewTimesheetFinancials],
-    );
-
-    const flushPendingFinancialSave = useCallback(
-        async (
-            employeeId: number,
-            initialTimesheet: CrewPayrollRow['timesheet'],
-        ): Promise<void> => {
-            const existingTimer = crewSaveTimersRef.current[employeeId];
-
-            if (existingTimer) {
-                clearTimeout(existingTimer);
-                delete crewSaveTimersRef.current[employeeId];
-            }
-
-            const hasDraft = Boolean(
-                crewTimesheetDraftsRef.current[employeeId],
-            );
-            const isSaving =
-                savingTimesheetEmployeeIdsRef.current.includes(employeeId);
-
-            if (existingTimer || (hasDraft && !isSaving)) {
-                await saveCrewTimesheetFinancials(employeeId, initialTimesheet);
-            }
-
-            const waitStarted = Date.now();
-
-            while (
-                savingTimesheetEmployeeIdsRef.current.includes(employeeId) &&
-                Date.now() - waitStarted < 5000
-            ) {
-                await new Promise((resolve) => setTimeout(resolve, 50));
-            }
-
-            if (savingTimesheetEmployeeIdsRef.current.includes(employeeId)) {
-                const message =
-                    'Financial autosave is still in progress. Try again.';
-                recordFinancialAutosaveError(employeeId, new Error(message));
-
-                throw new Error(message);
-            }
-
-            const pendingError =
-                financialAutosaveErrorsRef.current[employeeId] ?? null;
-
-            if (pendingError) {
-                throw new Error(pendingError);
-            }
-        },
-        [recordFinancialAutosaveError, saveCrewTimesheetFinancials],
-    );
-
-    const cancelPendingCrewTimesheetAutosaves = useCallback(() => {
-        Object.values(crewSaveTimersRef.current).forEach((timer) => {
-            clearTimeout(timer);
-        });
-        crewSaveTimersRef.current = {};
-        crewTimesheetDraftsRef.current = {};
-        setCrewTimesheetDrafts({});
-        financialAutosaveErrorsRef.current = {};
-        setFinancialAutosaveErrors({});
-    }, []);
-
-    const waitForCrewTimesheetAutosavesIdle = useCallback(async () => {
-        const startedAt = Date.now();
-
-        while (
-            savingTimesheetEmployeeIdsRef.current.length > 0 &&
-            Date.now() - startedAt < 10000
-        ) {
-            await new Promise((resolve) => setTimeout(resolve, 50));
-        }
-    }, []);
-
-    const handleConfirmClearTimesheets = useCallback(async () => {
-        cancelPendingCrewTimesheetAutosaves();
-        isClearingTimesheetsRef.current = true;
-        setIsClearingTimesheets(true);
-
-        await waitForCrewTimesheetAutosavesIdle();
-
-        router.delete(clearManualImport.url(period.id), {
-            preserveScroll: true,
-            only: [
-                'rows',
-                'period',
-                'clearable_timesheet_count',
-                'crew_timeline_preparation',
-                'generation_summary',
-            ],
-            onFinish: () => {
-                isClearingTimesheetsRef.current = false;
-                setIsClearingTimesheets(false);
-                setIsClearTimesheetsDialogOpen(false);
-            },
-        });
-    }, [
-        cancelPendingCrewTimesheetAutosaves,
-        period.id,
-        waitForCrewTimesheetAutosavesIdle,
-    ]);
 
     const isDraftPeriod = period.status === 'draft';
 
@@ -1759,24 +1372,19 @@ export function PayrollShowContent({
                         }
                         canEdit={canEditTimesheets}
                         onBeforeSave={async () => {
+                            const employeeId = movementPeriodsRow.employee.id;
+                            const latestTimesheet =
+                                rows.find(
+                                    (row) => row.employee.id === employeeId,
+                                )?.timesheet ?? movementPeriodsRow.timesheet;
+
                             await flushPendingFinancialSave(
-                                movementPeriodsRow.employee.id,
-                                movementPeriodsRow.timesheet,
+                                employeeId,
+                                latestTimesheet,
                             );
                         }}
                         onSaved={() => {
-                            const employeeId = movementPeriodsRow.employee.id;
-                            setCrewTimesheetDrafts((prev) => {
-                                if (!prev[employeeId]) {
-                                    return prev;
-                                }
-
-                                const next = { ...prev };
-                                delete next[employeeId];
-                                crewTimesheetDraftsRef.current = next;
-
-                                return next;
-                            });
+                            clearEmployeeDraft(movementPeriodsRow.employee.id);
                         }}
                     />
                 </Suspense>
