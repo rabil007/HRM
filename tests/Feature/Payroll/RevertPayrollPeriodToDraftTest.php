@@ -88,6 +88,8 @@ test('authorized users can clear timesheets when reverting processing pay period
 
     $period = PayrollPeriod::factory()->for($company)->create([
         'status' => PayrollPeriodStatus::Processing,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
     ]);
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
 
@@ -135,7 +137,8 @@ test('authorized users can clear timesheets when reverting processing pay period
             'sign_on_standby_from' => '2026-06-01',
             'sign_on_standby_to' => '2026-06-04',
         ])
-        ->assertRedirect($showUrl);
+        ->assertRedirect($showUrl)
+        ->assertSessionHasNoErrors();
 
     $this->assertDatabaseHas('crew_timesheets', [
         'period_id' => $period->id,

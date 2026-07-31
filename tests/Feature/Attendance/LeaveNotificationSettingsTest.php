@@ -132,7 +132,6 @@ test('existing settings rows receive true defaults after migration', function ()
     Artisan::call('migrate:rollback', [
         '--force' => true,
         '--path' => $path,
-        '--step' => 1,
     ]);
 
     expect(Schema::hasColumn('company_leave_approval_settings', 'email_notifications_enabled'))->toBeFalse();
