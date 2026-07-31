@@ -1,6 +1,6 @@
-# Dashboard
+# Dashboard Specification & Architecture
 
-The operational dashboard is the main landing page at `/dashboard`. It provides company-scoped analytics dynamically composed based on the user's existing permissions.
+The operational dashboard is the main landing page at `/dashboard`. It provides company-scoped analytics dynamically composed based on the user's existing permissions without requiring any synthetic `dashboard.view` permission.
 
 ## Access & Permissions
 
@@ -10,56 +10,44 @@ The operational dashboard is the main landing page at `/dashboard`. It provides 
 - **Permission Model:** Accessible to every authenticated user. There is **no** `dashboard.view` permission.
 - **Composition:** Data payload and UI sections are dynamically gated based on existing company-team permissions:
   - `personal_summary` & `can`: Always returned (no permission required).
-  - `employee_analytics`, `organization_snapshot`, `attendance_analytics`, and deferred trends: Requires `employees.view` (or `attendance.overview.view` for attendance).
+  - `personal_dashboard`: Self-service employee portal (attendance, leave balances, expiring docs, recipient announcements, payslips) linked to the user's employee record.
+  - `attention_items`: Permission-aware alert items for items needing action.
+  - `employee_analytics` & `organization_snapshot`: Requires `employees.view`.
   - `document_compliance` & `document_health`: Requires `documents.view`.
+  - `attendance_analytics`: Requires `attendance.overview.view`.
+  - `leave_summary`: Requires `attendance.leave-requests.view`.
+  - `contracts_summary`: Requires `contracts.view`.
+  - `training_summary`: Requires `training.view`.
+  - `bank_accounts_summary`: Requires `bank_accounts.view`.
   - `crew_summary`: Requires `crew_operations.overview.view`.
   - `payroll_summary`: Requires `payroll.overview.view`.
   - `announcements_summary`: Requires `announcements.view`.
+  - `audit_summary`: Requires `audit.view`.
+  - **Deferred Props:** Heavy workforce trends (`workforce_trends`), department distribution (`employees_by_department`), branch distribution (`employees_by_branch`), and recent hires (`recent_hires`) use `Inertia::defer('secondary')` and are strictly registered when the user holds `employees.view`.
 
-## Architecture
+## Architecture & Analytics Services
 
 - **Controller:** `App\Http\Controllers\Organization\DashboardController` (Invokable)
-- **Composer:** `App\Support\Dashboard\DashboardComposer` — checks permissions before querying analytics engines and composing Inertia props.
-- **Analytics Services:**
-  - `App\Support\Dashboard\DashboardAnalytics` — core workforce and document metrics.
-  - `App\Support\CrewOperations\CrewOperationsDashboardAnalytics` — crew deployment summary.
-  - `App\Support\Payroll\PayrollOverviewSummary` — payroll draft/processing periods and last paid summaries.
-- **Personal Fallback:** `App\Support\Dashboard\DashboardPersonalSummary` — lightweight greeting when a user holds no module view permissions.
-- **Deferred Props:** Heavy workforce trends and distribution breakdowns use `Inertia::defer('secondary')` and are only registered when the user holds `employees.view`.
+- **Composer:** `App\Support\Dashboard\DashboardComposer` — evaluates user permissions and composes Inertia props.
+- **Analytics Service:** `App\Support\Dashboard\DashboardAnalytics`
+  - Split into independent, cached methods (`workforceSummary`, `organizationSummary`, `documentSummary`, `attendanceSummary`, `leaveSummary`, `contractsSummary`, `trainingSummary`, `bankAccountsSummary`, `payrollSummary`, `crewSummary`, `announcementsSummary`, `auditSummary`, `attentionCentre`, `personalDashboard`).
+  - Implements company & user cache keys: `dashboard.company.{companyId}.user.{userId}.{part}` with automatic invalidation via `DashboardAnalytics::forgetCompany($companyId)`.
+- **Metrics Calculation Rules:**
+  - **Hiring Metrics:** Driven by official `hire_date` (not record `created_at`).
+  - **Headcount Trends:** Baseline active headcount + cumulative monthly hires (`hire_date`) - monthly terminations (`termination_date`).
+  - **Attendance Metrics:** Counts distinct `employee_id`s for `present_today`, `late_today`, `absent_today`, `check_ins_today`, `check_outs_today` on today's date, while exposing `attendance_events_today` for total event count.
+  - **Document Validity:** Terminology uses `uploaded_document_validity` / "Uploaded Document Validity" rate based on non-expired documents out of total uploaded documents.
+  - **Distributions:** `employeesByDepartment` (top 6 + "Other") and `employeesByBranch` (top 4 + "Other") aggregate small values into "Other" so totals match total active workforce.
 
-## Metrics & Modules
-
-### Personal & Capabilities (Universal)
-- User name, company name, date greeting.
-- Action flags: `employees_create`, `employees_export`, `documents_upload`, `view_audit`.
-
-### Workforce Overview (`employees.view`)
-- Total, active, new hires this month, on leave / inactive counts.
-- Linked user account status, department counts, branch counts.
-- **Deferred:** 6-month workforce trend, department distribution, branch distribution, recent hires list.
-
-### Document Compliance (`documents.view`)
-- Total documents, compliance rate, average per employee.
-- Expired, expiring within 7/15/30 days, uploaded this month.
-- Expiry health pie chart.
-
-### Attendance Today (`attendance.overview.view` / `employees.view`)
-- Present today, check-ins today, check-outs today, late today.
-- 7-day attendance trend chart and recent attendance records feed.
-
-### Crew Operations (`crew_operations.overview.view`)
-- On vessel, in home, needs update alert count, total active crew.
-
-### Payroll Summary (`payroll.overview.view`)
-- Draft periods, processing (awaiting approval) periods, last paid period name and total payout.
-
-### Announcements (`announcements.view`)
-- Total published announcements and 5 most recent published announcements feed.
-
-## Frontend
+## Frontend Architecture
 
 - **Entry Point:** `resources/js/pages/dashboard.tsx`
-- **Feature Component:** `resources/js/features/dashboard/index.tsx`
-- **Types:** `resources/js/features/dashboard/dashboard-types.ts`
-- **Polling:** Automatically polls active sections every 60 seconds (`usePoll`).
-- **Charts:** Lazy-loaded Recharts components (`AttendanceTrendChart`, `WorkforceTrendChart`, `DistributionBarChart`, `DocumentHealthChart`).
+- **Feature Modules:** `resources/js/features/dashboard/`
+  - `dashboard-content.tsx`: Main dashboard orchestrator component.
+  - `dashboard-types.ts`: Comprehensive TypeScript interfaces for all props and section payload data.
+  - `components/`: `dashboard-header.tsx`, `quick-actions.tsx`, `attention-center.tsx`, `dashboard-metric-card.tsx`, `dashboard-section.tsx`.
+  - `sections/`: `personal-section.tsx`, `workforce-section.tsx`, `attendance-section.tsx`, `compliance-section.tsx`, `leave-section.tsx`, `contracts-section.tsx`, `training-section.tsx`, `bank-section.tsx`, `payroll-section.tsx`, `crew-section.tsx`, `announcements-section.tsx`, `activity-section.tsx`.
+  - `charts/`: Recharts lazy-loaded visualization charts (`workforce-trend-chart.tsx`, `distribution-bar-chart.tsx`, `document-health-chart.tsx`, `attendance-trend-chart.tsx`).
+- **Polling & Refresh:**
+  - Automatically reloads active dashboard sections every 60 seconds (`router.reload`).
+  - Displays `"Updated automatically"` status badge with live timestamp and manual refresh control.

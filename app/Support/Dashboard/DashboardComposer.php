@@ -2,11 +2,7 @@
 
 namespace App\Support\Dashboard;
 
-use App\Enums\AnnouncementStatus;
-use App\Models\Announcement;
 use App\Models\User;
-use App\Support\CrewOperations\CrewOperationsDashboardAnalytics;
-use App\Support\Payroll\PayrollOverviewSummary;
 use Inertia\Inertia;
 
 /**
@@ -20,7 +16,6 @@ final class DashboardComposer
 {
     public function __construct(
         private readonly DashboardAnalytics $analytics,
-        private readonly CrewOperationsDashboardAnalytics $crewAnalytics,
     ) {}
 
     /**
@@ -35,45 +30,68 @@ final class DashboardComposer
     {
         $props = [];
 
-        // Always-present: personal summary and action capabilities.
+        // Always-present: personal summary, self-service personal dashboard, attention items, and action capabilities.
         $props['personal_summary'] = DashboardPersonalSummary::for($user, $companyId);
+        $props['personal_dashboard'] = $this->analytics->personalDashboard($companyId, $user);
+        // #region agent log
+        @file_put_contents('/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-a22a17.log', json_encode(['sessionId' => 'a22a17', 'runId' => 'post-fix', 'hypothesisId' => 'A', 'location' => 'DashboardComposer.php:36', 'message' => 'personal_dashboard composed', 'data' => ['payslip_count' => count($props['personal_dashboard']['my_payslips'] ?? []), 'first_period_name' => $props['personal_dashboard']['my_payslips'][0]['period_name'] ?? null], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND);
+        // #endregion
+        $props['attention_items'] = $this->analytics->attentionCentre($companyId, $user);
         $props['can'] = $this->can($user);
 
         if ($user->can('employees.view')) {
-            $primary = $this->analytics->primaryForCompany($companyId);
-            $props['employee_analytics'] = $primary['employee_analytics'];
-            $props['organization_snapshot'] = $primary['organization_snapshot'];
-            $props['document_health'] = $primary['document_health'] ?? [];
-            $props['attendance_analytics'] = $primary['attendance_analytics'] ?? null;
+            $props['employee_analytics'] = $this->analytics->workforceSummary($companyId);
+            $props['organization_snapshot'] = $this->analytics->organizationSummary($companyId);
         }
 
         if ($user->can('documents.view')) {
-            $primary = $this->analytics->primaryForCompany($companyId);
-            $props['document_compliance'] = $primary['document_compliance'];
-            if (! isset($props['document_health'])) {
-                $props['document_health'] = $primary['document_health'] ?? [];
-            }
+            $docs = $this->analytics->documentSummary($companyId);
+            $props['document_compliance'] = $docs['document_compliance'];
+            $props['document_health'] = $docs['document_health'];
         }
 
-        // attendance_analytics requires employees.view (already fetched above).
-        // Provide a standalone path for users who only have attendance.overview.view
-        // but not employees.view — they still get the attendance KPIs.
-        if (! $user->can('employees.view') && $user->can('attendance.overview.view')) {
-            $primary = $this->analytics->primaryForCompany($companyId);
-            $props['attendance_analytics'] = $primary['attendance_analytics'] ?? null;
+        if ($user->can('attendance.overview.view')) {
+            $props['attendance_analytics'] = $this->analytics->attendanceSummary($companyId);
+        }
+
+        if ($user->can('attendance.leave-requests.view') || $user->can('attendance.overview.view')) {
+            $props['leave_summary'] = $this->analytics->leaveSummary($companyId, $user);
+        }
+
+        if ($user->can('contracts.view')) {
+            $props['contracts_summary'] = $this->analytics->contractsSummary($companyId);
+        }
+
+        if ($user->can('training.view')) {
+            $props['training_summary'] = $this->analytics->trainingSummary($companyId);
+        }
+
+        if ($user->can('bank_accounts.view')) {
+            $props['bank_accounts_summary'] = $this->analytics->bankAccountsSummary($companyId);
         }
 
         if ($user->can('crew_operations.overview.view')) {
-            $props['crew_summary'] = $this->crewSummary($companyId, $user);
+            $props['crew_summary'] = $this->analytics->crewSummary($companyId, $user);
         }
 
         if ($user->can('payroll.overview.view')) {
-            $props['payroll_summary'] = $this->payrollSummary($companyId);
+            $props['payroll_summary'] = $this->analytics->payrollSummary($companyId, $user);
+            // #region agent log
+            @file_put_contents('/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-a22a17.log', json_encode(['sessionId' => 'a22a17', 'runId' => 'post-fix', 'hypothesisId' => 'B', 'location' => 'DashboardComposer.php:75', 'message' => 'payroll_summary composed', 'data' => $props['payroll_summary'], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND);
+            // #endregion
         }
 
         if ($user->can('announcements.view')) {
-            $props['announcements_summary'] = $this->announcementsSummary($companyId);
+            $props['announcements_summary'] = $this->analytics->announcementsSummary($companyId, $user);
         }
+
+        if ($user->can('audit.view')) {
+            $props['audit_summary'] = $this->analytics->auditSummary($companyId, $user);
+        }
+
+        // #region agent log
+        @file_put_contents('/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-a22a17.log', json_encode(['sessionId' => 'a22a17', 'runId' => 'post-fix', 'hypothesisId' => 'C', 'location' => 'DashboardComposer.php:86', 'message' => 'primary() completed', 'data' => ['prop_keys' => array_keys($props)], 'timestamp' => (int) (microtime(true) * 1000)])."\n", FILE_APPEND);
+        // #endregion
 
         return $props;
     }
@@ -111,12 +129,7 @@ final class DashboardComposer
     }
 
     /**
-     * @return array{
-     *     employees_create: bool,
-     *     employees_export: bool,
-     *     documents_upload: bool,
-     *     view_audit: bool
-     * }
+     * @return array<string, bool>
      */
     private function can(User $user): array
     {
@@ -124,76 +137,14 @@ final class DashboardComposer
             'employees_create' => $user->can('employees.create'),
             'employees_export' => $user->can('employees.export'),
             'documents_upload' => $user->can('documents.upload'),
+            'contracts_create' => $user->can('contracts.create'),
+            'attendance_leave_approve' => $user->can('attendance.leave-requests.approve'),
+            'payroll_periods_create' => $user->can('payroll.periods.create'),
+            'payroll_periods_approve' => $user->can('payroll.periods.approve'),
+            'crew_planning_create' => $user->can('crew_operations.planning.create'),
+            'announcements_publish' => $user->can('announcements.publish'),
+            'signatures_review' => $user->can('bulk_documents.signatures.review'),
             'view_audit' => $user->can('audit.view'),
-        ];
-    }
-
-    /**
-     * @return array{on_vessel: int, in_home: int, needs_update: int, total: int}
-     */
-    private function crewSummary(int $companyId, User $user): array
-    {
-        $full = $this->crewAnalytics->forCompany($companyId, $user);
-        $deployment = $full['deployment_summary'] ?? [];
-
-        return [
-            'on_vessel' => (int) ($deployment['on_vessel'] ?? 0),
-            'in_home' => (int) ($deployment['in_home'] ?? 0),
-            'needs_update' => (int) ($full['alert_counts']['needs_update'] ?? 0),
-            'total' => (int) ($deployment['total'] ?? 0),
-        ];
-    }
-
-    /**
-     * @return array{
-     *     draft_periods: int,
-     *     processing_periods: int,
-     *     last_paid_period_name: string|null,
-     *     last_paid_period_total: float|null
-     * }
-     */
-    private function payrollSummary(int $companyId): array
-    {
-        $full = PayrollOverviewSummary::forCompany($companyId);
-
-        return [
-            'draft_periods' => $full['draft_periods'],
-            'processing_periods' => $full['processing_periods'],
-            'last_paid_period_name' => $full['last_paid_period_name'],
-            'last_paid_period_total' => $full['last_paid_period_total'],
-        ];
-    }
-
-    /**
-     * @return array{
-     *     total: int,
-     *     recent: list<array{id: int, title: string, published_at: string|null, status: string}>
-     * }
-     */
-    private function announcementsSummary(int $companyId): array
-    {
-        $recent = Announcement::query()
-            ->where('company_id', $companyId)
-            ->where('status', AnnouncementStatus::Published)
-            ->orderByDesc('published_at')
-            ->limit(5)
-            ->get(['id', 'title', 'published_at', 'status'])
-            ->map(fn (Announcement $a): array => [
-                'id' => $a->id,
-                'title' => $a->title,
-                'published_at' => $a->published_at?->toDateTimeString(),
-                'status' => $a->status->value,
-            ])
-            ->all();
-
-        $total = Announcement::query()
-            ->where('company_id', $companyId)
-            ->where('status', AnnouncementStatus::Published)
-            ->count();
-
-        return [
-            'total' => $total,
-            'recent' => $recent,
         ];
     }
 }

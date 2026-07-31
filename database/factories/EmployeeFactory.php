@@ -11,6 +11,7 @@ use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\Position;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -68,7 +69,9 @@ class EmployeeFactory extends Factory
             'name' => $this->faker->name(),
             'salary_payment_method' => 'bank_transfer',
             'date_of_birth' => $this->faker->optional()->date(),
-            'hire_date' => $this->faker->optional()->dateTimeBetween('-5 years', 'now')?->format('Y-m-d'),
+            'hire_date' => fn (array $attributes) => isset($attributes['created_at'])
+                ? Carbon::parse($attributes['created_at'])->format('Y-m-d')
+                : now()->format('Y-m-d'),
             'place_of_birth' => $this->faker->optional()->city(),
             'nationality_id' => function () {
                 $code = strtoupper((string) $this->faker->unique()->lexify('??'));
