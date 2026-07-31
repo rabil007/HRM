@@ -22,6 +22,7 @@ import {
 import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
+import type { MovementCategoryGroup } from '../lib/crew-movement-period-drafts';
 import { getPayrollBoardSelectionSummary } from '../lib/payroll-board-selection';
 import type {
     CrewPayrollRow,
@@ -80,7 +81,10 @@ export type CrewTimesheetsBoardProps = {
         initialTimesheet: CrewPayrollRow['timesheet'],
     ) => void;
     canEditTimesheets: boolean;
-    onOpenMovementPeriods: (row: CrewPayrollRow) => void;
+    onOpenMovementPeriods: (
+        row: CrewPayrollRow,
+        categoryGroup: MovementCategoryGroup,
+    ) => void;
 };
 
 export function CrewTimesheetsBoard({
@@ -492,12 +496,13 @@ export function CrewTimesheetsBoard({
                                                             onClick={() =>
                                                                 onOpenMovementPeriods(
                                                                     row,
+                                                                    'standby',
                                                                 )
                                                             }
                                                         >
                                                             {isOperationallyLocked
-                                                                ? 'View movement periods'
-                                                                : 'Edit movement periods'}
+                                                                ? 'View standbys'
+                                                                : 'Edit standbys'}
                                                         </Button>
                                                     ) : null}
                                                 </div>
@@ -545,12 +550,13 @@ export function CrewTimesheetsBoard({
                                                             onClick={() =>
                                                                 onOpenMovementPeriods(
                                                                     row,
+                                                                    'onsite',
                                                                 )
                                                             }
                                                         >
                                                             {isOperationallyLocked
-                                                                ? 'View details'
-                                                                : 'Edit movement periods'}
+                                                                ? 'View onsite'
+                                                                : 'Edit onsite'}
                                                         </Button>
                                                     ) : null}
                                                 </div>

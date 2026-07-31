@@ -445,6 +445,88 @@ test('segment save preserves overtime additions deductions and remarks', functio
         ->and($timesheet->remarks)->toBe('keep-me');
 });
 
+test('segment save preserves untouched assignment values', function () {
+    $fixtures = makeMultiSegmentManualTimesheetFixtures();
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->put(route('payroll.timesheets.segments', [
+            $fixtures['period'],
+            $fixtures['timesheet'],
+        ]), [
+            'segments' => [
+                [
+                    'pay_category' => CrewTimesheetPayCategory::Onsite->value,
+                    'vessel_id' => $fixtures['vesselA']->id,
+                    'client_id' => $fixtures['client']->id,
+                    'rank_id' => $fixtures['rank']->id,
+                    'from_date' => '2026-07-01',
+                    'to_date' => '2026-07-12',
+                    'remarks' => 'dates only',
+                ],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $segment = $fixtures['timesheet']->fresh(['segments'])->segments->first();
+
+    expect((int) $segment->vessel_id)->toBe($fixtures['vesselA']->id)
+        ->and((int) $segment->client_id)->toBe($fixtures['client']->id)
+        ->and((int) $segment->rank_id)->toBe($fixtures['rank']->id)
+        ->and($segment->remarks)->toBe('dates only');
+});
+
+test('segment assignment values can be changed or cleared', function () {
+    $fixtures = makeMultiSegmentManualTimesheetFixtures();
+    $replacementVessel = makeCrewMovementVessel('Cleared Assignment Vessel');
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->put(route('payroll.timesheets.segments', [
+            $fixtures['period'],
+            $fixtures['timesheet'],
+        ]), [
+            'segments' => [
+                [
+                    'pay_category' => CrewTimesheetPayCategory::Onsite->value,
+                    'vessel_id' => $replacementVessel->id,
+                    'client_id' => null,
+                    'rank_id' => null,
+                    'from_date' => '2026-07-01',
+                    'to_date' => '2026-07-10',
+                ],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $segment = $fixtures['timesheet']->fresh(['segments'])->segments->first();
+
+    expect((int) $segment->vessel_id)->toBe($replacementVessel->id)
+        ->and($segment->client_id)->toBeNull()
+        ->and($segment->rank_id)->toBeNull();
+});
+
+test('payroll show exposes segment assignment values for the movement editor', function () {
+    $fixtures = makeMultiSegmentManualTimesheetFixtures();
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->get(route('payroll.show', $fixtures['period']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('payroll/show')
+            ->has('rows')
+            ->where('rows.0.timesheet.segments.0.vessel_id', $fixtures['vesselA']->id)
+            ->where('rows.0.timesheet.segments.0.client_id', $fixtures['client']->id)
+            ->where('rows.0.timesheet.segments.0.rank_id', $fixtures['rank']->id)
+            ->where('rows.0.timesheet.is_operationally_locked', false)
+            ->has('movement_master_options.vessels')
+            ->has('movement_master_options.clients')
+            ->has('movement_master_options.ranks'));
+});
+
 test('empty segments array is rejected', function () {
     $fixtures = makeMultiSegmentManualTimesheetFixtures();
 

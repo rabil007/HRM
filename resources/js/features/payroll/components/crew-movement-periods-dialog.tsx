@@ -1,6 +1,19 @@
 import { router } from '@inertiajs/react';
-import { Plus, Trash2 } from 'lucide-react';
+import {
+    Anchor,
+    BriefcaseBusiness,
+    CalendarDays,
+    CalendarRange,
+    ChevronDown,
+    ChevronUp,
+    Lock,
+    Plus,
+    Ship,
+    Trash2,
+    UserRound,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { storeTimesheet } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
 import UpdateCrewTimesheetSegmentsController from '@/actions/App/Http/Controllers/Payroll/UpdateCrewTimesheetSegmentsController';
 import InputError from '@/components/input-error';
@@ -25,6 +38,23 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDisplayDate } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
+import {
+    buildAssignmentSummaryFields,
+    categoryGroupCategories,
+    createEmptyMovementPeriodDraft,
+    defaultCategoryForGroup,
+    hiddenGroupSegmentDrafts,
+    inclusiveMovementDays,
+    isAssignmentEditorOpen,
+    resolveDefaultAssignment,
+    segmentDraftsFromTimesheet,
+    toggleAssignmentEditor,
+} from '../lib/crew-movement-period-drafts';
+import type {
+    MovementCategoryGroup,
+    MovementPeriodDraftSegment,
+} from '../lib/crew-movement-period-drafts';
 import type {
     CrewPayrollRow,
     CrewTimesheetSegment,
@@ -32,155 +62,97 @@ import type {
     PayrollPeriod,
 } from '../types';
 
-const PAY_CATEGORIES = [
+const ALL_PAY_CATEGORIES = [
     { value: 'sign_on_standby', label: 'Sign-On Standby' },
     { value: 'onsite', label: 'Onsite' },
     { value: 'sign_off_standby', label: 'Sign-Off Standby' },
 ] as const;
-
-type DraftSegment = {
-    key: string;
-    pay_category: string;
-    vessel_id: number | null;
-    client_id: number | null;
-    rank_id: number | null;
-    from_date: string;
-    to_date: string;
-    remarks: string;
-};
-
-function inclusiveDays(from: string, to: string): number | null {
-    if (!from || !to || to < from) {
-        return null;
-    }
-
-    const start = new Date(`${from}T00:00:00`);
-    const end = new Date(`${to}T00:00:00`);
-    const diff = Math.round((end.getTime() - start.getTime()) / 86_400_000);
-
-    return diff + 1;
-}
-
-function segmentFromTimesheet(
-    timesheet: CrewPayrollRow['timesheet'],
-): DraftSegment[] {
-    const existing = timesheet?.segments ?? [];
-
-    if (existing.length > 0) {
-        return existing.map((segment, index) => ({
-            key: `existing-${segment.id}-${index}`,
-            pay_category: segment.pay_category ?? 'onsite',
-            vessel_id: segment.vessel_id,
-            client_id: segment.client_id,
-            rank_id: segment.rank_id,
-            from_date: segment.from_date ?? '',
-            to_date: segment.to_date ?? '',
-            remarks: segment.remarks ?? '',
-        }));
-    }
-
-    const drafts: DraftSegment[] = [];
-
-    const maybePush = (
-        category: string,
-        from: string | null | undefined,
-        to: string | null | undefined,
-    ) => {
-        if (!from && !to) {
-            return;
-        }
-
-        drafts.push({
-            key: `legacy-${category}`,
-            pay_category: category,
-            vessel_id: null,
-            client_id: null,
-            rank_id: null,
-            from_date: from ?? '',
-            to_date: to ?? '',
-            remarks: '',
-        });
-    };
-
-    maybePush(
-        'sign_on_standby',
-        timesheet?.sign_on_standby_from,
-        timesheet?.sign_on_standby_to,
-    );
-    maybePush('onsite', timesheet?.onsite_from, timesheet?.onsite_to);
-    maybePush(
-        'sign_off_standby',
-        timesheet?.sign_off_standby_from,
-        timesheet?.sign_off_standby_to,
-    );
-
-    if (drafts.length === 0) {
-        drafts.push({
-            key: `new-${Date.now()}`,
-            pay_category: 'onsite',
-            vessel_id: null,
-            client_id: null,
-            rank_id: null,
-            from_date: '',
-            to_date: '',
-            remarks: '',
-        });
-    }
-
-    return drafts;
-}
 
 function ReadOnlySegmentTable({
     segments,
 }: {
     segments: CrewTimesheetSegment[];
 }) {
+    if (segments.length === 0) {
+        return (
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 py-10 text-center">
+                <CalendarRange
+                    className="h-8 w-8 text-muted-foreground/40"
+                    aria-hidden
+                />
+                <p className="text-sm font-medium text-muted-foreground">
+                    No movement periods recorded
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                    Movement periods for this employee haven't been entered yet.
+                </p>
+            </div>
+        );
+    }
+
     return (
         <div className="overflow-x-auto rounded-lg border">
             <table className="min-w-full text-sm">
                 <thead className="bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
                     <tr>
-                        <th className="px-3 py-2">Assignment</th>
-                        <th className="px-3 py-2">Vessel</th>
-                        <th className="px-3 py-2">Client / project</th>
-                        <th className="px-3 py-2">Category</th>
-                        <th className="px-3 py-2">From</th>
-                        <th className="px-3 py-2">To</th>
-                        <th className="px-3 py-2">Days</th>
-                        <th className="px-3 py-2">Source</th>
-                        <th className="px-3 py-2">Remarks</th>
+                        <th className="px-3 py-2 font-semibold">Category</th>
+                        <th className="px-3 py-2 font-semibold">From</th>
+                        <th className="px-3 py-2 font-semibold">To</th>
+                        <th className="px-3 py-2 font-semibold">Days</th>
+                        <th className="px-3 py-2 font-semibold">Vessel</th>
+                        <th className="px-3 py-2 font-semibold">
+                            Client / Project
+                        </th>
+                        <th className="px-3 py-2 font-semibold">Rank</th>
+                        <th className="px-3 py-2 font-semibold">Assignment</th>
+                        <th className="px-3 py-2 font-semibold">Remarks</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-border/50">
                     {segments.map((segment) => (
-                        <tr key={segment.id} className="border-t">
-                            <td className="px-3 py-2 font-mono text-xs">
-                                {segment.assignment_no ?? '—'}
+                        <tr
+                            key={segment.id}
+                            className="transition-colors hover:bg-muted/20"
+                        >
+                            <td className="px-3 py-2.5">
+                                <span className="rounded-md bg-muted/60 px-2 py-0.5 text-xs font-medium">
+                                    {segment.pay_category_label ??
+                                        segment.pay_category ??
+                                        '—'}
+                                </span>
                             </td>
-                            <td className="px-3 py-2">
-                                {segment.vessel_name ?? '—'}
-                            </td>
-                            <td className="px-3 py-2">
-                                {segment.client_name ?? '—'}
-                            </td>
-                            <td className="px-3 py-2">
-                                {segment.pay_category_label ??
-                                    segment.pay_category ??
-                                    '—'}
-                            </td>
-                            <td className="px-3 py-2 font-mono text-xs">
+                            <td className="px-3 py-2.5 font-mono text-xs">
                                 {formatDisplayDate(segment.from_date)}
                             </td>
-                            <td className="px-3 py-2 font-mono text-xs">
+                            <td className="px-3 py-2.5 font-mono text-xs">
                                 {formatDisplayDate(segment.to_date)}
                             </td>
-                            <td className="px-3 py-2 tabular-nums">
+                            <td className="px-3 py-2.5 font-semibold tabular-nums">
                                 {segment.days ?? '—'}
                             </td>
-                            <td className="px-3 py-2">
-                                {segment.source_label ?? segment.source ?? '—'}
+                            <td className="px-3 py-2.5 text-muted-foreground">
+                                {segment.vessel_name ?? (
+                                    <span className="italic">Not assigned</span>
+                                )}
                             </td>
-                            <td className="px-3 py-2 text-muted-foreground">
+                            <td className="px-3 py-2.5 text-muted-foreground">
+                                {segment.client_name ?? (
+                                    <span className="italic">Not assigned</span>
+                                )}
+                            </td>
+                            <td className="px-3 py-2.5 text-muted-foreground">
+                                {segment.rank_name ?? (
+                                    <span className="italic">Not assigned</span>
+                                )}
+                            </td>
+                            <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">
+                                {segment.assignment_no ?? (
+                                    <span className="font-sans italic">
+                                        Not assigned
+                                    </span>
+                                )}
+                            </td>
+                            <td className="px-3 py-2.5 text-muted-foreground">
                                 {segment.remarks ?? '—'}
                             </td>
                         </tr>
@@ -191,11 +163,133 @@ function ReadOnlySegmentTable({
     );
 }
 
+function AssignmentSummary({
+    segment,
+    masterOptions,
+    editing,
+    onToggle,
+    segmentIndex,
+}: {
+    segment: MovementPeriodDraftSegment;
+    masterOptions: MovementMasterOptions;
+    editing: boolean;
+    onToggle: () => void;
+    segmentIndex: number;
+}) {
+    const fields = buildAssignmentSummaryFields(segment, masterOptions);
+
+    return (
+        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <BriefcaseBusiness
+                        className="h-4 w-4 shrink-0"
+                        aria-hidden
+                    />
+                    <span>Current Assignment</span>
+                </div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onToggle}
+                    aria-expanded={editing}
+                    aria-controls={`assignment-fields-${segment.key}`}
+                >
+                    {editing ? (
+                        <ChevronUp className="h-4 w-4" aria-hidden />
+                    ) : (
+                        <ChevronDown className="h-4 w-4" aria-hidden />
+                    )}
+                    {editing ? 'Hide Assignment' : 'Change Assignment'}
+                </Button>
+            </div>
+
+            {!editing ? (
+                <dl className="grid gap-2 sm:grid-cols-3">
+                    {fields.map((field) => (
+                        <div key={field.label} className="space-y-0.5">
+                            <dt className="text-xs text-muted-foreground">
+                                {field.label}
+                            </dt>
+                            <dd
+                                className={cn(
+                                    'text-sm',
+                                    field.assigned
+                                        ? 'text-foreground'
+                                        : 'text-muted-foreground italic',
+                                )}
+                            >
+                                {field.value}
+                            </dd>
+                        </div>
+                    ))}
+                </dl>
+            ) : (
+                <p className="text-xs text-muted-foreground">
+                    Update vessel, client, or rank for movement period{' '}
+                    {segmentIndex + 1}. Clear a value with None.
+                </p>
+            )}
+        </div>
+    );
+}
+
+function OptionalMasterSelect({
+    label,
+    value,
+    options,
+    onChange,
+    error,
+    icon,
+}: {
+    label: string;
+    value: number | null;
+    options: MovementMasterOptions['vessels'];
+    onChange: (value: number | null) => void;
+    error?: string;
+    icon: ReactNode;
+}) {
+    return (
+        <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+                {icon}
+                {label}
+            </Label>
+            <Select
+                value={value?.toString() ?? 'none'}
+                onValueChange={(next) =>
+                    onChange(next === 'none' ? null : Number(next))
+                }
+            >
+                <SelectTrigger>
+                    <SelectValue
+                        placeholder={`Optional ${label.toLowerCase()}...`}
+                    />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {options.map((option) => (
+                        <SelectItem
+                            key={option.id}
+                            value={option.id.toString()}
+                        >
+                            {option.name}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            <InputError message={error} />
+        </div>
+    );
+}
+
 export function CrewMovementPeriodsDialog({
     open,
     onOpenChange,
     period,
     row,
+    categoryGroup,
     masterOptions,
     canEdit,
     onBeforeSave,
@@ -205,6 +299,7 @@ export function CrewMovementPeriodsDialog({
     onOpenChange: (open: boolean) => void;
     period: PayrollPeriod;
     row: CrewPayrollRow | null;
+    categoryGroup: MovementCategoryGroup;
     masterOptions: MovementMasterOptions;
     canEdit: boolean;
     onBeforeSave?: () => Promise<void> | void;
@@ -217,9 +312,10 @@ export function CrewMovementPeriodsDialog({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <CrewMovementPeriodsDialogBody
-                key={`${row.employee.id}-${open ? 'open' : 'closed'}`}
+                key={`${row.employee.id}-${categoryGroup}-${open ? 'open' : 'closed'}`}
                 period={period}
                 row={row}
+                categoryGroup={categoryGroup}
                 masterOptions={masterOptions}
                 canEdit={canEdit}
                 onOpenChange={onOpenChange}
@@ -233,6 +329,7 @@ export function CrewMovementPeriodsDialog({
 function CrewMovementPeriodsDialogBody({
     period,
     row,
+    categoryGroup,
     masterOptions,
     canEdit,
     onOpenChange,
@@ -241,6 +338,7 @@ function CrewMovementPeriodsDialogBody({
 }: {
     period: PayrollPeriod;
     row: CrewPayrollRow;
+    categoryGroup: MovementCategoryGroup;
     masterOptions: MovementMasterOptions;
     canEdit: boolean;
     onOpenChange: (open: boolean) => void;
@@ -254,11 +352,21 @@ function CrewMovementPeriodsDialogBody({
         rowRef.current = row;
     }, [row]);
 
+    const visibleCategories = categoryGroupCategories(categoryGroup);
+    const payCategories = ALL_PAY_CATEGORIES.filter((c) =>
+        visibleCategories.includes(c.value),
+    );
+    const groupLabel =
+        categoryGroup === 'standby' ? 'Sign-On / Sign-Off Standby' : 'Onsite';
+
     const isLocked = timesheet?.is_operationally_locked === true;
     const editable = canEdit && !isLocked;
-    const [segments, setSegments] = useState<DraftSegment[]>(() =>
-        segmentFromTimesheet(timesheet),
+    const [segments, setSegments] = useState<MovementPeriodDraftSegment[]>(() =>
+        segmentDraftsFromTimesheet(timesheet, categoryGroup),
     );
+    const [assignmentEditorKeys, setAssignmentEditorKeys] = useState<
+        Set<string>
+    >(() => new Set());
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -272,7 +380,7 @@ function CrewMovementPeriodsDialogBody({
 
     const updateSegment = (
         key: string,
-        field: keyof DraftSegment,
+        field: keyof MovementPeriodDraftSegment,
         value: string | number | null,
     ) => {
         setSegments((previous) =>
@@ -283,19 +391,18 @@ function CrewMovementPeriodsDialogBody({
     };
 
     const addSegment = () => {
-        setSegments((previous) => [
-            ...previous,
-            {
-                key: `new-${Date.now()}-${previous.length}`,
-                pay_category: 'onsite',
-                vessel_id: null,
-                client_id: null,
-                rank_id: null,
-                from_date: '',
-                to_date: '',
-                remarks: '',
-            },
-        ]);
+        setSegments((previous) => {
+            const assignment = resolveDefaultAssignment(previous, timesheet);
+
+            return [
+                ...previous,
+                createEmptyMovementPeriodDraft(
+                    `new-${Date.now()}-${previous.length}`,
+                    assignment,
+                    defaultCategoryForGroup(categoryGroup),
+                ),
+            ];
+        });
     };
 
     const removeSegment = (key: string) => {
@@ -304,6 +411,12 @@ function CrewMovementPeriodsDialogBody({
                 ? previous
                 : previous.filter((segment) => segment.key !== key),
         );
+        setAssignmentEditorKeys((previous) => {
+            const next = new Set(previous);
+            next.delete(key);
+
+            return next;
+        });
     };
 
     const save = async (): Promise<void> => {
@@ -324,7 +437,16 @@ function CrewMovementPeriodsDialogBody({
             return;
         }
 
-        const segmentPayload = segments.map((segment) => ({
+        // Preserve segments that belong to the other category group so they
+        // are not lost when only one group is being edited.
+        const latestRow = rowRef.current;
+        const hiddenSegments = hiddenGroupSegmentDrafts(
+            latestRow.timesheet,
+            categoryGroup,
+        );
+        const allSegments = [...hiddenSegments, ...segments];
+
+        const segmentPayload = allSegments.map((segment) => ({
             pay_category: segment.pay_category,
             vessel_id: segment.vessel_id,
             client_id: segment.client_id,
@@ -344,6 +466,10 @@ function CrewMovementPeriodsDialogBody({
             setErrors(next);
         };
 
+        const collapseAssignmentEditors = (): void => {
+            setAssignmentEditorKeys(new Set());
+        };
+
         const latestTimesheet = rowRef.current.timesheet ?? timesheet;
 
         if (latestTimesheet?.id) {
@@ -360,6 +486,7 @@ function CrewMovementPeriodsDialogBody({
                     only: ['rows'],
                     onFinish: () => setProcessing(false),
                     onSuccess: () => {
+                        collapseAssignmentEditors();
                         onSaved?.();
                         onOpenChange(false);
                     },
@@ -382,6 +509,7 @@ function CrewMovementPeriodsDialogBody({
                 only: ['rows'],
                 onFinish: () => setProcessing(false),
                 onSuccess: () => {
+                    collapseAssignmentEditors();
                     onSaved?.();
                     onOpenChange(false);
                 },
@@ -390,47 +518,165 @@ function CrewMovementPeriodsDialogBody({
         );
     };
 
+    const totalDays = useMemo(
+        () =>
+            segments.reduce((sum, seg) => {
+                const days = inclusiveMovementDays(seg.from_date, seg.to_date);
+
+                return sum + (days ?? 0);
+            }, 0),
+        [segments],
+    );
+
     return (
-        <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden glass-card p-0 sm:max-w-4xl">
-            <DialogHeader className="shrink-0 space-y-1.5 border-b border-border/60 px-6 py-4 text-left">
-                <DialogTitle>Movement Periods</DialogTitle>
-                <DialogDescription>
-                    {[row.employee.name, row.employee.employee_no]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    {periodHint ? ` · Period ${periodHint}` : ''}
-                </DialogDescription>
+        <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden glass-card p-0 sm:max-w-3xl">
+            <DialogHeader className="shrink-0 space-y-0 border-b border-border/60 px-6 py-4 text-left">
+                <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                        <DialogTitle className="flex items-center gap-2">
+                            <CalendarRange
+                                className="h-5 w-5 text-muted-foreground"
+                                aria-hidden
+                            />
+                            {groupLabel} Periods
+                        </DialogTitle>
+                        <DialogDescription className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                            <span className="font-medium text-foreground/80">
+                                {row.employee.name}
+                            </span>
+                            {row.employee.employee_no ? (
+                                <span className="font-mono text-muted-foreground">
+                                    {row.employee.employee_no}
+                                </span>
+                            ) : null}
+                            {periodHint ? (
+                                <>
+                                    <span className="text-border">·</span>
+                                    <span className="flex items-center gap-1 text-muted-foreground">
+                                        <CalendarDays
+                                            className="h-3 w-3"
+                                            aria-hidden
+                                        />
+                                        {periodHint}
+                                    </span>
+                                </>
+                            ) : null}
+                        </DialogDescription>
+                    </div>
+                    {isLocked ? (
+                        <span className="mt-0.5 flex shrink-0 items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+                            <Lock className="h-3 w-3" aria-hidden />
+                            Crew Ops — read-only
+                        </span>
+                    ) : null}
+                </div>
+
+                {editable && segments.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-4 rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                            <span className="font-semibold text-foreground tabular-nums">
+                                {segments.length}
+                            </span>
+                            {segments.length === 1
+                                ? 'movement period'
+                                : 'movement periods'}
+                        </span>
+                        {totalDays > 0 ? (
+                            <span className="flex items-center gap-1.5">
+                                <span className="font-semibold text-foreground tabular-nums">
+                                    {totalDays}
+                                </span>
+                                total days
+                            </span>
+                        ) : null}
+                    </div>
+                ) : null}
             </DialogHeader>
 
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
                 {!editable ? (
-                    <ReadOnlySegmentTable
-                        segments={timesheet?.segments ?? []}
-                    />
+                    <>
+                        {isLocked ? (
+                            <div className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-muted/20 px-3.5 py-3 text-sm text-muted-foreground">
+                                <Lock
+                                    className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/60"
+                                    aria-hidden
+                                />
+                                <p>
+                                    Crew Operations data — movement periods are
+                                    read-only. Dates and assignment can only be
+                                    changed via the Crew Operations workflow.
+                                </p>
+                            </div>
+                        ) : null}
+                        <ReadOnlySegmentTable
+                            segments={(timesheet?.segments ?? []).filter((s) =>
+                                visibleCategories.includes(
+                                    s.pay_category ?? '',
+                                ),
+                            )}
+                        />
+                    </>
                 ) : (
                     <div className="space-y-4">
                         <p className="text-sm text-muted-foreground">
-                            Add separate operational periods for this employee.
-                            Overtime, unpaid leave, salary inputs, additions and
-                            deductions stay once per employee on the payroll
-                            board.
+                            Add one row per movement leg. Dates and pay category
+                            are required. Vessel, client, and rank are optional
+                            — expand{' '}
+                            <strong className="font-medium text-foreground/80">
+                                Assignment
+                            </strong>{' '}
+                            to change them.
                         </p>
 
+                        {segments.length === 0 ? (
+                            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/70 py-10 text-center">
+                                <CalendarRange
+                                    className="h-8 w-8 text-muted-foreground/40"
+                                    aria-hidden
+                                />
+                                <p className="text-sm font-medium text-muted-foreground">
+                                    No movement periods yet
+                                </p>
+                                <p className="text-xs text-muted-foreground/70">
+                                    Click{' '}
+                                    <span className="font-medium">
+                                        Add Movement Period
+                                    </span>{' '}
+                                    below to get started.
+                                </p>
+                            </div>
+                        ) : null}
+
                         {segments.map((segment, index) => {
-                            const days = inclusiveDays(
+                            const days = inclusiveMovementDays(
                                 segment.from_date,
                                 segment.to_date,
+                            );
+                            const assignmentOpen = isAssignmentEditorOpen(
+                                assignmentEditorKeys,
+                                segment.key,
                             );
 
                             return (
                                 <div
                                     key={segment.key}
-                                    className="space-y-3 rounded-xl border border-border/70 bg-muted/10 p-4"
+                                    className="space-y-4 rounded-xl border border-border/70 bg-card/40 p-4"
                                 >
                                     <div className="flex items-center justify-between gap-2">
-                                        <p className="text-sm font-medium">
-                                            Movement period {index + 1}
-                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm font-semibold">
+                                                Period {index + 1}
+                                            </p>
+                                            {days !== null ? (
+                                                <span className="rounded-md bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-700 tabular-nums dark:text-blue-300">
+                                                    {days}{' '}
+                                                    {days === 1
+                                                        ? 'day'
+                                                        : 'days'}
+                                                </span>
+                                            ) : null}
+                                        </div>
                                         <Button
                                             type="button"
                                             variant="ghost"
@@ -446,214 +692,172 @@ function CrewMovementPeriodsDialogBody({
                                         </Button>
                                     </div>
 
-                                    <div className="grid gap-3 sm:grid-cols-2">
-                                        <div className="space-y-2">
-                                            <Label>Pay category</Label>
-                                            <Select
-                                                value={segment.pay_category}
-                                                onValueChange={(value) =>
-                                                    updateSegment(
-                                                        segment.key,
-                                                        'pay_category',
-                                                        value,
-                                                    )
-                                                }
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select category..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {PAY_CATEGORIES.map(
-                                                        (category) => (
-                                                            <SelectItem
-                                                                key={
-                                                                    category.value
-                                                                }
-                                                                value={
-                                                                    category.value
-                                                                }
-                                                            >
-                                                                {category.label}
-                                                            </SelectItem>
-                                                        ),
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                            <InputError
-                                                message={
-                                                    errors[
-                                                        `segments.${index}.pay_category`
-                                                    ]
-                                                }
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>Days</Label>
-                                            <Input
-                                                value={
-                                                    days === null
-                                                        ? ''
-                                                        : String(days)
-                                                }
-                                                readOnly
-                                                className="tabular-nums"
-                                                aria-label={`Calculated days for movement period ${index + 1}`}
-                                            />
-                                        </div>
-                                    </div>
+                                    <section
+                                        className="space-y-3"
+                                        aria-labelledby={`movement-details-${segment.key}`}
+                                    >
+                                        <h3
+                                            id={`movement-details-${segment.key}`}
+                                            className="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                                        >
+                                            1. Movement Details
+                                        </h3>
 
-                                    <div className="grid gap-3 sm:grid-cols-3">
-                                        <div className="space-y-2">
-                                            <Label>Vessel</Label>
-                                            <Select
-                                                value={
-                                                    segment.vessel_id?.toString() ??
-                                                    'none'
-                                                }
-                                                onValueChange={(value) =>
-                                                    updateSegment(
-                                                        segment.key,
-                                                        'vessel_id',
-                                                        value === 'none'
-                                                            ? null
-                                                            : Number(value),
-                                                    )
-                                                }
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Optional vessel..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="none">
-                                                        None
-                                                    </SelectItem>
-                                                    {masterOptions.vessels.map(
-                                                        (vessel) => (
-                                                            <SelectItem
-                                                                key={vessel.id}
-                                                                value={vessel.id.toString()}
-                                                            >
-                                                                {vessel.name}
-                                                            </SelectItem>
-                                                        ),
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                            <InputError
-                                                message={
-                                                    errors[
-                                                        `segments.${index}.vessel_id`
-                                                    ]
-                                                }
-                                            />
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <Label
+                                                    htmlFor={`pay-category-${segment.key}`}
+                                                >
+                                                    Pay category
+                                                </Label>
+                                                <Select
+                                                    value={segment.pay_category}
+                                                    onValueChange={(value) =>
+                                                        updateSegment(
+                                                            segment.key,
+                                                            'pay_category',
+                                                            value,
+                                                        )
+                                                    }
+                                                >
+                                                    <SelectTrigger
+                                                        id={`pay-category-${segment.key}`}
+                                                    >
+                                                        <SelectValue placeholder="Select category..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {payCategories.map(
+                                                            (category) => (
+                                                                <SelectItem
+                                                                    key={
+                                                                        category.value
+                                                                    }
+                                                                    value={
+                                                                        category.value
+                                                                    }
+                                                                >
+                                                                    {
+                                                                        category.label
+                                                                    }
+                                                                </SelectItem>
+                                                            ),
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
+                                                <InputError
+                                                    message={
+                                                        errors[
+                                                            `segments.${index}.pay_category`
+                                                        ]
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label
+                                                    htmlFor={`days-${segment.key}`}
+                                                >
+                                                    Days
+                                                </Label>
+                                                <Input
+                                                    id={`days-${segment.key}`}
+                                                    value={
+                                                        days === null
+                                                            ? ''
+                                                            : String(days)
+                                                    }
+                                                    readOnly
+                                                    className="tabular-nums"
+                                                    aria-label={`Calculated days for movement period ${index + 1}`}
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label>Client / project</Label>
-                                            <Select
-                                                value={
-                                                    segment.client_id?.toString() ??
-                                                    'none'
-                                                }
-                                                onValueChange={(value) =>
-                                                    updateSegment(
-                                                        segment.key,
-                                                        'client_id',
-                                                        value === 'none'
-                                                            ? null
-                                                            : Number(value),
-                                                    )
-                                                }
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Optional client..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="none">
-                                                        None
-                                                    </SelectItem>
-                                                    {masterOptions.clients.map(
-                                                        (client) => (
-                                                            <SelectItem
-                                                                key={client.id}
-                                                                value={client.id.toString()}
-                                                            >
-                                                                {client.name}
-                                                            </SelectItem>
-                                                        ),
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                            <InputError
-                                                message={
-                                                    errors[
-                                                        `segments.${index}.client_id`
-                                                    ]
-                                                }
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>Rank</Label>
-                                            <Select
-                                                value={
-                                                    segment.rank_id?.toString() ??
-                                                    'none'
-                                                }
-                                                onValueChange={(value) =>
-                                                    updateSegment(
-                                                        segment.key,
-                                                        'rank_id',
-                                                        value === 'none'
-                                                            ? null
-                                                            : Number(value),
-                                                    )
-                                                }
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Optional rank..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="none">
-                                                        None
-                                                    </SelectItem>
-                                                    {masterOptions.ranks.map(
-                                                        (rank) => (
-                                                            <SelectItem
-                                                                key={rank.id}
-                                                                value={rank.id.toString()}
-                                                            >
-                                                                {rank.name}
-                                                            </SelectItem>
-                                                        ),
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                            <InputError
-                                                message={
-                                                    errors[
-                                                        `segments.${index}.rank_id`
-                                                    ]
-                                                }
-                                            />
-                                        </div>
-                                    </div>
 
-                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <Label
+                                                    htmlFor={`from-${segment.key}`}
+                                                >
+                                                    From date
+                                                </Label>
+                                                <Input
+                                                    id={`from-${segment.key}`}
+                                                    type="date"
+                                                    value={segment.from_date}
+                                                    min={
+                                                        period.start_date ??
+                                                        undefined
+                                                    }
+                                                    max={
+                                                        period.end_date ??
+                                                        undefined
+                                                    }
+                                                    onChange={(event) =>
+                                                        updateSegment(
+                                                            segment.key,
+                                                            'from_date',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        errors[
+                                                            `segments.${index}.from_date`
+                                                        ]
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label
+                                                    htmlFor={`to-${segment.key}`}
+                                                >
+                                                    To date
+                                                </Label>
+                                                <Input
+                                                    id={`to-${segment.key}`}
+                                                    type="date"
+                                                    value={segment.to_date}
+                                                    min={
+                                                        segment.from_date ||
+                                                        period.start_date ||
+                                                        undefined
+                                                    }
+                                                    max={
+                                                        period.end_date ??
+                                                        undefined
+                                                    }
+                                                    onChange={(event) =>
+                                                        updateSegment(
+                                                            segment.key,
+                                                            'to_date',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        errors[
+                                                            `segments.${index}.to_date`
+                                                        ]
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+
                                         <div className="space-y-2">
-                                            <Label>From</Label>
-                                            <Input
-                                                type="date"
-                                                value={segment.from_date}
-                                                min={
-                                                    period.start_date ??
-                                                    undefined
-                                                }
-                                                max={
-                                                    period.end_date ?? undefined
-                                                }
+                                            <Label
+                                                htmlFor={`remarks-${segment.key}`}
+                                            >
+                                                Remarks
+                                            </Label>
+                                            <Textarea
+                                                id={`remarks-${segment.key}`}
+                                                value={segment.remarks}
+                                                rows={2}
                                                 onChange={(event) =>
                                                     updateSegment(
                                                         segment.key,
-                                                        'from_date',
+                                                        'remarks',
                                                         event.target.value,
                                                     )
                                                 }
@@ -661,63 +865,124 @@ function CrewMovementPeriodsDialogBody({
                                             <InputError
                                                 message={
                                                     errors[
-                                                        `segments.${index}.from_date`
+                                                        `segments.${index}.remarks`
                                                     ]
                                                 }
                                             />
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label>To</Label>
-                                            <Input
-                                                type="date"
-                                                value={segment.to_date}
-                                                min={
-                                                    segment.from_date ||
-                                                    period.start_date ||
-                                                    undefined
-                                                }
-                                                max={
-                                                    period.end_date ?? undefined
-                                                }
-                                                onChange={(event) =>
-                                                    updateSegment(
-                                                        segment.key,
-                                                        'to_date',
-                                                        event.target.value,
-                                                    )
-                                                }
-                                            />
-                                            <InputError
-                                                message={
-                                                    errors[
-                                                        `segments.${index}.to_date`
-                                                    ]
-                                                }
-                                            />
-                                        </div>
-                                    </div>
+                                    </section>
 
-                                    <div className="space-y-2">
-                                        <Label>Remarks</Label>
-                                        <Textarea
-                                            value={segment.remarks}
-                                            rows={2}
-                                            onChange={(event) =>
-                                                updateSegment(
-                                                    segment.key,
-                                                    'remarks',
-                                                    event.target.value,
+                                    <section
+                                        className="space-y-3"
+                                        aria-labelledby={`assignment-${segment.key}`}
+                                    >
+                                        <h3
+                                            id={`assignment-${segment.key}`}
+                                            className="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                                        >
+                                            2. Assignment
+                                        </h3>
+
+                                        <AssignmentSummary
+                                            segment={segment}
+                                            masterOptions={masterOptions}
+                                            editing={assignmentOpen}
+                                            segmentIndex={index}
+                                            onToggle={() =>
+                                                setAssignmentEditorKeys(
+                                                    (previous) =>
+                                                        toggleAssignmentEditor(
+                                                            previous,
+                                                            segment.key,
+                                                            !assignmentOpen,
+                                                        ),
                                                 )
                                             }
                                         />
-                                        <InputError
-                                            message={
-                                                errors[
-                                                    `segments.${index}.remarks`
-                                                ]
-                                            }
-                                        />
-                                    </div>
+
+                                        {assignmentOpen ? (
+                                            <div
+                                                id={`assignment-fields-${segment.key}`}
+                                                className="grid gap-3 sm:grid-cols-3"
+                                            >
+                                                <OptionalMasterSelect
+                                                    label="Vessel"
+                                                    value={segment.vessel_id}
+                                                    options={
+                                                        masterOptions.vessels
+                                                    }
+                                                    icon={
+                                                        <Ship
+                                                            className="h-3.5 w-3.5"
+                                                            aria-hidden
+                                                        />
+                                                    }
+                                                    onChange={(value) =>
+                                                        updateSegment(
+                                                            segment.key,
+                                                            'vessel_id',
+                                                            value,
+                                                        )
+                                                    }
+                                                    error={
+                                                        errors[
+                                                            `segments.${index}.vessel_id`
+                                                        ]
+                                                    }
+                                                />
+                                                <OptionalMasterSelect
+                                                    label="Client"
+                                                    value={segment.client_id}
+                                                    options={
+                                                        masterOptions.clients
+                                                    }
+                                                    icon={
+                                                        <Anchor
+                                                            className="h-3.5 w-3.5"
+                                                            aria-hidden
+                                                        />
+                                                    }
+                                                    onChange={(value) =>
+                                                        updateSegment(
+                                                            segment.key,
+                                                            'client_id',
+                                                            value,
+                                                        )
+                                                    }
+                                                    error={
+                                                        errors[
+                                                            `segments.${index}.client_id`
+                                                        ]
+                                                    }
+                                                />
+                                                <OptionalMasterSelect
+                                                    label="Rank"
+                                                    value={segment.rank_id}
+                                                    options={
+                                                        masterOptions.ranks
+                                                    }
+                                                    icon={
+                                                        <UserRound
+                                                            className="h-3.5 w-3.5"
+                                                            aria-hidden
+                                                        />
+                                                    }
+                                                    onChange={(value) =>
+                                                        updateSegment(
+                                                            segment.key,
+                                                            'rank_id',
+                                                            value,
+                                                        )
+                                                    }
+                                                    error={
+                                                        errors[
+                                                            `segments.${index}.rank_id`
+                                                        ]
+                                                    }
+                                                />
+                                            </div>
+                                        ) : null}
+                                    </section>
                                 </div>
                             );
                         })}

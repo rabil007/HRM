@@ -63,6 +63,7 @@ import { PayrollStatusTimeline } from './components/payroll-status-timeline';
 import { CrewTimelineStatusBadge } from './crew-timeline/crew-timeline-status-badge';
 import { useCrewTimesheetFinancialAutosave } from './hooks/use-crew-timesheet-financial-autosave';
 import { usePayslipGenerationPoll } from './hooks/use-payslip-generation-poll';
+import type { MovementCategoryGroup } from './lib/crew-movement-period-drafts';
 import { pruneExcludedIds } from './lib/payroll-board-selection';
 import type {
     CrewPayrollRow,
@@ -206,8 +207,10 @@ export function PayrollShowContent({
     const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-    const [movementPeriodsRow, setMovementPeriodsRow] =
-        useState<CrewPayrollRow | null>(null);
+    const [movementPeriodsTarget, setMovementPeriodsTarget] = useState<{
+        row: CrewPayrollRow;
+        categoryGroup: MovementCategoryGroup;
+    } | null>(null);
     const [isClearTimesheetsDialogOpen, setIsClearTimesheetsDialogOpen] =
         useState(false);
     const [isClearingTimesheets, setIsClearingTimesheets] = useState(false);
@@ -1200,7 +1203,12 @@ export function PayrollShowContent({
                                     retryFinancialAutosave
                                 }
                                 canEditTimesheets={canEditTimesheets}
-                                onOpenMovementPeriods={setMovementPeriodsRow}
+                                onOpenMovementPeriods={(row, categoryGroup) =>
+                                    setMovementPeriodsTarget({
+                                        row,
+                                        categoryGroup,
+                                    })
+                                }
                             />
                         </Suspense>
                     ) : (
@@ -1346,13 +1354,13 @@ export function PayrollShowContent({
                 </Suspense>
             ) : null}
 
-            {period.supports_timesheets && movementPeriodsRow !== null ? (
+            {period.supports_timesheets && movementPeriodsTarget !== null ? (
                 <Suspense fallback={null}>
                     <LazyCrewMovementPeriodsDialog
-                        open={movementPeriodsRow !== null}
+                        open={movementPeriodsTarget !== null}
                         onOpenChange={(open) => {
                             if (!open) {
-                                setMovementPeriodsRow(null);
+                                setMovementPeriodsTarget(null);
                             }
                         }}
                         period={period}
@@ -1360,9 +1368,10 @@ export function PayrollShowContent({
                             rows.find(
                                 (row) =>
                                     row.employee.id ===
-                                    movementPeriodsRow.employee.id,
-                            ) ?? movementPeriodsRow
+                                    movementPeriodsTarget.row.employee.id,
+                            ) ?? movementPeriodsTarget.row
                         }
+                        categoryGroup={movementPeriodsTarget.categoryGroup}
                         masterOptions={
                             movement_master_options ?? {
                                 vessels: [],
@@ -1372,11 +1381,13 @@ export function PayrollShowContent({
                         }
                         canEdit={canEditTimesheets}
                         onBeforeSave={async () => {
-                            const employeeId = movementPeriodsRow.employee.id;
+                            const employeeId =
+                                movementPeriodsTarget.row.employee.id;
                             const latestTimesheet =
                                 rows.find(
                                     (row) => row.employee.id === employeeId,
-                                )?.timesheet ?? movementPeriodsRow.timesheet;
+                                )?.timesheet ??
+                                movementPeriodsTarget.row.timesheet;
 
                             await flushPendingFinancialSave(
                                 employeeId,
@@ -1384,7 +1395,9 @@ export function PayrollShowContent({
                             );
                         }}
                         onSaved={() => {
-                            clearEmployeeDraft(movementPeriodsRow.employee.id);
+                            clearEmployeeDraft(
+                                movementPeriodsTarget.row.employee.id,
+                            );
                         }}
                     />
                 </Suspense>
