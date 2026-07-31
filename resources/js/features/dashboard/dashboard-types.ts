@@ -74,17 +74,73 @@ export type AttendanceAnalytics = {
     recent_records: RecentAttendanceRecord[];
 };
 
+export type CrewDashboardSummary = {
+    on_vessel: number;
+    in_home: number;
+    needs_update: number;
+    total: number;
+};
+
+export type PayrollDashboardSummary = {
+    draft_periods: number;
+    processing_periods: number;
+    last_paid_period_name: string | null;
+    last_paid_period_total: number | null;
+};
+
+export type AnnouncementsDashboardSummary = {
+    total: number;
+    recent: Array<{
+        id: number;
+        title: string;
+        published_at: string | null;
+        status: string;
+    }>;
+};
+
+export type DashboardCan = {
+    employees_create: boolean;
+    employees_export: boolean;
+    documents_upload: boolean;
+    view_audit: boolean;
+};
+
+export type PersonalSummary = {
+    user_name: string;
+    company_name: string;
+    today: string;
+};
+
 export type DashboardProps = {
-    document_compliance: DocumentCompliance;
-    employee_analytics: EmployeeAnalytics;
-    workforce_trends?: WorkforceTrendPoint[];
-    employees_by_department?: DistributionPoint[];
-    employees_by_branch?: DistributionPoint[];
-    document_health: DocumentHealthSlice[];
-    organization_snapshot: {
+    /** Always present — no permission required. */
+    personal_summary: PersonalSummary;
+    /** Always present — action capability flags. */
+    can: DashboardCan;
+    /** Present when user has `employees.view`. */
+    employee_analytics?: EmployeeAnalytics;
+    /** Present when user has `documents.view`. */
+    document_compliance?: DocumentCompliance;
+    /** Present when user has `employees.view` or `documents.view`. */
+    document_health?: DocumentHealthSlice[];
+    /** Present when user has `employees.view`. */
+    organization_snapshot?: {
         departments: number;
         branches: number;
     };
+    /** Present when user has `employees.view` or `attendance.overview.view`. */
+    attendance_analytics?: AttendanceAnalytics;
+    /** Deferred — present when user has `employees.view`. */
+    workforce_trends?: WorkforceTrendPoint[];
+    /** Deferred — present when user has `employees.view`. */
+    employees_by_department?: DistributionPoint[];
+    /** Deferred — present when user has `employees.view`. */
+    employees_by_branch?: DistributionPoint[];
+    /** Deferred — present when user has `employees.view`. */
     recent_hires?: RecentHire[];
-    attendance_analytics: AttendanceAnalytics;
+    /** Present when user has `crew_operations.overview.view`. */
+    crew_summary?: CrewDashboardSummary;
+    /** Present when user has `payroll.overview.view`. */
+    payroll_summary?: PayrollDashboardSummary;
+    /** Present when user has `announcements.view`. */
+    announcements_summary?: AnnouncementsDashboardSummary;
 };

@@ -1,5 +1,8 @@
 <?php
 
+use App\Enums\AnnouncementCategory;
+use App\Enums\AnnouncementStatus;
+use App\Models\Announcement;
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use App\Models\User;
@@ -10,19 +13,41 @@ test('guests are redirected to the login page', function () {
     $response->assertRedirect(route('login'));
 });
 
-test('authenticated users can visit the dashboard', function () {
+test('authenticated users can visit the dashboard and receive personal summary and can flags', function () {
     $user = User::factory()->create();
-    $this->actingAs($user);
+    ['company' => $company] = makeDocumentFixtures();
 
-    $response = $this->get(route('dashboard'));
-    $response->assertOk();
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('dashboard')
+            ->has('personal_summary')
+            ->where('personal_summary.user_name', $user->name)
+            ->has('can')
+            ->where('can.employees_create', false)
+            ->where('can.employees_export', false)
+            ->where('can.documents_upload', false)
+            ->where('can.view_audit', false)
+            ->missing('employee_analytics')
+            ->missing('document_compliance')
+            ->missing('attendance_analytics')
+            ->missing('crew_summary')
+            ->missing('payroll_summary')
+            ->missing('announcements_summary')
+        );
 });
 
-test('dashboard returns employee analytics and document compliance props', function () {
+test('dashboard returns employee analytics and document compliance props when permitted', function () {
     $user = User::factory()->create();
-    $this->actingAs($user);
-
     ['company' => $company] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'documents.view',
+        'employees.create',
+    ]);
 
     Employee::factory()->count(3)->create([
         'company_id' => $company->id,
@@ -34,11 +59,13 @@ test('dashboard returns employee analytics and document compliance props', funct
         'status' => 'on_leave',
     ]);
 
-    $this->withSession(['current_company_id' => $company->id])
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('dashboard')
+            ->where('can.employees_create', true)
             ->has('employee_analytics')
             ->has('employee_analytics.total')
             ->has('employee_analytics.active')
@@ -72,12 +99,82 @@ test('dashboard returns employee analytics and document compliance props', funct
         );
 });
 
+test('dashboard returns crew summary prop when user has crew overview permission', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['crew_operations.overview.view']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('dashboard')
+            ->has('crew_summary')
+            ->has('crew_summary.on_vessel')
+            ->has('crew_summary.in_home')
+            ->has('crew_summary.needs_update')
+            ->has('crew_summary.total')
+            ->missing('employee_analytics')
+            ->missing('payroll_summary')
+        );
+});
+
+test('dashboard returns payroll summary prop when user has payroll overview permission', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['payroll.overview.view']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('dashboard')
+            ->has('payroll_summary')
+            ->has('payroll_summary.draft_periods')
+            ->has('payroll_summary.processing_periods')
+            ->missing('employee_analytics')
+            ->missing('crew_summary')
+        );
+});
+
+test('dashboard returns announcements summary prop when user has announcements view permission', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['announcements.view']);
+
+    Announcement::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Company All Hands',
+        'body_html' => '<p>Monthly meeting</p>',
+        'category' => AnnouncementCategory::General,
+        'channels' => ['in_app'],
+        'status' => AnnouncementStatus::Published,
+        'published_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('dashboard')
+            ->has('announcements_summary')
+            ->where('announcements_summary.total', 1)
+            ->has('announcements_summary.recent', 1)
+            ->where('announcements_summary.recent.0.title', 'Company All Hands')
+            ->missing('employee_analytics')
+        );
+});
+
 test('dashboard attendance analytics only includes linked company employees', function () {
     Carbon::setTestNow('2026-06-08 10:00:00', 'Asia/Dubai');
 
     $user = User::factory()->create();
-    $this->actingAs($user);
-
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -113,7 +210,8 @@ test('dashboard attendance analytics only includes linked company employees', fu
         'source' => AttendanceRecord::SOURCE_MANUAL,
     ]);
 
-    $this->withSession(['current_company_id' => $company->id])
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page

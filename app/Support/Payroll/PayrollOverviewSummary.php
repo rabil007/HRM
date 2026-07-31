@@ -10,6 +10,7 @@ use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 final class PayrollOverviewSummary
 {
@@ -213,21 +214,25 @@ final class PayrollOverviewSummary
             ];
         }
 
+        $driver = DB::connection()->getDriverName();
+        $yearExpr = $driver === 'sqlite' ? "CAST(strftime('%Y', payroll_periods.payment_date) AS INTEGER)" : 'YEAR(payroll_periods.payment_date)';
+        $monthExpr = $driver === 'sqlite' ? "CAST(strftime('%m', payroll_periods.payment_date) AS INTEGER)" : 'MONTH(payroll_periods.payment_date)';
+
         $records = PayrollRecord::query()
             ->where('payroll_records.company_id', $companyId)
             ->join('payroll_periods', 'payroll_records.period_id', '=', 'payroll_periods.id')
             ->where('payroll_periods.status', PayrollPeriodStatus::Paid->value)
             ->where('payroll_periods.payment_date', '>=', Carbon::now()->subMonths(6)->startOfMonth())
-            ->selectRaw('
-                YEAR(payroll_periods.payment_date) as yr,
-                MONTH(payroll_periods.payment_date) as mo,
+            ->selectRaw("
+                {$yearExpr} as yr,
+                {$monthExpr} as mo,
                 SUM(payroll_records.net_salary) as total,
                 SUM(payroll_records.gross_salary) as gross,
                 SUM(payroll_records.total_deductions) as deductions,
                 SUM(payroll_records.overtime_pay) as overtime,
                 COUNT(payroll_records.id) as cnt
-            ')
-            ->groupByRaw('YEAR(payroll_periods.payment_date), MONTH(payroll_periods.payment_date)')
+            ")
+            ->groupByRaw("{$yearExpr}, {$monthExpr}")
             ->get();
 
         foreach ($months as &$month) {
@@ -268,18 +273,22 @@ final class PayrollOverviewSummary
             ];
         }
 
+        $driver = DB::connection()->getDriverName();
+        $yearExpr = $driver === 'sqlite' ? "CAST(strftime('%Y', payroll_periods.payment_date) AS INTEGER)" : 'YEAR(payroll_periods.payment_date)';
+        $monthExpr = $driver === 'sqlite' ? "CAST(strftime('%m', payroll_periods.payment_date) AS INTEGER)" : 'MONTH(payroll_periods.payment_date)';
+
         $records = PayrollRecord::query()
             ->where('payroll_records.company_id', $companyId)
             ->join('payroll_periods', 'payroll_records.period_id', '=', 'payroll_periods.id')
             ->where('payroll_periods.status', PayrollPeriodStatus::Paid->value)
             ->where('payroll_periods.payment_date', '>=', Carbon::now()->subMonths(6)->startOfMonth())
             ->selectRaw("
-                YEAR(payroll_periods.payment_date) as yr,
-                MONTH(payroll_periods.payment_date) as mo,
+                {$yearExpr} as yr,
+                {$monthExpr} as mo,
                 SUM(CASE WHEN payroll_records.payroll_category = 'crew' THEN payroll_records.net_salary ELSE 0 END) as crew,
                 SUM(CASE WHEN payroll_records.payroll_category = 'office' THEN payroll_records.net_salary ELSE 0 END) as office
             ")
-            ->groupByRaw('YEAR(payroll_periods.payment_date), MONTH(payroll_periods.payment_date)')
+            ->groupByRaw("{$yearExpr}, {$monthExpr}")
             ->get();
 
         foreach ($months as &$month) {
