@@ -175,10 +175,8 @@ final class PayslipData
                 'earnings' => self::crewEarnings($record, $lines),
                 'deductions' => self::crewDeductions($record, $breakdown),
                 'crew_summary' => [
-                    ['label' => 'Sign-on standby days', 'value' => self::formatDayCount($breakdown['sign_on_standby_days'] ?? null)],
-                    ['label' => 'On-site days', 'value' => self::formatDayCount($breakdown['onsite_days'] ?? null)],
-                    ['label' => 'Sign-off standby days', 'value' => self::formatDayCount($breakdown['sign_off_standby_days'] ?? null)],
                     ['label' => 'Total standby days', 'value' => self::formatDayCount($breakdown['total_standby_days'] ?? null)],
+                    ['label' => 'On-site days', 'value' => self::formatDayCount($breakdown['onsite_days'] ?? null)],
                 ],
             ]);
         }
@@ -308,7 +306,7 @@ final class PayslipData
             : 'Overtime';
 
         $rows = [
-            ['label' => 'Sign-on standby pay', 'amount' => self::formatAmount($lines['sign_on_standby_pay'] ?? 0)],
+            ['label' => 'Standby pay', 'amount' => self::formatAmount($lines['sign_on_standby_pay'] ?? 0)],
             ['label' => 'Onsite pay', 'amount' => self::formatAmount($lines['onsite_pay'] ?? 0)],
             ['label' => 'Sign-off standby pay', 'amount' => self::formatAmount($lines['sign_off_standby_pay'] ?? 0)],
             ['label' => 'Site allowance', 'amount' => self::formatAmount($lines['site_allowance'] ?? 0)],
