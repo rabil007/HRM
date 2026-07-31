@@ -239,6 +239,8 @@ export function useCrewTimesheetFinancialAutosave({
                             };
 
                             const visitOptions = {
+                                async: true,
+                                showProgress: false,
                                 preserveScroll: true,
                                 preserveState: true,
                                 only: ['rows'] as string[],

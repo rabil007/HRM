@@ -11,6 +11,7 @@
         "lint": "eslint . --fix",
         "lint:check": "eslint .",
         "types:check": "tsc --noEmit",
+        "test:frontend": "node --experimental-strip-types --test resources/js/features/payroll/lib/crew-timesheet-financial-autosave-coordinator.test.ts",
         "browsershot:install": "puppeteer browsers install chrome-headless-shell",
         "postinstall": "puppeteer browsers install chrome-headless-shell || true"
     },
