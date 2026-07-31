@@ -2,7 +2,7 @@
 
 Crew Movement History is the read-only management report for the complete crew mobilisation cycle.
 
-- Current Crew is where operational movements are recorded.
+- Crew Assignments is where operational movements are recorded.
 - Crew Planning is where future vessel assignments are planned.
 - Crew Movement History reports and exports the resulting assignment and phase history.
 

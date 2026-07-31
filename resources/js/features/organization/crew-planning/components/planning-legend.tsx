@@ -14,7 +14,7 @@ const LEGEND_ITEMS = [
     {
         label: 'Assigned',
         description:
-            'Crew currently on the vessel — synced automatically from Current Crew.',
+            'Crew currently on the vessel — synced automatically from Crew Assignments.',
         surfaceClass: deployedBarSurfaceClass,
         labelClass: 'text-emerald-700 dark:text-emerald-300',
         swatchRingClass: 'ring-emerald-500/45 dark:ring-emerald-400/55',

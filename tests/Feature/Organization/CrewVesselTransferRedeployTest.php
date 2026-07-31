@@ -151,10 +151,10 @@ test('exact timestamp handoff is not a blocking overlap for transfer', function 
             ->count())->toBe(1);
 });
 
-test('current crew shows only the latest active assignment after transfer', function () {
+test('crew assignments shows only the latest active assignment after transfer', function () {
     [$source, $fixtures] = makeOnVesselSourceAssignment();
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = $fixtures;
-    $destinationVessel = makeCrewMovementVessel('Current Crew Dest '.uniqid());
+    $destinationVessel = makeCrewMovementVessel('Crew Assignments Dest '.uniqid());
 
     $destination = transferRedeployService()->perform(
         $company->id,

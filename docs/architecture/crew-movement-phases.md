@@ -100,7 +100,7 @@ Legacy `crew_operations.deployments.*` permissions are removed and migrated onto
 Bidirectional sync:
 
 1. **Planning → Assignment** — `CreateCrewAssignmentFromPlanning` creates a draft (`source = crew_planning`), links `crew_planning_assignments.crew_assignment_id`, then runs `SyncPlanningAssignmentFromCrewAssignment` so the original planning row is reused (no duplicate).
-2. **Assignment → Planning** — `SyncPlanningAssignmentFromCrewAssignment` creates/updates the linked planning bar after Current Crew create/update and after every `CrewMovementService::perform()` action.
+2. **Assignment → Planning** — `SyncPlanningAssignmentFromCrewAssignment` creates/updates the linked planning bar after Crew Assignments create/update and after every `CrewMovementService::perform()` action.
 
 ### Date precedence (Assignment → Planning)
 
@@ -115,7 +115,7 @@ Active P4 without planned/actual leave may store `planned_leave_date = null`. Ga
 
 ### Linked-row ownership
 
-Once `crew_assignment_id` is set, Current Crew is source of truth. Planning update/delete of linked rows is rejected; the UI links to the assignment instead.
+Once `crew_assignment_id` is set, Crew Assignments is source of truth. Planning update/delete of linked rows is rejected; the UI links to the assignment instead.
 
 ### Cancellation
 

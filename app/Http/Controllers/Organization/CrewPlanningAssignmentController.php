@@ -30,7 +30,7 @@ class CrewPlanningAssignmentController extends Controller
 
         if ($assignment->crew_assignment_id !== null) {
             throw ValidationException::withMessages([
-                'error' => 'This planning bar is controlled by Current Crew. Update the linked crew assignment instead.',
+                'error' => 'This planning bar is controlled by Crew Assignments. Update the linked crew assignment instead.',
             ]);
         }
 
@@ -45,7 +45,7 @@ class CrewPlanningAssignmentController extends Controller
 
         if ($assignment->crew_assignment_id !== null) {
             throw ValidationException::withMessages([
-                'error' => 'This planning bar is controlled by Current Crew. Cancel or update the linked crew assignment instead.',
+                'error' => 'This planning bar is controlled by Crew Assignments. Cancel or update the linked crew assignment instead.',
             ]);
         }
 

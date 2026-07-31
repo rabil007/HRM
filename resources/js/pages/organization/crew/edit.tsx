@@ -77,7 +77,7 @@ export default function CrewAssignmentEdit({
             <Head title={`Edit ${assignment.assignment_no}`} />
             <Main>
                 <DetailsHeader
-                    kicker="Current Crew"
+                    kicker="Crew Assignments"
                     title={`Edit ${assignment.assignment_no}`}
                     description="Update planning and master-data fields. Phase changes use Movement Actions."
                     backHref={showAssignment.url(assignment.id)}

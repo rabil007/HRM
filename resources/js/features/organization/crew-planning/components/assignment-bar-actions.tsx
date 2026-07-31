@@ -28,7 +28,7 @@ export function AssignmentBarActions({
                 >
                     <a href={showAssignment.url(bar.crew_assignment_id)}>
                         <ExternalLink className="h-3 w-3" />
-                        Open Current Crew
+                        Open Crew Assignments
                     </a>
                 </Button>
             </div>

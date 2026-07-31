@@ -1,4 +1,4 @@
-/** Crew synced from Current Crew — currently on vessel. */
+/** Crew synced from Crew Assignments — currently on vessel. */
 export const deployedBarSurfaceClass =
     'border border-emerald-500/55 bg-emerald-500/25 dark:border-emerald-400/50 dark:bg-emerald-500/30';
 

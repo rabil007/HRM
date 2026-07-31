@@ -29,12 +29,12 @@ function makeCrewAssignmentOperationsFixtures(array $permissions = [
     return $fixtures;
 }
 
-test('guests cannot access current crew', function () {
+test('guests cannot access crew assignments', function () {
     $this->get(route('organization.crew-assignments.index'))
         ->assertRedirect(route('login'));
 });
 
-test('users without view permission cannot access current crew', function () {
+test('users without view permission cannot access crew assignments', function () {
     ['user' => $user, 'company' => $company] = makeCrewAssignmentOperationsFixtures([]);
 
     grantCompanyPermissions($user, $company, []);
@@ -44,7 +44,7 @@ test('users without view permission cannot access current crew', function () {
         ->assertForbidden();
 });
 
-test('authorized users can view current crew index', function () {
+test('authorized users can view crew assignments index', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentOperationsFixtures();
 
     app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
@@ -133,7 +133,7 @@ test('users without create permission cannot store assignments', function () {
         ->assertForbidden();
 });
 
-test('search filters current crew assignments', function () {
+test('search filters crew assignments', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentOperationsFixtures();
 
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
@@ -148,7 +148,7 @@ test('search filters current crew assignments', function () {
             ->where('assignments.0.assignment_no', $assignment->assignment_no));
 });
 
-test('phase filter works on current crew index', function () {
+test('phase filter works on crew assignments index', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentOperationsFixtures();
     $vessel = makeCrewMovementVessel('Phase Filter Vessel');
 

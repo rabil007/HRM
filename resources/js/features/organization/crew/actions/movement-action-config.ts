@@ -111,7 +111,7 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
         impactTitle: 'This action will',
         impactDescription: [
             'Move the employee to P4 On Vessel.',
-            'Mark the employee as onboard in Current Crew.',
+            'Mark the employee as onboard in Crew Assignments.',
             'Create or update the linked Planning Gantt bar.',
             'Use the actual join date as the Planning start date.',
             'Sea Service is created only after actual disembarkation.',

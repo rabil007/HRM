@@ -405,7 +405,7 @@ test('repeated synchronization remains idempotent under unique crew_assignment_i
     ]))->toThrow(QueryException::class);
 });
 
-test('current crew store endpoint syncs planning when dates are complete', function () {
+test('crew assignments store endpoint syncs planning when dates are complete', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Store Sync Vessel');
 

@@ -142,7 +142,7 @@ export function CurrentCrewContent({
     return (
         <Main>
             <PageHeader
-                title="Current Crew"
+                title="Crew Assignments"
                 description="Track mobilisation, vessel joins, and demobilisation in one operational board."
                 right={
                     can.create ? (

@@ -184,7 +184,7 @@ export default function CrewOperationsSettings({
                 </h1>
                 <p className="max-w-2xl text-sm font-medium text-muted-foreground/80">
                     Centralized hub to manage configuration and preferences for
-                    all crew operation modules (Planning, Current Crew,
+                    all crew operation modules (Planning, Crew Assignments,
                     Manning).
                 </p>
             </div>

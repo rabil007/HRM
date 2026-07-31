@@ -44,11 +44,11 @@ export default function CrewAssignmentCreate({
             <Head title="New Crew Assignment" />
             <Main>
                 <DetailsHeader
-                    kicker="Current Crew"
+                    kicker="Crew Assignments"
                     title="New Assignment"
                     description="Create a draft mobilisation cycle. Movement actions advance the phase later."
                     backHref={crewAssignmentsIndex.url()}
-                    backLabel="Back to Current Crew"
+                    backLabel="Back to Crew Assignments"
                 />
 
                 <div className="mb-6 rounded-xl border border-sky-500/35 bg-sky-500/10 p-4">

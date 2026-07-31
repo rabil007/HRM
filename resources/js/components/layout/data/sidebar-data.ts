@@ -151,7 +151,7 @@ const baseSidebarData: SidebarData = {
                     icon: LayoutDashboard,
                 },
                 {
-                    title: 'Current Crew',
+                    title: 'Crew Assignments',
                     url: '/organization/crew',
                     icon: Users,
                 },

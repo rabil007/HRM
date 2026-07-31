@@ -31,7 +31,7 @@ export default function CrewAssignmentsIndex({
 }) {
     return (
         <>
-            <Head title="Current Crew" />
+            <Head title="Crew Assignments" />
             <CurrentCrewContent
                 assignments={assignments}
                 pagination={pagination}

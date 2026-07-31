@@ -55,7 +55,7 @@ export default function CrewAssignmentShow({
             <Head title={`Assignment ${assignment.assignment_no}`} />
             <Main>
                 <DetailsHeader
-                    kicker="Current Crew"
+                    kicker="Crew Assignments"
                     title={assignment.assignment_no}
                     description={
                         <span className="inline-flex flex-wrap items-center gap-2">
@@ -89,7 +89,7 @@ export default function CrewAssignmentShow({
                         </span>
                     }
                     backHref={crewAssignmentsIndex.url()}
-                    backLabel="Back to Current Crew"
+                    backLabel="Back to Crew Assignments"
                     actions={
                         <div className="flex flex-wrap items-center gap-2">
                             {showMovementActions ? (

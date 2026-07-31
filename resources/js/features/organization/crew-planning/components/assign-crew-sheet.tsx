@@ -148,9 +148,9 @@ export function AssignCrewSheet({
                                     onboard.
                                 </p>
                                 <p>
-                                    After conversion to Current Crew,
+                                    After conversion to Crew Assignments,
                                     operational dates and movements are
-                                    controlled from Current Crew.
+                                    controlled from Crew Assignments.
                                 </p>
                             </div>
                         </div>

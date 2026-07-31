@@ -15,7 +15,7 @@ test('crew master data tables do not use company_id columns', function () {
         ->and(Schema::hasColumn('employees', 'employee_number'))->toBeFalse();
 });
 
-test('current crew filter options load global master data without company scoping', function () {
+test('crew assignments filter options load global master data without company scoping', function () {
     ['company' => $company] = makeCrewAssignmentFixtures();
 
     Rank::query()->create(['name' => 'Schema Rank '.uniqid(), 'is_active' => true]);

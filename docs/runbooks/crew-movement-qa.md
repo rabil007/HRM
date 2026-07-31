@@ -12,7 +12,7 @@ Operational checklist after deploying Crew Movement changes.
 
 ## 2. Create draft
 
-- [ ] Open Current Crew → New Assignment
+- [ ] Open Crew Assignments → New Assignment
 - [ ] Create form loads employees, ranks, vessels, clients, visa types
 - [ ] Create draft for an active company employee
 - [ ] Assignment number format `CA-{YEAR}-{######}`
@@ -49,11 +49,11 @@ Operational checklist after deploying Crew Movement changes.
 
 - [ ] Confirming a planning assignment creates one draft CrewAssignment
 - [ ] Repeat confirm is idempotent and keeps exactly one planning row
-- [ ] Manual Current Crew draft with vessel/rank/join/sign-off creates a planning bar
+- [ ] Manual Crew Assignments draft with vessel/rank/join/sign-off creates a planning bar
 - [ ] Join vessel without sign-off shows an open-ended Assigned bar on the Gantt
 - [ ] Plan sign-off updates the same planning bar leave date
 - [ ] Confirm disembarkation sets leave to actual end and keeps one planning row
-- [ ] Linked planning bars cannot be edited/deleted from Planning (open Current Crew instead)
+- [ ] Linked planning bars cannot be edited/deleted from Planning (open Crew Assignments instead)
 - [ ] Unlinked planned-relief bars remain editable
 - [ ] Cancel before P4 removes the future planning bar
 - [ ] Gantt shows `is_assigned` / Assigned styling
@@ -73,7 +73,7 @@ Operational checklist after deploying Crew Movement changes.
 
 ## 9. Mobile UI
 
-- [ ] Current Crew list usable on narrow viewport
+- [ ] Crew Assignments list usable on narrow viewport
 - [ ] Movement action menu and dialogs usable on mobile
 - [ ] No horizontal overflow on assignment detail
 
@@ -82,7 +82,7 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Active P4 exposes Transfer Vessel; destination vessel starts empty, differs from source, and is required; source stays on original vessel
 - [ ] Transfer creates linked Active P4 assignment with no invented standby/home phases
 - [ ] Separate Planning bars exist for source and destination; completed source P4 creates sea service
-- [ ] Current Crew shows only the new Active assignment; Movement History shows both
+- [ ] Crew Assignments shows only the new Active assignment; Movement History shows both
 - [ ] Redeploy from P5/P6 starts only at the chosen phase (P0/P1/P2A/P3/P4); same vessel is allowed; P0 clears planned sign-off and hidden destination fields
 - [ ] Movement controller redirects to the new linked assignment after transfer/redeploy
 - [ ] Daily Crew payroll board shows one employee row for multiple movement periods; Movement Periods dialog edits Manual segments; Applied Crew Operations segments are read-only
