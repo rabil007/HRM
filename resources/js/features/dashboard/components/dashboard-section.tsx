@@ -22,15 +22,19 @@ export function DashboardSection({
 }: DashboardSectionProps) {
     return (
         <section className="space-y-4">
-            <div className="flex items-center justify-between border-b border-border/40 pb-3">
-                <div className="flex items-center gap-2">
-                    {Icon && <Icon className="h-5 w-5 text-primary" />}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="flex items-center gap-3">
+                    {Icon && (
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <Icon className="h-4.5 w-4.5" />
+                        </div>
+                    )}
                     <div>
-                        <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                        <h2 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
                             {title}
                         </h2>
                         {description && (
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-sm text-muted-foreground">
                                 {description}
                             </p>
                         )}
@@ -38,10 +42,13 @@ export function DashboardSection({
                 </div>
 
                 {actionLabel && actionHref && (
-                    <Button asChild variant="ghost" size="sm" className="h-8 text-xs gap-1 font-medium">
-                        <Link href={actionHref}>
-                            {actionLabel}
-                        </Link>
+                    <Button
+                        asChild
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 gap-1 self-start text-xs font-medium sm:self-auto"
+                    >
+                        <Link href={actionHref}>{actionLabel}</Link>
                     </Button>
                 )}
             </div>
