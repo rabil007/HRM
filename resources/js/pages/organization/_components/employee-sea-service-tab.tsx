@@ -26,11 +26,9 @@ import { TabsContent } from '@/components/ui/tabs';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
-import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
-import { seaServiceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
-import { resolveRecordImportUrls } from '@/features/organization/employees/profile/resolve-record-import-urls';
 import type { RankOption } from '@/features/organization/employees/types';
+import { SeaServicesImportDialog } from '@/features/organization/sea-services/sea-services-import-dialog';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { actions } from '@/lib/design-system';
@@ -139,6 +137,8 @@ function resolveDisplayedDuration(
 
 export type EmployeeSeaServiceTabProps = {
     employeeId: number | null;
+    employeeNo?: string | null;
+    employeeName?: string | null;
     ensureEmployee?: () => Promise<number>;
     sea_services: SeaServiceItem[];
     vessel_types: VesselTypeOption[];
@@ -175,6 +175,8 @@ function EmployeeSeaServiceTabShell({
 
 export function EmployeeSeaServiceTab({
     employeeId,
+    employeeNo = null,
+    employeeName = null,
     ensureEmployee,
     sea_services,
     vessel_types,
@@ -359,16 +361,19 @@ export function EmployeeSeaServiceTab({
         [employeeForm.data.start_date, employeeForm.data.end_date, editingRow],
     );
 
-    const seaServiceImport = seaServiceImportConfig(employeeId);
-    const seaServiceImportUrls = useMemo(
-        () =>
-            resolveRecordImportUrls(
-                seaServiceImportConfig(employeeId),
-                employeeId,
-            ),
-        [employeeId],
-    );
-    const canImportRecords = employeeId !== null && employeeId > 0;
+    const canImportRecords =
+        employeeId !== null &&
+        employeeId > 0 &&
+        Boolean(employeeNo && employeeNo.trim() !== '');
+
+    const seaServiceImportEmployee =
+        canImportRecords && employeeId !== null
+            ? {
+                  id: employeeId,
+                  employee_no: String(employeeNo),
+                  name: employeeName?.trim() || `Employee ${employeeNo}`,
+              }
+            : null;
 
     const appliedRankTotals =
         employeeRankId != null
@@ -440,7 +445,7 @@ export function EmployeeSeaServiceTab({
                                         setSeaServiceImportOpen(true)
                                     }
                                 >
-                                    Import CSV
+                                    Import
                                 </Button>
                             ) : null}
                             {allowCreate ? (
@@ -1405,17 +1410,11 @@ export function EmployeeSeaServiceTab({
                 reloadOptions={SEA_SERVICE_RELOAD}
             />
 
-            <EmployeeRecordImportDialog
+            <SeaServicesImportDialog
                 open={seaServiceImportOpen}
                 onOpenChange={setSeaServiceImportOpen}
-                inputId={seaServiceImport.inputId}
-                title={seaServiceImport.title}
-                description={seaServiceImport.description}
-                templateHint={seaServiceImport.templateHint}
-                columnHelp={seaServiceImport.columnHelp}
-                reloadOnly={seaServiceImport.reloadOnly}
-                importUrl={seaServiceImportUrls.importUrl}
-                templateUrl={seaServiceImportUrls.templateUrl}
+                employee={seaServiceImportEmployee}
+                reloadOnly={['sea_services']}
             />
         </EmployeeSeaServiceTabShell>
     );

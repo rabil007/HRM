@@ -57,6 +57,8 @@ export function SeaServicesEmployeeContent({
 
             <EmployeeSeaServiceTab
                 employeeId={employee.id}
+                employeeNo={employee.employee_no}
+                employeeName={employee.name}
                 sea_services={sea_services}
                 vessel_types={vessel_types}
                 vessels={vessels}

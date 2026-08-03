@@ -5,20 +5,18 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\BulkDestroyEmployeeSeaServicesRequest;
 use App\Http\Requests\Organization\Employee\ImportEmployeeSeaServiceRequest;
-use App\Models\Client;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
-use App\Models\Rank;
-use App\Models\Vessel;
-use App\Models\VesselType;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Employees\SeaServiceDuration;
-use App\Support\Imports\FlexibleCsvDateParser;
+use App\Support\SeaServices\SeaServiceImportOrchestrator;
+use App\Support\SeaServices\SeaServiceImportTemplateExporter;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class EmployeeSeaServiceController extends Controller
 {
@@ -165,355 +163,77 @@ class EmployeeSeaServiceController extends Controller
         return back()->with('success', 'Sea service order saved.');
     }
 
-    public function importTemplate(Request $request, Employee $employee): Response
-    {
+    public function importTemplate(
+        Request $request,
+        Employee $employee,
+        SeaServiceImportTemplateExporter $exporter,
+    ) {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId, 403);
+        abort_unless((int) $employee->company_id === $companyId, 404);
 
-        $csv = "vessel_type,vessel,rank,start_date,end_date,client\n";
-        $csv .= "Tanker,MT Example,Chief Officer,2022-01-01,2023-04-15,Acme Corp\n";
-
-        return response($csv, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="sea-service-import-template.csv"',
-        ]);
-    }
-
-    public function import(ImportEmployeeSeaServiceRequest $request, Employee $employee): RedirectResponse
-    {
-        $companyId = (int) $request->attributes->get('current_company_id');
-
-        abort_unless($employee->company_id === $companyId, 403);
-
-        $uploaded = $request->file('file');
-        $path = $uploaded->getRealPath() ?: $uploaded->path();
-        $handle = fopen((string) $path, 'r');
-
-        if ($handle === false) {
-            return back()->withErrors(['file' => 'Could not read the uploaded file.']);
-        }
-
-        $header = fgetcsv($handle);
-        if (! is_array($header) || count($header) === 0) {
-            fclose($handle);
-
-            return back()->withErrors(['file' => 'The CSV file is empty.']);
-        }
-
-        $map = $this->resolveSeaServiceCsvHeaderMap($header);
-
-        if (! isset($map['vessel_type'], $map['vessel'], $map['rank'], $map['start_date'], $map['end_date'])) {
-            fclose($handle);
-
-            return back()->withErrors([
-                'file' => 'The CSV must include vessel_type, vessel, rank, start_date, and end_date columns.',
+        try {
+            $result = $exporter->exportForEmployee($companyId, $employee);
+        } catch (\InvalidArgumentException $exception) {
+            throw ValidationException::withMessages([
+                'file' => $exception->getMessage(),
             ]);
         }
 
-        $vesselTypeIdsByName = VesselType::query()
-            ->where('is_active', true)
-            ->get(['id', 'name'])
-            ->mapWithKeys(fn (VesselType $row) => [mb_strtolower(trim($row->name)) => $row->id]);
+        return response()
+            ->download($result['path'], $result['filename'])
+            ->deleteFileAfterSend();
+    }
 
-        $vesselsByTypeAndName = Vessel::query()
-            ->where('is_active', true)
-            ->get(['id', 'name', 'vessel_type_id'])
-            ->groupBy('vessel_type_id')
-            ->map(fn ($group) => $group->mapWithKeys(
-                fn (Vessel $row) => [Vessel::normalizeName($row->name) => $row->id],
-            ));
+    public function importPreview(
+        ImportEmployeeSeaServiceRequest $request,
+        Employee $employee,
+        SeaServiceImportOrchestrator $orchestrator,
+    ): JsonResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
 
-        $rankIdsByName = Rank::query()
-            ->where('is_active', true)
-            ->get(['id', 'name'])
-            ->mapWithKeys(fn (Rank $row) => [mb_strtolower(trim($row->name)) => $row->id]);
+        abort_unless((int) $employee->company_id === $companyId, 404);
 
-        $clientIdsByName = Client::query()
-            ->where('is_active', true)
-            ->get(['id', 'name'])
-            ->mapWithKeys(fn (Client $row) => [mb_strtolower(trim($row->name)) => $row->id]);
-
-        $maxSort = EmployeeSeaService::query()
-            ->where('employee_id', $employee->id)
-            ->where('company_id', $companyId)
-            ->max('sort_order');
-        $nextSort = $maxSort === null ? 0 : ((int) $maxSort + 1);
-
-        $imported = 0;
-        $skipped = [
-            'empty_rows' => 0,
-            'missing_vessel_type' => 0,
-            'missing_required_fields' => 0,
-            'unknown_vessel_type' => 0,
-            'unknown_vessel' => 0,
-            'unknown_rank' => 0,
-            'invalid_start_date' => 0,
-            'invalid_end_date' => 0,
-            'invalid_date_range' => 0,
-        ];
-        $unknownVesselTypes = [];
-        $unknownVessels = [];
-        $unknownRanks = [];
-
-        while (($row = fgetcsv($handle)) !== false) {
-            if (! is_array($row)) {
-                continue;
-            }
-
-            $vesselTypeName = trim((string) ($row[$map['vessel_type']] ?? ''));
-            $vesselName = trim((string) ($row[$map['vessel']] ?? ''));
-            $rankName = trim((string) ($row[$map['rank']] ?? ''));
-            $startDateRaw = trim((string) ($row[$map['start_date']] ?? ''));
-            $endDateRaw = trim((string) ($row[$map['end_date']] ?? ''));
-
-            if ($vesselTypeName === '' && $vesselName === '' && $rankName === '') {
-                $skipped['empty_rows']++;
-
-                continue;
-            }
-
-            if ($vesselTypeName === '') {
-                $skipped['missing_vessel_type']++;
-
-                continue;
-            }
-
-            if ($vesselName === '' || $rankName === '' || $startDateRaw === '' || $endDateRaw === '') {
-                $skipped['missing_required_fields']++;
-
-                continue;
-            }
-
-            $vesselTypeId = $vesselTypeIdsByName[mb_strtolower($vesselTypeName)] ?? null;
-            $rankId = $rankIdsByName[mb_strtolower($rankName)] ?? null;
-
-            if ($vesselTypeId === null) {
-                $skipped['unknown_vessel_type']++;
-                $unknownVesselTypes[$vesselTypeName] = true;
-
-                continue;
-            }
-
-            $vesselId = $vesselsByTypeAndName->get($vesselTypeId)?->get(Vessel::normalizeName($vesselName));
-
-            if ($vesselId === null) {
-                $skipped['unknown_vessel']++;
-                $unknownVessels[$vesselName] = true;
-
-                continue;
-            }
-
-            if ($rankId === null) {
-                $skipped['unknown_rank']++;
-                $unknownRanks[$rankName] = true;
-
-                continue;
-            }
-
-            $parsedStart = FlexibleCsvDateParser::parse($startDateRaw);
-            if ($parsedStart === null) {
-                $skipped['invalid_start_date']++;
-
-                continue;
-            }
-
-            $parsedEnd = FlexibleCsvDateParser::parse($endDateRaw);
-            if ($parsedEnd === null) {
-                $skipped['invalid_end_date']++;
-
-                continue;
-            }
-
-            if ($parsedEnd->lt($parsedStart)) {
-                $skipped['invalid_date_range']++;
-
-                continue;
-            }
-
-            $duration = SeaServiceDuration::fromDates(
-                $parsedStart->toDateString(),
-                $parsedEnd->toDateString(),
+        try {
+            $result = $orchestrator->preview(
+                $companyId,
+                $request->file('file'),
+                $employee,
             );
-
-            $clientId = null;
-            if (isset($map['client'])) {
-                $clientName = trim((string) ($row[$map['client']] ?? ''));
-                if ($clientName !== '') {
-                    $clientId = $clientIdsByName[mb_strtolower($clientName)] ?? null;
-                }
-            }
-
-            EmployeeSeaService::query()->create([
-                'company_id' => $companyId,
-                'employee_id' => $employee->id,
-                'sort_order' => $nextSort,
-                'vessel_type_id' => $vesselTypeId,
-                'vessel_id' => $vesselId,
-                'rank_id' => $rankId,
-                'start_date' => $parsedStart->toDateString(),
-                'end_date' => $parsedEnd->toDateString(),
-                'total_months' => $duration['months'],
-                'total_days' => $duration['days'],
-                'client_id' => $clientId,
-            ]);
-
-            $nextSort++;
-            $imported++;
-
-            if ($imported > 500) {
-                break;
-            }
-        }
-
-        fclose($handle);
-
-        if ($imported === 0) {
-            return back()->withErrors([
-                'file' => $this->formatSeaServiceImportFailureMessage($skipped, $unknownVesselTypes, $unknownVessels, $unknownRanks),
+        } catch (\InvalidArgumentException $exception) {
+            throw ValidationException::withMessages([
+                'file' => $exception->getMessage(),
             ]);
         }
 
-        $totalSkipped = array_sum($skipped);
-        $message = "Imported {$imported} sea service row(s).";
-
-        if ($totalSkipped > 0) {
-            $message .= ' '.$this->formatSeaServiceImportSkippedSummary($skipped, $unknownVesselTypes, $unknownVessels, $unknownRanks);
-        }
-
-        return back()->with('success', $message);
+        return response()->json($result);
     }
 
-    /**
-     * @param  array<string, int>  $skipped
-     * @param  array<string, bool>  $unknownVesselTypes
-     * @param  array<string, bool>  $unknownRanks
-     */
-    private function formatSeaServiceImportFailureMessage(
-        array $skipped,
-        array $unknownVesselTypes,
-        array $unknownVessels,
-        array $unknownRanks,
-    ): string {
-        $details = [];
+    public function import(
+        ImportEmployeeSeaServiceRequest $request,
+        Employee $employee,
+        SeaServiceImportOrchestrator $orchestrator,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
 
-        if ($skipped['missing_vessel_type'] > 0) {
-            $details[] = "missing vessel_type ({$skipped['missing_vessel_type']} row(s))";
+        abort_unless((int) $employee->company_id === $companyId, 404);
+
+        try {
+            $result = $orchestrator->execute(
+                $companyId,
+                $request->file('file'),
+                $employee,
+            );
+        } catch (\InvalidArgumentException $exception) {
+            throw ValidationException::withMessages([
+                'file' => $exception->getMessage(),
+            ]);
         }
 
-        if ($skipped['missing_required_fields'] > 0) {
-            $details[] = "missing vessel, rank, start_date, or end_date ({$skipped['missing_required_fields']} row(s))";
-        }
-
-        if ($skipped['unknown_vessel_type'] > 0) {
-            $names = implode(', ', array_keys($unknownVesselTypes));
-            $details[] = "unknown vessel type(s): {$names}";
-        }
-
-        if ($skipped['unknown_vessel'] > 0) {
-            $names = implode(', ', array_keys($unknownVessels));
-            $details[] = "unknown vessel(s): {$names} — add them in Settings → Master Data → Vessels";
-        }
-
-        if ($skipped['unknown_rank'] > 0) {
-            $names = implode(', ', array_keys($unknownRanks));
-            $details[] = "unknown rank(s): {$names} — add them in Settings → Master Data → Ranks";
-        }
-
-        if ($skipped['invalid_start_date'] > 0) {
-            $details[] = "invalid start_date format ({$skipped['invalid_start_date']} row(s)) — use YYYY-MM-DD";
-        }
-
-        if ($skipped['invalid_end_date'] > 0) {
-            $details[] = "invalid end_date format ({$skipped['invalid_end_date']} row(s)) — use YYYY-MM-DD";
-        }
-
-        if ($skipped['invalid_date_range'] > 0) {
-            $details[] = "end_date before start_date ({$skipped['invalid_date_range']} row(s))";
-        }
-
-        if ($details === []) {
-            return 'No rows were imported. Check the CSV columns and use exact master data names from Settings.';
-        }
-
-        return 'No rows were imported. '.implode('; ', $details).'.';
-    }
-
-    /**
-     * @param  array<string, int>  $skipped
-     * @param  array<string, bool>  $unknownVesselTypes
-     * @param  array<string, bool>  $unknownRanks
-     */
-    private function formatSeaServiceImportSkippedSummary(
-        array $skipped,
-        array $unknownVesselTypes,
-        array $unknownVessels,
-        array $unknownRanks,
-    ): string {
-        $details = [];
-
-        if ($skipped['invalid_start_date'] > 0 || $skipped['invalid_end_date'] > 0) {
-            $dateSkipped = $skipped['invalid_start_date'] + $skipped['invalid_end_date'];
-            $details[] = "{$dateSkipped} row(s) had unrecognised dates (use DD/MM/YYYY or YYYY-MM-DD)";
-        }
-
-        if ($skipped['invalid_date_range'] > 0) {
-            $details[] = "{$skipped['invalid_date_range']} row(s) had end date before start date";
-        }
-
-        if ($skipped['unknown_vessel_type'] > 0) {
-            $names = implode(', ', array_keys($unknownVesselTypes));
-            $details[] = "unknown vessel type: {$names}";
-        }
-
-        if ($skipped['unknown_vessel'] > 0) {
-            $names = implode(', ', array_keys($unknownVessels));
-            $details[] = "unknown vessel: {$names}";
-        }
-
-        if ($skipped['unknown_rank'] > 0) {
-            $names = implode(', ', array_keys($unknownRanks));
-            $details[] = "unknown rank: {$names}";
-        }
-
-        if ($skipped['missing_required_fields'] > 0) {
-            $details[] = "{$skipped['missing_required_fields']} row(s) missing required fields";
-        }
-
-        if ($details === []) {
-            return 'Some rows were skipped.';
-        }
-
-        return 'Skipped: '.implode('; ', $details).'.';
-    }
-
-    /**
-     * @param  array<int, string|null>  $header
-     * @return array<string, int>
-     */
-    private function resolveSeaServiceCsvHeaderMap(array $header): array
-    {
-        $map = [];
-
-        foreach ($header as $index => $cell) {
-            $normalized = mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string) $cell)));
-
-            if (in_array($normalized, ['vessel type', 'vessel_type', 'type', 'vessel category'], true)) {
-                $map['vessel_type'] = (int) $index;
-            } elseif (in_array($normalized, ['vessel name', 'vessel_name', 'vessel', 'ship name', 'ship'], true)) {
-                $map['vessel'] = (int) $index;
-            } elseif (in_array($normalized, ['rank', 'rank_name', 'position', 'job title', 'job_title'], true)) {
-                $map['rank'] = (int) $index;
-            } elseif (in_array($normalized, ['start date', 'start_date', 'date from', 'date_from', 'from', 'started'], true)) {
-                $map['start_date'] = (int) $index;
-            } elseif (in_array($normalized, ['end date', 'end_date', 'date to', 'date_to', 'to', 'finished', 'ended'], true)) {
-                $map['end_date'] = (int) $index;
-            } elseif (in_array($normalized, ['client', 'client name', 'client_name', 'company', 'employer'], true)) {
-                $map['client'] = (int) $index;
-            }
-        }
-
-        return $map;
+        return back()->with(
+            'success',
+            "Imported {$result['imported']} sea service row(s). Skipped {$result['skipped']} row(s).",
+        );
     }
 
     /**
@@ -531,10 +251,6 @@ class EmployeeSeaServiceController extends Controller
         ];
     }
 
-    /**
-     * @param  array<string, mixed>  $validated
-     * @return array<string, mixed>
-     */
     /**
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>

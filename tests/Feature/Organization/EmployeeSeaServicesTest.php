@@ -1,5 +1,6 @@
 <?php
 
+use App\Imports\SeaServicesImport;
 use App\Models\Client;
 use App\Models\Company;
 use App\Models\Country;
@@ -15,6 +16,8 @@ use App\Support\Employees\SeaServiceDuration;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 test('employee sea services no longer have an offshore flag', function () {
     expect(Schema::hasColumn('employee_sea_services', 'is_offshore'))->toBeFalse();
@@ -492,7 +495,7 @@ test('reorder rejects partial order lists', function () {
     ])->assertStatus(422);
 });
 
-test('csv import appends sea service rows for the employee', function () {
+test('sea service import appends rows for the employee from the shared template', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -561,15 +564,20 @@ test('csv import appends sea service rows for the employee', function () {
 
     grantCompanyPermissions($user, $company, ['sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
-    $csv = <<<'CSV'
-vessel type,vessel,rank,start date,end date,client
-Bulk Carrier,MV North Star,Second Officer,2023-01-01,2023-09-11,Offshore Logistics
-
-CSV;
-
     $importDuration = SeaServiceDuration::fromDates('2023-01-01', '2023-09-11');
 
-    $file = UploadedFile::fake()->createWithContent('sea-service.csv', $csv);
+    $file = makeEmployeeSeaServicesImportFile([
+        [
+            'employee_no' => $employee->employee_no,
+            'name' => $employee->name,
+            'vessel_type' => $vesselType->name,
+            'vessel' => 'MV North Star',
+            'rank' => $rank->name,
+            'start_date' => '2023-01-01',
+            'end_date' => '2023-09-11',
+            'client' => $client->name,
+        ],
+    ]);
 
     $this->post(route('organization.employees.sea-services.import', $employee), [
         'file' => $file,
@@ -590,7 +598,7 @@ CSV;
     expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(1);
 });
 
-test('csv import accepts day-first date formats for multiple rows', function () {
+test('sea service import accepts day-first date formats for multiple rows', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -647,15 +655,35 @@ test('csv import accepts day-first date formats for multiple rows', function () 
 
     grantCompanyPermissions($user, $company, ['sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
-    $csv = <<<'CSV'
-vessel_type,vessel,rank,start_date,end_date
-new,BES SINCERE,rank,18/10/2024,23/12/2024
-new,CREST MARS,rank,31/01/2025,25/03/2025
-new,BES SAVVY,rank,3/1/26,10/2/26
-
-CSV;
-
-    $file = UploadedFile::fake()->createWithContent('sea-service.csv', $csv);
+    $file = makeEmployeeSeaServicesImportFile([
+        [
+            'employee_no' => $employee->employee_no,
+            'name' => $employee->name,
+            'vessel_type' => 'new',
+            'vessel' => 'BES SINCERE',
+            'rank' => 'rank',
+            'start_date' => '18/10/2024',
+            'end_date' => '23/12/2024',
+        ],
+        [
+            'employee_no' => $employee->employee_no,
+            'name' => $employee->name,
+            'vessel_type' => 'new',
+            'vessel' => 'CREST MARS',
+            'rank' => 'rank',
+            'start_date' => '31/01/2025',
+            'end_date' => '25/03/2025',
+        ],
+        [
+            'employee_no' => $employee->employee_no,
+            'name' => $employee->name,
+            'vessel_type' => 'new',
+            'vessel' => 'BES SAVVY',
+            'rank' => 'rank',
+            'start_date' => '3/1/26',
+            'end_date' => '10/2/26',
+        ],
+    ]);
 
     $this->post(route('organization.employees.sea-services.import', $employee), [
         'file' => $file,
@@ -677,13 +705,16 @@ CSV;
     )->toBeTrue();
 });
 
-test('sea service import returns a clear error when vessel type is missing', function () {
-    Storage::fake('public');
-
+test('sea service import preview marks missing vessel type as invalid', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+
+    $employee->update([
+        'employee_no' => 'EMP-PREV-1',
+        'status' => 'active',
+    ]);
 
     grantCompanyPermissions($user, $company, ['sea_services.create', 'sea_services.update', 'sea_services.delete', 'sea_services.import']);
 
@@ -698,23 +729,109 @@ test('sea service import returns a clear error when vessel type is missing', fun
         'is_active' => true,
     ]);
 
-    $csv = <<<'CSV'
-vessel_type,vessel,rank,start_date,end_date,client
-,CREST MARS,Appointed Person,2024-01-01,2024-03-15,EL HAIL
+    $file = makeEmployeeSeaServicesImportFile([
+        [
+            'employee_no' => $employee->employee_no,
+            'name' => $employee->name,
+            'vessel_type' => null,
+            'vessel' => 'CREST MARS',
+            'rank' => 'Appointed Person',
+            'start_date' => '2024-01-01',
+            'end_date' => '2024-03-15',
+            'client' => 'EL HAIL',
+        ],
+    ]);
 
-CSV;
-
-    $file = UploadedFile::fake()->createWithContent('ashok new.csv', $csv);
-
-    $this->post(route('organization.employees.sea-services.import', $employee), [
+    $this->post(route('organization.employees.sea-services.import.preview', $employee), [
         'file' => $file,
-    ])->assertSessionHasErrors(['file']);
-
-    expect(session('errors')->get('file')[0])
-        ->toContain('missing vessel_type');
+    ])
+        ->assertOk()
+        ->assertJsonPath('summary.importable', 0)
+        ->assertJsonPath('summary.invalid', 1)
+        ->assertJsonPath('rows.0.errors.0.field', 'vessel_type');
 
     expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(0);
 });
+
+test('sea service import rejects rows for a different employee number', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+
+    $employee->update([
+        'employee_no' => 'EMP-SCOPE-1',
+        'status' => 'active',
+    ]);
+
+    $vesselType = VesselType::query()->create(['name' => 'Tanker', 'is_active' => true]);
+    $rank = Rank::query()->create(['name' => 'Chief Officer', 'is_active' => true]);
+    Vessel::query()->create([
+        'name' => 'MT Scope',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['sea_services.import']);
+
+    $file = makeEmployeeSeaServicesImportFile([
+        [
+            'employee_no' => 'OTHER-999',
+            'name' => 'Other',
+            'vessel_type' => $vesselType->name,
+            'vessel' => 'MT Scope',
+            'rank' => $rank->name,
+            'start_date' => '2024-01-01',
+            'end_date' => '2024-06-01',
+        ],
+    ]);
+
+    $this->post(route('organization.employees.sea-services.import.preview', $employee), [
+        'file' => $file,
+    ])
+        ->assertOk()
+        ->assertJsonPath('summary.importable', 0)
+        ->assertJsonPath('rows.0.errors.0.field', 'employee_no');
+});
+
+/**
+ * @param  list<array<string, mixed>>  $rows
+ */
+function makeEmployeeSeaServicesImportFile(array $rows): UploadedFile
+{
+    $import = app(SeaServicesImport::class);
+    $spreadsheet = new Spreadsheet;
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->setTitle($import->sheetName());
+
+    foreach ($import->headers() as $columnIndex => $header) {
+        $sheet->setCellValueByColumnAndRow($columnIndex + 1, 1, $header);
+    }
+
+    $rowNumber = SeaServicesImport::DATA_START_ROW;
+
+    foreach ($rows as $row) {
+        $sheet->setCellValueByColumnAndRow(1, $rowNumber, $row['employee_no'] ?? null);
+        $sheet->setCellValueByColumnAndRow(2, $rowNumber, $row['name'] ?? null);
+        $sheet->setCellValueByColumnAndRow(3, $rowNumber, $row['vessel_type'] ?? null);
+        $sheet->setCellValueByColumnAndRow(4, $rowNumber, $row['vessel'] ?? null);
+        $sheet->setCellValueByColumnAndRow(5, $rowNumber, $row['rank'] ?? null);
+        $sheet->setCellValueByColumnAndRow(6, $rowNumber, $row['start_date'] ?? null);
+        $sheet->setCellValueByColumnAndRow(7, $rowNumber, $row['end_date'] ?? null);
+        $sheet->setCellValueByColumnAndRow(8, $rowNumber, $row['client'] ?? null);
+
+        $rowNumber++;
+    }
+
+    $path = storage_path('app/temp/'.uniqid('employee-sea-services-import-test-', true).'.xlsx');
+    if (! is_dir(dirname($path))) {
+        mkdir(dirname($path), 0755, true);
+    }
+
+    (new Xlsx($spreadsheet))->save($path);
+
+    return new UploadedFile($path, 'sea-services-import.xlsx', null, null, true);
+}
 
 test('users with permission can bulk delete sea service records', function () {
     $user = User::factory()->create();

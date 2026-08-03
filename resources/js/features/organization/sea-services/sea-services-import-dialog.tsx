@@ -3,6 +3,7 @@ import {
     AlertCircle,
     Download,
     FileSpreadsheet,
+    Info,
     Loader2,
     Upload,
 } from 'lucide-react';
@@ -10,9 +11,14 @@ import type { DragEvent, ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
     importMethod as importSeaServices,
-    importPreview,
-    importTemplate,
+    importPreview as importSeaServicesPreview,
+    importTemplate as importSeaServicesTemplate,
 } from '@/actions/App/Http/Controllers/Organization/SeaServicesImportController';
+import {
+    importMethod as importEmployeeSeaServices,
+    importPreview as importEmployeeSeaServicesPreview,
+    importTemplate as importEmployeeSeaServicesTemplate,
+} from '@/actions/App/Http/Controllers/Organization/EmployeeSeaServiceController';
 import { SearchBar } from '@/components/search-bar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -70,6 +76,12 @@ type ImportPreviewResponse = {
     };
 };
 
+export type SeaServicesImportEmployeeContext = {
+    id: number;
+    employee_no: string;
+    name: string;
+};
+
 function isSpreadsheetLike(file: File): boolean {
     const name = file.name.toLowerCase();
 
@@ -87,13 +99,44 @@ function actionLabel(action: ImportPreviewRow['action']): string {
     return action === 'create' ? 'Create' : 'Skip';
 }
 
+function resolveUrls(employee: SeaServicesImportEmployeeContext | null): {
+    templateUrl: string;
+    previewUrl: string;
+    importUrl: string;
+} {
+    if (employee) {
+        return {
+            templateUrl: importEmployeeSeaServicesTemplate.url({
+                employee: employee.id,
+            }),
+            previewUrl: importEmployeeSeaServicesPreview.url({
+                employee: employee.id,
+            }),
+            importUrl: importEmployeeSeaServices.url({ employee: employee.id }),
+        };
+    }
+
+    return {
+        templateUrl: importSeaServicesTemplate.url(),
+        previewUrl: importSeaServicesPreview.url(),
+        importUrl: importSeaServices.url(),
+    };
+}
+
 export function SeaServicesImportDialog({
     open,
     onOpenChange,
+    employee = null,
+    reloadOnly,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    employee?: SeaServicesImportEmployeeContext | null;
+    reloadOnly?: string[];
 }): ReactElement {
+    const urls = useMemo(() => resolveUrls(employee), [employee]);
+    const isEmployeeScoped = employee !== null;
+
     const [file, setFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<ImportPreviewResponse | null>(null);
     const [isPreviewing, setIsPreviewing] = useState(false);
@@ -154,59 +197,62 @@ export function SeaServicesImportDialog({
         onOpenChange(nextOpen);
     };
 
-    const previewFile = useCallback(async (selected: File) => {
-        setIsPreviewing(true);
-        setMessage(null);
+    const previewFile = useCallback(
+        async (selected: File) => {
+            setIsPreviewing(true);
+            setMessage(null);
 
-        const formData = new FormData();
-        formData.append('file', selected);
+            const formData = new FormData();
+            formData.append('file', selected);
 
-        try {
-            const csrf = document.querySelector<HTMLMetaElement>(
-                'meta[name="csrf-token"]',
-            )?.content;
-            const response = await fetch(importPreview.url(), {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
-                },
-                credentials: 'same-origin',
-            });
+            try {
+                const csrf = document.querySelector<HTMLMetaElement>(
+                    'meta[name="csrf-token"]',
+                )?.content;
+                const response = await fetch(urls.previewUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+                    },
+                    credentials: 'same-origin',
+                });
 
-            const data = (await response.json().catch(() => null)) as
-                | (ImportPreviewResponse & {
-                      message?: string;
-                      errors?: Record<string, string[]>;
-                  })
-                | null;
+                const data = (await response.json().catch(() => null)) as
+                    | (ImportPreviewResponse & {
+                          message?: string;
+                          errors?: Record<string, string[]>;
+                      })
+                    | null;
 
-            if (!response.ok) {
-                const fileError =
-                    data?.errors?.file?.[0] ??
-                    data?.message ??
-                    'Could not preview the file.';
-                setMessage(fileError);
+                if (!response.ok) {
+                    const fileError =
+                        data?.errors?.file?.[0] ??
+                        data?.message ??
+                        'Could not preview the file.';
+                    setMessage(fileError);
+                    setPreview(null);
+
+                    return;
+                }
+
+                setFile(selected);
+                setPreview(data);
+            } catch (error) {
+                setMessage(
+                    error instanceof Error
+                        ? error.message
+                        : 'Could not preview the file.',
+                );
                 setPreview(null);
-
-                return;
+            } finally {
+                setIsPreviewing(false);
             }
-
-            setFile(selected);
-            setPreview(data);
-        } catch (error) {
-            setMessage(
-                error instanceof Error
-                    ? error.message
-                    : 'Could not preview the file.',
-            );
-            setPreview(null);
-        } finally {
-            setIsPreviewing(false);
-        }
-    }, []);
+        },
+        [urls.previewUrl],
+    );
 
     const pickFile = (selected: File | undefined | null) => {
         if (!selected) {
@@ -236,9 +282,10 @@ export function SeaServicesImportDialog({
         const formData = new FormData();
         formData.append('file', file);
 
-        router.post(importSeaServices.url(), formData, {
+        router.post(urls.importUrl, formData, {
             forceFormData: true,
             preserveScroll: true,
+            ...(reloadOnly ? { only: reloadOnly } : {}),
             onSuccess: () => {
                 handleOpenChange(false);
             },
@@ -263,17 +310,63 @@ export function SeaServicesImportDialog({
                 <DialogHeader>
                     <DialogTitle>Import sea services</DialogTitle>
                     <DialogDescription>
-                        Download the template with your active employees
-                        pre-filled, fill vessel, rank and dates, then upload.
-                        Rows with no sea service data are skipped. Multiple rows
-                        per employee are allowed.
+                        {isEmployeeScoped
+                            ? `Download the template for ${employee.name}, fill vessel / rank / dates on each row, then upload. Empty rows are skipped. Preview validates master-data names before import.`
+                            : 'Download the template with active employees pre-filled, fill vessel, rank and dates, then upload. Rows with no sea service data are skipped. Multiple rows per employee are allowed.'}
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 overflow-y-auto pr-1">
+                    <Alert className="border-border/80 bg-muted/40">
+                        <Info className="text-primary" aria-hidden />
+                        <AlertDescription>
+                            <p className="mb-2 text-sm font-medium text-foreground">
+                                Before you import
+                            </p>
+                            <ul className="list-disc space-y-1 pl-4 text-sm text-muted-foreground">
+                                <li>
+                                    Use the downloaded template headers exactly
+                                    (Employee No, Vessel Type, Vessel, Rank,
+                                    Start Date, End Date, Client).
+                                </li>
+                                <li>
+                                    Vessel type, vessel, rank, and client must
+                                    match active names in Settings → Master
+                                    Data.
+                                </li>
+                                <li>
+                                    Dates accept YYYY-MM-DD or DD/MM/YYYY (also
+                                    D/M/YY). End date must be on or after start
+                                    date.
+                                </li>
+                                <li>
+                                    Leave vessel / rank / dates blank to skip a
+                                    pre-filled employee row. Only rows with sea
+                                    service data are imported.
+                                </li>
+                                {isEmployeeScoped ? (
+                                    <li>
+                                        Keep employee number{' '}
+                                        <span className="font-medium text-foreground">
+                                            {employee.employee_no}
+                                        </span>{' '}
+                                        unchanged — other employee numbers are
+                                        rejected.
+                                    </li>
+                                ) : (
+                                    <li>
+                                        Do not change Employee No values from
+                                        the template unless you intend to import
+                                        for a different employee.
+                                    </li>
+                                )}
+                            </ul>
+                        </AlertDescription>
+                    </Alert>
+
                     <div className="flex flex-wrap items-center gap-3">
                         <Button asChild variant="outline" size="sm">
-                            <a href={importTemplate.url()}>
+                            <a href={urls.templateUrl}>
                                 <Download className="mr-2 h-4 w-4" />
                                 Download template
                             </a>
@@ -315,7 +408,8 @@ export function SeaServicesImportDialog({
                                 : 'Drop your sea service file here or click to browse'}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Sea Services worksheet · .xlsx, .xls, .csv
+                            Sea Services worksheet · .xlsx, .xls, .csv · preview
+                            runs automatically
                         </p>
                     </div>
 
@@ -347,6 +441,19 @@ export function SeaServicesImportDialog({
                                 ) : null}
                             </div>
 
+                            {preview.summary.importable === 0 &&
+                            preview.summary.invalid === 0 ? (
+                                <Alert>
+                                    <Info className="h-4 w-4" />
+                                    <AlertDescription>
+                                        All rows are skipped because vessel,
+                                        rank, or dates are empty. Fill those
+                                        columns for the rows you want to import,
+                                        then re-upload.
+                                    </AlertDescription>
+                                </Alert>
+                            ) : null}
+
                             <SearchBar
                                 value={searchQuery}
                                 onChange={setSearchQuery}
@@ -360,10 +467,18 @@ export function SeaServicesImportDialog({
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Row</TableHead>
-                                            <TableHead>Emp no.</TableHead>
-                                            <TableHead>Name</TableHead>
+                                            {!isEmployeeScoped ? (
+                                                <>
+                                                    <TableHead>
+                                                        Emp no.
+                                                    </TableHead>
+                                                    <TableHead>Name</TableHead>
+                                                </>
+                                            ) : null}
+                                            <TableHead>Vessel type</TableHead>
                                             <TableHead>Vessel</TableHead>
                                             <TableHead>Rank</TableHead>
+                                            <TableHead>Dates</TableHead>
                                             <TableHead>Status</TableHead>
                                             <TableHead>Action</TableHead>
                                         </TableRow>
@@ -372,7 +487,11 @@ export function SeaServicesImportDialog({
                                         {filteredRows.length === 0 ? (
                                             <TableRow>
                                                 <TableCell
-                                                    colSpan={7}
+                                                    colSpan={
+                                                        isEmployeeScoped
+                                                            ? 7
+                                                            : 9
+                                                    }
                                                     className="py-8 text-center text-sm text-muted-foreground"
                                                 >
                                                     No rows match your search.
@@ -384,17 +503,32 @@ export function SeaServicesImportDialog({
                                                     <TableCell>
                                                         {row.row}
                                                     </TableCell>
+                                                    {!isEmployeeScoped ? (
+                                                        <>
+                                                            <TableCell>
+                                                                {
+                                                                    row.employee_no
+                                                                }
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {row.name ??
+                                                                    '—'}
+                                                            </TableCell>
+                                                        </>
+                                                    ) : null}
                                                     <TableCell>
-                                                        {row.employee_no}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {row.name ?? '—'}
+                                                        {row.vessel_type ??
+                                                            '—'}
                                                     </TableCell>
                                                     <TableCell>
                                                         {row.vessel ?? '—'}
                                                     </TableCell>
                                                     <TableCell>
                                                         {row.rank ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                                                        {row.start_date ?? '—'}{' '}
+                                                        → {row.end_date ?? '—'}
                                                     </TableCell>
                                                     <TableCell>
                                                         {row.errors.length >

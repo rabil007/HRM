@@ -1088,6 +1088,10 @@ function EmployeeDetailsPage({
                                     >
                                         <EmployeeSeaServiceTab
                                             employeeId={effectiveEmployeeId}
+                                            employeeNo={
+                                                localEmployee.employee_no
+                                            }
+                                            employeeName={localEmployee.name}
                                             sea_services={sea_services ?? []}
                                             vessel_types={vessel_types ?? []}
                                             vessels={vessels ?? []}

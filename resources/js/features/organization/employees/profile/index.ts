@@ -21,7 +21,6 @@ export {
     PersonalFieldRow,
 } from '@/features/organization/employees/profile/components/personal-field-row';
 export {
-    seaServiceImportConfig,
     vaccinationImportConfig,
     workExperienceImportConfig,
 } from '@/features/organization/employees/profile/record-import-configs';

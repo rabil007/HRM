@@ -1,9 +1,5 @@
 import type { ReactElement } from 'react';
 import {
-    importMethod as importSeaService,
-    importTemplate as seaServiceImportTemplate,
-} from '@/actions/App/Http/Controllers/Organization/EmployeeSeaServiceController';
-import {
     importMethod as importTraining,
     importTemplate as trainingImportTemplate,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
@@ -143,30 +139,6 @@ export function workExperienceImportConfig(
                 'responsibility',
                 'optional (aliases: Duties, Description)',
             ),
-        ]),
-    };
-}
-
-export function seaServiceImportConfig(
-    employeeId: number | null,
-): RecordImportConfig {
-    return {
-        inputId: recordImportInputId('sea-service-import', employeeId),
-        title: 'Import sea service',
-        description:
-            "Rows are appended to this employee's sea service history. Vessel type and rank must match active master data names exactly.",
-        templateHint:
-            'Download the sample CSV, then fill in rows using your master data names. Dates accept DD/MM/YYYY, D/M/YY, or YYYY-MM-DD.',
-        reloadOnly: ['sea_services'],
-        importUrl: (id) => importSeaService.url({ employee: id }),
-        templateUrl: (id) => seaServiceImportTemplate.url({ employee: id }),
-        columnHelp: columnList([
-            columnItem('vessel_type', 'required (aliases: Vessel type, Type)'),
-            columnItem('vessel', 'required (aliases: Vessel name, Vessel)'),
-            columnItem('rank', 'required (aliases: Rank name, Position)'),
-            columnItem('start_date', 'required — DD/MM/YYYY or YYYY-MM-DD'),
-            columnItem('end_date', 'required — DD/MM/YYYY or YYYY-MM-DD'),
-            columnItem('client', 'optional (must match an active client name)'),
         ]),
     };
 }

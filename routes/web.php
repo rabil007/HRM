@@ -722,6 +722,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('organization/employees/{employee}/bank-accounts/{bankAccount}', [EmployeeBankAccountController::class, 'destroy'])->middleware('can:bank_accounts.delete')->name('organization.employees.bank-accounts.destroy');
 
     Route::get('organization/employees/{employee}/sea-services/import/template', [EmployeeSeaServiceController::class, 'importTemplate'])->middleware('can:sea_services.import')->name('organization.employees.sea-services.import.template');
+    Route::post('organization/employees/{employee}/sea-services/import/preview', [EmployeeSeaServiceController::class, 'importPreview'])->middleware('can:sea_services.import')->name('organization.employees.sea-services.import.preview');
     Route::post('organization/employees/{employee}/sea-services/import', [EmployeeSeaServiceController::class, 'import'])->middleware('can:sea_services.import')->name('organization.employees.sea-services.import');
     Route::post('organization/employees/{employee}/sea-services/reorder', [EmployeeSeaServiceController::class, 'reorder'])->middleware('can:sea_services.update')->name('organization.employees.sea-services.reorder');
     Route::post('organization/employees/{employee}/sea-services', [EmployeeSeaServiceController::class, 'store'])->middleware('can:sea_services.create')->name('organization.employees.sea-services.store');

@@ -14,6 +14,8 @@ final class SeaServiceImportTemplateExporter
 {
     public const TEXT_FORMAT = NumberFormat::FORMAT_TEXT;
 
+    private const EMPLOYEE_BLANK_ROWS = 15;
+
     public function __construct(
         private readonly SeaServicesImport $import,
     ) {}
@@ -29,6 +31,57 @@ final class SeaServiceImportTemplateExporter
             ->orderBy('name')
             ->get(['id', 'employee_no', 'name']);
 
+        $spreadsheet = $this->newSpreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $rowNumber = SeaServicesImport::DATA_START_ROW;
+
+        foreach ($employees as $employee) {
+            $this->writeEmployeeIdentity($sheet, $rowNumber, $employee);
+            $rowNumber++;
+        }
+
+        return $this->saveSpreadsheet(
+            $spreadsheet,
+            $rowNumber,
+            'sea-services-template.xlsx',
+            'sea-services-template-',
+        );
+    }
+
+    /**
+     * @return array{path: string, filename: string}
+     */
+    public function exportForEmployee(int $companyId, Employee $employee): array
+    {
+        abort_unless((int) $employee->company_id === $companyId, 404);
+
+        if (blank($employee->employee_no)) {
+            throw new \InvalidArgumentException(
+                'This employee needs an employee number before sea services can be imported.',
+            );
+        }
+
+        $spreadsheet = $this->newSpreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $rowNumber = SeaServicesImport::DATA_START_ROW;
+
+        for ($i = 0; $i < self::EMPLOYEE_BLANK_ROWS; $i++) {
+            $this->writeEmployeeIdentity($sheet, $rowNumber, $employee);
+            $rowNumber++;
+        }
+
+        $safeNo = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $employee->employee_no) ?: 'employee';
+
+        return $this->saveSpreadsheet(
+            $spreadsheet,
+            $rowNumber,
+            "sea-services-{$safeNo}-template.xlsx",
+            'sea-services-employee-template-',
+        );
+    }
+
+    private function newSpreadsheet(): Spreadsheet
+    {
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle($this->import->sheetName());
@@ -37,16 +90,27 @@ final class SeaServiceImportTemplateExporter
             $sheet->setCellValueByColumnAndRow($columnIndex + 1, 1, $header);
         }
 
-        $rowNumber = SeaServicesImport::DATA_START_ROW;
+        return $spreadsheet;
+    }
 
-        foreach ($employees as $employee) {
-            $this->setStringCell($sheet, 1, $rowNumber, (string) ($employee->employee_no ?? ''));
-            $sheet->setCellValueByColumnAndRow(2, $rowNumber, $employee->name);
-            $rowNumber++;
-        }
+    private function writeEmployeeIdentity(Worksheet $sheet, int $rowNumber, Employee $employee): void
+    {
+        $this->setStringCell($sheet, 1, $rowNumber, (string) ($employee->employee_no ?? ''));
+        $sheet->setCellValueByColumnAndRow(2, $rowNumber, $employee->name);
+    }
 
+    /**
+     * @return array{path: string, filename: string}
+     */
+    private function saveSpreadsheet(
+        Spreadsheet $spreadsheet,
+        int $nextRowNumber,
+        string $filename,
+        string $tempPrefix,
+    ): array {
+        $sheet = $spreadsheet->getActiveSheet();
         $lastColumn = 'H';
-        $lastDataRow = max($rowNumber - 1, SeaServicesImport::DATA_START_ROW);
+        $lastDataRow = max($nextRowNumber - 1, SeaServicesImport::DATA_START_ROW);
         $sheet->setAutoFilter("A1:{$lastColumn}{$lastDataRow}");
         $sheet->freezePane('A2');
 
@@ -60,9 +124,7 @@ final class SeaServiceImportTemplateExporter
                 ->setFormatCode('yyyy-mm-dd');
         }
 
-        $filename = 'sea-services-template.xlsx';
-
-        $path = storage_path('app/temp/'.uniqid('sea-services-template-', true).'.xlsx');
+        $path = storage_path('app/temp/'.uniqid($tempPrefix, true).'.xlsx');
         if (! is_dir(dirname($path))) {
             mkdir(dirname($path), 0755, true);
         }

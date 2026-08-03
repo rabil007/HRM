@@ -2,6 +2,7 @@
 
 namespace App\Imports;
 
+use App\Support\Imports\FlexibleCsvDateParser;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -156,18 +157,6 @@ final class SeaServicesImport
 
     private function parseDateString(string $value): ?string
     {
-        foreach (['d-m-Y', 'Y-m-d', 'd/m/Y', 'm/d/Y', 'm-d-Y', 'd.m.Y'] as $format) {
-            try {
-                $parsed = Carbon::createFromFormat('!'.$format, $value);
-
-                if ($parsed !== false) {
-                    return $parsed->toDateString();
-                }
-            } catch (\Throwable) {
-                continue;
-            }
-        }
-
-        return null;
+        return FlexibleCsvDateParser::parse($value)?->toDateString();
     }
 }

@@ -29,11 +29,12 @@ final class SeaServiceImportOrchestrator
      *     summary: array{total: int, valid: int, invalid: int, importable: int, skipped: int, warnings: int}
      * }
      */
-    public function preview(int $companyId, UploadedFile $file): array
+    public function preview(int $companyId, UploadedFile $file, ?Employee $scopeEmployee = null): array
     {
         $evaluation = $this->evaluateRows(
             $companyId,
             $this->import->parse($file),
+            $scopeEmployee,
         );
 
         return [
@@ -58,11 +59,12 @@ final class SeaServiceImportOrchestrator
      *     errors: list<array{row: int, field: string, message: string}>
      * }
      */
-    public function execute(int $companyId, UploadedFile $file): array
+    public function execute(int $companyId, UploadedFile $file, ?Employee $scopeEmployee = null): array
     {
         $evaluation = $this->evaluateRows(
             $companyId,
             $this->import->parse($file),
+            $scopeEmployee,
         );
 
         if ($evaluation['summary']['importable'] === 0) {
@@ -124,7 +126,7 @@ final class SeaServiceImportOrchestrator
      *     summary: array{total: int, valid: int, invalid: int, importable: int, skipped: int, warnings: int}
      * }
      */
-    private function evaluateRows(int $companyId, array $parsedRows): array
+    private function evaluateRows(int $companyId, array $parsedRows, ?Employee $scopeEmployee = null): array
     {
         $employeesByNo = $this->loadEmployeesByNumber($companyId);
         $vesselTypeByLower = VesselType::query()
@@ -147,6 +149,10 @@ final class SeaServiceImportOrchestrator
             ->get(['id', 'name'])
             ->mapWithKeys(fn (Client $row) => [mb_strtolower(trim((string) $row->name)) => $row->id]);
 
+        $scopedEmployeeNo = $scopeEmployee !== null
+            ? (string) $scopeEmployee->employee_no
+            : null;
+
         $rows = [];
         $errors = [];
         $warnings = [];
@@ -156,7 +162,17 @@ final class SeaServiceImportOrchestrator
             $employeeNo = (string) $parsedRow['employee_no'];
             $rowErrors = [];
 
-            $employee = $employeesByNo->get($employeeNo);
+            if ($scopedEmployeeNo !== null && $employeeNo !== $scopedEmployeeNo) {
+                $rowErrors[] = [
+                    'row' => $rowNumber,
+                    'field' => 'employee_no',
+                    'message' => "This import only accepts employee number {$scopedEmployeeNo}.",
+                ];
+            }
+
+            $employee = $scopeEmployee !== null && $employeeNo === $scopedEmployeeNo
+                ? $scopeEmployee
+                : $employeesByNo->get($employeeNo);
 
             if ($employee === null) {
                 $rowErrors[] = [
