@@ -21,6 +21,7 @@ use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use App\Support\Employees\EmployeeExportFieldRegistry;
 use App\Support\Employees\EmployeeFormOptions;
+use App\Support\Employees\EmployeePagePermissions;
 use App\Support\Employees\Resources\EmployeeListResource;
 use App\Support\Employees\Services\EmployeeProfilePageData;
 use App\Support\Pagination\ResolvesPerPage;
@@ -116,6 +117,7 @@ class EmployeeController extends Controller
             'department_tree' => BuildDepartmentEmployeeTree::for($companyId, $directoryFilters),
             'department_tree_selected_id' => $directoryFilters->departmentId !== '' ? (int) $directoryFilters->departmentId : null,
             'department_tree_selected_position_id' => $directoryFilters->positionId !== '' ? (int) $directoryFilters->positionId : null,
+            'can' => EmployeePagePermissions::for(request()->user()),
         ]);
     }
 

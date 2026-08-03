@@ -41,8 +41,8 @@ export type CrewOperationsUpcomingPlanningItem = {
     employee_name: string | null;
     vessel_name: string | null;
     rank_name: string | null;
-    planned_join_date: string;
-    planned_leave_date: string;
+    planned_join_date: string | null;
+    planned_leave_date: string | null;
 };
 
 export type CrewOperationsManningGapItem = {

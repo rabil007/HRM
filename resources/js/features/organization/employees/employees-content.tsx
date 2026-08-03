@@ -1,4 +1,4 @@
-import { router, usePage } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import { Download, Filter, FolderTree, Plus, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
@@ -63,6 +63,7 @@ import type {
     DepartmentTreeNode,
     Employee,
     EmployeeExportFieldOption,
+    EmployeePageCan,
     GenderOption,
     ApprovalLocationOption,
     ManagerOption,
@@ -97,6 +98,7 @@ export function EmployeesContent({
     banks: _banks,
     roles,
     export_field_options,
+    can,
 }: {
     employees: Employee[];
     pagination: PaginationMeta;
@@ -119,6 +121,7 @@ export function EmployeesContent({
     banks: BankOption[];
     roles: RoleOption[];
     export_field_options: EmployeeExportFieldOption[];
+    can: EmployeePageCan;
 }) {
     void _users;
     void _religions;
@@ -163,13 +166,6 @@ export function EmployeesContent({
         () => buildEmployeeListQuery(initialSearch, initialFilters),
         [initialSearch, initialFilters],
     );
-
-    const { auth } = usePage().props as unknown as {
-        auth?: { permissions?: string[] };
-    };
-
-    const permissions = auth?.permissions ?? [];
-    const canImport = permissions.includes('employees.import');
 
     const handleFiltersChange = (next: EmployeeFilters) => {
         list.applyFilters(next);
@@ -253,7 +249,7 @@ export function EmployeesContent({
                 description="Manage employee directory and assignments."
                 right={
                     <>
-                        {canImport ? (
+                        {can.import ? (
                             <Button
                                 type="button"
                                 variant="secondary"
@@ -268,22 +264,26 @@ export function EmployeesContent({
                                 Import
                             </Button>
                         ) : null}
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
-                            onClick={() => setIsExportOpen(true)}
-                        >
-                            <Download className="mr-2 h-4 w-4" />
-                            Export
-                        </Button>
-                        <Button
-                            onClick={handleAdd}
-                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
-                        >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Employee
-                        </Button>
+                        {can.export ? (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="h-12 rounded-xl glass-card px-5 hover:bg-accent"
+                                onClick={() => setIsExportOpen(true)}
+                            >
+                                <Download className="mr-2 h-4 w-4" />
+                                Export
+                            </Button>
+                        ) : null}
+                        {can.create ? (
+                            <Button
+                                onClick={handleAdd}
+                                className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                            >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Employee
+                            </Button>
+                        ) : null}
                     </>
                 }
             />
@@ -374,7 +374,7 @@ export function EmployeesContent({
                                 employee.id,
                                 listQuery,
                             )}
-                            onDelete={handleDelete}
+                            onDelete={can.delete ? handleDelete : undefined}
                         />
                     ))}
                 </div>
@@ -401,8 +401,9 @@ export function EmployeesContent({
                     <TableBody>
                         {employees.map((employee) => {
                             const canToggle =
-                                employee.status === 'active' ||
-                                employee.status === 'inactive';
+                                can.update &&
+                                (employee.status === 'active' ||
+                                    employee.status === 'inactive');
 
                             return (
                                 <TableRow
@@ -537,10 +538,16 @@ export function EmployeesContent({
                                                 employee.id,
                                                 listQuery,
                                             )}
-                                            onDelete={(e) => {
-                                                e.stopPropagation();
-                                                handleDelete(employee);
-                                            }}
+                                            onDelete={
+                                                can.delete
+                                                    ? (e) => {
+                                                          e.stopPropagation();
+                                                          handleDelete(
+                                                              employee,
+                                                          );
+                                                      }
+                                                    : undefined
+                                            }
                                         />
                                     </TableCell>
                                 </TableRow>

@@ -165,6 +165,15 @@ export type EmployeeExportFieldOption = {
     excel_only: boolean;
 };
 
+export type EmployeePageCan = {
+    view: boolean;
+    create: boolean;
+    update: boolean;
+    delete: boolean;
+    export: boolean;
+    import: boolean;
+};
+
 export type EmployeeFormData = {
     user_id: number | '';
     branch_id: number | '';

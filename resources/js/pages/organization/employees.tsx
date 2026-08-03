@@ -7,6 +7,7 @@ import type {
     DepartmentTreeNode,
     Employee,
     EmployeeExportFieldOption,
+    EmployeePageCan,
     GenderOption,
     ApprovalLocationOption,
     ManagerOption,
@@ -42,6 +43,7 @@ export default function Employees({
     banks,
     roles,
     export_field_options,
+    can,
 }: {
     employees: Employee[];
     pagination: PaginationMeta;
@@ -78,6 +80,7 @@ export default function Employees({
     banks: BankOption[];
     roles: RoleOption[];
     export_field_options: EmployeeExportFieldOption[];
+    can: EmployeePageCan;
 }) {
     return (
         <>
@@ -106,6 +109,7 @@ export default function Employees({
                 banks={banks}
                 roles={roles}
                 export_field_options={export_field_options}
+                can={can}
             />
         </>
     );

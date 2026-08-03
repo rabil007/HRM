@@ -136,6 +136,56 @@ test('crew operations overview lists upcoming planning when user can view planni
             ->where('upcoming_planning.0.employee_name', $employee->name));
 });
 
+test('crew operations overview handles open-ended upcoming planning without leave date', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.overview.view',
+        'crew_operations.planning.view',
+    ]);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => CarbonImmutable::today()->addDays(5)->toDateString(),
+        'planned_leave_date' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('alert_counts.upcoming_planning', 1)
+            ->has('upcoming_planning', 1)
+            ->where('upcoming_planning.0.employee_name', $employee->name)
+            ->where('upcoming_planning.0.planned_leave_date', null));
+});
+
+test('dashboard remains available when upcoming planning leave date is null', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.overview.view',
+        'crew_operations.planning.view',
+        'crew_operations.deployments.view',
+    ]);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => CarbonImmutable::today()->addDays(5)->toDateString(),
+        'planned_leave_date' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk();
+});
+
 test('crew operations overview hides recent activity without audit permission', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCrewOperationsFixtures();
 

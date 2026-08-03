@@ -406,8 +406,8 @@ final class CrewOperationsDashboardAnalytics
      *     employee_name: string|null,
      *     vessel_name: string|null,
      *     rank_name: string|null,
-     *     planned_join_date: string,
-     *     planned_leave_date: string
+     *     planned_join_date: string|null,
+     *     planned_leave_date: string|null
      * }>
      */
     private function upcomingPlanning(int $companyId, CarbonImmutable $today): array
@@ -419,8 +419,8 @@ final class CrewOperationsDashboardAnalytics
                 'employee_name' => $assignment->employee?->name,
                 'vessel_name' => $assignment->vessel?->name,
                 'rank_name' => $assignment->rank?->name,
-                'planned_join_date' => $assignment->planned_join_date->toDateString(),
-                'planned_leave_date' => $assignment->planned_leave_date->toDateString(),
+                'planned_join_date' => $assignment->planned_join_date?->toDateString(),
+                'planned_leave_date' => $assignment->planned_leave_date?->toDateString(),
             ])
             ->values()
             ->all();

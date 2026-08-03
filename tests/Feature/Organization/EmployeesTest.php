@@ -93,7 +93,66 @@ test('authenticated users can view employees page', function () {
 
     grantCompanyPermissions($user, $company, ['employees.view']);
 
-    $this->get('/organization/employees')->assertOk();
+    $this->get('/organization/employees')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employees')
+            ->where('can.view', true)
+            ->where('can.create', false)
+            ->where('can.update', false)
+            ->where('can.delete', false)
+            ->where('can.export', false)
+            ->where('can.import', false));
+});
+
+test('employees index can props reflect granted action permissions', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'ECP',
+        'name' => 'Employees Can Props Land',
+        'dial_code' => '+998',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'ECP',
+        'name' => 'Employees Can Props Currency',
+        'symbol' => 'E$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'EmployeesCanPropsCo',
+        'slug' => 'employees-can-props-'.uniqid(),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.create',
+        'employees.update',
+        'employees.delete',
+        'employees.export',
+        'employees.import',
+    ]);
+
+    $this->get('/organization/employees')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employees')
+            ->where('can.view', true)
+            ->where('can.create', true)
+            ->where('can.update', true)
+            ->where('can.delete', true)
+            ->where('can.export', true)
+            ->where('can.import', true));
 });
 
 test('authenticated users can view an employee details page', function () {
