@@ -1,5 +1,8 @@
 import { cn } from '@/lib/utils';
+import { buildOvertimeCalcLine } from '../lib/crew-overtime-calc-line';
 import { formatTimesheetAmount } from '../types';
+
+export { buildOvertimeCalcLine };
 
 function formatNum(n: number): string {
     return Number.isInteger(n) ? String(n) : n.toFixed(2);
@@ -104,14 +107,25 @@ export function CrewPayColumnCell({
 export function CrewOvertimeColumnCell({
     hours,
     totalAmount,
+    overtimeHourlyRate,
+    hourRate,
     className,
 }: {
     hours: number;
     totalAmount: number;
+    overtimeHourlyRate?: number;
+    hourRate?: number;
     className?: string;
 }) {
     const hasHours = hours > 0;
     const hasAmount = totalAmount > 0;
+    const resolvedHourlyRate =
+        overtimeHourlyRate !== undefined && overtimeHourlyRate > 0
+            ? overtimeHourlyRate
+            : hasHours && hasAmount
+              ? roundMoney(totalAmount / hours)
+              : 0;
+    const calcLine = buildOvertimeCalcLine(hours, resolvedHourlyRate, hourRate);
 
     return (
         <div className={cn('flex flex-col gap-0.5', className)}>
@@ -124,6 +138,11 @@ export function CrewOvertimeColumnCell({
                     — hrs
                 </span>
             )}
+            {calcLine ? (
+                <span className="font-mono text-[10px] text-muted-foreground/60">
+                    {calcLine}
+                </span>
+            ) : null}
             {hasAmount ? (
                 <span className="text-sm font-semibold tabular-nums">
                     {formatTimesheetAmount(String(totalAmount))}

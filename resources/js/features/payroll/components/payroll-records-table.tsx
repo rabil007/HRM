@@ -256,6 +256,13 @@ export function PayrollRecordsTable({
                                 <CrewOvertimeColumnCell
                                     hours={overtimeHours}
                                     totalAmount={overtimeAmount}
+                                    overtimeHourlyRate={Number(
+                                        record.overtime?.overtime_hourly_rate ??
+                                            0,
+                                    )}
+                                    hourRate={Number(
+                                        record.overtime?.hour_rate ?? 0,
+                                    )}
                                 />
                             </TableCell>
 
