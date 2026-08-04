@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\PayrollPeriodStatus;
+use App\Models\CrewTimesheet;
 use App\Models\PayrollPeriod;
+use App\Models\PayrollRecord;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests cannot access payroll hub', function () {
@@ -246,4 +248,96 @@ test('legacy organization payroll index redirects to payroll hub', function () {
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('organization.payroll.show', $period))
         ->assertRedirect(route('payroll.show', $period));
+});
+
+test('crew hub timesheet progress uses daily employees only', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => 'crew',
+        'status' => PayrollPeriodStatus::Draft->value,
+    ]);
+
+    $dailyWithTimesheet = createCrewEmployeeWithContract($company, 'DLY-TS-1', 100, 50, 25);
+    $dailyWithoutTimesheet = createCrewEmployeeWithContract($company, 'DLY-TS-2', 100, 50, 25);
+    $monthlyEmployee = createCrewMonthlyEmployeeWithContract($company, 'MTH-TS-1', 5000, 1000, 500, 0);
+
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $dailyWithTimesheet->id,
+        'period_id' => $period->id,
+    ]);
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $monthlyEmployee->id,
+        'period_id' => $period->id,
+    ]);
+
+    expect($dailyWithoutTimesheet->id)->not->toBeNull();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/index')
+            ->where('periods.0.id', $period->id)
+            ->where('periods.0.employee_count', 3)
+            ->where('periods.0.timesheet_eligible_count', 2)
+            ->where('periods.0.timesheets_filled_count', 1)
+            ->where('periods.0.timesheets_progress_label', '1/2'));
+});
+
+test('crew hub timesheet progress uses daily payroll records after generation', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => 'crew',
+        'status' => PayrollPeriodStatus::Approved->value,
+    ]);
+
+    $dailyWithTimesheet = createCrewEmployeeWithContract($company, 'DLY-PAY-1', 100, 50, 25);
+    $dailyWithoutTimesheet = createCrewEmployeeWithContract($company, 'DLY-PAY-2', 100, 50, 25);
+    $monthlyEmployee = createCrewMonthlyEmployeeWithContract($company, 'MTH-PAY-1', 5000, 1000, 500, 0);
+    $extraDaily = createCrewEmployeeWithContract($company, 'DLY-PAY-3', 100, 50, 25);
+
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $dailyWithTimesheet->id,
+        'period_id' => $period->id,
+    ]);
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $extraDaily->id,
+        'period_id' => $period->id,
+    ]);
+
+    PayrollRecord::factory()->for($company)->for($period, 'period')->for($dailyWithTimesheet)->create([
+        'payroll_category' => 'crew',
+        'calculation_breakdown' => ['salary_structure' => 'daily'],
+    ]);
+    PayrollRecord::factory()->for($company)->for($period, 'period')->for($dailyWithoutTimesheet)->create([
+        'payroll_category' => 'crew',
+        'calculation_breakdown' => ['salary_structure' => 'daily'],
+    ]);
+    PayrollRecord::factory()->for($company)->for($period, 'period')->for($monthlyEmployee)->create([
+        'payroll_category' => 'crew',
+        'calculation_breakdown' => ['salary_structure' => 'monthly'],
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/index')
+            ->where('periods.0.id', $period->id)
+            ->where('periods.0.employee_count', 4)
+            ->where('periods.0.timesheet_eligible_count', 2)
+            ->where('periods.0.timesheets_filled_count', 1)
+            ->where('periods.0.timesheets_progress_label', '1/2'));
 });

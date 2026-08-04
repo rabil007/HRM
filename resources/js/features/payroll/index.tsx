@@ -332,7 +332,7 @@ export function PayrollIndexContent({
                                                             {
                                                                 period.timesheets_progress_label
                                                             }{' '}
-                                                            filled
+                                                            daily filled
                                                         </span>
                                                         <span>{progress}%</span>
                                                     </div>

@@ -111,7 +111,7 @@ export function PayrollPeriodCard({
                     <div className="space-y-2">
                         <div className="flex items-center justify-between text-xs font-semibold">
                             <span className="text-muted-foreground">
-                                Timesheets
+                                Daily timesheets
                             </span>
                             <span>
                                 {period.timesheets_progress_label} · {progress}%

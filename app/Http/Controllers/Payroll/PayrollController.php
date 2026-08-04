@@ -105,7 +105,32 @@ class PayrollController extends Controller
 
         $query = PayrollPeriod::query()
             ->where('company_id', $companyId)
-            ->withCount(['crewTimesheets', 'payrollRecords'])
+            ->withCount([
+                'crewTimesheets',
+                'payrollRecords',
+                'payrollRecords as daily_payroll_records_count' => function ($recordsQuery): void {
+                    $recordsQuery->crewDaily();
+                },
+                'crewTimesheets as daily_crew_timesheets_count' => function ($timesheetQuery): void {
+                    $timesheetQuery->whereHas('employee.currentContract', function ($contractQuery): void {
+                        $contractQuery->where('payroll_category', PayrollCategory::Crew->value);
+                        ContractSalaryStructureFilter::apply(
+                            $contractQuery,
+                            ContractSalaryStructureFilter::DAILY,
+                        );
+                    });
+                },
+                'payrollRecords as daily_payroll_records_with_timesheet_count' => function ($recordsQuery): void {
+                    $recordsQuery
+                        ->crewDaily()
+                        ->whereHas('employee.crewTimesheets', function ($timesheetQuery): void {
+                            $timesheetQuery->whereColumn(
+                                'crew_timesheets.period_id',
+                                'payroll_records.period_id',
+                            );
+                        });
+                },
+            ])
             ->latest('start_date');
 
         if ($search !== '') {
@@ -1023,13 +1048,14 @@ class PayrollController extends Controller
     }
 
     /**
-     * @return array<string, int>
+     * @return array{crew: int, office: int, daily_crew: int}
      */
     private function employeeCountsByCategory(int $companyId): array
     {
         return [
             PayrollCategory::Crew->value => PayrollEmployeeQuery::activeCount($companyId, PayrollCategory::Crew),
             PayrollCategory::Office->value => PayrollEmployeeQuery::activeCount($companyId, PayrollCategory::Office),
+            'daily_crew' => PayrollEmployeeQuery::activeDailyCrewCount($companyId),
         ];
     }
 

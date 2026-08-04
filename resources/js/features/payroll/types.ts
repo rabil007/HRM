@@ -127,6 +127,7 @@ export type PayrollPeriod = {
 export type PayrollPeriodListItem = PayrollPeriod & {
     run_label: string;
     employee_count: number;
+    timesheet_eligible_count: number;
     timesheets_filled_count: number;
     timesheets_progress_label: string | null;
 };
@@ -590,11 +591,12 @@ export function formatTimesheetDays(value: string | null | undefined): string {
 export function getPeriodProgressPercent(
     period: PayrollPeriodListItem,
 ): number {
-    if (!period.supports_timesheets || period.employee_count === 0) {
+    const eligibleCount =
+        period.timesheet_eligible_count ?? period.employee_count;
+
+    if (!period.supports_timesheets || eligibleCount === 0) {
         return 0;
     }
 
-    return Math.round(
-        (period.timesheets_filled_count / period.employee_count) * 100,
-    );
+    return Math.round((period.timesheets_filled_count / eligibleCount) * 100);
 }
