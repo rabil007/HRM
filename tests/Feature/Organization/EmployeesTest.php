@@ -1741,10 +1741,119 @@ test('authenticated users can preview and import an employees CSV', function () 
         ->where('employee_no', 'EMP-IMP-1')
         ->firstOrFail();
 
+    expect($importedEmployee->hire_date)->toBeNull();
+
     $this->assertDatabaseMissing('employee_contracts', [
         'company_id' => $company->id,
         'employee_id' => $importedEmployee->id,
     ]);
+});
+
+test('employee import uses hire_date from the file and leaves it empty when omitted', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'HIRE',
+        'name' => 'Hire Date Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'HIRE',
+        'name' => 'Hire Date Currency',
+        'symbol' => 'H$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Hire Date Co',
+        'slug' => 'hire-date-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Hire Date Template',
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.import']);
+
+    $csv = "employee_no,name,hire_date\n"
+        ."EMP-HIRE-1,With Hire Date,2024-06-15\n"
+        ."EMP-HIRE-2,Without Hire Date,\n";
+
+    $this->post('/organization/employees/import', [
+        'file' => UploadedFile::fake()->createWithContent('employees.csv', $csv),
+        'employee_profile_template_id' => $template->id,
+    ])->assertRedirect('/organization/employees');
+
+    $withHireDate = Employee::query()
+        ->where('company_id', $company->id)
+        ->where('employee_no', 'EMP-HIRE-1')
+        ->firstOrFail();
+
+    $withoutHireDate = Employee::query()
+        ->where('company_id', $company->id)
+        ->where('employee_no', 'EMP-HIRE-2')
+        ->firstOrFail();
+
+    expect($withHireDate->hire_date?->toDateString())->toBe('2024-06-15')
+        ->and($withoutHireDate->hire_date)->toBeNull();
+});
+
+test('employee import template sample row leaves hire_date empty', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'HTS',
+        'name' => 'Hire Template Sample Land',
+        'dial_code' => '+972',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'HTS',
+        'name' => 'Hire Template Sample Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Hire Template Sample Co',
+        'slug' => 'hire-template-sample-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.import']);
+
+    $response = $this->get('/organization/employees/import/template');
+    $response->assertOk();
+
+    $headers = employeeImportTemplateHeaders($response);
+    $hireDateColumnIndex = array_search('hire_date', $headers, true);
+
+    expect($hireDateColumnIndex)->not->toBeFalse();
+
+    $importSheet = employeeImportTemplateSpreadsheet($response)
+        ->getSheetByName(EmployeeImportTemplateExporter::IMPORT_SHEET_NAME);
+
+    $sampleHireDate = $importSheet->getCellByColumnAndRow($hireDateColumnIndex + 1, 2)->getValue();
+
+    expect($sampleHireDate)->toBeNull();
 });
 
 test('employee import resolves project name when project_id is enabled in template', function () {

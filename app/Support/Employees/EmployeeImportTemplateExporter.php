@@ -108,7 +108,6 @@ final class EmployeeImportTemplateExporter
             'work_email' => 'john.doe@example.com',
             'phone' => '+971500000000',
             'date_of_birth' => '1990-01-15',
-            'hire_date' => now()->format('Y-m-d'),
             'marital_status' => 'single',
             'status' => 'active',
         ];

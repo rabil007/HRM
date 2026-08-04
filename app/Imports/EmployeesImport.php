@@ -559,8 +559,8 @@ class EmployeesImport
                         'personal_email' => $row['personal_email'] ?? null,
                         'phone' => $row['phone'] ?? null,
                         'phone_home_country' => $row['phone_home_country'] ?? null,
-                        'date_of_birth' => $row['date_of_birth'] ?? null,
-                        'hire_date' => $row['hire_date'] ?? null,
+                        'date_of_birth' => $this->nullableDateValue($row['date_of_birth'] ?? null),
+                        'hire_date' => $this->nullableDateValue($row['hire_date'] ?? null),
                         'place_of_birth' => $row['place_of_birth'] ?? null,
                         'marital_status' => $row['marital_status'] ?: null,
                         'spouse_name' => $row['spouse_name'] ?? null,
@@ -1024,6 +1024,15 @@ class EmployeesImport
         }
 
         return $row;
+    }
+
+    private function nullableDateValue(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return is_string($value) ? $value : (string) $value;
     }
 
     public static function normalize(string $value): string
