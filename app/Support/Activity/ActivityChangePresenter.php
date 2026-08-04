@@ -2,12 +2,15 @@
 
 namespace App\Support\Activity;
 
+use App\Enums\CrewPhaseCode;
 use App\Models\Bank;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Course;
+use App\Models\CrewAssignment;
+use App\Models\CrewAssignmentPhase;
 use App\Models\Currency;
 use App\Models\Department;
 use App\Models\DocumentType;
@@ -34,6 +37,17 @@ use Spatie\Activitylog\Models\Activity;
 final class ActivityChangePresenter
 {
     /**
+     * Custom activity properties that are metadata, not end-user field chips.
+     *
+     * @var list<string>
+     */
+    private const HIDDEN_PROPERTY_KEYS = [
+        'event',
+        'company_id',
+        'occurred_at',
+    ];
+
+    /**
      * @param  Collection<int, Activity>|iterable<int, Activity>  $logs
      * @return Collection<int, Activity>
      */
@@ -53,7 +67,11 @@ final class ActivityChangePresenter
             $attributes = is_array($changes?->get('attributes')) ? $changes->get('attributes') : null;
 
             $log->setAttribute('presented_old_values', self::presentMap($old, $lookup));
-            $log->setAttribute('presented_new_values', self::presentMap($attributes, $lookup));
+            $log->setAttribute(
+                'presented_new_values',
+                self::presentMap($attributes, $lookup)
+                    ?? self::presentMap(self::customPropertyMap($log), $lookup),
+            );
 
             return $log;
         });
@@ -129,19 +147,13 @@ final class ActivityChangePresenter
                     continue;
                 }
 
-                foreach ($values as $field => $value) {
-                    if (! is_string($field) || ! self::isResolvableField($field)) {
-                        continue;
-                    }
+                self::collectResolvableIds($idsByField, $values);
+            }
 
-                    $id = self::normalizeId($value);
+            $customProperties = self::customPropertyMap($log);
 
-                    if ($id === null) {
-                        continue;
-                    }
-
-                    $idsByField[$field][$id] = true;
-                }
+            if ($customProperties !== null) {
+                self::collectResolvableIds($idsByField, $customProperties);
             }
         }
 
@@ -166,6 +178,58 @@ final class ActivityChangePresenter
         }
 
         return $lookup;
+    }
+
+    /**
+     * @param  array<string, array<int, true>>  $idsByField
+     * @param  array<string, mixed>  $values
+     */
+    private static function collectResolvableIds(array &$idsByField, array $values): void
+    {
+        foreach ($values as $field => $value) {
+            if (! is_string($field) || ! self::isResolvableField($field)) {
+                continue;
+            }
+
+            $id = self::normalizeId($value);
+
+            if ($id === null) {
+                continue;
+            }
+
+            $idsByField[$field][$id] = true;
+        }
+    }
+
+    /**
+     * Custom activity events store context in `properties` rather than
+     * Spatie's `attribute_changes` old/attributes buckets.
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function customPropertyMap(Activity $log): ?array
+    {
+        $properties = $log->properties;
+
+        if (! $properties instanceof Collection || $properties->isEmpty()) {
+            return null;
+        }
+
+        if ($properties->has('attributes') || $properties->has('old')) {
+            return null;
+        }
+
+        $map = [];
+
+        foreach ($properties as $key => $value) {
+            if (! is_string($key) || in_array($key, self::HIDDEN_PROPERTY_KEYS, true)) {
+                continue;
+            }
+
+            $map[$key] = $value;
+        }
+
+        return $map === [] ? null : $map;
     }
 
     /**
@@ -254,6 +318,35 @@ final class ActivityChangePresenter
                     return $name;
                 },
             ];
+            $vessel = [
+                'model' => Vessel::class,
+                'attribute' => 'name',
+                'companyScoped' => false,
+            ];
+            $client = [
+                'model' => Client::class,
+                'attribute' => 'name',
+                'companyScoped' => false,
+            ];
+            $assignment = [
+                'model' => CrewAssignment::class,
+                'attribute' => 'assignment_no',
+                'companyScoped' => true,
+            ];
+            $phase = [
+                'model' => CrewAssignmentPhase::class,
+                'attribute' => 'phase_code',
+                'companyScoped' => true,
+                'formatter' => static function (CrewAssignmentPhase $phase): string {
+                    $code = $phase->phase_code;
+
+                    if ($code instanceof CrewPhaseCode) {
+                        return strtoupper($code->value).' '.$code->label();
+                    }
+
+                    return 'Phase #'.$phase->id;
+                },
+            ];
 
             $map = [
                 'employee_id' => $employee,
@@ -303,11 +396,8 @@ final class ActivityChangePresenter
                     'attribute' => 'title',
                     'companyScoped' => false,
                 ],
-                'client_id' => [
-                    'model' => Client::class,
-                    'attribute' => 'name',
-                    'companyScoped' => false,
-                ],
+                'client_id' => $client,
+                'destination_client_id' => $client,
                 'course_id' => [
                     'model' => Course::class,
                     'attribute' => 'name',
@@ -323,11 +413,9 @@ final class ActivityChangePresenter
                     'attribute' => 'name',
                     'companyScoped' => true,
                 ],
-                'vessel_id' => [
-                    'model' => Vessel::class,
-                    'attribute' => 'name',
-                    'companyScoped' => false,
-                ],
+                'vessel_id' => $vessel,
+                'source_vessel_id' => $vessel,
+                'destination_vessel_id' => $vessel,
                 'vessel_type_id' => [
                     'model' => VesselType::class,
                     'attribute' => 'name',
@@ -390,6 +478,12 @@ final class ActivityChangePresenter
                             : 'Contract #'.$contract->id;
                     },
                 ],
+                'current_phase_id' => $phase,
+                'crew_assignment_phase_id' => $phase,
+                'crew_assignment_id' => $assignment,
+                'previous_assignment_id' => $assignment,
+                'source_assignment_id' => $assignment,
+                'destination_assignment_id' => $assignment,
             ];
         }
 
@@ -425,6 +519,8 @@ final class ActivityChangePresenter
             $attribute,
             $modelClass === Employee::class ? 'employee_no' : null,
             $modelClass === EmployeeContract::class ? 'start_date' : null,
+            $modelClass === CrewAssignmentPhase::class ? 'phase_code' : null,
+            $modelClass === CrewAssignment::class ? 'assignment_no' : null,
         ])));
 
         $labels = [];
