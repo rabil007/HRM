@@ -1,20 +1,14 @@
 import { Head } from '@inertiajs/react';
 import { Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import {
-    OrganizationDataTable,
-    DataTableHead,
-    DataTableHeaderRow,
-} from '@/components/data-table';
 import { Main } from '@/components/layout/main';
-import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
-import { TableBody, TableHeader } from '@/components/ui/table';
-import { DocumentComplianceTableRow } from '@/features/organization/documents/document-compliance-table-row';
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
+import { DocumentsIndexDocumentBulkActions } from '@/features/organization/documents/index/documents-index-document-bulk-actions';
+import { DocumentsIndexDocumentsTable } from '@/features/organization/documents/index/documents-index-documents-table';
 import { DocumentsIndexFolderGrid } from '@/features/organization/documents/index/documents-index-folder-grid';
 import { DocumentsIndexSearchResults } from '@/features/organization/documents/index/documents-index-search-results';
 import { resolveDocumentsIndexSearchMode } from '@/features/organization/documents/index/use-documents-index-search-mode';
@@ -33,8 +27,11 @@ import type {
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { useDocumentsIndexFilters } from '@/features/organization/documents/use-documents-index-filters';
 import { FolderShareLinksModal } from '@/features/organization/documents/whatsapp-share';
+import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
+import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { DepartmentFilterControls } from '@/features/organization/employees/components/department-filter-controls';
 import type { DepartmentTreeNode } from '@/features/organization/employees/types';
+import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
 import documentRoutes from '@/routes/organization/documents';
@@ -51,11 +48,15 @@ type Props = {
     searchDocuments: PaginatedComplianceDocuments | null;
     complianceDocuments: PaginatedComplianceDocuments | null;
     document_types: DocumentTypeOption[];
+    countries: PhoneCountryOption[];
     can: {
         download: boolean;
         share: boolean;
         upload: boolean;
         delete: boolean;
+        whatsapp_template: boolean;
+        whatsapp_templates: WhatsAppTemplateOption[];
+        email_templates: EmailTemplateOption[];
     };
 };
 
@@ -80,6 +81,7 @@ export default function DocumentsIndex({
     searchDocuments,
     complianceDocuments,
     document_types,
+    countries = [],
     can,
 }: Props) {
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
@@ -156,6 +158,55 @@ export default function DocumentsIndex({
         employees.length,
         resolvedSearchDocuments.total,
     );
+
+    const visibleDocuments = useMemo((): ComplianceDocumentItem[] => {
+        if (isComplianceView) {
+            return complianceDocuments?.data ?? [];
+        }
+
+        if (hasSearchQuery) {
+            return resolvedSearchDocuments.data;
+        }
+
+        return [];
+    }, [
+        isComplianceView,
+        complianceDocuments,
+        hasSearchQuery,
+        resolvedSearchDocuments.data,
+    ]);
+
+    const visibleDocumentIds = useMemo(
+        () => visibleDocuments.map((document) => document.id),
+        [visibleDocuments],
+    );
+
+    const {
+        selectedIds: selectedDocumentIds,
+        isSelected: isDocumentSelected,
+        isAllSelected: allDocumentsSelected,
+        isPartiallySelected: documentsPartiallySelected,
+        toggle: toggleDocument,
+        toggleAll: toggleAllDocuments,
+        clear: clearDocumentSelection,
+    } = useBulkSelection(visibleDocumentIds);
+
+    const selectedDocuments = useMemo(
+        () =>
+            visibleDocuments.filter((document) =>
+                selectedDocumentIds.includes(document.id),
+            ),
+        [visibleDocuments, selectedDocumentIds],
+    );
+
+    const documentSelectionProps = {
+        selectionMode: true as const,
+        isSelected: isDocumentSelected,
+        allSelected: allDocumentsSelected,
+        partiallySelected: documentsPartiallySelected,
+        onToggle: toggleDocument,
+        onToggleAll: toggleAllDocuments,
+    };
 
     const folderGridProps = {
         canDownload: can.download,
@@ -270,62 +321,22 @@ export default function DocumentsIndex({
                 ) : null}
             </div>
 
+            <DocumentsIndexDocumentBulkActions
+                selectedDocumentIds={selectedDocumentIds}
+                selectedDocuments={selectedDocuments}
+                onClear={clearDocumentSelection}
+                can={can}
+                countries={countries}
+            />
+
             {isComplianceView ? (
                 complianceDocuments && complianceDocuments.data.length > 0 ? (
-                    <>
-                        <OrganizationDataTable
-                            minWidth="min-w-[1080px]"
-                            compact
-                        >
-                            <TableHeader>
-                                <DataTableHeaderRow>
-                                    <DataTableHead>Employee</DataTableHead>
-                                    <DataTableHead className="min-w-[220px]">
-                                        Document
-                                    </DataTableHead>
-                                    <DataTableHead className="hidden sm:table-cell">
-                                        Type
-                                    </DataTableHead>
-                                    <DataTableHead className="hidden md:table-cell">
-                                        Document no.
-                                    </DataTableHead>
-                                    <DataTableHead className="hidden md:table-cell">
-                                        Expiry
-                                    </DataTableHead>
-                                    <DataTableHead className="hidden lg:table-cell">
-                                        Remaining
-                                    </DataTableHead>
-                                    <DataTableHead className="hidden sm:table-cell">
-                                        Status
-                                    </DataTableHead>
-                                    <DataTableHead className="text-right">
-                                        Actions
-                                    </DataTableHead>
-                                </DataTableHeaderRow>
-                            </TableHeader>
-                            <TableBody>
-                                {complianceDocuments.data.map((doc) => (
-                                    <DocumentComplianceTableRow
-                                        key={doc.id}
-                                        doc={doc}
-                                        viewHref={buildViewHref(doc)}
-                                        {...documentManagementProps}
-                                    />
-                                ))}
-                            </TableBody>
-                        </OrganizationDataTable>
-
-                        <Pagination
-                            currentPage={complianceDocuments.current_page}
-                            lastPage={complianceDocuments.last_page}
-                            from={complianceDocuments.from}
-                            to={complianceDocuments.to}
-                            total={complianceDocuments.total}
-                            perPage={complianceDocuments.per_page}
-                            onPageChange={onPageChange}
-                            label="documents"
-                        />
-                    </>
+                    <DocumentsIndexDocumentsTable
+                        documents={complianceDocuments}
+                        onPageChange={onPageChange}
+                        {...documentManagementProps}
+                        {...documentSelectionProps}
+                    />
                 ) : (
                     <DocumentsEmptyState
                         context="index-compliance"
@@ -361,6 +372,7 @@ export default function DocumentsIndex({
                     onPageChange={onPageChange}
                     folderGridProps={folderGridProps}
                     {...documentManagementProps}
+                    {...documentSelectionProps}
                 />
             )}
 

@@ -4,6 +4,7 @@ import {
     DataTableHeaderRow,
 } from '@/components/data-table';
 import { Pagination } from '@/components/pagination';
+import { Checkbox } from '@/components/ui/checkbox';
 import { TableBody, TableHeader } from '@/components/ui/table';
 import { DocumentComplianceTableRow } from '@/features/organization/documents/document-compliance-table-row';
 import type {
@@ -21,6 +22,12 @@ export function DocumentsIndexDocumentsTable({
     onEdit,
     onReplace,
     onDelete,
+    selectionMode = false,
+    isSelected,
+    allSelected = false,
+    partiallySelected = false,
+    onToggle,
+    onToggleAll,
 }: {
     documents: PaginatedComplianceDocuments;
     buildViewHref: (doc: ComplianceDocumentItem) => string;
@@ -31,6 +38,12 @@ export function DocumentsIndexDocumentsTable({
     onEdit: (doc: ComplianceDocumentItem) => void;
     onReplace: (doc: ComplianceDocumentItem) => void;
     onDelete: (doc: ComplianceDocumentItem) => void;
+    selectionMode?: boolean;
+    isSelected?: (id: number) => boolean;
+    allSelected?: boolean;
+    partiallySelected?: boolean;
+    onToggle?: (id: number) => void;
+    onToggleAll?: () => void;
 }) {
     if (documents.data.length === 0) {
         return null;
@@ -41,6 +54,21 @@ export function DocumentsIndexDocumentsTable({
             <OrganizationDataTable minWidth="min-w-[1080px]" compact>
                 <TableHeader>
                     <DataTableHeaderRow>
+                        {selectionMode ? (
+                            <DataTableHead className="w-10 px-3">
+                                <Checkbox
+                                    checked={
+                                        allSelected
+                                            ? true
+                                            : partiallySelected
+                                              ? 'indeterminate'
+                                              : false
+                                    }
+                                    onCheckedChange={onToggleAll}
+                                    aria-label="Select all documents"
+                                />
+                            </DataTableHead>
+                        ) : null}
                         <DataTableHead>Employee</DataTableHead>
                         <DataTableHead className="min-w-[220px]">
                             Document
@@ -77,6 +105,9 @@ export function DocumentsIndexDocumentsTable({
                             onEdit={onEdit}
                             onReplace={onReplace}
                             onDelete={onDelete}
+                            selectionMode={selectionMode}
+                            selected={isSelected?.(doc.id) ?? false}
+                            onSelectedChange={() => onToggle?.(doc.id)}
                         />
                     ))}
                 </TableBody>

@@ -123,7 +123,7 @@ class DocumentBrowseQuery
         $query = EmployeeDocument::query()
             ->forCompany($companyId)
             ->with([
-                'employee:id,name,employee_no,company_id',
+                'employee:id,name,employee_no,company_id,work_email,personal_email,phone',
                 'documentType:id,title',
                 'uploader:id,name',
             ])
@@ -154,7 +154,7 @@ class DocumentBrowseQuery
         $query = EmployeeDocument::query()
             ->forCompany($companyId)
             ->with([
-                'employee:id,name,employee_no,company_id',
+                'employee:id,name,employee_no,company_id,work_email,personal_email,phone',
                 'documentType:id,title',
                 'uploader:id,name',
             ])
@@ -182,6 +182,9 @@ class DocumentBrowseQuery
                 'employee_id' => $document->employee_id,
                 'employee_name' => $document->employee?->name ?? '',
                 'employee_no' => $document->employee?->employee_no ?? '',
+                'employee_email' => $document->employee?->work_email
+                    ?: $document->employee?->personal_email,
+                'employee_phone' => $document->employee?->phone,
             ]);
     }
 

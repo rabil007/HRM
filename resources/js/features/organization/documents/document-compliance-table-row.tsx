@@ -3,8 +3,10 @@ import {
     dataTableActionsCellClass,
     dataTableBodyRowClass,
     dataTableCellClass,
+    recordsTableTdClass,
 } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { expiryRemainingClass } from '@/features/organization/documents/document-expiry';
 import { DocumentExpiryBadge } from '@/features/organization/documents/document-expiry-badge';
@@ -23,6 +25,9 @@ export function DocumentComplianceTableRow({
     onEdit,
     onReplace,
     onDelete,
+    selected = false,
+    onSelectedChange,
+    selectionMode = false,
 }: {
     doc: ComplianceDocumentItem;
     viewHref: string;
@@ -32,12 +37,51 @@ export function DocumentComplianceTableRow({
     onEdit?: (doc: ComplianceDocumentItem) => void;
     onReplace?: (doc: ComplianceDocumentItem) => void;
     onDelete?: (doc: ComplianceDocumentItem) => void;
+    selected?: boolean;
+    onSelectedChange?: (selected: boolean) => void;
+    selectionMode?: boolean;
 }) {
     return (
         <TableRow
-            className={cn(dataTableBodyRowClass(false), 'cursor-pointer')}
-            onClick={() => router.visit(viewHref)}
+            className={cn(
+                dataTableBodyRowClass(false),
+                'cursor-pointer',
+                selected && 'bg-primary/5',
+            )}
+            onClick={(event) => {
+                const target = event.target;
+
+                if (
+                    !(target instanceof Element) ||
+                    target.closest(
+                        '[data-slot="checkbox"], [role="checkbox"], button, a, [data-row-ignore-click]',
+                    )
+                ) {
+                    return;
+                }
+
+                router.visit(viewHref);
+            }}
         >
+            {selectionMode ? (
+                <td
+                    className={cn(
+                        recordsTableTdClass(),
+                        'w-10 px-3 first:pl-3',
+                    )}
+                    data-row-ignore-click
+                    onClick={(event) => event.stopPropagation()}
+                    onPointerDown={(event) => event.stopPropagation()}
+                >
+                    <Checkbox
+                        checked={selected}
+                        onCheckedChange={(value) =>
+                            onSelectedChange?.(value === true)
+                        }
+                        aria-label={`Select ${doc.document_name}`}
+                    />
+                </td>
+            ) : null}
             <TableCell className={cn(dataTableCellClass(), 'min-w-[140px]')}>
                 <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-foreground">

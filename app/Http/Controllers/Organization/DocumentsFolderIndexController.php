@@ -40,6 +40,7 @@ class DocumentsFolderIndexController extends Controller
             'searchDocuments' => null,
             'complianceDocuments' => null,
             'document_types' => EmployeeFormOptions::documentTypes(),
+            'countries' => EmployeeFormOptions::for($companyId)['countries'],
             'can' => DocumentPagePermissions::for($request->user()),
         ];
 

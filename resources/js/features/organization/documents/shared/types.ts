@@ -69,6 +69,8 @@ export type ComplianceDocumentItem = DocumentProfileItem & {
     employee_id: number;
     employee_name: string;
     employee_no: string;
+    employee_email?: string | null;
+    employee_phone?: string | null;
 };
 
 export type DocumentExpirySummary = {

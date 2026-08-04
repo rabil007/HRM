@@ -73,6 +73,7 @@ use App\Http\Controllers\Organization\CrewPlanningAssignmentController;
 use App\Http\Controllers\Organization\CrewPlanningController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\DepartmentController;
+use App\Http\Controllers\Organization\DocumentBulkCompanyFilesDeleteController;
 use App\Http\Controllers\Organization\DocumentBulkEmailController;
 use App\Http\Controllers\Organization\DocumentBulkFilesDeleteController;
 use App\Http\Controllers\Organization\DocumentBulkFilesDownloadController;
@@ -598,6 +599,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('organization/documents/employees/{employee}/files/bulk', DocumentBulkFilesDeleteController::class)
         ->middleware('can:documents.delete')
         ->name('organization.documents.employee.files.bulk-destroy');
+    Route::delete('organization/documents/files/bulk', DocumentBulkCompanyFilesDeleteController::class)
+        ->middleware('can:documents.delete')
+        ->name('organization.documents.files.bulk-destroy');
     Route::post('organization/employees/{employee}/documents', [EmployeeDocumentController::class, 'store'])->middleware('can:documents.upload')->name('organization.employees.documents.store');
     Route::post('organization/employees/{employee}/documents/bulk', [EmployeeDocumentController::class, 'bulkStore'])->middleware('can:documents.upload')->name('organization.employees.documents.bulk-store');
     Route::put('organization/employees/{employee}/documents/{document}', [EmployeeDocumentController::class, 'update'])->middleware('can:documents.upload')->name('organization.employees.documents.update');

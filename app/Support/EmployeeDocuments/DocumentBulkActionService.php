@@ -43,6 +43,33 @@ class DocumentBulkActionService
     }
 
     /**
+     * Company-scoped bulk delete for the documents index (cross-employee selection).
+     *
+     * @param  list<int>  $documentIds
+     */
+    public function deleteDocumentsForCompany(array $documentIds, int $companyId): int
+    {
+        $uniqueIds = array_values(array_unique($documentIds));
+
+        if ($uniqueIds === []) {
+            return 0;
+        }
+
+        $documents = EmployeeDocument::query()
+            ->forCompany($companyId)
+            ->whereIn('id', $uniqueIds)
+            ->get();
+
+        abort_if($documents->count() !== count($uniqueIds), 404);
+
+        foreach ($documents as $document) {
+            $this->deletion->delete($document);
+        }
+
+        return $documents->count();
+    }
+
+    /**
      * @param  list<int>  $documentIds
      * @return Collection<int, EmployeeDocument>
      */

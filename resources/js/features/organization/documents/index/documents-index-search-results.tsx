@@ -35,6 +35,15 @@ type DocumentManagementProps = {
     onDelete: (doc: ComplianceDocumentItem) => void;
 };
 
+type DocumentSelectionProps = {
+    selectionMode?: boolean;
+    isSelected?: (id: number) => boolean;
+    allSelected?: boolean;
+    partiallySelected?: boolean;
+    onToggle?: (id: number) => void;
+    onToggleAll?: () => void;
+};
+
 type Props = {
     mode: DocumentsIndexSearchMode;
     searchQuery: string;
@@ -42,7 +51,8 @@ type Props = {
     searchDocuments: PaginatedComplianceDocuments;
     onPageChange: (page: number) => void;
     folderGridProps: FolderGridProps;
-} & DocumentManagementProps;
+} & DocumentManagementProps &
+    DocumentSelectionProps;
 
 function EmployeesSection({
     employees,
@@ -76,10 +86,12 @@ function DocumentsSection({
     searchDocuments,
     onPageChange,
     documentManagementProps,
+    selectionProps,
 }: {
     searchDocuments: PaginatedComplianceDocuments;
     onPageChange: (page: number) => void;
     documentManagementProps: DocumentManagementProps;
+    selectionProps: DocumentSelectionProps;
 }) {
     const count = searchDocuments.total;
 
@@ -97,6 +109,7 @@ function DocumentsSection({
                 documents={searchDocuments}
                 onPageChange={onPageChange}
                 {...documentManagementProps}
+                {...selectionProps}
             />
         </section>
     );
@@ -116,6 +129,12 @@ export function DocumentsIndexSearchResults({
     onEdit,
     onReplace,
     onDelete,
+    selectionMode = false,
+    isSelected,
+    allSelected,
+    partiallySelected,
+    onToggle,
+    onToggleAll,
 }: Props) {
     const documentManagementProps = {
         canDownload,
@@ -126,6 +145,14 @@ export function DocumentsIndexSearchResults({
         onReplace,
         onDelete,
     };
+    const selectionProps: DocumentSelectionProps = {
+        selectionMode,
+        isSelected,
+        allSelected,
+        partiallySelected,
+        onToggle,
+        onToggleAll,
+    };
     const employeeCount = employees.length;
     const documentCount = searchDocuments.total;
 
@@ -135,6 +162,7 @@ export function DocumentsIndexSearchResults({
                 searchDocuments={searchDocuments}
                 onPageChange={onPageChange}
                 documentManagementProps={documentManagementProps}
+                selectionProps={selectionProps}
             />
         );
     }
@@ -175,6 +203,7 @@ export function DocumentsIndexSearchResults({
                     searchDocuments={searchDocuments}
                     onPageChange={onPageChange}
                     documentManagementProps={documentManagementProps}
+                    selectionProps={selectionProps}
                 />
             </TabsContent>
 
@@ -190,6 +219,7 @@ export function DocumentsIndexSearchResults({
                     searchDocuments={searchDocuments}
                     onPageChange={onPageChange}
                     documentManagementProps={documentManagementProps}
+                    selectionProps={selectionProps}
                 />
             </TabsContent>
         </Tabs>
