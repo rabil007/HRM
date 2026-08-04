@@ -17,8 +17,8 @@ export function DetailsHeader({
     actions?: ReactNode;
 }) {
     return (
-        <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-1.5">
+        <div className="mb-8 flex flex-col gap-6 md:flex-row md:flex-wrap md:items-end md:justify-between">
+            <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="mb-1 flex items-center gap-2">
                     <span className="flex h-2 w-2 animate-pulse rounded-full bg-primary" />
                     <span className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground/80 uppercase">
@@ -35,7 +35,7 @@ export function DetailsHeader({
                 ) : null}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
                 <Button
                     variant="outline"
                     className="h-12 rounded-xl border-input bg-background/50 px-6 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"

@@ -822,7 +822,7 @@ export function PayrollShowContent({
                 backLabel="Go back"
                 actions={
                     hasHeaderActions ? (
-                        <div className="flex flex-wrap items-center gap-2">
+                        <>
                             {period.has_payment_proof &&
                             period.payment_proofs &&
                             period.payment_proofs.length > 0 ? (
@@ -1006,7 +1006,7 @@ export function PayrollShowContent({
                                     </a>
                                 </Button>
                             ) : null}
-                        </div>
+                        </>
                     ) : null
                 }
             />
