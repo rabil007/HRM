@@ -172,33 +172,6 @@ export function usePayrollShowFilters({
 
     const onCrewSalaryStructureChange = useCallback(
         (crewSalaryStructure: PayrollShowFilters['crew_salary_structure']) => {
-            // #region agent log
-            fetch(
-                'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Debug-Session-Id': 'b2c5e6',
-                    },
-                    body: JSON.stringify({
-                        sessionId: 'b2c5e6',
-                        runId: 'hydrate-debug',
-                        hypothesisId: 'H-C',
-                        location:
-                            'use-payroll-show-filters.ts:onCrewSalaryStructureChange',
-                        message: 'crew salary structure toggle clicked',
-                        data: {
-                            from: payrollFilters.crew_salary_structure,
-                            to: crewSalaryStructure,
-                            isDraft,
-                        },
-                        timestamp: Date.now(),
-                    }),
-                },
-            ).catch(() => {});
-            // #endregion
-
             if (isDraft) {
                 visit({
                     ...baseParams(),
@@ -226,7 +199,6 @@ export function usePayrollShowFilters({
             baseParams,
             isDraft,
             monthlyRecordsPagination?.current_page,
-            payrollFilters.crew_salary_structure,
             recordsPagination?.current_page,
             visit,
         ],

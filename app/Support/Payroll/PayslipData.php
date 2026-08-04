@@ -305,10 +305,16 @@ final class PayslipData
             ? sprintf('Overtime (%s hrs)', self::formatDayCount($overtimeHours))
             : 'Overtime';
 
+        $hasSeparateStandbyLines = array_key_exists('sign_on_standby_pay', $lines)
+            || array_key_exists('sign_off_standby_pay', $lines);
+
+        $totalStandbyPay = $hasSeparateStandbyLines
+            ? (float) ($lines['sign_on_standby_pay'] ?? 0) + (float) ($lines['sign_off_standby_pay'] ?? 0)
+            : (float) ($lines['total_standby_pay'] ?? 0);
+
         $rows = [
-            ['label' => 'Standby pay', 'amount' => self::formatAmount($lines['sign_on_standby_pay'] ?? 0)],
+            ['label' => 'Total standby pay', 'amount' => self::formatAmount($totalStandbyPay)],
             ['label' => 'Onsite pay', 'amount' => self::formatAmount($lines['onsite_pay'] ?? 0)],
-            ['label' => 'Sign-off standby pay', 'amount' => self::formatAmount($lines['sign_off_standby_pay'] ?? 0)],
             ['label' => 'Site allowance', 'amount' => self::formatAmount($lines['site_allowance'] ?? 0)],
             ['label' => 'Supplementary allowance', 'amount' => self::formatAmount($lines['supplementary_allowance'] ?? 0)],
             ['label' => $overtimeLabel, 'amount' => self::formatAmount($record->overtime_pay)],

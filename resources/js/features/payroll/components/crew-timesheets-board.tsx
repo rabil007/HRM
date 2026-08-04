@@ -67,6 +67,7 @@ export type CrewTimesheetsBoardProps = {
     onEmployeeGroupSelect: (
         employeeGroup: PayrollShowFilters['employee_group'],
     ) => void;
+    activeCrewSalaryStructure: 'daily' | 'monthly';
     crewTimesheetDrafts: Record<number, CrewTimesheetDraft>;
     onCrewTimesheetChange: (
         employeeId: number,
@@ -98,6 +99,7 @@ export function CrewTimesheetsBoard({
     employee_stats,
     activeEmployeeGroup,
     onEmployeeGroupSelect,
+    activeCrewSalaryStructure,
     crewTimesheetDrafts,
     onCrewTimesheetChange,
     savingTimesheetEmployeeIds,
@@ -150,6 +152,7 @@ export function CrewTimesheetsBoard({
                     employee_stats={employee_stats}
                     activeEmployeeGroup={activeEmployeeGroup}
                     onEmployeeGroupSelect={onEmployeeGroupSelect}
+                    activeCrewSalaryStructure={activeCrewSalaryStructure}
                 />
             )}
 

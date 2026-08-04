@@ -241,94 +241,6 @@ export function PayrollShowContent({
 
     const activeCrewSalaryStructure = payrollFilters.crew_salary_structure;
     const activeEmployeeGroup = payrollFilters.employee_group;
-
-    // #region agent log
-    useEffect(() => {
-        fetch(
-            'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Debug-Session-Id': 'b2c5e6',
-                },
-                body: JSON.stringify({
-                    sessionId: 'b2c5e6',
-                    runId: 'post-fix-ssr',
-                    hypothesisId: 'H-SSR',
-                    location: 'payroll/show.tsx:mount',
-                    message:
-                        'payroll show mounted without Suspense/lazy boards',
-                    data: {
-                        periodStatus: period.status,
-                        activeCrewSalaryStructure,
-                        supportsTimesheets: period.supports_timesheets,
-                        hasPayrollRecordsSummary: Boolean(
-                            payroll_records_summary,
-                        ),
-                    },
-                    timestamp: Date.now(),
-                }),
-            },
-        ).catch(() => {});
-    }, [
-        period.status,
-        period.supports_timesheets,
-        activeCrewSalaryStructure,
-        payroll_records_summary,
-    ]);
-
-    useEffect(() => {
-        const onError = (event: ErrorEvent) => {
-            const message = event.message ?? '';
-            if (
-                !message.includes('removeChild') &&
-                !message.includes('NotFoundError') &&
-                !message.includes('Hydration') &&
-                !message.includes('Suspense') &&
-                !message.includes('createRoot')
-            ) {
-                return;
-            }
-
-            fetch(
-                'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Debug-Session-Id': 'b2c5e6',
-                    },
-                    body: JSON.stringify({
-                        sessionId: 'b2c5e6',
-                        runId: 'post-fix-ssr',
-                        hypothesisId: 'H-SSR',
-                        location: 'payroll/show.tsx:window.error',
-                        message: 'caught removeChild/hydration window error',
-                        data: {
-                            errorMessage: message,
-                            filename: event.filename ?? null,
-                            lineno: event.lineno ?? null,
-                            colno: event.colno ?? null,
-                            periodStatus: period.status,
-                            activeCrewSalaryStructure,
-                            hasPayrollRecordsSummary: Boolean(
-                                payroll_records_summary,
-                            ),
-                        },
-                        timestamp: Date.now(),
-                    }),
-                },
-            ).catch(() => {});
-        };
-
-        window.addEventListener('error', onError);
-
-        return () => {
-            window.removeEventListener('error', onError);
-        };
-    }, [period.status, activeCrewSalaryStructure, payroll_records_summary]);
-    // #endregion
     const activeSheetFiltersCount = [
         payrollFilters.company_visa_type_id,
     ].filter(Boolean).length;
@@ -1198,6 +1110,9 @@ export function PayrollShowContent({
                             employee_stats={employee_stats}
                             activeEmployeeGroup={activeEmployeeGroup}
                             onEmployeeGroupSelect={handleEmployeeGroupSelect}
+                            activeCrewSalaryStructure={
+                                activeCrewSalaryStructure
+                            }
                             crewTimesheetDrafts={crewTimesheetDrafts}
                             onCrewTimesheetChange={handleCrewTimesheetChange}
                             savingTimesheetEmployeeIds={

@@ -780,7 +780,8 @@ test('crew payroll draft board can filter rows by salary structure', function ()
             ->has('rows', 1)
             ->where('rows.0.employee.id', $dailyEmployee->id)
             ->where('rows.0.salary_structure', 'daily')
-            ->where('filters.crew_salary_structure', 'daily'));
+            ->where('filters.crew_salary_structure', 'daily')
+            ->where('employee_stats.total', 1));
 
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('payroll.show', [
@@ -793,5 +794,6 @@ test('crew payroll draft board can filter rows by salary structure', function ()
             ->where('rows.0.employee.id', $monthlyEmployee->id)
             ->where('rows.0.salary_structure', 'monthly')
             ->where('filters.crew_salary_structure', 'monthly')
+            ->where('employee_stats.total', 1)
             ->where('department_tree.0.count', 1));
 });

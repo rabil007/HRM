@@ -28,6 +28,7 @@ use App\Models\Rank;
 use App\Models\SalaryInput;
 use App\Models\SalaryInputType;
 use App\Models\Vessel;
+use App\Support\Contracts\ContractSalaryStructureFilter;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use App\Support\Pagination\ResolvesPerPage;
@@ -280,6 +281,18 @@ class PayrollController extends Controller
                     positionId: $boardFilters->positionId,
                     companyVisaTypeId: $boardFilters->companyVisaTypeId,
                 ),
+            );
+        }
+
+        if (
+            $payrollPeriod->isCrew()
+            && ContractSalaryStructureFilter::isValid($crewSalaryStructure)
+        ) {
+            $allCategoryEmployeesQuery->whereHas(
+                'currentContract',
+                function (Builder $contractQuery) use ($crewSalaryStructure): void {
+                    ContractSalaryStructureFilter::apply($contractQuery, $crewSalaryStructure);
+                },
             );
         }
 

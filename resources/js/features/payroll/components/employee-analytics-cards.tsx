@@ -7,19 +7,25 @@ export function EmployeeAnalyticsCardsGrid({
     employee_stats,
     activeEmployeeGroup,
     onEmployeeGroupSelect,
+    activeCrewSalaryStructure = null,
 }: {
     employee_stats: EmployeeStats;
     activeEmployeeGroup: PayrollShowFilters['employee_group'];
     onEmployeeGroupSelect: (
         employeeGroup: PayrollShowFilters['employee_group'],
     ) => void;
+    activeCrewSalaryStructure?: 'daily' | 'monthly' | null;
 }) {
+    const totalSubtitle = activeCrewSalaryStructure
+        ? `Active ${activeCrewSalaryStructure} crew on this pay run`
+        : 'Active on this pay run';
+
     return (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <EmployeeAnalyticsCard
                 title="Total Employees"
                 value={employee_stats.total}
-                subtitle="Active on this pay run"
+                subtitle={totalSubtitle}
                 icon={Users}
                 variant="total"
                 isSelected={activeEmployeeGroup === ''}
@@ -28,7 +34,11 @@ export function EmployeeAnalyticsCardsGrid({
             <EmployeeAnalyticsCard
                 title="Bank Account Set"
                 value={employee_stats.with_bank_account}
-                subtitle="Ready for salary transfer"
+                subtitle={
+                    activeCrewSalaryStructure
+                        ? `Ready for ${activeCrewSalaryStructure} salary transfer`
+                        : 'Ready for salary transfer'
+                }
                 icon={CreditCard}
                 variant="success"
                 isSelected={activeEmployeeGroup === 'with_bank_account'}

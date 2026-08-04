@@ -343,6 +343,100 @@ test('crew payslip shows overtime in earnings without calculation breakdown', fu
         ->toContain('Crew Attendance');
 });
 
+test('crew payslip combines sign-on and sign-off standby into total standby pay', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'CREW-SB']);
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'gross_salary' => 850.00,
+        'net_salary' => 850.00,
+        'total_deductions' => 0,
+        'status' => 'approved',
+        'calculation_breakdown' => [
+            'salary_structure' => 'daily',
+            'total_standby_days' => 6,
+            'sign_on_standby_days' => 4,
+            'sign_off_standby_days' => 2,
+            'onsite_days' => 1,
+            'lines' => [
+                'sign_on_standby_pay' => 200.00,
+                'sign_off_standby_pay' => 100.00,
+                'total_standby_pay' => 300.00,
+                'onsite_pay' => 550.00,
+                'site_allowance' => 0,
+                'supplementary_allowance' => 0,
+            ],
+        ],
+    ]);
+
+    $data = PayslipData::for($record, $company->id);
+    $earningsLabels = collect($data['earnings'])->pluck('label')->all();
+    $totalStandbyLine = collect($data['earnings'])->firstWhere('label', 'Total standby pay');
+
+    expect($totalStandbyLine['amount'] ?? null)->toBe('300.00')
+        ->and($earningsLabels)->toContain('Total standby pay')
+        ->and($earningsLabels)->not->toContain('Standby pay')
+        ->and($earningsLabels)->not->toContain('Sign-off standby pay')
+        ->and($data['gross_salary'])->toBe('850.00')
+        ->and($data['net_salary'])->toBe('850.00')
+        ->and($data['crew_summary'])->toContain([
+            'label' => 'Total standby days',
+            'value' => '6',
+        ])
+        ->and($record->calculation_breakdown['lines']['sign_on_standby_pay'])->toEqual(200.00)
+        ->and($record->calculation_breakdown['lines']['sign_off_standby_pay'])->toEqual(100.00)
+        ->and($record->calculation_breakdown['lines']['total_standby_pay'])->toEqual(300.00);
+
+    $html = view('payroll.payslip', $data)->render();
+
+    expect($html)
+        ->toContain('Total standby pay')
+        ->toContain('300.00')
+        ->not->toContain('Sign-off standby pay')
+        ->not->toContain('>Standby pay<');
+});
+
+test('crew payslip omits total standby pay when both standby amounts are zero', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'CREW-SB-0']);
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'gross_salary' => 500.00,
+        'net_salary' => 500.00,
+        'calculation_breakdown' => [
+            'salary_structure' => 'daily',
+            'total_standby_days' => 0,
+            'onsite_days' => 2,
+            'lines' => [
+                'sign_on_standby_pay' => 0,
+                'sign_off_standby_pay' => 0,
+                'total_standby_pay' => 0,
+                'onsite_pay' => 500.00,
+            ],
+        ],
+    ]);
+
+    $data = PayslipData::for($record, $company->id);
+
+    expect(collect($data['earnings'])->pluck('label')->all())
+        ->not->toContain('Total standby pay')
+        ->toContain('Onsite pay');
+});
+
 test('authorized users can download all generated payslips as a ZIP file', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);

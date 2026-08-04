@@ -1,5 +1,4 @@
 import { Calculator } from 'lucide-react';
-import { useEffect } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { Pagination } from '@/components/pagination';
 import { Button } from '@/components/ui/button';
@@ -104,46 +103,6 @@ export function PayrollRecordsBoard({
         (record): record is OfficePayrollRecordListItem =>
             record.payroll_category === 'office',
     );
-
-    // #region agent log
-    useEffect(() => {
-        fetch(
-            'http://127.0.0.1:7482/ingest/d3b1b2aa-09dd-440b-8cc6-35eab404e1c8',
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Debug-Session-Id': 'b2c5e6',
-                },
-                body: JSON.stringify({
-                    sessionId: 'b2c5e6',
-                    runId: 'hydrate-debug',
-                    hypothesisId: 'H-C',
-                    location: 'payroll-records-board.tsx:useEffect',
-                    message: 'records board committed after structure change',
-                    data: {
-                        activeCrewSalaryStructure,
-                        dailyCount: dailyCrewRecords.length,
-                        monthlyCount: monthlyCrewRecords.length,
-                        dailyPaginationTotal: recordsPagination?.total ?? null,
-                        monthlyPaginationTotal:
-                            monthlyRecordsPagination?.total ?? null,
-                        dailyIds: dailyCrewRecords.map((r) => r.id),
-                        monthlyIds: monthlyCrewRecords.map((r) => r.id),
-                    },
-                    timestamp: Date.now(),
-                }),
-            },
-        ).catch(() => {});
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- debug: log on structure/count changes only
-    }, [
-        activeCrewSalaryStructure,
-        dailyCrewRecords.length,
-        monthlyCrewRecords.length,
-        recordsPagination?.total,
-        monthlyRecordsPagination?.total,
-    ]);
-    // #endregion
 
     return (
         <>
