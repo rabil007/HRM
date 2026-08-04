@@ -240,6 +240,52 @@ Inertia page: `resources/js/pages/payroll/crew-timeline/show.tsx`
 
 Feature UI: `resources/js/features/payroll/crew-timeline/`
 
+### Review modal presentation hierarchy
+
+The payroll review **View Details** modal presents preparation data as:
+
+```text
+Employee
+└── Assignment
+    └── Real phase occurrence
+        ├── Planned dates
+        ├── Actual dates
+        ├── Payroll treatment
+        ├── Payable days
+        └── Related warnings
+```
+
+Rules:
+
+- Group timeline content by `crew_assignment_id`, then by `crew_assignment_phase_id`.
+- Linked assignments created by `vessel_transfer` or `redeployment` are shown as separate assignment sections with a transfer/redeployment divider derived from assignment `source` and `previous_assignment_id`.
+- Warning-only zero-day preparation lines are nested under their related phase card; they must not appear as separate phase occurrences.
+- Actual dates come from the linked `CrewAssignmentPhase` (`actual_start_at` / `actual_end_at`), not only from nullable preparation-line source date fields.
+- Employee-level header shows identity and assignment count; it does not pick a single assignment/vessel when multiple assignments are included.
+- Payable-day totals, blocking/informational warning behaviour, and preparation workflows are unchanged by modal presentation.
+
+### Date provenance (planned vs actual vs payroll)
+
+Preparation-line `from_date` / `to_date` are **payroll allocation or warning ranges**, never phase planned dates.
+
+Phase cards separate:
+
+| Section | Source fields | Origin examples |
+|---------|---------------|-----------------|
+| Planned schedule | `crew_assignment_phases.planned_*` (or assignment planned fields when applicable) | `user_entered`, `crew_planning` |
+| Actual activity | `crew_assignment_phases.actual_start_at` / `actual_end_at` only | `movement_actual` |
+| Payroll allocation / Affected period | preparation-line `from_date` / `to_date` | `payroll_allocation`, `warning_range` |
+
+Hide Planned schedule when phase planned timestamps are blank. Do not fall back to payroll ranges or actual timestamps.
+
+Automatic write behaviour:
+
+- Vessel Transfer / Redeployment **must not** copy `occurred_at` into `planned_join_at`.
+- Send to Training **must not** copy `occurred_at` into `planned_start_at` unless the user explicitly entered planned training dates.
+- Historical rows where transfer/redeploy copied `occurred_at` into `planned_join_at` are detected by `CrewDateProvenance` and excluded from Planned Join display (origin `movement_actual`).
+
+Crew Planning conversion still copies planning join/leave into assignment planned fields with origin `crew_planning`.
+
 Dates display as `dd-mm-yyyy`. Backend values remain ISO.
 
 Phase 1C does not write to `crew_timesheets`.

@@ -63,9 +63,17 @@ export type CrewMovementHistoryRow = {
     source: string | null;
     source_label: string;
     planned_travel_in: string | null;
+    planned_travel_in_origin?: string | null;
+    planned_travel_in_origin_label?: string | null;
     planned_join: string | null;
+    planned_join_origin?: string | null;
+    planned_join_origin_label?: string | null;
     planned_signoff: string | null;
+    planned_signoff_origin?: string | null;
+    planned_signoff_origin_label?: string | null;
     planned_travel_home: string | null;
+    planned_travel_home_origin?: string | null;
+    planned_travel_home_origin_label?: string | null;
     pre_mobilisation: FlattenedPhaseSummary;
     travel_in: FlattenedPhaseSummary;
     join_standby: PhaseSummary;

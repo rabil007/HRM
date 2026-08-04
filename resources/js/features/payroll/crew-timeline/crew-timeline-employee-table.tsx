@@ -187,10 +187,45 @@ export function CrewTimelineEmployeeTable({
                                     {employee.rank ?? '—'}
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
-                                    {employee.assignment_number ?? '—'}
+                                    {(employee.assignment_count ?? 1) > 1 ? (
+                                        <div className="space-y-0.5">
+                                            <div className="font-medium">
+                                                {employee.assignment_count}{' '}
+                                                assignments
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {(employee.assignments ?? [])
+                                                    .map(
+                                                        (assignment) =>
+                                                            assignment.assignment_number,
+                                                    )
+                                                    .filter(Boolean)
+                                                    .join(' · ') || '—'}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        (employee.assignment_number ??
+                                        employee.assignments?.[0]
+                                            ?.assignment_number ??
+                                        '—')
+                                    )}
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
-                                    {employee.vessel ?? '—'}
+                                    {(employee.assignment_count ?? 1) > 1 ? (
+                                        <div className="space-y-0.5 text-xs">
+                                            {(employee.assignments ?? [])
+                                                .map(
+                                                    (assignment) =>
+                                                        assignment.vessel,
+                                                )
+                                                .filter(Boolean)
+                                                .join(' → ') || '—'}
+                                        </div>
+                                    ) : (
+                                        (employee.vessel ??
+                                        employee.assignments?.[0]?.vessel ??
+                                        '—')
+                                    )}
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     <PhaseRange

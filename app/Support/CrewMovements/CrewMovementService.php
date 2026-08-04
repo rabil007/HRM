@@ -256,8 +256,14 @@ final class CrewMovementService
             null,
             $actorId,
             [
-                'planned_start_at' => $payload['planned_start_at'] ?? $occurredAt,
-                'planned_end_at' => $payload['planned_end_at'] ?? null,
+                // Only persist planned training dates when the user explicitly entered them.
+                // Do not copy the actual occurred_at timestamp into planned_start_at.
+                'planned_start_at' => isset($payload['planned_start_at']) && filled($payload['planned_start_at'])
+                    ? $this->parseTimestamp($assignment->company_id, (string) $payload['planned_start_at'])
+                    : null,
+                'planned_end_at' => isset($payload['planned_end_at']) && filled($payload['planned_end_at'])
+                    ? $this->parseTimestamp($assignment->company_id, (string) $payload['planned_end_at'])
+                    : null,
                 'details' => $details === [] ? null : $details,
                 'remarks' => $payload['remarks'] ?? null,
             ],
@@ -555,7 +561,7 @@ final class CrewMovementService
             source: 'vessel_transfer',
             status: CrewAssignmentStatus::Active,
             startedAt: $occurredAt,
-            plannedJoinAt: $occurredAt,
+            plannedJoinAt: null,
             vesselId: $destinationVesselId,
             rankId: $destinationRankId,
             clientId: $destinationClientId ?? $assignment->client_id,
@@ -678,7 +684,7 @@ final class CrewMovementService
             source: 'redeployment',
             status: $isDraftStart ? CrewAssignmentStatus::Draft : CrewAssignmentStatus::Active,
             startedAt: $isDraftStart ? null : $occurredAt,
-            plannedJoinAt: $occurredAt,
+            plannedJoinAt: null,
             vesselId: $isDraftStart
                 ? $destinationVesselId
                 : ($destinationVesselId ?? $assignment->vessel_id),

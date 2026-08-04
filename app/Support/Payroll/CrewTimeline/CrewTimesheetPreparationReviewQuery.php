@@ -32,11 +32,16 @@ final class CrewTimesheetPreparationReviewQuery
                         ->with([
                             'employee:id,employee_no,name,position_id',
                             'employee.position:id,title',
-                            'assignment:id,assignment_no,vessel_id,rank_id',
+                            'assignment:id,assignment_no,vessel_id,rank_id,client_id,status,source,previous_assignment_id',
                             'assignment.vessel:id,name',
                             'assignment.rank:id,name',
+                            'assignment.client:id,name',
+                            'assignment.previousAssignment:id,assignment_no,vessel_id',
+                            'assignment.previousAssignment.vessel:id,name',
+                            'phase:id,crew_assignment_id,phase_code,sequence,status,planned_start_at,planned_end_at,actual_start_at,actual_end_at,remarks',
                         ])
                         ->orderBy('employee_id')
+                        ->orderBy('crew_assignment_id')
                         ->orderBy('from_date')
                         ->orderBy('id');
                 },

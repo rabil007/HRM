@@ -168,16 +168,25 @@ function DatePair({
     label,
     value,
     ongoing = false,
+    hint,
 }: {
     label: string;
     value: string | null;
     ongoing?: boolean;
+    hint?: string | null;
 }) {
     return (
         <div className="grid grid-cols-[72px_1fr] gap-2 text-xs leading-5">
             <span className="text-muted-foreground">{label}</span>
-            <span className="font-medium text-foreground tabular-nums">
-                {ongoing ? 'Ongoing' : formatDisplayDate(value)}
+            <span className="min-w-0">
+                <span className="font-medium text-foreground tabular-nums">
+                    {ongoing ? 'Ongoing' : formatDisplayDate(value)}
+                </span>
+                {hint && value ? (
+                    <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                        {hint}
+                    </span>
+                ) : null}
             </span>
         </div>
     );
@@ -238,10 +247,12 @@ function DetailField({
     label,
     value,
     mono = false,
+    hint,
 }: {
     label: string;
     value: ReactNode;
     mono?: boolean;
+    hint?: string | null;
 }) {
     return (
         <div className="min-w-0">
@@ -256,6 +267,11 @@ function DetailField({
             >
                 {value ?? '—'}
             </dd>
+            {hint ? (
+                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                    {hint}
+                </p>
+            ) : null}
         </div>
     );
 }
@@ -469,18 +485,29 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                         <DetailField
                             label="Planned travel in"
                             value={formatDisplayDate(row.planned_travel_in)}
+                            hint={row.planned_travel_in_origin_label}
                         />
                         <DetailField
                             label="Planned join"
                             value={formatDisplayDate(row.planned_join)}
+                            hint={
+                                row.planned_join
+                                    ? row.planned_join_origin_label
+                                    : row.planned_join_origin ===
+                                        'movement_actual'
+                                      ? 'Transfer/redeployment actual time is not shown as planned join'
+                                      : null
+                            }
                         />
                         <DetailField
                             label="Planned sign-off"
                             value={formatDisplayDate(row.planned_signoff)}
+                            hint={row.planned_signoff_origin_label}
                         />
                         <DetailField
                             label="Planned travel home"
                             value={formatDisplayDate(row.planned_travel_home)}
+                            hint={row.planned_travel_home_origin_label}
                         />
                     </dl>
                 </section>
@@ -831,14 +858,19 @@ export function CrewMovementHistoryReportTable({
                                     <DatePair
                                         label="Join"
                                         value={row.planned_join}
+                                        hint={row.planned_join_origin_label}
                                     />
                                     <DatePair
                                         label="Sign-off"
                                         value={row.planned_signoff}
+                                        hint={row.planned_signoff_origin_label}
                                     />
                                     <DatePair
                                         label="Home"
                                         value={row.planned_travel_home}
+                                        hint={
+                                            row.planned_travel_home_origin_label
+                                        }
                                     />
                                 </Cell>
                                 <Cell className={columns.actual}>

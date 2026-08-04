@@ -8,6 +8,7 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Support\CrewMovements\CrewDateProvenance;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -54,6 +55,19 @@ final class CrewMovementHistoryPresenter
             ? $assignment->corrections->where('status', CrewMovementCorrectionStatus::Pending)
             : collect();
 
+        $plannedJoin = CrewDateProvenance::plannedJoin($assignment, $timezone);
+        $plannedSignoff = CrewDateProvenance::plannedSignoff($assignment, $timezone);
+        $plannedTravelHome = CrewDateProvenance::plannedTravel($assignment, $timezone);
+        $plannedTravelInPhase = $phases
+            ->filter(fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === CrewPhaseCode::TravelIn)
+            ->sortBy('sequence')
+            ->first();
+        $plannedTravelIn = CrewDateProvenance::phasePlanned(
+            $plannedTravelInPhase,
+            $assignment,
+            $timezone,
+        );
+
         return [
             'id' => $assignment->id,
             'assignment_no' => $assignment->assignment_no,
@@ -77,12 +91,22 @@ final class CrewMovementHistoryPresenter
             'source_label' => match ($assignment->source) {
                 'crew_planning' => 'Crew Planning',
                 'manual' => 'Manual',
+                'vessel_transfer' => 'Vessel Transfer',
+                'redeployment' => 'Redeployment',
                 default => str($assignment->source ?? 'unknown')->replace('_', ' ')->title()->toString(),
             },
-            'planned_travel_in' => self::firstPlannedStart($phases, CrewPhaseCode::TravelIn, $timezone),
-            'planned_join' => self::date($assignment->planned_join_at, $timezone),
-            'planned_signoff' => self::date($assignment->planned_signoff_at, $timezone),
-            'planned_travel_home' => self::date($assignment->planned_travel_at, $timezone),
+            'planned_travel_in' => $plannedTravelIn['start'],
+            'planned_travel_in_origin' => $plannedTravelIn['origin'],
+            'planned_travel_in_origin_label' => $plannedTravelIn['origin_label'],
+            'planned_join' => $plannedJoin['value'],
+            'planned_join_origin' => $plannedJoin['origin'],
+            'planned_join_origin_label' => $plannedJoin['origin_label'],
+            'planned_signoff' => $plannedSignoff['value'],
+            'planned_signoff_origin' => $plannedSignoff['origin'],
+            'planned_signoff_origin_label' => $plannedSignoff['origin_label'],
+            'planned_travel_home' => $plannedTravelHome['value'],
+            'planned_travel_home_origin' => $plannedTravelHome['origin'],
+            'planned_travel_home_origin_label' => $plannedTravelHome['origin_label'],
             'phases' => $summaries,
             'pre_mobilisation' => self::flatten($summaries[CrewPhaseCode::PreMobilisation->value]),
             'travel_in' => self::flatten($summaries[CrewPhaseCode::TravelIn->value]),
@@ -222,20 +246,6 @@ final class CrewMovementHistoryPresenter
             ->filter()
             ->values()
             ->all();
-    }
-
-    /**
-     * @param  Collection<int, CrewAssignmentPhase>  $phases
-     */
-    private static function firstPlannedStart(
-        Collection $phases,
-        CrewPhaseCode $code,
-        string $timezone,
-    ): ?string {
-        $phase = $phases
-            ->first(fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === $code);
-
-        return self::date($phase?->planned_start_at, $timezone);
     }
 
     /**

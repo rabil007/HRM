@@ -119,7 +119,9 @@ test('training loop creates a second p2a record', function () {
     expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
         ->and($assignment->phases()->where('phase_code', CrewPhaseCode::JoinStandby)->count())->toBe(2)
         ->and($assignment->phases()->where('phase_code', CrewPhaseCode::Training)->first()?->details)
-        ->toMatchArray(['provider' => 'Falck', 'course' => 'BOSIET']);
+        ->toMatchArray(['provider' => 'Falck', 'course' => 'BOSIET'])
+        ->and($assignment->phases()->where('phase_code', CrewPhaseCode::Training)->first()?->planned_start_at)
+        ->toBeNull();
 
     $service->perform($company->id, $id, CrewMovementAction::MarkReady, [
         'occurred_at' => '2026-02-11 08:00:00',

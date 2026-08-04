@@ -9,6 +9,13 @@ export type CrewTimelineWarning = {
     is_blocking: boolean;
 };
 
+export type CrewTimelinePhaseWarning = CrewTimelineWarning & {
+    remarks: string | null;
+    from_date: string | null;
+    to_date: string | null;
+    line_id: number;
+};
+
 export type CrewTimelineWarningBreakdownItem = {
     code: string;
     label: string;
@@ -18,6 +25,8 @@ export type CrewTimelineWarningBreakdownItem = {
 
 export type CrewTimelineLine = {
     id: number;
+    crew_assignment_id?: number | null;
+    crew_assignment_phase_id?: number | null;
     phase_code: string | null;
     phase_label: string | null;
     pay_category: string | null;
@@ -31,6 +40,66 @@ export type CrewTimelineLine = {
     remarks: string | null;
 };
 
+export type CrewTimelinePhaseTreatment = {
+    pay_category: string;
+    pay_category_label: string;
+    from_date: string | null;
+    to_date: string | null;
+    days: string;
+};
+
+export type CrewTimelinePhaseOccurrence = {
+    id: number | null;
+    phase_code: string | null;
+    phase_code_display: string | null;
+    phase_label: string | null;
+    sequence: number | null;
+    status: string | null;
+    status_label: string | null;
+    planned_start: string | null;
+    planned_end: string | null;
+    planned_date_origin: string | null;
+    planned_date_origin_label: string | null;
+    actual_start: string | null;
+    actual_end: string | null;
+    actual_date_origin: string | null;
+    actual_date_origin_label: string | null;
+    payroll_from: string | null;
+    payroll_to: string | null;
+    payroll_date_origin: string | null;
+    payroll_date_origin_label: string | null;
+    payroll_period_label: string | null;
+    payroll_lines: CrewTimelineLine[];
+    primary_treatment: CrewTimelinePhaseTreatment | null;
+    excluded_treatment: CrewTimelinePhaseTreatment | null;
+    payable_from: string | null;
+    payable_to: string | null;
+    payable_days: string;
+    is_operational: boolean;
+    warnings: CrewTimelinePhaseWarning[];
+    remarks: string[];
+    occurrence: number | null;
+    occurrence_count: number;
+    has_planned_schedule: boolean;
+    has_payroll_period: boolean;
+};
+
+export type CrewTimelineAssignmentSummary = {
+    id: number | null;
+    assignment_number: string | null;
+    source: string | null;
+    source_label: string;
+    status: string | null;
+    status_label: string | null;
+    previous_assignment_id: number | null;
+    previous_assignment_number: string | null;
+    previous_vessel: string | null;
+    vessel: string | null;
+    client: string | null;
+    rank: string | null;
+    phases: CrewTimelinePhaseOccurrence[];
+};
+
 export type CrewTimelineEmployeeSummary = {
     employee_id: number;
     employee_number: string | null;
@@ -39,6 +108,7 @@ export type CrewTimelineEmployeeSummary = {
     assignment_id: number | null;
     assignment_number: string | null;
     vessel: string | null;
+    assignment_count: number;
     sign_on_standby_from: string | null;
     sign_on_standby_to: string | null;
     sign_on_standby_days: number;
@@ -51,6 +121,7 @@ export type CrewTimelineEmployeeSummary = {
     total_payable_days: number;
     blocking_warning_count: number;
     informational_warning_count: number;
+    assignments: CrewTimelineAssignmentSummary[];
     lines: CrewTimelineLine[];
 };
 
