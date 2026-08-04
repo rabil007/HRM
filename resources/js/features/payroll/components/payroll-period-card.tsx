@@ -69,15 +69,6 @@ export function PayrollPeriodCard({
                 <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
                         <p className="text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
-                            Period
-                        </p>
-                        <p className="mt-1 font-semibold">
-                            {formatDisplayDate(period.start_date)} —{' '}
-                            {formatDisplayDate(period.end_date)}
-                        </p>
-                    </div>
-                    <div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
-                        <p className="text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase">
                             Payment
                         </p>
                         <p className="mt-1 font-semibold">
