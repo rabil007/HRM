@@ -33,7 +33,7 @@ final class CrewMovementService
     public function __construct(
         private CrewAssignmentInvariantGuard $invariants,
         private CrewAssignmentNumberGenerator $numbers,
-        private SyncSeaServiceFromCrewAssignment $seaServiceSync,
+        private SeaServiceSyncService $seaServiceSync,
         private SyncPlanningAssignmentFromCrewAssignment $planningSync,
         private CrewMovementMasterDataGuard $masters,
     ) {}
@@ -772,6 +772,10 @@ final class CrewMovementService
             'updated_by' => $actorId,
             'remarks' => trim(($assignment->remarks ? $assignment->remarks."\n" : '').'Cancelled: '.$reason),
         ]);
+
+        if ($current !== null) {
+            $this->seaServiceSync->syncFromPhase($current->fresh());
+        }
 
         return $assignment;
     }

@@ -8,13 +8,34 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\EmployeeSeaService;
 use App\Models\Vessel;
+use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\Employees\SeaServiceDuration;
 
-final class SyncSeaServiceFromCrewAssignment
+/**
+ * Synchronizes EmployeeSeaService rows from completed On Vessel (P4) phases.
+ *
+ * Gated by company setting {@see CrewOperationsSettings::CONFIG_SYNC_SEA_SERVICE}
+ * (`crew_operations.sync_sea_service`). When disabled, existing linked records
+ * are left unchanged.
+ */
+final class SeaServiceSyncService
 {
+    public function isEnabled(int $companyId): bool
+    {
+        return CrewOperationsSettings::syncSeaServiceEnabled($companyId);
+    }
+
     public function syncFromPhase(CrewAssignmentPhase $phase): ?EmployeeSeaService
     {
         $phase->loadMissing(['assignment.employee', 'assignment.vessel']);
+
+        $companyId = (int) ($phase->assignment?->company_id ?? 0);
+
+        if ($companyId <= 0 || ! $this->isEnabled($companyId)) {
+            return EmployeeSeaService::query()
+                ->where('crew_assignment_phase_id', $phase->id)
+                ->first();
+        }
 
         $linked = EmployeeSeaService::query()
             ->withTrashed()
@@ -72,6 +93,10 @@ final class SyncSeaServiceFromCrewAssignment
 
     public function syncCompletedOnVesselPhases(CrewAssignment $assignment): void
     {
+        if (! $this->isEnabled((int) $assignment->company_id)) {
+            return;
+        }
+
         $assignment->phases()
             ->where('phase_code', CrewPhaseCode::OnVessel)
             ->where('status', CrewPhaseStatus::Completed)
@@ -81,6 +106,14 @@ final class SyncSeaServiceFromCrewAssignment
 
     public function removeLinked(CrewAssignmentPhase $phase): void
     {
+        $phase->loadMissing('assignment');
+
+        $companyId = (int) ($phase->assignment?->company_id ?? 0);
+
+        if ($companyId <= 0 || ! $this->isEnabled($companyId)) {
+            return;
+        }
+
         EmployeeSeaService::query()
             ->withTrashed()
             ->where('crew_assignment_phase_id', $phase->id)

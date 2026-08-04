@@ -93,7 +93,7 @@ Legacy `crew_operations.deployments.*` permissions are removed and migrated onto
 
 ## Movement service
 
-`CrewMovementService` runs every create/action in a company-scoped transaction with `lockForUpdate()`, invariant checks, and atomic phase updates. Completed P4 (`actual_end_at` set) syncs sea service via `SyncSeaServiceFromCrewAssignment` in the same transaction.
+`CrewMovementService` runs every create/action in a company-scoped transaction with `lockForUpdate()`, invariant checks, and atomic phase updates. Completed P4 (`actual_end_at` set) syncs sea service via `SeaServiceSyncService` in the same transaction.
 
 ## Planning
 

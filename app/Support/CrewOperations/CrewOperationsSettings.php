@@ -8,9 +8,15 @@ use App\Models\Employee;
 use App\Support\Departments\BuildDepartmentTree;
 use App\Support\Employees\DepartmentDescendantIds;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 final class CrewOperationsSettings
 {
+    /**
+     * Company setting key for Sea Service synchronization from crew assignments.
+     */
+    public const CONFIG_SYNC_SEA_SERVICE = 'crew_operations.sync_sea_service';
+
     /**
      * @return list<int>
      */
@@ -40,19 +46,75 @@ final class CrewOperationsSettings
     }
 
     /**
-     * @param  list<int>  $departmentIds
+     * Defaults to enabled when the company has no settings row yet.
      */
-    public static function saveSettings(int $companyId, array $departmentIds, int $maxHomeDays): CrewOperationsSetting
+    public static function syncSeaServiceEnabled(int $companyId): bool
     {
+        $setting = CrewOperationsSetting::query()
+            ->where('company_id', $companyId)
+            ->first();
+
+        if ($setting === null) {
+            return true;
+        }
+
+        return (bool) $setting->sync_sea_service;
+    }
+
+    /**
+     * @param  list<int>  $departmentIds
+     * @param  array{actor_id?: int|null}  $options
+     */
+    public static function saveSettings(
+        int $companyId,
+        array $departmentIds,
+        int $maxHomeDays,
+        bool $syncSeaService = true,
+        array $options = [],
+    ): CrewOperationsSetting {
         $normalized = array_values(array_unique(array_map(intval(...), $departmentIds)));
 
-        return CrewOperationsSetting::query()->updateOrCreate(
-            ['company_id' => $companyId],
-            [
-                'pool_department_ids' => $normalized === [] ? null : $normalized,
-                'max_home_days' => $maxHomeDays,
-            ],
-        );
+        return DB::transaction(function () use ($companyId, $normalized, $maxHomeDays, $syncSeaService, $options): CrewOperationsSetting {
+            $existing = CrewOperationsSetting::query()
+                ->where('company_id', $companyId)
+                ->first();
+
+            $previousSync = $existing === null
+                ? true
+                : (bool) $existing->sync_sea_service;
+
+            $setting = CrewOperationsSetting::query()->updateOrCreate(
+                ['company_id' => $companyId],
+                [
+                    'pool_department_ids' => $normalized === [] ? null : $normalized,
+                    'max_home_days' => $maxHomeDays,
+                    'sync_sea_service' => $syncSeaService,
+                ],
+            );
+
+            if ($previousSync !== $syncSeaService) {
+                $activity = activity()
+                    ->performedOn($setting)
+                    ->withProperties([
+                        'company_id' => $companyId,
+                        'setting_key' => self::CONFIG_SYNC_SEA_SERVICE,
+                        'old' => ['sync_sea_service' => $previousSync],
+                        'attributes' => ['sync_sea_service' => $syncSeaService],
+                        'old_values' => ['sync_sea_service' => $previousSync],
+                        'new_values' => ['sync_sea_service' => $syncSeaService],
+                    ]);
+
+                $actorId = $options['actor_id'] ?? null;
+
+                if (is_int($actorId) && $actorId > 0) {
+                    $activity->causedBy($actorId);
+                }
+
+                $activity->log('updated crew operations sea service sync setting');
+            }
+
+            return $setting;
+        });
     }
 
     /**

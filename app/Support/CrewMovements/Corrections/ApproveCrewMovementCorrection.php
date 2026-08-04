@@ -13,7 +13,7 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\EmployeeSeaService;
 use App\Models\User;
 use App\Support\CrewMovements\CrewAssignmentInvariantGuard;
-use App\Support\CrewMovements\SyncSeaServiceFromCrewAssignment;
+use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 use Illuminate\Support\Facades\DB;
 
@@ -25,7 +25,7 @@ final class ApproveCrewMovementCorrection
         private readonly ApplyCrewMovementCorrection $applier = new ApplyCrewMovementCorrection,
         private readonly CrewAssignmentInvariantGuard $invariantGuard = new CrewAssignmentInvariantGuard,
         private readonly SyncPlanningAssignmentFromCrewAssignment $planningSync = new SyncPlanningAssignmentFromCrewAssignment,
-        private readonly SyncSeaServiceFromCrewAssignment $seaServiceSync = new SyncSeaServiceFromCrewAssignment,
+        private readonly SeaServiceSyncService $seaServiceSync = new SeaServiceSyncService,
     ) {}
 
     public function handle(
@@ -123,7 +123,7 @@ final class ApproveCrewMovementCorrection
                 && $phase->status === CrewPhaseStatus::Completed) {
                 $synced = $this->seaServiceSync->syncFromPhase($phase->fresh(['assignment.employee', 'assignment.vessel']));
 
-                if ($synced === null) {
+                if ($synced === null && $this->seaServiceSync->isEnabled($companyId)) {
                     throw CrewMovementException::make(
                         'Approved correction would leave completed on-vessel sea service unsyncable.',
                         'correction_sea_service_unsyncable',

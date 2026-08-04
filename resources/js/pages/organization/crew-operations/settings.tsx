@@ -1,19 +1,23 @@
 import { Head, useForm } from '@inertiajs/react';
 import {
+    AlertTriangle,
     Check,
-    ChevronRight,
     CheckCircle2,
+    ChevronRight,
     Clock3,
     Home,
     RotateCcw,
     Save,
+    Ship,
     Sliders,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 import { update as updateSettings } from '@/actions/App/Http/Controllers/Organization/CrewOperationsSettingsController';
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -30,6 +34,7 @@ import {
 } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
     applyDepartmentToggle,
     flattenDepartmentTreeIds,
@@ -44,6 +49,7 @@ import { cn } from '@/lib/utils';
 type FormData = {
     pool_department_ids: number[];
     max_home_days: number;
+    sync_sea_service: boolean;
 };
 
 type Props = {
@@ -142,16 +148,23 @@ export default function CrewOperationsSettings({
     const form = useForm<FormData>({
         pool_department_ids: crew_settings.pool_department_ids,
         max_home_days: crew_settings.max_home_days,
+        sync_sea_service: crew_settings.sync_sea_service,
     });
+    const [disableSyncDialogOpen, setDisableSyncDialogOpen] = useState(false);
 
     useEffect(() => {
         form.setData({
             pool_department_ids: crew_settings.pool_department_ids,
             max_home_days: crew_settings.max_home_days,
+            sync_sea_service: crew_settings.sync_sea_service,
         });
         form.clearErrors();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [crew_settings.pool_department_ids, crew_settings.max_home_days]);
+    }, [
+        crew_settings.pool_department_ids,
+        crew_settings.max_home_days,
+        crew_settings.sync_sea_service,
+    ]);
 
     const selectedSet = new Set(form.data.pool_department_ids);
     const allDepartmentIds = flattenDepartmentTreeIds(department_tree);
@@ -323,6 +336,77 @@ export default function CrewOperationsSettings({
                         <CardHeader className="border-b border-border/60 bg-linear-to-br from-primary/[0.07] to-transparent p-5 dark:border-white/6">
                             <div className="flex items-start gap-3">
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                                    <Ship className="h-5 w-5" />
+                                </div>
+                                <div className="space-y-1">
+                                    <CardTitle className="text-base font-bold tracking-tight">
+                                        Assignment Settings
+                                    </CardTitle>
+                                    <CardDescription className="text-xs leading-relaxed">
+                                        Control how crew assignments interact
+                                        with Sea Service records.
+                                    </CardDescription>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4 p-5">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="space-y-1.5">
+                                    <Label
+                                        htmlFor="sync_sea_service"
+                                        className="text-sm font-semibold text-foreground"
+                                    >
+                                        Sync Sea Service from Crew Assignments
+                                    </Label>
+                                    <p className="text-xs leading-relaxed text-muted-foreground">
+                                        When enabled, crew assignment changes
+                                        automatically create or update the crew
+                                        member&apos;s Sea Service record.
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="sync_sea_service"
+                                    checked={form.data.sync_sea_service}
+                                    onCheckedChange={(checked) => {
+                                        if (
+                                            form.data.sync_sea_service &&
+                                            !checked
+                                        ) {
+                                            setDisableSyncDialogOpen(true);
+
+                                            return;
+                                        }
+
+                                        form.setData(
+                                            'sync_sea_service',
+                                            checked,
+                                        );
+                                    }}
+                                />
+                            </div>
+                            {form.errors.sync_sea_service ? (
+                                <p className="text-xs font-medium text-destructive">
+                                    {form.errors.sync_sea_service}
+                                </p>
+                            ) : null}
+                            {!form.data.sync_sea_service ? (
+                                <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-100">
+                                    <AlertTriangle className="text-amber-600 dark:text-amber-400" />
+                                    <AlertTitle>Sync disabled</AlertTitle>
+                                    <AlertDescription>
+                                        Sea Service synchronization is disabled.
+                                        Crew assignments will not automatically
+                                        update Sea Service records.
+                                    </AlertDescription>
+                                </Alert>
+                            ) : null}
+                        </CardContent>
+                    </Card>
+
+                    <Card className="overflow-hidden border-border/80 bg-card/70 shadow-sm backdrop-blur-md dark:border-white/8 dark:bg-white/[0.03]">
+                        <CardHeader className="border-b border-border/60 bg-linear-to-br from-primary/[0.07] to-transparent p-5 dark:border-white/6">
+                            <div className="flex items-start gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
                                     <Home className="h-5 w-5" />
                                 </div>
                                 <div className="space-y-1">
@@ -445,6 +529,19 @@ export default function CrewOperationsSettings({
                     </div>
                 </div>
             </form>
+
+            <ConfirmDeleteDialog
+                open={disableSyncDialogOpen}
+                onOpenChange={setDisableSyncDialogOpen}
+                title="Disable Sea Service sync?"
+                description="Disabling Sea Service synchronization will stop future crew assignment changes from updating Sea Service records. Existing records will not be affected."
+                cancelText="Cancel"
+                confirmText="Disable Sync"
+                onConfirm={() => {
+                    form.setData('sync_sea_service', false);
+                    setDisableSyncDialogOpen(false);
+                }}
+            />
         </Main>
     );
 }

@@ -20,6 +20,7 @@ class CrewOperationsSetting extends Model
             'company_id' => 'integer',
             'pool_department_ids' => 'array',
             'max_home_days' => 'integer',
+            'sync_sea_service' => 'boolean',
         ];
     }
 

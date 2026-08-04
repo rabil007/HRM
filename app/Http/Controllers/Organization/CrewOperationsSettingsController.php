@@ -21,6 +21,7 @@ class CrewOperationsSettingsController extends Controller
             'crew_settings' => [
                 'pool_department_ids' => CrewOperationsSettings::poolDepartmentIds($companyId),
                 'max_home_days' => CrewOperationsSettings::maxHomeDays($companyId),
+                'sync_sea_service' => CrewOperationsSettings::syncSeaServiceEnabled($companyId),
             ],
         ]);
     }
@@ -33,6 +34,8 @@ class CrewOperationsSettingsController extends Controller
             $companyId,
             $request->validated('pool_department_ids') ?? [],
             (int) $request->validated('max_home_days'),
+            $request->boolean('sync_sea_service'),
+            ['actor_id' => $request->user()?->id],
         );
 
         return back()->with('success', 'Crew operations settings saved.');

@@ -6,7 +6,7 @@ use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignmentPhase;
 use App\Models\EmployeeSeaService;
 use App\Support\CrewMovements\CrewMovementService;
-use App\Support\CrewMovements\SyncSeaServiceFromCrewAssignment;
+use App\Support\CrewMovements\SeaServiceSyncService;
 use Carbon\CarbonImmutable;
 
 test('sync creates sea service from completed P4 phase', function () {
@@ -20,7 +20,7 @@ test('sync creates sea service from completed P4 phase', function () {
         'actual_end_at' => CarbonImmutable::parse('2026-06-01 08:00:00'),
     ]);
 
-    $seaService = app(SyncSeaServiceFromCrewAssignment::class)->syncFromPhase($phase->fresh());
+    $seaService = app(SeaServiceSyncService::class)->syncFromPhase($phase->fresh());
 
     expect($seaService)->not->toBeNull()
         ->and($seaService->crew_assignment_phase_id)->toBe($phase->id)
@@ -33,7 +33,7 @@ test('sync does not create sea service for active P4 phase', function () {
     $vessel = makeCrewMovementVessel('Active Vessel');
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
-    $seaService = app(SyncSeaServiceFromCrewAssignment::class)->syncFromPhase($assignment->currentPhase);
+    $seaService = app(SeaServiceSyncService::class)->syncFromPhase($assignment->currentPhase);
 
     expect($seaService)->toBeNull()
         ->and(EmployeeSeaService::query()->where('crew_assignment_phase_id', $assignment->current_phase_id)->count())->toBe(0);
@@ -85,7 +85,7 @@ test('sync is idempotent and updates existing sea service', function () {
         'actual_end_at' => CarbonImmutable::parse('2026-04-01'),
     ]);
 
-    $sync = app(SyncSeaServiceFromCrewAssignment::class);
+    $sync = app(SeaServiceSyncService::class);
     $first = $sync->syncFromPhase($phase->fresh());
     $phase->update(['actual_end_at' => CarbonImmutable::parse('2026-04-10')]);
     $second = $sync->syncFromPhase($phase->fresh());
@@ -105,7 +105,7 @@ test('sync removes sea service when phase is cancelled', function () {
         'actual_end_at' => CarbonImmutable::parse('2026-06-01 08:00:00'),
     ]);
 
-    $sync = app(SyncSeaServiceFromCrewAssignment::class);
+    $sync = app(SeaServiceSyncService::class);
     expect($sync->syncFromPhase($phase->fresh()))->not->toBeNull();
 
     $phase->update(['status' => CrewPhaseStatus::Cancelled]);
@@ -128,5 +128,5 @@ test('sync ignores non-p4 phases', function () {
         'actual_end_at' => now()->subDays(4),
     ]);
 
-    expect(app(SyncSeaServiceFromCrewAssignment::class)->syncFromPhase($travelPhase))->toBeNull();
+    expect(app(SeaServiceSyncService::class)->syncFromPhase($travelPhase))->toBeNull();
 });

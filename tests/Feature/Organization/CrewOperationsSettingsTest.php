@@ -104,6 +104,7 @@ test('authorized users can view the crew operations settings index', function ()
             ->has('crew_settings')
             ->where('crew_settings.pool_department_ids', [$dept->id])
             ->where('crew_settings.max_home_days', 30)
+            ->where('crew_settings.sync_sea_service', true)
         );
 });
 
@@ -126,6 +127,7 @@ test('authorized user can update crew operations settings', function () {
         ->put(route('organization.crew-operations.settings.update'), [
             'pool_department_ids' => [$dept->id],
             'max_home_days' => 45,
+            'sync_sea_service' => true,
         ])
         ->assertRedirect();
 
@@ -133,7 +135,8 @@ test('authorized user can update crew operations settings', function () {
 
     expect($setting)->not->toBeNull()
         ->and($setting->pool_department_ids)->toBe([$dept->id])
-        ->and($setting->max_home_days)->toBe(45);
+        ->and($setting->max_home_days)->toBe(45)
+        ->and($setting->sync_sea_service)->toBeTrue();
 });
 
 test('clearing pool department settings works', function () {
@@ -155,12 +158,14 @@ test('clearing pool department settings works', function () {
         'company_id' => $company->id,
         'pool_department_ids' => [$dept->id],
         'max_home_days' => 30,
+        'sync_sea_service' => true,
     ]);
 
     $this->actingAs($user)
         ->put(route('organization.crew-operations.settings.update'), [
             'pool_department_ids' => [],
             'max_home_days' => 30,
+            'sync_sea_service' => true,
         ])
         ->assertRedirect();
 
@@ -179,6 +184,7 @@ test('users without update permission cannot change settings', function () {
         ->put(route('organization.crew-operations.settings.update'), [
             'pool_department_ids' => [],
             'max_home_days' => 30,
+            'sync_sea_service' => false,
         ])
         ->assertForbidden();
 });
@@ -202,6 +208,42 @@ test('settings reject departments from another company', function () {
         ->put(route('organization.crew-operations.settings.update'), [
             'pool_department_ids' => [$foreignDept->id],
             'max_home_days' => 30,
+            'sync_sea_service' => true,
         ])
         ->assertSessionHasErrors(['pool_department_ids.0']);
+});
+
+test('disabling sea service sync is logged with old and new values', function () {
+    ['user' => $user, 'company' => $company] = makeCrewOperationsSettingsFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.planning.update',
+    ]);
+
+    CrewOperationsSetting::query()->create([
+        'company_id' => $company->id,
+        'pool_department_ids' => null,
+        'max_home_days' => 30,
+        'sync_sea_service' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-operations.settings.update'), [
+            'pool_department_ids' => [],
+            'max_home_days' => 30,
+            'sync_sea_service' => false,
+        ])
+        ->assertRedirect();
+
+    $setting = CrewOperationsSetting::query()->where('company_id', $company->id)->first();
+
+    expect($setting?->sync_sea_service)->toBeFalse();
+
+    $this->assertDatabaseHas('activity_log', [
+        'subject_type' => CrewOperationsSetting::class,
+        'subject_id' => $setting->id,
+        'causer_id' => $user->id,
+        'description' => 'updated crew operations sea service sync setting',
+    ]);
 });

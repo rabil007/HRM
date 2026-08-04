@@ -7,7 +7,7 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\EmployeeSeaService;
 use App\Support\CrewMovements\Corrections\ApproveCrewMovementCorrection;
 use App\Support\CrewMovements\Corrections\RequestCrewMovementCorrection;
-use App\Support\CrewMovements\SyncSeaServiceFromCrewAssignment;
+use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\CrewPlanning\SyncPlanningAssignmentFromCrewAssignment;
 
 test('approved p4 date correction re-syncs planning join date', function () {
@@ -87,7 +87,7 @@ test('approved completed p4 correction updates existing sea service instead of d
     ]);
     $assignment->update(['current_phase_id' => $home->id]);
 
-    $sea = app(SyncSeaServiceFromCrewAssignment::class)->syncFromPhase($phase->fresh(['assignment.employee', 'assignment.vessel']));
+    $sea = app(SeaServiceSyncService::class)->syncFromPhase($phase->fresh(['assignment.employee', 'assignment.vessel']));
     expect($sea)->not->toBeNull();
     $originalId = $sea->id;
 

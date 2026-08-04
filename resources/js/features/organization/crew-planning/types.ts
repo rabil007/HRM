@@ -87,6 +87,7 @@ export type PlanningPagePermissions = {
 export type PlanningSettings = {
     pool_department_ids: number[];
     max_home_days: number;
+    sync_sea_service: boolean;
 };
 
 export type AssignmentFormData = {
