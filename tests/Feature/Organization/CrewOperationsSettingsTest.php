@@ -78,6 +78,14 @@ test('authorized users can view the crew operations settings index', function ()
         'status' => 'active',
     ]);
 
+    $childDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'parent_id' => $dept->id,
+        'name' => 'Crew Planning',
+        'code' => 'PLAN',
+        'status' => 'active',
+    ]);
+
     CrewOperationsSetting::query()->create([
         'company_id' => $company->id,
         'pool_department_ids' => [$dept->id],
@@ -88,7 +96,11 @@ test('authorized users can view the crew operations settings index', function ()
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/crew-operations/settings')
-            ->has('department_tree')
+            ->has('department_tree', 1)
+            ->where('department_tree.0.id', $dept->id)
+            ->where('department_tree.0.name', 'Crew Dept')
+            ->where('department_tree.0.children.0.id', $childDepartment->id)
+            ->where('department_tree.0.children.0.name', 'Crew Planning')
             ->has('crew_settings')
             ->where('crew_settings.pool_department_ids', [$dept->id])
             ->where('crew_settings.max_home_days', 30)
